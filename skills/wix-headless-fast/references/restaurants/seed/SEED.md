@@ -67,6 +67,14 @@ restaurant that takes orders and reservations:
   **seeding is strictly additive — never delete or overwrite existing content**; ask first
   if a cleanup seems needed.
 
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a restaurant the user hands
+over the menu, often as a PDF or a photo. Each menu becomes an entry in `menus`, each heading a
+`section`, each dish an `item` with `name`, `description`, `price` and, when they supplied one, its
+photo as `imageUrl`. The restaurant's address, hours and party sizes go into `ordering` and
+`reservations` only when the user stated them; otherwise leave those out and say so.
+
 ## Escape hatch — individual functions
 `setupRestaurants` composes exported steps — `installMenusApp`, `installOrdersApp`,
 `installTableReservationsApp`, `removeSampleMenu`, `createMenu`, `importImage`,
