@@ -549,35 +549,29 @@ a color option, ≥1 on sale, an image per product) unless the brief says otherw
 
 ## Verify (before declaring done)
 
-- [ ] `/shop` renders live products SSR (view-source shows product names) through **your**
-      grid/card; the `FilterPanel` shows the result count, and on desktop a sidebar beside the
-      grid with the price slider and this catalog's facets (a Color option → swatches); category links lead to `/category/<slug>`, which renders scoped and
-      carries the SEO tags in view-source; an unknown slug is a 404; empty catalog shows your
-      honest empty state.
-- [ ] Shop first screen: at 1280×720 and at 390px wide, at least one full tile — image, name,
-      price — is visible without scrolling; the tile with the longest product name and a price
-      range shows the whole price at 390px, nothing clipped.
-- [ ] Tiles: the buy control sits under name and price (not over the image) and OUTSIDE the tile's
-      link — clicking "Add to cart" stays on the shop page and opens the drawer, it does not
-      navigate to the product; full product names are readable (no truncation); in a row that
-      mixes an optioned product (swatches) with plain ones, the buy buttons share one baseline; a product with no
-      options adds to the cart in one click; a product with options opens the picker across the
-      full tile width (a bottom sheet at 390px wide) and adds the chosen variant; the drawer
-      opens after either.
-- [ ] Your PDP at 390px wide: image, name, price, the first option, and the buy button are all
-      visible before scrolling. Color options render as swatches, the button shows
-      `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
-      price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
-      a pre-orderable one reads "Pre-order".
-- [ ] Cards: every product image renders (not its alt text) on the shop, the category page, and
-      the home page; every ribbon renders; a multi-price product shows a range with no struck
-      price; a product with a color option shows its swatches.
-- [ ] PDP gallery: one thumbnail per distinct photo — never two selectors leading to the same image.
-- [ ] Cart: a subscription line shows its plan terms under the product name.
-- [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
-      a reload (same visitor token).
-- [ ] Checkout button redirects to Wix-hosted checkout.
-- [ ] PDP view-source carries the SEO tags (Astro).
-- [ ] Shop/PDP/home are YOUR designs on the tokens; the data-layer/hook/cart files are
+- [ ] The shop lists live products through your own grid, with the result count, sort, and the
+      filters this catalog supports. Every category has its own page reachable by a real link; an
+      unknown one is a not-found page, never all products; an empty catalog shows an honest empty
+      state.
+- [ ] On the shop's first screen, on a phone and on a short desktop window, at least one full tile
+      (image, name, price) is visible without scrolling. Long names and price ranges never clip.
+- [ ] Every tile carries a way to buy: one click for a product without options, a picker anchored
+      to the tile for one with options. Buying from a tile stays on the shop and opens the cart; it
+      never navigates to the product page. Names read in full; buy buttons in a row share one
+      baseline.
+- [ ] On the product page, on a phone, the image, name, price, first choice, and buy button are
+      all in the first screen. Color options are swatches. The button is disabled with a plain
+      reason until every choice is made; the price is the range until then and the chosen
+      variant's price after; a sale shows the labelled original price; sold out reads out of
+      stock; pre-orderable reads pre-order.
+- [ ] Every product image renders wherever a card appears. Every ribbon the merchant set renders.
+      A price range never shows a struck price beside it. A color option shows its swatches.
+- [ ] The product gallery shows each photo once.
+- [ ] Cart add, quantity change, and remove work; the badge is live; the subtotal comes from Wix;
+      a subscription line states its plan terms; the cart survives a reload.
+- [ ] Checkout hands off to the Wix-hosted checkout.
+- [ ] Item pages carry their SEO tags: on managed Astro through the shipped SEO block, elsewhere
+      from the entity's own SEO data.
+- [ ] Your surfaces are your design on one token set; the shipped files you received are
       unedited.
-- [ ] Dashboard links handed to the owner.
+- [ ] The owner gets the dashboard links.
