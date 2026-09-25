@@ -318,8 +318,7 @@ else to configure.
 ## Point the user to their dashboard
 
 Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it as
-`dashboardUrl`); `{formId}` is the id the seed result returned. The paths are not guessable: `forms`,
-`form/forms` and `wix-forms-and-payments` are dead pages.
+`dashboardUrl`); `{formId}` is the id the seed result returned.
 
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
