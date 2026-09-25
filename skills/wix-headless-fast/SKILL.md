@@ -29,7 +29,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
     islands, with owner-editable item-page SEO pre-wired.
   - `seed/` — a build-time REST seed script (plain-data plan in, created content out) plus its
     `SEED.md` contract.
-  - `INSTRUCTIONS.md` — the vertical's playbook: file map, what you build, hard rules, verify.
+  - `INSTRUCTIONS.md` — the vertical's playbook: file map, what you build, hard rules.
 - **One auth seam.** All shipped code calls Wix through `src/wix/sdk.ts`: on Wix-managed Astro
   auth is ambient (no client, no id); on any other React setup the same file runs a manual
   visitor client off the public client id in `src/wix/config.ts`. The deploy step configures
@@ -209,7 +209,7 @@ them; this section is the mechanics, the same for every vertical.
     apply unchanged. Close with the rebuild + release command and one line for the owner: content
     edits made in the dashboard reach the site when that command runs; the browser-side flows are
     live regardless. A running server (live reads on every request) stays theirs to host.
-  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, and the shared
+  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and hard rules, and the shared
   `DESIGN.md`/`CONTENT.md`. **Before writing any surface, read the vertical's shipped hooks and
   components** — its `INSTRUCTIONS.md` lists which files and what to take from each. They don't
   deploy on this stack, and they are working, tested code for exactly the behaviour you are about
@@ -259,7 +259,7 @@ New verticals follow the same layout — the deploy script discovers them automa
 
 ```
 references/<vertical>/
-  INSTRUCTIONS.md      # playbook: file map, wiring per stack, what you build, hard rules, verify
+  INSTRUCTIONS.md      # playbook: file map, wiring per stack, what you build, hard rules
   app/                 # framework-agnostic core — disjoint paths so verticals never collide:
     wix/<vertical>/    #   types.ts (DTOs) + data layer (calls via ../sdk, images via ../media)
                        #   + *-store.ts: the state machines, framework-free (ship on every stack)

@@ -21,7 +21,7 @@ components, plus your home page.
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet(p.imageUrl)` + `sizes` for responsive tiles (it takes the DTO's resolved URLs) — always alongside `src={p.imageUrl}` |
+| `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(p.imageUrl, "25vw")} alt={p.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath, already used by everything shipped |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
 | `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
@@ -32,6 +32,7 @@ components, plus your home page.
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
 | `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per option facet with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
 | `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
+| `components/storefront/OptionPicker.tsx` | the purchase controls for one product — option groups (swatches/pills, sold-out choices disabled), choice and text modifiers, an optional quantity stepper, the buy button gated by `useProductDetail` with its plain reason, "Pre-order" when pre-orderable — **wire as-is** in your PDP (`<OptionPicker detail={d} showQuantity />`); QuickAdd's picker is this same component |
 | `components/storefront/ShopView.tsx` · `ProductDetailView.tsx` | **don't ship — YOU create them** (skeletons below): the client islands your shop, category, and PDP pages mount |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — same token family as the official Wix templates). Everything, shipped and yours, styles from these tokens |
 
@@ -324,6 +325,7 @@ if (!product) {
 import { useShop } from "../../hooks/storefront/useShop";
 import FilterPanel from "./FilterPanel";
 import QuickAdd from "./QuickAdd";
+import { imgAttrs } from "../../wix/media";
 import type { Category, ProductSummary } from "../../wix/storefront/types";
 
 export default function ShopView(props: {
@@ -345,9 +347,10 @@ export default function ShopView(props: {
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
   //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
-  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image — ALWAYS
-  //     src={p.imageUrl}, plus srcSet={imgSrcSet(p.imageUrl)} and sizes for responsive delivery
-  //     (never srcSet alone: an <img> with no src has nothing to fall back to); hoverImageUrl
+  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image via
+  //     <img {...imgAttrs(p.imageUrl, "(min-width: 768px) 25vw, 50vw")} alt={p.name} /> — src,
+  //     srcSet, sizes and lazy loading in one spread, so a tile never ships srcSet without src;
+  //     an empty imageUrl gives {} — render your placeholder then; hoverImageUrl
   //     on hover — name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
   //     swatches as small color dots when present (else optionsSummary as text); tile links to
@@ -383,6 +386,7 @@ export default function ShopView(props: {
 // src/components/storefront/ProductDetailView.tsx — YOU build the whole PDP surface;
 // your [slug].astro mounts it with the server-fetched product.
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
+import OptionPicker from "./OptionPicker";
 import type { ProductDetail } from "../../wix/storefront/types";
 
 export default function ProductDetailView(props: {
@@ -403,13 +407,10 @@ export default function ProductDetailView(props: {
   //     • name, EVERY ribbon (d.product.ribbons), live d.price (the range until every option
   //       is picked) with d.compareAtPrice as a labelled "was" when present — never invent one;
   //       descriptionHtml rendered as HTML, then d.product.infoSections as sections/accordions
-  //     • option controls from d.optionGroups → d.selectOption(optionName, choiceName)
-  //       (isColor → real swatches via colorCode; disable out-of-stock choices);
-  //       modifiers from d.product.modifiers → d.setModifier(key, value), "*" = mandatory
-  //     • quantity (d.quantity / d.setQuantity), then the buy button gated by d.canAdd
-  //       ONLY — never resolve variants yourself — calling d.add(); label it "Pre-order" when
-  //       d.isPreorder; while disabled, render d.blockedReason beside it as neutral guidance
-  //       (not error styling); d.adding disables, d.error renders inline
+  //     • <OptionPicker detail={d} showQuantity /> right under the price — the shipped option
+  //       groups (swatches for a color option, sold-out choices disabled), modifiers, quantity,
+  //       and the buy button gated by the hook with its plain reason, "Pre-order" when it applies,
+  //       the add error inline. Never resolve variants or gate the button yourself.
   //     • in the first screen at mobile AND desktop: the image, name, price, the first choice,
   //       and the button with its reason — a shopper decides without scrolling. On a phone that
   //       means the primary image is a bounded band, not a full-height hero: e.g. the gallery
@@ -434,9 +435,12 @@ prose above is where the bugs come from:
    screens, never `fixed` with computed offsets; it closes on Escape, the close button, a
    successful add, or the scrim — there is NO outside-click handler (one that runs after a
    re-render sees the clicked swatch detached and closes on every pick).
-2. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
+2. `components/storefront/OptionPicker.tsx` — the purchase controls as working code: swatches vs
+   pills, sold-out choices disabled, quantity, the gated button with its reason and the
+   "Pre-order" label; the PDP and the tile picker share it.
+3. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
    scrim, scroll lock, Escape, focus in and back.
-3. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
+4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
    the price pair commits only when valid.
 
 All under `references/storefront/app/`.
@@ -548,8 +552,8 @@ client id into `wix/config.ts`; nothing else to configure.
   internals or re-derive a request shape. Extend by calling the exports or adding a new
   function in `wix/storefront/` for what they don't cover (API contracts: the `wix-docs` skill).
 - **Selection→cart goes through `useProductDetail`** — never add a product with options by
-  picking `variants[0]`, and never gate `canAdd` yourself. In the gallery that is the shipped
-  `QuickAdd` — a tile never adds a product with options itself, and never hides the buy path
+  picking `variants[0]`, and never gate `canAdd` yourself. On the PDP that is the shipped
+  `OptionPicker`; in the gallery the shipped `QuickAdd` — a tile never adds a product with options itself, and never hides the buy path
   behind "go to the product page" for a product that has no options.
 - **Filters are the shipped `FilterPanel`** — mounted in the gallery whenever the store has a
   catalog to filter; not rebuilt with fewer controls, not dropped because the brief didn't ask.
@@ -592,32 +596,3 @@ method (dashboard) — mention it, don't treat it as a code failure.
 Per `seed/SEED.md` — a plain-data `plan.json` into `seed-store.mjs`, run from the project
 root. Independent of the frontend work; seed a catalog that exercises the UI (≥1 product with
 a color option, ≥1 on sale, an image per product) unless the brief says otherwise.
-
-## Verify (before declaring done)
-
-- [ ] The shop lists live products through your own grid, with the result count, sort, and the
-      filters this catalog supports. Every category has its own page reachable by a real link; an
-      unknown one is a not-found page, never all products; an empty catalog shows an honest empty
-      state.
-- [ ] On the shop's first screen, on a phone and on a short desktop window, at least one full tile
-      (image, name, price) is visible without scrolling. Long names and price ranges never clip.
-- [ ] Every tile carries a way to buy: one click for a product without options, a picker anchored
-      to the tile for one with options. Buying from a tile stays on the shop and opens the cart; it
-      never navigates to the product page. Names read in full; buy buttons in a row share one
-      baseline.
-- [ ] On the product page, on a phone, the image, name, price, first choice, and buy button are
-      all in the first screen. Color options are swatches. The button is disabled with a plain
-      reason until every choice is made; the price is the range until then and the chosen
-      variant's price after; a sale shows the labelled original price; sold out reads out of
-      stock; pre-orderable reads pre-order.
-- [ ] Every product image renders wherever a card appears. Every ribbon the merchant set renders.
-      A price range never shows a struck price beside it. A color option shows its swatches.
-- [ ] The product gallery shows each photo once.
-- [ ] Cart add, quantity change, and remove work; the badge is live; the subtotal comes from Wix;
-      a subscription line states its plan terms; the cart survives a reload.
-- [ ] Checkout hands off to the Wix-hosted checkout.
-- [ ] Item pages carry their SEO tags: on managed Astro through the shipped SEO block, elsewhere
-      from the entity's own SEO data.
-- [ ] Your surfaces are your design on one token set; the shipped files you received are
-      unedited.
-- [ ] The owner gets the dashboard links.
