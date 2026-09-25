@@ -24,6 +24,10 @@ export function imgSrc(value: unknown, width = 600, height = 600): string {
     const file = v.slice("wix:image://v1/".length).split("/")[0].split("#")[0];
     return `${STATIC}/${file}/v1/fill/w_${width},h_${height},al_c,q_90/${file}`;
   }
+  // An absolute Wix media URL (bare, or already scaled to some other size): re-issue it through the
+  // scaler at the requested size, so every image path lands on one shape.
+  const m = v.match(/^https:\/\/static\.wixstatic\.com\/media\/([^/?#]+)/);
+  if (m) return `${STATIC}/${m[1]}/v1/fill/w_${width},h_${height},al_c,q_90/${m[1]}`;
   return v;
 }
 
@@ -54,5 +58,8 @@ export function imgAttrs(value: unknown, sizes: string, ratio = 1): Record<strin
 export function mediaKey(value: unknown): string {
   const v = rawOf(value);
   if (!v) return "";
-  return v.startsWith("wix:image://") ? v.split("#")[0] : v.replace(FILL, "");
+  // The file id, whichever form the value takes — a raw id and a resolved URL of one photo share it.
+  if (v.startsWith("wix:image://")) return v.slice("wix:image://v1/".length).split("/")[0].split("#")[0];
+  const m = v.match(/^https:\/\/static\.wixstatic\.com\/media\/([^/?#]+)/);
+  return m ? m[1] : v;
 }

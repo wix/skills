@@ -23,7 +23,12 @@ export function imgSrc(value: MediaLike, width = 600, height = 600): string {
   if (typeof v === "string" && v.startsWith("wix:image://")) {
     return media.getScaledToFillImageUrl(v, width, height, {});
   }
-  return typeof v === "string" ? v : "";
+  if (typeof v !== "string") return "";
+  // An absolute Wix media URL (bare, or already carrying a /v1/fill/ segment at some other size):
+  // re-issue it through the scaler at the requested size, so every image path lands on one shape.
+  const m = v.match(/^https:\/\/static\.wixstatic\.com\/media\/([^/?#]+)/);
+  if (m) return `https://static.wixstatic.com/media/${m[1]}/v1/fill/w_${width},h_${height},al_c,q_90/${m[1]}`;
+  return v;
 }
 
 /**
@@ -69,5 +74,8 @@ export function imgAttrs(value: MediaLike, sizes: string, ratio = 1): { src: str
 export function mediaKey(value: MediaLike): string {
   const v = typeof value === "object" && value !== null ? (value.image ?? value.url ?? "") : (value ?? "");
   if (!v) return "";
-  return v.startsWith("wix:image://") ? v.split("#")[0] : v.replace(/\/v1\/fill\/w_\d+,h_\d+/, "");
+  // The file id, whichever form the value takes — a raw id and a resolved URL of one photo share it.
+  if (v.startsWith("wix:image://")) return v.slice("wix:image://v1/".length).split("/")[0].split("#")[0];
+  const m = v.match(/^https:\/\/static\.wixstatic\.com\/media\/([^/?#]+)/);
+  return m ? m[1] : v;
 }
