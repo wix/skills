@@ -38,6 +38,18 @@ export function imgSrcSet(value: unknown, widths: number[] = [320, 480, 640, 960
   return v;
 }
 
+/**
+ * Everything an <img> needs for one Wix image, so a tile can never ship `srcset` without `src`.
+ * Attribute names as HTML spells them — spread into a template or apply with setAttribute:
+ *   `<img ${attrs(imgAttrs(p.imageUrl, "(min-width: 1024px) 25vw, 50vw"))} alt="…">`
+ * `sizes` is the width the image renders at; `ratio` is height/width. {} when there is no image.
+ */
+export function imgAttrs(value: unknown, sizes: string, ratio = 1): Record<string, string> {
+  const src = imgSrc(value, 640, Math.round(640 * ratio));
+  if (!src) return {};
+  return { src, srcset: imgSrcSet(value, undefined, ratio), sizes, loading: "lazy", decoding: "async" };
+}
+
 /** The media identity before scaling — de-duplicate galleries on this, never on a resolved URL. */
 export function mediaKey(value: unknown): string {
   const v = rawOf(value);

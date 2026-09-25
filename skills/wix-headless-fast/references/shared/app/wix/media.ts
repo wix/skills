@@ -51,6 +51,18 @@ export function imgSrcSet(value: MediaLike, widths: number[] = [320, 480, 640, 9
 }
 
 /**
+ * Everything an <img> needs for one Wix image, so a tile can never ship `srcSet` without `src`:
+ *   <img {...imgAttrs(p.imageUrl, "(min-width: 1024px) 25vw, 50vw")} alt={p.name} />
+ * `sizes` is the width the image renders at (a CSS length or media-query list); `ratio` is
+ * height/width. Returns an empty object when there is no image — render your placeholder then.
+ */
+export function imgAttrs(value: MediaLike, sizes: string, ratio = 1): { src: string; srcSet: string; sizes: string; loading: "lazy"; decoding: "async" } | Record<string, never> {
+  const src = imgSrc(value, 640, Math.round(640 * ratio));
+  if (!src) return {};
+  return { src, srcSet: imgSrcSet(value, undefined, ratio), sizes, loading: "lazy", decoding: "async" };
+}
+
+/**
  * The identity of a media value BEFORE scaling — de-duplicate galleries on this, never on a
  * resolved URL (two scaled URLs of one photo differ in their size parameters).
  */
