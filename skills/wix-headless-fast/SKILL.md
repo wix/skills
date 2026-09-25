@@ -5,16 +5,19 @@ description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sd
 
 # Wix Headless Fast
 
-Build a Wix Headless site by **deploying shipped code, not authoring it**. Where `wix-headless`
-hands the agent recipes to code from, this skill ships the integration itself — a typed data
-layer, hooks, components, pages, and a seed script that are already correct — and the agent's
-job narrows to brand, layout, copy, and wiring. The decisions live in the code; don't
+Build a Wix Headless site on **shipped, verified code instead of authoring the integration**.
+Each vertical ships the integration itself — a typed data layer, hooks, components, pages, and a
+seed script that are already correct. On a stack that runs it (Wix-managed Astro, any React
+project) the code is **deployed** and the agent's job narrows to brand, layout, copy, and wiring.
+On a stack that can't run it (a static site with no bundler, a server-rendered app in another
+language) the same code is the **reference**: its REST twin deploys for the browser side, and the
+rules it encodes are what the agent ports. Either way the decisions live in the code; don't
 re-litigate them.
 
-**Scope.** This is the bootstrap, tuned for Wix-managed Astro, and each vertical ships *one*
-shape of its solution. Deploy it as-is when the brief doesn't contradict it. When the brief
-asks for something that shape doesn't express — or once the site exists and the work turns to
-managing or extending it — that's `wix-docs` and `wix-manage`, not a workaround here.
+**Scope.** Tuned for Wix-managed Astro, and each vertical ships *one* shape of its solution. Use
+it as-is when the brief doesn't contradict it. When the brief asks for something that shape
+doesn't express — or once the site exists and the work turns to managing or extending it — that's
+`wix-docs` and `wix-manage`, not a workaround here.
 
 ## The model
 
