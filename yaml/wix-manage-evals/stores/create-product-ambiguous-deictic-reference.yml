@@ -1,0 +1,42 @@
+name: stores/create-product-ambiguous-deictic-reference
+description: Verifies the agent does not create a new product from a bare deictic reference ("this for $X") with an attached image when no product has been established in the conversation yet, and instead asks whether to create new or update an existing product.
+triggerPrompt: >-
+  This for $8.70
+  (message includes one attached photo of a necklace; this is the first message in the conversation — no product has been discussed before)
+tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's entire message is "This for $8.70" plus one attached photo, as the very first message in a brand-new
+      conversation — no product name, description, or prior catalog item has been mentioned. "This" has no antecedent:
+      it could mean "create a new product from this photo for $8.70" or "update the price of a product I already have
+      to $8.70". The recipe's preflight requires treating a bare deictic reference with no product established in the
+      conversation as ambiguous.
+
+      Pass if the agent's response asks the user to clarify whether they want to create a new product or update the
+      price of an existing one (e.g. asking "create a new product or update an existing one?", or asking which
+      existing product to update), and does not call any product-create or product-update mutation endpoint
+      (POST /stores/v3/products, /stores/v3/products-with-inventory, /stores/v3/bulk/products/create,
+      /stores/v3/bulk/products-with-inventory/create, or an update/patch on an existing product) before that
+      clarification is answered.
+
+      Fail if the agent creates a new product, updates an existing product, or otherwise takes any catalog-mutating
+      action without first asking the user to disambiguate create-vs-update. Also fail if it asks for unrelated
+      structured fields (SEO, options, inventory) instead of the create-vs-update question, or if it silently assumes
+      "create a new product" and proceeds straight to naming/creation.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate the execution path from 0-10. A 10 loads the recipe (or verified authoritative Wix docs), recognizes the
+      bare deictic reference with no established product, asks the single disambiguating question, and makes no
+      catalog-mutating API call in this turn. Penalize any product create or update call made before the
+      clarification, any unrelated structured-field questionnaire, or unnecessary tangential tool calls.
+      Return ONLY {"score":<0-10>,"reason":"<terse frictions and likely recipe/docs gap, or clean path>"}.
