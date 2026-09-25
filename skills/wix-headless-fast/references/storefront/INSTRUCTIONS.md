@@ -477,9 +477,9 @@ folder, `wix release`. Pages sit at different depths (`/`, `/category/…`, `/pr
 the templates one base path to `js/wix/` (a template variable, or root-relative `/js/wix/…`),
 never a relative `./js/wix/` — it breaks one level down. The frozen grid is the first paint; the
 shop's sort, filters, facets, search, and load-more still run client-side on it from
-`./js/wix/catalog.js`, exactly as on a static site, so the gallery contract above applies. The
-catalog pages are a snapshot until the next build; the cart is live. Close with the live URL, the
-rebuild + release command, and that caveat.
+`./js/wix/catalog.js`, exactly as on a static site, so the gallery contract above applies. Close
+with the live URL, the rebuild + release command, and one line for the owner: dashboard edits to
+the catalog reach the site when that command runs; cart and checkout are live regardless.
 
 ### Wiring — React SPA (Vite etc.)
 

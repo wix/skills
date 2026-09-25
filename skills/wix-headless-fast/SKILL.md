@@ -188,10 +188,10 @@ two transports. Storefront ships it today; other verticals follow the same layou
     variable, or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level
     down. **The frozen page is the first paint, not the whole gallery**: the same `js/wix/catalog.js`
     the cart imports drives sort, filters, facets, search, and load-more client-side on top of the
-    pre-rendered grid, so the storefront's gallery contract still applies. **The catalog pages are
-    a snapshot**: a price change or a new product needs a rebuild and re-release; the cart, stock
-    at add time, and checkout stay live through the browser. Say so in the closing message, with
-    the rebuild command. A running server (live reads on every request) stays theirs to host.
+    pre-rendered grid, so the storefront's gallery contract still applies. Close with the
+    rebuild + release command and one line for the owner: catalog edits made in the dashboard
+    reach the site when that command runs; cart and checkout are live regardless. A running
+    server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
   `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
