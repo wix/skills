@@ -206,8 +206,11 @@ them; this section is the mechanics, the same for every vertical.
     apply unchanged. Close with the rebuild + release command and one line for the owner: content
     edits made in the dashboard reach the site when that command runs; the browser-side flows are
     live regardless. A running server (live reads on every request) stays theirs to host.
-  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
-  `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Both were written for
+  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, and the shared
+  `DESIGN.md`/`CONTENT.md`. **Before writing any surface, read the shipped components and hooks
+  the wiring section for your stack names** — they don't deploy here, and they are working,
+  tested code for exactly the behaviour you are about to write; the runs that skipped them
+  shipped a broken quick-add, the run that read them didn't. Both were written for
   the stacks that receive the code, so they speak that stack's dialect: the Tailwind classes in the
   skeletons and the components are one spelling of layout and behaviour rules that hold everywhere
   (a bounded image band on phones, name and price on separate lines, the buy control pinned to the

@@ -8,9 +8,11 @@ be exact. You never write commerce code; you never skip designing the store.
 
 ## The file map (deployed into `src/`)
 
-**Don't read the shipped files** — this table and the contracts below are everything you
-need. Open a shipped file's source **only** on a real fallback: a runtime error, or a field
-this playbook doesn't cover. Files you edit: `SiteLayout.astro` and `styles/global.css`.
+**Don't read the shipped files** (on Astro and React, where they deploy) — this table and the
+contracts below are everything you need. Open a shipped file's source **only** on a real
+fallback: a runtime error, or a field this playbook doesn't cover. On `lib`, `static`, and a port
+the opposite holds: the components don't deploy, and each wiring section below opens with the
+files to read before writing their equivalents. Files you edit: `SiteLayout.astro` and `styles/global.css`.
 Files you **create** (skeletons below): the shop, category, and PDP pages with their island
 components, plus your home page.
 
@@ -74,7 +76,9 @@ of its category. Then, by default:
 - **Home:** what the store sells and one shopping action in the first screen; real products under
   truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page. A
   category tile or link on the home page goes to that category's page (`/category/<slug>`) —
-  never to an anchor on the shop page that every tile shares.
+  never to an anchor on the shop page that every tile shares — and its image is a product from
+  THAT category (fetched with the category filter) or the category's own image, never a
+  positional guess into the all-products list.
 - **Shop:** a real product card — image, name, price, link — in the first screen; the shipped
   `FilterPanel` around the grid (toolbar, then a filter sidebar beside the results on desktop and
   a sheet on phones) — a store with any filterable catalog ships it, not "when it fits"; the
@@ -88,7 +92,12 @@ of its category. Then, by default:
 - **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
 - **Overlays you build** (quick-add, mobile nav, filters): mount at the document root (a fixed
   panel inside the `backdrop-blur` header gets clipped), lock background scroll, close on Escape,
-  return focus on close — as the shipped `CartDrawer` does.
+  return focus on close — as the shipped `CartDrawer` does. An anchored picker is positioned
+  inside its tile, not `fixed` with computed offsets. If you add dismiss-on-outside-click, decide
+  inside/outside before anything re-renders (a capture-phase listener), or a click on a swatch
+  that re-renders the panel reads as "outside" and closes it.
+- **A page whose slug resolves to nothing** (category, product) shows only the not-found state —
+  no heading, toolbar, or empty grid rendered around it.
 - **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
   promises; no Wix IDs or technical words in visible text.
 
@@ -417,6 +426,28 @@ export default function ProductDetailView(props: {
 
 ### Wiring — another JS framework (`--stack lib`: Vue, Svelte, Solid, plain Vite)
 
+**Read first — the shipped components and hooks don't deploy on this stack, so they are your
+reference for the behaviour you are about to write. Open them before writing any surface:**
+
+1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
+   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
+   `add()`. Your product-page and picker state is this file in your language.
+2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
+   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
+   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
+   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
+   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
+3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
+   working code: root-level, scrim, scroll lock, Escape, focus in and back.
+4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
+   the sheet stages until Apply; the price pair commits only when valid.
+5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
+   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
+   guard, facets per category scope, URL sync.
+
+The "don't read the shipped files" rule at the top of this playbook is for stacks where they
+deploy. Here they don't, and rewriting them from prose is where the bugs come from.
+
 `deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
 (the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
 `wix/storefront/` — `catalog.ts`, `cart.ts`, `cart-store.ts`, `types.ts`, the `*-core.ts` rules.
@@ -442,6 +473,28 @@ from the entity's `seoData`.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
+**Read first — the shipped components and hooks don't deploy on this stack, so they are your
+reference for the behaviour you are about to write. Open them before writing any surface:**
+
+1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
+   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
+   `add()`. Your product-page and picker state is this file in your language.
+2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
+   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
+   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
+   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
+   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
+3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
+   working code: root-level, scrim, scroll lock, Escape, focus in and back.
+4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
+   the sheet stages until Apply; the price pair commits only when valid.
+5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
+   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
+   guard, facets per category scope, URL sync.
+
+The "don't read the shipped files" rule at the top of this playbook is for stacks where they
+deploy. Here they don't, and rewriting them from prose is where the bugs come from.
+
 `deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser
 ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
 pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
@@ -459,6 +512,28 @@ once it loads, on the product AND category pages. The visitor token persists in 
 its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
+
+**Read first — the shipped components and hooks don't deploy on this stack, so they are your
+reference for the behaviour you are about to write. Open them before writing any surface:**
+
+1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
+   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
+   `add()`. Your product-page and picker state is this file in your language.
+2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
+   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
+   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
+   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
+   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
+3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
+   working code: root-level, scrim, scroll lock, Escape, focus in and back.
+4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
+   the sheet stages until Apply; the price pair commits only when valid.
+5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
+   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
+   guard, facets per category scope, URL sync.
+
+The "don't read the shipped files" rule at the top of this playbook is for stacks where they
+deploy. Here they don't, and rewriting them from prose is where the bugs come from.
 
 Run `deploy.mjs storefront --stack static` in the project folder anyway: `js/wix/` is both the
 browser-side code and the readable spec. Then split by where the call runs. **Reads on the
