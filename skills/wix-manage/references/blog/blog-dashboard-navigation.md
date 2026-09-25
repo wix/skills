@@ -19,6 +19,7 @@ https://manage.wix.com/dashboard/{metaSiteId}/blog/{route}
 |---|---|---|
 | Overview | `blog/overview` | Blog summary and quick actions |
 | Posts | `blog/posts` | All posts — the page has tabs for published posts and drafts |
+| Edit post | `blog/{postId}/edit` | Edit a specific post — works for both published posts and drafts |
 | Categories | `blog/categories` | Post categories |
 | Edit category | `blog/categories/edit` | A specific category |
 | Tags | `blog/tags` | Post tags |
@@ -37,18 +38,19 @@ Fetch the entity via REST, then link the matching dashboard page. All calls use 
 
 | Entity | Read API | Dashboard link |
 |---|---|---|
-| Post (published) | `GET /blog/v3/posts` · `POST /blog/v3/posts/query` · `GET /blog/v3/posts/{postId}` | `blog/posts` |
-| Draft post | `GET /blog/v3/draft-posts` · `POST /blog/v3/draft-posts/query` · `GET /blog/v3/draft-posts/{draftPostId}` | `blog/posts` (Drafts tab) |
+| Post (published) | `GET /blog/v3/posts` · `POST /blog/v3/posts/query` · `GET /blog/v3/posts/{postId}` | `blog/posts` (list) · `blog/{postId}/edit` (direct edit) |
+| Draft post | `GET /blog/v3/draft-posts` · `POST /blog/v3/draft-posts/query` · `GET /blog/v3/draft-posts/{draftPostId}` | `blog/posts` (Drafts tab) · `blog/{draftPostId}/edit` (direct edit) |
 | Category | `GET /blog/v3/categories` · `POST /blog/v3/categories/query` | `blog/categories` |
 | Tag | `POST /blog/v3/tags/query` · `GET /blog/v3/tags/{tagId}` | `blog/tags` |
 | Comment | Comments API — `POST /comments/v1/comments/query-cursor` | `blog/comments` |
 | Writer | Writers are site members — `GET /members/v1/members` (List Members) | `blog/writers` |
 
-Example — after publishing a post, hand back the dashboard link:
+Example — after publishing a post, hand back a direct edit link and the posts list:
 
 ```
 Published "10 Tips for Better Coffee".
-Manage your posts here: https://manage.wix.com/dashboard/{metaSiteId}/blog/posts
+Edit your post: https://manage.wix.com/dashboard/{metaSiteId}/blog/{postId}/edit
+View all posts: https://manage.wix.com/dashboard/{metaSiteId}/blog/posts
 ```
 
 ## Notes
