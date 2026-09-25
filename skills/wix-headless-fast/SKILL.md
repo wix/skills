@@ -64,9 +64,10 @@ doesn't express — or once the site exists and the work turns to managing or ex
    there:
    - **React** (Vite, Next, …) runs everything shipped — data layer, hooks, components:
      `--stack react`. The agent's own files may be JS.
-   - **Another bundled JS framework** (Vue, Svelte, Solid, plain Vite): the data layer runs
-     (`src/wix/` has no React in it), the hooks and components don't apply: `--stack lib`. The
-     agent writes its framework's stores/composables and components against the same contracts.
+   - **Another bundled JS framework** (Vue, Svelte, Solid, plain Vite): the data layer and the
+     framework-free stores run (`src/wix/` has no React in it), the React hooks and components
+     don't apply: `--stack lib`. The agent binds the stores and writes its framework's components
+     against the same contracts.
    - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
      app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
      REST layer deploys for the browser side, and the server side ports it for its reads.
@@ -157,9 +158,11 @@ them; this section is the mechanics, the same for every vertical.
   pages, styles, and `js/`; set `site.outputDirectory` in the config to `"./site"`. `wix release`
   uploads that directory whole, so the project root (config, `plan.json`, seed output, anything
   else) must not be it. Then `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static --out
-  site` composes the REST layer flat into `site/js/wix/` and strips it to browser ESM (comments
-  kept, the `.ts` kept beside the `.js` to read). Pages import the vertical's modules from
-  `./js/wix/` in a `<script type="module">`. The visitor token lives in `localStorage` and is the
+  site` composes the REST layer and the vertical's framework-free stores flat into `site/js/wix/`
+  and strips them to browser ESM (comments kept, the `.ts` kept beside the `.js` to read). Pages
+  import the vertical's modules from `./js/wix/` in a `<script type="module">`: the stores hold
+  the state machines (subscribe, render from `getState()`, call actions), the page holds the
+  rendering. The visitor token lives in `localStorage` and is the
   visitor's identity across Wix — never mint one per page. A route is a page plus a query-string
   slug (`item.html?slug=…`). Wix static hosting serves files, not directories: `/shop` does not
   resolve to `shop/index.html`, and there is no routes configuration — name the file and link
@@ -259,7 +262,8 @@ references/<vertical>/
   INSTRUCTIONS.md      # playbook: file map, wiring per stack, what you build, hard rules, verify
   app/                 # framework-agnostic core — disjoint paths so verticals never collide:
     wix/<vertical>/    #   types.ts (DTOs) + data layer (calls via ../sdk, images via ../media)
-    hooks/<vertical>/  #   React hooks (SSR-friendly: accept initial data)
+                       #   + *-store.ts: the state machines, framework-free (ship on every stack)
+    hooks/<vertical>/  #   React hooks — thin bindings of the stores (SSR-friendly: accept initial data)
     components/<vertical>/  # routing-free components (plain <a> default + LinkComponent prop)
     styles/global.css  # Tailwind v4 + the @theme design tokens (shared token family)
   app-astro/           # Astro overlay importing ONLY from the core:
