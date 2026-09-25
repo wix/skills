@@ -447,7 +447,7 @@ async function attachProductImages(ctx, items) {
 }
 
 // Site-wide payment currency; product amounts are not converted when this changes.
-// https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties.md
+// https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/update-site-regional-properties.md
 async function configureCurrency(ctx, requested) {
   const result = { requested: requested ?? null, actual: null, status: "unchanged", warnings: [] };
   if (requested !== undefined) {
