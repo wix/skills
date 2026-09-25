@@ -109,5 +109,8 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
 
 ## Supplied content
 
-The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For forms, the supplied content is the form itself: a list of questions, a PDF or a screenshot of an existing form. Each question becomes a field with the `kind` its answer type implies (email → `email`, a fixed set of answers → `select`/`radio`/`multi`, a long answer → `textarea`); required marks → `required`; the button label → `submitText`. Field wording verbatim.
-
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For forms the user usually hands
+over the form itself: a list of questions, or a PDF or screenshot of the form they use today. Each
+question becomes a field, with the `kind` its answer implies (an email address → `email`, a fixed set
+of answers → `select`, `radio` or `multi`, a long answer → `textarea`); a required mark becomes
+`required`; the button label becomes `submitText`. Question wording verbatim.

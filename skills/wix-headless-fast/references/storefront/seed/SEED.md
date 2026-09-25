@@ -80,14 +80,16 @@ business (a ceramics studio has glaze colors; a bakery doesn't).
 
 ## Supplied content
 
-The rules for a catalog the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a
-store, an entry is a product; the usual columns land as: price → `price`; a was/compare/regular/list
-price → `compareAtPrice` (only when higher); stock/quantity/inventory → `quantity`, or `"inStock":
-true` for unlimited or made-to-order; a category/collection/type column → `categories` (name → the
-products carrying it); a choices column ("Small|Large", "S, M, L") → one `options` entry of
-`type: "text"` named after the column, `type: "color"` only when the source gives color codes; their
-image column → `imageUrl`. One row per variant with its own price is beyond the plan: seed the product
-once at the lowest price and tell the user variant prices are set in the dashboard.
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
+lists is one entry, whatever form the list arrives in. Its name, description and price become
+`name`, `description` and `price`. A "was", "regular" or "compare at" price becomes `compareAtPrice`
+when it is higher than the price. A stock count becomes `quantity`; "unlimited" or "made to order"
+becomes `"inStock": true`. A category, collection or type becomes an entry in `categories`. A set of
+choices the buyer picks from ("Small / Large", "S, M, L") becomes one `options` entry named after
+what it is (Size, Flavor), `type: "text"`; use `type: "color"` only when the source gives color codes.
+Their image becomes `imageUrl`. If a product has a separate price per size, seed it once at the
+lowest price and tell the user the per-variant prices are set in the dashboard. If a product has no
+price, ask; never invent one. Ribbons ("New", "Best Seller") and SKU codes are not seeded — say so.
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets — not even on a site created a minute ago. The Stores install adds its

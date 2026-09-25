@@ -64,7 +64,12 @@ seems needed.
 
 ## Supplied content
 
-The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a blog, an entry is a post: title → `title`; body text → `content` blocks (paragraphs as `paragraph`, headings as `heading`, lists as `bulleted`/`ordered`); a category column → `category` (and the `categories` list); tags → `tags`; their cover image → `coverImageUrl`. A body supplied as HTML or Markdown is split into blocks, not pasted as one paragraph.
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a blog, each post the user
+hands over is one entry. Its title becomes `title`; its body becomes `content` blocks, one block per
+paragraph, heading or list, whether the body arrived as text, HTML or Markdown; a category becomes
+`category` (and joins the `categories` list); tags become `tags`; their cover image becomes
+`coverImageUrl`. A post with no body is a question for the user. Authors and publish dates are
+not seeded — say so.
 
 ## Escape hatch — individual functions
 `setupBlog` composes exported steps — `installBlogApp`, `getAuthorMemberId`, `createPosts`,

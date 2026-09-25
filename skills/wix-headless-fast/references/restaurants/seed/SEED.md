@@ -69,7 +69,11 @@ restaurant that takes orders and reservations:
 
 ## Supplied content
 
-The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a restaurant, the supplied content is the menu: menu names → `menus`; headings → `sections`; dishes with prices → `items` with `name`, `description`, `price`, their photo → `imageUrl`. The restaurant's address, hours and party sizes go to `ordering` and `reservations` only when the source states them.
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a restaurant the user hands
+over the menu, often as a PDF or a photo. Each menu becomes an entry in `menus`, each heading a
+`section`, each dish an `item` with `name`, `description`, `price` and, when they supplied one, its
+photo as `imageUrl`. The restaurant's address, hours and party sizes go into `ordering` and
+`reservations` only when the user stated them; otherwise leave those out and say so.
 
 ## Escape hatch — individual functions
 `setupRestaurants` composes exported steps — `installMenusApp`, `installOrdersApp`,

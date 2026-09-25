@@ -63,7 +63,11 @@ seems needed.
 
 ## Supplied content
 
-The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For pricing plans, an entry is a plan: name → `name`; price and billing period → `price` with `type: "recurring"` and `billingCycle`, a one-off price → `type: "one-time"`, no price → `type: "free"`; a features or benefits list → `perks`; description → `description`.
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For pricing plans, each plan the
+user lists is one entry. Its name becomes `name`; a price with a billing period becomes `price`
+with `type: "recurring"` and the matching `billingCycle`; a price paid once becomes
+`type: "one-time"`; no price means `type: "free"`; a list of features or benefits becomes `perks`;
+the description becomes `description`. A price with no period is a question for the user.
 
 ## Escape hatch — individual functions
 `setupPricingPlans` composes exported steps — `installPricingPlansApp`, `createPlans`,

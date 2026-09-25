@@ -69,7 +69,11 @@ rows (Role, Year, Client…).
 
 ## Supplied content
 
-The rules for content the user hands over are in `references/shared/SUPPLIED-CONTENT.md`. For a portfolio, an entry is a project: title → `title`; a category or series → `collection` (and the `collections` list); client, role, year and similar → `details`; their cover image → `coverImageUrl`; a folder or list of project images → `items` in the order given. Photos with no captions get the file name as `title`.
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a portfolio, each project the
+user lists is one entry. Its title becomes `title`; its category or series becomes `collection`
+(and joins the `collections` list); client, role, year and similar facts become `details`; their
+cover image becomes `coverImageUrl`; their project images become `items` in the order given. A
+photo with no caption gets its file name as `title`.
 
 ## Escape hatch — individual functions
 `setupPortfolio` composes exported steps — `installPortfolioApp`, `createCollections`,
