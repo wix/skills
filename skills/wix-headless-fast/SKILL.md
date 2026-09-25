@@ -126,7 +126,11 @@ managing or extending it — that's `wix-docs` and `wix-manage`, not a workaroun
 5. **When both background jobs have completed** — the install's marker
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
-   your summary — if non-zero, read `seed.log` and re-run the seed module manually). Then
+   your summary — if non-zero, read `seed.log` and re-run the seed module manually). Those two
+   seed files exist **only when fast-path started the seed**. When you ran `seed-store.mjs`
+   yourself (connect/iterate runs, reference mode), there is no marker to wait for: the process's
+   exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
+   or `wait` on its pid), not on a file. Then
    **build & release once** (managed):
    `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
    it once more and then build). Don't build+release mid-flow; backend content is fetched at
