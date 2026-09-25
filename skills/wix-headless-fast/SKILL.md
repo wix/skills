@@ -144,11 +144,12 @@ comes from the shipped code, and real errors surface at build/release.
 
 ## Reference mode — a static site, or a server-rendered app in another language
 
-The commerce logic ships a second time as a **REST layer**: `references/shared/rest/` (the auth
-seam `client.ts`, `media.ts`, `config.ts`) and `references/<vertical>/rest/` (the same exports as
-the vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against the same `types.ts`
-and importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules,
-two transports. Storefront ships it today; other verticals follow the same layout.
+The data layer ships a second time as a **REST layer**: `references/shared/rest/` (the auth seam
+`client.ts`, `media.ts`, `config.ts`) and `references/<vertical>/rest/` (the same exports as the
+vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against the same `types.ts` and
+importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules, two
+transports. The vertical's `INSTRUCTIONS.md` names its modules and what each surface does with
+them; this section is the mechanics, the same for every vertical.
 
 - **Static site (no bundler).** `npm create @wix/new@latest init` in the project folder (site,
   OAuth app, `wix.config.json`). The site lives in a **subfolder** — `site/` — holding only the
@@ -156,53 +157,54 @@ two transports. Storefront ships it today; other verticals follow the same layou
   uploads that directory whole, so the project root (config, `plan.json`, seed output, anything
   else) must not be it. Then `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static --out
   site` composes the REST layer flat into `site/js/wix/` and strips it to browser ESM (comments
-  kept, the `.ts` kept beside the `.js` to read). Pages import `./js/wix/catalog.js` and
-  `./js/wix/cart.js` from a `<script type="module">`. The visitor token lives in `localStorage`
-  (the cart is the token's — never mint one per page). A route is a page plus a query-string slug
-  (`product.html?slug=…`). Seed per the vertical's `SEED.md` (Node + the CLI token, no project
+  kept, the `.ts` kept beside the `.js` to read). Pages import the vertical's modules from
+  `./js/wix/` in a `<script type="module">`. The visitor token lives in `localStorage` and is the
+  visitor's identity across Wix — never mint one per page. A route is a page plus a query-string
+  slug (`item.html?slug=…`). Seed per the vertical's `SEED.md` (Node + the CLI token, no project
   dependencies). Release with `npx @wix/cli@latest release` — no build. Item-page tags come from
   the entity's `seoData`, set after the fetch (`document.title`, the meta description).
 - **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
-  Astro — pages rendered on the server, a browser cart — with hosting and SEO plumbing theirs.
-  `init` still runs in the project folder; run `deploy.mjs <vertical> --stack static` there too: it
-  only needs `wix.config.json` and writes `js/wix/`. Split by where the call runs:
-  - **Reads render on the server.** Port `rest/catalog.ts` and its `*-core.ts` to the server
-    language: each function is one HTTP call with a literal URL and JSON body, and the core carries
-    the rules (price precedence, ribbons, ranges, media de-dupe, variant resolution). Catalog reads
-    are public, so one anonymous visitor token per server process, refreshed per `client.ts`, is
-    enough for them.
-  - **The cart runs in the browser.** Load `js/wix/cart.js` in the templates and let the page talk
-    to Wix directly for add/update/remove/checkout, exactly as a static site does: the browser
-    owns the shopper's visitor token in `localStorage`, so no per-shopper token handling on the
-    server. If the cart must run server-side anyway, `client.ts`'s header applies: one token set
-    per shopper in the shopper's session, never one process-wide token (that is one cart for
-    everyone).
-  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
-    Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
+  Astro — pages rendered on the server, the interactive surfaces in the browser — with hosting and
+  SEO plumbing theirs. `init` still runs in the project folder; run `deploy.mjs <vertical> --stack
+  static` there too: it only needs `wix.config.json` and writes `js/wix/`. Split by where the call
+  runs:
+  - **Reads render on the server.** Port the vertical's `rest/` read module and its `*-core.ts` to
+    the server language: each function is one HTTP call with a literal URL and JSON body, and the
+    core carries the rules. Public reads need no visitor identity — one anonymous visitor token per
+    server process, refreshed per `client.ts`, is enough for them.
+  - **Visitor-specific state runs in the browser.** Whatever the vertical does on the visitor's
+    behalf (a store's cart and checkout, a booking, an RSVP, a form submit) loads the vertical's
+    `js/wix/` module in the templates and talks to Wix from the page, exactly as a static site
+    does: the browser owns the visitor token in `localStorage`, so the server handles no
+    per-visitor tokens. If that state must run server-side anyway, `client.ts`'s header applies:
+    one token set per visitor in the visitor's session, never one process-wide token (that is one
+    identity shared by everyone).
+  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Jigsaw,
+    Pelican, Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
     <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
-    copy it there after each build), make the generator emit a page for **every** product and
-    category slug (a URL generator over `fetchCategories()` and a full `searchCatalog` walk),
-    point `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
-    anonymous visitor token for the duration of the build. Frozen pages sit at different depths
-    (`/`, `/category/…`, `/products/…`), so reference `js/wix/` through one base path (a template
-    variable, or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level
-    down. **The frozen page is the first paint, not the whole gallery**: the same `js/wix/catalog.js`
-    the cart imports drives sort, filters, facets, search, and load-more client-side on top of the
-    pre-rendered grid, so the storefront's gallery contract still applies. Close with the
-    rebuild + release command and one line for the owner: catalog edits made in the dashboard
-    reach the site when that command runs; cart and checkout are live regardless. A running
-    server (live reads on every request) stays theirs to host.
+    copy it there after each build), make the generator emit a page for **every** entity slug the
+    vertical's list read returns (walk it by cursor, never only the first page), point
+    `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
+    anonymous visitor token for the duration of the build. Generated pages sit at different
+    depths, so reference `js/wix/` through one base path (a template variable, or root-relative
+    `/js/wix/…`), never `./js/wix/` — a relative path breaks one level down. **The generated page
+    is the first paint, not the whole surface**: the vertical's interactive behaviour (a store's
+    sort, filters, and cart; a blog's search; a booking flow) still runs client-side on top of it
+    from the same `js/wix/` modules, so the vertical's surface contracts in `INSTRUCTIONS.md`
+    apply unchanged. Close with the rebuild + release command and one line for the owner: content
+    edits made in the dashboard reach the site when that command runs; the browser-side flows are
+    live regardless. A running server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
   `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
   hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
-  before checkout can return).
-- Both: the calls in `rest/` are the ones a **visitor token** may make from a page — catalog
-  reads, the current cart, the checkout redirect. Anything elevated (writes, orders, other
-  people's data) runs server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI
-  token never belongs in a page. A static site has no SSR; neither case has owner-editable
-  item-page SEO through `@wix/seo` (tags come from the entity's `seoData`) — say so in the closing
-  message; managed Astro stays the recommendation for a public store.
+  before a Wix-hosted flow such as checkout can return).
+- Both: the calls in `rest/` are the ones a **visitor token** may make from a page — public reads
+  and the visitor's own actions. Anything elevated (writes to content, other people's data) runs
+  server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI token never belongs in
+  a page. A static site has no SSR; neither case has owner-editable item-page SEO through
+  `@wix/seo` (tags come from the entity's `seoData`) — say so in the closing message; managed
+  Astro stays the recommendation for a public site.
 
 ## Verticals
 
