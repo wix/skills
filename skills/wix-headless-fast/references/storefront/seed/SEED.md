@@ -73,10 +73,35 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   For a few seconds afterwards product reads can still report the old currency; that lag is
   expected and self-resolves, so don't re-verify it or retry.
 
-**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
-shape, not a full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise
-the shipped UI**: give at least one product a color option and put one product on sale —
-truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
+**Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
+full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise the shipped
+UI**: give at least one product a color option and put one product on sale — truthfully to the
+business (a ceramics studio has glaze colors; a bakery doesn't).
+
+## A supplied catalog
+
+When the user hands over their products — a CSV, JSON or spreadsheet, a list in the prompt — the
+file is the plan and the 3-product default does not apply: every row becomes a product. Map, don't
+author:
+
+- Names, descriptions and prices verbatim; never rename, reprice, reword or add products.
+- Column names vary; map by meaning: `price` → `price`; a was/compare/regular/list price →
+  `compareAtPrice` (only when higher than `price`); stock/quantity/inventory → `quantity`, or
+  `"inStock": true` when the file says unlimited or made to order; sku and anything the plan
+  has no field for is dropped — say which columns you dropped.
+- A category/collection/type column → `categories` (name → the products carrying it).
+- A choices column ("Small|Large", "S, M, L", "6 inch / 8 inch") → one `options` entry of
+  `type: "text"` named after the column (Size, Flavor…); `type: "color"` only when the file
+  gives color codes. One row per variant with its own price is beyond the plan: seed the product
+  once at the lowest price and tell the user variant prices are set in the dashboard.
+- Their image column → `imageUrl`, verified with `curl -sI` → 200; a local path → `imagePath`.
+  A row with no image is seeded text-only and listed in your summary. **Never `imagePrompt`
+  beside a supplied catalog** — these are their products, not a mood board.
+- `currency` only when the file or the brief states it.
+
+Read the file before writing `plan.json` (`head`, or parse it — a quoted comma inside a
+description is common), keep the mapping in one place, and show the user the row count you
+seeded next to the row count you read.
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
 "sample" data, no resets — not even on a site created a minute ago. The Stores install adds its
