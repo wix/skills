@@ -4,18 +4,18 @@
 // vars, `wix.config.json` — against the site id given, then scaffolds and deploys like
 // fast-path.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
 //
-//   node <SKILL_ROOT>/install/attach.mjs --site <metaSiteId> [--vertical <a>[,<b>…]] \
-//        [--business-name "<Brand>"] [--stack astro|react|static] [--folder-name <name>] [--flatten]
+//   node <SKILL_ROOT>/install/attach.mjs --site <metaSiteId> --business-name "<Brand>" \
+//        --vertical <a>[,<b>…] [--stack astro|react|static] [--folder-name <name>] [--flatten]
 //
-// --vertical    which shipped code deploys (no seed runs — the site owns its content). Omit to
-//               attach + scaffold only; the `site` event lists the verticals the site's installed
-//               apps map to, so the caller can choose and then run deploy.mjs itself.
+// --business-name  the site's name (names the folder, the hosting slug and the app project).
+// --vertical       which shipped code deploys (no seed runs — the site owns its content). Both are
+//                  the caller's decision, read off the site before calling this (SKILL.md step 3).
 // --stack       astro (default): scaffolds the CLI's blank Astro template with the hosting adapter,
 //               ready for `wix build` / `wix release`. react|static: writes wix.config.json into the
 //               folder and stops — the caller scaffolds (Vite / plain HTML) per SKILL.md.
 // --flatten     leave the project directly in the current directory instead of a subfolder.
 //
-// Emits ONE JSON event per line (site, attached, scaffolded, deployed, install_started,
+// Emits ONE JSON event per line (attached, scaffolded, deployed, install_started,
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@latest whoami`)
 // whose account owns or co-manages the site.
 import { spawn, spawnSync, execFileSync } from "node:child_process";
@@ -26,7 +26,6 @@ import { fileURLToPath } from "node:url";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANAGE = "https://manage.wix.com";
-const WIXAPIS = "https://www.wixapis.com";
 const HEADLESS_PROJECT_TYPE_ID = "eb363dea-85a0-4159-9b05-949542be5079";
 const TEMPLATES_REPO = "https://github.com/wix/headless-templates.git";
 const TEMPLATE_PATH = "astro/blank";
@@ -53,8 +52,9 @@ const verticals = argv
   .flatMap((a, i) => (a === "--vertical" && argv[i + 1] ? argv[i + 1].split(",") : []))
   .map((v) => v.trim())
   .filter(Boolean);
-if (!siteId || !/^[0-9a-f-]{36}$/i.test(siteId)) {
-  fail("args", `usage: attach.mjs --site <metaSiteId> [--vertical <${knownVerticals.join("|")}>[,…]] [--business-name "<Brand>"] [--stack astro|react|static]`);
+const businessName = flag("business-name");
+if (!siteId || !/^[0-9a-f-]{36}$/i.test(siteId) || !businessName || !verticals.length) {
+  fail("args", `usage: attach.mjs --site <metaSiteId> --business-name "<Brand>" --vertical <${knownVerticals.join("|")}>[,…] [--stack astro|react|static]`);
 }
 for (const v of verticals) if (!knownVerticals.includes(v)) fail("args", `unknown vertical "${v}" — shipped verticals: ${knownVerticals.join(", ")}`);
 if (!["astro", "react", "static"].includes(stack)) fail("args", `unknown stack "${stack}" — astro, react or static`);
@@ -89,42 +89,11 @@ async function call(base, path, { method = "POST", token, site, body, query } = 
   try { return JSON.parse(text); } catch { return {}; }
 }
 
-// ---- 1 · what is this site ----------------------------------------------------------------------
-// One call: name, currency, installed apps (names resolved server-side). The app names map to the
-// verticals this skill ships; the caller picks from them when --vertical was not given.
-const APP_TO_VERTICAL = [
-  [/^Wix Stores$/i, "storefront"],
-  [/^Wix Bookings$/i, "bookings"],
-  [/^Wix Events$/i, "events"],
-  [/^Wix Forms$/i, "forms"],
-  [/^Wix Blog$/i, "blog"],
-  [/^(Wix )?Pricing Plans$/i, "pricing-plans"],
-  [/^Wix Restaurants/i, "restaurants"],
-  [/^(Wix )?Portfolio$/i, "portfolio"],
-  [/^(Wix )?Members Area$/i, "members"],
-  [/^(Wix )?(CMS|Content Manager)$/i, "cms"],
-];
-const accountToken = cliToken();
-let site = { siteId, name: null, currency: null, apps: [], verticals: [] };
-try {
-  const { markdown = "" } = await call(WIXAPIS, "/_api/dynamic-context/v1/dynamic-context/markdown", { token: accountToken, body: { siteId } });
-  site.name = markdown.match(/^## \d+\. (.+)$/m)?.[1]?.trim() ?? null;
-  site.currency = markdown.match(/Currency: \*\*([A-Z]{3})\*\*/)?.[1] ?? null;
-  site.apps = [...markdown.matchAll(/^- \*\*(.+?)\*\* \(ID: `([^`]+)`\)/gm)]
-    .map((m) => ({ name: m[1], appId: m[2] }))
-    .filter((a) => !/OAuth app/i.test(a.name));
-  site.verticals = [...new Set(site.apps.flatMap((a) => APP_TO_VERTICAL.filter(([re]) => re.test(a.name)).map(([, v]) => v)))];
-  site.dashboardUrl = `https://manage.wix.com/dashboard/${siteId}`;
-  emit("site", site);
-} catch (e) {
-  emit("site_unknown", { siteId, detail: String(e.message).slice(0, 200) });
-}
-const businessName = flag("business-name") ?? site.name ?? "Headless Frontend";
 const folderName = flag("folder-name") ?? (businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "site");
 let projectDir = resolve(process.cwd(), folderName);
 if (existsSync(join(projectDir, "wix.config.json"))) fail("args", `${folderName}/ is already a Wix project — pick --folder-name, or run deploy.mjs there`);
 
-// ---- 2 · attach: OAuth app + hosting + env, on the manage host with a site token -----------------
+// ---- 1 · attach: OAuth app + hosting + env, on the manage host with a site token -----------------
 // The same calls `init` makes after it has created a site, in the same order.
 const siteToken = cliToken(siteId);
 const opts = { token: siteToken, site: siteId };
@@ -181,7 +150,7 @@ try {
 const baseUrl = String(appProject.baseUrl).replace(/\/$/, "");
 emit("attached", { siteId, appId, baseUrl, hosting, note: hosting === "reused" ? "this site already has a headless frontend at baseUrl; `wix release` from this project replaces it" : undefined });
 
-// ---- 3 · scaffold -------------------------------------------------------------------------------
+// ---- 2 · scaffold -------------------------------------------------------------------------------
 mkdirSync(projectDir, { recursive: true });
 if (stack === "astro") {
   // The CLI's own blank template (what `wix create` copies), then what its extender adds: the
@@ -248,9 +217,9 @@ if (stack !== "astro") {
   process.exit(0);
 }
 
-// ---- 4 · deploy shipped code + deps + lockfile ---------------------------------------------------
+// ---- 3 · deploy shipped code + deps + lockfile ---------------------------------------------------
 let deployResult = {};
-if (verticals.length) {
+{
   const deploy = spawnSync("node", [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack], { cwd: projectDir, encoding: "utf8", timeout: 60_000 });
   if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
@@ -260,7 +229,7 @@ if (verticals.length) {
   try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block on the note */ }
 }
 
-// ---- 5 · optional --flatten ---------------------------------------------------------------------
+// ---- 4 · optional --flatten ---------------------------------------------------------------------
 const targetDir = process.cwd();
 if (flatten && projectDir !== targetDir) {
   try {
@@ -271,7 +240,7 @@ if (flatten && projectDir !== targetDir) {
   } catch (e) { fail("flatten", e?.stack || e); }
 }
 
-// ---- 6 · dependency install, detached -----------------------------------------------------------
+// ---- 5 · dependency install, detached -----------------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");
 const logFd = openSync(installLog, "a");
 const install = spawn("sh", ["-c", "npm ci --ignore-scripts || npm install --ignore-scripts"], { cwd: projectDir, detached: true, stdio: ["ignore", logFd, logFd] });
@@ -285,14 +254,11 @@ emit("ready_for_brand_layer", {
   appId,
   baseUrl,
   hosting,
-  currency: site.currency,
-  verticals: verticals.length ? verticals : site.verticals,
+  verticals,
   dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
   productsUrl: deployResult.productsUrl,
   categoriesUrl: deployResult.categoriesUrl,
   install: { log: installLog, doneMarker: "node_modules/.package-lock.json" },
   seed: null,
-  next: verticals.length
-    ? "the site's content is live already — nothing to seed; read what it holds through the deployed data layer, theme SiteLayout + write the pages; wait for the install marker, build, release"
-    : "pick the verticals from `verticals`, run deploy.mjs <vertical…> --stack astro here, then as above",
+  next: "the site's content is live already — nothing to seed; read what it holds through the deployed data layer, theme SiteLayout + write the pages; wait for the install marker, build, release",
 });

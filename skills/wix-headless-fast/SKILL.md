@@ -113,21 +113,30 @@ doesn't express — or once the site exists and the work turns to managing or ex
    manual path below, then continue.
 
    **Existing-site runs (the brief names a Wix site by its id — a new frontend for a site that
-   already has its content): run attach** — one deterministic call, same shape as the fast path:
+   already has its content): read the site, then run attach.** First, one call tells you what
+   the site is — its name, currency, and the Wix apps installed on it:
 
    ```bash
-   node <SKILL_ROOT>/install/attach.mjs --site <siteId> --vertical <vertical>[,<vertical>]
+   curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+     -H "Authorization: $(npx -y @wix/cli@latest token)" -H 'Content-Type: application/json' \
+     -d '{"siteId": "<siteId>"}'
+   ```
+
+   The installed apps name the verticals (Wix Stores → storefront, Wix Bookings → bookings, and
+   so on per the Verticals table); the brief picks among them. Then one deterministic call, same
+   shape as the fast path:
+
+   ```bash
+   node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>]
    ```
 
    `init`/`wix create` always create a site, so they are not used here. attach does what they do
    after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
    given, scaffolds the CLI's Astro template, deploys the shipped code, and starts the install
-   detached. Its first event, `site`, names the site, its currency, its installed apps and the
-   verticals they map to: choose `--vertical` from those and the brief (run it once without
-   `--vertical` to see them when the brief doesn't say). No seed runs and nothing on the site
-   changes: the content is the site's own, read live through the deployed data layer. When the
-   site already has a headless frontend, `attached` says so (`hosting: "reused"`) with its URL —
-   `wix release` from this project replaces that frontend; say so when you close.
+   detached. No seed runs and nothing on the site changes: the content is the site's own, read
+   live through the deployed data layer. When the site already has a headless frontend,
+   `attached` says so (`hosting: "reused"`) with its URL — `wix release` from this project
+   replaces that frontend; say so when you close.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
