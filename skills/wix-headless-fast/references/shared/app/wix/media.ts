@@ -49,3 +49,13 @@ export function imgSrcSet(value: MediaLike, widths: number[] = [320, 480, 640, 9
   }
   return raw; // one candidate, never an empty srcset for a real image
 }
+
+/**
+ * The identity of a media value BEFORE scaling — de-duplicate galleries on this, never on a
+ * resolved URL (two scaled URLs of one photo differ in their size parameters).
+ */
+export function mediaKey(value: MediaLike): string {
+  const v = typeof value === "object" && value !== null ? (value.image ?? value.url ?? "") : (value ?? "");
+  if (!v) return "";
+  return v.startsWith("wix:image://") ? v.split("#")[0] : v.replace(/\/v1\/fill\/w_\d+,h_\d+/, "");
+}

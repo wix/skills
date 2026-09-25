@@ -19,7 +19,7 @@ components, plus your home page.
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
 | `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet(p.imageUrl)` + `sizes` for responsive tiles (it takes the DTO's resolved URLs) — always alongside `src={p.imageUrl}` |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
-| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` |
+| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
 | `hooks/storefront/useCart.ts` | cart state + actions — contract below |
 | `hooks/storefront/useShop.ts` | listing: category scope, sort, filters, option facets, result count, paging — contract below |
@@ -410,6 +410,36 @@ export default function ProductDetailView(props: {
    frontmatter machinery exact, presentation yours. Primary-content islands mount `client:load` with the
    SSR props; browser-state widgets (cart) are `client:only="react"`.
 3. Write `pages/index.astro` (home) on `SiteLayout`.
+
+### Wiring — static site (`--stack static`, no bundler)
+
+`deploy.mjs storefront --stack static` put the REST layer in `js/wix/` (browser ESM, the `.ts`
+beside each `.js` for reading). Same function names and DTOs as the table above, so the contracts
+on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
+`fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` from `./js/wix/catalog.js`;
+`fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `checkoutUrl` from `./js/wix/cart.js`.
+No hooks and no components ship here — you write the shop, category, PDP, cart drawer, filter
+panel, and quick add in plain JS against those DTOs, to the same contracts: selections start
+empty and go through `resolveVariant`; `addToCart` needs the resolved `variantId` for an optioned
+product; the drawer opens after every add; overlays follow the CartDrawer contract (root-level,
+scroll lock, Escape, focus back). Pages are `shop.html`, `category.html?slug=…`,
+`product.html?slug=…`. The visitor token persists in `localStorage` on its own; never mint per
+page. `npx @wix/cli@latest release` uploads the folder (`site.outputDirectory` in
+`wix.config.json` points at it).
+
+### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
+
+Run `deploy.mjs storefront --stack static` in the project folder anyway: `js/wix/` is both the
+browser-side code and the readable spec. Then split by where the call runs. **Reads on the
+server:** port `js/wix/catalog.ts` and `catalog-core.ts` to your language — the same six functions
+returning the same DTO shapes as dicts, one anonymous visitor token per process for these public
+reads (mint and refresh per `client.ts`) — and render shop, category, and PDP in your templates to
+the contracts above, so product names and prices are in the HTML; item-page tags from the entity's
+`seoData`. **The cart in the browser:** load `./js/wix/cart.js` in the templates and drive the
+drawer, add, quantity, remove, and `checkoutUrl()` from the page, exactly as the static wiring
+above — the browser owns the shopper's visitor token, so the server never handles per-shopper
+tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
+to the OAuth app's allowed domains before checkout can return.
 
 ### Wiring — React SPA (Vite etc.)
 
