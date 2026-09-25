@@ -183,10 +183,15 @@ two transports. Storefront ships it today; other verticals follow the same layou
     copy it there after each build), make the generator emit a page for **every** product and
     category slug (a URL generator over `fetchCategories()` and a full `searchCatalog` walk),
     point `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
-    anonymous visitor token for the duration of the build. **The catalog pages are a snapshot**:
-    a price change or a new product needs a rebuild and re-release; the cart, stock at add time,
-    and checkout stay live through the browser. Say so in the closing message, with the rebuild
-    command. A running server (live reads on every request) stays theirs to host.
+    anonymous visitor token for the duration of the build. Frozen pages sit at different depths
+    (`/`, `/category/…`, `/products/…`), so reference `js/wix/` through one base path (a template
+    variable, or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level
+    down. **The frozen page is the first paint, not the whole gallery**: the same `js/wix/catalog.js`
+    the cart imports drives sort, filters, facets, search, and load-more client-side on top of the
+    pre-rendered grid, so the storefront's gallery contract still applies. **The catalog pages are
+    a snapshot**: a price change or a new product needs a rebuild and re-release; the cart, stock
+    at add time, and checkout stay live through the browser. Say so in the closing message, with
+    the rebuild command. A running server (live reads on every request) stays theirs to host.
   Then read the vertical's `INSTRUCTIONS.md` for the surfaces and Verify list, the shared
   `DESIGN.md`/`CONTENT.md`, and the shipped components as behaviour specs. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when

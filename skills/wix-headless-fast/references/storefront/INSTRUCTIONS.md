@@ -473,8 +473,13 @@ the reads, run at build time with one anonymous token; the generator must emit e
 category page (a URL generator over `fetchCategories()` plus a full `searchCatalog` walk by
 cursor — never only the first page). Run `deploy.mjs storefront --stack static --out <build dir>`
 so `js/wix/` is inside the output the pages import from, point `site.outputDirectory` at that
-folder, `wix release`. The catalog pages are a snapshot until the next build; the cart is live.
-Close with the live URL, the rebuild + release command, and that caveat.
+folder, `wix release`. Pages sit at different depths (`/`, `/category/…`, `/products/…`): give
+the templates one base path to `js/wix/` (a template variable, or root-relative `/js/wix/…`),
+never a relative `./js/wix/` — it breaks one level down. The frozen grid is the first paint; the
+shop's sort, filters, facets, search, and load-more still run client-side on it from
+`./js/wix/catalog.js`, exactly as on a static site, so the gallery contract above applies. The
+catalog pages are a snapshot until the next build; the cart is live. Close with the live URL, the
+rebuild + release command, and that caveat.
 
 ### Wiring — React SPA (Vite etc.)
 
