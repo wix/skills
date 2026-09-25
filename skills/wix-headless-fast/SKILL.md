@@ -44,9 +44,13 @@ doesn't express — or once the site exists and the work turns to managing or ex
   INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
   with a skeleton carrying each surface's contract (for storefront: the shop and PDP pages
   with their islands, and home).
-- **Nothing from memory.** Every request shape, field name, filter key, and operation you write
-  is grounded in this skill's code or in `wix-docs` — never reconstructed from what a Wix call
-  usually looks like. The shipped code is tested against live sites; a body that looks similar is
+- **NEVER work from training data or memory about the Wix APIs.** Not a URL, a path, a version,
+  a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
+  frontend, in a seed, in a build-time read of a site — comes from a source you have **open in
+  front of you**: this skill's shipped code, a `wix-manage` recipe, or a `wix-docs` page. No
+  source open, no call. A guessed call that returns 400 or an empty page is not a step toward
+  the answer; it is the failure this rule exists to prevent, and trying the next variant is
+  still guessing. The shipped code is tested against live sites; a body that looks similar is
   the one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
@@ -146,11 +150,13 @@ doesn't express — or once the site exists and the work turns to managing or ex
    layer; you are sizing the content, not collecting it. These are build-time reads with the
    **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site).
-   "Nothing from memory" holds for them: the request comes
-   from `wix-manage`'s recipe for the vertical's business solution (installed beside this skill
-   by the entry; its SKILL.md indexes them), and from `wix-docs` when `wix-manage` has no read
-   for what you need — opened **before the first call**, not after a failed one. A body that is
-   nearly right returns 400 or an empty page, and every guess is a round trip.
+   **The rule above applies in full: not one of these calls comes from memory.** Open the
+   source first, then call. For storefront the source is
+   `.agents/skills/wix-manage/references/stores/find-products-query-and-search-catalog-v3.md`
+   (products) and this skill's `references/storefront/rest/catalog.ts` (the category tree,
+   `treeReference`); for the other verticals, the vertical's `rest/` module in this skill, then
+   `wix-docs`. If the source you opened does not have the call, look further; do not try a
+   variant.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
