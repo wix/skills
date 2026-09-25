@@ -418,6 +418,30 @@ export default function ProductDetailView(props: {
 }
 ```
 
+### The reference files for stacks where the components don't deploy
+
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives, and you write
+their equivalents. Read these first — they are tested code for exactly that behaviour, and
+rewriting them from the prose above is where the bugs come from:
+
+1. `hooks/storefront/useProductDetail.ts` — selections start empty → `resolveVariant` → `canAdd`
+   and a neutral `blockedReason` → quantity reset on an option change → `add()`. Your product-page
+   and picker state is this file in your language.
+2. `components/storefront/QuickAdd.tsx` — the three purchase paths decided from the summary DTO;
+   the panel is positioned inside the tile (the tile is `relative`), a bottom sheet on small
+   screens, never `fixed` with computed offsets; it closes on Escape, the close button, a
+   successful add, or the scrim — there is NO outside-click handler (one that runs after a
+   re-render sees the clicked swatch detached and closes on every pick).
+3. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
+   scrim, scroll lock, Escape, focus in and back.
+4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
+   the price pair commits only when valid.
+5. `hooks/storefront/useShop.ts` — the listing state machine: one selection object →
+   `searchCatalog`, a fresh cursor chain on every change, a stale-response guard, facets per
+   category scope, URL sync.
+
+All under `references/storefront/app/`.
+
 ### Wiring — Astro (default)
 
 1. Set the `@theme` tokens (one edit); brand `SiteLayout.astro` (one pass).
@@ -428,27 +452,7 @@ export default function ProductDetailView(props: {
 
 ### Wiring — another JS framework (`--stack lib`: Vue, Svelte, Solid, plain Vite)
 
-**Read first — the shipped components and hooks don't deploy on this stack, so they are your
-reference for the behaviour you are about to write. Open them before writing any surface:**
-
-1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
-   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
-   `add()`. Your product-page and picker state is this file in your language.
-2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
-   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
-   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
-   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
-   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
-3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
-   working code: root-level, scrim, scroll lock, Escape, focus in and back.
-4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
-   the sheet stages until Apply; the price pair commits only when valid.
-5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
-   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
-   guard, facets per category scope, URL sync.
-
-The "don't read the shipped files" rule at the top of this playbook is for stacks where they
-deploy. Here they don't, and rewriting them from prose is where the bugs come from.
+Read the reference files listed above before writing any surface.
 
 `deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
 (the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
@@ -475,27 +479,7 @@ from the entity's `seoData`.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-**Read first — the shipped components and hooks don't deploy on this stack, so they are your
-reference for the behaviour you are about to write. Open them before writing any surface:**
-
-1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
-   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
-   `add()`. Your product-page and picker state is this file in your language.
-2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
-   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
-   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
-   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
-   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
-3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
-   working code: root-level, scrim, scroll lock, Escape, focus in and back.
-4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
-   the sheet stages until Apply; the price pair commits only when valid.
-5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
-   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
-   guard, facets per category scope, URL sync.
-
-The "don't read the shipped files" rule at the top of this playbook is for stacks where they
-deploy. Here they don't, and rewriting them from prose is where the bugs come from.
+Read the reference files listed above before writing any surface.
 
 `deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser
 ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
@@ -515,27 +499,7 @@ its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
-**Read first — the shipped components and hooks don't deploy on this stack, so they are your
-reference for the behaviour you are about to write. Open them before writing any surface:**
-
-1. `references/storefront/app/hooks/storefront/useProductDetail.ts` — selections start empty →
-   `resolveVariant` → `canAdd` and a neutral `blockedReason` → quantity reset on an option change →
-   `add()`. Your product-page and picker state is this file in your language.
-2. `references/storefront/app/components/storefront/QuickAdd.tsx` — the three purchase paths
-   decided from the summary DTO; the panel is absolutely positioned inside the tile (the tile is
-   `relative`), a bottom sheet on small screens, never `fixed` with computed offsets; it closes on
-   Escape, the close button, a successful add, or the scrim — there is NO outside-click handler
-   (one that runs after a re-render sees the clicked swatch detached and closes on every pick).
-3. `references/storefront/app/components/storefront/CartDrawer.tsx` — the overlay contract as
-   working code: root-level, scrim, scroll lock, Escape, focus in and back.
-4. `references/storefront/app/components/storefront/FilterPanel.tsx` — inline commits at once,
-   the sheet stages until Apply; the price pair commits only when valid.
-5. `references/storefront/app/hooks/storefront/useShop.ts` — the listing state machine: one
-   selection object → `searchCatalog`, a fresh cursor chain on every change, a stale-response
-   guard, facets per category scope, URL sync.
-
-The "don't read the shipped files" rule at the top of this playbook is for stacks where they
-deploy. Here they don't, and rewriting them from prose is where the bugs come from.
+Read the reference files listed above before writing any surface.
 
 Run `deploy.mjs storefront --stack static` in the project folder anyway: `js/wix/` is both the
 browser-side code and the readable spec. Then split by where the call runs. **Reads on the
