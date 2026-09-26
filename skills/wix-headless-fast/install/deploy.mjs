@@ -209,6 +209,16 @@ if (!Array.isArray(uploadPolicies)) {
   console.log(JSON.stringify({ error: "plan.capabilities.mediaUpload.policies must be an array" }));
   process.exit(1);
 }
+// ---- record the project in AGENTS.md / CLAUDE.md -------------------------------------------------
+// pin-agents-md.mjs keeps a state block (stack, solutions deployed, release command, where the
+// skills are) between markers and rewrites it, so deploying another solution updates the record.
+async function pinAgentsMd(result) {
+  if (!result.verticals.length) return;
+  const { spawnSync } = await import("node:child_process");
+  const pin = spawnSync("node", [join(SKILL_ROOT, "install", "pin-agents-md.mjs"), "--vertical", result.verticals.join(","), "--stack", result.stack], { cwd: PROJECT, encoding: "utf8", timeout: 10_000 });
+  try { result.agentsMd = JSON.parse(pin.stdout).pinned; } catch { result.agentsMd = "not written"; }
+}
+
 // ---- static stack: the REST layer, composed flat and stripped ------------------------------------
 if (stack === "static") {
   const { spawnSync } = await import("node:child_process");
@@ -286,6 +296,7 @@ if (stack === "static") {
   const stores = readdirSync(JS).filter((f) => f.endsWith("-store.js")).map((f) => `./js/wix/${f}`);
   const dataFiles = readdirSync(JS).filter((f) => f.endsWith(".js") && !f.endsWith("-store.js") && !f.endsWith("-core.js") && !f.endsWith("-types.js") && !["client.js", "config.js", "media.js"].includes(f)).map((f) => `./js/wix/${f}`);
   result.note = `import the data layer (${dataFiles.join(", ")})${stores.length ? ` and the stores (${stores.join(", ")})` : ""} relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at "./${outDir ?? "."}"`;
+  await pinAgentsMd(result);
   console.log(JSON.stringify(result));
   process.exit(0);
 }
@@ -530,4 +541,5 @@ if (requested.includes("members")) {
   }
 }
 
+await pinAgentsMd(result);
 console.log(JSON.stringify(result, null, 2));
