@@ -6,8 +6,7 @@ never re-scaffold.
 
 ## File Contract
 
-Use the Wix CLI scaffold as the source of truth. Do not replace it with a custom
-layout or a hand-written manifest. Preserve these file responsibilities:
+Keep the Wix CLI scaffold and these file responsibilities:
 
 | File | Ownership | Purpose |
 | --- | --- | --- |
@@ -19,8 +18,7 @@ layout or a hand-written manifest. Preserve these file responsibilities:
 | `<component-name>.generated.ts` | NEVER edit | Generated manifest — do not edit |
 | `<component-name>.extension.ts` | Edit narrowly | Supported partial manifest overrides |
 
-Supplementary files (constants, hooks, sub-components) are allowed; keep scaffold
-roles intact.
+Supplementary files are allowed; keep scaffold roles intact.
 
 ## Workflow
 
@@ -31,8 +29,7 @@ roles intact.
    npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description"}'
    ```
 
-   Creates `src/extensions/site/components/<component-name>/` and registers the
-   extension in `src/extensions.ts`. Do not rerun for an existing component.
+   This creates and registers the component. Never rerun it for an existing one.
 
 2. **Run the dependency preflight.** Verify that all component creation and
    accessibility-review dependencies are installed:
@@ -41,12 +38,11 @@ roles intact.
    node -e "const fs=require('fs'),path=require('path'),ps=['@wix/react-component-schema','@wix/react-component-utils','@wix/editor-react-types','@babel/parser','@babel/traverse','@babel/types','eslint','eslint-plugin-jsx-a11y','@typescript-eslint/parser','typescript','@types/eslint-plugin-jsx-a11y','jsdom','axe-core'];const missing=ps.filter(p=>!(require.resolve.paths(p)||[]).some(d=>fs.existsSync(path.join(d,p,'package.json'))));if(missing.length){console.error('Missing dependencies: '+missing.join(', '));process.exit(1)}" || { d="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/yarn.lock" ]; do d="${d%/*}"; done; if [ -f "$d/yarn.lock" ]; then yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && yarn add -D @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y jsdom axe-core; else npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types && npm install --save-dev @babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y jsdom axe-core; fi; }
    ```
 
-3. **Plan the contract and structure.** Identify props, semantic root, named
-   parts, and design states; read routed references below before writing code.
+3. **Plan.** Identify props, semantic root, named parts, and design states; read
+   the routed references before writing code.
 
-4. **Implement the editable sources.** Preserve the scaffold contract: props in
-   the props file, logic in TSX, styles in the CSS Module. Do not edit
-   `*.generated.ts`.
+4. **Implement.** Keep props, logic, and styles in their scaffolded editable
+   files. Never edit `*.generated.ts`.
 
 5. **Run the accessibility review.** Once the JSX is complete, run from the
    same folder (`<SKILL_ROOT>` is the directory containing the active `SKILL.md`):
@@ -55,16 +51,14 @@ roles intact.
    node <SKILL_ROOT>/scripts/scan-a11y-review.cjs src/extensions/site/components/<component-name>
    ```
 
-   Then follow [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
-   fix confirmed findings, rerun after each fix pass (at most two), and report
-   what remains.
+   Follow [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md); fix and
+   rerun at most twice, then report remaining findings.
 
-6. **Configure the editor extension when required.** For a new component or a
-   requested sizing, installation, or manifest change, apply
+6. **Configure the editor extension.** For creation or a requested sizing,
+   installation, or manifest change, apply
    [`editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
-   to `<component-name>.extension.ts`. Otherwise leave the file unchanged.
-   Synchronize `requiredDataFields` and `rootClassName` in
-   `component.preview.tsx`.
+   to the extension; otherwise leave it unchanged. Synchronize preview
+   `requiredDataFields` and `rootClassName`.
 
 7. **Generate and validate.** Run:
 
@@ -73,24 +67,19 @@ roles intact.
    npx tsc --noEmit
    ```
 
-   Run relevant tests and lint when available. Inspect the regenerated manifest;
-   never repair it by hand. On failure, diagnose with
+   Run relevant tests/lint. Inspect the manifest; never hand-repair it. Diagnose
+   failures with
    [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
 
-8. **Report the result.** Summarize edited files and checks. Call out any
-   unresolved conflict, missing dependency, unsupported CLI version, or check
-   that could not run.
+   For creation/layout changes, complete the routed overflow resize review.
+
+8. **Report.** Summarize files, checks, blockers, and checks that could not run.
 
 ## Reference Policy
 
-- Read **only** matching required + triggered optional rows; optional triggers
-  become required when they match.
-- References refine the active step; they do not restart workflow or expand scope.
-- Never re-scaffold an existing component or edit `*.generated.ts`.
-
-`SKILL.md` is the only reference router; reference files are self-contained
-leaves. For existing components, preserve out-of-scope public props, styling,
-extension configuration, and supporting files.
+Read only matching required and triggered optional rows. References refine the
+active step. Preserve unrelated existing behavior; never re-scaffold or edit a
+generated manifest. `SKILL.md` is the only router; references are leaves.
 
 ### Required References
 
@@ -102,6 +91,7 @@ extension configuration, and supporting files.
 | Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
+| Creating or changing layout/content | [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
 | Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
 | Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
 
@@ -140,9 +130,12 @@ extension configuration, and supporting files.
   all bodies, hide inactive accessibly.
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
-- `component.preview.tsx`: preserve this outer-to-inner composition, inline or
-  through component variables:
+- Resizable layout: required content stays usable at 320px. Reflow a requested
+  visible group inside its page; never squeeze fixed columns or clip at root.
+  Cap track minima with `minmax(min(100%, <minimum>), 1fr)`. A non-scroll
+  descendant over 1px wider than its client fails. Follow
+  [`OVERFLOW.md`](editor-react-component/OVERFLOW.md).
+- Preview composition, inline or through variables:
   `withDefaults(withFallbackPlaceholder(PreviewOrComponent, options), defaultProps)`.
-  Keep `withDefaults` outermost, wrap the preview adapter when present, use one
-  crucial `requiredDataFields` entry, and match `rootClassName` to the root
-  global class.
+  Keep `withDefaults` outermost; use one crucial data field and match the root
+  class.
