@@ -46,12 +46,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
   with their islands, and home).
 - **NEVER work from training data or memory about the Wix APIs.** Not a URL, a path, a version,
   a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
-  frontend, in a seed, in a build-time read of a site — comes from a source you have **open in
-  front of you**: this skill's shipped code, a `wix-manage` recipe, or a `wix-docs` page. No
-  source open, no call. A guessed call that returns 400 or an empty page is not a step toward
-  the answer; it is the failure this rule exists to prevent, and trying the next variant is
-  still guessing. The shipped code is tested against live sites; a body that looks similar is
-  the one that returns nothing, and the API rarely says why.
+  frontend, in a seed, in a build-time read of a site — comes from the official Wix skills
+  installed here or from the official Wix documentation, which `wix-docs` is the way to. Read it
+  there first, then write the call. A guessed call that returns 400 or an empty page is not a
+  step toward the answer; it is the failure this rule exists to prevent, and trying the next
+  variant is still guessing. The shipped code is tested against live sites; a body that looks
+  similar is the one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -149,8 +149,8 @@ doesn't express — or once the site exists and the work turns to managing or ex
    layer; you are sizing the content, not collecting it. These are build-time reads with the
    **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site).
-   **The rule above applies in full: not one of these calls comes from memory.** Open the
-   source first, then call. Three sources, in this order:
+   **The rule above applies in full: not one of these calls comes from memory.** Read the
+   request where it is written, then call. Where to read, in this order:
    - **The vertical's shipped `rest/` module**, at
      `.agents/skills/wix-headless-fast/references/<vertical>/rest/` — the same reads the pages
      make, written as literal `fetch` calls: URL, body, `fields`, filter keys. It is not in
@@ -166,7 +166,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
      condensed method docs — endpoint, request example, response shape — and the rule that any
      `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
      full page only when the hit lacks what you need.
-   If the source you opened does not have the call, go to the next one; do not try a variant.
+   If what you opened does not have the call, go to the next; do not try a variant.
 
    **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
    `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
