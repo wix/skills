@@ -1,12 +1,65 @@
 ---
 name: "Configure Default Business Hours"
-description: Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
+description: Configures Wix Bookings default availability with Calendar WORKING_HOURS events. For general site opening hours, use the Site Properties business schedule instead; choose the intended surface before querying or installing Bookings.
 ---
 # Technical Step-by-Step Instructions: Setting Up Wix Bookings Default Business Hours (Real-World, API-First)
 
 ## Description
 
 Below are the recommended steps to successfully configure default business hours for Wix Bookings, which control the base availability shown in the "Set default hours" dashboard. This recipe covers the correct API usage, common pitfalls, and cleanup procedures for managing business schedule events.
+
+## Choose which hours to change
+
+- **Default booking availability** or the Bookings **Set default hours** dashboard: continue with the Calendar workflow below.
+- **General site opening/business hours**, without a request to change booking availability: use [Update Business Schedule](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-schedule), `POST https://www.wixapis.com/site-properties/v4/properties/business-schedule`. Do not query Calendar schedules or install Bookings for this task.
+- If the request could mean either surface and the context does not resolve it, ask which hours the user wants changed before mutating either schedule.
+
+### Site Properties: read, update, and verify
+
+Use [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) to read `properties.businessSchedule`:
+`GET https://www.wixapis.com/site-properties/v4/properties?fields.paths=businessSchedule`.
+Replace only the requested weekly periods and preserve `specialHourPeriod` unless the user explicitly requests changes to exceptions. An explicit request to set a specified schedule authorizes that change; otherwise confirm the target and desired hours first.
+
+This example sets Monday–Friday 09:00–17:00 with weekends closed. Supply the authorized site's ID and authorization header. All three requests must succeed; compare the persisted schedule, not the request object, before reporting completion.
+
+```javascript
+async function setWeekdayOpeningHours(siteId, authorization) {
+  const base = "https://www.wixapis.com/site-properties/v4/properties";
+  const readUrl = `${base}?fields.paths=businessSchedule`;
+  const headers = {
+    Authorization: authorization,
+    "wix-site-id": siteId,
+    "Content-Type": "application/json"
+  };
+  async function readSchedule() {
+    const response = await fetch(readUrl, { headers });
+    if (!response.ok) throw new Error(`Read schedule failed: ${response.status}`);
+    const data = await response.json();
+    if (!data.properties) throw new Error("Missing site properties in response");
+    return data.properties.businessSchedule ?? {};
+  }
+  const current = await readSchedule();
+  const periods = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].map(day => ({
+    openDay: day, openTime: "09:00", closeDay: day, closeTime: "17:00"
+  }));
+  const specialHourPeriod = current.specialHourPeriod ?? [];
+  const response = await fetch(`${base}/business-schedule`, {
+    method: "POST", headers,
+    body: JSON.stringify({ businessSchedule: { periods, specialHourPeriod } })
+  });
+  if (!response.ok) throw new Error(`Update schedule failed: ${response.status}`);
+  const saved = await readSchedule();
+  const periodKey = p => JSON.stringify([p.openDay, p.openTime, p.closeDay, p.closeTime]);
+  const keys = values => values.map(periodKey).sort();
+  if (JSON.stringify(keys(saved.periods ?? [])) !== JSON.stringify(keys(periods)) ||
+      JSON.stringify(saved.specialHourPeriod ?? []) !== JSON.stringify(specialHourPeriod)) {
+    throw new Error("Saved business schedule does not match the requested change");
+  }
+  return saved;
+}
+```
+
+After completing this Site Properties path, stop: the Bookings prerequisites and Calendar steps below do not apply.
 
 ---
 
@@ -39,10 +92,10 @@ Wix Bookings default business hours define the base availability for your bookin
 
 ### CRITICAL API DISCOVERY
 
-**❌ WRONG API**: Site Properties API (`/site-properties/v4/properties/business-schedule`)
+**Wrong for Bookings availability**: Site Properties API (`/site-properties/v4/properties/business-schedule`)
 - This sets general site business schedule, NOT Bookings default hours
 
-**✅ CORRECT API**: Calendar Events V3 API (`/calendar/v3/events`)
+**Correct for Bookings availability**: Calendar Events V3 API (`/calendar/v3/events`)
 - Creates `WORKING_HOURS` events on the business schedule
 - Each `MASTER` event creates one time slot in the dashboard
 - Uses fixed business resource ID: `4e0579a5-491e-4e70-a872-d097eed6e520`
