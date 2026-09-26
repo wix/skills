@@ -1,5 +1,6 @@
 node_modules/
 __generated__/
+__generated_templates__/
 .pnp.*
 .yarn/cache
 .yarn/install-state.gz

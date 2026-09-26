@@ -23,25 +23,32 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s) and the project-wide [CODE_QUALITY.md](references/CODE_QUALITY.md)
   - [ ] **Dashboard page UI:** Translated the prompt into a workflow before choosing components — what the user must understand, focus on, investigate, act on, and see confirmed. See [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md), and the installed package's own `Collection Toolkit.md` guide for which component serves each need ([The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain)).
-    - [ ] **A row the user can open** — WDS `SidePanel` to inspect without losing the filtered list, or `EntityPage` for deep or shareable detail — unless the prompt is explicitly a report or an export.
+    - [ ] **No `SummaryBar` unless the request asked for one** — a named total, count, or "how many / how much" figure in the prompt. Not "the page seems like it wants one": an uninvited bar pushes the rows down and puts a number on screen nobody asked to be right about. When the request did ask, the number has to come from something that counts ([QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md#what-fetchtotal-is-allowed-to-call)) and be read through `useSelector`, because the state is MobX ([TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md#reading-state-outside-the-table-it-is-mobx)).
+    - [ ] **A row the user can open, as a page** — `navigateToEntityPage` to an `EntityPage` when the record is editable, or to a read-only detail route when it isn't ([DRAFT_TEMPLATE_ROUTER.md § 4](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md#4-read-only-detail-route--case-a)) — unless the prompt is explicitly a report or an export. **Never a `SidePanel`**: in Cairo that hosts a page's own panels, and no `example-bm` collection opens a row into one. The read-only route is a WDS `Page`, because `EntityPage` has no view mode — verified at 1.471.0, where `fetch` and `onSave` are both required and `ActionsBarConfig` can retext Save but not remove it.
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
-    A filtered table with neither of the two is what gets built when nobody states the requirement — it is the most common way a generated dashboard disappoints.
+    A filtered table with no drill-in and no working filters is what gets built when nobody states the requirement — the most common way a generated dashboard disappoints. The aggregate is the judgment call; the drill-in and the filters are not.
+  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, **and which data path** — hand-wired ([DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)) for a vertical SDK, schema-driven ([DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md)) for a CMS collection — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
-  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have, and read that one — not all three:
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only, for whatever the template case didn't already show):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have, and read that one — not all three:
     - **Where do I import it from?** → the entry's `importPath`. No file read at all.
     - **How do I call it?** (generics, what a callback receives and returns, how the pieces nest) → the **example** named in `examples`. One worked example beats reconstructing a call from a chain of type files; a hook's example is often filed under the component it pairs with.
     - **What props, and which are optional?** → **the example first** — it shows the props in use, correctly typed. For what an example cannot show (optionality, union members, an exact callback signature): entry has `bundle` ⇒ read that `.d.ts`; entry has no `bundle` ⇒ the doc's own table is complete and marks `Required`, so read the doc. The two are mutually exclusive — reading both is always one hop too many. **Two thirds of bundles stub the parent that holds the props** (`propsTotal` far above what the file declares is the tell); when that happens, read the parent the index names — one hop — batch any `readWith` files you still need into a single call, and fall back to `dist/types/` for the declaration `tsc` enforces. WIX_PATTERNS_DOCS.md step 5 has the procedure.
     - **Any setup requirement or gotcha?** → the doc's prose. Rare, but load-bearing where present (routers, providers).
 
-    State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
+    For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent. State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
+  - [ ] **Dashboard page over Wix data:** located the method and verified every mapped field against the installed SDK's own declaration first — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
+  - [ ] **Vertical SDK prerequisites — for every `@wix/*` vertical the page touches, including one added later:** confirmed the package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required). **A second vertical added during Step 4b needs this check too, and its failure must not take down the page** — see [A second vertical is a second scope](references/dashboard-page/DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
+  - [ ] **Modelled the call on the SDK, not the REST page:** namespace name, `_id` vs `id`, no `ReturnType` on overloaded methods, no `hasNext` on `PagingMetadataV2` — see [The SDK is not the REST API](references/dashboard-page/DATA_SOURCES.md#the-sdk-is-not-the-rest-api).
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
+  - [ ] **Compile as you go:** ran `npx tsc --noEmit` after the first file that imports `@wix/patterns`, not only at Step 5. Patterns' state and filter APIs are the most common source of errors, and finding twenty of them in one batch after the page is written costs far more than finding two early.
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
   - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+- [ ] **Step 4c (dashboard page UI only):** Re-opened and read the page file(s) just written — not recalled intent — and confirmed against the actual code: no `SummaryBar` unless the request asked for one, a routed drill-in (`navigateToEntityPage`) for every row and no `SidePanel` used as one, every declared filter name also appearing inside `fetchData`, and — for Cases A/B/D — the entry file both passes and guards `location`. See [UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit).
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -108,7 +115,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ## Component Selection Order
 
-Dashboard pages at Wix are built from two libraries. For **every** UI element, resolve in this order and stop at the first hit. Never skip a step, and never decide a component is missing from memory — check.
+**For the page shell, provider nesting, and routing — the part every dashboard page needs — start from [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md), not this section.** It has four verified cases (collection only, collection+entity, settings only, all three); pick the one the request matches and adapt it. What follows here is for individual UI elements the matching case's files don't already show — a filter type, a column renderer, a component the request needs that isn't in the skeleton.
+
+Dashboard pages at Wix are built from two libraries. For **every** UI element not already covered by the template, resolve in this order and stop at the first hit. Never skip a step, and never decide a component is missing from memory — check.
 
 ### 1. `@wix/patterns` — page structure and data collections
 
@@ -122,6 +131,12 @@ up rather than assembling it from WDS parts.
 **Which component serves a given need is the library's own answer, not this skill's.** It ships
 that answer as guides inside the installed package, with every component name in them checked
 against the real package at build time. Walk them: [The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain).
+
+Two paths this skill owns rather than the guides: a **worked router skeleton** for multi-page
+extensions (Cases B/D) is in [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md),
+and a **collection whose fields the CMS owns** is a different package — `useCmsSchemaSource`
+from `@wix/patterns-cms`, plus `tableSchemaSource` and `EntityPageFieldsCard`, where the schema supplies
+fetch, filters, columns and the form. See [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md).
 
 The short version — probe `<pkgRoot>/dist/docs/index.json` first (`grep`/`python3`, not a
 whole-file `Read`), then the guides it lists. From
@@ -146,6 +161,19 @@ The leaf-level UI patterns does not own: inputs, buttons, form fields, text, lay
 node <wix-design-system-skill-dir>/scripts/wds.cjs search <keyword>
 node <wix-design-system-skill-dir>/scripts/wds.cjs component <Name>
 ```
+
+**If that skill is not installed** — it is a separate skill, and some hosts ship `wix-app` without
+it — do **not** fall through to writing WDS from memory, and do not treat the missing skill as
+permission to hand-roll the component. Read the installed package instead, which is where the skill
+would have read from anyway:
+
+```bash
+ls node_modules/@wix/design-system/dist/types/            # the component inventory
+cat node_modules/@wix/design-system/dist/types/<Name>/<Name>.d.ts   # its real props
+```
+
+Name the file you read before using the component, exactly as the Component Docs Gate requires for
+patterns. A missing skill lowers the convenience, not the bar.
 
 ### 3. Custom React — only after both came back empty
 
@@ -220,6 +248,14 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Wix Patterns Dashboard Pages | [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) |
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
+| Draft template — start here for any dashboard page (Cases A/B/C/D) | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
+| Draft template — collection page for Cases A/B/D | [DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md) |
+| Draft template — CMS-backed collection + entity (schema-driven) | [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md) |
+| Draft template — router wiring for Cases A/B/D, incl. the read-only detail route | [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
+| Draft template — settings page for Cases C/D | [DRAFT_TEMPLATE_SETTINGS.md](references/dashboard-page/DRAFT_TEMPLATE_SETTINGS.md) |
+| The state object `useTableCollection()` returns | [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) |
+| Finding the SDK method and field names behind a page | [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md) |
+| Filter paths, WQL operators and cursor paging | [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) |
 
 ---
 
@@ -440,6 +476,28 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 - ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
+### Step 4c: UX Completeness Self-Audit
+
+**Dashboard page UI only.** `tsc`, `wix build`, and `wix preview` all check that the code compiles and runs — none of them check that it's the dashboard the [UX Success Model](references/dashboard-page/UX_SUCCESS_MODEL.md) describes. A page with a bare, un-summarized, un-openable table compiles cleanly and still fails the requirement — that gap is exactly how a generated dashboard passes every technical check and still disappoints. Measured runs confirm it: a page can compile clean and still ship with none of the three items below, because the earlier checklist entries were a stated intention rather than something re-checked against the code that actually landed.
+
+Before moving to Step 5, re-open every page file you just wrote and check the actual code — not what you intended to include:
+
+- [ ] **The page has a `SummaryBar` only if the request asked for one.** Grep for it: an uninvited bar is a defect, not a bonus, and deleting it is the fix. If the request *did* ask, every metric earns its place and the headline counts what **matches the filters** (`state.collection.total`, fed by `fetchTotal`), not what has been paged in — any metric derived from `keyedItems` is labelled as such.
+- [ ] **If a `SummaryBar` number is fed by `fetchTotal`, follow that function to the call it makes and confirm the call counts.** A `fetchTotal` that resolves `undefined` — the usual cause being `pagingMetadata.total`, which a cursor-paged response does not carry — makes the bar report `0` beside a table full of rows, and it compiles, runs and passes every other check on this list. It must resolve a number from a count endpoint (`items.query(id)…count()`, a vertical's own count, or offset paging with `returnTotalCount: true`); if the API has none, delete `fetchTotal` and label the metric as loaded rows. See [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md#a-fetchtotal-that-resolves-undefined-shows-0-not-the-rows).
+- [ ] **Every row opens a page**: a `navigateToEntityPage` call literally appears in `onRowClick` — unless the prompt is explicitly a report or export-only view. A `SidePanel` in a collection page file is the defect this replaces; a display-only page routes to a read-only detail page, it does not fall back to a panel. `grep -n "<SidePanel" <page files>` should return nothing — match the JSX tag, not the bare word, or the templates' own "never a SidePanel" comments fail the check and invite someone to "fix" correct code.
+- [ ] Every filter name declared in the toolbar also appears inside `fetchData`'s query construction — grep for the name in both places if unsure.
+- [ ] The table wires `errorState` — without it a failed query is indistinguishable from a slow one, and the page you just shipped cannot tell you which it is.
+- [ ] **Case B/D only — the entry file both passes and guards `location`.** `PatternsReactRouter` throws at open when `location` is missing *or* still `undefined` on the first render, and `tsc`, `wix build` and even a green build all pass regardless. Both halves are required — the `location={location}` prop **and** the `location ? … : null` guard around it, since `observeState` has not fired yet on the first render. Grep the entry file rather than trusting recall:
+
+  ```bash
+  grep -n "observeState\|location={location}\|location ?" src/extensions/dashboard/pages/<page>/<page>.tsx
+  ```
+
+  Three hits is correct. A missing guard is the failure mode that has actually shipped: a measured run produced a page whose plumbing looked present and still crashed on open, while a re-run of the same prompt produced a working one — so this is intermittent, and re-running is not a check.
+- [ ] Every `@wix/*` vertical imported by the page's api module is a declared dependency, and each one's scope is listed under Manual Steps. Any call to a **secondary** vertical (an enrichment lookup, a filter's options, a search term resolved to ids) is wrapped so its failure degrades that feature instead of failing the page.
+
+If a box fails and no exception applies, add the missing piece now. Do not let "it compiles" stand in for "it satisfies the checklist" — Step 5 checks the former, this step checks the latter, and they are independent.
+
 ### Step 5: Run Validation
 
 After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
@@ -505,7 +563,7 @@ The following actions need to be done manually by you:
 
 ## Validation
 
-Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide.
+Execute these steps sequentially after all implementation is complete. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete guide. Dashboard page UI: run [Step 4c's UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit) first — the checks below verify the code runs, not that it's the dashboard the prompt asked for.
 
 1. **Package Installation** — Detect package manager, run install
 2. **TypeScript Compilation** — `npx tsc --noEmit -p .`

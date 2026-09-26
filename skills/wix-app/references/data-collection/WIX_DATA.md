@@ -1,39 +1,27 @@
 # Wix Data SDK Reference
 
-Complete reference for working with Wix Data collections.
-
 ## Installation
 
-**IMPORTANT**: The `@wix/data` package must be installed as a dependency before use.
+`@wix/data` must be a dependency before use: `npm install @wix/data`.
 
-```bash
-npm install @wix/data
-```
-
-### Troubleshooting
-
-**If you encounter: `Cannot find module '@wix/data'`**
-
-❌ **WRONG**: Do not create mock implementations or workarounds
-✅ **CORRECT**: Install the package using `npm install @wix/data`
-
-The `@wix/data` package is a real npm package that provides access to Wix Data collections.
-It must be installed before TypeScript compilation will succeed.
+`Cannot find module '@wix/data'` means it is not installed. Install it — never mock it.
 
 ## SDK Methods & Interfaces
 
-| Method Call | Import | TypeScript Signature | Description |
-| --- | --- | --- | --- |
-| `items.get()` | `import { items } from '@wix/data'` | `(collectionId: string, itemId: string, options?: WixDataGetOptions) => Promise<WixDataItem \| null>` | Get a single item by ID |
-| `items.query()` | `import { items } from '@wix/data'` | `(collectionId: string) => WixDataQuery` | Build a chainable query (call `.find()` to execute) |
-| `items.insert()` | `import { items } from '@wix/data'` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataInsertOptions) => Promise<WixDataItem>` | Add a new item to a collection |
-| `items.update()` | `import { items } from '@wix/data'` | `(collectionId: string, item: WixDataItem, options?: WixDataUpdateOptions) => Promise<WixDataItem>` | Replace an existing item (item MUST include `_id`) |
-| `items.save()` | `import { items } from '@wix/data'` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataSaveOptions) => Promise<WixDataItem>` | Insert or update (upsert) based on `_id` |
-| `items.remove()` | `import { items } from '@wix/data'` | `(collectionId: string, itemId: string, options?: WixDataRemoveOptions) => Promise<WixDataItem \| null>` | Remove an item by ID |
-| `items.bulkInsert()` | `import { items } from '@wix/data'` | `(collectionId: string, items: Partial<WixDataItem>[], options?: WixDataOptions) => Promise<WixDataBulkResult>` | Insert multiple items (max 1000) |
-| `items.bulkUpdate()` | `import { items } from '@wix/data'` | `(collectionId: string, items: WixDataItem[], options?: WixDataBulkUpdateOptions) => Promise<WixDataBulkResult>` | Update multiple items (max 1000) |
-| `items.bulkRemove()` | `import { items } from '@wix/data'` | `(collectionId: string, itemIds: string[], options?: WixDataBulkRemoveOptions) => Promise<WixDataBulkResult>` | Remove multiple items (max 1000) |
-| `items.filter()` | `import { items } from '@wix/data'` | `() => WixDataFilter` | Create a standalone filter (for use with `.or()`, `.and()`, `.not()`) |
+All of these come from `import { items } from '@wix/data'`.
+
+| Method Call | TypeScript Signature | Description |
+| --- | --- | --- |
+| `items.get()` | `(collectionId: string, itemId: string, options?: WixDataGetOptions) => Promise<WixDataItem \| null>` | Get a single item by ID |
+| `items.query()` | `(collectionId: string) => WixDataQuery` | Build a chainable query (call `.find()` to execute) |
+| `items.insert()` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataInsertOptions) => Promise<WixDataItem>` | Add a new item to a collection |
+| `items.update()` | `(collectionId: string, item: WixDataItem, options?: WixDataUpdateOptions) => Promise<WixDataItem>` | Replace an existing item (item MUST include `_id`) |
+| `items.save()` | `(collectionId: string, item: Partial<WixDataItem>, options?: WixDataSaveOptions) => Promise<WixDataItem>` | Insert or update (upsert) based on `_id` |
+| `items.remove()` | `(collectionId: string, itemId: string, options?: WixDataRemoveOptions) => Promise<WixDataItem \| null>` | Remove an item by ID |
+| `items.bulkInsert()` | `(collectionId: string, items: Partial<WixDataItem>[], options?: WixDataOptions) => Promise<WixDataBulkResult>` | Insert multiple items (max 1000) |
+| `items.bulkUpdate()` | `(collectionId: string, items: WixDataItem[], options?: WixDataBulkUpdateOptions) => Promise<WixDataBulkResult>` | Update multiple items (max 1000) |
+| `items.bulkRemove()` | `(collectionId: string, itemIds: string[], options?: WixDataBulkRemoveOptions) => Promise<WixDataBulkResult>` | Remove multiple items (max 1000) |
+| `items.filter()` | `() => WixDataFilter` | Create a standalone filter (for use with `.or()`, `.and()`, `.not()`) |
 
 ## ⚠️ Common Wrong Method Names (DO NOT USE)
 
@@ -67,8 +55,8 @@ interface WixDataItem {
 ```ts
 interface WixDataResult {
   readonly items: WixDataItem[];
-  readonly totalCount: number | undefined;  // only when returnTotalCount: true
-  readonly totalPages: number | undefined;  // only when returnTotalCount: true
+  readonly totalCount: number | undefined;  // both only when returnTotalCount: true
+  readonly totalPages: number | undefined;
   readonly pageSize: number | undefined;
   readonly currentPage: number | undefined;
   readonly length: number;
@@ -81,7 +69,7 @@ interface WixDataResult {
 
 ### WixDataQuery (returned by `items.query()`)
 
-Chainable query builder. Build filters, then call `.find()`, `.count()`, or `.distinct()`.
+Chainable. Build filters, then `.find()`, `.count()` or `.distinct()`.
 
 ```ts
 interface WixDataQuery {
@@ -149,25 +137,9 @@ interface WixDataGetOptions extends WixDataReadOptions {
   includeFieldGroups?: string[];
 }
 
-interface WixDataInsertOptions extends WixDataOptions {}
-
-interface WixDataUpdateOptions extends WixDataOptions {
-  condition?: WixDataFilter; // only update if condition is met
-}
-
-interface WixDataSaveOptions extends WixDataOptions {}
-
-interface WixDataRemoveOptions extends WixDataOptions {
-  condition?: WixDataFilter; // only remove if condition is met
-}
-
-interface WixDataBulkUpdateOptions extends WixDataOptions {
-  condition?: WixDataFilter;
-}
-
-interface WixDataBulkRemoveOptions extends WixDataOptions {
-  condition?: WixDataFilter;
-}
+// Insert/Save options add nothing to WixDataOptions.
+// Update/Remove/BulkUpdate/BulkRemove options add an optional guard:
+//   condition?: WixDataFilter  — only apply when the condition is met
 ```
 
 ### WixDataBulkResult (returned by bulk operations)
@@ -184,12 +156,8 @@ interface WixDataBulkResult {
   removedItemIds: string[];
 }
 
-interface WixDataBulkError extends Error {
-  message: string;
-  code: string;
-  originalIndex: number;      // index in the request array
-  item: WixDataItem | string; // the failed item or ID
-}
+// WixDataBulkError extends Error with `code`, `originalIndex` (position in the
+// request array) and `item` (the failed item or its id).
 ```
 
 ## Usage Examples
@@ -211,12 +179,18 @@ const result = await items.query("MyCollection")
 // result.items: WixDataItem[]
 
 // --- Compound query with or/and ---
-const filter1 = items.filter().eq("status", "pending");
-const filter2 = items.filter().eq("status", "active");
-const result = await items.query("MyCollection")
-  .or(filter1)
-  .or(filter2)
-  .find();
+// `or()` COMBINES two filters; it is not a condition. Called on a query or
+// filter that holds no condition yet, it contributes an empty `{}` branch, and
+// `{} OR x` matches the whole collection. Seed with the first condition, `or()`
+// the rest onto it, then `and()` the result onto the query.
+const pendingOrActive = items.filter().eq("status", "pending")
+  .or(items.filter().eq("status", "active"));
+const result = await items.query("MyCollection").and(pendingOrActive).find();
+
+// ❌ WRONG — or() onto a query holding no condition: matches every row
+items.query("MyCollection").or(filter1).or(filter2);
+// ❌ WRONG — or() onto the query itself: `country` is dropped from branch two
+items.query("MyCollection").eq("country", "IL").contains("name", t).or(filter2);
 
 // --- Insert ---
 const created = await items.insert("MyCollection", {
@@ -249,10 +223,8 @@ const bulkResult = await items.bulkInsert("MyCollection", [
 
 ## Collection Schema Rules
 
-- Always use the exact field keys defined in your collection schema
-- Use the collection ID exactly as defined in the schema
-- Use the schema's exact field types for all operations
-- Custom fields are stored in the `[key: string]: any` part of `WixDataItem`
+Use the collection id, field keys and field types exactly as the schema defines them. Custom fields
+live in the `[key: string]: any` part of `WixDataItem`.
 
 ## Permissions
 
