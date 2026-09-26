@@ -20,6 +20,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeCliAgentsMd } from "./cli-agents-md.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -134,6 +135,11 @@ if (!subfolder && projectDir !== targetDir) {
     fail("place", e?.stack || e);
   }
 }
+
+// ---- 2d · the agent config files `wix create` would have written --------------------------------
+// Skipped by the CLI because of --skip-install (see cli-agents-md.mjs). Written after the move so
+// they land at the project root.
+emit("agent_configs", { written: writeCliAgentsMd(projectDir) });
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");

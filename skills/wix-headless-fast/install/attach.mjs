@@ -25,6 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rea
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeCliAgentsMd } from "./cli-agents-md.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANAGE = "https://manage.wix.com";
@@ -212,6 +213,8 @@ writeFileSync(join(projectDir, ".env.local"), [
   "",
 ].join("\n"));
 emit("scaffolded", { folder: folderName, stack, template: stack === "astro" ? `${TEMPLATES_REPO}#${TEMPLATE_PATH}` : null });
+// the agent config files `wix create` writes (attach never runs the CLI's scaffold at all)
+emit("agent_configs", { written: writeCliAgentsMd(projectDir) });
 
 if (stack !== "astro") {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
