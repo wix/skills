@@ -98,7 +98,7 @@ The PR comment names the reason. The common ones:
 | `<tag>` is carried only by scenarios below the quality bar | Strengthen one of the named scenarios |
 | a scenario you edited is below the bar | Add assertions until it has 3 including an `llm_judge` |
 | assertions failed | Read the linked run. Either the skill change regressed behaviour, or the scenario's expectations need updating — decide which |
-| scenario locked by another PR | Another open PR holds a draft of that scenario. Wait for it, or coordinate with its author |
+| scenario locked by another PR | Another open PR holds a draft of that scenario. The lock releases only when that PR merges or closes — converting it to draft does not release it. Wait for it, or coordinate with its author |
 | capped at `max-scenarios` | Informational. The named scenarios did not run this time |
 | no scenarios could be resolved to run | The gate refuses to report green having verified nothing. Usually a sync gap — check the named scenarios exist in EvalForge |
 
@@ -176,19 +176,22 @@ action in **`sync` mode** and reconciles the YAML into EvalForge.
 
 ## Working on the EvalForge actions themselves
 
-The `.github/actions/evalforge-yaml-gate` (wix-manage flows) and
-`.github/actions/evalforge-skill-gate` (wix-app flows) actions depend on the shared
-`packages/evalforge-core` package (scenario schema, EvalForge API client,
-YAML↔EvalForge mapper, auth) via a local `portal:` dependency, bundled into the
-action's committed `dist/index.js` by `ncc`. CI runs that committed
-bundle directly — there's no `yarn install`/build step in CI — so if you change
+Three actions depend on the shared `packages/evalforge-core` package (scenario schema,
+EvalForge API client, YAML↔EvalForge mapper, auth) via a local `portal:` dependency:
+`.github/actions/evalforge-yaml-gate` (wix-manage flows),
+`.github/actions/evalforge-skill-gate` (wix-app flows), and
+`.github/actions/skill-eval` (wix-manage YAML validation and evaluation). Each bundles it
+into a committed `dist/index.js` by `ncc`. CI runs those committed
+bundles directly — there's no `yarn install`/build step in CI — so if you change
 code in `packages/evalforge-core`, build the package first, then rebuild and
-commit the consuming action's `dist`:
+commit **all three** consuming actions' `dist` directories (each has its own CI freshness
+check, so a skipped rebuild fails that action's check):
 
 ```bash
 (cd packages/evalforge-core && yarn build)
 (cd .github/actions/evalforge-yaml-gate && yarn build)
 (cd .github/actions/evalforge-skill-gate && yarn build)
+(cd .github/actions/skill-eval && yarn build)
 ```
 
 Use the `(cd DIR && yarn SCRIPT)` subshell form, not `yarn --cwd DIR SCRIPT` —
@@ -196,9 +199,9 @@ under Corepack, `--cwd` resolves the yarn version from the real process cwd, so
 invoking it from the repo root can silently run the wrong yarn. See
 [`packages/evalforge-core/README.md`](../packages/evalforge-core/README.md) for details.
 
-Adding a dependency to `evalforge-core` also changes both consuming actions' lockfiles
+Adding a dependency to `evalforge-core` also changes all three consuming actions' lockfiles
 through the `portal:` link, and CI runs `yarn install --immutable`. Run a plain
-`yarn install` in `evalforge-core` **and** in both actions, then commit all three
+`yarn install` in `evalforge-core` **and** in each action, then commit all four
 `yarn.lock` files.
 
 **The workflow YAML is tested too.** `evalforge-skill-gate/tests/workflow-config.test.ts`

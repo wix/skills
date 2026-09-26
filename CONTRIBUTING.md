@@ -102,6 +102,8 @@ Write instructions an agent can act on — an observable trigger and an action i
 
 Run every example against a real site, or confirm it against the official reference and method schema — and when live behavior contradicts the reference, document what the API actually does. A plausible but wrong example is worse than no example, because the agent will trust it.
 
+Verify the response side too: confirm the response fields the skill tells the agent to read actually appear under exactly the request shown — a request flag can change the shape of the response. A wrong response path fails the agent one step later than a wrong request, where it is harder to notice.
+
 ### Stay agnostic to agent and client
 
 You don't know which agent will read a skill, which client or provider it's running in, which tools it has, or what machine it's on. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. The same goes for a named model, device, or editor. Describe the capability you need, not the tool that provides it.
