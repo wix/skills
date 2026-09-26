@@ -5,7 +5,16 @@
 // setup.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
 //
 //   node <SKILL_ROOT>/install/attach.mjs [--site <metaSiteId>] --business-name "<Brand>" \
-//        --vertical <a>[,<b>…] [--stack astro|react|lib|static] [--subfolder [--folder-name <name>]]
+//        --vertical <a>[,<b>…] [--stack astro|react|lib|static] [--hosting wix|self [--origin <url>[,<url>]]] \
+//        [--subfolder [--folder-name <name>]]
+//
+// --hosting        wix (default): the frontend releases to Wix hosting — the site's app project is
+//                  created or reused and `wix release` uploads to its *.wix-site-host.com address.
+//                  self: the frontend is hosted elsewhere (Vercel, a Flask server, …): no app
+//                  project, no Wix address, no Astro template; the OAuth app, wix.config.json and
+//                  .env.local are still set up, the code deploys for --stack, and the origins given
+//                  in --origin go on the OAuth app's redirect allow-list, which is what a Wix-hosted
+//                  flow (checkout) needs to return to a frontend on another host.
 //
 // --site           the site. May be omitted when the folder holds a wix.config.json: then it is
 //                  the site in that config (what `init` left behind in an empty folder).
@@ -40,6 +49,7 @@ import { writeAgentsMd } from "./agents-md.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANAGE = "https://manage.wix.com";
+const API = "https://www.wixapis.com";
 const HEADLESS_PROJECT_TYPE_ID = "eb363dea-85a0-4159-9b05-949542be5079";
 const TEMPLATES_REPO = "https://github.com/wix/headless-templates.git";
 const TEMPLATE_PATH = "astro/blank";
@@ -57,6 +67,8 @@ const flag = (name) => {
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : null;
 };
 const stackFlag = flag("stack");
+const hosting0 = flag("hosting") ?? "wix";
+const origins = (flag("origin") ?? "").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 const subfolder = argv.includes("--subfolder");
 // ---- the folder ---------------------------------------------------------------------------------
 const cwd = process.cwd();
@@ -78,6 +90,11 @@ if (!siteId || !/^[0-9a-f-]{36}$/i.test(siteId) || !businessName || !verticals.l
 }
 for (const v of verticals) if (!knownVerticals.includes(v)) fail("args", `unknown vertical "${v}" — shipped verticals: ${knownVerticals.join(", ")}`);
 if (!["astro", "react", "lib", "static"].includes(stack)) fail("args", `unknown stack "${stack}" — astro, react, lib or static`);
+if (!["wix", "self"].includes(hosting0)) fail("args", `unknown --hosting "${hosting0}" — wix or self`);
+for (const o of origins) if (!/^https?:\/\/[^/\s]+$/.test(o)) fail("args", `--origin must be a scheme and host such as https://shop.example.com or http://localhost:8000, got "${o}"`);
+if (hosting0 === "self" && stack === "astro" && !hasProject && !stackFlag) {
+  fail("args", "--hosting self scaffolds nothing: pass --stack for the frontend you will host (react|lib|static), or attach from inside the project on disk");
+}
 if (!subfolder) {
   if (hasProject && cwdConfig) {
     fail("place", "this folder is already a Wix project with a frontend (wix.config.json and a project): nothing to attach. deploy.mjs <vertical> adds this skill's code or a solution to it; then ONE npm install");
@@ -89,8 +106,8 @@ if (!subfolder) {
     fail("args", "attaching a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
   }
 }
-const mode = !subfolder && hasProject ? "link" : "scaffold";
-emit("folder", { mode, stack, project: hasProject, config: cwdConfig ? "same site" : null });
+const mode = !subfolder && hasProject ? "link" : hosting0 === "self" ? "config-only" : "scaffold";
+emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cwdConfig ? "same site" : null });
 
 // ---- http ---------------------------------------------------------------------------------------
 const cliToken = (site) => {
@@ -127,18 +144,20 @@ if (subfolder && existsSync(join(projectDir, "wix.config.json"))) fail("args", `
 // The same calls `init` makes after it has created a site, in the same order.
 const siteToken = cliToken(siteId);
 const opts = { token: siteToken, site: siteId };
-let appId, appProject, instanceId, secrets, hosting = "created";
+let appId, appProject = null, instanceId, secrets, hosting = hosting0 === "self" ? "self" : "created";
 try {
   const comp = await call(MANAGE, "/_api/companion-apps/v1/companion-apps/get-or-create", { ...opts, body: {} });
   appId = comp.companionApp?.id;
   if (!appId) throw new Error("get-or-create returned no companion app id");
   const slug = folderName;
-  try { appProject = (await call(MANAGE, `/_api/wix-code-app-projects/v1/app-projects/${appId}`, { ...opts, method: "GET" })).appProject; } catch { appProject = null; }
-  if (appProject) {
-    hosting = "reused";
-  } else {
-    try { await call(MANAGE, `/apps-service/v1/apps/${appId}/set-namespace`, { ...opts, method: "PATCH", body: { appId, appName: businessName, namespace: slug } }); }
-    catch (e) { emit("note", { step: "set-namespace", detail: String(e.message).slice(0, 200) }); }
+  if (hosting0 === "wix") {
+    try { appProject = (await call(MANAGE, `/_api/wix-code-app-projects/v1/app-projects/${appId}`, { ...opts, method: "GET" })).appProject; } catch { appProject = null; }
+    if (appProject) {
+      hosting = "reused";
+    } else {
+      try { await call(MANAGE, `/apps-service/v1/apps/${appId}/set-namespace`, { ...opts, method: "PATCH", body: { appId, appName: businessName, namespace: slug } }); }
+      catch (e) { emit("note", { step: "set-namespace", detail: String(e.message).slice(0, 200) }); }
+    }
   }
   try {
     const inst = await call(MANAGE, "/apps-installer-service/v1/app-instance/install", { ...opts, body: { tenant: { id: siteId, tenantType: "SITE" }, appInstance: { appDefId: appId, version: "latest" } } });
@@ -146,9 +165,23 @@ try {
   } catch (e) { emit("note", { step: "install", detail: String(e.message).slice(0, 200) }); }
   secrets = (await call(MANAGE, `/apps-service/v1/apps/${appId}`, { ...opts, method: "GET", query: { withSecrets: true } })).app?.appSecrets;
   if (!secrets?.appSecret) throw new Error("app secrets unavailable for this app");
-  if (!appProject) {
+  if (hosting0 === "self") {
+    // No Wix hosting. The one thing a frontend on another host needs from the site: its origins on
+    // the OAuth app's redirect allow-list, so checkout and the other Wix-hosted flows can return.
+    // The public OAuth Apps API (wix-manage: Manage OAuth Apps), merged with what is already there.
+    if (origins.length) {
+      const current = (await call(API, `/oauth-app/v1/oauth-apps/${appId}`, { ...opts, method: "GET" })).oAuthApp ?? {};
+      const merged = [...new Set([...(current.allowedRedirectDomains ?? []), ...origins])];
+      await call(API, `/oauth-app/v1/oauth-apps/${appId}`, { ...opts, method: "PATCH", body: { oAuthApp: { allowedRedirectDomains: merged }, mask: { paths: ["allowedRedirectDomains"] } } });
+      emit("origins_allowed", { appId, allowedRedirectDomains: merged });
+    } else {
+      emit("note", { step: "origins", detail: "no --origin given: add the frontend's origins to the OAuth app's allowedRedirectDomains (wix-manage: Manage OAuth Apps) before the first checkout test" });
+    }
+  }
+  if (hosting0 === "wix" && !appProject) {
     appProject = (await call(MANAGE, "/_api/wix-code-app-projects/v1/app-projects", { ...opts, body: { appProject: { id: appId, displayName: businessName.slice(0, 50), slug, appProjectTypeId: HEADLESS_PROJECT_TYPE_ID } } })).appProject;
   }
+  if (hosting0 === "wix") {
   if (!appProject?.baseUrl) throw new Error("app project has no baseUrl");
   const prod = String(appProject.baseUrl).replace(/\/$/, "");
   const host = new URL(appProject.baseUrl).hostname;
@@ -174,15 +207,16 @@ try {
   await call(MANAGE, `/_api/wix-code-app-environments/v2/bulk/app-projects/${appProject.id}/app-environment-variables/upsert`, { ...opts, body: {
     appProjectId: appProject.id, environment: "system_global", mutability: "STATIC", returnEntity: true, returnAllEnvironment: true, variables,
   } });
+  }
 } catch (e) {
   fail("attach", e?.message || e);
 }
-const baseUrl = String(appProject.baseUrl).replace(/\/$/, "");
-emit("attached", { siteId, appId, baseUrl, hosting, note: hosting === "reused" ? "this site already has a headless frontend at baseUrl; `wix release` from this project replaces it" : undefined });
+const baseUrl = appProject ? String(appProject.baseUrl).replace(/\/$/, "") : null;
+emit("attached", { siteId, appId, baseUrl, hosting, origins: hosting0 === "self" ? origins : undefined, note: hosting === "reused" ? "this site already has a headless frontend at baseUrl; `wix release` from this project replaces it" : hosting === "self" ? "no Wix hosting: the frontend is yours to host; its origins must be on the OAuth app's allow-list" : undefined });
 
 // ---- 2 · scaffold (only where there is no project) -------------------------------------------------
 mkdirSync(projectDir, { recursive: true });
-if (stack === "astro" && mode !== "link") {
+if (stack === "astro" && mode === "scaffold") {
   // The CLI's own blank template (what `wix create` copies), then what its extender adds: the
   // hosting adapter, React islands, the `wix` scripts. Pinned like a freshly created project.
   const tmp = mkdtempSync(join(tmpdir(), "wix-template-"));
@@ -239,13 +273,14 @@ writeFileSync(join(projectDir, ".env.local"), [
   `WIX_CLIENT_SECRET=${quote(secrets.appSecret)}`,
   "",
 ].join("\n"));
-emit(mode === "link" ? "linked" : "scaffolded", { folder: folderName, stack, template: mode !== "link" && stack === "astro" ? `${TEMPLATES_REPO}#${TEMPLATE_PATH}` : null });
+emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaffolded", { folder: folderName, stack, template: mode === "scaffold" && stack === "astro" ? `${TEMPLATES_REPO}#${TEMPLATE_PATH}` : null });
 // the agent config files `wix create` writes (attach never runs the CLI's scaffold at all); fill-only
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
 
-if (mode !== "link" && stack !== "astro") {
+if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
-    next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack} (the client id is read from wix.config.json); no seed — the site owns its content` });
+    next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack} (the client id is read from wix.config.json); no seed — the site owns its content` +
+      (hosting === "self" ? `; you host it: origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}` : "") });
   process.exit(0);
 }
 
@@ -287,7 +322,9 @@ emit("ready_for_brand_layer", {
   seed: null,
   next:
     "the site's content is live already — nothing to seed; get the measure of the site (SKILL.md step 3), theme + write the pages" +
-    (mode === "link" ? "; make the project what its stack needs on Wix hosting (SKILL.md step 1)" : "") +
+    (mode === "link" && hosting !== "self" ? "; make the project what its stack needs on Wix hosting (SKILL.md step 1)" : "") +
     (install ? "; wait for the install marker" : "") +
-    "; then release as step 5 says for the stack",
+    (hosting === "self"
+      ? `; you host it — no wix release; origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}; add the public one when it goes live`
+      : "; then release as step 5 says for the stack"),
 });

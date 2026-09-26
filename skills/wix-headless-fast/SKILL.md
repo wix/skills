@@ -141,7 +141,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
      reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
    - The brief names a site by id → the existing-site path below, not this call. In a folder
      that already holds a project, attach writes the config into it and deploys for `--stack`
-     instead of scaffolding.
+     instead of scaffolding. A frontend that will be hosted elsewhere (Vercel, your own server)
+     runs attach with `--hosting self --origin <url>[,<url>]`: no Wix hosting is created, and the
+     origins go on the OAuth app's allow-list so checkout can return to them.
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
