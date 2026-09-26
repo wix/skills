@@ -23,14 +23,29 @@ assertions:
         campaigns at most once with GET
         https://www.wixapis.com/_serverless/pa-google/v1/campaigns to identify
         the campaign, retrieves or creates its campaign success guide, and
-        presents the returned suggestions as prioritized improvements;
+        presents the returned suggestions as an actionable guide on this first
+        response, without requiring the user to ask for links or a richer view;
+      - presents OPEN suggestions in relative API order in a single column,
+        expands the first three and keeps any remainder compact, then places
+        COMPLETED suggestions in a separate section without creating actions
+        or destinations from completed items;
+      - links the analyzed landing page when available, makes one grouped offer
+        when OPEN items have supported agent work, and includes each relevant
+        verified destination exactly once as a real absolute Markdown link. It
+        does not turn manual
+        recommendation labels into links or suggested follow-up messages; any
+        conversational follow-up is limited to one explicit request for a
+        genuinely supported task;
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
       Fail if it gives only generic optimization advice, routes only to analytics
       or pre-campaign suggestions, does not retrieve the guide, uses a different
       site, tells the user to wait for metrics, probes several sites, receives a
-      non-2xx response, guesses between multiple campaigns, or claims
+      non-2xx response, guesses between multiple campaigns, returns a bare list,
+      uses a table/grid/multi-column layout, semantically reorders suggestions,
+      creates suggestion-level pseudo-actions, repeats or guesses navigation,
+      includes a destination required only by completed items, or claims
       recommendations are automatically implemented.
   - type: llm_judge
     minScore: 7
@@ -46,6 +61,7 @@ assertions:
       Penalize querying analytics first, routing through pre-campaign
       suggestions, using a different site, probing multiple sites, guessing
       between campaigns, any non-2xx call even if recovered, repeated calls,
+      missing or repeated navigation resolution, premature action-recipe calls,
       unrelated or repeated documentation, and internal service or tool names
       in the user-facing answer. Name the likely recipe, MCP, or docs gap for
       each detour. Return only

@@ -24,8 +24,26 @@ assertions:
       - if campaign resolution requires a list call, uses GET
         https://www.wixapis.com/_serverless/pa-google/v1/campaigns at most once;
       - presents the returned suggestions as prioritized, actionable
-        improvements and does not wait for LEARNING to end or for performance
-        metrics;
+        improvements on this first response and does not wait for LEARNING to
+        end, for performance metrics, or for the user to request links or a
+        richer format;
+      - presents OPEN suggestions in a single-column action plan, preserving
+        their relative API order, with the first three explained under a start
+        section and any remainder kept compact without semantic regrouping;
+      - puts COMPLETED suggestions in a separate completed section, preserves
+        their relative API order, and creates no offer or destination solely
+        from a completed item;
+      - links the analyzed landing page when the guide returns its URL, makes
+        one grouped offer when OPEN items have supported agent work, and, when
+        relevant destinations exist, finishes with a Next actions block that
+        contains each destination once as a real absolute Markdown link. If
+        OPEN site-editing tasks exist, it uses the
+        exact Editor URL for this site rather than repeating task-level links,
+        guessing a URL, or substituting a suggested follow-up message;
+      - leaves recommendation labels and manual next steps as plain content. If
+        it suggests a conversational follow-up, it offers at most one supported
+        task and phrases it as explicit delegation rather than as a bare task
+        label;
       - identifies it as a guide for improving the existing campaign rather than
         generating a new campaign's inputs; and
       - does not query analytics before retrieving the guide or change any guide
@@ -33,9 +51,12 @@ assertions:
 
       Fail if it asks for redundant approval, does not retrieve the guide, uses
       a different site, receives a non-2xx response, tells the user to wait for
-      metrics, queries analytics first, changes a suggestion status, claims
-      recommendations are automatically implemented, or routes to pre-campaign
-      suggestions.
+      metrics, queries analytics first, returns a bare list, uses a table/grid/
+      multi-column layout, semantically reorders recommendations, turns task
+      labels into pseudo-links or suggested messages, repeats or guesses
+      navigation, includes a destination required only by completed items,
+      changes a suggestion status, claims recommendations are automatically
+      implemented, or routes to pre-campaign suggestions.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -44,13 +65,16 @@ assertions:
       trace. Score 0-10, where 10 is a direct path: read the campaign success
       guide documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e,
       identify its campaign with at most one campaign-list call, retrieve or
-      create the guide once, and present the actual suggestions without querying
-      analytics or mutating guide state.
+      create the guide once, resolve navigation metadata at most once when
+      needed, and present the actual suggestions with deduplicated navigation
+      and a grouped supported-work offer when applicable, without querying
+      analytics, reading action recipes prematurely, or mutating guide state.
 
       Penalize redundant approval, a different site, probing multiple sites,
       pre-campaign suggestion or analytics calls, repeated guide retrieval,
-      guide-status mutation, guessed request shapes, any non-2xx call even if
-      recovered, redundant documentation, and internal service or tool names in
-      the user-facing answer. Name the likely recipe, MCP, or docs gap for each
-      detour. Return only
+      guide-status mutation, missing or repeated navigation resolution,
+      premature action-recipe calls, guessed request shapes, any non-2xx call
+      even if recovered, redundant documentation, and internal service or tool
+      names in the user-facing answer. Name the likely recipe, MCP, or docs gap
+      for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

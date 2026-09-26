@@ -1,15 +1,16 @@
 name: google-ads/manage-campaign-success-guide-rich-output
 description: >-
   Verifies the agent presents returned campaign success guide suggestions as an
-  actionable plan, consolidates repeated Editor navigation into one
-  destination-specific CTA, and offers to perform supported campaign and
-  account work after approval.
+  actionable plan on the first response, separates open and completed items,
+  consolidates Editor navigation, and offers supported work without turning
+  task labels into pseudo-links.
 triggerPrompt: |-
   I opened the campaign success guide for the Google Ads lead campaign on my
-  Wix site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e). It says I still need
-  to clarify the main call-to-action button, move that action above the fold,
-  configure Google Ads search themes, and connect Merchant Center, in that
-  order. What should I do next? Don't change anything until I approve it.
+  Wix site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e). In this order, it says
+  I still need to add contact details, add an FAQ section, connect Google
+  Business Profile, and connect Merchant Center. Google Ads search themes are
+  already marked complete. What should I do next? Don't change anything until
+  I approve it.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -20,49 +21,61 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - presents exactly the four supplied suggestions in their priority order,
-        with clear user-facing labels, clearly communicates that the supplied
-        items are pending, and gives a concrete next step for each rather than
-        returning a bare list of enum values;
-      - gives the two landing-page tasks one shared Editor CTA after the task
-        list, using the exact Editor URL resolved for site
+      - immediately presents an actionable guide without making the user ask
+        for links, more detail, or a richer format;
+      - presents exactly the four supplied OPEN suggestions in their supplied
+        order, expands the first three with concrete next steps, keeps the
+        fourth compact, and does not regroup them by theme or destination;
+      - puts the completed search-themes item in a separate completed section
+        after the open suggestions, without offering to redo it;
+      - uses a single-column response rather than a table, grid, columns, or
+        side-by-side layout;
+      - gives the contact-details and FAQ tasks one shared Editor CTA in a
+        Next actions block after the suggestions and offer, using the exact
+        Editor URL resolved for site
         b342a30b-616e-40ce-ad26-52a83397e08e. If that read-only lookup cannot
         return an exact URL, it clearly says the Editor link is unavailable
-        instead of guessing one. It never repeats an Editor link per task or
-        labels it "Open in Wix";
-      - includes one Google Ads dashboard link after the task list, using
-        https://manage.wix.com/dashboard/b342a30b-616e-40ce-ad26-52a83397e08e/google-ads
-        and CTA text that names Google Ads or the campaign action rather than
-        "Open in Wix";
-      - offers to generate and apply search themes only after the user reviews
-        and approves the proposed set; and
-      - offers to link Merchant Center after the account ID and update are
-        approved, noting that Google-side owner approval may still be required.
+        instead of guessing one. The CTA must be a real absolute Markdown link,
+        not an unlinked label or suggested follow-up message;
+      - does not include a Google Ads or campaign-dashboard CTA, because the
+        only campaign-related suggestion is completed;
+      - makes one grouped offer to help draft the FAQ, check and initiate the
+        Business Profile connection, and link Merchant Center after the
+        required account ID and approval. It explains that the site owner must
+        finish Google's Business Profile consent and that Merchant Center may
+        still require Google-side owner approval; and
+      - leaves manual task labels and next steps as plain content. If it offers
+        a conversational follow-up, it offers at most one supported action and
+        phrases it as explicit delegation, such as "Draft FAQ content for me,"
+        rather than using a bare task label such as "Add an FAQ section."
 
       Fail if it invents suggestions, retrieves the already-supplied guide or
-      changes anything despite the user's instruction, labels navigation URLs
-      generically as "Open in Wix", repeats the Editor link beside multiple
-      tasks, guesses an Editor URL, tells the user to perform agent-supported
-      Google Ads work manually without offering help, presents a supplied item
-      as completed, or claims that marking a guide item complete implements its
-      underlying change.
+      changes anything despite the user's instruction, reorders or semantically
+      regroups the supplied items, returns a bare list, uses a multi-column
+      layout, turns recommendation labels into links or suggested messages,
+      labels navigation generically as "Open in Wix", repeats the Editor link,
+      guesses an Editor URL, includes "Open campaign" or any Google Ads CTA,
+      tells the user to perform agent-supported connection work manually,
+      presents an OPEN item as completed, or claims that marking a guide item
+      complete implements its underlying change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent turned the supplied API result into a useful
       guide. Examine the tool-call trace. Score 0-10, where 10 means it reads the
-      campaign success guide documentation directly, preserves the user's order,
-      resolves site b342a30b-616e-40ce-ad26-52a83397e08e's Editor URL without
-      guessing, consolidates shared navigation at the bottom, gives each link a
-      destination-specific CTA, makes one concise offer for supported work, and
-      performs no guide retrieval or mutation. An explicit Editor-link
-      unavailable state is acceptable only after the exact URL cannot be
-      resolved; the Google Ads route is still required.
+      campaign success guide documentation directly, preserves relative order
+      within the open and completed sections, resolves site
+      b342a30b-616e-40ce-ad26-52a83397e08e's Editor URL without guessing,
+      provides that real link once at the bottom, makes one concise offer for
+      supported work, and performs no guide retrieval, action recipe calls, or
+      mutation. An explicit Editor-link unavailable state is acceptable only
+      after the exact URL cannot be resolved.
 
-      Penalize using another site, generic "Open in Wix" labels, generic
-      optimization advice, repeated links or approval questions, guessed URLs,
-      unsupported automation claims, redundant docs or probing, any non-2xx
-      call, and internal service or tool names in the user-facing answer. Name
-      the likely recipe, MCP, or docs gap for each detour. Return only
+      Penalize using another site, semantic reordering, a table/grid/columns,
+      suggestion-level pseudo-actions, generic "Open in Wix" labels, an
+      irrelevant campaign CTA, repeated links or approval questions, guessed
+      URLs, unsupported automation claims, redundant docs or probing, any
+      non-2xx call, and internal service or tool names in the user-facing
+      answer. Name the likely recipe, MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
