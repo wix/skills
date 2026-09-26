@@ -18,9 +18,9 @@
 // lockfile → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeCliAgentsMd } from "./cli-agents-md.mjs";
+import { writeAgentsMd } from "./agents-md.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -139,7 +139,7 @@ if (!subfolder && projectDir !== targetDir) {
 // ---- 2d · the agent config files `wix create` would have written --------------------------------
 // Skipped by the CLI because of --skip-install (see cli-agents-md.mjs). Written after the move so
 // they land at the project root.
-emit("agent_configs", { written: writeCliAgentsMd(projectDir) });
+emit("agent_configs", { written: writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }) });
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");
