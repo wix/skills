@@ -384,19 +384,47 @@ export async function addProductsToCategories(ctx, mapping) {
 // current revision is read right before the update, so attach any number of times, any pass.
 // Wix re-hosts each url server-side; the media can take a little while to appear on read-back
 // (propagation) — normal, not a failure.
+// The bulk update returns 200 on PARTIAL failure, like the bulk create: each item's outcome is
+// in results[].itemMetadata (success, error, originalIndex). Seen live (runs 85 and 86,
+// 2026-09-26): one product of three came back with no media while the call succeeded — most
+// likely its revision moved between the read and the update (variant stocking runs just
+// before). So: pair results to inputs, retry the misses once with fresh revisions, and report
+// what actually persisted. Returns { attached: [id], failures: [{ id, error }] }.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products.md
 export async function attachProductImages(ctx, items) {
-  if (!items?.length) return;
-  const ids = items.map((it) => it.id);
-  const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
-  const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
-  return req(ctx, "/stores/v3/bulk/products/update", {
-    body: {
-      products: items.map((it) => ({
-        product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
-      })),
-    },
-  });
+  if (!items?.length) return { attached: [], failures: [] };
+  const send = async (batch) => {
+    const ids = batch.map((it) => it.id);
+    const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
+    const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
+    const r = await req(ctx, "/stores/v3/bulk/products/update", {
+      body: {
+        products: batch.map((it) => ({
+          product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: [{ url: it.url, altText: it.altText }] } } },
+        })),
+      },
+    });
+    const ok = new Set();
+    const failed = [];
+    for (const x of r.results ?? []) {
+      const src = batch[x.itemMetadata?.originalIndex];
+      if (!src) continue;
+      if (x.itemMetadata?.success) ok.add(src.id);
+      else failed.push({ id: src.id, error: x.itemMetadata?.error?.description ?? x.itemMetadata?.error?.code ?? "unknown" });
+    }
+    // an input with no result at all did not persist either
+    for (const it of batch) if (!ok.has(it.id) && !failed.some((f) => f.id === it.id)) failed.push({ id: it.id, error: "no result for item" });
+    return { ok, failed };
+  };
+  const first = await send(items);
+  const attached = new Set(first.ok);
+  let failures = first.failed;
+  if (failures.length) {
+    const retry = await send(items.filter((it) => failures.some((f) => f.id === it.id)));
+    for (const id of retry.ok) attached.add(id);
+    failures = retry.failed;
+  }
+  return { attached: [...attached], failures };
 }
 
 // Reject plans the API would reject halfway through, while nothing has been created yet —
@@ -491,18 +519,26 @@ export async function setupStore(ctx, { products = [], categories = {}, currency
   const imageItems = withNames
     .map((p, i) => (files[i] && p.id ? { id: p.id, url: files[i].url, altText: products[i]?.altText ?? p.slug } : null))
     .filter(Boolean);
+  // imagesAttached counts the attaches the API CONFIRMED (per-item results), not the ones sent;
+  // imageFailures names the products left text-only and why. Neither blocks the seed: a re-run of
+  // the same plan reuses the products and attaches again.
   let imagesAttached = 0;
+  const imageFailures = [];
+  const nameOf = (id) => withNames.find((p) => p.id === id)?.name;
   try {
-    if (imageItems.length) await attachProductImages(ctx, imageItems);
-    imagesAttached = imageItems.length;
-  } catch {
-    /* never block on image failure — the products stay text-only */
+    if (imageItems.length) {
+      const r = await attachProductImages(ctx, imageItems);
+      imagesAttached = r.attached.length;
+      for (const f of r.failures) imageFailures.push({ name: nameOf(f.id), error: f.error });
+    }
+  } catch (e) {
+    for (const it of imageItems) imageFailures.push({ name: nameOf(it.id), error: e?.message ?? String(e) });
   }
 
   // failures is part of the result, not an exception: a partial seed still leaves a usable
   // store, and the agent needs the names to report rather than silently shipping a short
   // catalog. Re-run the seed to retry them — existing names are skipped, not duplicated.
-  return { products: withNames, categories: cats, imagesAttached, failures };
+  return { products: withNames, categories: cats, imagesAttached, imageFailures, failures };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------

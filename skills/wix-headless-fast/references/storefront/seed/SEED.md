@@ -97,6 +97,12 @@ own sample products to a new catalog; they stay, and the owner removes them in t
 (the Manage products link is in your summary). If a cleanup genuinely seems needed, ask the user
 first. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
 
+**Images are confirmed, not assumed.** `imagesAttached` counts the attaches the API reported as
+successful; `imageFailures: [{ name, error }]` names the products left without an image and why
+(one miss out of three was seen live — a revision moved between read and update). The seed already
+retries a miss once. To retry again, re-run the same plan: existing products are reused and their
+images attached; nothing is duplicated.
+
 **A bulk create can partially succeed.** The result carries `failures: [{ name, error }]` next
 to `products` — read it. A non-empty `failures` means those products are genuinely absent, not
 mis-mapped, so the rest of the catalog is fine to build on. To retry, re-run the **same** plan:
