@@ -47,10 +47,7 @@ Before creating a coupon, check for code conflicts and existing promotions on th
         "code": "SUMMER20",
         "percentOffRate": 20,
         "scope": {
-          "namespace": "stores",
-          "group": {
-            "name": "product"
-          }
+          "namespace": "stores"
         },
         "startTime": 1717200000000,
         "expirationTime": 1719792000000,
@@ -91,10 +88,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SPRING15",
     "percentOffRate": 15,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "usageLimit": 200,
@@ -167,10 +161,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SAVE10",
     "moneyOffAmount": 10,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "active": true
@@ -230,11 +221,11 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 ## Scope values for Wix Stores
 
-| Scope target | `namespace` | `group.name` | `group.entityId` |
-|---|---|---|---|
-| All store products | `"stores"` | `"product"` | Omit (applies to all) |
-| Specific product | `"stores"` | `"product"` | Product UUID |
-| Specific collection | `"stores"` | `"collection"` | Collection UUID |
+| Scope target | `namespace` | `group` |
+|---|---|---|
+| All store products | `"stores"` | Omit the `group` field entirely — a present-but-empty `group: {}` is rejected the same as a populated one missing `entityId` |
+| Specific product | `"stores"` | `{ "name": "product", "entityId": "<product UUID>" }` |
+| Specific collection | `"stores"` | `{ "name": "collection", "entityId": "<collection UUID>" }` |
 
 ---
 
@@ -246,7 +237,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Recommendation `scope` | Coupon `scope` |
 |---|---|
-| `SITE` | `{ "namespace": "stores", "group": { "name": "product" } }` (all products, no entityId) |
+| `SITE` | `{ "namespace": "stores" }` (all products — omit `group` entirely) |
 | `CATEGORY` | `{ "namespace": "stores", "group": { "name": "collection", "entityId": "<first categoryId>" } }` |
 | `ITEMS` | `{ "namespace": "stores", "group": { "name": "product", "entityId": "<first productId>" } }` |
 
@@ -340,7 +331,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Error | Cause | Fix |
 |---|---|---|
-| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores", "group": { "name": "product" } }` for site-wide, or set `minimumSubtotal` |
+| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores" }` for site-wide (omit `group` — do not send `group: {}`, which is rejected identically), or set `minimumSubtotal` |
 | Duplicate code | Another coupon uses the same code | Generate a different code |
 | Invalid startTime | Value too low (must be epoch ms, not seconds) | Multiply by 1000 if in seconds |
 | Both scope and minimumSubtotal set | These are oneOf — cannot use both | Choose scope OR minimumSubtotal |
