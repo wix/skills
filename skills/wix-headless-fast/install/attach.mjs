@@ -299,7 +299,7 @@ let install = null;
 if (existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
   const logFd = openSync(installLog, "a");
-  const child = spawn("sh", ["-c", "npm ci --ignore-scripts || npm install --ignore-scripts"], { cwd: projectDir, detached: true, stdio: ["ignore", logFd, logFd] });
+  const child = spawn("sh", ["-c", existsSync(join(projectDir, "package-lock.json")) ? "npm ci --ignore-scripts || npm install --ignore-scripts" : "npm install --ignore-scripts"], { cwd: projectDir, detached: true, stdio: ["ignore", logFd, logFd] });
   child.unref();
   install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
   emit("install_started", install);

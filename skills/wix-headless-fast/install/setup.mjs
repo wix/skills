@@ -173,12 +173,13 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 // ONE install, here, for any project with a package.json (deploy patched it). The static stack has
-// no package.json and nothing to install.
+// no package.json and nothing to install. `npm ci` only where a lockfile exists: without one it fails
+// with a usage error that sits at the top of the log and reads as a failed install (run 109).
 let install = null;
 if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
   const logFd = openSync(installLog, "a");
-  const child = spawn("sh", ["-c", "npm ci --ignore-scripts || npm install --ignore-scripts"], {
+  const child = spawn("sh", ["-c", existsSync(join(projectDir, "package-lock.json")) ? "npm ci --ignore-scripts || npm install --ignore-scripts" : "npm install --ignore-scripts"], {
     cwd: projectDir,
     detached: true,
     stdio: ["ignore", logFd, logFd],
