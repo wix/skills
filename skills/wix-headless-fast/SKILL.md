@@ -67,7 +67,11 @@ doesn't express — or once the site exists and the work turns to managing or ex
    another framework or the directory already holds one. Then, by what the shipped code can run
    there:
    - **React** (Vite, Next, …) runs everything shipped — data layer, hooks, components:
-     `--stack react`. The agent's own files may be JS.
+     `--stack react`. The agent's own files may be JS; the shipped files are TypeScript and
+     build untouched inside a JS project — never strip them by hand; if the brief wants no
+     TypeScript anywhere, say the shipped code cannot meet that and ask before going on.
+     A named framework is scaffolded with its own command
+     first (`npm create vite@latest`, …), then step 3 runs in that folder.
    - **Another bundled JS framework** (Vue, Svelte, Solid, plain Vite): the data layer and the
      framework-free stores run (`src/wix/` has no React in it), the React hooks and components
      don't apply: `--stack lib`. The agent binds the stores and writes its framework's components
@@ -75,6 +79,30 @@ doesn't express — or once the site exists and the work turns to managing or ex
    - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
      app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
      REST layer deploys for the browser side, and the server side ports it for its reads.
+
+   **What Wix hosting takes, and what each stack needs to be released there.** `wix release`
+   uploads the folder named in `wix.config.json` (`site.outputDirectory`) and serves it as
+   files — no SPA fallback, no directory index, no rewrites: `/` and real files resolve, a clean
+   client-side route answers 404 when loaded directly or shared. Server code runs only as a
+   Cloudflare Workers build, declared as `outputDirectory: { client, server }`.
+   - **Managed Astro** is the stack the Wix CLI scaffolds: the Wix Astro integration
+     (`@wix/astro`, ambient auth), the hosting adapter (`@wix/astro-wix-hosting-adapter`, the
+     Workers build), `@astrojs/react` with React 18 for the shipped components, and in
+     `astro.config.mjs` `integrations: [wix(), react()]`, `adapter: wixHostingAdapter()`,
+     `output: "server"`, `security: { checkOrigin: false }`, `image.domains` with
+     `static.wixstatic.com`. An Astro project made without the CLI has none of that; add it
+     before deploying, and the site serves every route. The integration supports **Astro 5**: a
+     project on another major is pinned to 5 first, or connected as a React host.
+   - **React and other bundlers** release their own build as files. So routes are hash routes,
+     or one emitted HTML file per route linked by its file name — decided before the first route
+     is written; any URL handed to Wix as a return target must be one the host serves. Verify by
+     loading a deep URL directly, not by navigating from `/`.
+   - **A framework whose build is a server** (Next, Nuxt, Remix, SvelteKit, …) releases only as a
+     static export (files, the rule above applies), or as a Workers build through
+     `outputDirectory: { client, server }`; otherwise it is self-hosted, with its domain added to
+     the OAuth app's allowed domains before checkout can return to it.
+   - **Static** (no build): `outputDirectory` points at the folder the pages live in; a route is a
+     page plus a query-string slug (reference mode, below).
 2. **The seed plan.** When the brief supplies the content in any form — a CSV, JSON or
    spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a
    link to their current catalog, anything else that names the content — that IS the plan: map
@@ -87,14 +115,33 @@ doesn't express — or once the site exists and the work turns to managing or ex
    is there (step 3's attach path). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
    read tokens into context).
-3. **Create runs (empty directory): run the fast path** — one deterministic call:
+3. **Run the fast path in the project's folder** — one deterministic call, the same for an empty
+   folder and for a project already on disk; **the folder decides** what it does:
 
    ```bash
-   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json --vertical <vertical>
+   node <SKILL_ROOT>/install/fast-path.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
    ```
 
+   - **Empty** (or only loose files: a CSV, a brief) → **create**: scaffolds the Wix CLI's
+     Astro project here; `--business-name` names the site.
+   - **A project without `wix.config.json`** (a `package.json`, or an `index.html` at the root:
+     someone's Astro, Vite, Next, plain HTML) → **connect**: `init` in place links the folder
+     to a new site (the site is named after the folder), then the shipped code deploys into
+     the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
+     project what that stack needs on Wix hosting (step 1) before or right after the call.
+   - **`wix.config.json` and none of this skill's code** (a Wix project made by hand or by the
+     CLI) → **connect** to the site in the config: no `init`, deploy in place.
+   - **`wix.config.json` and this skill's code** (`src/wix/` or `js/wix/`) → refuses: nothing to
+     create or connect here. `deploy.mjs <vertical>` adds a solution; file edits and a release
+     change what is built.
+   - The brief names a site by id → the existing-site path below, not this call.
+
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
-   the vertical you resolved from the Verticals table.
+   the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
+   seeded**: pass the plan from step 2 when there is one; a site that already holds its content
+   gets none. Seeding is **additive**: it never deletes or overwrites what the site holds; if a
+   cleanup seems needed, ask. The `ready_for_brand_layer` event says `mode` (create or
+   connect), the stack, and the `next` for that stack, including how it releases.
 
    fast-path scaffolds with `--skip-git`: it composes its own steps and leaves version control to
    you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
@@ -168,14 +215,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
      full page only when the hit lacks what you need.
    If what you opened does not have the call, go to the next; do not try a variant.
 
-   **Connect/iterate runs (a project already on disk): never scaffold — use the manual path:**
-   `CI=1 npm create @wix/new@latest init` in place if there is no `wix.config.json` yet; then
-   `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack astro|react --plan plan.json` from the project root
-   (react stack: add `--client-id` if there is no `wix.config.json` to read the public id
-   from); then ONE `npm ci --ignore-scripts || npm install --ignore-scripts` (backgroundable —
-   but **never run a second npm install concurrently**: two npms in one `node_modules` race and
-   redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
-   **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
+   **Recovering one step, or adding a solution later:** the pieces run on their own from the
+   project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
+   id is read from `wix.config.json`), ONE `npm ci --ignore-scripts || npm install
+   --ignore-scripts` (**never a second npm install concurrently**: two npms in one
+   `node_modules` race and redo each other's work; fast-path already started one — wait on its
+   marker), the vertical's seed module per its `seed/SEED.md`.
    A code change on an existing project is done when it is **released** (step 5) and the live
    URL shows it — not when a dev server or a local build shows it. A management change (a
    recipe against the site) needs no release; the frontend reads it live.
@@ -203,9 +248,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
    yourself (connect/iterate runs, reference mode), there is no marker to wait for: the process's
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
    or `wait` on its pid), not on a file. Then
-   **build & release once** (managed):
-   `npx @wix/cli@latest build` then `npx @wix/cli@latest release` (if the install failed, run
-   it once more and then build). Don't build+release mid-flow; backend content is fetched at
+   **build & release once** (managed), as the `next` of the `ready_for_brand_layer` event says
+   for the stack: Astro → `npx @wix/cli@latest build` then `npx @wix/cli@latest release`;
+   React or another bundler → the project's own build, then `npx @wix/cli@latest release` of
+   the build folder named in `wix.config.json` (deep URLs must answer 200 directly, step 1);
+   static → `release` alone. If the install failed, run it once more and then build. Don't
+   build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
    `https://manage.wix.com/dashboard/<siteId>`. **Copy the live URL verbatim from the
@@ -268,7 +316,7 @@ them; this section is the mechanics, the same for every vertical.
     of that folder after your last build, served as files: every asset a page references must be
     in there and current — if the pipeline has more than one build step (templates, then a CSS or
     asset bundle), they all run, in order, on every rebuild, or the release carries a stale piece.
-    `/shop` does not resolve to `shop/index.html`; name the file and link to it. Generated pages
+    a clean path does not resolve to a folder's `index.html`; name the file and link to it. Generated pages
     sit at different depths, so reference `js/wix/` through one base path (a template variable,
     or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level down. **The generated page
     is the first paint, not the whole surface**: the vertical's interactive behaviour (a store's

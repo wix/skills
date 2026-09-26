@@ -43,9 +43,10 @@ existing session just reports `logged_in`).
 
 ## Phase 0 — The project's folder, and Node
 
-**Work from the folder that will hold the project.** For a **new** build: an empty folder is the
-project; if the current folder is not empty, make one named for the business and `cd` into it.
-For **connect**, **iterate** and **existing site**: you are already in it. Everything below — the
+**Work from the folder that holds the project, or that will.** For a **new** build: an empty folder
+is the project; if the current folder holds unrelated things, make one named for the business and
+`cd` into it. For **connect**, **iterate** and **existing site**: you are already in it — the
+project's root, where its `package.json` or `index.html` is. Everything below — the
 bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
 finds all of it.
 

@@ -280,6 +280,8 @@ deploy added the dep). Routes: `/portfolio` → your gallery on `useCollections(
 `useProjectDetail(slug)` (the hooks fetch client-side when no `initial*` is passed; route the 404
 view off `notFound`). Deploy wrote the public client id into `wix/config.ts`; nothing else to configure.
 
+Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded directly — hash routes, or one HTML file per route, decided before the first route is written; any URL handed to Wix as a return target must be one the host serves (SKILL.md step 1).
+
 ## Hard rules
 
 - **Reads only through the shipped exports** — they filter `hidden`, sort collections by the

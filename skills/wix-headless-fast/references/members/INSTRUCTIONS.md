@@ -271,6 +271,8 @@ Mount `MemberMenu` in the header (pass `LinkComponent` for router links). Deploy
 client id into `wix/config.ts` (`WIX_CLIENT_ID` and `WIX_MEMBERS_CLIENT_ID`); nothing else to
 configure.
 
+Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded directly — hash routes, or one HTML file per route, decided before the first route is written; any URL handed to Wix as a return target must be one the host serves (SKILL.md step 1).
+
 ## Hard rules
 
 - **No Wix-hosted login flow** — no `/api/auth/login`, no OAuth callback page, no callback URI for
