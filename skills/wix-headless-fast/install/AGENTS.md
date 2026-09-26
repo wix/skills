@@ -9,8 +9,8 @@ A Wix Headless app built on the live Wix site named in `wix.config.json`. The si
 content and commerce.
 
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
-field name or a body. Every Wix call comes from a source open in front of you: the skills below, or
-the code they deployed. No source open, no call.
+field name or a body. Every Wix call comes from a source open in front of you: the code the skills
+deployed here, a `wix-manage` recipe, or a `wix-docs` page. No source open, no call.
 
 ## Skills
 
