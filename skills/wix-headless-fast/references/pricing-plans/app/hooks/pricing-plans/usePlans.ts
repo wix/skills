@@ -1,39 +1,22 @@
-// Plans listing. SSR-friendly: pass server-fetched data as `initialPlans` (Astro frontmatter
-// / server component) and no client fetch happens; a SPA passes nothing.
-import { useEffect, useState } from "react";
-import { fetchPlans } from "../../wix/pricing-plans/plans";
-import type { PlanSummary } from "../../wix/pricing-plans/types";
+// React binding of the plans store (wix/pricing-plans/plans-store.ts) — the listing logic lives
+// there, framework-free; this hook subscribes to one instance per mounted listing. SSR-friendly:
+// pass server-fetched data as `initialPlans` (Astro frontmatter / server component) and no client
+// fetch happens; a SPA passes nothing. Astro islands and React SPAs use this; a static page, Vue,
+// or Svelte uses the store directly.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createPlansStore, type PlansState, type PlansStore, type PlansStoreOptions } from "../../wix/pricing-plans/plans-store";
 
-export interface UsePlansOptions {
-  initialPlans?: PlanSummary[];
-}
+export type UsePlansOptions = PlansStoreOptions;
 
-export interface UsePlans {
-  /** null while the first load is in flight — render skeletons, not an empty state. */
-  plans: PlanSummary[] | null;
-  error: string | null;
-}
+export type UsePlans = PlansState;
 
-export function usePlans({ initialPlans }: UsePlansOptions = {}): UsePlans {
-  const [plans, setPlans] = useState<PlanSummary[] | null>(initialPlans ?? null);
-  const [error, setError] = useState<string | null>(null);
-
+export function usePlans(options: UsePlansOptions = {}): UsePlans {
+  const ref = useRef<PlansStore | null>(null);
+  if (!ref.current) ref.current = createPlansStore(options);
+  const store = ref.current;
   useEffect(() => {
-    let alive = true;
-    if (!initialPlans) {
-      fetchPlans()
-        .then((p) => alive && setPlans(p))
-        .catch((e) => {
-          if (!alive) return;
-          setPlans([]);
-          setError(e instanceof Error ? e.message : String(e));
-        });
-    }
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { plans, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  return useSyncExternalStore(store.subscribe, store.getState, store.getState);
 }

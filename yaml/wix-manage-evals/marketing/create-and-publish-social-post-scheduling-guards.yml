@@ -1,21 +1,21 @@
 name: marketing/create-and-publish-social-post-scheduling-guards
 description: >-
   Advisory scenario for the "Create and Publish a Social Media Post" skill: the
-  agent is asked how to schedule safely when the Social Publisher feature check
-  reports a publish quota of 0 but scheduling is enabled without quotaInfo. The
-  correct behavior is to treat quota as action-specific, proceed with scheduling
-  only if SCHEDULE_POST is allowed, and validate that each scheduledDate resolves
-  to a future ISO instant before making any mutating publish-by-id call.
+  agent is asked how to schedule safely when the user's own Social Publisher
+  feature check reports the publish quota exhausted (positive limit,
+  remainingUsage 0) but scheduling enabled without quotaInfo. The correct
+  behavior is to treat quota as action-specific, proceed with scheduling only if
+  SCHEDULE_POST is allowed, and validate that the scheduledDate resolves to a
+  strictly-future instant before making any mutating publish-by-id call. No
+  siteSetup on purpose: the feature-check values are the user's reported data,
+  and a provisioned site's live feature check would contradict them.
 triggerPrompt: >-
-  I am using the Wix Social Publisher REST API to schedule posts for tomorrow at
+  I am using the Wix Social Publisher REST API to schedule a post for tomorrow at
   9:00 AM America/Chicago. The feature check returns PUBLISH_POST enabled with
-  quotaInfo.remainingUsage 0, and SCHEDULE_POST enabled with no quotaInfo. How
-  should I decide whether scheduling is allowed, and how should I calculate the
-  scheduledDate safely?
+  quotaInfo limit 30 and remainingUsage 0, and SCHEDULE_POST enabled with no
+  quotaInfo. How should I decide whether scheduling is allowed, and how should I
+  calculate the scheduledDate safely?
 tags: [marketing]
-siteSetup:
-  mode: template
-  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -25,26 +25,30 @@ assertions:
     maxTokens: 2048
     prompt: |
       The user is asking for guidance only. They did NOT ask the assistant to
-      create, publish, or schedule an actual post. The feature check says:
-      PUBLISH_POST is enabled with quotaInfo.remainingUsage 0, and SCHEDULE_POST
-      is enabled with no quotaInfo.
+      create, publish, or schedule an actual post. Per the user's own report,
+      their feature check says: PUBLISH_POST is enabled with quotaInfo limit 30
+      and remainingUsage 0, and SCHEDULE_POST is enabled with no quotaInfo.
+      Judge the guidance against these reported values; do not penalize a run
+      for probing a live feature check, but its answer must address the user's
+      reported values.
 
       Pass if the response:
       - uses the Create and Publish a Social Media Post skill / recipe, AND
-      - treats quota as action-specific: PUBLISH_POST remainingUsage 0 blocks
-        publishing now but does NOT block scheduling, AND
+      - treats quota as action-specific: PUBLISH_POST with a positive limit and
+        remainingUsage 0 means the publish-now quota is exhausted, but that does
+        NOT block scheduling, AND
       - explains that SCHEDULE_POST enabled with no quotaInfo means scheduling is
         allowed unless that action is disabled or its own quotaInfo is exhausted,
         AND
       - says scheduledDate must be an ISO 8601 instant strictly in the future, AND
-      - resolves the requested 9:00 AM America/Chicago wall-clock time to UTC/ISO
-        using the site's or requested timezone, then validates immediately before
-        publish-by-id that new Date(scheduledDate).getTime() > Date.now(), AND
+      - resolves the requested 9:00 AM America/Chicago wall-clock time to a
+        UTC/ISO instant using the requested timezone, and says to validate
+        immediately before the schedule call that the resolved instant is
+        strictly in the future (any equivalent formulation counts — comparing
+        epoch milliseconds, ISO instants, or a Date.now() check), AND
       - says that if the resolved instant is in the past or equal to now, it must
         advance to the next matching future occurrence or ask the user to confirm
         a later time before calling the API, AND
-      - for multiple daily posts, says to compute and validate each occurrence
-        independently, AND
       - does not perform any mutating API calls.
 
       Fail if the response:
@@ -56,3 +60,25 @@ assertions:
       - attempts Create Draft Item, Publish Item By ID, or any other mutating API
         call, OR
       - falls back to searching the REST docs instead of using the skill.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer this guidance request.
+      Examine the tool-call trace, not the prose. The expected path is short:
+      load the recipe and answer from it. A clean run is 9-10; one or two minor
+      frictions (an extra doc lookup, one redundant read) land at 7-8.
+
+      Score 0-10. Penalize and LIST any of:
+      - any mutating call (the request asks for guidance only),
+      - a non-2xx response, even if recovered,
+      - a call whose shape was guessed wrong and then corrected,
+      - redundant or probing calls clearer docs would avoid,
+      - falling back to searching the REST docs for what the recipe already
+        states.
+      Do NOT penalize a single live feature-check read — verifying the user's
+      reported values is reasonable — nor answering purely from the recipe with
+      no API calls at all.
+
+      For each friction, name the likely MCP/docs gap behind it.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

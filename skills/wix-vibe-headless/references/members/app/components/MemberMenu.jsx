@@ -2,7 +2,7 @@
 // session state: a "Log in" link for a visitor, or the member's name + a log-out button once signed
 // in. Drop it into the Header you build (STEP 4), same as the storefront's CartButton. Pure UI reading
 // useMember + base44 design tokens (shadcn Tailwind classes) — render it as-is; don't wrap it in your own auth logic.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 import { useMember } from "@/context/MemberContext";
 
 export default function MemberMenu() {

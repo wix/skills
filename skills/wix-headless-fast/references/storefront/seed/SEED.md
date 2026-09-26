@@ -15,6 +15,10 @@ not a store product.
 node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
 ```
 
+Run this way, the result is the process itself: exit code `0` and the JSON on stdout (redirect it
+to a file if you want it later). `.seed-exit` and `seed-result.json` are written by
+`install/setup.mjs` when IT starts the seed — don't wait for them after a manual run.
+
 `plan.json` is plain data — write it from the brief:
 
 ```json
@@ -69,13 +73,35 @@ node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
   For a few seconds afterwards product reads can still report the old currency; that lag is
   expected and self-resolves, so don't re-verify it or retry.
 
-**Default to 3 products** unless the brief asks for a specific catalog — the seed shows the
-shape, not a full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise
-the shipped UI**: give at least one product a color option and put one product on sale —
-truthfully to the business (a ceramics studio has glaze colors; a bakery doesn't).
+**Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
+full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise the shipped
+UI**: give at least one product a color option and put one product on sale — truthfully to the
+business (a ceramics studio has glaze colors; a bakery doesn't).
+
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
+lists is one entry, whatever form the list arrives in. Its name, description and price become
+`name`, `description` and `price`. A "was", "regular" or "compare at" price becomes `compareAtPrice`
+when it is higher than the price. A stock count becomes `quantity`; "unlimited" or "made to order"
+becomes `"inStock": true`. A category, collection or type becomes an entry in `categories`. A set of
+choices the buyer picks from ("Small / Large", "S, M, L") becomes one `options` entry named after
+what it is (Size, Flavor), `type: "text"`; use `type: "color"` only when the source gives color codes.
+Their image becomes `imageUrl`. If a product has a separate price per size, seed it once at the
+lowest price and tell the user the per-variant prices are set in the dashboard. If a product has no
+price, ask; never invent one. Ribbons ("New", "Best Seller") and SKU codes are not seeded — say so.
 
 **Seeding is additive — never delete or overwrite existing content.** No cleanup, no removing
-"sample" data, no resets. If a cleanup genuinely seems needed, ask the user first.
+"sample" data, no resets — not even on a site created a minute ago. The Stores install adds its
+own sample products to a new catalog; they stay, and the owner removes them in the dashboard
+(the Manage products link is in your summary). If a cleanup genuinely seems needed, ask the user
+first. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
+
+**Images are confirmed, not assumed.** `imagesAttached` counts the attaches the API reported as
+successful; `imageFailures: [{ name, error }]` names the products left without an image and why
+(one miss out of three was seen live — a revision moved between read and update). The seed already
+retries a miss once. To retry again, re-run the same plan: existing products are reused and their
+images attached; nothing is duplicated.
 
 **A bulk create can partially succeed.** The result carries `failures: [{ name, error }]` next
 to `products` — read it. A non-empty `failures` means those products are genuinely absent, not

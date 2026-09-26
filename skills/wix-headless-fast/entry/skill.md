@@ -28,18 +28,27 @@ This entry gets a cold environment to the point where the real skill can run, th
 2. **Hand off (agentic).** Install the skills, then open `wix-headless-fast/SKILL.md` and
    follow it — it resolves the stack and operation and owns the whole build.
 
-Three starting points come through here, all handled the same way — run the bootstrap, then
+Four starting points come through here, all handled the same way — run the bootstrap, then
 hand off:
 
 - **new** — a prompt with no project (empty CWD)
 - **connect** — an existing frontend/design not yet on Wix (a project on disk without
   `wix.config.json`, or a brought-in zip/URL)
 - **iterate** — a project already connected to Wix (`.wix/` or `wix.config.json` present)
+- **existing site** — the prompt names a Wix site that already exists (by its site id) and asks
+  for a new frontend for it; the site keeps its content, the frontend is built here
 
 The bootstrap only verifies the CLI and logs you in, so it's fine to run in every case (an
 existing session just reports `logged_in`).
 
-## Phase 0 — Node (the one manual prerequisite)
+## Phase 0 — The project's folder, and Node
+
+**Work from the folder that holds the project, or that will.** For a **new** build: an empty folder
+is the project; if the current folder holds unrelated things, make one named for the business and
+`cd` into it. For **connect**, **iterate** and **existing site**: you are already in it — the
+project's root, where its `package.json` or `index.html` is. Everything below — the
+bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
+finds all of it.
 
 The Wix CLI requires **Node ≥ 20.11**. Check `node -v`; if it errors or prints a lower
 version, install or upgrade Node first — do **not** work around it:

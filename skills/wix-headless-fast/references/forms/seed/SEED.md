@@ -106,3 +106,11 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
 - **`target` is immutable** and must be unique within the form: letters, digits and single
   underscores, starting with a letter.
 - **Use `formFields`, never `fields`** — the latter is the legacy API.
+
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For forms the user usually hands
+over the form itself: a list of questions, or a PDF or screenshot of the form they use today. Each
+question becomes a field, with the `kind` its answer implies (an email address → `email`, a fixed set
+of answers → `select`, `radio` or `multi`, a long answer → `textarea`); a required mark becomes
+`required`; the button label becomes `submitText`. Question wording verbatim.

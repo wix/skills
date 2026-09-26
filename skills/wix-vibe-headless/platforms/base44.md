@@ -18,7 +18,7 @@ STEP 3, and **except a seed that attaches entity images**, which runs after the 
 
 Install three skills under `.agents/skills/`: **`wix-vibe-headless`** (the client build + seed guide — your main source of truth), **`wix-manage`** (REST recipes to manage/configure the site), and **`wix-base44-connector`** (site context + API-doc discovery).
 
-Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/`, writes `wix-config.js`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all three skills, deploys REST scaffolds + UI into `src/` (the nav adapter at `src/lib/nav.js` among them), writes `wix-config.js`, and pins the AGENTS.md note. **Its `deploy` result reports this app's `template`** (`react-router` or `tanstack`) — STEP 3 needs it.
 
 **Set `VERTICALS`** to what the prompt asks for — **list every vertical the app uses**, since several often join the main one (too vague to tell? do STEP 2 first, then set it). Adding one later: re-run with the extra name.
 
@@ -91,9 +91,24 @@ truth for how the client is built.
 file the seed writes. Read its `INSTRUCTIONS.md` **Prerequisites** before building any form UI; seed
 it first (STEP 4) and build the rest of the app meanwhile.
 
-**`src/App.jsx`: edit surgically, never rewrite.** It carries required platform auth scaffolding
-(`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full rewrite drops them → the validator
-rejects the write. Wire routes/imports in with `find_replace`, leave the rest as-is.
+**Mount pages the way this app's template expects.** Base44 ships more than one and they route
+differently; building for the wrong one renders a blank preview with no error to explain it. STEP 1
+resolved which it is and reported it as `template`:
+
+- `tanstack` → **TanStack Start**: file-based routes under `src/routes/`, no `src/App.jsx`, no
+  `index.html`, build output in `.output/` rather than `dist/`. Pages mount as route files; chrome
+  and providers live in `__root.jsx`.
+- `react-router` → **React Router**: routes and providers are wired into `src/App.jsx`.
+
+Read the app's own `AGENTS.md` first either way — both templates ship one and it states their
+conventions. The mounting pattern for each, and what STEP 1 put in `src/lib/nav.js`:
+[`../references/_shared/routing.md`](../references/_shared/routing.md).
+
+**On the React Router template, `src/App.jsx` is edited surgically, never rewritten.** It carries
+required platform auth scaffolding (`AuthProvider`/`useAuth` from `@/lib/AuthContext`); a full
+rewrite drops them → the validator rejects the write. Wire routes/imports in with `find_replace`,
+leave the rest as-is. TanStack keeps the same scaffolding in `src/routes/__root.jsx` and
+`src/lib/AuthContext.jsx`, under the same rule: add around it, never replace it.
 
 ## STEP 4 — Manage and seed the business
 

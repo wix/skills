@@ -56,6 +56,32 @@ curl -X POST 'https://www.wixapis.com/events/v3/events' \
 `title`, `location`, `dateAndTimeSettings` and `registration.initialType` are required. The event
 is created published (`status: "UPCOMING"`).
 
+**What comes back** — the created event under `event`; the id you need for every follow-up call is
+`event.id`:
+
+```json
+{
+  "event": {
+    "id": "<EVENT_ID>",
+    "title": "Summer Gala",
+    "slug": "summer-gala",
+    "status": "UPCOMING",
+    "location": { "name": "Grand Hall", "type": "VENUE", "locationTbd": false },
+    "dateAndTimeSettings": {
+      "startDate": "2026-09-15T19:00:00Z", "endDate": "2026-09-15T22:00:00Z",
+      "timeZoneId": "America/New_York", "recurrenceStatus": "ONE_TIME"
+    },
+    "createdDate": "...", "updatedDate": "..."
+  }
+}
+```
+
+Update, cancel, publish and clone return the same `{ "event": { ... } }`; delete returns
+`{ "eventId": "..." }`. Some fields are returned only when the request's `fields` array asks for
+them: `"DETAILS"` adds `shortDescription`, `"TEXTS"` adds `description`, `"REGISTRATION"` adds
+`registration` (including `rsvp.limit`), `"URLS"` adds `eventPageUrl`. Without `fields`, read the
+result from the top-level fields above and do not treat a missing `registration` as an error.
+
 > **Do not add `"draft": true` unless the user asked for a draft.** Draft events require the
 > `WIX_EVENTS.READ_DRAFT_EVENTS` permission, and without it every follow-up call fails `403` —
 > adding ticket definitions, querying the event, fetching it by slug, even publishing it. The
@@ -153,6 +179,26 @@ curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
 | Fixed price | `{ "fixedPrice": { "value": "25.00", "currency": "USD" } }` |
 | Free | `{ "fixedPrice": { "value": "0", "currency": "USD" } }` |
 | Donation, with a minimum | `{ "guestPrice": { "value": "5.00", "currency": "USD" } }` |
+
+The response is the definition under `ticketDefinition`:
+
+```json
+{
+  "ticketDefinition": {
+    "id": "<TICKET_DEFINITION_ID>",
+    "eventId": "<EVENT_ID>",
+    "revision": "1",
+    "name": "General Admission",
+    "limited": true, "initialLimit": 100, "actualLimit": 100,
+    "pricingMethod": { "fixedPrice": { "value": "25.00", "currency": "USD" } },
+    "feeType": "FEE_ADDED_AT_CHECKOUT",
+    "saleStatus": "SALE_STARTED"
+  }
+}
+```
+
+Keep `revision` — `PATCH /events/v3/ticket-definitions/{id}` requires the current value, and it
+increments on every update.
 
 - **`feeType` is required** — `FEE_ADDED_AT_CHECKOUT` or `FEE_INCLUDED`.
 - **`value` is a string.** `"value": 10` fails `400 Unexpected value for field value`.

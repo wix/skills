@@ -2,6 +2,7 @@
 // Wix-hosted checkout. Mount ONCE per page; opens via useOrderCart().openCart(). Correct and
 // complete; per the skill's model you design your own chrome on useOrderCart.
 import { useOrderCart } from "../../hooks/restaurants/useOrderCart";
+import { imgAttrs } from "../../wix/media";
 
 export default function OrderCartDrawer() {
   const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout } = useOrderCart();
@@ -41,9 +42,8 @@ export default function OrderCartDrawer() {
             <div className="mb-6 flex gap-4" key={line.lineItemId}>
               {line.imageUrl ? (
                 <img
-                  src={line.imageUrl}
+                  {...imgAttrs(line.imageUrl, "4rem")}
                   alt=""
-                  loading="lazy"
                   className="h-16 w-16 flex-shrink-0 rounded-md bg-secondary object-cover"
                 />
               ) : (

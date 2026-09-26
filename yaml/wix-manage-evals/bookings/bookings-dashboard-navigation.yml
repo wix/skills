@@ -8,7 +8,6 @@ triggerPrompt: >-
   direct dashboard links to: my booking services list, the page where I'd edit
   one specific service, my bookings calendar, and my staff list.
 tags: [bookings]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:

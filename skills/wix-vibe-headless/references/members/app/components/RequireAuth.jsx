@@ -2,7 +2,7 @@
 // children only for a logged-in member, otherwise redirects to /login (carrying the attempted path so
 // login can return there). This is the gate the shipped Account page uses; reuse it for your own
 // member-only routes ("my orders", "my plans", …). Reads useMember; no styling of its own.
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "@/lib/nav";
 import { useMember } from "@/context/MemberContext";
 
 export default function RequireAuth({ children, fallback = "/login" }) {

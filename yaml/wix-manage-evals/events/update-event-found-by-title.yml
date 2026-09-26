@@ -1,0 +1,80 @@
+name: events/update-event-found-by-title
+description: >-
+  Verifies the manage-events recipe gets the agent from an event named in the prompt to a saved
+  update without a detour through drafts: it looks the event up by title with Query Events, leaves
+  includeDrafts false (app callers do not hold READ_DRAFT_EVENTS, so true fails 403), and patches
+  the seeded event rather than creating a new one.
+triggerPrompt: >-
+  Add a short description to my Open House event saying it runs all afternoon.
+tags: [events]
+maxTokens: 500000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428.
+  templateId: events-studio
+  bootstrap:
+    steps:
+      # Published, not draft — the agent cannot read a draft event back. TBD dates so the
+      # seed cannot rot into a past date.
+      - label: seed the event to update
+        method: post
+        url: https://www.wixapis.com/events/v3/events
+        body:
+          event:
+            title: Open House
+            location: { name: To be announced, locationTbd: true }
+            dateAndTimeSettings:
+              dateAndTimeTbd: true
+              dateAndTimeTbdMessage: Date to be announced
+            registration: { initialType: RSVP }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-events
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked: "Add a short description to my Open House event saying it runs all afternoon."
+
+      The site is seeded with one published event titled "Open House". Seeding can race site
+      provisioning, so judge what the trace shows rather than assuming the event was there.
+
+      Pass if a successful (2xx) `PATCH /events/v3/events/{id}` gave that seeded event a description
+      that conveys it runs all afternoon, and the agent confirmed the change — OR, if no seeded event
+      existed, the agent said so plainly instead of inventing one.
+
+      Fail if a new event was created instead of updating the existing one; OR the description was
+      only shown in chat and never saved; OR every write attempt errored; OR the agent only described
+      how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence naming the event updated and its description>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to an updated event. Examine the tool-call
+      trace, including request bodies and any error bodies. 10 = no wasted calls and no errors.
+
+      Reading the recipe is expected and is never a wasted call. One `POST /events/v3/events/query`
+      to resolve the event's id from its title is expected too.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - a query sent with `includeDrafts: true`, whether or not it was wrapped in a try/catch — the
+        recipe says never to send it: app callers do not hold `WIX_EVENTS.READ_DRAFT_EVENTS`, so it
+        fails `403 Requires WIX_EVENTS.READ_DRAFT_EVENTS permission` instead of finding more events;
+      - a query that pages through every event on the site when a `title` filter would have found
+        the one named in the prompt;
+      - fetching a `revision` before updating, or sending one: this API takes no revision;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out the
+        query or update shape the recipe already gives;
+      - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

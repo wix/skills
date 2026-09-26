@@ -53,6 +53,21 @@ shippingRates.provideHandlers({
 });
 ```
 
+## ⚠️ Manual setup required — installing the app isn't enough
+
+Like Additional Fees and Payment Settings, this plugin only supplies rates when Wix actually asks it to. Unlike those two, **it isn't asked automatically** — the merchant must explicitly turn your app on as a delivery carrier for a shipping region before Wix calls `getShippingRates` for it. Tell the merchant to do this in the dashboard (confirmed live, click-by-click):
+
+1. Go to **Settings** (left sidebar) → under **Business solutions**, click **Shipping, delivery & fulfillment**.
+2. Find the region to enable the carrier for (e.g. **Domestic** or **International**) and click **Manage Your Apps** in that region's header.
+3. In the **"Manage your installed apps"** dialog, check the box next to your app's name.
+4. A **backup rate** section appears (checked by default) with a **Shipping name** and **Rate at checkout** field — this is what Wix falls back to if your plugin errors or times out. Fill these in (or leave the defaults) — Wix requires a backup rate here, same as the API's `backupRate`.
+5. Optionally check **Add a handling fee to every order**.
+6. Click **Save**.
+
+Confirmed live: enabling the carrier this way registers it with no errors. Whichever specific rate a given customer sees selected by default (this carrier's vs. another installed one's) is resolved at checkout-page render time, not by the Cart `calculate`/`refresh` endpoints — verify the actual customer-facing rate on the live checkout page, not from a raw API response alone.
+
+(The same thing can be done via the [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/add-delivery-carrier) API if you're scripting site setup yourself, but for a merchant using your app, send them to the dashboard steps above — not a raw API call.)
+
 ## Singular Constraint
 
 `ECOM_SHIPPING_RATES` is **singular** — only one component of this type is allowed per app. Do not scaffold or include two Shipping Rates service plugins in the same app.

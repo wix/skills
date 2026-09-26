@@ -1,0 +1,64 @@
+name: seo/manage-seo-suggestions
+description: >-
+  Verifies that the agent answers a "give me SEO title and description options for my
+  homepage" request with the Tag Suggestions API generators (title and description), passes
+  the user's keyword as primaryKeyword, presents the returned texts as options to choose
+  from, and writes nothing to the site's SEO tags because the user asked not to.
+triggerPrompt: >-
+  Give me a few SEO title tag and meta description options for my site's homepage. The page
+  should rank for "handmade ceramic mugs". Just show me the options, don't change anything
+  on the site yet.
+tags: [seo]
+# A fresh site is required: on the shared multi-site account the agent stops to ask which
+# site to act on and never reaches the generators. The scenario is read-only, so a blank
+# template site is enough; nothing needs seeding.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/seo/skills/generate-ai-seo-suggestions-for-a-wix-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for SEO title tag and meta description options for their homepage,
+      targeting the keyword "handmade ceramic mugs", and said not to change anything yet.
+
+      Pass if the agent:
+      - calls Generate Title Suggestions (POST .../seo/suggestions/v1/tag-suggestions/title)
+        and Generate Description Suggestions
+        (POST .../seo/suggestions/v1/tag-suggestions/description), each once, with
+        "handmade ceramic mugs" as primaryKeyword and pageType HOMEPAGE, the value the
+        recipe reserves for the homepage (WEBSITE_PAGE, an omitted pageType, or any other
+        value fails this check),
+      - presents the returned suggestions as options the user can choose from, and does not
+        invent extra titles or descriptions of its own or present the page's current tags as
+        suggestions,
+      - makes no write: no Set Item SEO Tags, Bulk Set Item SEO Tags, Set Site SEO Tags, or
+        Set SEO Pattern call, and no page-optimization trigger.
+
+      Reading the site's pages first (List Item SEO Tags or Get Item SEO Tags) is allowed and
+      neutral. Fail if the agent writes any tag, triggers page optimization, asks the user for
+      a site ID when the run already provides one, or reports suggestions it did not receive
+      from the API. If a generator call returns 403 or PERMISSION_DENIED, pass only if the
+      agent stops after that first attempt and names the missing SEO permission; do not reward
+      retries with other sites, paths, or request shapes.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Judge the tool-call path, not the prose. Score 0-10 (10 = direct: no wasted calls, no
+      errors).
+
+      Expected path: read the skill, optionally one List Item SEO Tags read to identify the
+      homepage, one Generate Title Suggestions call, one Generate Description Suggestions
+      call, then the answer. Penalize and list: a write of any kind; a page-optimization
+      trigger; the same generator called repeatedly with no change in input; a request sent
+      with a guessed shape or to a guessed path (for example /tag-suggestions/titles or a
+      body missing pageName or topic); a non-2xx response even if recovered; docs or schema
+      searches for request shapes the recipe already gives. For each friction, name the
+      likely skill or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

@@ -43,6 +43,10 @@ validations.provideHandlers({
 });
 ```
 
+## Manual Setup Required
+
+None — confirmed live. Once the app is installed and released, Wix calls this plugin automatically on every cart/checkout calculation; no dashboard configuration or extra API call is needed to "turn it on."
+
 ## Key Implementation Notes
 
 1. **Return empty array when valid** - Return `{ violations: [] }` when no validation issues

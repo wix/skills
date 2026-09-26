@@ -8,7 +8,6 @@ triggerPrompt: >-
   create a hidden free COURSE service called Test Kurs with 8 future online
   sessions, and what you would verify before telling me it is bookable.
 tags: [bookings]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -3,7 +3,7 @@
 // feed, so paging is identical). Displays the category by .label; cover from category.coverImage.url
 // (a DIFFERENT path from the post cover). Styled with base44 design tokens (shadcn Tailwind classes).
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { getCategoryBySlug, queryPostsByCategory } from "@/rest/wix-blog";
 import PostGrid from "@/components/PostGrid";
 

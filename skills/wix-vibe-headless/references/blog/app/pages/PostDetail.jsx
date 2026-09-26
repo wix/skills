@@ -2,7 +2,7 @@
 // category/tag chips, and the plain-text body as paragraphs. For a faithful render of embeds/images/
 // formatting, render `d.post.richContent` with a Ricos renderer (see INSTRUCTIONS "Extending").
 // Styled with base44 design tokens (shadcn Tailwind classes).
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { usePostDetail } from "@/hooks/usePostDetail";
 import PostChips from "@/components/PostChips";
 
