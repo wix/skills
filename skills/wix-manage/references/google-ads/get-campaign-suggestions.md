@@ -8,9 +8,10 @@ The Suggestions API produces the values that make a campaign effective — keywo
 
 Base URL: `https://www.wixapis.com/_serverless/pa-google/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. All suggestion endpoints are **read-only** — none create or spend anything, so run them freely.
 
-> **Two conventions to carry into every answer (this is where they trip people up):**
+> **Three conventions to carry into every answer (this is where they trip people up):**
+> - **What the endpoint returns is the answer — never substitute your own.** These endpoints *generate* the content: search themes, headlines, descriptions, images, keyword themes, budget tiers. Report what came back, as the API's suggestions. Do not write your own and present them as the API's, do not quietly reword a returned asset to read better, and do not blend the two. A user asking for suggestions is asking for Google's and Wix's, not the agent's — and the assets a campaign is built from have to be the ones the API produced. If a response comes back empty or unusable, say so and offer to call again; never fill the gap yourself.
 > - **Budgets come back in micros.** Every `dailyBudget` / `budgetAmountMicros` / `recommendedBudgetAmountMicros` is in micros, where `1,000,000` micros = 1 unit of the account's currency (so `15000000` = $15.00/day). Always convert to currency units when presenting to a user, and pass micros back when creating a campaign.
-> - **Geo suggestions return an `id`, not a usable target.** `geo-options` returns each location's `id` (e.g. `"1023191"`). To target it in a campaign you must wrap it as `geoTargetConstants/{id}` (e.g. `"geoTargetConstants/1023191"`) in `locations[].location.geoTargetConstant`. The raw `id` alone is not accepted.
+> - **A geo suggestion's `id` is already a usable target — don't wrap it.** `geo-options` returns each location's `id` fully prefixed (`"geoTargetConstants/1022762"`). Pass it verbatim into `locations[].location.geoTargetConstant`; prefixing it again yields `geoTargetConstants/geoTargetConstants/1022762` and is rejected.
 
 **Which suggestion do you need?**
 
@@ -83,12 +84,12 @@ Returns `lowOffer` / `mediumOffer` / `highOffer`, each with `incentiveId`, `awar
 ## Quick reference — the create-flow suggestion endpoints
 
 - **Keyword themes:** `POST /v1/keyword-theme-suggestions` with `{ suggestionInfo: { liveSiteUrl, languageCode, businessName? } }` → themes with `displayName`. Autocomplete: `GET /v1/keyword-theme-options?queryText=&languageCode=&countryCode=`.
-- **Geo targets:** `GET /v1/geo-options?queryLocation=&languageCode=&countryCode=` → geo targets with `id` (→ `geoTargetConstants/{id}`). May include restricted countries (rejected at create).
+- **Geo targets:** `GET /v1/geo-options?queryLocation=&languageCode=&countryCode=` → `googleSuggestion.geoTargetsSuggestions.geoTargets[]`, each `{ id, displayName, countryCode }` with `id` already prefixed (`geoTargetConstants/1022762`). Matching is loose — near-namesakes come back alongside the intended place, so select on `displayName`. May include restricted countries (rejected at create).
 - **Smart budget tiers:** `POST /v1/budget-suggestions` with `{ suggestionInfo: { liveSiteUrl, languageCode } }` → `low`/`recommended`/`high` with `dailyBudget` (micros) and estimated clicks.
 - **PMAX budget:** `POST /v1/budget-recommendation` with `{ campaignType, assetGroupInfo:[{finalUrl,...}], currency, ... }` → `recommendedBudgetAmountMicros` + `budgetOptions`.
-- **Text assets:** `POST /v1/text-asset-suggestions` (`suggestionInfo.landingPageUrl` + `textSuggestionInfo.languageCode` required).
+- **Text assets:** `POST /v1/text-asset-suggestions` (`suggestionInfo.landingPageUrl` + `textSuggestionInfo.languageCode` required) → `assetSuggestions[]`. These are the headlines and descriptions to report — writing your own instead is the most common way this call gets wasted.
 - **Image assets:** `POST /v1/image-asset-suggestions` (`suggestionInfo.landingPageUrl` required; images auto-uploaded to Wix Media).
-- **Search themes:** `POST /v1/search-theme-suggestions` (`textSuggestionInfo.languageCode` required).
+- **Search themes:** `POST /v1/search-theme-suggestions` (`textSuggestionInfo.languageCode` required; `landingPageUrl` is what the themes are generated from) → `searchThemes[]`, up to 25 strings. Report those, not themes of your own.
 
 ## Error handling
 

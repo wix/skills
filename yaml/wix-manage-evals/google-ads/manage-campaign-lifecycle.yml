@@ -1,7 +1,8 @@
 name: google-ads/manage-campaign-lifecycle
 description: >-
   Verifies the agent uses the lifecycle recipe and correctly distinguishes pause
-  with a scheduled auto-resume from a permanent stop, and Resume vs Launch.
+  with a scheduled auto-resume from a permanent stop, and Resume vs Launch, and
+  that it cites the serverless Google Ads base URL rather than the stale one.
 triggerPrompt: >-
   I want to pause my running Google Ads campaign for two weeks and have it turn
   back on automatically. How do I do that with the Wix Google Ads API?
@@ -24,10 +25,16 @@ assertions:
         and that settings/data are preserved while paused, AND
       - does NOT suggest deleting the campaign, AND
       - correctly treats the later reactivation as Resume (not Launch), if it
-        mentions manual reactivation at all.
+        mentions manual reactivation at all, AND
+      - writes every absolute endpoint URL against the base
+        https://www.wixapis.com/_serverless/pa-google/v1 (a relative path such as
+        POST /v1/campaigns/{id}/pause is equally fine; this criterion applies only
+        to URLs that include a host).
 
       Fail if the response:
       - deletes the campaign to stop it, OR
       - uses Launch to reactivate a previously-live paused campaign, OR
       - invents a separate "schedule" endpoint instead of the pause field, OR
+      - shows any URL under https://www.wixapis.com/google-ads/v1 — that base is
+        stale and 404s on every Google Ads endpoint, OR
       - hallucinates endpoints.

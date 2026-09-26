@@ -1,0 +1,68 @@
+name: google-ads/manage-campaign-update
+description: >-
+  Verifies the agent sends the whole campaign on UpdateCampaign: it reads the
+  campaign on the test site with GetCampaign before updating and sends every
+  existing field back in the PATCH body, rather than a minimal budget-only
+  payload.
+triggerPrompt: >-
+  Raise the daily budget on the Google Ads campaign on my Wix site (MSID:
+  b342a30b-616e-40ce-ad26-52a83397e08e) to $30 a day. Go ahead and apply it.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-campaign-lifecycle
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to raise the daily budget to $30/day on the campaign on
+      site b342a30b-616e-40ce-ad26-52a83397e08e, and gave approval to apply it.
+      That site has exactly one Google Ads campaign, so the campaign is
+      unambiguous once the agent lists them.
+
+      Pass if the response:
+      - resolves the campaign on site b342a30b-616e-40ce-ad26-52a83397e08e by
+        listing that site's campaigns, then reads that campaign with
+        GET /v1/campaigns/{campaignId} before updating; AND
+      - sends PATCH /v1/campaigns/{campaignId} with a body built from the
+        campaign the read returned, changing only budget.amountMicros to
+        "30000000"; AND
+      - carries the campaign's other existing fields through the update
+        unchanged — at least name, campaignType, locations, and the
+        smartCampaign / performanceMaxCampaign block — because data left out of
+        the payload is rejected or dropped rather than left alone; AND
+      - reports the result against what the campaign actually holds afterwards,
+        rather than asserting success from the PATCH response alone.
+
+      The runs share one campaign, so the budget may already be at $30/day when
+      the agent reads it. Passing then means saying so and leaving it alone; a
+      full-entity PATCH that rewrites the same value also passes. Only skipping
+      the read, or sending a partial body, fails.
+
+      Fail if the response:
+      - sends a PATCH containing only id/accountId/budget, or any body assembled
+        solely from what the user asked to change; OR
+      - describes UpdateCampaign as a partial update that leaves omitted fields
+        untouched; OR
+      - skips the campaign read, or presents it as optional; OR
+      - asks the user which campaign to update when the site has only one; OR
+      - calls any URL under https://www.wixapis.com/google-ads/v1 — that base is
+        stale and 404s; the Google Ads base is
+        https://www.wixapis.com/_serverless/pa-google/v1; OR
+      - uses launch/pause/resume or a create call to change the budget, OR
+        hallucinates endpoints.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path: the lifecycle recipe loaded
+      from public documentation, the site's campaigns listed once, one campaign
+      read, one full-entity update, one read-back to verify. Penalize any non-2xx
+      response even if recovered — a 404 from the stale google-ads/v1 base in
+      particular — guessed request shapes, retyping the campaign body from memory
+      instead of the read response, redundant probing or documentation searches
+      that clearer docs would avoid, and internal service or tool names in the
+      user-facing answer. Name the likely recipe/docs gap behind each detour.
+      Return only {"score":<0-10>,"reason":"<terse findings or clean path>"}.

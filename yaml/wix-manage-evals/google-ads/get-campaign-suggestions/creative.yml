@@ -1,0 +1,55 @@
+name: google-ads/get-campaign-suggestions-creative
+description: >-
+  Verifies the agent generates ad copy through the text-asset suggestions
+  endpoint with both required fields, and reports the returned headlines and
+  descriptions rather than writing its own.
+triggerPrompt: >-
+  Write me some headlines and descriptions for a Google Ads campaign for my Wix
+  bakery site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e).
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/get-ai-campaign-suggestions-for-google-ads
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants ad copy for a campaign on the bakery site
+      b342a30b-616e-40ce-ad26-52a83397e08e, live at https://www.mybakery.com/.
+
+      Pass if the response:
+      - calls POST /v1/text-asset-suggestions on
+        https://www.wixapis.com/_serverless/pa-google/v1; AND
+      - sends both required fields — suggestionInfo.landingPageUrl (the site's
+        live URL or a page on it) and textSuggestionInfo.languageCode as an
+        ISO 639-1 two-letter code ("en"); AND
+      - reports the headlines and descriptions the endpoint returned, as the
+        API's suggestions rather than copy the agent wrote itself; AND
+      - if it narrows the request, uses suggestionInfo.assetTypes with the text
+        values HEADLINE / LONG_HEADLINE / DESCRIPTION.
+
+      Fail if the response:
+      - writes the ad copy itself instead of calling the endpoint, or passes off
+        invented copy as the API's; OR
+      - omits landingPageUrl or languageCode — both are required and the call
+        fails without them; OR
+      - uses search-theme-suggestions or keyword-theme-suggestions for ad copy; OR
+      - calls any URL under https://www.wixapis.com/google-ads/v1, a stale base
+        that 404s; OR
+      - treats a slow response as a failure and retries — this endpoint is
+        allowed up to 60 seconds.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path: the suggestions recipe loaded
+      from public documentation, the site's live URL resolved if needed, one call
+      to text-asset-suggestions carrying both required fields, assets reported.
+      Penalize any non-2xx response even if recovered — particularly one caused by
+      omitting a required field then retrying — a premature retry of a call that
+      is allowed 60 seconds, guessed request shapes, and internal service or tool
+      names in the user-facing answer. Name the likely recipe/docs gap behind each
+      detour.
+      Return only {"score":<0-10>,"reason":"<terse findings or clean path>"}.
