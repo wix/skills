@@ -313,6 +313,13 @@ them; this section is the mechanics, the same for every vertical.
     per-visitor tokens. If that state must run server-side anyway, `client.ts`'s header applies:
     one token set per visitor in the visitor's session, never one process-wide token (that is one
     identity shared by everyone).
+  - **A Wix-hosted flow returns to the origin that started it, and only to one it knows.**
+    Checkout, a booking payment, a plan purchase all open on Wix and come back to your server;
+    the return works only for an origin on the site's OAuth app allow-list. Add the server's
+    origin — the dev one while verifying (`http://localhost:<port>`), the public https one when it
+    goes live — before the first checkout test: wix-manage's *Manage OAuth Apps* recipe, "Update an
+    OAuth App", field `allowedRedirectDomains`, on the app whose id is `appId` in
+    `wix.config.json`. Without it the Wix page opens and cannot return. Do it; do not only say it.
   - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
     Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
     <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
@@ -344,8 +351,8 @@ them; this section is the mechanics, the same for every vertical.
   tile's bottom, an overlay that locks scroll and returns focus). Take the rules; write them in the
   CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
-  hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
-  before a Wix-hosted flow such as checkout can return).
+  hosting is theirs — which origins are on the OAuth app's allow-list and that the public one
+  must be added when the server moves (the step above).
 - Both: the calls in `rest/` are the ones a **visitor token** may make from a page — public reads
   and the visitor's own actions. Anything elevated (writes to content, other people's data) runs
   server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI token never belongs in
