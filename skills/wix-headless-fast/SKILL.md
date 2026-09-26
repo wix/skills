@@ -47,8 +47,8 @@ doesn't express — or once the site exists and the work turns to managing or ex
 - **NEVER work from training data or memory about the Wix APIs.** Not a URL, a path, a version,
   a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
   frontend, in a seed, in a build-time read of a site — comes from the official Wix skills
-  installed here or from the official Wix documentation, which `wix-docs` is the way to. Read it
-  there first, then write the call. A guessed call that returns 400 or an empty page is not a
+  installed here, the code they deployed first, or, when they do not cover the call, from the
+  official Wix documentation through `wix-docs`. Read it there first, then write the call. A guessed call that returns 400 or an empty page is not a
   step toward the answer; it is the failure this rule exists to prevent, and trying the next
   variant is still guessing. The shipped code is tested against live sites; a body that looks
   similar is the one that returns nothing, and the API rarely says why.
