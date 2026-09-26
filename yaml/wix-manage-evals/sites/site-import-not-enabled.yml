@@ -1,0 +1,49 @@
+# FIXME(infra): no siteSetup/teardown here. If the shared eval account is ever enrolled in the
+# beta, Start succeeds and creates a real, live site with nothing to clean it up — that's an
+# infra/account-provisioning fix (an isolated non-enrolled account, or a teardown step), not a
+# skill-text one. Flag to whoever owns the shared eval account if you see an orphaned site under
+# the harborview-outfitters.example.com source.
+name: sites/site-import-not-enabled
+description: >-
+  Verifies that when Start comes back not authorized (any auth-related failure — 401, 403, or
+  404, with or without a NOT_ENABLED code), the agent tells the user Site Import is in a closed
+  beta and points them to the access-request form, instead of a raw error, "contact support", or
+  falling back to another site-creation tool. Depends on the shared eval account's live
+  enrollment state, which this file doesn't pin — if Start unexpectedly succeeds instead of
+  failing, that's a real import, not a skill defect, and this scenario should not be judged on
+  the closed-beta criteria for that run.
+triggerPrompt: >-
+  I want to migrate my existing online store at https://harborview-outfitters.example.com into a
+  brand-new Wix site — I don't have a Wix site yet, and this isn't a design file, it's a live
+  store I want moved over.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to start a Site Import migration. Look at the tool-call trace for the Start
+      call (POST /v1/imports).
+
+      Case A — Start failed with any authorization-related error (HTTP 401, 403, or 404; with or
+      without a "NOT_ENABLED" code): the correct behavior is to recognize this as the account not
+      being enrolled in Site Import's closed beta, and:
+        - tell the user, plainly and warmly, that Site Import is in a closed beta and their
+          account doesn't have access yet, AND
+        - point them to request access at https://forms.gle/RfZqVRtGCsPv7U7M6, AND
+        - NOT tell them to "contact Wix support" or point them at an unrelated help-center page,
+          AND
+        - NOT fall back to creating the site through any other site-building capability, AND
+        - stop, without raw JSON/HTTP codes as the primary answer.
+      Score 8-10 if all of the above hold; 0-3 if the response reports a generic/raw error, tells
+      the user to contact support, or creates a site through another path instead.
+
+      Case B — Start succeeded (no auth error at all): this run isn't testing the closed-beta
+      path. Score 8-10 as long as the agent proceeded reasonably with the import and didn't
+      fabricate a deployUrl or claim completion before a DEPLOYED status; don't penalize it for
+      not mentioning the closed beta or the form link.
+
+      Return which case applied and why, alongside the score.
