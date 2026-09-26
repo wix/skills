@@ -115,11 +115,11 @@ doesn't express — or once the site exists and the work turns to managing or ex
    is there (step 3's attach path). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
    (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
    read tokens into context).
-3. **Run the fast path in the project's folder** — one deterministic call, the same for an empty
-   folder and for a project already on disk; **the folder decides** what it does:
+3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
+   and for a project already on disk; **the folder decides** what it does:
 
    ```bash
-   node <SKILL_ROOT>/install/fast-path.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
+   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
    ```
 
    - **Empty** (or only loose files: a CSV, a brief) → **create**: scaffolds the Wix CLI's
@@ -129,11 +129,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
      to a new site (the site is named after the folder), then the shipped code deploys into
      the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
      project what that stack needs on Wix hosting (step 1) before or right after the call.
-   - **`wix.config.json` and none of this skill's code** (a Wix project made by hand or by the
-     CLI) → **connect** to the site in the config: no `init`, deploy in place.
-   - **`wix.config.json` and this skill's code** (`src/wix/` or `js/wix/`) → refuses: nothing to
-     create or connect here. `deploy.mjs <vertical>` adds a solution; file edits and a release
-     change what is built.
+   - **`wix.config.json` present** → refuses: the folder is already a Wix project, whether the
+     CLI made it, a hand wrote it, or this skill built it. Three commands from the project root
+     do everything setup would: `deploy.mjs <vertical…> --stack <stack>` adds this skill's code
+     or a solution (the client id is read from the config), then ONE install, then the seed
+     module if there is content to create. A project this skill built needs only the first,
+     for a new solution; a change to what is built is file edits and a release.
    - The brief names a site by id → the existing-site path below, not this call.
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
@@ -143,7 +144,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
    cleanup seems needed, ask. The `ready_for_brand_layer` event says `mode` (create or
    connect), the stack, and the `next` for that stack, including how it releases.
 
-   fast-path scaffolds with `--skip-git`: it composes its own steps and leaves version control to
+   setup scaffolds with `--skip-git`: it composes its own steps and leaves version control to
    you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
    commit (which would otherwise become a nested-repo gitlink if the project lands inside a repo).
 
@@ -174,7 +175,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
    The installed apps name the verticals (Wix Stores → storefront, Wix Bookings → bookings, and
    so on per the Verticals table); the brief picks among them. Then one deterministic call, same
-   shape as the fast path:
+   shape as setup:
 
    ```bash
    node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>]
@@ -219,7 +220,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
    id is read from `wix.config.json`), ONE `npm ci --ignore-scripts || npm install
    --ignore-scripts` (**never a second npm install concurrently**: two npms in one
-   `node_modules` race and redo each other's work; fast-path already started one — wait on its
+   `node_modules` race and redo each other's work; setup already started one — wait on its
    marker), the vertical's seed module per its `seed/SEED.md`.
    A code change on an existing project is done when it is **released** (step 5) and the live
    URL shows it — not when a dev server or a local build shows it. A management change (a
@@ -243,7 +244,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
    your summary — if non-zero, read `seed.log` and re-run the seed module manually). Those two
-   seed files exist **only when fast-path started the seed** (attach runs none: only the install
+   seed files exist **only when setup started the seed** (attach runs none: only the install
    marker is waited on). When you ran `seed-store.mjs`
    yourself (connect/iterate runs, reference mode), there is no marker to wait for: the process's
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
@@ -362,10 +363,10 @@ them; this section is the mechanics, the same for every vertical.
 | Restaurant: menu with photos, online ordering, table reservations                            | **restaurants**   | `references/restaurants/INSTRUCTIONS.md`   |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
-accounts) deploys them together — fast-path takes one vertical; deploy the rest with
+accounts) deploys them together — setup takes one vertical; deploy the rest with
 `node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
 starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
-this skill's fast path — route it to `wix-headless` rather than improvising an unshipped
+this skill's shipped code — route it to `wix-headless` rather than improvising an unshipped
 vertical here.
 
 ## Adding a vertical (structure contract)

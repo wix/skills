@@ -1,24 +1,21 @@
-// Fast path — one deterministic call from "the folder and the brief" to "brand layer can start".
-// The FOLDER decides what happens; there is no create/connect switch:
+// Set up the project in the current folder — one deterministic call from "the folder and the
+// brief" to "brand layer can start", for a folder that is NOT yet a Wix project:
 //
-//   node <SKILL_ROOT>/install/fast-path.mjs --vertical <storefront|bookings|…> \
+//   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…> \
 //        [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] \
 //        [--subfolder [--folder-name <npm-safe-name>]]
 //
-//   - the current directory holds `wix.config.json` AND code this skill deployed → refuses: the
-//     project is built here; a later prompt iterates on it (deploy.mjs adds a solution).
-//   - `wix.config.json` but none of this skill's code (a Wix project made by hand or by the CLI)
-//     → CONNECT: no init, the site is the one in the config; deploy into the project as it is.
+//   - `wix.config.json` present → refuses. The folder is already a Wix project; deploy.mjs adds
+//     this skill's code or a solution to it, then one install, then the seed if there is content.
 //   - a project but no `wix.config.json` (a package.json, or an index.html at the root) → CONNECT:
 //     `npm create @wix/new@latest init` in place creates the site and the config, then deploy.
-//   - none of the above (empty, or loose files such as a CSV or a brief) → CREATE: scaffold the Wix
-//     CLI's Astro template and place it in the current directory (`--business-name` required).
+//   - otherwise (empty, or loose files such as a CSV or a brief) → CREATE: scaffold the Wix CLI's
+//     Astro template and place it in the current directory (`--business-name` required).
 //
-// The script reads file markers only (wix.config.json, this skill's deployed folder, a package.json
-// or index.html); everything else is the agent's call: when connecting, `--stack` is required and
-// comes from SKILL.md step 1, and what the project needs for that stack on Wix hosting is prose
-// there, not detection here. The seed runs only when `--plan` is given: a site that already has its
-// content, or a brief that has not supplied any, gets no seed.
+// The script reads file markers only (wix.config.json, a package.json or index.html); everything
+// else is the agent's call: when connecting, `--stack` is required and comes from SKILL.md step 1,
+// and what the project needs for that stack on Wix hosting is prose there, not detection here. The
+// seed runs only when `--plan` is given: a brief that has not supplied any content gets no seed.
 //
 // Composes pieces that also remain individually runnable (deploy.mjs, the vertical's seed module)
 // to recover one failed step. Emits ONE JSON event per line and exits in ~35s with the two long
@@ -53,7 +50,7 @@ const subfolder = argv.includes("--subfolder");
 const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
   .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
   .map((d) => d.name);
-const usage = `usage: fast-path.mjs --vertical <${knownVerticals.join("|")}> [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
+const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}> [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong seed.
 if (!vertical) fail("args", usage);
 if (!knownVerticals.includes(vertical)) {
@@ -67,20 +64,17 @@ if (planPath && !existsSync(planPath)) fail("args", `plan file not found: ${plan
 // ---- 0 · read the folder --------------------------------------------------------------------------
 const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
-const hasConfig = has("wix.config.json");
-const hasOurCode = has("src/wix") || has("js/wix");
+if (has("wix.config.json")) {
+  fail("place", "this folder is already a Wix project (wix.config.json): nothing to set up. deploy.mjs <vertical> adds this skill's code or a solution to it; then ONE npm install; then the vertical's seed module if there is content to create");
+}
 const pkg = has("package.json") ? JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) : null;
 const hasProject = !!pkg || has("index.html");
-
-if (hasConfig && hasOurCode) {
-  fail("place", "this folder already holds a Wix project with this skill's code deployed (wix.config.json and src/wix/ or js/wix/): nothing to create or connect. To add a solution: deploy.mjs <vertical> from here. To change what is built: edit the files and release");
-}
-const mode = hasConfig || hasProject ? "connect" : "create";
+const mode = hasProject ? "connect" : "create";
 if (mode === "connect" && !stackFlag) {
   fail("args", "connecting a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
 }
 const stack = stackFlag ?? "astro";
-emit("folder", { mode, stack, hasConfig, project: hasProject ? (pkg?.name ?? basename(cwd)) : null });
+emit("folder", { mode, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null });
 
 let projectDir = cwd;
 let folderName = null;
@@ -115,7 +109,7 @@ if (mode === "create") {
       fail("scaffold", (scaffold.stderr || scaffold.stdout || "scaffold produced no wix.config.json — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").slice(-600));
     }
   }
-} else if (!hasConfig) {
+} else {
   // ---- 1 · init in place --------------------------------------------------------------------------
   // The CLI's `init` links the folder to a NEW site: creates the site and its OAuth app, writes
   // wix.config.json and .env.local, touches nothing else. Non-interactive under CI=1; the site is
@@ -129,7 +123,7 @@ if (mode === "create") {
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
 const siteId = wixConfig.siteId ?? wixConfig.projectId;
-emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd, siteId, stack, init: mode === "connect" && !hasConfig });
+emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd, siteId, stack });
 
 // ---- 2 · deploy shipped code + deps + lockfile ---------------------------------------------------
 const deploy = spawnSync(
@@ -236,9 +230,7 @@ emit("ready_for_brand_layer", {
   install,
   seed,
   next:
-    (mode === "connect" && hasConfig && !planPath
-      ? "get the measure of the site before designing (SKILL.md step 3); "
-      : planPath
+    (planPath
       ? "theme + write the home page; "
       : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ") +
     (install || seed ? "then wait for the done markers" + (seed ? ", verify .seed-exit is 0 (else read seed.log and re-run the seed module)" : "") + "; " : "") +

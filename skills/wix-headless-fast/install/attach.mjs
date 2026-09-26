@@ -1,8 +1,8 @@
-// Attach a NEW headless frontend to an EXISTING Wix site — the fast path for a site that already
+// Attach a NEW headless frontend to an EXISTING Wix site — setup's sibling for a site that already
 // exists (named in the prompt by its id). `init`/`wix create` cannot do this: they always create
 // a site. This script does what they do AFTER creating one — OAuth app, managed hosting, env
 // vars, `wix.config.json` — against the site id given, then scaffolds and deploys like
-// fast-path.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
+// setup.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
 //
 //   node <SKILL_ROOT>/install/attach.mjs --site <metaSiteId> --business-name "<Brand>" \
 //        --vertical <a>[,<b>…] [--stack astro|react|static] [--subfolder [--folder-name <name>]]
