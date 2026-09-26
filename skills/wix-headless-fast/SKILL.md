@@ -176,6 +176,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
    but **never run a second npm install concurrently**: two npms in one `node_modules` race and
    redo each other's work); then seed per the vertical's `seed/SEED.md`. Seeding is
    **additive**: never delete or overwrite existing content; if a cleanup seems needed, ask.
+   A code change on an existing project is done when it is **released** (step 5) and the live
+   URL shows it — not when a dev server or a local build shows it. A management change (a
+   recipe against the site) needs no release; the frontend reads it live.
 
 4. **Design and build the presentation while the install finishes** — in the project dir from
    the `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: set the `@theme`

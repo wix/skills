@@ -404,6 +404,8 @@ export default function ProductDetailView(props: {
   //       to full-width images stacked down the column (products with per-color
   //       linked media carry several gallery urls, so that stacks big duplicates).
   //       A single-image gallery is just the one primary — no empty strip.
+  //       When d.variant resolves and carries imageUrl, that image becomes the primary (it is
+  //       one of the gallery urls) — a shopper who picks a color sees that color.
   //     • name, EVERY ribbon (d.product.ribbons), live d.price (the range until every option
   //       is picked) with d.compareAtPrice as a labelled "was" when present — never invent one;
   //       descriptionHtml rendered as HTML, then d.product.infoSections as sections/accordions
