@@ -66487,6 +66487,7 @@ exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatDocsEntryProblems = formatDocsEntryProblems;
+exports.formatSlashedTitles = formatSlashedTitles;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -66564,6 +66565,17 @@ function formatDocsEntryProblems(problems) {
     });
     return render('❌', 'Invalid docsEntry', [
         '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+        '',
+        ...lines,
+    ]);
+}
+function formatSlashedTitles(entries) {
+    const lines = entries.map((e) => {
+        const served = e.title.split('/').pop()?.trim() || '';
+        return `- \`${e.yamlPath}\` → "${e.title}" would be published as **"${served}"**`;
+    });
+    return render('❌', 'Slash in a documentation.yaml title', [
+        'The docs pipeline treats a `/` in a `title` as a section separator and publishes the page under the text after the last slash — the recipe loses its name and its doc URL. Remove the slash (the frontmatter `name` is a good title).',
         '',
         ...lines,
     ]);
@@ -67162,8 +67174,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.loadDocsEntryIndex = loadDocsEntryIndex;
 exports.changedDocsEntries = changedDocsEntries;
 exports.validateDocsEntries = validateDocsEntries;
+exports.slashedTitles = slashedTitles;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
@@ -67293,6 +67307,16 @@ async function validateDocsEntries(targets) {
         return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
     }
     return { problems };
+}
+/**
+ * Titles containing a slash. The docs pipeline (md-resolver in wix-private/docs) sets a doc's
+ * menu display name to `title.split('/').pop()` — the API-repo convention for
+ * "ServiceName/Doc Title" — and derives the page slug from it, so a skill titled
+ * "CMS Publishing Flow & Visible/Hidden" was served at /skills/hidden while the gate's URL
+ * (a slugify of the whole title) said otherwise. For a skill a slash is never wanted.
+ */
+function slashedTitles(workspace) {
+    return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
 }
 
 
@@ -67612,6 +67636,13 @@ async function runGate() {
             (0, github_1.fail)(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
             return;
         }
+    }
+    // A slash in a title publishes the page under the last segment (see slashedTitles).
+    const slashed = (0, docs_entry_check_1.slashedTitles)(workspace);
+    if (slashed.length > 0) {
+        await comment((0, comment_1.formatSlashedTitles)(slashed));
+        (0, github_1.fail)(`${slashed.length} documentation.yaml title(s) contain a slash`, config.blocking);
+        return;
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)
