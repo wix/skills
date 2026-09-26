@@ -11,6 +11,7 @@
     "idPolicy": "client-assigned",
     "crosswalkRequired": false
   },
+  "dependsOn": ["cms/collection", "cms/data-item"],
   "sourceAliases": [
     { "sourceSystem": "wordpress", "sourceEntity": "relationship", "routes": ["post meta", "term relationships"], "confidence": "medium" },
     { "sourceSystem": "wix", "sourceEntity": "cmsReference", "routes": ["Wix Data reference fields"], "confidence": "high" }

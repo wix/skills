@@ -15,7 +15,8 @@
     "stores/category",
     "stores/brand",
     "stores/product-tag",
-    "media/media-file"
+    "media/media-file",
+    "stores/product-customization"
   ],
   "sourceAliases": [
     {
@@ -117,11 +118,17 @@
       "code": "variant-matrix-two-pass",
       "severity": "warning",
       "summary": "Full variable product matrices require a post-create option-choice and variant pass."
+    },
+    {
+      "code": "media-source-resolution",
+      "severity": "blocker",
+      "summary": "media.itemsInfo.items[] takes ONE url per image and the destination copies exactly that file, generating every derivative from it with no way to raise quality afterwards -- so the url sent is that image's permanent ceiling. Never map a single named source image field: a source image reference usually carries several urls for the same picture at different sizes, and the field holding the original differs between routes of the SAME source. Resolve to the original, maximum-resolution candidate before building the item. Also: altText (1-1000 chars) and displayName (max 80, url-set items only) are writable per item and must not be flattened away; thumbnail is destination-generated output, never an input."
     }
   ],
   "mappingGuidance": [
     "Create categories, brands, tags, and media references before products when the source uses them; assign brands by crosswalked brand.id, never by name (see stores/brand).",
-    "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified."
+    "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified.",
+    "Product images: pass every candidate url the source record offers to the source adapter's image resolver and use its result, never a hardcoded field such as src. Carry altText and displayName through to the media item. When the resolver reports that only a downscaled crop existed, record those images in the run's faithfulness ledger rather than importing them silently."
   ],
   "setupRequirements": [
     "Wix Stores app",

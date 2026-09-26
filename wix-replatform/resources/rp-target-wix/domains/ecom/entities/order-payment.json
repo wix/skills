@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-payment",
+  "displayName": "eCommerce Order Payment",
+  "capability": "commerce.order-payments",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "eCommerce Order Transactions",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "objectPageException": "The Order Transactions API is not modelled as a fetchable object with its own '…-object' reference page. Its reference tree exposes an introduction, terminology, sample flows and the methods (Add Payments, List Transactions For Single/Multiple Orders, Update Payment Status), with no object page for Payment or OrderTransactions. Confirmed by a ranked SearchWixRESTDocumentation query for the order-transactions object reference on 2026-09-03, which returned the methods and articles cited in evidence[] and no object page. The field shape here is taken from the Add Payments method schema.",
+  "dependsOn": [
+    "ecom/order"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_payment_meta",
+      "routes": [
+        "/wc/v3/orders/{id}"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "eCom Order Transactions",
+    "endpoint": "GET /ecom/v1/payments/orders/{orderId} then POST /ecom/v1/payments/orders/{orderId}/add-payment",
+    "writerId": "writeOrderPayment",
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "existenceGate": {
+    "summary": "A payment record is written only when the source supplies BOTH a positive amount and a paid date. An order total, a gateway-shaped key, an order status, and a transaction reference are each insufficient.",
+    "required": [
+      "a source amount that parses and is greater than zero",
+      "a source paid date"
+    ],
+    "neverSufficient": [
+      "the order total on its own",
+      "the order status on its own",
+      "a resolved provider transaction reference on its own"
+    ],
+    "outcomes": [
+      "payment-written",
+      "payment-reconciled-existing",
+      "payment-not-written-no-amount",
+      "payment-not-written-no-paid-date",
+      "payment-not-written-multi-payment",
+      "payment-not-written-currency-mismatch",
+      "payment-reconciliation-ambiguous",
+      "payment-target-read-failed",
+      "payment-failed"
+    ]
+  },
+  "fieldMapping": [
+    {
+      "target": "amount.amount",
+      "rule": "Required. Absent, unparseable or non-positive means no payment record."
+    },
+    {
+      "target": "createdDate",
+      "rule": "Required, from the source paid date. Never defaulted to the order date or migration day: omitting it makes the API stamp the current time."
+    },
+    {
+      "target": "status",
+      "rule": "Literal APPROVED, written only after the existence gate passes. PAYMENT-LEVEL field.",
+      "limit": null
+    },
+    {
+      "target": "regularPaymentDetails.paymentMethodName.userDefinedName.custom",
+      "rule": "Source method title, else method slug. Omitted when absent; never invented.",
+      "limit": 150
+    },
+    {
+      "target": "regularPaymentDetails.providerTransactionId",
+      "rule": "Only a defensibly attributed reference. Omitted and counted when unresolved; never truncated.",
+      "limit": 100
+    },
+    {
+      "target": "regularPaymentDetails.offlinePayment",
+      "rule": "From verified method classification: true for known offline, false for known online, OMITTED and counted when unknown. Omission is not a synonym for false."
+    },
+    {
+      "target": "regularPaymentDetails.creditCardDetails.lastFourDigits",
+      "rule": "Only from a compatible verified gateway field. Whole object omitted when absent or incompatible.",
+      "limit": 4
+    },
+    {
+      "target": "regularPaymentDetails.creditCardDetails.brand",
+      "rule": "Only from a compatible verified gateway field.",
+      "limit": 100
+    },
+    {
+      "target": "regularPaymentDetails.savedPaymentMethod",
+      "rule": "NEVER SET. Writable, but no reusable credential can accompany it, so setting it asserts a charging agreement that does not exist."
+    },
+    {
+      "target": "refundDisabled",
+      "rule": "Not set, pending verification that it does not block an externalRefund write."
+    },
+    {
+      "target": "currency",
+      "rule": "No such field exists on a payment. Wix derives it from the order, so a source/target currency mismatch stops the payment write and is reported."
+    }
+  ],
+  "pitfalls": [
+    {
+      "code": "order-total-is-not-payment-evidence",
+      "severity": "blocker",
+      "summary": "An order total exists on orders that were never paid. VERIFIED LIVE on a production WooCommerce store: `_order_total` is present on all 1,313 cancelled and all 3 failed orders, which carry 1 paid date between them. Creating an APPROVED payment wherever a total exists would mint 1,316 approved payments for unpaid orders -- 18% of that store -- overstating revenue in a more authoritative-looking place than the bug it replaced. Require a paid date."
+    },
+    {
+      "code": "status-allowlist-is-not-the-gate",
+      "severity": "blocker",
+      "summary": "Do NOT gate on an allowlist of 'paid' order statuses. VERIFIED LIVE: that store's terminal paid state is `wc-processing` (5,967 orders) and `wc-completed` is 2, so an allowlist keyed on 'completed' would import 2 payments out of 5,967. Status semantics are per-store. Status is a conflict/report axis only: a paid date on a cancelled order is preserved and the contradiction counted, and an unfamiliar status never blocks a real paid date."
+    },
+    {
+      "code": "status-is-a-payment-level-field",
+      "severity": "warning",
+      "summary": "SCHEMA DRIFT FOUND 2026-09-03 while re-checking the live Add Payments schema. `status` is a payment-level field, sibling to `amount` and `createdDate`, and that is the current field. The previous writer nested it inside `regularPaymentDetails`, which the schema still carries as a DEPRECATED field marked as replaced by the top-level one -- so the earlier claim that those requests \"asserted nothing about status\" was too absolute: they used the deprecated shape, whose behaviour is not guaranteed to persist. Write the top-level field. Pinned by tests/target-wix/order-payment-field-mapping-test.js."
+    },
+    {
+      "code": "reference-not-returned-for-offline-payments",
+      "severity": "info",
+      "summary": "DOCS SAY one thing and the API does another. The schema states that `providerTransactionId` and `gatewayTransactionId` are \"not returned for offline payments\". LIVE-VERIFIED 2026-09-04 on a disposable site: an offline payment written WITH a `providerTransactionId` read it straight back. So the documented behaviour is wrong, or at least not universal. Reconciliation for offline payments matches on the fact fingerprint rather than the reference, which works either way -- it was built for the documented behaviour and is now simply belt-and-braces. Do NOT rely on the reference being absent, and do not treat its presence as drift."
+    },
+    {
+      "code": "payment-status-recalculates-asynchronously",
+      "severity": "warning",
+      "summary": "SCHEMA-DOCUMENTED: the order's `paymentStatus` is recalculated asynchronously after Add Payments, so reading the order immediately afterward may still show the previous status. Verification must not assert on `order.paymentStatus` right after the write."
+    },
+    {
+      "code": "duplicate-reference-fails-the-whole-call",
+      "severity": "blocker",
+      "summary": "SCHEMA-DOCUMENTED: if any payment's external transaction id already exists on the order, the ENTIRE Add Payments call fails and no payments are added. This is why the order's existing payments are read and reconciled by identity before every create, and why a failed target read resolves to `payment-target-read-failed` rather than to permission to create."
+    },
+    {
+      "code": "reconcile-by-identity-never-by-position",
+      "severity": "blocker",
+      "summary": "The replaced implementation selected a payment with `(payments || []).find((p) => !p.refundDisabled)?.id`. That is identity-free: it matches an unrelated record, including one the merchant created by hand in the Business Manager, and would attach a refund to the wrong payment. Match by provider transaction reference when one was defensibly sourced, otherwise by an exact fingerprint of amount, paid date, normalized method name, offline marker and card display fields. Exactly one match reconciles; more than one is ambiguous and prohibits creation."
+    },
+    {
+      "code": "paid-date-timezone-is-a-real-loss",
+      "severity": "warning",
+      "summary": "WooCommerce stores paid dates in three shapes: an epoch stamp, a full ISO instant, and a bare 'YYYY-MM-DD HH:MM:SS' wall-clock string with no zone. Only the first two are unambiguous. The third is interpreted as UTC and COUNTED as `paid-date-timezone-assumed`, because silently shifting a payment by the store's offset is a fidelity loss a merchant may discover later while reconciling a tax period. Supply the source site's UTC offset to remove the assumption."
+    },
+    {
+      "code": "data-extension-schema-read-propagates",
+      "severity": "warning",
+      "summary": "LIVE-VERIFIED 2026-09-04: an immediate List after a successful schema create reported the new fields ABSENT, while an order PATCH moments later accepted values for them -- which the API only allows when the schema contains them. The write had landed; the read was stale. Verifying once therefore produces a false 'not verified after write' on every fresh provision, which would block dependent writers. The re-read retries with backoff before believing a negative result."
+    }
+  ],
+  "mappingGuidance": [
+    "Run the existence gate before anything else. Ineligible orders must never reach the write path, which also keeps target reads proportional to evidenced payments rather than to the whole order population.",
+    "Resolve the transaction reference, card display fields and offline classification through the source-side registry, not from a payment-method slug: the slug names the checkout plugin, not necessarily the processor behind it.",
+    "One payment record per order in phase 1. A source exposing more than one distinct payment amount is reported as `payment-not-written-multi-payment`, never summed into one record.",
+    "Report the payment outcome for every source order. The mutually exclusive outcomes must sum to the discovered source-order population on every run, so a clean re-run reports reconciled records rather than disguising them as skips."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/order-transactions/add-payments",
+      "note": "Full method schema re-checked 2026-09-03 per spec 0124 A.1. Established: status is payment-level; createdDate is settable and defaults to now when omitted; providerTransactionId max 100; userDefinedName.custom max 150; lastFourDigits max 4; brand max 100; 50 payments per call; 100 payments per order; duplicate external transaction id fails the entire call; order paymentStatus recalculates asynchronously."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-transactions/list-transactions-for-single-order",
+      "note": "The mandatory pre-write reconciliation read."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Live post-meta survey behind the existence gate and the status-allowlist refutation."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-transactions/introduction",
+      "note": "Introduction, read 2026-09-03. Confirms two behaviours this entity depends on, in Wix's own words: 'The Order Transactions API records payments and refunds. It doesn't charge or refund funds. Adding a payment record or updating a payment status has no effect on the actual money movement.' And: 'After a payment record is added or updated, the order's paymentStatus is recalculated asynchronously. Reading the order immediately afterward may still show the previous payment status.'"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "domain": "site",
+  "displayName": "Wix Site Properties",
+  "ownerHint": "Site Properties domain owners (Business Info: profile, contact, schedule, region, consent policy)",
+  "wixAppsRequired": [],
+  "docsRoots": [
+    "api-reference/business-management/site-properties"
+  ],
+  "defaultImportOrder": [
+    "business-contact"
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "field-mask-clears-what-it-lists-but-you-did-not-send",
+      "severity": "blocker",
+      "summary": "Every Site Properties update takes a `fields.paths[]` mask, and its semantics are DESTRUCTIVE in one direction: a property named in `fields.paths` but absent from the payload object is CLEARED, not left alone. Only properties absent from `fields.paths` are ignored. So the mask must list EXACTLY the properties actually being sent -- never a convenient superset, and never a copy of a documentation example's list. Wix's own Update Business Contact example demonstrates the hazard rather than the safe pattern: it passes paths ['phone','fax','email','address','businessSchedule'] while sending no businessSchedule, which by the documented rule wipes the site's business hours. Build the mask FROM the payload's own keys, never alongside it."
+    },
+    {
+      "code": "updates-return-an-empty-body-so-read-back-is-a-separate-call",
+      "severity": "warning",
+      "summary": "Update Business Contact (and its sibling updates) return `{}` -- no echo of what was stored, no revision. A successful write proves only that the request was accepted. To verify anything actually landed, call GET /site-properties/v4/properties separately and compare. This matters more than usual here because the field mask above can silently clear a field on the same call that successfully sets another."
+    },
+    {
+      "code": "site-properties-is-not-versioned-by-revision",
+      "severity": "info",
+      "summary": "Unlike most Wix entities, these calls take no `revision` and cannot 409 on a concurrent write. Two writers updating different properties will not conflict, but two writers updating the SAME property silently last-write-wins. Read before writing when a value may already be set by the merchant or by an earlier phase of the run."
+    },
+    {
+      "code": "a-site-can-legitimately-have-no-business-address-at-all",
+      "severity": "info",
+      "summary": "LIVE-OBSERVED: GET /site-properties/v4/properties on a fresh site returned only locale/currency/timezone with no business address key present at all -- an absent address is the normal starting state, not an error or a partially-migrated one. Treat 'no address' as 'nothing written yet' and never infer from its absence that a write failed."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/introduction",
+      "note": "Site Properties is the single source of truth for the site's public business information; the merchant edits the same values in the dashboard under Settings > Business Info"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/introduction",
+      "note": "the five property groups: Profile, Contact, Schedule, Region, Consent Policy"
+    }
+  ],
+  "notes": "Authored to give the business address a real home. It had been an unowned gap: a migrated site published with an empty address field, and the pickup-location entity needed an address the pipeline had no target for. Only `business-contact` is authored so far -- Profile (site display name, business name, logo, description), Schedule, Region (locale, currency, timezone) and Consent Policy are real siblings on the same API and are the obvious next entities, but each needs its own source mapping before it is worth authoring."
+}

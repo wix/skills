@@ -11,6 +11,7 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -25,7 +26,7 @@
   "preferredWrite": {
     "surface": "Plans V3",
     "endpoint": "POST /pricing-plans/v3/plans",
-    "writerId": null,
+    "writerId": "ensurePlanDefinition",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false
@@ -89,7 +90,8 @@
     "freeTrialDays (integer 0-999) carries the free trial; it is days only, so convert week/month source trials to days.",
     "Deduplicate to one plan per distinct source offer (product x cadence x price) shared by all its subscribers - never one plan per subscriber.",
     "Pass idempotencyKey (must be GUID format) derived deterministically from the source offer id (e.g. UUIDv5) so a retried import returns the original plan instead of duplicating it.",
-    "The Stores-product linkage is severed by design: record the source product name/id in the plan title/description (trade-off accepted by Spec Owner 2026-08-16). extendedFields exists on the plan but requires a schema-plugin app namespace, so it is not a free-form carry."
+    "The Stores-product linkage is severed by design: record the source product name/id in the plan title/description (required migration trade-off). extendedFields exists on the plan but requires a schema-plugin app namespace, so it is not a free-form carry.",
+    "Definitions are built by lib/pricing-plan-definition.js (buildPlanDefinition: PRIVATE, buyable false, status ACTIVE, name<=50/description<=450 truncated WITH a finding, 7-day minimum cycle and 10-year maximum enforced as unmappable/finding) and written by wix-writers.js ensurePlanDefinition: the reconciliation identity is the client-minted pricingVariants[].id -- a crosswalk row is read back and adopted only if the plan exists, is not archived and carries it; then Query Plans by name filtered to plans carrying it (one reconciles, more is ambiguous and creates nothing); then Create Plan >=1s apart. The row-count gate (evaluatePlanSources over B1/B2/B3) runs first: all zero means 'no pricing plans found', never 'not supported'. No store surveyed so far has any plan-shaped rows."
   ],
   "setupRequirements": [
     "Wix Pricing Plans app installed — appDefId 1522827f-c56c-a5c9-2ac9-00f9e6ae12d3 (ground truth: the appId echoed by the 428 APP_NOT_INSTALLED error). Verified live 2026-08-16: it is NOT present on a commerce-template site by default, and it installs cleanly and dependency-free through the standard App Installation API (POST /apps-installer-service/v1/app-instance/install), so this is an automatable setup step, not a manual one. Until it is installed, every Plans V3 read/write returns 428 APP_NOT_INSTALLED.",
@@ -113,9 +115,19 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Pricing Plans app installed via the App Installation API first (Plans V3 was returning 428 APP_NOT_INSTALLED), then POST /pricing-plans/v3/plans with { name, description, visibility: PRIVATE, status: ACTIVE, pricingVariants: [{ id: <client GUID>, name, billingTerms: { billingCycle: { count: '1', period: 'WEEK' }, startType: ON_PURCHASE, endType: UNTIL_CANCELLED }, pricingStrategies: [{ flatRate: { amount: '10.00' } }] }], idempotencyKey: <GUID> } → 200. GET readback preserved name, description, the client-minted pricingVariants[].id, billingTerms and flatRate; server derived slug 'zzz-probe-plan' and set currency ILS (site-level, read-only), buyable false, archived false, maxPurchasesPerBuyer 0, benefitDistributionSettings PER_BILLING_CYCLE. Discovered live: plan.status is required on create, and V3 has no archive endpoint. Plan archived (V2) at cleanup."
+      "path": "anonymized-live-verification",
+      "note": "Verified live: the Pricing Plans app must be installed before Plans V3 writes. Create and GET readback preserved the client-supplied variant ID, billing terms, and flat-rate strategy; Wix derived the slug and site currency and supplied the documented defaults. plan.status is required on create, and archival uses V2 because V3 has no archive endpoint."
+    },
+    {
+      "type": "live-verification",
+      "path": "tests/target-wix/coupon-plan-live-sentinel.js",
+      "note": "2026-09-05, fresh disposable site with the Pricing Plans app installed at creation (Create Project `apps`): ensurePlanDefinition -> Create Plan V3 with visibility PRIVATE, buyable false, status ACTIVE, one MONTH variant with freeTrialDays 7 and a client-minted variant id -> 200; GET reads back PRIVATE / buyable:false / ACTIVE; Query Plans with `filter: { name: { $eq } }` finds it so a re-run reconciles by name and creates nothing; POST /pricing-plans/v2/plans/{id}/archive -> 200."
+    },
+    {
+      "type": "live-verification",
+      "path": "tests/target-wix/coupon-plan-live-sentinel.js",
+      "note": "2026-09-05 (fresh site): reconciliation is by the client-minted `pricingVariants[].id`, not the name — the Query Plans read-back carries the variant id verbatim and the re-run reported `matchedBy: variant-id`, creating nothing. GET /pricing-plans/v3/plans/{id} is the read used to verify a crosswalk row before it is adopted (404 -> stale row). A name is only a candidate filter: names are cut to 50 chars and collide across offers."
     }
   ],
-  "notes": "Authored 2026-08-16 from Spec Owner's decision to migrate WooCommerce active subscriptions by recreation as Pricing Plans memberships: this entity is the offer half (one plan per distinct source offer), pricing-plans/plan-order is the per-subscriber contract half. Promoted to verified-live 2026-08-16 by an install → create → readback → archive probe on the probe site. reliability is partially-reliable, not reliable: only a WEEK/UNTIL_CANCELLED/flatRate plan was exercised — the CYCLES_COMPLETED end type, fees[] (signup fee), freeTrialDays, and the documented VALID_BILLING_CYCLE 7-day floor were NOT probed, and the plan could only be archived, never deleted. The product-level recurring OFFER also has a live-verified field home at stores/product.subscriptionDetails (capability commerce.subscription-products) - that path keeps the product purchasable as a Stores subscription, while this plan exists to anchor recreated contracts."
+  "notes": "WooCommerce active subscriptions migrate by recreation as Pricing Plans memberships: this entity is the offer half (one plan per distinct source offer), and pricing-plans/plan-order is the per-subscriber contract half. Live verification covered install, create, readback, and archive for a WEEK/UNTIL_CANCELLED/flatRate plan. CYCLES_COMPLETED, fees[], freeTrialDays, and the documented VALID_BILLING_CYCLE 7-day floor remain unverified, and plans can be archived but not deleted; reliability therefore remains partially-reliable. The recurring offer also has a live-verified field home at stores/product.subscriptionDetails, which keeps the product purchasable while this plan anchors recreated contracts."
 }

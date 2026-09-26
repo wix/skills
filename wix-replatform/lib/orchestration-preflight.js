@@ -24,6 +24,15 @@ const PRIVATE_SOURCE_CONFIG_BY_PLATFORM = {
   woocommerce: ['WP_BASE_URL', 'WP_USERNAME', 'WP_APPLICATION_PASSWORD'],
 };
 
+// wix-wp-plugin-v2's migration key authenticates only the plugin's own /structure and
+// /query routes. Track its presence in the preflight receipt, but never let it satisfy a
+// private/authenticated WordPress REST requirement: wp/v2 and wc/v3 still need their own
+// credential.
+const MIGRATION_KEY_CREDENTIAL_BY_PLATFORM = {
+  wordpress: 'WMH2_MIGRATION_KEY',
+  woocommerce: 'WMH2_MIGRATION_KEY',
+};
+
 function makeCheck(id, label, status, message, details = {}) {
   return { id, label, status, message, ...details };
 }
@@ -121,20 +130,43 @@ async function runPreflight(projectDir, artifacts, options = {}) {
   }
 
   if (sourcePlatform) {
+    const isPrivateMode = sourceMode === 'private_data' || sourceMode === 'authenticated_api';
+    const migrationKeyField = isPrivateMode ? MIGRATION_KEY_CREDENTIAL_BY_PLATFORM[sourcePlatform] : null;
     const requiredSourceKeys =
-      (sourceMode === 'private_data' || sourceMode === 'authenticated_api')
+      isPrivateMode
         ? (PRIVATE_SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || [])
         : (SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || []);
-    if (requiredSourceKeys.length > 0) {
-      const sourceEnv = await statEnvKeys(configFileForPlatform(projectDir, sourcePlatform), requiredSourceKeys);
-      const allGood = Object.values(sourceEnv.keys).every((status) => status === 'present');
+    const keysToCheck = migrationKeyField ? [...requiredSourceKeys, migrationKeyField] : requiredSourceKeys;
+    if (keysToCheck.length > 0) {
+      const sourceEnv = await statEnvKeys(configFileForPlatform(projectDir, sourcePlatform), keysToCheck);
+      // The migration key is useful for bridge reads, but it does not authenticate wp/v2 or
+      // wc/v3. A private/authenticated source mode therefore still requires the Application
+      // Password pair; otherwise preflight would advance a knowingly incomplete capture.
+      const nonCredentialKeys = migrationKeyField
+        ? requiredSourceKeys.filter((key) => key !== 'WP_USERNAME' && key !== 'WP_APPLICATION_PASSWORD')
+        : requiredSourceKeys;
+      const nonCredentialGood = nonCredentialKeys.every((key) => sourceEnv.keys[key] === 'present');
+      const applicationPasswordGood = !migrationKeyField
+        || (sourceEnv.keys.WP_USERNAME === 'present' && sourceEnv.keys.WP_APPLICATION_PASSWORD === 'present');
+      const migrationKeyGood = migrationKeyField && sourceEnv.keys[migrationKeyField] === 'present';
+      const allGood = nonCredentialGood && applicationPasswordGood;
+      // Report bridge-key availability separately from the credential that satisfies the
+      // selected source scope. The router consumes `status`, so explanatory prose must never
+      // be the only thing distinguishing complete from incomplete readiness.
+      const credentialMode = !migrationKeyField
+        ? null
+        : sourceEnv.keys.WP_USERNAME === 'present' && sourceEnv.keys.WP_APPLICATION_PASSWORD === 'present'
+          ? 'application-password'
+          : 'none';
       checks.push(
         makeCheck(
           'source_env',
           'Source config file',
           allGood ? 'pass' : 'blocked',
           sourceEnv.exists ? `checked source.${sourcePlatform}.env` : `source.${sourcePlatform}.env is missing`,
-          { keyStatus: sourceEnv.keys },
+          credentialMode
+            ? { keyStatus: sourceEnv.keys, credentialMode, bridgeMigrationKeyAvailable: Boolean(migrationKeyGood) }
+            : { keyStatus: sourceEnv.keys },
         ),
       );
       progress?.progress(`Checked source ${sourcePlatform} config file`, { phase: 'preflight', step: 'source-env', entity: sourcePlatform });

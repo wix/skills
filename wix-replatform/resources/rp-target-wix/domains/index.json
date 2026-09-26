@@ -153,10 +153,8 @@
           "displayName": "eCommerce Discount Rule (\"Automatic Discounts\" in the dashboard)",
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
-          "reliabilityFlags": [
-            "not-yet-live-verified"
-          ],
-          "summary": "The Wix dashboard calls this feature 'Automatic Discounts'; the API/data model name is DiscountRule (`ecom/v1/discount-rules`). Distinct from the Coupons API (stores/coupon.json) — coupons need a customer-entered code, discount rules apply automatically when their trigger is met. Do not conflate the two when a source plugin (e.g. WooCommerce Discount Rules) models automatic, no-code discounting."
+          "reliabilityFlags": [],
+          "summary": "`scopes[].id` accepts ANY non-empty string server-side (create succeeds with an arbitrary value like `\"stores-catalog\"`), but the merchant dashboard's own Automatic Discounts editor only recognizes the id patterns Wix's own tooling generates: `all_<catalogAppId>` (storewide), `specific_<catalogAppId>` (named products, id + catalogItemIds), `collections_<catalogAppId>` (CUSTOM_FILTER, a collection). VERIFIED LIVE 2026-08-29 in anonymized live verification: a rule created with `scopes[].id: \"stores-catalog\"` shows in the dashboard as created by a third-party integration with NO edit option at all -- confirmed by direct comparison via Get Discount Rule against a dashboard-created rule in the same anonymized verification environment, whose only structural difference was this id (`all_215238eb-22a5-4c36-9e7b-e7c08025e04e`) plus a populated `settings` object (see the settings-object pitfall below). This defeats any placeholder-rule strategy that relies on the merchant reconfiguring the rule afterward in the dashboard -- always use the real `all_`/`specific_`/`collections_` prefix, never an arbitrary caller-assigned id, even though the API accepts one."
         },
         "order-applied-discount": {
           "path": "domains/ecom/entities/order-applied-discount.json",
@@ -165,6 +163,14 @@
           "reliabilityStatus": "reliable",
           "reliabilityFlags": [],
           "summary": "Applied discounts import as historical fact via the merchantDiscount variant — Wix never re-evaluates them as live discount rules, and Import Order stores all money values as-is without recalculating priceSummary. The mapper must therefore keep the source order's totals internally consistent itself; nothing on the Wix side reconciles appliedDiscounts against priceSummary.discount. VERIFIED LIVE 2026-08-16: an order carrying appliedDiscounts totalling 8.00 with priceSummary.total 22.00 on a 30.00 subtotal was stored exactly as sent — and a control order with the same appliedDiscounts but NO priceSummary.discount kept total == subtotal, proving Wix applies nothing."
+        },
+        "order-invoice-document": {
+          "path": "domains/ecom/entities/order-invoice-document.json",
+          "displayName": "eCommerce Order Invoice Document (preserved reference)",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Do NOT create, publish or re-issue a Wix invoice for a historical sale. Re-issuing mints a SECOND legal document for the same sale under a different number, and the original -- issued and numbered by whoever issued it -- remains the authoritative body. Separately, whether publishing an invoice emails the customer is undocumented in either direction, and on a multi-year store a wrong assumption emails thousands of customers an invoice for a sale they made years ago. The contract is NON-USE, provable by a route-level test rather than by a runtime probe: tests/target-wix/no-invoices-api-contract-test.js."
         },
         "order-line-item-options": {
           "path": "domains/ecom/entities/order-line-item-options.json",
@@ -190,6 +196,14 @@
           "reliabilityFlags": [],
           "summary": "Order.activities[] is read-only on Create/Import Order — a merchant note can NEVER ride the order import payload. It must be a separate Add Activities call AFTER Import Order creates the order, using the crosswalked Wix order id."
         },
+        "order-payment": {
+          "path": "domains/ecom/entities/order-payment.json",
+          "displayName": "eCommerce Order Payment",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "An order total exists on orders that were never paid. VERIFIED LIVE on a production WooCommerce store: `_order_total` is present on all 1,313 cancelled and all 3 failed orders, which carry 1 paid date between them. Creating an APPROVED payment wherever a total exists would mint 1,316 approved payments for unpaid orders -- 18% of that store -- overstating revenue in a more authoritative-looking place than the bug it replaced. Require a paid date."
+        },
         "order-refund": {
           "path": "domains/ecom/entities/order-refund.json",
           "displayName": "eCommerce Order Refund",
@@ -206,13 +220,31 @@
           "reliabilityFlags": [],
           "summary": "Never route historical orders through createOrder — it decrements inventory, emails the buyer, and auto-creates contacts; importOrder is the only import-safe writer."
         },
+        "pickup-location": {
+          "path": "domains/ecom/entities/pickup-location.json",
+          "displayName": "Wix Pickup Location",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "A source local_pickup method must NEVER be written as a ShippingOption. A ShippingOption has no app/carrier/role field, so a 0-amount collection option renders at checkout as a free DELIVERY sitting next to the real paid delivery -- buyers pick it expecting their order shipped for nothing. Observed live: a migrated store showed collection as a 0-priced shipping choice beside a paid one. The classification is terminal: kind:'pickup' produces a PickupLocation and no shipping option."
+        },
         "shipping-option": {
           "path": "domains/ecom/entities/shipping-option.json",
           "displayName": "Wix Shipping Option",
           "classification": "native",
           "reliabilityStatus": "reliable",
           "reliabilityFlags": [],
-          "summary": "CRITICAL, LIVE-DISCOVERED 2026-08-15 (not documented on any Delivery Profile/Delivery Carrier doc page -- found only via dev.wix.com's 'Fix Shipping Coverage Gaps' skill article, a separate doc tree from shipping-delivery/delivery-profiles/*): DeliveryCarrier.backupRate does NOT create a ShippingOption, and does NOT clear Wix's own 'This region is missing rates. Add them so customers can complete checkout.' dashboard warning. VERIFIED on the reference store: 'Europe'/'Israel' (created by this pipeline via addDeliveryRegion + addDeliveryCarrier with a correctly-shaped, active backupRate) still showed the warning and had ZERO linked ShippingOptions, while 'Domestic'/'International' (Wix's own auto-created defaults, never touched by this pipeline) each already had a real ShippingOption. A region migration that only calls addDeliveryCarrier is INCOMPLETE -- it appears fully successful (the write returns 200, the read-back matches exactly what was sent) while silently leaving the region non-functional at checkout. Always create a matching ShippingOption (via createShippingOption) for every DeliveryRegion this pipeline creates, from the SAME classified method used for that region's DeliveryCarrier.backupRate -- see shipping-build.js's buildShippingOptionInput."
+          "summary": "DeliveryCarrier.backupRate does not create a ShippingOption and does not clear Wix's missing-rates dashboard warning. Live verification showed that a carrier-only region can write and read back successfully while remaining non-functional at checkout. Always create a matching ShippingOption for every imported DeliveryRegion from the same classified method used for DeliveryCarrier.backupRate; see shipping-build.js's buildShippingOptionInput."
+        },
+        "wishlist-item": {
+          "path": "domains/ecom/entities/wishlist-item.json",
+          "displayName": "Wishlist Item",
+          "classification": "native",
+          "reliabilityStatus": "unreliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
+          "summary": "Verified against the authoritative internal proto: the fqdn is wix.platform.v1.wishlist (service com.wixpress.wishlist.Wishlist). Its three mutating RPCs (GetWishlist/AddToWishlist/RemoveFromWishlist) are ALPHA maturity, exposure: INTERNAL, and scoped to 'the default wishlist by context's member' -- the caller's own session, not an arbitrary member named by a backend script. The only RPCs open to a site-level manage permission (GetWishlistById, GetWishlists) are read-only. There is no proto-level path for a migration script to write wishlist items on behalf of pre-existing customers who have never authenticated to the new site."
         }
       }
     },
@@ -409,7 +441,7 @@
           "reliabilityFlags": [
             "not-independently-verified-live"
           ],
-          "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated since 2025-05-04, with Wix recommending a third-party app (Koongo) as the replacement. But a live internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, was created 2026-06-17 and last updated 2026-07-20 — well after that deprecation — and implements an automatic feed-push mechanism (AMAZON_XML format, pushed to an Amazon-owned S3 bucket). This suggests Wix has since built a newer native Amazon integration distinct from the deprecated app, but the exact current merchant click-path was not independently confirmed against a live dashboard this session. Re-verify the steps below (and whether the current \"Amazon\" sidebar entry is this newer service or a third-party app) against a live site before relying on them for a real migration report."
+          "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated, with Wix recommending a third-party replacement. A newer internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, implements an automatic AMAZON_XML feed push to an Amazon-owned S3 bucket. The current merchant onboarding path is not independently verified; re-verify whether the dashboard's Amazon entry uses this service or a third-party app before relying on the steps below."
         },
         "ebay-shop-connect": {
           "path": "domains/sales-channels/entities/ebay-shop-connect.json",
@@ -420,7 +452,7 @@
             "not-independently-verified-live",
             "no-internal-fqdn-match"
           ],
-          "summary": "No FQDN matching \"ebay\" was found anywhere in the internal Business Schema registry this session (docs-schema MCP fqdn_lookup), unlike every other channel in this domain (Google, Facebook, TikTok, Pinterest, and Amazon all resolved to a real internal wix.stores_channels.* service). The mechanism below is sourced from support.wix.com only — treat it as lower confidence than the other entities in this domain until an internal service is located or a live site is checked."
+          "summary": "No FQDN matching \"ebay\" was found in the internal Business Schema registry, unlike the other channels in this domain. The mechanism below is sourced only from public Wix support documentation; treat it as lower confidence until an internal service is located or the current dashboard behavior is independently verified."
         },
         "google-youtube-connect": {
           "path": "domains/sales-channels/entities/google-youtube-connect.json",
@@ -483,7 +515,22 @@
           "classification": "native",
           "reliabilityStatus": "unknown",
           "reliabilityFlags": [],
-          "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on the reference store 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+          "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on an anonymized verification environment 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+        }
+      }
+    },
+    "site": {
+      "path": "domains/site/domain.json",
+      "displayName": "Wix Site Properties",
+      "ownerHint": "Site Properties domain owners (Business Info: profile, contact, schedule, region, consent policy)",
+      "entities": {
+        "business-contact": {
+          "path": "domains/site/entities/business-contact.json",
+          "displayName": "Site Business Contact",
+          "classification": "setup-config",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "`fields.paths[]` is destructive in one direction: a property NAMED in the mask but ABSENT from `businessContact` is CLEARED. Migrating only an address therefore means sending paths ['address'] and nothing more -- adding 'email','phone','fax' to be thorough wipes contact details the merchant may already have entered by hand. Build the mask from the payload's own keys. Wix's own documented example is itself unsafe to copy: it lists 'businessSchedule' in paths while sending none."
         }
       }
     },
@@ -522,15 +569,17 @@
           "path": "domains/stores/entities/coupon.json",
           "displayName": "Stores Coupon",
           "classification": "native-plus-cms",
-          "reliabilityStatus": "reliable",
-          "reliabilityFlags": [],
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "IMPORT_UNRELIABLE"
+          ],
           "summary": "Source coupon constraints may be narrower or differently modeled in Wix."
         },
         "inventory-item": {
           "path": "domains/stores/entities/inventory-item.json",
           "displayName": "Stores Inventory Item",
           "classification": "native",
-          "reliabilityStatus": "partially-reliable",
+          "reliabilityStatus": "reliable",
           "reliabilityFlags": [],
           "summary": "Inventory requires target product and variant IDs."
         },
@@ -580,7 +629,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "Subscription expiry/length, initial signup price, and free trial have NO product.subscriptionDetails field. Decided by Spec Owner 2026-08-16: these are reported loss — ledger them as fidelity_loss entries in the migration report; they are NOT CMS-carried. Do not invent an extended-field or CMS home for them."
+          "summary": "Subscription expiry/length, initial signup price, and free trial have NO product.subscriptionDetails field. these are reported loss — ledger them as fidelity_loss entries in the migration report; they are NOT CMS-carried. Do not invent an extended-field or CMS home for them."
         }
       }
     },
@@ -722,6 +771,9 @@
     "wix:ecomOrderAppliedDiscount": [
       "ecom/order-applied-discount"
     ],
+    "woocommerce:order_invoice_document": [
+      "ecom/order-invoice-document"
+    ],
     "woocommerce:order_item_addon_value": [
       "ecom/order-line-item-options"
     ],
@@ -740,6 +792,9 @@
     "wix:ecomOrderActivity": [
       "ecom/order-merchant-note"
     ],
+    "woocommerce:order_payment_meta": [
+      "ecom/order-payment"
+    ],
     "woocommerce:order_refund": [
       "ecom/order-refund"
     ],
@@ -749,8 +804,17 @@
     "wix:ecomOrder": [
       "ecom/order"
     ],
+    "woocommerce:shipping-zone.method[local_pickup|pickup_location]": [
+      "ecom/pickup-location"
+    ],
+    "woocommerce:settings.pickup_locations": [
+      "ecom/pickup-location"
+    ],
     "woocommerce:shipping-zone.method": [
       "ecom/shipping-option"
+    ],
+    "wordpress:ti_woocommerce_wishlist": [
+      "ecom/wishlist-item"
     ],
     "wordpress:tribe_events_cat": [
       "events/category"
@@ -811,6 +875,9 @@
     ],
     "wordpress:rankMathPostMeta": [
       "seo/item-seo-tags"
+    ],
+    "woocommerce:settings.general": [
+      "site/business-contact"
     ],
     "woocommerce:back-in-stock-subscriber": [
       "stores/back-in-stock-request"
@@ -908,6 +975,7 @@
       "crm/contact",
       "ecom/order",
       "ecom/order-applied-discount",
+      "ecom/order-invoice-document",
       "ecom/order-line-item",
       "ecom/order-line-item-options",
       "gift-cards/gift-card"
@@ -987,6 +1055,7 @@
     ],
     "/wc/v3/shipping/zones/{id}/methods": [
       "ecom/delivery-profile",
+      "ecom/pickup-location",
       "ecom/shipping-option"
     ],
     "eCommerce Delivery Profiles API": [
@@ -1003,8 +1072,23 @@
     "/wc/v3/orders/{parentId}/notes": [
       "ecom/order-merchant-note"
     ],
+    "/wc/v3/orders/{id}": [
+      "ecom/order-payment"
+    ],
     "/wc/v3/orders/{id}/refunds": [
       "ecom/order-refund"
+    ],
+    "/wp/v2/settings": [
+      "ecom/pickup-location"
+    ],
+    "tinvwl_lists (structure-bridge-plugin)": [
+      "ecom/wishlist-item"
+    ],
+    "tinvwl_items (structure-bridge-plugin)": [
+      "ecom/wishlist-item"
+    ],
+    "/wc/v3/wishlist/get_by_user/{user_id} (plugin-rest-child, per-member chain)": [
+      "ecom/wishlist-item"
     ],
     "/wp/v2/tribe_events_cat": [
       "events/category"
@@ -1041,6 +1125,9 @@
     ],
     "/wsp-route/v1/wsp-view-subscription": [
       "pricing-plans/plan-order"
+    ],
+    "/wc/v3/settings/general": [
+      "site/business-contact"
     ],
     "/wc-instocknotifier/v3/list_subscriber": [
       "stores/back-in-stock-request"
@@ -1147,6 +1234,9 @@
     "commerce.applied-discounts": [
       "ecom/order-applied-discount"
     ],
+    "commerce.order-invoice-documents": [
+      "ecom/order-invoice-document"
+    ],
     "commerce.order-addon-values": [
       "ecom/order-line-item-options"
     ],
@@ -1156,14 +1246,23 @@
     "commerce.payment-gateway-notes": [
       "ecom/order-merchant-note"
     ],
+    "commerce.order-payments": [
+      "ecom/order-payment"
+    ],
     "commerce.order-refunds": [
       "ecom/order-refund"
     ],
     "commerce.orders": [
       "ecom/order"
     ],
+    "commerce.pickup-location": [
+      "ecom/pickup-location"
+    ],
     "commerce.shipping-rate": [
       "ecom/shipping-option"
+    ],
+    "commerce.wishlists": [
+      "ecom/wishlist-item"
     ],
     "content.event-categories": [
       "events/category"
@@ -1243,6 +1342,9 @@
     "content.site-seo-tags": [
       "seo/site-seo-tags"
     ],
+    "site.business-contact": [
+      "site/business-contact"
+    ],
     "commerce.back-in-stock-notifications": [
       "stores/back-in-stock-request"
     ],
@@ -1292,10 +1394,9 @@
   "flags": {
     "IMPORT_UNRELIABLE": [
       "blog/post",
-      "members/member"
-    ],
-    "not-yet-live-verified": [
-      "ecom/discount-rule"
+      "ecom/wishlist-item",
+      "members/member",
+      "stores/coupon"
     ],
     "not-independently-verified-live": [
       "sales-channels/amazon-shop-connect",

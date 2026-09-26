@@ -40,7 +40,7 @@
     "importSafe": true,
     "bulk": false,
     "releaseStatus": "stable",
-    "decision": "VERIFIED LIVE 2026-08-12 against the reference store: added real WooCommerce zones (Europe, Israel) as delivery regions onto the site's existing DEFAULT delivery profile (auto-created by Wix Stores install, not something this pipeline creates) via addDeliveryRegion, then attached each zone's method as a delivery carrier via a second call, addDeliveryCarrier (also in wix-writers.js) — one region write is always followed by one-or-more carrier writes against the region id it returns. createDeliveryProfile exists (shipping-build.js/wix-writers.js) for the rare case a project wants a separate non-default profile, but adding regions to the existing default is the normal path since a site already has exactly one. Reading profiles back: use GET /ecom/v1/delivery-profiles/{id} or POST /ecom/v1/delivery-profiles/query — there is no GET list endpoint (a plain GET /ecom/v1/delivery-profiles returns 404, verified 2026-08-16)."
+    "decision": "Verified live: add source zones as delivery regions on the existing DEFAULT delivery profile, then attach each zone's methods with addDeliveryCarrier. Each region write is followed by one or more carrier writes using the returned region ID. createDeliveryProfile remains available for projects that deliberately need a separate profile. Read profiles with GET /ecom/v1/delivery-profiles/{id} or POST /ecom/v1/delivery-profiles/query; there is no GET list endpoint."
   },
   "reliability": {
     "status": "partially-reliable",
@@ -60,7 +60,7 @@
     {
       "code": "rates-live-on-carriers-not-the-profile",
       "severity": "warning",
-      "summary": "Schema fact, confirmed live 2026-08-16: the delivery profile object itself carries NO rates — it is name + regions + destinations only. Every amount lives on a delivery CARRIER attached to a region (deliveryRegions[].deliveryCarriers[], with backupRate/additionalCharges), and each carrier app's own rate table is dashboard configuration this API does not expose. This is why a Woo flat_rate cost is written through addDeliveryCarrier's backupRate (see mappingGuidance) and never through the profile create. Installed first-party carriers observed on the test site: Basic Shipping (45c44b27-ca7b-4891-8c0d-1747d588b835 — the flat-rate manager), Pickup, Local delivery, Calculated by USPS."
+      "summary": "Confirmed live: the delivery profile object carries no rates; it contains only name, regions, and destinations. Every amount lives on a delivery carrier attached to a region through backupRate/additionalCharges, while carrier-specific rate tables remain dashboard configuration outside this API. Write a source flat-rate cost through addDeliveryCarrier's backupRate, never through profile creation."
     },
     {
       "code": "default-profile-already-exists",
@@ -75,12 +75,27 @@
     {
       "code": "continent-zones-need-expansion",
       "severity": "warning",
-      "summary": "A WooCommerce zone location can be continent-scoped (e.g. code EU); Wix's Destination object has no continent concept, only country/subdivision. shipping-build.js expands a continent to its member countries using WooCommerce's own continents.php table (only EU populated so far — VERIFIED against a zone actually using it on the reference store 2026-08-12); an unlisted continent code is a flagged gap, not silently dropped or approximated as global."
+      "summary": "A WooCommerce zone location can be continent-scoped (e.g. code EU); Wix's Destination object has no continent concept, only country/subdivision. shipping-build.js expands a continent to its member countries using WooCommerce's own continents.php table (only EU populated so far — VERIFIED against a zone actually using it on an anonymized verification environment 2026-08-12); an unlisted continent code is a flagged gap, not silently dropped or approximated as global."
     },
     {
-      "code": "free-shipping-condition-lost",
+      "code": "free-shipping-condition-belongs-on-the-rate-not-on-a-row",
+      "severity": "blocker",
+      "summary": "SUPERSEDES an earlier pitfall that said this condition is unavoidably lost and mapped to 'always free'. It is not lost — ShippingOption.rates carries conditions (see ecom/shipping-option), so a minimum-order threshold migrates as a price band. What IS true is that a delivery carrier's backupRate is unconditional, so the threshold must never be expressed there. shipping-build.js classifies such a method kind:'threshold' — it is NOT a buyer-facing choice and gets no row of its own; it folds onto the paid options in the same zone as an LT/GTE price split. Several thresholds in one zone: the lowest wins, matching the source showing free shipping as soon as any threshold is met. A zone with a threshold and no paid option to fold onto keeps it as a standalone option carrying the GTE condition — never as an unconditional 0. Mapping such a method to 'always free' makes every paid option unreachable and costs the merchant its shipping revenue; it was observed live doing exactly that."
+    },
+    {
+      "code": "coupon-gated-free-shipping-is-not-a-delivery-setting",
       "severity": "warning",
-      "summary": "WooCommerce's free_shipping method can require a minimum order amount or coupon; Wix's backupRate (once active) is unconditional. shipping-build.js maps this to 'always free' in that region and flags the lost condition in notes[] rather than silently dropping it — verify this still matches the merchant's real policy before treating the row as done."
+      "summary": "A source free_shipping method whose condition is a coupon has NO delivery-config counterpart in Wix: at checkout the buyer sees the normal delivery price and the coupon removes it. shipping-build.js classifies it kind:'coupon-domain' and it produces nothing here — that is the complete, correct answer, not an unmigrated gap. But 'nothing here' is only half of it: a coupon must actually carry the behaviour, and this pipeline never invents one. Resolution order is source (coupons already carrying the free-shipping flag — the coupon pipeline is already moving them), then target (a live read, which also guards re-runs and hand-made coupons), then report. 'Neither exists' means a dead source setting or a coupon discovery missed; it is a merchant decision, never an auto-created discount code. See shipping-build.js's resolveFreeShippingCouponCoverage and stores/coupon."
+    },
+    {
+      "code": "free-shipping-requiring-both-a-minimum-and-a-coupon-is-a-gap",
+      "severity": "warning",
+      "summary": "A source free_shipping method requiring a minimum order AND a coupon has no faithful mapping: a Wix rate condition can carry the amount but has no coupon term, so migrating the threshold alone hands out free shipping the source withholds. Being MORE generous than the source is the same class of defect as being unconditional, so this is reported as a gap for a merchant decision rather than approximated. (The OR variant is different and does migrate: the minimum half becomes the threshold, the coupon half is covered by a free-shipping coupon.)"
+    },
+    {
+      "code": "pickup-needs-an-inactive-carrier-and-never-a-shipping-option",
+      "severity": "blocker",
+      "summary": "A source local_pickup/pickup_location method must NEVER become a ShippingOption -- that renders collection as a 0-priced DELIVERY beside the real paid one, because a ShippingOption has no app/carrier/role field to mark it as collection. It DOES need a Pickup deliveryCarrier, but only with backupRate {amount '0', active FALSE}. Both halves were live-learned in opposite directions on a real store: an ACTIVE pickup backupRate produced the same 0-priced delivery row, while removing the Pickup carrier ENTIRELY made the collection point disappear from checkout even though the PickupLocation existed, was active, and was bound to the region. The API read-back and the economics check both passed in that broken state, because they check data and this is a rendering dependency neither can see -- the site owner caught it. Correct shape: inactive Pickup carrier + PickupLocation + no ShippingOption. See ecom/pickup-location. Corollary for this file's missing-rates alert: a zone whose only enabled method is pickup is NOT a checkout dead end, since collection is a real way to receive an order."
     },
     {
       "code": "per-shipping-class-cost-not-applied",
@@ -100,13 +115,16 @@
     {
       "code": "backup-rate-alone-still-shows-the-missing-rates-warning",
       "severity": "blocker",
-      "summary": "CRITICAL, LIVE-DISCOVERED 2026-08-15: a DeliveryCarrier with a correctly-shaped, active backupRate is NOT sufficient to clear Wix's 'This region is missing rates' warning, even though the region has a real 'carrier' classification and no alert per the pitfall above. That warning (and real checkout behavior) is driven by a separate resource, ShippingOption -- see the new shipping-option.json entity's not-derived-from-backup-rate-a-separate-required-write pitfall. VERIFIED on the reference store: 'Europe'/'Israel' (this pipeline's own regions, backupRate set correctly) still showed the warning until a matching ShippingOption was created for each; 'Domestic'/'International' (Wix's own auto-created defaults) already had one. Every region this pipeline creates needs BOTH a DeliveryCarrier (this file) AND a ShippingOption (shipping-option.json) from the same classified method -- addDeliveryCarrier alone is an incomplete migration that looks fully successful."
+      "summary": "A DeliveryCarrier with a correctly shaped, active backupRate is not sufficient to clear Wix's 'This region is missing rates' warning or make checkout functional. The warning is driven by the separate ShippingOption resource. Live verification showed that each imported region needs both a DeliveryCarrier and a matching ShippingOption built from the same classified method; addDeliveryCarrier alone is an incomplete migration despite a successful write and readback."
     }
   ],
   "mappingGuidance": [
     "Map each WooCommerce shipping zone to a delivery region on the site's existing default profile (Add Delivery Region), and each zone's methods to delivery carriers on that region (Add Delivery Carrier). Do not create a second delivery profile unless the project genuinely needs per-product-group shipping rules — a fresh site already has exactly one default profile from the Wix Stores install.",
-    "flat_rate and free_shipping both map to a deliveryCarrier using Wix's own 'Basic Shipping' app (shipping-build.js's BASIC_SHIPPING_APP_ID, a fixed cross-site constant) with backupRate.active=true and backupRate.amount set from the WooCommerce cost (or '0' for free_shipping). local_pickup/pickup_location map to the 'Pickup' carrier app, resolved live per site (wix-writers.js's resolvePickupAppId) since it has no doc-example corroboration as a fixed id the way Basic Shipping does.",
-    "CRITICAL: also create a ShippingOption (see shipping-option.json, a separate entity) for every region from the same classified method — addDeliveryCarrier's backupRate alone does not clear Wix's checkout coverage gap or its 'missing rates' dashboard warning; see this file's backup-rate-alone-still-shows-the-missing-rates-warning pitfall.",
+    "A zone method is NOT automatically a buyer-facing choice. Resolve the zone's methods first (shipping-build.js's resolveZoneMethods) and only then write: kind:'carrier' becomes a delivery carrier plus a shipping option; kind:'threshold' folds onto the paid carriers as a conditional rate and gets no row; kind:'coupon-domain' produces nothing here; kind:'pickup' becomes a PickupLocation; kind:'gap' is reported. Writing one row per source method reproduces the source's own duplicate-choice display defect and multiplies it.",
+    "flat_rate and free_shipping map to a deliveryCarrier using Wix's own 'Basic Shipping' app (shipping-build.js's BASIC_SHIPPING_APP_ID, a fixed cross-site constant) with backupRate.active=true and backupRate.amount set from the resolved cost. local_pickup/pickup_location DO get a carrier, but a constrained one: the Pickup app (appId resolved live with wix-writers.js's resolvePickupAppId, installation-scoped) with backupRate {amount '0', active FALSE} — build it with shipping-build.js's buildPickupCarrierInput, never buildDeliveryCarrierInput. The region needs the Pickup app attached in order to render collection at all; the inactive rate is what stops the carrier itself becoming a 0-priced delivery row. See the pickup pitfall for both halves.",
+    "CRITICAL: also create a ShippingOption (see shipping-option.json, a separate entity) for every kind:'carrier' choice on the region — addDeliveryCarrier's backupRate alone does not clear Wix's checkout coverage gap or its 'missing rates' dashboard warning; see this file's backup-rate-alone-still-shows-the-missing-rates-warning pitfall.",
+    "Verify the economics, never the row count: after writing, assert that nothing is free-and-unconditional while something else on the same region costs money, that no shipping option came from a pickup method, that each carrier's appId matches its role, and that no two options on a region are identical. shipping-build.js's verifyShippingEconomics does this. A live store was left broken in three ways at once while a row-count check reported success.",
+    "Report every resolution as well as every gap. A source defect that is silently cleaned up is indistinguishable from one that was never noticed, and leaves the merchant no way to confirm the intent was read correctly — surface collapsed duplicates, folded thresholds and removed coupon rows in the merchant's own terms at the approval gate.",
     "Never speculatively create a region for WooCommerce's unused default catch-all zone (id 0, empty locations and methods on a fresh install) — shipping-build.js's planShippingZones skips it, same discipline as the tax domain never creating a group for an unused default tax class.",
     "Present the zone-to-profile plan (and every flagged gap: carrier-calculated methods, continent zones without a country table yet, lost free-shipping conditions, per-class cost overrides, postcode zones) at the setup approval gate as configuration, separate from data imports."
   ],
@@ -136,12 +154,12 @@
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/list-installed-delivery-carriers",
-      "note": "fetched 2026-08-12; live call against the reference store confirmed 'Basic Shipping' (appId 45c44b27-...) and 'Pickup' as installed first-party carriers"
+      "note": "fetched 2026-08-12; live call against an anonymized verification environment confirmed 'Basic Shipping' (appId 45c44b27-...) and 'Pickup' as installed first-party carriers"
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: create with one inactive US/US-CA region → 200 (profile 30a6309c…, revision 1); GET read back identically; DELETE → 200 and a follow-up GET → 404 NOT_FOUND; query returned the pre-existing default \"General profile\"; installed carriers listed (Basic Shipping, Pickup, Local delivery, Calculated by USPS); GET /ecom/v1/delivery-profiles (list) → 404, query endpoint required"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create with one inactive US/US-CA region → 200 (profile <anonymized-id>, revision 1); GET read back identically; DELETE → 200 and a follow-up GET → 404 NOT_FOUND; query returned the pre-existing default \"General profile\"; installed carriers listed (Basic Shipping, Pickup, Local delivery, Calculated by USPS); GET /ecom/v1/delivery-profiles (list) → 404, query endpoint required"
     }
   ],
   "notes": "Authored 2026-08-11 from the docs-survey gap (Delivery Profiles). Classified setup-config: shipping configuration applied at the setup gate, not a data import. Full source-to-target pipeline built and live-verified 2026-08-12 — see shipping-build.js, wix-writers.js's Delivery Profiles section, and the wp-route-classifier.js entry for /wc/v3/shipping/zones. A separate KB probe 2026-08-16 independently verified profile create/readback/delete and added the carrier/limit pitfalls; it also corrected an earlier reading that Woo flat/free amounts map to \"profile rates\" — there are no rates on a profile, they belong to the carrier."

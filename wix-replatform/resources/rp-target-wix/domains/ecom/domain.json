@@ -11,11 +11,16 @@
   ],
   "defaultImportOrder": [
     "delivery-profile",
+    "shipping-option",
+    "pickup-location",
+    "discount-rule",
     "order",
     "order-line-item",
     "order-applied-discount",
     "order-line-item-options",
+    "order-payment",
     "order-refund",
+    "order-invoice-document",
     "order-merchant-note"
   ],
   "sideEffectNotes": [
@@ -25,7 +30,14 @@
     {
       "type": "domain-kb",
       "path": "skills/wix-replatform/resources/rp-target-wix/domains/ecom/entities/order.json",
-      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (delivery-profile, order, order-line-item, order-applied-discount, order-line-item-options, order-refund, order-merchant-note)"
+      "note": "per-field import-suitability rationale and evidence for this domain live on the entity files (delivery-profile, order, order-line-item, order-applied-discount, order-line-item-options, order-payment, order-refund, order-merchant-note)"
+    }
+  ],
+  "sharedPitfalls": [
+    {
+      "code": "a-delivery-region-is-three-writes-not-one",
+      "severity": "blocker",
+      "summary": "Finishing `delivery-profile` does NOT finish shipping, and stopping there is the single most repeated defect in this domain. A working region needs THREE resources, and the import order reflects that: (1) the region and its carriers on the profile; (2) a ShippingOption per paid/free delivery choice -- a carrier's backupRate alone leaves the region non-functional at checkout and still shows Wix's 'missing rates' warning; (3) a PickupLocation for any collection point, plus the Pickup carrier attached with an INACTIVE backup rate. Each of these was live-observed missing on a real store while the API read-back looked complete."
     }
   ]
 }

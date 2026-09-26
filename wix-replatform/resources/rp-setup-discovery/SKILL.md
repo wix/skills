@@ -9,6 +9,23 @@ description: >-
 
 Determine the Wix-side setup required before import can run safely.
 
+## Declaring user-defined extended fields
+
+When a mapping needs a source-only value on a native Wix record, declare it as a setup
+requirement rather than letting a writer improvise one. The requirement and the step that
+executes it are a fixed pair:
+
+- the requirement is `kind: "extendedFieldSchema"` in `setup/setup-requirements.json`, carrying
+  `schemaKind`, `targetRef`, `fqdn`, `namespace: "_user_fields"`, and its `fields`;
+- the plan step that provisions it is **`provision-extended-fields`** in `setup/setup-plan.json`.
+
+Emit both or neither. A requirement with no matching step provisions nothing, and every writer
+that needs those fields then refuses its write — correct, but the run fails late and for a
+confusing reason. `rp-execute-setup` fails closed on that mismatch rather than proceeding.
+
+The supported target objects are the ones the Data Extension Schema API lists: Products and
+eCommerce Orders. Field types are restricted to `string` until the type table is re-verified.
+
 ## Purpose
 
 This skill analyzes the approved mapping artifacts and derives environment prerequisites
@@ -113,7 +130,9 @@ exist in Wix with the names/types you state — never invent them.
 
 - Verify at the moment you write the requirement; do not defer it. Verify **enum
   values**, not just names: confirm each `Field.type` against the Create Data Collection
-  schema. (Common trap: there is no `SLUG` type — a Wix slug is a `TEXT` field.)
+  schema. (`SLUG` **does** exist in that enum, documented for dynamic page URLs. Use `TEXT` for
+  a preserved source slug held as identity/SEO data and `SLUG` when the target generates the
+  dynamic-page URL from it — never record `SLUG` as a type that does not exist.)
 - If a Wix tool surface such as Wix MCP is available, use it as a fast verification aid.
 - If no Wix tool surface is available, rely on `rp-target-wix`'s verified contracts plus
   published Wix REST/SDK documentation and conservative, known-good names, and mark the

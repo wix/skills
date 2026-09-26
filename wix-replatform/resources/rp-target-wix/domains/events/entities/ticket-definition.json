@@ -78,13 +78,13 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/reference-run",
-      "note": "finding #17: surface found uncarried by the events docs-menu walk"
+      "path": "anonymized-live-verification",
+      "note": "The docs survey identified the ticket-definition surface."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: free hidden definition (initialLimit 5, ILS) created on a far-future DRAFT ticketing event via both the /events/v3 alias and the canonical /events-ticket-definitions/v3 path → 200 each; GET read back; both definitions and the event deleted"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: a free hidden ticket definition can be created on a future draft ticketing event through both the /events/v3 alias and the canonical /events-ticket-definitions/v3 path and read back successfully. Probe records were deleted afterward."
     }
   ],
   "notes": "Authored 2026-08-11 from the docs-survey gap (Ticket Definitions V3). Promoted to verified-live 2026-08-16 by a create/read/delete probe on a draft ticketing event; the probe also pinned the required feeType, the 30-char name cap, and the TICKETING-only/immutable-initialType constraint."

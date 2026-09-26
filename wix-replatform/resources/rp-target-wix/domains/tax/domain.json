@@ -32,7 +32,7 @@
     {
       "code": "never-hardcode-the-tax-calculator-appid",
       "severity": "blocker",
-      "summary": "A Tax Region requires an `appId` naming an installed tax calculator, and calculator appIds are installation-scoped — they differ between sites. Always resolve live via List Tax Calculators (GET /billing/v1/list-tax-calculators) immediately before creating a region; never reuse an appId hardcoded from a different site or from docs examples. On the reference store (2026-08-12) the two installed calculators were 'Wix Manual Tax Calculator' (57d13128-4a4c-494b-80b3-a6fb2e28018d) and 'Avalara Tax Calculator' (7516f85b-0868-4c23-9fcb-cea7784243df) — pick the calculator whose displayName is not Avalara for a manually-transcribed rate."
+      "summary": "A Tax Region requires an appId naming an installed tax calculator, and calculator appIds are installation-scoped. Resolve them with List Tax Calculators immediately before creating a region; never reuse an ID from another site or documentation example. For a manually transcribed rate, select the Wix Manual Tax Calculator by display name rather than hardcoding its installation-specific ID, and do not select Avalara."
     },
     {
       "code": "unmapped-tax-group-calculates-to-exactly-zero-tax",
@@ -57,7 +57,7 @@
     },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real Create/Query/Delete Tax Group, Create/Query/Delete Tax Region, Create/Query/Delete Manual Tax Mapping, List Tax Calculators, and Calculate Tax calls against the live reference store, plus a real Stores Catalog V3 Update Product call assigning `taxGroupId` to the one genuinely tax-exempt product. CORRECTION (2026-08-15): the Tax Region \"create/delete cycle\" was not actually cleaned up — the reference store's live Tax Locations page currently shows 3 undeleted, unmapped Tax Regions (Israel, United Kingdom, California/United States) each flagged with a merchant-facing warning. Left in place at the site owner's direction pending a deliberate cleanup pass. Query/Delete Tax Region themselves remain live-verified as working calls — what's corrected is the claim that this PR's diagnostic session left the reference store clean."
+      "path": "anonymized-live-verification"
     }
   ]
 }

@@ -211,7 +211,8 @@ contain required values:
   - `SAFE_MODE_PHONE_NUMBER` when `SAFE_MODE` is enabled
 - `migrations/<project>/config/source.<platform>.env`
   - platform-specific source values, for example WordPress:
-    `WP_BASE_URL`, `WP_USERNAME`, `WP_APPLICATION_PASSWORD`
+    `WP_BASE_URL`; `WP_USERNAME` and `WP_APPLICATION_PASSWORD` for authenticated REST
+    reads; and `WMH2_MIGRATION_KEY` when the generated bridge reader selected signed auth
 
 The generated script should load these files and then allow process env to override them.
 `WIX_SITE_STRATEGY` is always required. `WIX_SITE_ID` is required before execution writes
@@ -373,6 +374,94 @@ CLI account should create the site and mint this token.
 7. Save durable execution artifacts, including the authoritative completion artifact and
    deterministic user-facing completion summary.
 
+## Rerunning an import for new and modified records
+
+Spec 0140. The source keeps trading after an import finishes: newer records arrive, earlier
+records change, earlier failures are still missing. A rerun reuses the same project,
+destination, mapping, generated importer and crosswalk — it is not a fresh migration, and any
+mapping or scope change goes back through the existing gates.
+
+Catch-up may extend the end of the range to the new capture time. It does **not** pull older
+history the accepted scope excluded, and it does **not** propagate deletions.
+
+**Selection.** Refresh the agreed scope and bucket it against the crosswalk with
+`lib/import-recovery.js`'s `selectRerunRecords` — create missing, skip unchanged, update
+changed, and report `unknown` where there is no usable comparison evidence. The pre-existing
+`--missing-only` and `--failed-only` filters are **not** a delta between them: missing-only
+excludes every crosswalk hit, so a changed record is never seen, and failed-only only revisits
+what was already attempted. Read refreshed files covering the whole agreed scope; a
+modified-since optimization is allowed only when it still includes boundary records, older
+retries and unresolved decisions.
+
+**The version pair.** Every confirmed write records the source's version (`sourceVersionField`
++ `sourceVersion`, or a declared `sourceHash` fallback) and the Wix `targetRevision` returned by
+that write, via `nextCrosswalkBaseline`. A confirmed write that returns **no** revision does not
+advance the pair at all — **including a first create**. Half a pair is not a baseline: a source
+version saying "applied" with no revision leaves the next update with no concurrency guard, and
+on a re-write it would pair a new source version with a pre-write revision and self-conflict.
+Both reconcile instead. A linked record with no saved revision is likewise reported `unknown`
+rather than updated, which also covers legacy rows written before the pair existed. Treat both as opaque; never increment a revision
+locally. A failed, conflicted, dry-run or skipped write **must not** advance the pair — that is
+what keeps the record eligible for recovery instead of recorded as applied. Missing metadata on
+an old row is `unknown`, never "unchanged".
+
+**Conflicts are a user decision, including in one-click mode.** When Wix rejects an update
+because its revision moved, stop updating that record and show the user the error, the record,
+and the source changes proposed for it — `lib/rerun-conflicts.js` builds that review and
+classifies the error. Ask once per record, not per field. **Never silently fetch a newer
+revision and retry**; there is deliberately no such helper. Unrelated records continue; work
+depending on the unresolved update stays blocked.
+
+⚠️ **The conflict-code list is incomplete by design.** Only `INVALID_REVISION` has been
+observed live (spec 0065, on a delivery profile). Products v3 and Contacts v5 conflict codes
+are **not** known, so they are absent rather than guessed. Two things keep that safe: the
+accepted mapping can declare an entity's real codes (`entityConflictCodes`), and an
+unrecognized 409 on a revision-carrying update classifies as `possible_revision_conflict` —
+which goes to a human, never to an auto-retry and never silently into an ordinary failure. When
+a real conflict code is observed, record it in the entity's declared codes and in
+`OBSERVED_REVISION_CONFLICT_CODES` with its evidence.
+
+On **override**, read the latest Wix record, show which values would be replaced, and write
+against the revision the user actually reviewed. A further conflict is another decision. On
+**keep**, leave Wix alone and record the choice against that exact source version and reviewed
+revision in the recovery log — never as a crosswalk baseline, because the source version was
+never applied — persist it through the recovery entry's `conflictDecisions[]` and read it back
+with `latestConflictDecisionFor`, so a later rerun does not re-ask a question the user already
+answered or silently overwrite what they chose to keep. `loadRecoveryLog` returns an **array**;
+pass it straight in. Do not report a kept change as imported,
+and do not retry it silently later.
+
+**Dependencies and safety.** Resolve contacts, products and other dependencies before their
+dependants. A record with an uncertain prior attempt (`deferred`, `needs_verification`,
+`succeeded_unverified`, `started`) is reconciled before it is written — `selectRerunRecords`
+routes it to `needsReconciliation` whether it is linked or not. Unlinked, an unconfirmed earlier
+write may already exist and creating again would duplicate it. **Linked, the danger is subtler:**
+if the previous write landed and the process died before saving its baseline, the saved revision
+is already stale, so re-sending it makes the importer collide with its own write and report that
+to the user as a merchant edit.
+
+Updates touch only the fields the accepted mapping covers and preserve unrelated Wix values.
+Each entity needs a verified update operation **and** conflict protection; without both,
+`updateSupportFor` returns `report_for_review` and the record is reported rather than pushed
+through a create/import operation. This is **enforced in code**, not only documented: the
+accepted mapping declares `{ writerId, revisionParam }` per entity, and an entity missing
+either is refused. It **fails closed** — a rerun that does not declare `targetEntityRef` at all
+gets `report_for_review` for every changed record, because an absent declaration is not evidence
+that an update is safe. The order family (`ecom/order` and its child entities) is denied outright
+with `neverFallBackToCreate` — Update Order exposes a restricted field set and no general
+revision parameter, and a same-id Import Order is an unguarded whole-body replacement that
+clears omitted fields.
+
+**Scope and deletions.** Pass the accepted scope as `inScope`; excluded records are reported
+`outOfScope` and never actioned. Deletions need no rule beyond the refreshed set: a record
+absent from the source is never iterated, so absence can never become a delete instruction.
+
+**Reporting.** Before writes, show the selected scope with counts of new, changed, unchanged
+and unresolved. Afterwards report created, updated, unchanged, kept-in-Wix-by-user-choice,
+conflicted, failed, blocked and out-of-scope, with errors and affected records. Unknown counts
+are not zero. Name the source capture time: a trading source may need another rerun or an
+agreed cutover.
+
 ## Required final report contents
 
 When execution finishes, the deterministic completion outputs must explicitly include:
@@ -428,6 +517,21 @@ State the **delivery mode** explicitly (see `wix-replatform` → "Delivery mode"
   `wix-headless`), but do not build one unless the user asks.
 - **`website` mode:** report the **storefront URL** produced by `wix-headless` and confirm
   the released site serves the migrated catalog (not demo data).
+
+## Inventory completion and resume
+
+Run the generated inventory reconciliation for new AND previously crosswalked products.
+Require the current inventory setup/canary receipt before stock writes, retaining the run's
+notification guard. After each batch persist stock outcomes separately from product success.
+If stock failed, resume only stock using existing product/variant IDs; never recreate a
+product or increment a quantity to recover it.
+
+Include `state/inventory-report.json` in the completion inputs: intended variant denominator,
+reconciled/created/updated, failed/unverified, and source decision-needed counts. Unknown stock
+and missing variants remain visible. Any unresolved inventory makes catalog completion partial;
+a product count or HTTP 200 cannot clear it. Compare source versus verified target availability
+per variant and summarize out-of-stock counts. A source with available variants cannot pass
+with an entirely unavailable target. Dry-run inventory outcomes are simulated, never live proof.
 
 ## Completion artifact authority
 
@@ -605,9 +709,52 @@ owner's live business data, and nothing in this pipeline can undo a bulk write.
 - **Skip, do not overwrite.** A record already present — by crosswalk, then by the
   mapping's natural key — is skipped and counted as `skipped`, not rewritten. Only augment
   a pre-existing entity when the plan the user accepted says so for that entity type.
+  **One narrow exception (spec 0140): a rerun's accepted update path.** A linked record whose
+  source version changed may be updated through its entity's verified update writer, carrying
+  the crosswalk's saved `targetRevision`. The crosswalk check still runs before every create;
+  what the exception replaces is only the blanket skip of linked records, and only for the
+  accepted update path. Matching a *pre-existing* Wix record by natural key never authorizes
+  updating it — that stays the collision policy above.
 - **Never blank a field the source does not carry.** A source without a field means "no
   information", not "empty" — writing the empty value deletes data the owner entered by
   hand. Send partial updates; never a full replace built from source-only fields.
 - **Report what was left alone.** The completion report must count `skipped` alongside
   `imported` and `failed`, so the user can reconcile the plan's collision inventory against
   what actually happened. "Nothing was touched here" is a result, not an omission.
+
+Default-location inventory completion requires both the Inventory item and the same Catalog variant to agree on availability. The reconciler checks this on fresh writes and no-write reruns. A Catalog disagreement or failed read stays unverified; retain it for recovery without blindly rewriting stock.
+
+
+## Contact/product verification before completion
+
+Execute generated contact/product callers through the shared verified import wrappers.
+Use the verification-state loader to read `state/write-verification.json` plus atomic
+batch checkpoints in `state/write-verification-journal/`. It replays committed checkpoints
+after interruption; the final snapshot compacts them. Published crosswalks carry receipt
+references, while expected/actual entities remain in protected verification state. Candidate IDs are recovery information, not usable mappings. A crosswalk hit
+or a `--missing-only` selection still requires target identity/value verification.
+Preserve uncertain write outcomes and reconcile before retrying; do not create again
+because the response was lost. Never repair historical contamination by blanket clearing.
+
+Shared completion inputs must include `siteId`, each contact/product row's intended
+`sourceKeys`, `verificationKind: "contact"` or `"product"` from the accepted mapping,
+and `verification[entity]` from the wrapper. Declare `verificationKind: "none"` explicitly
+for entities outside these comparators; an unknown name without a policy stays incomplete. Count-only completion cannot
+satisfy these entities. Missing or conflicting evidence yields incomplete status and a
+reconciliation action. Explicitly empty source sets have no data; empty reports cannot
+cover a nonempty set. Quick Shopify separately records its product read-back results and
+keeps stock permission failures partial and resumable; setup still does not write stock.
+
+
+The mere presence of `state/.lock/` does not mean an importer is running. Each importer
+owns a uniquely named PID/host claim there, and a resume automatically removes claims
+whose local process is dead (including after SIGKILL). A live process continues to block
+concurrent imports. For a claim from another host, an unrecognized legacy file, or a reused
+PID, first confirm that its importer is stopped on the owning host, then remove only that
+claim file and rerun the same command. Do not remove a live owner's claim or the whole state
+folder. An empty legacy `.lock` directory needs no manual cleanup.
+
+A failed target read keeps the previous verified crosswalk mapping and receipt reference.
+The current verification report remains partial, so that retained mapping does not turn a
+failed read into a new completion claim. Revoke mappings when identity is contradicted;
+value-only differences require the existing update/review flow.

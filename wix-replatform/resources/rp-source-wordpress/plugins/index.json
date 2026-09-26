@@ -139,6 +139,22 @@
       ],
       "requiresCredentials": false
     },
+    "product-extras-for-woocommerce": {
+      "path": "plugins/product-extras-for-woocommerce.json",
+      "displayName": "WooCommerce Product Add-Ons Ultimate",
+      "profileVersion": "2026-09",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.order-addon-values",
+        "commerce.product-addon-fields"
+      ],
+      "entityCount": 3,
+      "channels": [
+        "core-meta",
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
     "pw-woocommerce-gift-cards": {
       "path": "plugins/pw-woocommerce-gift-cards.json",
       "displayName": "PW WooCommerce Gift Cards",
@@ -184,6 +200,20 @@
       ],
       "requiresCredentials": false
     },
+    "strong-testimonials": {
+      "path": "plugins/strong-testimonials.json",
+      "displayName": "Strong Testimonials",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.testimonials"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
     "subscriptions-for-woocommerce": {
       "path": "plugins/subscriptions-for-woocommerce.json",
       "displayName": "Subscriptions For WooCommerce",
@@ -200,6 +230,20 @@
       ],
       "requiresCredentials": true
     },
+    "tablepress": {
+      "path": "plugins/tablepress.json",
+      "displayName": "TablePress",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.data-tables"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
     "the-events-calendar": {
       "path": "plugins/the-events-calendar.json",
       "displayName": "The Events Calendar",
@@ -214,6 +258,20 @@
       "channels": [
         "core-cpt",
         "plugin-rest"
+      ],
+      "requiresCredentials": false
+    },
+    "ti-woocommerce-wishlist": {
+      "path": "plugins/ti-woocommerce-wishlist.json",
+      "displayName": "TI WooCommerce Wishlist",
+      "profileVersion": "2026-08",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.wishlists"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "db-only"
       ],
       "requiresCredentials": false
     },
@@ -242,8 +300,8 @@
       ],
       "entityCount": 2,
       "channels": [
-        "admin-page-only",
-        "core-meta"
+        "core-meta",
+        "db-only"
       ],
       "requiresCredentials": false
     },
@@ -286,6 +344,20 @@
       "entityCount": 1,
       "channels": [
         "plugin-rest-child"
+      ],
+      "requiresCredentials": false
+    },
+    "woocommerce-pdf-invoices-packing-slips": {
+      "path": "plugins/woocommerce-pdf-invoices-packing-slips.json",
+      "displayName": "PDF Invoices & Packing Slips for WooCommerce (WPO WCPDF)",
+      "profileVersion": "2026-09",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.order-invoice-documents"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-meta"
       ],
       "requiresCredentials": false
     },
@@ -527,6 +599,21 @@
     "_mwb_bfwp_date_time_from": [
       "mwb-bookings-for-woocommerce"
     ],
+    "pewc_display_groups": [
+      "product-extras-for-woocommerce"
+    ],
+    "pewc_global_groups_by_product": [
+      "product-extras-for-woocommerce"
+    ],
+    "pewc_price_display": [
+      "product-extras-for-woocommerce"
+    ],
+    "product_extras": [
+      "product-extras-for-woocommerce"
+    ],
+    "_pewc_product_extra_id": [
+      "product-extras-for-woocommerce"
+    ],
     "pw_gift_card_number": [
       "pw-woocommerce-gift-cards"
     ],
@@ -655,6 +742,14 @@
       "pricing-deals-for-woocommerce",
       "woo-discount-rules"
     ],
+    "commerce.product-addon-fields": [
+      "product-extras-for-woocommerce",
+      "woocommerce-product-addon"
+    ],
+    "commerce.order-addon-values": [
+      "product-extras-for-woocommerce",
+      "woocommerce-product-addon"
+    ],
     "commerce.gift-card-products": [
       "pw-woocommerce-gift-cards"
     ],
@@ -669,14 +764,23 @@
     "content.podcast": [
       "seriously-simple-podcasting"
     ],
+    "content.testimonials": [
+      "strong-testimonials"
+    ],
     "commerce.subscription-products": [
       "subscriptions-for-woocommerce"
+    ],
+    "content.data-tables": [
+      "tablepress"
     ],
     "content.events": [
       "the-events-calendar"
     ],
     "content.event-categories": [
       "the-events-calendar"
+    ],
+    "commerce.wishlists": [
+      "ti-woocommerce-wishlist"
     ],
     "commerce.checkout-custom-fields": [
       "woo-checkout-field-editor-pro"
@@ -687,11 +791,8 @@
     "commerce.payment-gateway-notes": [
       "woocommerce-other-payment-gateway"
     ],
-    "commerce.product-addon-fields": [
-      "woocommerce-product-addon"
-    ],
-    "commerce.order-addon-values": [
-      "woocommerce-product-addon"
+    "commerce.order-invoice-documents": [
+      "woocommerce-pdf-invoices-packing-slips"
     ],
     "commerce.composite-products": [
       "wpc-composite-products"
@@ -728,10 +829,12 @@
       "facebook-for-woocommerce",
       "membership-for-woocommerce",
       "mwb-bookings-for-woocommerce",
+      "product-extras-for-woocommerce",
       "pw-woocommerce-gift-cards",
       "subscriptions-for-woocommerce",
       "woo-discount-rules",
       "woo-product-bundle",
+      "woocommerce-pdf-invoices-packing-slips",
       "woocommerce-product-addon",
       "wordpress-seo",
       "wpc-composite-products"
@@ -740,7 +843,6 @@
       "free-gifts-for-woocommerce",
       "pricing-deals-for-woocommerce",
       "woo-checkout-field-editor-pro",
-      "woo-discount-rules",
       "woocommerce-progressive-discounts"
     ],
     "core-cpt": [
@@ -749,7 +851,12 @@
     ],
     "db-only": [
       "pricing-deals-for-woocommerce",
+      "product-extras-for-woocommerce",
       "pw-woocommerce-gift-cards",
+      "strong-testimonials",
+      "tablepress",
+      "ti-woocommerce-wishlist",
+      "woo-discount-rules",
       "wpforms-lite"
     ]
   }

@@ -88,8 +88,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-validation-service-plugin",
       "group": "Bookings",
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): the extension point where an app vetoes create/reschedule/cancel. An SPI is not an import path, and during a migration it is a hazard to be aware of rather than a target.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER for source booking constraints with no native equivalent. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/bookings/bookings/bookings-writer-v2",
@@ -154,8 +154,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/policies/booking-policy-service-plugin",
       "group": "Policies",
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): an app returns policies to Wix at runtime (Extension Config, List Booking Policies). An SPI is not an import path.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER for source cancellation/reschedule windows that Wix booking policies cannot express. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/bookings/policies/booking-policy-snapshots",
@@ -190,8 +190,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/pricing/pricing-integration-service-plugin",
       "group": "Pricing",
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): the extension point where an app returns prices to Wix at booking time. An SPI is not an import path.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER for source per-service pricing rules. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/bookings/resources/attributes",
@@ -307,8 +307,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-sorting-service-plugin",
       "group": "Staff Members",
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): an extension point where an app supplies staff ordering to Wix at runtime. An SPI is not an import path.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- presentation ordering, no source data behind it. Genuinely not relevant. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/bookings/time-slots/availability-time-slots-configuration-service-plugin",
@@ -316,8 +316,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/availability-time-slots-configuration-service-plugin",
       "group": "Time Slots",
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): an app supplies availability-slot configuration to Wix at runtime. An SPI is not an import path.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER if the source generates slots in a way Wix cannot. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/bookings/time-slots/time-slots-v2",

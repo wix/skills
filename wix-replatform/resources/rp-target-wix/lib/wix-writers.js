@@ -33,8 +33,16 @@
 // surfaced in execution plans until a live contract call promotes them to VERIFIED.
 
 const fs = require('node:fs/promises');
+const bulkResults = require('./bulk-results');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const paymentMapping = require('./order-payment-mapping.js');
+const dataExtensionSchema = require('./data-extension-schema.js');
+const invoiceContract = require('./order-invoice-contract.js');
+const documentUrlGuard = require('../../../lib/document-url-guard.js');
+const approvalStamp = require('../../../lib/preservation-approval-stamp.js');
+const pricingPlanDefinition = require('./pricing-plan-definition.js');
+const storesInventory = require('./stores-inventory.js');
 
 const WIXAPIS = 'https://www.wixapis.com';
 
@@ -445,8 +453,14 @@ function responseShapeFromRequest(request) {
   if (url.includes('/ecom/v1/delivery-profiles/remove-delivery-carrier')) return { type: 'object', field: 'deliveryProfile', idFields: ['id'] };
   if (url.includes('/ecom/v1/delivery-profiles/') && method === 'GET') return { type: 'object', field: 'deliveryProfile', idFields: ['id'] };
   if (url.includes('/ecom/v1/delivery-profiles')) return { type: 'object', field: 'deliveryProfile', idFields: ['id'] };
+  if (url.includes('/site-properties/v4/properties/business-contact')) return { type: 'raw' };
+  if (url.includes('/site-properties/v4/properties')) return { type: 'object', field: 'properties' };
   if (url.includes('/ecom/v1/shipping-options/query')) return { type: 'array', field: 'shippingOptions' };
   if (url.includes('/ecom/v1/shipping-options')) return { type: 'object', field: 'shippingOption', idFields: ['id'] };
+  // Pickup Locations live on their own service host (www.wixapis.com/pickup-locations), not
+  // under /ecom/ — check the query branch first so it isn't swallowed by the create/get branch.
+  if (url.includes('/pickup-locations/v1/pickup-locations/query')) return { type: 'array', field: 'pickupLocations' };
+  if (url.includes('/pickup-locations/v1/pickup-locations')) return { type: 'object', field: 'pickupLocation', idFields: ['id'] };
   if (url.includes('/ecom/v1/order-billing/refund-payments')) return { type: 'object', field: 'refund', idFields: ['id'] };
   if (url.includes('/ecom/v1/payments/orders/') && url.includes('/add-payment')) return { type: 'add-order-payment' };
   if (url.includes('/ecom/v1/payments/orders/')) return { type: 'object', field: 'orderTransactions' };
@@ -620,7 +634,19 @@ function createWixClient(config) {
       const res = await fetchImpl(url, { method, headers: requestHeaders, body: body ? JSON.stringify(body) : undefined });
       const text = await res.text();
       const json = text ? JSON.parse(text) : null;
-      if (!res.ok) throw new Error(`${method} ${url} → ${res.status}: ${text.slice(0, 400)}`);
+      if (!res.ok) {
+        // The message is truncated for readability, so anything that needs to DECIDE on an error
+        // must not parse it. Attach the status and the parsed body: a caller distinguishing a
+        // transient refusal from a permanent one was reading a 400-character prefix, which fails
+        // silently the day the provider reorders its own JSON.
+        throw Object.assign(new Error(`${method} ${url} → ${res.status}: ${text.slice(0, 400)}`), {
+          status: res.status,
+          body: json,
+          applicationErrorCode: json && json.details && json.details.applicationError && json.details.applicationError.code,
+          nonRefundableReason: json && json.details && json.details.applicationError
+            && json.details.applicationError.data && json.details.applicationError.data.nonRefundableReason,
+        });
+      }
       return json;
     },
   };
@@ -865,10 +891,443 @@ async function waitUntilFileReady(wix, fileId, { tries = 10, delayMs = 1500 } = 
     const r = await wix.send({ method: 'GET', url: `${WIXAPIS}/site-media/v1/files/${fileId}` });
     const status = r?.file?.operationStatus;
     if (status === 'READY') return r.file;
-    if (status === 'FAILED') throw new Error(`media import failed for ${fileId}`);
+    if (status === 'FAILED') {
+      // Tagged, because the caller has to tell a genuinely failed import from a 429/503 on the
+      // way to asking -- one is terminal, the other is worth retrying.
+      throw Object.assign(new Error(`media import failed for ${fileId}`), { code: 'MEDIA_IMPORT_FAILED' });
+    }
     await new Promise((res) => setTimeout(res, delayMs));
   }
   return null; // caller decides whether to proceed with a still-PENDING file
+}
+
+// --- Data Extension Schema transport (spec 0058 phase 2) -------------------
+// The decision logic is in data-extension-schema.js and is deliberately pure. This is the thin
+// transport around it, plus one orchestrator so the sequence cannot be shortcut: LIST (including
+// archived fields, or the collision check is blind) -> PLAN -> send -> RE-READ -> verify.
+//
+// The re-read is not ceremony. A create or update can report success without producing the field,
+// and generated import code must not write a value into a field setup did not verify.
+async function listDataExtensionSchemas(wix, { fqdn, namespace, includeArchived = true } = {}) {
+  return wix.send(dataExtensionSchema.buildListDataExtensionSchemasRequest({ fqdn, namespace, includeArchived }));
+}
+
+async function createDataExtensionSchema(wix, payload) {
+  return (await wix.send(dataExtensionSchema.buildCreateDataExtensionSchemaRequest(payload))).dataExtensionSchema;
+}
+
+async function updateDataExtensionSchema(wix, payload) {
+  return (await wix.send(dataExtensionSchema.buildUpdateDataExtensionSchemaRequest(payload))).dataExtensionSchema;
+}
+
+async function provisionExtendedFieldSchema(wix, { requirement, dryRun = false, approvedBreakingChanges = false } = {}) {
+  const { fqdn, namespace } = requirement;
+
+  // The stamp is RECOMPUTED here from the requirement in hand, never copied off it. Copying is
+  // what made the whole chain circular: the receipt said "contract X" because the requirement
+  // claimed to be contract X, so a requirement edited after stamping produced a receipt that
+  // vouched for fields nobody had checked. A stamp minted from the actual field set cannot lie
+  // about which field set it describes, and one carried in that disagrees is a hard stop rather
+  // than something to reconcile.
+  const contractVersion = dataExtensionSchema.extendedFieldContractVersion(requirement);
+  if (requirement.contractVersion && requirement.contractVersion !== contractVersion) {
+    return {
+      action: 'blocked',
+      blocking: [{
+        code: 'requirement-stamp-mismatch',
+        detail: `the requirement is stamped ${requirement.contractVersion} but its fields hash to ${contractVersion}; it was edited after it was stamped`,
+      }],
+      verification: null,
+    };
+  }
+
+  const listed = await listDataExtensionSchemas(wix, { fqdn, namespace });
+  const existingSchema = dataExtensionSchema.selectUserFieldsSchema(listed, { fqdn, namespace });
+
+  const plan = dataExtensionSchema.planDataExtensionSchemaProvisioning({ requirement, existingSchema, approvedBreakingChanges });
+  if (plan.action === 'blocked') {
+    return { action: 'blocked', blocking: plan.blocking, verification: null };
+  }
+  if (plan.action === 'noop') {
+    // Already provisioned: still verify, so a run that changed nothing still records evidence
+    // the writers can be checked against.
+    const verification = dataExtensionSchema.verifyDataExtensionSchemaFields({ schema: existingSchema, fields: requirement.fields, contractVersion });
+    return { action: 'noop', blocking: [], verification };
+  }
+  if (dryRun) {
+    return { action: `planned_${plan.action}`, blocking: [], verification: null, request: plan.request };
+  }
+
+  if (plan.action === 'create') {
+    await createDataExtensionSchema(wix, { fqdn, namespace, jsonSchema: plan.jsonSchema });
+  } else {
+    await updateDataExtensionSchema(wix, {
+      schemaId: existingSchema.id,
+      revision: existingSchema.revision,
+      mergedSchema: plan.jsonSchema,
+    });
+  }
+
+  // Re-read rather than trusting the write's own response -- but the re-read PROPAGATES.
+  // LIVE-VERIFIED 2026-09-04: an immediate re-read after a successful create reported both fields
+  // absent, while an order PATCH moments later accepted values for them, which it only does when
+  // the schema contains them. So the write had landed and the read was stale. Verifying once
+  // produced a false "not verified after write" that would block the invoice branch on every
+  // fresh provision. Retry the read a bounded number of times before believing it.
+  let verification = null;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const reread = await listDataExtensionSchemas(wix, { fqdn, namespace });
+    const provisioned = dataExtensionSchema.selectUserFieldsSchema(reread, { fqdn, namespace });
+    verification = dataExtensionSchema.verifyDataExtensionSchemaFields({ schema: provisioned, fields: requirement.fields, contractVersion });
+    if (verification.passed) break;
+    if (attempt < 5) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+  }
+  if (!verification.passed) {
+    return {
+      action: plan.action,
+      blocking: [{
+        code: 'extended-field-not-verified-after-write',
+        detail: `the ${plan.action} reported success but these fields are absent on re-read: ${verification.missing.join(', ')}`,
+      }],
+      verification,
+    };
+  }
+  return { action: plan.action, blocking: [], verification };
+}
+
+// --- private documents + order extendedFields (invoice preservation) --------
+// Re-checked against the live schemas 2026-09-03.
+//
+// Import File takes `private: true`, which is what keeps a preserved tax document out of public
+// reach. Two traps recorded from the same re-check:
+//   * The response echoes `sourceUrl`. Persisting the descriptor therefore persists the raw
+//     source URL -- a bearer link whose filename can carry the customer's name and the invoice
+//     number. Only the `id` is ever kept.
+//   * `displayName` shows in the merchant's Media Manager. It is built from the invoice number,
+//     never from the source URL's filename, for the same reason.
+//
+// Generate File Download Url defaults `expirationInMinutes` to 600 -- ten hours. That is not
+// "short-lived", so the expiry is always passed explicitly.
+//
+// Update Order accepts `extendedFields` (confirmed: it is in the updatable-fields list, and the
+// call needs ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS / Manage Orders). PATCH replaces the object it
+// is given and "to remove a field's value, pass null", so a partial `extendedFields` DROPS every
+// other namespace. The merge below is mandatory for the same reason the Data Extension Schema
+// merge is.
+const INVOICE_DOWNLOAD_EXPIRY_MINUTES = 10;
+// One folder, so preserved documents never mix with the merchant's own media.
+const INVOICE_MEDIA_FOLDER = '/Imported invoices';
+
+function buildImportPrivateDocumentRequest({ sourceUrl, invoiceNumber, orderId }) {
+  if (!sourceUrl) throw new Error('importing a private document needs its source url');
+  // Neutral, derived name only: never the source filename.
+  const displayName = invoiceNumber
+    ? `Source invoice ${String(invoiceNumber).slice(0, 64)}`
+    : `Source invoice for order ${String(orderId || 'unknown').slice(0, 64)}`;
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/site-media/v1/files/import`,
+    body: {
+      url: sourceUrl,
+      private: true,
+      mediaType: 'DOCUMENT',
+      // A FOLDER, not the root. The Media Manager is the merchant's ACTUAL way in to these
+      // documents -- the file id on the order is an opaque string they can do nothing with, so
+      // finding "Source invoice 847" by name in Media Manager is the access path that works.
+      // Which makes where they land a real decision: importing to `media-root` drops thousands of
+      // PDFs into the library the merchant keeps their own photos in. `filePath` creates the
+      // folder if it does not exist.
+      filePath: INVOICE_MEDIA_FOLDER,
+      displayName,
+    },
+  };
+}
+
+async function importPrivateDocument(wix, payload) {
+  const { file } = await wix.send(buildImportPrivateDocumentRequest(payload));
+  // Deliberately narrow: the descriptor carries sourceUrl and must not be handed on or stored.
+  return { fileId: file && file.id, operationStatus: file && file.operationStatus, private: file && file.private };
+}
+
+function buildGenerateFileDownloadUrlRequest({ fileId, expirationInMinutes = INVOICE_DOWNLOAD_EXPIRY_MINUTES, contentDisposition = 'ATTACHMENT' }) {
+  if (!fileId) throw new Error('generating a download url needs a fileId');
+  if (!Number.isInteger(expirationInMinutes) || expirationInMinutes < 1) {
+    throw new Error('expirationInMinutes must be a positive integer; the API default of 600 is not short-lived');
+  }
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/site-media/v1/files/generate-file-download-url`,
+    body: { fileId, expirationInMinutes, contentDisposition },
+  };
+}
+
+// Preserves every other namespace and every other key inside our own namespace.
+function mergeOrderExtendedFields(currentExtendedFields, namespace, values) {
+  const current = currentExtendedFields || {};
+  const namespaces = current.namespaces || {};
+  const mine = namespaces[namespace] || {};
+  return {
+    ...current,
+    namespaces: {
+      ...namespaces,
+      [namespace]: { ...mine, ...values },
+    },
+  };
+}
+
+function buildUpdateOrderExtendedFieldsRequest({ orderId, currentExtendedFields = null, namespace = '_user_fields', values = {} }) {
+  if (!orderId) throw new Error('updating order extended fields needs the order id');
+  if (Object.keys(values).length === 0) throw new Error('updating order extended fields needs at least one value');
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new Error(`extended field "${key}" must be a non-empty string`);
+    }
+    // A URL belongs in exactly ONE field, the one named for it. Anywhere else it is a mistake:
+    // a URL in the file-id field means the caller confused the durable copy with the pointer to
+    // the original, which is the error this guard was written to catch and still catches.
+    //
+    // The URL field itself is deliberate, added 2026-09-05: the merchant already has that link on
+    // their own store, our fields are readable by apps and users but NOT site visitors, and a
+    // clickable pointer is worth having. It rots -- the label says so -- and it never replaces
+    // the preserved copy.
+    if (/^https?:\/\//i.test(value) && key !== invoiceContract.ROLES.url) {
+      throw new Error(`extended field "${key}" looks like a URL; store the private file id there, and the source link only in replatformSourceInvoiceUrl`);
+    }
+  }
+  return {
+    method: 'PATCH',
+    url: `${WIXAPIS}/ecom/v1/orders/${encodeURIComponent(orderId)}`,
+    body: { order: { extendedFields: mergeOrderExtendedFields(currentExtendedFields, namespace, values) } },
+  };
+}
+
+async function updateOrderExtendedFields(wix, payload) {
+  return (await wix.send(buildUpdateOrderExtendedFieldsRequest(payload))).order;
+}
+
+function buildGetOrderRequest(orderId) {
+  return { method: 'GET', url: `${WIXAPIS}/ecom/v1/orders/${encodeURIComponent(orderId)}` };
+}
+async function getOrder(wix, orderId) {
+  return (await wix.send(buildGetOrderRequest(orderId))).order;
+}
+
+// Preserve one source invoice document against one imported order.
+//
+// The order is its own record of what happened: an existing file id suppresses the import, which
+// is what makes a re-run idempotent WITHOUT depending on the migration crosswalk. A crosswalk row
+// may accelerate this, but correctness does not rest on it -- a lost crosswalk must not cause a
+// second copy of a tax document to be imported.
+async function preserveOrderInvoiceDocument(wix, {
+  orderId,
+  sourceUrl,
+  invoiceNumber,
+  namespace = '_user_fields',
+  setupVerification = null,
+  approval = null,
+  pendingMediaFileId = null,
+  // The source site's host, so this writer can tell a document that dies with the old store from
+  // one living in a provider's archive. Omitted, everything reads as third-party and needs an
+  // explicit opt-in -- conservative on purpose.
+  sourceSiteHost = null,
+} = {}) {
+  if (!orderId) throw new Error('preserving an invoice document needs the order id');
+  // A number that is not a string or a number is a caller bug, and String() would have written
+  // "[object Object]" onto the merchant's order as their invoice number.
+  if (invoiceNumber !== null && invoiceNumber !== undefined && typeof invoiceNumber !== 'string' && typeof invoiceNumber !== 'number') {
+    throw new Error(`invoiceNumber must be a string or number, got ${JSON.stringify(invoiceNumber)}`);
+  }
+
+  // TWO gates, because this URL comes from source-site metadata and Wix will fetch it
+  // server-side. Discovery classifying it is not enough: nothing forced a caller to route through
+  // discovery, so this writer imported `https://169.254.169.254/latest/meta-data` when handed it
+  // directly, and imported a third-party document with no merchant opt-in.
+  //
+  // 1. An approval from the preservation plan, naming this exact URL and an action that permits
+  //    an import. `offer-preservation` only qualifies once the merchant opted in.
+  if (!approval || approval.documentUrl !== sourceUrl) {
+    return { outcome: 'invoice-preservation-not-approved', fileId: null, imported: false };
+  }
+  // `reference-only` is a legitimate approval that permits NO import: there is no document, and
+  // the invoice number still has to be retained on the order.
+  const wantsImport = approval.action !== 'reference-only';
+
+  // 2. The URL is re-classified HERE, against the shared guard, and the DECISION is re-derived
+  //    from that classification rather than read off the approval.
+  //
+  //    `action` is caller-supplied. Trusting it meant a caller could take a third-party document
+  //    the planner had classified `offer-preservation`, hand it over as `{action: 'preserve'}`
+  //    with no opt-in anywhere, and the writer imported it — a merchant's tax documents copied
+  //    out of their provider's archive on nobody's authority. Re-deriving costs nothing: this
+  //    call was already being made for safety.
+  //
+  //    With no `sourceSiteHost` the guard answers `third-party`, which is the conservative
+  //    answer, so a caller who omits it needs an explicit opt-in rather than getting a free pass.
+  let importPermitted = false;
+  if (wantsImport && sourceUrl) {
+    const classification = documentUrlGuard.classifyDocumentUrl(sourceUrl, { sourceSiteHost });
+    if (!classification.safe) {
+      return {
+        outcome: 'invoice-document-url-unsafe',
+        fileId: null,
+        imported: false,
+        reason: classification.reason,
+        redactedUrl: documentUrlGuard.redactUrlForLog(sourceUrl),
+      };
+    }
+    // Bytes that die with the source site are re-hosted without asking. Anything else is somebody
+    // else's archive and needs the merchant to have said so.
+    const onSourceSite = classification.location === 'wordpress';
+    const permittedWithoutOptIn = onSourceSite && approval.action === 'preserve';
+    // The opt-in is BELIEVED only when the planner stamped it. `merchantOptedIn: true` is a plain
+    // boolean on a plain object, and review showed a hand-built approval carrying it reached the
+    // Media import of a third-party document. A stamp from resolvePreservationPlan is the evidence
+    // that the decision was made where the merchant actually made it -- the approval gate.
+    const optedIn = approval.merchantOptedIn === true;
+    if (!permittedWithoutOptIn && optedIn && !approvalStamp.verifyApprovalStamp(approval)) {
+      return {
+        outcome: 'invoice-preservation-not-approved',
+        fileId: null,
+        imported: false,
+        reason: 'approval-not-stamped-by-plan',
+      };
+    }
+    importPermitted = permittedWithoutOptIn
+      || (optedIn && (approval.action === 'preserve' || approval.action === 'offer-preservation'));
+    if (!importPermitted) {
+      return {
+        outcome: 'invoice-preservation-declined',
+        fileId: null,
+        imported: false,
+        // Named, because "declined" otherwise reads as the merchant's choice when it was ours.
+        reason: onSourceSite ? 'action-does-not-permit-import' : 'third-party-document-without-opt-in',
+      };
+    }
+  } else if (wantsImport) {
+    return { outcome: 'invoice-preservation-declined', fileId: null, imported: false, reason: 'no-document-url' };
+  }
+
+  // A value may not be written into an extended field that setup did not verify. This guard was
+  // previously available and never called, so the rule existed only in prose.
+  let overLengthUrl = null;
+  const writePaths = invoiceContract.writePaths(namespace);
+  const allowed = dataExtensionSchema.validateExtendedFieldWriterReferences({ writePaths, setupVerification, contractVersion: invoiceContract.version() });
+  if (!allowed.valid) {
+    return { outcome: 'invoice-fields-not-provisioned', fileId: null, imported: false, errors: allowed.errors };
+  }
+
+  // READ THE ORDER HERE, rather than trusting a caller-supplied copy. A stale copy is what makes
+  // a second import of the same tax document possible, and patching a stale `extendedFields`
+  // back would overwrite whatever landed in it since. This read is also what makes re-run safety
+  // independent of the migration crosswalk.
+  const order = await getOrder(wix, orderId);
+  const fields = (order && order.extendedFields && order.extendedFields.namespaces && order.extendedFields.namespaces[namespace]) || {};
+  const existingFileId = fields.replatformSourceInvoiceFileId;
+
+  if (existingFileId) {
+    return { outcome: 'invoice-already-preserved', fileId: existingFileId, imported: false };
+  }
+
+  const values = {};
+  let fileId = null;
+  if (sourceUrl) {
+    // A previous run may have left an import in flight. Resuming it is the difference between
+    // finishing that import and creating another private orphan on every retry.
+    const imported = pendingMediaFileId
+      ? { fileId: pendingMediaFileId, operationStatus: 'PENDING' }
+      : await importPrivateDocument(wix, { sourceUrl, invoiceNumber, orderId });
+    if (!imported.fileId) {
+      // No file id means nothing to record. The raw url is NOT stored as a consolation.
+      return { outcome: 'invoice-import-failed', fileId: null, imported: false };
+    }
+
+    // Media import is ASYNCHRONOUS: the response is normally PENDING and processing can fail
+    // afterwards. Recording the id before it is READY is a trap that closes behind itself --
+    // every later run sees a file id on the order and suppresses re-import, so a document that
+    // never finished importing stays permanently recorded as preserved. Only READY is stored.
+    // waitUntilFileReady THROWS on FAILED and returns null when it runs out of tries, so the two
+    // outcomes have to be told apart -- a failed import and an import still in flight need
+    // different reports, and flattening both to null called a failure "not ready".
+    let status = imported.operationStatus;
+    if (status !== 'READY') {
+      try {
+        const settled = await waitUntilFileReady(wix, imported.fileId);
+        status = settled ? settled.operationStatus : 'PENDING';
+      } catch (error) {
+        // Only a tagged failure is terminal. A transport fault means we do not know yet, and
+        // calling that FAILED would discard a file that may well be fine.
+        status = error && error.code === 'MEDIA_IMPORT_FAILED' ? 'FAILED' : 'UNKNOWN';
+      }
+    }
+    if (status !== 'READY') {
+      const outcome = status === 'FAILED'
+        ? 'invoice-import-failed'
+        : (status === 'UNKNOWN' ? 'invoice-import-read-failed' : 'invoice-import-not-ready');
+      return {
+        outcome,
+        fileId: null,
+        imported: false,
+        // Hand the id back so the next run can RESUME this import rather than start another.
+        // Retryable only when the import itself has not failed.
+        pendingMediaFileId: status === 'FAILED' ? null : imported.fileId,
+        mediaFileId: imported.fileId,
+      };
+    }
+    fileId = imported.fileId;
+    values.replatformSourceInvoiceFileId = fileId;
+  }
+  if (invoiceNumber) values.replatformSourceInvoiceNumber = String(invoiceNumber);
+  // The original link, stored ALONGSIDE the preserved copy and never instead of it. It is what a
+  // merchant can actually click today; it is also the thing that rots, so its label says so. It is
+  // only recorded when the document was classified safe -- an unsafe URL is reported, not stored.
+  if (sourceUrl && importPermitted) {
+    // NEVER truncate. A signed or query-bearing URL cut at 2048 is not a shorter link, it is a
+    // broken one -- and it would be stored under a label promising the merchant it works, on an
+    // order the report calls preserved. Over-length is reported and the field is left unset; the
+    // preserved copy is unaffected, which is the point of it being the durable one.
+    // The cap comes from the entity that declares the field, not from a number retyped here --
+    // a writer carrying its own copy accepts 1500 characters the day the entity says 1024.
+    const link = String(sourceUrl);
+    const cap = invoiceContract.maxLengthFor('url');
+    if (link.length <= cap) values[invoiceContract.ROLES.url] = link;
+    else overLengthUrl = { length: link.length, limit: cap };
+  }
+
+  if (Object.keys(values).length === 0) {
+    return { outcome: 'invoice-none-found', fileId: null, imported: false };
+  }
+
+  // The patch is the LAST step, after the file is already READY in Media. If it fails, the file id
+  // must not be lost: nothing on the order records it yet, so a resume that started over would
+  // import a second private copy of a tax document -- review demonstrated exactly that. The id is
+  // handed back as `pendingMediaFileId`, and the next run resumes from it (the same path a
+  // still-PENDING import uses) instead of importing again.
+  try {
+    await updateOrderExtendedFields(wix, {
+      orderId,
+      currentExtendedFields: order && order.extendedFields,
+      namespace,
+      values,
+    });
+  } catch (error) {
+    return {
+      outcome: 'invoice-fields-write-failed',
+      fileId: null,
+      imported: false,
+      pendingMediaFileId: fileId || null,
+      mediaFileId: fileId || null,
+      error: { message: String((error && error.message) || error).slice(0, 300), ...(error && error.status ? { status: error.status } : {}) },
+    };
+  }
+  if (overLengthUrl) {
+    return { outcome: 'invoice-preserved', fileId, imported: Boolean(fileId), findings: [{ code: 'invoice-link-over-length', ...overLengthUrl }] };
+  }
+
+  return {
+    outcome: fileId ? 'invoice-preserved' : 'invoice-number-only',
+    fileId,
+    imported: Boolean(fileId),
+  };
 }
 
 // --- blog taxonomies -------------------------------------------------------
@@ -1150,6 +1609,25 @@ function isPublicHttpUrl(value) {
     return false;
   }
 }
+// Per-item limits from the Catalog V3 spec (component ProductMedia). altText is clamped rather
+// than dropped: a truncated description still helps a screen reader, an absent one helps nobody.
+const MEDIA_ALT_TEXT_MAX = 1000;
+const MEDIA_DISPLAY_NAME_MAX = 80;
+
+function clampMediaText(value, max) {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+}
+
+// Spec 0106: this used to rebuild every item as a bare { url } / { id }, which silently threw
+// away altText that buildMedia had set — on create AND on patch, since normalizeStoresProductV3
+// re-runs this on whatever media it is handed. Alt text is a product's accessibility and search
+// text; losing it without an error is worse than rejecting it.
+//
+// TRAP: displayName is only accepted on url-set items. Wix rejects it alongside an `id`, so it is
+// attached to the url branch only, never carried across.
 function normalizeStoresProductMediaItems(items = []) {
   return items
     .map((item) => {
@@ -1157,10 +1635,19 @@ function normalizeStoresProductMediaItems(items = []) {
       if (typeof item === 'string') {
         return isPublicHttpUrl(item) ? { url: item } : { id: item };
       }
-      if (item.id) return { id: item.id };
-      if (item.mediaId) return { id: item.mediaId };
-      if (item.url && isPublicHttpUrl(item.url)) return { url: item.url };
-      if (item.image?.id) return { id: item.image.id };
+
+      const altText = clampMediaText(item.altText, MEDIA_ALT_TEXT_MAX);
+      const withAlt = (base) => (altText === undefined ? base : { ...base, altText });
+
+      if (item.id) return withAlt({ id: item.id });
+      if (item.mediaId) return withAlt({ id: item.mediaId });
+      if (item.url && isPublicHttpUrl(item.url)) {
+        const displayName = clampMediaText(item.displayName, MEDIA_DISPLAY_NAME_MAX);
+        const base = { url: item.url };
+        if (displayName !== undefined) base.displayName = displayName;
+        return withAlt(base);
+      }
+      if (item.image?.id) return withAlt({ id: item.image.id });
       return null;
     })
     .filter(Boolean);
@@ -1397,8 +1884,8 @@ async function createStoresProduct(wix, product, safeModeOptions, fields) {
 // walk the per-item results and never infer success from the HTTP status.
 //
 // TRAP: `itemMetadata.originalIndex` correlates a result back to the request array. Do not
-// assume the response preserves request order — key on originalIndex, and fall back to
-// position only when it is absent.
+// assume the response preserves request order. Missing or ambiguous indexes must
+// remain unresolved; this endpoint declares no positional fallback.
 //
 // TRAP: `bulkActionMetadata.undetailedFailures` counts failures whose detail was dropped
 // because the threshold was exceeded. Ignoring it silently loses failed records.
@@ -1444,51 +1931,9 @@ async function bulkCreateStoresProductsWithInventory(wix, products, { returnEnti
   const normalized = products.map((product) => normalizeStoresProductV3ForCreate(wix, product));
 
   const response = await wix.send(buildBulkCreateStoresProductsRequest(normalized, { returnEntity, fields }));
-  // VERIFIED (2026-07-29) against the BulkCreateProductsWithInventoryResponse schema:
-  // TRAP: products-with-inventory nests the per-item results ONE LEVEL DEEPER than its
-  // sibling /stores/v3/bulk/products/create. Here they are `productResults.results` +
-  // `productResults.bulkActionMetadata`; only `inventoryResults` is top-level. Reading
-  // `response.results` yields undefined, which the unaccounted guard correctly reports as a
-  // correlation failure AFTER the products have already been created. The flat fallback keeps
-  // this tolerant of the sibling envelope.
-  const productResults = (response && response.productResults) || {};
-  const rawResults = productResults.results || (response && response.results) || [];
-  const meta = productResults.bulkActionMetadata || (response && response.bulkActionMetadata) || {};
-
-  const results = rawResults.map((r, position) => {
-    const im = (r && r.itemMetadata) || {};
-    // originalIndex is authoritative; position is the documented fallback only.
-    const index = Number.isInteger(im.originalIndex) ? im.originalIndex : position;
-    return {
-      index,
-      inputProduct: products[index],
-      success: im.success === true,
-      productId: im.id || (r.item && r.item.id) || null,
-      revision: (r.item && r.item.revision) || null,
-      product: r.item || null,
-      errorCode: im.error && im.error.code ? im.error.code : null,
-      errorDescription: im.error && im.error.description ? im.error.description : null,
-    };
-  });
-
-  const succeeded = results.filter((r) => r.success);
-  const failed = results.filter((r) => !r.success);
-  const undetailedFailures = meta.undetailedFailures || 0;
-
-  // A result set that does not account for every input is a correlation bug, not a partial
-  // success — surface it rather than silently crosswalking the wrong ids.
-  const unaccounted = products.length - results.length - undetailedFailures;
-
-  return {
-    results,
-    succeeded,
-    failed,
-    totalSuccesses: meta.totalSuccesses !== undefined ? meta.totalSuccesses : succeeded.length,
-    totalFailures: meta.totalFailures !== undefined ? meta.totalFailures : failed.length,
-    undetailedFailures,
-    unaccounted: unaccounted > 0 ? unaccounted : 0,
-    inventoryResults: (response && response.inventoryResults) || null,
-  };
+  // This endpoint declares productResults; the sibling flat envelope is not a fallback.
+  return { ...bulkResults.normalizeBulk(response, products, 'products'),
+    inventoryResults: response?.inventoryResults || null };
 }
 
 function buildQueryStoresProductsRequest(query = { paging: { limit: 100 } }, fields) {
@@ -1552,6 +1997,110 @@ function buildPatchStoresProductMediaRequest({ productId, revision, items = [] }
 }
 async function patchStoresProductMedia(wix, payload) {
   return wix.send(buildPatchStoresProductMediaRequest(payload));
+}
+
+// VERIFIED (2026-09-01, live over 398 products): the 200 above is a QUEUE ACKNOWLEDGEMENT, not a
+// delivery. Wix echoes the item back as `mediaType: "UNKNOWN_MEDIA_TYPE"` with an `uploadId` and
+// fetches the URL afterwards, on its own side, with no callback and no status endpoint.
+//
+// TRAP, and it is the expensive one: `media.itemsInfo.items` is a FULL REPLACE, so the product's
+// existing image is discarded the instant the PATCH is accepted. If the background fetch then
+// fails, Wix DROPS the item and the product is left with an EMPTY gallery — 200 on the write, no
+// error anywhere, and the old picture already gone. Observed on a valid, publicly reachable
+// 2048x2048 JPEG that ingested fine on the very next attempt, so there is nothing about the file
+// or the request to validate up front. Reading the product back is the only signal that exists.
+//
+// Scale of it, measured on one live catalog: 65 of 383 items (17%) had not ingested 60s after an
+// accepted write. A second identical PATCH fixed all but one, and a third fixed that. So a miss
+// is "not yet known", never "failed" — the loop is what establishes the outcome.
+//
+// This is the writer to reach for whenever media correctness matters. `patchStoresProductMedia`
+// stays for callers batching thousands of writes who verify in their own sweep afterwards.
+const STORES_MEDIA_INGEST_SETTLE_MS = 60000;
+const STORES_MEDIA_INGEST_ROUNDS = 4;
+
+// Reading media back REQUIRES the fields parameter. A plain GET returns only `media.main`, so an
+// unverified read looks empty on a perfectly healthy product and would report every write failed.
+function buildGetStoresProductWithMediaRequest(id) {
+  return {
+    method: 'GET',
+    url: `${WIXAPIS}/stores/v3/products/${encodeURIComponent(id)}?fields=MEDIA_ITEMS_INFO`,
+  };
+}
+async function getStoresProductWithMedia(wix, id) {
+  return (await wix.send(buildGetStoresProductWithMediaRequest(id))).product;
+}
+
+// An item that carries no `image.id` is either still in flight or already dropped, and ONE read
+// cannot tell those apart. Both mean "not landed"; only re-sending distinguishes them.
+function storesProductMediaLanded(product, expectedCount) {
+  const items = product?.media?.itemsInfo?.items || [];
+  const ingested = items.filter((item) => item?.image?.id);
+  return ingested.length === expectedCount && expectedCount > 0;
+}
+
+async function patchStoresProductMediaVerified(
+  wix,
+  { productId, items = [] },
+  {
+    settleMs = STORES_MEDIA_INGEST_SETTLE_MS,
+    // Separate knob from settleMs on purpose: they wait for different things. settleMs waits for
+    // an ACCEPTED write to finish ingesting; retryDelayMs waits for a REFUSED write's rate limit
+    // to lift. They default to the same number only because the observed edge 429 and the
+    // observed ingest both need about a minute.
+    retryDelayMs = STORES_MEDIA_INGEST_SETTLE_MS,
+    rounds = STORES_MEDIA_INGEST_ROUNDS,
+    sleep = (ms) => new Promise((res) => setTimeout(res, ms)),
+  } = {},
+) {
+  const expected = normalizeStoresProductMediaItems(items).length;
+  if (expected === 0) throw new Error(`patchStoresProductMediaVerified: refusing to replace ${productId}'s gallery with nothing`);
+
+  const attempts = [];
+  for (let round = 1; round <= rounds; round += 1) {
+    // TWO DIFFERENT FAILURES, ONE RETRY LIST. A write REFUSED (this endpoint
+    // rate-limits at the edge with a 429 whose body is an HTML page, and it outlasts a short
+    // in-request backoff) leaves the OLD image in place. A write ACCEPTED but never ingested
+    // leaves NOTHING. Both mean "not verified", so both belong in the next round — which is why
+    // every call in this body is inside the try. Letting a throw escape the loop was the actual
+    // bug: 12 of 395 writes on a live catalog hit that 429, and each one would have aborted the
+    // helper on its first round while reporting nothing about the state it left behind.
+    try {
+      // Re-read the revision every round. An accepted-but-not-ingested write still incremented it,
+      // so reusing the previous round's value 400s on the retry that was supposed to save us.
+      const before = await getStoresProductWithMedia(wix, productId);
+      await patchStoresProductMedia(wix, { productId, revision: before.revision, items });
+      await sleep(settleMs);
+      const after = await getStoresProductWithMedia(wix, productId);
+      const landed = storesProductMediaLanded(after, expected);
+      attempts.push({ round, landed });
+      if (landed) return { productId, landed: true, rounds: round, attempts, product: after };
+    } catch (error) {
+      // Record what went wrong and go round again. The error is kept per attempt rather than
+      // thrown, because the caller's decision is the same either way — this product is not
+      // verified — and because the message is the only clue about WHICH failure it was.
+      attempts.push({ round, landed: false, error: String((error && error.message) || error).slice(0, 300) });
+      // BACK OFF BEFORE RETRYING. A round that throws skips the settle wait above, so without
+      // this the loop retries instantly and burns every round inside a few milliseconds — which
+      // is worthless against the condition it is retrying, an edge 429 that outlasts tens of
+      // seconds of backoff. Nothing to wait for after the last round, so that one returns
+      // immediately rather than making the caller pay for a delay it cannot use.
+      if (round < rounds) await sleep(retryDelayMs);
+    }
+  }
+  // Out of rounds. The product is in one of two states and this function cannot tell which: the
+  // gallery is EMPTY (accepted, never ingested) or it still holds the OLD image (never written).
+  // Both need a human, so both are reported the same way — by name, never summarised into a
+  // count. `errors` is surfaced separately so a caller can tell a rate-limited run (retry later,
+  // nothing lost) from an ingest that keeps failing (the gallery is empty right now).
+  return {
+    productId,
+    landed: false,
+    rounds,
+    attempts,
+    product: null,
+    errors: attempts.map((attempt) => attempt.error).filter(Boolean),
+  };
 }
 
 // VERIFIED (2026-08-12, the reference store catalog backfill): PATCH /stores/v3/products/{id} with
@@ -1901,10 +2450,11 @@ async function createContact(wix, payload, safeModeOptions) {
   return (await wix.send(buildCreateContactRequest(payload, safeModeOptions))).contact;
 }
 
-// UNVERIFIED writer (no live run yet). DOCUMENTED endpoint: POST
+// Evidence: safe-mode bulk upsert and query-back exercised basic contact fields.
+// Member updates, real contact values and extensions are not thereby verified. Endpoint: POST
 // /contacts/v5/bulk/contacts/upsert — the CONT-01 import path: 1-100 contacts per call,
-// synchronous, per-item results. Contact matching (main email, or main phone when no
-// email) decides create vs update, so re-runs upsert instead of duplicating; `externalId`
+// synchronous, per-item results. Contact matching includes externalId, email and phone; V5 can match phone even with email present.
+// Use the verified contact importer for prewrite identity checks; `externalId`
 // (set-once, max 100 chars) carries the source-system id for the crosswalk.
 // `upsertMode`: OVERWRITE (default) | APPEND | OVERWRITE_APPEND_ARRAYS.
 // Contacts use the same flat GA shape as createContact; each array item wraps as
@@ -1937,38 +2487,7 @@ function buildBulkUpsertContactsRequest(contacts, { upsertMode, returnEntity = f
 // all-or-nothing.
 async function bulkUpsertContacts(wix, contacts, options = {}, safeModeOptions) {
   const response = await wix.send(buildBulkUpsertContactsRequest(contacts, options, safeModeOptions));
-  const rawResults = (response && response.results) || [];
-  const meta = (response && response.bulkActionMetadata) || {};
-  const results = rawResults.map((r, position) => {
-    const im = (r && r.itemMetadata) || {};
-    // originalIndex is authoritative; position is the documented fallback only.
-    const index = Number.isInteger(im.originalIndex) ? im.originalIndex : position;
-    return {
-      index,
-      inputContact: contacts[index],
-      success: im.success === true,
-      contactId: im.id || (r.item && r.item.id) || null,
-      action: r.action || null, // CREATED | UPDATED
-      contact: r.item || null, // populated only with returnEntity: true
-      errorCode: im.error && im.error.code ? im.error.code : null,
-      errorDescription: im.error && im.error.description ? im.error.description : null,
-    };
-  });
-  const succeeded = results.filter((r) => r.success);
-  const failed = results.filter((r) => !r.success);
-  const undetailedFailures = meta.undetailedFailures || 0;
-  // A result set that does not account for every input is a correlation bug, not a partial
-  // success — surface it rather than silently crosswalking the wrong ids.
-  const unaccounted = contacts.length - results.length - undetailedFailures;
-  return {
-    results,
-    succeeded,
-    failed,
-    totalSuccesses: meta.totalSuccesses !== undefined ? meta.totalSuccesses : succeeded.length,
-    totalFailures: meta.totalFailures !== undefined ? meta.totalFailures : failed.length,
-    undetailedFailures,
-    unaccounted: unaccounted > 0 ? unaccounted : 0,
-  };
+  return bulkResults.normalizeBulk(response, contacts, 'contacts');
 }
 function buildQueryContactsRequest(query = { paging: { limit: 100, offset: 0 } }) {
   return { method: 'POST', url: `${WIXAPIS}/contacts/v5/contacts/query`, body: { query } };
@@ -2038,11 +2557,16 @@ async function findOrCreateContactExtendedField(wix, payload) {
 }
 
 // --- Coupons ---------------------------------------------------------------
-// UNVERIFIED: read-only probe showed /stores/v2/coupons/query reaches the Coupons service
-// but returned app-not-installed/unauthorized on the target site. The specification must
-// contain exactly one coupon type; generated code must decide per source coupon whether
-// native Wix Coupons can represent the source coupon exactly. CMS is not a fallback for a
-// missing writer; it is only for coupons whose semantics do not fit Wix Coupons.
+// VERIFIED live 2026-09-02: create, query and delete all return 200 on a Catalog V3 site.
+// The earlier "app-not-installed/unauthorized" note here was a STALE TOKEN, not a missing
+// app — that 401 message names the app and reads like a setup problem. Re-mint first.
+// The specification must contain exactly one coupon type; generated code must decide per
+// source coupon whether native Wix Coupons can represent the source coupon exactly. CMS is
+// not a fallback for a missing writer; it is only for coupons whose semantics do not fit
+// Wix Coupons. See domains/stores/entities/coupon.json for the scope rules — in particular
+// that `scope: {namespace: "stores"}` is a valid storewide scope, and that a product scope
+// requires a VISIBLE product (a hidden one is rejected as `entityId not found`; V3 product
+// ids themselves resolve fine).
 function buildCreateCouponRequest(specification, safeModeOptions) {
   const prepared = applySafeModeToRequest({ specification: normalizeCouponSpecification(specification) }, safeModeOptions);
   return {
@@ -2054,6 +2578,12 @@ function buildCreateCouponRequest(specification, safeModeOptions) {
 }
 async function createCoupon(wix, specification, safeModeOptions) {
   const response = await wix.send(buildCreateCouponRequest(specification, safeModeOptions));
+  // LIVE 2026-09-05 (two fresh sites): Create Coupon answers `{ id }` -- the id alone, no coupon
+  // object -- exactly as the docs' response shape says. The branch below that expected
+  // `response.coupon` never matched, so every create fell through to a query-by-code that the
+  // not-readable-immediately lag defeated four times out of five, and the writer returned
+  // undefined for coupons that were on the site. Take the documented shape first.
+  if (typeof response?.id === 'string' && response.id) return { id: response.id, specification };
   if (response?.coupon?.id) return response.coupon;
   const code = String(specification?.code || '').trim();
   if (code) {
@@ -2068,6 +2598,210 @@ async function createCoupon(wix, specification, safeModeOptions) {
   }
   return response.coupon;
 }
+// --- coupons: batch create, and field-level update ---------------------------------------
+// MEASURED LIVE, and both facts below are why this is not a thin wrapper.
+//
+// BATCH CREATE. `POST /stores/v2/bulk/coupons/create`, body key `specifications` (sending
+// `coupons` is a 400 naming the field), max 100 per call. The response is
+// `{ results: [{ itemMetadata: { id, originalIndex, success, error } }], bulkActionMetadata }`.
+//
+//   TRAP 1 -- it is ALL-OR-NOTHING and its per-item errors are not per-item. A batch of five
+//   with ONE invalid specification came back 200 with totalFailures 5, the SAME error text
+//   against all five, and created none of them. So a failure must never be believed per item:
+//   the batch is re-sent as individual creates, which both finds the real culprit and lets the
+//   other 99 land. Bulk DELETE does not share this -- there a bad id fails alone -- so the two
+//   verbs are handled separately and never by one helper.
+//
+//   TRAP 2 -- `originalIndex` is OMITTED on result 0 (a zero-value omission, not a missing
+//   field). Reading it as "cannot correlate" mis-attributes the first coupon of every batch, and
+//   defaulting it to -1 silently drops one per hundred. It is read as `originalIndex ?? 0`, and
+//   the result count is checked against the request count.
+const BULK_COUPON_BATCH = 100;
+
+// TRAP 6, MEASURED LIVE and the reason this helper refuses a tagged specification: the BULK
+// create silently DROPS `tags`. Same specification, same session, both 200 -- the single create
+// round-trips the tags and the bulk create reads back `tags: undefined`. Found by importing a
+// real batch, not by any unit test, because a mocked transport cannot drop a field the server
+// drops. Refusing loudly is the only safe behaviour: a batch that quietly wrote a hundred
+// untagged coupons is indistinguishable from success, and nothing on the coupon afterwards says
+// which migration created it.
+function assertBulkCreateCannotLoseFields(specifications) {
+  const tagged = specifications.filter((spec) => spec && Array.isArray(spec.tags) && spec.tags.length > 0);
+  if (tagged.length > 0) {
+    const codes = tagged.slice(0, 3).map((spec) => spec.code).join(', ');
+    throw new Error(`bulk coupon create silently discards \`tags\`, and ${tagged.length} of these specifications carry them (${codes}${tagged.length > 3 ? ', …' : ''}). Write tagged coupons with createCoupon, or create them untagged here and apply tags with updateCouponFields afterwards -- never send them through the batch and assume they landed.`);
+  }
+}
+
+function buildBulkCreateCouponsRequest(specifications, safeModeOptions) {
+  if (!Array.isArray(specifications) || specifications.length === 0) throw new Error('bulkCreateCoupons needs a non-empty array of specifications');
+  assertBulkCreateCannotLoseFields(specifications);
+  if (specifications.length > BULK_COUPON_BATCH) throw new Error(`bulk coupon create takes at most ${BULK_COUPON_BATCH} specifications per call, got ${specifications.length}`);
+  const prepared = applySafeModeToRequest({ specifications: specifications.map(normalizeCouponSpecification) }, safeModeOptions);
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/stores/v2/bulk/coupons/create`,
+    body: prepared.body,
+    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+  };
+}
+
+// Returns one outcome per INPUT specification, in input order. Never fewer, never reordered.
+async function bulkCreateCoupons(wix, specifications, { safeModeOptions, onFallback } = {}) {
+  const outcomes = new Array(specifications.length).fill(null);
+  let response;
+  try {
+    response = await wix.send(buildBulkCreateCouponsRequest(specifications, safeModeOptions));
+  } catch (error) {
+    // A transport-level failure tells us nothing about individual specifications either.
+    return retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason: `batch request failed: ${String(error && error.message).slice(0, 200)}` });
+  }
+  const results = (response && response.results) || [];
+  if (results.length !== specifications.length) {
+    return retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason: `batch returned ${results.length} results for ${specifications.length} specifications` });
+  }
+  // TRAP 4: the reported indexes must be a one-to-one cover of the request before ANY of them is
+  // believed. Two results that both omit `originalIndex` both resolve to 0, so the second id
+  // overwrites the first and one input is left with no outcome at all -- a coupon id attached to
+  // the wrong code, which is the identity-corruption class this whole helper exists to avoid.
+  // Nothing here guesses: a malformed cover means per-coupon reconciliation, not a best effort.
+  const indexes = results.map((r) => ((r && r.itemMetadata) || {}).originalIndex ?? 0);
+  const badIndex = indexes.find((i) => !Number.isInteger(i) || i < 0 || i >= specifications.length);
+  if (badIndex !== undefined) {
+    return retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason: `batch reported originalIndex ${JSON.stringify(badIndex)}, which is not an index into a ${specifications.length}-item request` });
+  }
+  if (new Set(indexes).size !== specifications.length) {
+    return retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason: `batch reported indexes [${indexes.join(', ')}] for ${specifications.length} specifications -- not a one-to-one cover, so no result can be attributed to an input` });
+  }
+  let anyFailure = false;
+  for (let i = 0; i < results.length; i += 1) {
+    const meta = (results[i] && results[i].itemMetadata) || {};
+    // `?? 0` -- see TRAP 2. Correlate by the index the server reports, not by position here.
+    const index = indexes[i];
+    if (meta.id && meta.error === undefined) {
+      outcomes[index] = { outcome: 'coupon-written', couponId: String(meta.id), code: specifications[index] && specifications[index].code };
+    } else {
+      anyFailure = true;
+    }
+  }
+  // TRAP 1: any failure invalidates the WHOLE batch's verdicts, including the successes, because
+  // nothing was created and the errors name the wrong rows.
+  if (anyFailure) {
+    return retryBatchIndividually(wix, specifications, new Array(specifications.length).fill(null), { safeModeOptions, onFallback, reason: 'the batch reported at least one failure; per-item errors from a failed batch are not per-item' });
+  }
+  return outcomes;
+}
+
+// TRAP 5: a batch can COMMIT and still not answer -- a timeout, a dropped connection, a 5xx after
+// the write. The retries then hit "code already exists" for coupons that are on the target, and
+// reporting those as failed loses the crosswalk row that historical orders referencing the code
+// need. So the fallback RECONCILES by exact code rather than blind-creating, and a code that is
+// neither readable nor creatable is UNKNOWN, never failed: this surface's read lag makes "absent
+// right now" indistinguishable from "never written", and only a later re-read separates them.
+async function reconcileCouponByCode(wix, code) {
+  if (!code) return null;
+  const matches = await queryCouponsByCode(wix, code);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+async function retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason } = {}) {
+  if (typeof onFallback === 'function') onFallback({ reason, count: specifications.length });
+  for (let i = 0; i < specifications.length; i += 1) {
+    if (outcomes[i]) continue;
+    const code = specifications[i] && specifications[i].code;
+    try {
+      const created = await createCoupon(wix, specifications[i], safeModeOptions);
+      const couponId = typeof created === 'string' ? created : created && created.id;
+      if (couponId) {
+        outcomes[i] = { outcome: 'coupon-written', couponId: String(couponId), code, viaFallback: true };
+        continue;
+      }
+      const reconciled = await reconcileCouponByCode(wix, code);
+      outcomes[i] = reconciled
+        ? { outcome: 'coupon-reconciled-existing', couponId: String(reconciled.id), code, viaFallback: true }
+        : { outcome: 'coupon-write-unknown', couponId: null, code, viaFallback: true, reason: 'the create returned no id and the code is not readable yet; re-read before re-writing' };
+    } catch (error) {
+      const message = String(error && error.message);
+      // "already exists" means the coupon IS on the target -- from this batch's own committed
+      // write, or from an earlier run. Recover its id rather than calling it a failure.
+      if (/already exists|ALREADY_EXISTS|duplicate/i.test(message)) {
+        let reconciled = null;
+        try { reconciled = await reconcileCouponByCode(wix, code); } catch { reconciled = null; }
+        outcomes[i] = reconciled
+          ? { outcome: 'coupon-reconciled-existing', couponId: String(reconciled.id), code, viaFallback: true, matchedAfter: 'duplicate-rejection' }
+          : { outcome: 'coupon-write-unknown', couponId: null, code, viaFallback: true, reason: 'the code already exists but is not readable yet, so its id is unknown; re-read rather than re-writing' };
+        continue;
+      }
+      outcomes[i] = {
+        outcome: 'coupon-failed', couponId: null, code, viaFallback: true,
+        error: { message: message.slice(0, 300), status: error && error.status },
+      };
+    }
+  }
+  return outcomes;
+}
+
+// FIELD-LEVEL UPDATE. `PATCH /stores/v2/coupons/{id}` with a specification carrying ONLY the
+// changed fields plus a field mask naming them.
+//
+//   TRAP 3 -- sending the WHOLE specification alongside a narrow mask returns 200 with an empty
+//   body and writes NOTHING. Measured: unchanged at +15s, +45s and +150s, far past this surface's
+//   own read lag. That is the shape everyone writes first (read it, spread it, change one field),
+//   and it answers with success. So this builder takes a CHANGE SET and refuses anything that
+//   looks like a whole coupon; there is deliberately no way to pass a full specification through.
+const COUPON_UPDATABLE_FIELDS = Object.freeze(['active', 'tags', 'name', 'expirationTime', 'startTime', 'usageLimit', 'limitPerCustomer', 'limitedToOneItem', 'appliesToSubscriptions']);
+
+function buildUpdateCouponRequest(couponId, changes) {
+  if (!couponId) throw new Error('updateCouponFields needs a coupon id');
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) throw new Error('updateCouponFields needs a change set object');
+  const paths = Object.keys(changes);
+  if (paths.length === 0) throw new Error('updateCouponFields needs at least one field to change; an empty field mask is rejected by the API');
+  const unknown = paths.filter((f) => !COUPON_UPDATABLE_FIELDS.includes(f));
+  if (unknown.length > 0) throw new Error(`updateCouponFields does not update ${unknown.join(', ')}. Pass only the fields being changed -- sending a whole specification returns 200 and writes nothing`);
+  if (paths.includes('code') || paths.includes('type')) throw new Error('coupon code and type are not updatable');
+  return {
+    method: 'PATCH',
+    url: `${WIXAPIS}/stores/v2/coupons/${encodeURIComponent(couponId)}`,
+    // Mask paths are bare specification field names; a `specification.` prefix returns 500.
+    body: { specification: { ...changes }, fieldMask: { paths } },
+  };
+}
+
+// Applies the change and VERIFIES IT BY READ-BACK. A 2xx is not evidence on this surface (TRAP 3),
+// so an unconfirmed update is reported `coupon-update-unverified`, never as applied.
+async function updateCouponFields(wix, couponId, changes, { settleMs = 8000, sleep } = {}) {
+  const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let status = null;
+  try {
+    await wix.send(buildUpdateCouponRequest(couponId, changes));
+    status = 200;
+  } catch (error) {
+    return { outcome: 'coupon-update-failed', couponId, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
+  }
+  await wait(settleMs);
+  let readBack = null;
+  try {
+    readBack = await getCoupon(wix, couponId);
+  } catch {
+    return { outcome: 'coupon-update-unverified', couponId, status, reason: 'the read-back failed, so the change is unknown; re-read rather than re-sending' };
+  }
+  const spec = (readBack && (readBack.specification || readBack)) || null;
+  if (!spec) return { outcome: 'coupon-update-unverified', couponId, status, reason: 'the coupon did not read back; absent is unknown on this surface, never "changed"' };
+  const mismatched = Object.keys(changes).filter((field) => JSON.stringify(spec[field]) !== JSON.stringify(changes[field]));
+  if (mismatched.length > 0) {
+    return { outcome: 'coupon-update-unverified', couponId, status, mismatched, reason: `returned ${status} but ${mismatched.join(', ')} did not change -- the signature of a full-specification PATCH being ignored. Re-send with ONLY the changed fields` };
+  }
+  return { outcome: 'coupon-updated', couponId, changed: Object.keys(changes) };
+}
+
+function buildGetCouponRequest(couponId) {
+  return { method: 'GET', url: `${WIXAPIS}/stores/v2/coupons/${encodeURIComponent(couponId)}` };
+}
+async function getCoupon(wix, couponId) {
+  const response = await wix.send(buildGetCouponRequest(couponId));
+  return (response && (response.coupon || response)) || null;
+}
+
 function buildQueryCouponsRequest(query = { paging: { limit: 100, offset: 0 } }) {
   return { method: 'POST', url: `${WIXAPIS}/stores/v2/coupons/query`, body: { query } };
 }
@@ -2370,6 +3104,157 @@ async function queryShippingOptions(wix, query) {
   return (await wix.send(buildQueryShippingOptionsRequest(query))).shippingOptions || [];
 }
 
+// --- Site Properties (Business Info) -----------------------------------------
+// The site's own public business information — the values a merchant edits under
+// Settings > Business Info. A site-wide singleton, not a per-record import: apply at the
+// setup gate. See domains/site/entities/business-contact.json.
+//
+// DESTRUCTIVE FIELD MASK — the one trap here that loses data instead of failing loudly.
+// `fields.paths[]` semantics, verbatim from the method schema: "Properties not explicitly
+// specified here are ignored. Properties included here but excluded from `businessContact`
+// are CLEARED." So a path you list but do not send is wiped. Wix's own documented example
+// demonstrates the hazard rather than the safe pattern — it lists `businessSchedule` in
+// paths while sending none, which by that rule clears the site's business hours.
+//
+// buildUpdateBusinessContactRequest therefore DERIVES the mask from the payload's own keys
+// and refuses a caller-supplied one. A caller that genuinely wants to clear a property must
+// send it explicitly as null via `clearPaths`, so that erasing data is always something the
+// call site said out loud.
+const SITE_PROPERTIES_BASE = `${WIXAPIS}/site-properties/v4/properties`;
+function buildUpdateBusinessContactRequest(businessContact, { clearPaths = [] } = {}) {
+  if (!businessContact || typeof businessContact !== 'object' || Array.isArray(businessContact)) {
+    throw new Error('buildUpdateBusinessContactRequest: businessContact object is required');
+  }
+  const sentPaths = Object.keys(businessContact).filter((key) => businessContact[key] !== undefined);
+  if (sentPaths.length === 0 && clearPaths.length === 0) {
+    throw new Error('buildUpdateBusinessContactRequest: nothing to update — an empty payload with an empty mask is a no-op, and with a non-empty mask it would clear fields');
+  }
+  const overlap = clearPaths.filter((path) => sentPaths.includes(path));
+  if (overlap.length > 0) {
+    throw new Error(`buildUpdateBusinessContactRequest: ${overlap.join(', ')} appears in both the payload and clearPaths — decide whether to set it or clear it`);
+  }
+  return {
+    method: 'POST',
+    url: `${SITE_PROPERTIES_BASE}/business-contact`,
+    body: { businessContact, fields: { paths: [...sentPaths, ...clearPaths] } },
+  };
+}
+// Returns nothing useful — the API's response body is `{}`. A 200 proves the request was
+// accepted, not that the value landed; pair every write with getSiteProperties and compare.
+async function updateBusinessContact(wix, businessContact, options) {
+  return wix.send(buildUpdateBusinessContactRequest(businessContact, options));
+}
+function buildGetSitePropertiesRequest() {
+  return { method: 'GET', url: SITE_PROPERTIES_BASE };
+}
+// An absent business address is the normal starting state of a fresh site (live-observed:
+// only locale/currency/timezone present), NOT evidence that an earlier write failed.
+async function getSiteProperties(wix) {
+  return (await wix.send(buildGetSitePropertiesRequest())).properties;
+}
+
+// --- Pickup Locations --------------------------------------------------------
+// Collection points are their OWN entity — not a ShippingOption and not a DeliveryCarrier.
+// Writing a source `local_pickup` method as either one puts a 0-priced *delivery* row next to
+// the real paid delivery, which is how collection ends up looking like free shipping to the
+// buyer. See shipping-build.js's buildPickupLocationInput and ecom/pickup-location.json.
+//
+// Its own service host: `www.wixapis.com/pickup-locations`, NOT under `/ecom/` like the rest of
+// this section — same per-service-host pattern as form-schema-service/apps-installer-service
+// above. Permission ECOM.PICKUP_LOCATION_CREATE. `address` is required by the create call;
+// WooCommerce's local_pickup method carries none, so the caller supplies it.
+//
+// `shippingRuleId` is deliberately never sent: deprecated, marked internal, replaced by
+// `deliveryRegionIds`, with a removal target already in the past. The Wix dashboard's own
+// front-end still sends it — not a reason for a migration to.
+// HOST — LIVE-VERIFIED 2026-09-01, and NOT what the service's own documentation says.
+// Its documentation.yaml declares `host: www.wixapis.com/pickup-locations`, but every path
+// under that host returns 404 with a valid site token: the service is BETA and simply is not
+// exposed on the public gateway yet. The route that works today is the dashboard proxy,
+// `manage.wix.com/_api/pickup-locations/...`, which accepts the same CLI-minted site token.
+// Both are kept and the public one is tried FIRST, so the day Wix exposes it this silently
+// starts using it instead of a proxy — resolvePickupLocationsBase probes once and caches.
+const PICKUP_LOCATIONS_PUBLIC_BASE = `${WIXAPIS}/pickup-locations/v1/pickup-locations`;
+const PICKUP_LOCATIONS_PROXY_BASE = 'https://manage.wix.com/_api/pickup-locations/v1/pickup-locations';
+const PICKUP_LOCATIONS_BASE = PICKUP_LOCATIONS_PROXY_BASE;
+
+// Probes the public host with a harmless query and falls back to the proxy on 404. Any other
+// error (401/403) is a real problem and is rethrown rather than being hidden behind a fallback.
+// Cached on the client so a run pays for the probe once.
+async function resolvePickupLocationsBase(wix) {
+  if (wix && wix.__pickupLocationsBase) return wix.__pickupLocationsBase;
+  let base = PICKUP_LOCATIONS_PROXY_BASE;
+  try {
+    await wix.send({ method: 'POST', url: `${PICKUP_LOCATIONS_PUBLIC_BASE}/query`, body: { query: { cursorPaging: { limit: 1 } } } });
+    base = PICKUP_LOCATIONS_PUBLIC_BASE;
+  } catch (error) {
+    if (!/\b404\b/.test(String(error && error.message))) throw error;
+  }
+  if (wix) wix.__pickupLocationsBase = base;
+  return base;
+}
+
+function buildCreatePickupLocationRequest(pickupLocation, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return { method: 'POST', url: baseUrl, body: { pickupLocation } };
+}
+async function createPickupLocation(wix, pickupLocation) {
+  const baseUrl = await resolvePickupLocationsBase(wix);
+  return (await wix.send(buildCreatePickupLocationRequest(pickupLocation, { baseUrl }))).pickupLocation;
+}
+function buildGetPickupLocationRequest(id, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return { method: 'GET', url: `${baseUrl}/${encodeURIComponent(id)}` };
+}
+async function getPickupLocation(wix, id) {
+  const baseUrl = await resolvePickupLocationsBase(wix);
+  return (await wix.send(buildGetPickupLocationRequest(id, { baseUrl }))).pickupLocation;
+}
+function buildQueryPickupLocationsRequest(query = { cursorPaging: { limit: 100 } }, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return { method: 'POST', url: `${baseUrl}/query`, body: { query } };
+}
+// ONE PAGE, unwrapped to the pickupLocations array — see the READ/RETURN CONTRACT at the top of
+// this file. Filter on `.deliveryRegionIds` yourself to find what already covers a region.
+async function queryPickupLocations(wix, query) {
+  const baseUrl = await resolvePickupLocationsBase(wix);
+  return (await wix.send(buildQueryPickupLocationsRequest(query, { baseUrl }))).pickupLocations || [];
+}
+function buildDeletePickupLocationRequest(id, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return { method: 'DELETE', url: `${baseUrl}/${encodeURIComponent(id)}` };
+}
+async function deletePickupLocation(wix, id) {
+  return wix.send(buildDeletePickupLocationRequest(id, { baseUrl: await resolvePickupLocationsBase(wix) }));
+}
+// Region membership is NOT editable through Update — the service says so explicitly ("Delivery
+// regions cannot be updated using this method, use AddDeliveryRegion and RemoveDeliveryRegion
+// instead"). These two are the only way to move a pickup location between regions after create.
+// Note the name collision with the Delivery Profiles section's addDeliveryRegion above: that one
+// adds a REGION TO A PROFILE, this one adds a PICKUP LOCATION TO A REGION.
+// These two take the same `baseUrl` option as create/get/query/delete, and their executors resolve
+// it the same way. They used to interpolate PICKUP_LOCATIONS_BASE directly, so two of the six
+// pickup calls kept hitting the dashboard proxy after the public-API probe had already succeeded —
+// the automatic switchover resolvePickupLocationsBase exists to provide, silently not applied.
+function buildAddPickupLocationDeliveryRegionRequest(pickupLocationId, deliveryRegionId, revision, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return {
+    method: 'POST',
+    url: `${baseUrl}/${encodeURIComponent(pickupLocationId)}/add-delivery-region`,
+    body: { deliveryRegionId, ...(revision !== undefined ? { revision } : {}) },
+  };
+}
+async function addPickupLocationDeliveryRegion(wix, pickupLocationId, deliveryRegionId, revision) {
+  const baseUrl = await resolvePickupLocationsBase(wix);
+  return (await wix.send(buildAddPickupLocationDeliveryRegionRequest(pickupLocationId, deliveryRegionId, revision, { baseUrl }))).pickupLocation;
+}
+function buildRemovePickupLocationDeliveryRegionRequest(pickupLocationId, deliveryRegionId, revision, { baseUrl = PICKUP_LOCATIONS_BASE } = {}) {
+  return {
+    method: 'POST',
+    url: `${baseUrl}/${encodeURIComponent(pickupLocationId)}/remove-delivery-region`,
+    body: { deliveryRegionId, ...(revision !== undefined ? { revision } : {}) },
+  };
+}
+async function removePickupLocationDeliveryRegion(wix, pickupLocationId, deliveryRegionId, revision) {
+  const baseUrl = await resolvePickupLocationsBase(wix);
+  return (await wix.send(buildRemovePickupLocationDeliveryRegionRequest(pickupLocationId, deliveryRegionId, revision, { baseUrl }))).pickupLocation;
+}
+
 // --- eCom orders -----------------------------------------------------------
 // WARNING — createOrder is NOT for import. POST /ecom/v1/orders is the LIVE-commerce
 // Create Order (ECOM-02 in the owner tracker: Not import-suited): it decrements catalog
@@ -2416,11 +3301,39 @@ async function queryOrders(wix, query) {
 // and catalogItemId+appId when catalogReference is present), billingInfo.contactDetails,
 // channelInfo (no SHOPIFY/WOOCOMMERCE enum values — use OTHER_PLATFORM), priceSummary,
 // status, paymentStatus (full enum, incl. PAID without a real payment).
-// History: purchasedDate/createdDate/number are settable on import (immutable after).
+// History: purchasedDate/number are settable; createdDate is NOT (live-verified 2026-09-05 — it reads back as the import moment) on import (immutable after).
 // Re-runs: sending an existing imported order's `id` fully replaces it; overwriting a
 // non-imported order fails with CANNOT_OVERWRITE_NON_IMPORTED_ORDER. Cleanup exists via
 // Bulk Delete Imported Orders; live-order numbering continues via Set Order Number Counter.
+// The two fields a real run got wrong. NOT a validator: Import Order requires plenty more
+// (line items, price summary, channel), and this checks none of it, so passing here is not a
+// promise the request will be accepted. It is named for the traps it knows because implying
+// completeness would be worse than checking nothing.
+//
+// LIVE-FOUND 2026-09-05, on the first end-to-end: an order with neither `status` nor
+// `billingInfo.contactDetails` is rejected with a 400 that names both -- but only once you have
+// already sent it, fifteen times, one per order. A billing ADDRESS does not satisfy contactDetails.
+// Neither field is implied by anything else in the shape, so a caller assembling an order from a
+// source record omits them without noticing. Refuse locally instead: the same information, before
+// the network, naming the order so the caller knows which one.
+function assertKnownImportOrderTraps(order) {
+  const missing = [];
+  if (!order || typeof order !== 'object') missing.push('the order itself');
+  else {
+    if (!order.status) missing.push('status');
+    const contactDetails = order.billingInfo && order.billingInfo.contactDetails;
+    if (!contactDetails || Object.keys(contactDetails).length === 0) {
+      missing.push('billingInfo.contactDetails (a billing address alone is not enough)');
+    }
+  }
+  if (missing.length > 0) {
+    const which = order && order.number ? ` (source order ${order.number})` : '';
+    throw new Error(`Import Order requires ${missing.join(' and ')}${which}; it would be rejected with a 400`);
+  }
+}
+
 function buildImportOrderRequest(order, safeModeOptions) {
+  assertKnownImportOrderTraps(order);
   const prepared = applySafeModeToRequest({ order }, safeModeOptions);
   return {
     method: 'POST',
@@ -2448,17 +3361,51 @@ async function importOrder(wix, order, safeModeOptions) {
 //    calling the provider's API" — this is what makes it importSafe, unlike the previously
 //    assumed path through the live-commerce `createOrder`/checkout flow. `sideEffects` is
 //    intentionally omitted (no inventory restock, no customer email) for historical data.
+// Re-checked against the live Add Payments schema 2026-09-03: at most 50 payments per call, at
+// most 100 payment records per order, and the ENTIRE call fails if any external transaction id
+// already exists on the order -- which is why reconciliation runs before every create.
+const ADD_PAYMENTS_MAX_PER_CALL = 50;
+const ORDER_PAYMENTS_MAX_PER_ORDER = 100;
+
 function buildListOrderTransactionsRequest(orderId) {
   return { method: 'GET', url: `${WIXAPIS}/ecom/v1/payments/orders/${encodeURIComponent(orderId)}` };
 }
 async function listOrderTransactions(wix, orderId) {
   return (await wix.send(buildListOrderTransactionsRequest(orderId))).orderTransactions;
 }
-function buildAddOrderPaymentRequest({ orderId, amount, offlinePayment = true, status = 'APPROVED' }) {
+// Takes a MAPPED payment record and sends it as-is. There are deliberately no
+// defaults here any more. The previous signature defaulted `offlinePayment: true`, `status:
+// APPROVED` and an amount sized to the order total, which is how a card payment made years ago
+// became an approved offline payment dated migration day. Build the record with
+// `order-payment-mapping.js` (which enforces the existence gate) and pass it in, or pass nothing.
+//
+// It also fixes a placement bug found by re-checking the live schema on 2026-09-03: `status` is a
+// PAYMENT-level field, not a member of `regularPaymentDetails`. Sent the old way, the API never
+// still carries as DEPRECATED and marks as replaced by the top-level one -- not ignored
+// outright, but not a shape to keep writing.
+function buildAddOrderPaymentRequest({ orderId, payment, payments }) {
+  const records = payments || (payment ? [payment] : []);
+  if (records.length === 0) {
+    throw new Error('buildAddOrderPaymentRequest requires a mapped payment record; it will not invent one');
+  }
+  if (records.length > ADD_PAYMENTS_MAX_PER_CALL) {
+    throw new Error(`Add Payments accepts at most ${ADD_PAYMENTS_MAX_PER_CALL} payments per call; got ${records.length}`);
+  }
+  for (const record of records) {
+    if (!record || !record.amount || !record.amount.amount) {
+      throw new Error('a payment record needs an amount; the existence gate must run first');
+    }
+    if (!record.createdDate) {
+      throw new Error('a payment record needs a createdDate; omitting it silently stamps migration day');
+    }
+    if (record.regularPaymentDetails && 'savedPaymentMethod' in record.regularPaymentDetails) {
+      throw new Error('savedPaymentMethod must never be set: no reusable credential can accompany it');
+    }
+  }
   return {
     method: 'POST',
     url: `${WIXAPIS}/ecom/v1/payments/orders/${encodeURIComponent(orderId)}/add-payment`,
-    body: { payments: [{ regularPaymentDetails: { offlinePayment, status }, amount: { amount: String(amount) } }] },
+    body: { payments: records },
   };
 }
 async function addOrderPayment(wix, payload) {
@@ -2480,23 +3427,264 @@ function buildRefundOrderPaymentRequest({ orderId, paymentId, amount, reason }) 
 async function refundOrderPayment(wix, payload) {
   return (await wix.send(buildRefundOrderPaymentRequest(payload))).refund;
 }
-// Convenience wrapper for the historical-refund path: ensures a payment record exists (adding one
-// sized to the order total if the order has none yet — Import Order never creates one), then
-// refunds the requested amount against it, externally.
-async function ensureOrderPaymentAndRefund(wix, { orderId, orderTotal, refundAmount, reason }) {
-  const existing = await listOrderTransactions(wix, orderId);
-  let paymentId = (existing.payments || []).find((p) => !p.refundDisabled)?.id;
-  if (!paymentId) {
-    const added = await addOrderPayment(wix, { orderId, amount: orderTotal });
+// The target read that must happen before every payment create.
+//
+// A crosswalk row may narrow the expected match but may never suppress this read: the migration's
+// own record of created IDs does not survive "Wix write succeeded, crosswalk write failed", and it
+// is blind to payments created outside the migration -- by the merchant in the Business Manager,
+// or by an earlier tool.
+//
+// The one safety property this pacer exists to guarantee: exhaustion, throttling and permanent
+// failure all resolve to `payment-target-read-failed`, and NONE of them resolves to "create". An
+// importer that treats a failed read as an empty order duplicates every payment on the next run,
+// and Add Payments fails the entire call when a duplicate external transaction id is present.
+const TRANSIENT_READ_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function isTransientReadError(error) {
+  const status = error && (error.status || error.statusCode || (error.response && error.response.status));
+  return TRANSIENT_READ_STATUSES.has(Number(status));
+}
+
+function createTargetReadPacer({ minIntervalMs = 0, maxAttempts = 3, backoffMs = 250, sleep, now } = {}) {
+  const clock = now || (() => Date.now());
+  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const stats = { reads: 0, retries: 0, failures: 0, elapsedMs: 0 };
+  let lastReadAt = null;
+
+  return {
+    stats: () => ({ ...stats }),
+    async read(fn) {
+      let lastError = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        if (minIntervalMs > 0 && lastReadAt !== null) {
+          const since = clock() - lastReadAt;
+          if (since < minIntervalMs) await wait(minIntervalMs - since);
+        }
+        const startedAt = clock();
+        try {
+          const value = await fn();
+          stats.reads += 1;
+          stats.elapsedMs += clock() - startedAt;
+          lastReadAt = clock();
+          return { ok: true, value };
+        } catch (error) {
+          stats.reads += 1;
+          stats.elapsedMs += clock() - startedAt;
+          lastReadAt = clock();
+          lastError = error;
+          if (attempt < maxAttempts && isTransientReadError(error)) {
+            stats.retries += 1;
+            await wait(backoffMs * attempt);
+            continue;
+          }
+          break;
+        }
+      }
+      stats.failures += 1;
+      return { ok: false, error: lastError };
+    },
+  };
+}
+
+// One process-wide pacer, used whenever a caller does not supply its own.
+//
+// `pacer` defaulted to null everywhere and was constructed only by tests, so the rate-pacing and
+// bounded retry the spec promises did not happen on a real run: a large store issued thousands of
+// unpaced single-order reads. Sharing one instance is what makes the spacing meaningful -- a
+// per-call pacer paces nothing.
+let defaultTargetReadPacer = null;
+function sharedTargetReadPacer() {
+  if (!defaultTargetReadPacer) {
+    defaultTargetReadPacer = createTargetReadPacer({ minIntervalMs: 60, maxAttempts: 3, backoffMs: 250 });
+  }
+  return defaultTargetReadPacer;
+}
+
+async function reconcileOrderPaymentTarget(wix, { orderId, payment = null, pacer = null } = {}) {
+  const readOnce = () => listOrderTransactions(wix, orderId);
+  const effectivePacer = pacer || sharedTargetReadPacer();
+  const result = effectivePacer
+    ? await effectivePacer.read(readOnce)
+    : await (async () => {
+      try {
+        return { ok: true, value: await readOnce() };
+      } catch (error) {
+        return { ok: false, error };
+      }
+    })();
+
+  // Every shape this returns carries the binding, including the failures: a pre-read that failed
+  // is still a pre-read for THIS order and payment, and the writers refuse one without it.
+  const binding = { forOrderId: String(orderId), forPaymentFingerprint: payment ? paymentMapping.paymentFingerprint(payment) : null };
+  if (!result.ok) {
+    return { outcome: 'payment-target-read-failed', paymentId: null, existingPayments: [], error: result.error, ...binding };
+  }
+
+  const existingPayments = (result.value && result.value.payments) || [];
+  const existingRefunds = (result.value && result.value.refunds) || [];
+  if (!payment) {
+    return { outcome: 'target-read', paymentId: null, existingPayments, existingRefunds, ...binding };
+  }
+
+  const reconciled = paymentMapping.reconcilePayment({ payment, existingPayments });
+  return {
+    outcome: reconciled.outcome,
+    paymentId: reconciled.match ? reconciled.match.id : null,
+    matchedBy: reconciled.matchedBy || null,
+    existingPayments,
+    existingRefunds,
+    // What this read was FOR, so a writer handed it as a pre-read can refuse one taken for another
+    // order or another payment (review passed one for an unrelated payment and suppressed a real
+    // write without a single target call).
+    ...binding,
+  };
+}
+
+// A pre-read must be THIS order's and THIS payment's, or it reconciles against the wrong identity.
+function assertReconciledBinding(reconciled, { orderId, payment }, caller) {
+  if (!reconciled || typeof reconciled !== 'object') throw new Error(`${caller}: reconciled must be the result of reconcileOrderPaymentTarget`);
+  const fingerprint = paymentMapping.paymentFingerprint(payment);
+  if (reconciled.forOrderId !== String(orderId) || reconciled.forPaymentFingerprint !== fingerprint) {
+    throw new Error(`${caller}: the reconciled read was taken for order ${reconciled.forOrderId} / payment ${reconciled.forPaymentFingerprint}, not for order ${orderId} / this payment; take a fresh read`);
+  }
+}
+
+// The payment-write path a generated importer calls per eligible order. Ineligible orders must
+// not reach this function at all -- applying the source gate first is what keeps the target reads
+// proportional to evidenced payments rather than to the whole order population.
+// `reconciled`: a reconciliation read this caller has ALREADY taken for this order and
+// this payment, so the composite can read the order's payments once and feed both the payment and
+// the refund path. Omitted, the writer reads for itself, exactly as before. It must be the result
+// of `reconcileOrderPaymentTarget` for the SAME payment -- a read taken for a different record
+// reconciles against the wrong identity, so the composite is the only intended caller.
+async function writeOrderPayment(wix, { orderId, payment, pacer = null, reconciled = null } = {}) {
+  if (!payment) {
+    throw new Error('writeOrderPayment requires a mapped payment record; run the existence gate first');
+  }
+  if (reconciled === null) reconciled = await reconcileOrderPaymentTarget(wix, { orderId, payment, pacer });
+  else assertReconciledBinding(reconciled, { orderId, payment }, 'writeOrderPayment');
+
+  if (reconciled.outcome === paymentMapping.RECONCILE.RECONCILED) {
+    return { outcome: 'payment-reconciled-existing', paymentId: reconciled.paymentId, matchedBy: reconciled.matchedBy };
+  }
+  if (reconciled.outcome !== paymentMapping.RECONCILE.CREATE) {
+    return { outcome: reconciled.outcome, paymentId: null, error: reconciled.error };
+  }
+
+  const added = await addOrderPayment(wix, { orderId, payment });
+  return { outcome: 'payment-written', paymentId: added.paymentId };
+}
+
+// A refund the provider has not finished settling is a WAIT, not a failure. Distinguished from
+// every other PAYMENT_NOT_REFUNDABLE reason, which are genuine refusals.
+//
+// Decided on the STRUCTURED error, not the message. The message is truncated at 400 characters
+// for readability, so a reason that appears after the cut -- or a provider that reorders its own
+// JSON -- would silently turn a transient refusal into a fatal one, losing the refund the retry
+// exists to save. The string check remains only as a fallback for transports that lose the body.
+function isPendingRefund(error) {
+  if (!error) return false;
+  if (error.nonRefundableReason === 'PENDING_REFUND') return true;
+  if (error.body) {
+    const applicationError = error.body.details && error.body.details.applicationError;
+    if (applicationError && applicationError.data && applicationError.data.nonRefundableReason === 'PENDING_REFUND') return true;
+  }
+  return /PENDING_REFUND/.test(error.message || '');
+}
+
+// The historical-refund path, with the fabrication removed.
+//
+// What this replaces: the wrapper used to select a payment with
+// `(existing.payments || []).find((p) => !p.refundDisabled)?.id` and, failing that, CREATE one
+// sized to the order total. Both halves were wrong. The selector is identity-free, so it happily
+// matches an unrelated record -- including a payment the merchant entered by hand in the Business
+// Manager -- and attaches someone else's refund to it. The fallback invented an approved payment
+// for an order that may never have been paid, which is the revenue overstatement 0124 exists to
+// remove.
+//
+// Now: pass the MAPPED payment (from `order-payment-mapping.js`) when the source evidences one.
+// The order's real payments are read first, reconciled by identity, and a payment is created only
+// when reconciliation says no matching record exists. When the source evidences no payment, this
+// refuses and reports rather than inventing one -- an unrefundable refund is a reportable gap, not
+// a reason to fabricate its counterpart.
+//
+// Returns an outcome rather than throwing, because Decision 8 requires every order to land in
+// exactly one counted bucket.
+async function ensureOrderPaymentAndRefund(wix, { orderId, payment = null, refundAmount, reason, sourceRefundId = null, sourceOccurrence = 1, pacer = null, reconciled = null }) {
+  // WITHOUT a mapped payment there is nothing to resolve BY IDENTITY, so there is nothing to
+  // refund. An earlier version fell back to "the order carries exactly one payment, so use it",
+  // which is selection by count, not by identity: given a source refund with no defensible
+  // payment and one unrelated payment the merchant entered by hand, it attached the historical
+  // refund to that payment. Unambiguous is not the same as correct. The read is also skipped
+  // entirely, because an ineligible source order must cost no target read.
+  if (!payment) {
+    return { refund: null, paymentId: null, outcome: 'refund-without-payment' };
+  }
+
+  // Same `reconciled` contract as writeOrderPayment: a pre-read taken for THIS payment, or null.
+  if (reconciled === null) reconciled = await reconcileOrderPaymentTarget(wix, { orderId, payment, pacer });
+  else assertReconciledBinding(reconciled, { orderId, payment }, 'ensureOrderPaymentAndRefund');
+  if (reconciled.outcome === 'payment-target-read-failed') {
+    return { refund: null, paymentId: null, outcome: 'payment-target-read-failed' };
+  }
+  if (reconciled.outcome === paymentMapping.RECONCILE.AMBIGUOUS) {
+    return { refund: null, paymentId: null, outcome: 'payment-reconciliation-ambiguous' };
+  }
+
+  let paymentId = reconciled.paymentId;
+  if (reconciled.outcome === paymentMapping.RECONCILE.CREATE) {
+    const added = await addOrderPayment(wix, { orderId, payment });
     paymentId = added.paymentId;
   }
-  return refundOrderPayment(wix, { orderId, paymentId, amount: refundAmount, reason });
+  if (!paymentId) {
+    return { refund: null, paymentId: null, outcome: 'refund-without-payment' };
+  }
+
+  // A refund carries no place for the source id -- the only free-text field is customer-visible --
+  // so a re-run recognizes its own work by the refund's facts. Without this a clean re-run writes
+  // the same external refund twice and the order reads as refunded twice over.
+  const refundCheck = paymentMapping.reconcileRefund({
+    paymentId,
+    amount: refundAmount,
+    existingRefunds: reconciled.existingRefunds || [],
+    sourceOccurrence,
+  });
+  if (refundCheck.outcome === paymentMapping.RECONCILE_REFUND.RECONCILED) {
+    return { refund: null, paymentId, sourceRefundId, outcome: 'refund-reconciled-existing', refundId: refundCheck.refundId };
+  }
+  // A refund does not settle instantly. LIVE-VERIFIED 2026-09-05: writing a second refund against
+  // the same payment while the first is still processing is refused with
+  // `428 PAYMENT_NOT_REFUNDABLE / nonRefundableReason: PENDING_REFUND`. That is precisely the
+  // shape the occurrence model exists for -- two equal refunds on one payment -- so failing here
+  // would lose the second refund of every such pair. Wait for the first to settle and retry.
+  let refund = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    try {
+      refund = await refundOrderPayment(wix, { orderId, paymentId, amount: refundAmount, reason });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!isPendingRefund(error) || attempt === 6) break;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+  if (lastError) {
+    if (isPendingRefund(lastError)) {
+      return { refund: null, paymentId, sourceRefundId, outcome: 'refund-still-settling' };
+    }
+    throw lastError;
+  }
+  return { refund, paymentId, sourceRefundId, outcome: 'refund-written' };
 }
 
 // --- Stores inventory (Catalog V3 Inventory Items API) ----------------------
-// UNVERIFIED: POST /stores/v3/inventory-items creates one inventory item per variant.
-// Inventory items are NOT created automatically when a product is created — a separate
-// call is required for each variant (per productId + variantId combination).
+// VERIFIED: POST /stores/v3/inventory-items creates one inventory item per variant.
+// Single-create and read-back exercised with synthetic hidden products. Bulk imports and
+// reruns use storesInventory.reconcileInventory for comparison, revisioned repair and verification.
+// Standalone product create does not seed inventory. Use explicit inventory writes
+// or include per-variant inventory in the product-with-inventory bulk create.
 // To mark a variant as in stock without quantity tracking: set `inStock: true`.
 // Omit `locationId` to target the default location (the one Wix's standard checkout
 // deducts from). The combination of variantId + locationId must be unique.
@@ -2508,9 +3696,7 @@ function buildCreateInventoryItemRequest({ variantId, productId, locationId, inS
     variantId,
     productId,
     ...(locationId ? { locationId } : {}),
-    ...(typeof inStock === 'boolean' ? { inStock } : {}),
-    ...(quantity != null ? { quantity } : {}),
-    ...(typeof trackQuantity === 'boolean' ? { trackQuantity } : {}),
+    ...storesInventory.stockPayload({ ...(inStock !== undefined ? { inStock } : {}), ...(quantity !== undefined ? { quantity } : {}), ...(trackQuantity !== undefined ? { trackQuantity } : {}) }),
     ...(preorderInfo ? { preorderInfo } : {}),
   };
   return { method: 'POST', url: `${WIXAPIS}/stores/v3/inventory-items`, body: { inventoryItem: item } };
@@ -2526,6 +3712,169 @@ async function setProductVariantsInStock(wix, { productId, variantIds, locationI
     results.push(await createInventoryItem(wix, { variantId, productId, inStock: true, locationId }));
   }
   return results;
+}
+
+// --- coupons: reconcile by code, then create --------------------------
+// The crosswalk is an accelerator, never the authority: a coupon is reconciled against the TARGET
+// by code before it is created. Zero matches permits creation, exactly one reconciles, more than
+// one is ambiguous and creates nothing. The read is paced and retried, because a write on this
+// surface is not readable immediately (stores/coupon pitfall) and a missed read must never become
+// permission to create.
+function buildQueryCouponsByCodeRequest(code) {
+  return { method: 'POST', url: `${WIXAPIS}/stores/v2/coupons/query`, body: { query: { filter: JSON.stringify({ 'specification.code': { $eq: String(code) } }), paging: { limit: 10, offset: 0 } } } };
+}
+async function queryCouponsByCode(wix, code) {
+  const response = await wix.send(buildQueryCouponsByCodeRequest(code));
+  const list = (response && response.coupons) || [];
+  // Codes are case- and space-sensitive on Wix; the filter is exact, this is belt-and-braces.
+  return list.filter((c) => String(((c.specification || c).code) || '') === String(code));
+}
+function buildDeleteCouponRequest(couponId) {
+  return { method: 'DELETE', url: `${WIXAPIS}/stores/v2/coupons/${encodeURIComponent(couponId)}` };
+}
+async function deleteCoupon(wix, couponId) {
+  return wix.send(buildDeleteCouponRequest(couponId));
+}
+async function ensureCoupon(wix, { specification, pacer = null, safeModeOptions } = {}) {
+  if (!specification || !specification.code) throw new Error('ensureCoupon needs a mapped coupon specification with a code');
+  const effectivePacer = pacer || sharedTargetReadPacer();
+  const read = await effectivePacer.read(() => queryCouponsByCode(wix, specification.code));
+  if (!read.ok) return { outcome: 'coupon-target-read-failed', couponId: null, error: read.error };
+  if (read.value.length === 1) return { outcome: 'coupon-reconciled-existing', couponId: read.value[0].id };
+  if (read.value.length > 1) return { outcome: 'coupon-reconciliation-ambiguous', couponId: null, matchCount: read.value.length };
+  try {
+    const created = await createCoupon(wix, specification, safeModeOptions);
+    // LIVE 2026-09-05: createCoupon hands back the bare id string (Create Coupon answers `{ id }`
+    // and the writer unwraps it). Reading `.id` off a string reported every successful create as
+    // "no id" while the coupons were in fact on the site -- the first sentinel run refuted five
+    // writes that had all landed. Accept the string, an `{ id }`, or an `{ coupon: { id } }`.
+    const couponId = typeof created === 'string' ? created : created && (created.id || (created.coupon && created.coupon.id));
+    if (!couponId) return { outcome: 'coupon-failed', couponId: null, error: { message: `Create Coupon returned no id: ${String(JSON.stringify(created) ?? 'undefined').slice(0, 120)}` } };
+    return { outcome: 'coupon-written', couponId: String(couponId) };
+  } catch (error) {
+    // A duplicate the read missed (the write-then-read lag): adopt it rather than fail the run.
+    if (/already exists|ALREADY_EXISTS|duplicate/i.test(String(error && error.message))) {
+      const again = await effectivePacer.read(() => queryCouponsByCode(wix, specification.code));
+      if (again.ok && again.value.length === 1) return { outcome: 'coupon-reconciled-existing', couponId: again.value[0].id, matchedAfter: 'duplicate-rejection' };
+    }
+    return { outcome: 'coupon-failed', couponId: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
+  }
+}
+
+// --- pricing plans: definitions only, inert --------------------------
+// POST /pricing-plans/v3/plans, verified live 2026-08-16 (plan.json). The body comes from
+// pricing-plan-definition.js and is refused here unless it is PRIVATE and unbuyable: that pair is
+// what keeps a migrated definition off the live site's Plans page and out of self-purchase.
+const WIX_PRICING_PLANS_APP_DEF_ID = '1522827f-c56c-a5c9-2ac9-00f9e6ae12d3';
+const PLAN_WRITE_MIN_INTERVAL_MS = 1000; // the documented import flow requires >= 1s between requests
+
+// `idempotencyKey` is a BODY field beside `plan` (Create Plan docs: request parameter, GUID
+// format), not a header. The first implementation sent a header, which the API ignored, so the
+// documented duplicate guard was void while the test pinned the wrong contract (review).
+function buildCreatePlanRequest(plan, { idempotencyKey = null } = {}) {
+  pricingPlanDefinition.assertInertPlan(plan);
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/pricing-plans/v3/plans`,
+    body: { plan, ...(idempotencyKey ? { idempotencyKey: String(idempotencyKey) } : {}) },
+  };
+}
+async function createPlan(wix, plan, options) {
+  return (await wix.send(buildCreatePlanRequest(plan, options))).plan;
+}
+function buildQueryPlansByNameRequest(name) {
+  return { method: 'POST', url: `${WIXAPIS}/pricing-plans/v3/plans/query`, body: { query: { filter: { name: { $eq: String(name) } }, cursorPaging: { limit: 50 } } } };
+}
+async function queryPlansByName(wix, name) {
+  return ((await wix.send(buildQueryPlansByNameRequest(name))) || {}).plans || [];
+}
+// Plans V3 has no archive; the V2 call is the working one (plan.json: no-archive-on-v3).
+function buildArchivePlanRequest(planId) {
+  return { method: 'POST', url: `${WIXAPIS}/pricing-plans/v2/plans/${encodeURIComponent(planId)}/archive`, body: {} };
+}
+async function archivePlan(wix, planId) {
+  return wix.send(buildArchivePlanRequest(planId));
+}
+function buildGetPlanRequest(planId) {
+  return { method: 'GET', url: `${WIXAPIS}/pricing-plans/v3/plans/${encodeURIComponent(planId)}` };
+}
+async function getPlan(wix, planId) {
+  return ((await wix.send(buildGetPlanRequest(planId))) || {}).plan || null;
+}
+// The reconciliation IDENTITY is the client-minted variant id: derived from the source offer,
+// preserved verbatim by Wix (plan.json, verified live 2026-08-16), and unique per offer. A name is
+// not: it is truncated to 50 characters, so two offers can share one, and review demonstrated the
+// second offer adopting the first's PUBLIC, buyable plan by name. A plan is "ours" only when it
+// carries one of our variant ids.
+function planVariantIds(plan) {
+  const ids = (plan && Array.isArray(plan.pricingVariants) ? plan.pricingVariants : [])
+    .map((v) => v && v.id).filter((id) => typeof id === 'string' && id.trim() !== '');
+  if (ids.length === 0) throw new Error('ensurePlanDefinition needs pricingVariants[].id: the client-minted, offer-derived variant id is the reconciliation identity (buildPlanDefinition mints it)');
+  return ids;
+}
+function carriesVariant(candidate, ids) {
+  const have = (candidate && Array.isArray(candidate.pricingVariants) ? candidate.pricingVariants : []).map((v) => v && v.id);
+  return ids.some((id) => have.includes(id));
+}
+// Every adopted plan is READ and its state reported, never taken on faith from a crosswalk row.
+// One that is ours but no longer inert is left as found (the merchant may have published it on
+// purpose) and reported, so the report never says "inert" about a purchasable plan.
+function adoptPlan(candidate, matchedBy) {
+  const inert = candidate.visibility === 'PRIVATE' && candidate.buyable === false;
+  const result = { outcome: 'plan-reconciled-existing', planId: String(candidate.id), matchedBy, visibility: candidate.visibility, buyable: candidate.buyable, findings: [] };
+  if (!inert) result.findings.push({ code: 'plan-reconciled-not-inert', planId: String(candidate.id), visibility: candidate.visibility, buyable: candidate.buyable, note: 'a plan this migration wrote is now purchasable on the target; left as found, reported' });
+  return result;
+}
+let lastPlanWriteAt = 0;
+// Crosswalk first (read back and verified), then the target by name filtered to OUR variant id,
+// then create -- >= 1s apart.
+async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPlanId = null, pacer = null, sleep = null } = {}) {
+  pricingPlanDefinition.assertInertPlan(plan);
+  const ids = planVariantIds(plan);
+  const effectivePacer = pacer || sharedTargetReadPacer();
+  const findings = [];
+  if (knownPlanId) {
+    // A crosswalk row is a claim, not a fact: the plan may have been deleted (review demonstrated
+    // "reconciled" with no target call at all), archived, or the row may point at somebody else's
+    // plan. Gone or foreign -> the row is stale and the name path decides; archived -> not the plan.
+    const known = await effectivePacer.read(() => getPlan(wix, knownPlanId));
+    if (!known.ok && !(known.error && known.error.status === 404)) return { outcome: 'plan-target-read-failed', planId: null, error: known.error };
+    const candidate = known.ok ? known.value : null;
+    if (candidate && candidate.archived !== true && carriesVariant(candidate, ids)) return adoptPlan(candidate, 'crosswalk');
+    findings.push({ code: 'plan-crosswalk-row-stale', knownPlanId: String(knownPlanId), reason: !candidate ? 'not-found' : candidate.archived === true ? 'archived' : 'not-this-offer' });
+  }
+  const read = await effectivePacer.read(() => queryPlansByName(wix, plan.name));
+  if (!read.ok) return { outcome: 'plan-target-read-failed', planId: null, error: read.error, findings };
+  // An ARCHIVED plan of that name is not the plan: adopting it would leave nothing active on the
+  // target while reporting reconciled. The V3 filter table has no `archived`, so post-filter.
+  // A live plan of that name that does NOT carry our variant id is somebody else's (or another
+  // offer's, truncated to the same name) and is neither adopted nor an obstacle.
+  const ours = read.value.filter((p) => p && p.archived !== true && carriesVariant(p, ids));
+  if (ours.length === 1) { const adopted = adoptPlan(ours[0], 'variant-id'); return { ...adopted, findings: [...findings, ...adopted.findings] }; }
+  if (ours.length > 1) return { outcome: 'plan-reconciliation-ambiguous', planId: null, matchCount: ours.length, findings };
+  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const since = Date.now() - lastPlanWriteAt;
+  if (since < PLAN_WRITE_MIN_INTERVAL_MS) await wait(PLAN_WRITE_MIN_INTERVAL_MS - since);
+  try {
+    const created = await createPlan(wix, plan, { idempotencyKey });
+    lastPlanWriteAt = Date.now();
+    if (!created || !created.id) return { outcome: 'plan-failed', planId: null, error: { message: 'Create Plan returned no id' }, findings };
+    // The RESULT is checked too, not only the request: a plan that came back purchasable is a
+    // live-site hazard, so it is archived at once and reported as failed rather than written.
+    if (created.visibility !== 'PRIVATE' || created.buyable !== false) {
+      // The archive's own failure is REPORTED, not swallowed: review demonstrated a 403 here
+      // reported as `archived: true` while the purchasable plan stayed live. `archived: false` is
+      // the live-site hazard the report blocks on (plans-live-hazard).
+      let archived = true;
+      let archiveError = null;
+      try { await archivePlan(wix, created.id); } catch (error) { archived = false; archiveError = { message: String(error && error.message).slice(0, 300), status: error && error.status }; }
+      return { outcome: 'plan-failed', planId: created.id, error: { cause: 'created-plan-not-inert', visibility: created.visibility, buyable: created.buyable, archived, ...(archiveError ? { archiveError } : {}) }, findings };
+    }
+    return { outcome: 'plan-written', planId: created.id, visibility: created.visibility, buyable: created.buyable, findings };
+  } catch (error) {
+    lastPlanWriteAt = Date.now();
+    return { outcome: 'plan-failed', planId: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status }, findings };
+  }
 }
 
 // --- members ---------------------------------------------------------------
@@ -2569,6 +3918,112 @@ async function createMember(wix, payload, safeModeOptions) {
   const request = buildCreateMemberRequest(payload, safeModeOptions);
   if (request.skipped) return request;
   return (await wix.send(request)).member;
+}
+
+// --- members: full-fidelity create/reconcile, with the phone-collision guard --------------
+// The member/contact split from the member entity's own docs (0089): buildMemberContact
+// (customer-member.js) maps a source customer into Member.contact; this is the write side --
+// reconcile by loginEmail (or a corroborated crosswalk row), and never send a phone the target
+// already has on file for someone else.
+const MEMBER_WRITE_MIN_INTERVAL_MS = 1000; // documented Create Member floor: >=1s apart.
+let lastMemberWriteAt = 0;
+function buildGetMemberRequest(memberId) {
+  return { method: 'GET', url: `${WIXAPIS}/members/v1/members/${encodeURIComponent(memberId)}?fieldsets=FULL` };
+}
+async function getMember(wix, memberId) {
+  return ((await wix.send(buildGetMemberRequest(memberId))) || {}).member || null;
+}
+function buildQueryMembersByLoginEmailRequest(loginEmail) {
+  return { method: 'POST', url: `${WIXAPIS}/members/v1/members/query`, body: { fieldsets: ['FULL'], query: { filter: { loginEmail: String(loginEmail) } } } };
+}
+async function queryMembersByLoginEmail(wix, loginEmail) {
+  return ((await wix.send(buildQueryMembersByLoginEmailRequest(loginEmail))) || {}).members || [];
+}
+// VERIFIED LIVE 2026-09-06: Contacts dedupe on phone, and Create Member REUSES whatever contact
+// already carries a matching phone -- a second, unrelated member created with the same phone
+// adopted the first member's contactId (even after the first member was deleted; a deleted
+// member's contact is NOT deleted). Query before every create that carries a phone; a match means
+// the phone belongs to somebody else's identity already, so it is dropped rather than risking a
+// silent merge of two different source customers.
+function buildQueryContactsByPhoneRequest(phone) {
+  return { method: 'POST', url: `${WIXAPIS}/contacts/v5/contacts/query`, body: { query: { filter: { 'phone.phone': { $eq: String(phone) } } } } };
+}
+async function queryContactsByPhone(wix, phone) {
+  return ((await wix.send(buildQueryContactsByPhoneRequest(phone))) || {}).contacts || [];
+}
+function normalizeLoginEmailForCompare(email) {
+  return String(email || '').trim().toLowerCase();
+}
+// Crosswalk first (read back and verified, like ensurePlanDefinition), then Query Members by
+// loginEmail -- one match reconciles, more than one is ambiguous and creates nothing -- then
+// Create Member >=1s apart, with the phone-collision guard immediately before the write.
+async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = null, pacer = null, sleep = null } = {}) {
+  const email = normalizeLoginEmailForCompare(loginEmail);
+  if (!email) return { outcome: 'member-not-written-no-email', memberId: null, findings: [] };
+  const findings = [];
+  const effectivePacer = pacer || sharedTargetReadPacer();
+  if (knownMemberId) {
+    const known = await effectivePacer.read(() => getMember(wix, knownMemberId));
+    if (!known.ok && !(known.error && known.error.status === 404)) return { outcome: 'member-target-read-failed', memberId: null, error: known.error, findings };
+    const candidate = known.ok ? known.value : null;
+    if (candidate && normalizeLoginEmailForCompare(candidate.loginEmail) === email) {
+      return { outcome: 'member-reconciled-existing', memberId: String(candidate.id), contactId: candidate.contactId ? String(candidate.contactId) : null, matchedBy: 'crosswalk', findings };
+    }
+    findings.push({ code: 'member-crosswalk-row-stale', knownMemberId: String(knownMemberId), reason: !candidate ? 'not-found' : 'not-this-email' });
+  }
+  const read = await effectivePacer.read(() => queryMembersByLoginEmail(wix, email));
+  if (!read.ok) return { outcome: 'member-target-read-failed', memberId: null, error: read.error, findings };
+  const matches = read.value.filter((m) => m && normalizeLoginEmailForCompare(m.loginEmail) === email);
+  if (matches.length === 1) return { outcome: 'member-reconciled-existing', memberId: String(matches[0].id), contactId: matches[0].contactId ? String(matches[0].contactId) : null, matchedBy: 'loginEmail', findings };
+  if (matches.length > 1) return { outcome: 'member-reconciliation-ambiguous', memberId: null, matchCount: matches.length, findings };
+
+  // Review (2026-09-06): checking only phones[0] would leave a second entry un-guarded, reopening
+  // the exact hole this check exists for. Every phone in the array is checked; a collision on ANY
+  // of them drops the whole array (never a partial one — a "safe" and a "colliding" phone side by
+  // side on the created contact would still let the colliding one merge two customers).
+  let effectiveContact = contact;
+  const phones = contact && Array.isArray(contact.phones) ? contact.phones : [];
+  if (phones.length > 0) {
+    let collided = false;
+    for (const phone of phones) {
+      const collision = await effectivePacer.read(() => queryContactsByPhone(wix, phone));
+      if (!collision.ok) return { outcome: 'member-target-read-failed', memberId: null, error: collision.error, findings };
+      if (collision.value.length > 0) {
+        findings.push({ code: 'member-phone-collision-dropped', phoneDropped: true, existingContactId: String(collision.value[0].id) });
+        collided = true;
+      }
+    }
+    if (collided) {
+      const { phones: _dropped, ...rest } = contact;
+      effectiveContact = rest;
+    }
+  }
+
+  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const since = Date.now() - lastMemberWriteAt;
+  if (since < MEMBER_WRITE_MIN_INTERVAL_MS) await wait(MEMBER_WRITE_MIN_INTERVAL_MS - since);
+  try {
+    const body = { member: { loginEmail, ...(Object.keys(effectiveContact || {}).length > 0 ? { contact: effectiveContact } : {}), privacyStatus: 'PRIVATE' } };
+    const created = await wix.send({ method: 'POST', url: `${WIXAPIS}/members/v1/members`, body });
+    lastMemberWriteAt = Date.now();
+    const member = created && created.member;
+    if (!member || !member.id) return { outcome: 'member-failed', memberId: null, error: { message: 'Create Member returned no id' }, findings };
+    return { outcome: 'member-written', memberId: String(member.id), contactId: member.contactId ? String(member.contactId) : null, findings };
+  } catch (error) {
+    lastMemberWriteAt = Date.now();
+    // VERIFIED LIVE 2026-09-06: Query Members by loginEmail is eventually consistent -- up to ~5s
+    // after Create Member before a fresh member is findable, while Create Member's own loginEmail
+    // uniqueness check is immediate (a same-email create in a different case 409s right away). So a
+    // fast re-run (a resumed migration within that window) can reconcile-query too early, see zero
+    // matches, and then hit exactly this 409 for a member that in fact already exists. Reported as
+    // MEMBER-ALREADY-EXISTS-UNRECONCILED, not the generic member-failed: the caller's crosswalk
+    // will pick it up on the NEXT run once the query catches up, so this is not data loss, but it
+    // is not silent success either.
+    if (error && error.status === 409 && /already exists/i.test(String(error.message))) {
+      return { outcome: 'member-already-exists-unreconciled', memberId: null, error: { message: String(error.message).slice(0, 300), status: error.status }, findings };
+    }
+    return { outcome: 'member-failed', memberId: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status }, findings };
+  }
 }
 
 // --- site notifications mute (Notification Preferences V1) ------------------
@@ -2854,6 +4309,12 @@ module.exports = {
   queryAllStoresProducts,
   buildPatchStoresProductMediaRequest,
   patchStoresProductMedia,
+  patchStoresProductMediaVerified,
+  buildGetStoresProductWithMediaRequest,
+  getStoresProductWithMedia,
+  storesProductMediaLanded,
+  STORES_MEDIA_INGEST_SETTLE_MS,
+  STORES_MEDIA_INGEST_ROUNDS,
   buildPatchStoresProductTagsRequest,
   patchStoresProductTags,
   buildGetStoresProductRequest,
@@ -2874,6 +4335,7 @@ module.exports = {
   buildCreateInventoryItemRequest,
   createInventoryItem,
   setProductVariantsInStock,
+  reconcileInventory: storesInventory.reconcileInventory,
   normalizeV5Contact,
   contactInfoToV5Contact,
   buildCreateContactRequest,
@@ -2892,7 +4354,7 @@ module.exports = {
   buildCreateCouponRequest,
   createCoupon,
   buildQueryCouponsRequest,
-  queryCoupons,
+  queryCoupons, buildQueryCouponsByCodeRequest, queryCouponsByCode, buildDeleteCouponRequest, deleteCoupon, ensureCoupon, WIX_PRICING_PLANS_APP_DEF_ID, PLAN_WRITE_MIN_INTERVAL_MS, buildCreatePlanRequest, createPlan, buildQueryPlansByNameRequest, queryPlansByName, buildGetPlanRequest, getPlan, buildArchivePlanRequest, archivePlan, ensurePlanDefinition,
   buildCreateDiscountRuleRequest,
   createDiscountRule,
   buildQueryDiscountRulesRequest,
@@ -2947,14 +4409,65 @@ module.exports = {
   createShippingOption,
   buildQueryShippingOptionsRequest,
   queryShippingOptions,
+  buildUpdateBusinessContactRequest,
+  updateBusinessContact,
+  buildGetSitePropertiesRequest,
+  getSiteProperties,
+  PICKUP_LOCATIONS_PUBLIC_BASE,
+  PICKUP_LOCATIONS_PROXY_BASE,
+  resolvePickupLocationsBase,
+  buildCreatePickupLocationRequest,
+  createPickupLocation,
+  buildGetPickupLocationRequest,
+  getPickupLocation,
+  buildQueryPickupLocationsRequest,
+  queryPickupLocations,
+  buildDeletePickupLocationRequest,
+  deletePickupLocation,
+  buildAddPickupLocationDeliveryRegionRequest,
+  addPickupLocationDeliveryRegion,
+  buildRemovePickupLocationDeliveryRegionRequest,
+  removePickupLocationDeliveryRegion,
   buildCreateOrderRequest,
   createOrder,
+  buildBulkCreateCouponsRequest,
+  assertBulkCreateCannotLoseFields,
+  bulkCreateCoupons,
+  buildUpdateCouponRequest,
+  updateCouponFields,
+  buildGetCouponRequest,
+  getCoupon,
+  BULK_COUPON_BATCH,
+  COUPON_UPDATABLE_FIELDS,
   buildImportOrderRequest,
   importOrder,
   buildQueryOrdersRequest,
   queryOrders,
   buildListOrderTransactionsRequest,
   listOrderTransactions,
+  INVOICE_DOWNLOAD_EXPIRY_MINUTES,
+  dataExtensionSchema,
+  listDataExtensionSchemas,
+  createDataExtensionSchema,
+  updateDataExtensionSchema,
+  provisionExtendedFieldSchema,
+  buildGetOrderRequest,
+  getOrder,
+  buildImportPrivateDocumentRequest,
+  INVOICE_MEDIA_FOLDER,
+  importPrivateDocument,
+  buildGenerateFileDownloadUrlRequest,
+  mergeOrderExtendedFields,
+  buildUpdateOrderExtendedFieldsRequest,
+  updateOrderExtendedFields,
+  preserveOrderInvoiceDocument,
+  ADD_PAYMENTS_MAX_PER_CALL,
+  createTargetReadPacer,
+  sharedTargetReadPacer,
+  reconcileOrderPaymentTarget,
+  writeOrderPayment,
+  ORDER_PAYMENTS_MAX_PER_ORDER,
+  paymentMapping,
   buildAddOrderPaymentRequest,
   addOrderPayment,
   buildRefundOrderPaymentRequest,
@@ -2963,6 +4476,8 @@ module.exports = {
   listMembers,
   buildCreateMemberRequest,
   createMember,
+  buildGetMemberRequest, getMember, buildQueryMembersByLoginEmailRequest, queryMembersByLoginEmail,
+  buildQueryContactsByPhoneRequest, queryContactsByPhone, ensureMember,
   SITE_MUTE_REASON_MAX,
   buildMuteSiteNotificationsRequest,
   muteSiteNotifications,

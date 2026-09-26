@@ -12,8 +12,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/catalogs/catalog-service-plugin",
       "group": "Catalogs",
       "verdict": "not-relevant",
-      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI), and here the 'not relevant' verdict is genuinely right for a reason worth stating: a catalog provider plugin makes an EXTERNAL catalog sellable on Wix, which is the OPPOSITE of migrating -- it keeps the data at the source. Never a migration path. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/catalogs/inventory-service-plugin",
@@ -21,8 +21,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/catalogs/inventory-service-plugin",
       "group": "Catalogs",
       "verdict": "not-relevant",
-      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI). Same shape as the catalog provider: it delegates stock to an external system rather than moving it in. Never a migration path. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/extensions/additional-fees",
@@ -30,8 +30,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/additional-fees",
       "group": "Extensions",
       "verdict": "not-relevant",
-      "reason": "Checkout extension SPI, not an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER for source surcharges (handling, packaging, cash-on-delivery) that have no Wix field to land in. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/extensions/discounts",
@@ -39,8 +39,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts",
       "group": "Extensions",
       "verdict": "not-relevant",
-      "reason": "Checkout extension SPI, not an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI), so not an import path -- BUT NOT IRRELEVANT, and this entry was previously wrong to imply otherwise. The Custom Discount Triggers plugin CLOSED A REAL MAPPING GAP on 2026-08-31: a WooCommerce bulk/tiered discount needs mutually exclusive quantity BANDS, Wix's native bounded ITEM_QUANTITY_RANGE leaves the rule unrenderable in the merchant dashboard, and open-ended ranges stack (21 items matched all five tiers -> 75% off instead of 25%). A custom trigger answers yes/no per cart, so the band is exact. Implemented and deployed; see the bounded-quantity-bands-need-a-custom-trigger-spi pitfall on entities/discount-rule.json. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/extensions/shipping-rates",
@@ -48,8 +48,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates",
       "group": "Extensions",
       "verdict": "not-relevant",
-      "reason": "Checkout extension SPI, not an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER rather than noise. This is the natural home for a source shipping rate table Wix's own shipping options cannot express; a free-shipping-over-threshold condition and per-shipping-class costs are both known to fail natively. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/extensions/tax",
@@ -57,8 +57,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax",
       "group": "Extensions",
       "verdict": "not-relevant",
-      "reason": "Checkout extension SPI, not an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI) -- not an import path. Tax calculation could close a gap only if the source's tax logic genuinely exceeds Wix tax groups; not yet exercised. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/extensions/validations",
@@ -66,8 +66,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/validations",
       "group": "Extensions",
       "verdict": "not-relevant",
-      "reason": "Checkout extension SPI, not an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI) -- not an import path, but a CANDIDATE GAP-CLOSER for source purchase restrictions (members-only items, min/max quantity, region blocks) with no native Wix equivalent. Not yet attempted. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/e-commerce/get-started/apps",
@@ -123,7 +123,7 @@
       "refs": [
         "ecom/order-refund"
       ],
-      "reason": "CORRECTED 2026-08-16. Billing *details* are indeed carried on the imported order payload (ecom/order), which is why this was marked not-relevant on 2026-08-11 — but that reading missed Refund Payments (POST /ecom/v1/order-billing/refund-payments), the only write surface for refund records anywhere in eCommerce. Dismissing this node is what made the 2026-08-12 Order Transactions walk conclude refunds were unwritable (a conclusion since withdrawn). Refund Payments is live-verified: 18/18 on the reference store 2026-08-12, with externalRefund:true mandatory for historical data.",
+      "reason": "Billing details are carried on the imported order payload, but refund records use the separate Refund Payments surface (POST /ecom/v1/order-billing/refund-payments). Live verification established that externalRefund:true is mandatory for historical data.",
       "reviewedOn": "2026-08-16"
     },
     {

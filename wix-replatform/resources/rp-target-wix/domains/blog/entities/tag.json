@@ -11,6 +11,7 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -61,6 +62,5 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/tag-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     }
-    
   ]
 }

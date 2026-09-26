@@ -81,7 +81,7 @@ const STAGE_OUTCOMES = ['passed', 'halted', 'failed', 'skipped'];
 const TERMINAL_STATES = ['completed', 'halted_needs_user', 'failed', 'abandoned_by_user'];
 const SEVERITIES = ['blocking', 'degraded', 'cosmetic', 'info'];
 const SOURCE_PLATFORMS = ['wordpress', 'woocommerce', 'shopify', 'csv', 'other'];
-const DELIVERY_MODES = ['management', 'website'];
+const DELIVERY_MODES = ['management', 'website', 'management_and_website'];
 const DESTINATION_STRATEGIES = ['new_site', 'existing_site'];
 const OPERATOR_ACCEPTANCE = ['accepted', 'rework_needed', 'rejected', 'unknown'];
 const VOLUME_TARGETS = ['native', 'cms', 'none'];
@@ -377,6 +377,64 @@ function validateMeter(input, { openStage, lastStage }) {
   if (!any) errors.push(`meter needs at least one measurement (${[...METER_DURATION_KEYS, ...METER_COUNT_KEYS].join(', ')})`);
   if (errors.length > 0) {
     throw new ValidationError(errors, 'meter records measured numbers only — never estimate them by hand');
+  }
+  return out;
+}
+
+// --- source key/value reads (spec 0122 §7) ----------------------------------------------
+//
+// Per-run accounting for the ONE capability that widened what this pipeline can read out of a
+// source site: key-scoped access to key/value ("EAV") tables. Four counts and a table list.
+//
+// KEY NAMES ARE NOT TELEMETRY. A run's own artifacts hold those; what is worth aggregating
+// ACROSS runs is `redacted_values` -- a non-zero total means some site somewhere keeps a
+// credential where nobody expected one, and that is a fleet-level signal no single run can
+// see. Table names are bare WordPress table names (`postmeta`), which are structural, not
+// customer data. Anything finer-grained stays local.
+const SOURCE_READ_COUNT_KEYS = ['discovery_queries', 'scoped_queries', 'tier_refusals', 'redacted_values'];
+const SOURCE_READ_ALLOWED_KEYS = new Set([...SOURCE_READ_COUNT_KEYS, 'discovery_tables', 'scoped_tables']);
+const SOURCE_READ_TABLE_KEYS = ['discovery_tables', 'scoped_tables'];
+const SOURCE_READ_MAX_TABLES = 50;
+
+function validateSourceRead(input) {
+  const errors = [];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ValidationError(['source-read payload must be a JSON object']);
+  }
+  for (const key of Object.keys(input)) {
+    if (!SOURCE_READ_ALLOWED_KEYS.has(key)) {
+      errors.push(`unknown source-read field: ${key} (allowed: ${[...SOURCE_READ_ALLOWED_KEYS].join(', ')})`);
+    }
+  }
+  const out = {};
+  let any = false;
+  for (const key of SOURCE_READ_COUNT_KEYS) {
+    if (input[key] === undefined || input[key] === null) continue;
+    const value = input[key];
+    if (!Number.isFinite(value) || value < 0 || Math.floor(value) !== value) {
+      errors.push(`${key} must be a non-negative integer`);
+      continue;
+    }
+    out[key] = value;
+    any = true;
+  }
+  for (const key of SOURCE_READ_TABLE_KEYS) {
+    if (input[key] === undefined || input[key] === null) continue;
+    const value = input[key];
+    if (!Array.isArray(value) || value.some((t) => typeof t !== 'string' || !/^[A-Za-z0-9_]+$/.test(t))) {
+      errors.push(`${key} must be an array of bare table names (^[A-Za-z0-9_]+$)`);
+      continue;
+    }
+    if (value.length > SOURCE_READ_MAX_TABLES) {
+      errors.push(`${key} lists ${value.length} tables, more than the ${SOURCE_READ_MAX_TABLES} this field carries`);
+      continue;
+    }
+    out[key] = [...new Set(value)];
+    any = true;
+  }
+  if (!any) errors.push(`source-read needs at least one measurement (${[...SOURCE_READ_ALLOWED_KEYS].join(', ')})`);
+  if (errors.length > 0) {
+    throw new ValidationError(errors, 'source-read records counted reads only — never key names, and never a value');
   }
   return out;
 }
@@ -992,6 +1050,7 @@ function replay(records) {
     entries: [],
     waits: [],
     meters: [],
+    sourceReads: [],
     openStage: null,
     openStageStart: null,
     lastStage: null,
@@ -1045,6 +1104,11 @@ function replay(records) {
         // Accumulate: a stage may be entered more than once, and each generated script reports its
         // own invocation. Summing is the only reading that survives a resume.
         state.meters.push(record.meter);
+        break;
+      case 'source_read':
+        // Same accumulate-don't-overwrite reasoning: a run reads a source site across several
+        // stages and possibly across a resume, and only the sum is the run's real total.
+        state.sourceReads.push(record.source_read);
         break;
       case 'event':
         state.events.push(record);
@@ -1407,6 +1471,14 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
   if (state.biPushSkipped > 0) {
     flags.push('bi_sink_disabled_during_run');
   }
+  // No operator identity ever resolved, so this run pushed NOTHING to BI and is
+  // invisible to cross-run review — the run is complete and correct on disk, and
+  // that is exactly why this needs saying out loud. Before this flag existed the
+  // only trace was `sent: 0` inside the finalize payload, which is how four of
+  // six local projects went missing unnoticed.
+  if (!biSink.isGuid(dims.wix_user_id)) {
+    flags.push('operator_identity_unresolved');
+  }
   // A stalled wait whose stage has no halt_needs_user event lost the "why" of
   // the stall — the single most actionable signal for where runs stall.
   const haltStages = new Set(events.filter((e) => e.event_type === 'halt_needs_user').map((e) => e.stage));
@@ -1490,6 +1562,10 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
     timing,
     cost,
     transcript_digest: state.transcriptDigest,
+    // Spec 0122 §7. ALWAYS present, even when the run never touched a key/value table -- an
+    // all-zero object says "this run read no key/value data", which is a different and useful
+    // fact from a missing field, and only one of the two can be aggregated across runs.
+    source_reads: summarizeSourceReads(state),
     model_pricing_snapshot: dims.model_pricing_snapshot ?? null,
     run_started: runStart.ts,
     run_ended: finalizeTs,
@@ -1610,6 +1686,56 @@ function resolveSkillsCommit() {
   return null;
 }
 
+// The operator's Wix user id — the routing key the BI sink refuses to push
+// without (bi-sink rule 3). Auto-stamped like skills_version/skills_commit
+// above, and for the same reason: a value nobody thinks to pass is a value that
+// never arrives. Runs from 2026-07 to 2026-08 shipped with no resolution step
+// at all, so any run whose caller didn't happen to hand over a GUID pushed
+// exactly zero rows and left no trace in BI — including four of our own six
+// migration projects.
+//
+// Source: `~/.wix/auth/account.json`, written by `wix login`. The migration
+// flow already requires that login (rp-execute-setup mints its site token from
+// the same CLI session), so the file is present by the time telemetry starts,
+// and it is the operator's own artifact — this works identically for a Wix
+// employee and a customer. `userInfo.userId` there is the same GUID that lands
+// in `events.dbo.users_10` as `logged_user_id` (verified 2026-09-01).
+//
+// Deliberately NOT used, for the record:
+//   - `wix whoami` returns only an email ("Logged in as <email>"), and BI
+//     routing needs a GUID. No public endpoint resolves email -> user id.
+//   - the site-mute response's `mutedBy.wixUserId` would work but makes
+//     identity depend on a side-effecting call that only happens after
+//     provisioning; identity is needed at `start`.
+//   - `account.id` / `accountOwner` from the account APIs are the ACCOUNT
+//     guid, not the user's — one user can own several accounts, so those
+//     would silently attribute runs to the wrong id.
+// The right long-term fix is a public "who am I" endpoint; the capability
+// exists internally (`Oauth2Ng/UserInfo` returns `sub`) but is not exposed.
+// Tracked as an owner ask.
+//
+// Fail-soft by contract: the path is CLI-internal and undocumented, so any
+// miss (no login, moved file, malformed JSON, non-GUID value) returns null and
+// the run proceeds unattributed but never blocked. Telemetry must never fail a
+// migration.
+//
+// An unattributed run still reaches BI as nothing at all, and that is on
+// purpose: routing such runs under a fabricated subject was implemented and
+// tested against live BI on 2026-09-02 — frog answered 2xx and ingested zero
+// rows, so it reported success while losing the data. Journaling the loss
+// (`no_operator_identity` + the `operator_identity_unresolved` flag) beats
+// faking a subject. Making unattributed runs countable needs a BI-side
+// anonymous event: specs/backlog/0106-anonymous-unattributed-run-event.md.
+function resolveOperatorIdentity() {
+  try {
+    const raw = fs.readFileSync(path.join(os.homedir(), '.wix', 'auth', 'account.json'), 'utf8');
+    const userId = JSON.parse(raw)?.userInfo?.userId;
+    return biSink.isGuid(userId) ? userId : null;
+  } catch {
+    return null;
+  }
+}
+
 // --- BI sink ----------------------------------------------------------
 
 // Push rows to BI and journal any failures/truncation/skips so telemetry loss
@@ -1677,7 +1803,10 @@ function foldedRowForClass(state, eventRecord) {
 
 // --- public command API ---------------------------------------------------------
 
-async function start(projectDir, dimsInput, { now } = {}) {
+// `resolveIdentity` is injectable for one reason: tests need to construct a run
+// with no operator identity, and on any real machine with a logged-in CLI that
+// state is otherwise unreachable. Production callers (the CLI) never pass it.
+async function start(projectDir, dimsInput, { now, resolveIdentity = resolveOperatorIdentity } = {}) {
   const ts = nowIso(now);
   const dims = validateDims(dimsInput);
   const journal = readJournal(projectDir);
@@ -1707,6 +1836,13 @@ async function start(projectDir, dimsInput, { now } = {}) {
       }
       seq += 1;
       appendJournal(projectDir, { type: 'session_start', ts, seq, session: state.sessionCount + 1 });
+      // A run that opened without identity — begun before the recorder resolved
+      // it, or with the CLI not yet logged in — gets it here, so the heal below
+      // has a route. Journaled as dims like any other late-arriving dimension.
+      if (!biSink.isGuid(dims.wix_user_id) && !biSink.isGuid(state.dims.wix_user_id)) {
+        const resolvedUserId = resolveIdentity();
+        if (resolvedUserId) dims.wix_user_id = resolvedUserId;
+      }
       if (Object.keys(dims).length > 0) {
         seq += 1;
         appendJournal(projectDir, { type: 'dims', ts, seq, dims });
@@ -1746,6 +1882,14 @@ async function start(projectDir, dimsInput, { now } = {}) {
   delete dims.skills_version;
   const skillsCommit = dims.skills_commit || resolveSkillsCommit();
   delete dims.skills_commit;
+  // Same precedence as the provenance stamps above: an explicitly passed
+  // wix_user_id wins (a runtime with better provenance than the CLI session),
+  // otherwise resolve it ourselves. Unlike those, it stays in `dims` — it is a
+  // run dimension the rollup and every BI push key off.
+  if (!biSink.isGuid(dims.wix_user_id)) {
+    const resolvedUserId = resolveIdentity();
+    if (resolvedUserId) dims.wix_user_id = resolvedUserId;
+  }
 
   const record = {
     type: 'run_start',
@@ -1762,9 +1906,11 @@ async function start(projectDir, dimsInput, { now } = {}) {
     dims,
   };
   appendJournal(projectDir, record);
-  // Emit `replatform_run` phase:started. Without a GUID operator
-  // identity there is no BI route yet — a later dims call carrying wix_user_id
-  // (or the finalize re-push) sends it then.
+  // Emit `replatform_run` phase:started. Without a GUID operator identity there is
+  // no BI route yet — a later dims call carrying wix_user_id (or the finalize
+  // re-push) sends it then. Routing an unattributed run under a fabricated subject
+  // was tried and verified not to work (spec 0106): BI returns 2xx and ingests
+  // nothing, which is a silent loss dressed as a success.
   if (biSink.isGuid(dims.wix_user_id)) {
     await pushToBi(projectDir, ts, record.seq,
       [biSink.startedRunRow(record, dims.wix_user_id)], dims.wix_user_id, 'run_started',
@@ -1904,6 +2050,38 @@ function meter(projectDir, input, { now } = {}) {
   return { metered: true, stage: payload.stage, fields: recorded };
 }
 
+// Spec 0122 §7. Counts key/value source reads for the run. Accumulates across calls, so a
+// caller may report per-batch rather than having to hold a running total itself.
+function sourceRead(projectDir, input, { now } = {}) {
+  const ts = nowIso(now);
+  const { state } = requireActiveRun(projectDir);
+  const payload = validateSourceRead(input);
+  appendJournal(projectDir, { type: 'source_read', ts, seq: state.seq + 1, source_read: payload });
+  return { recorded: true, fields: Object.keys(payload) };
+}
+
+/**
+ * The run's totals, as spec 0122 §7 defines them. `redacted_values` is summed from EVERY
+ * response's redactionMetadata, not only key/value reads -- the guard applies to every read,
+ * and an earlier draft of the response contract made that total impossible to compute
+ * correctly by nesting the counter inside a key/value-only object.
+ */
+function summarizeSourceReads(state) {
+  const totals = { discovery_queries: 0, scoped_queries: 0, tier_refusals: 0, redacted_values: 0 };
+  const discoveryTables = new Set();
+  const scopedTables = new Set();
+  for (const read of state.sourceReads || []) {
+    for (const key of SOURCE_READ_COUNT_KEYS) totals[key] += read[key] || 0;
+    for (const table of read.discovery_tables || []) discoveryTables.add(table);
+    for (const table of read.scoped_tables || []) scopedTables.add(table);
+  }
+  return {
+    ...totals,
+    discovery_tables: [...discoveryTables].sort(),
+    scoped_tables: [...scopedTables].sort(),
+  };
+}
+
 // Records the one `transcript_digest` per run (spec 0039 §4): a script-computed
 // parse of the Claude Code session transcript, never an agent self-report. No
 // BI push here — the fields ride to BI inside `finalize`'s existing push, once
@@ -2021,7 +2199,9 @@ async function finalize(projectDir, rollupInput, { now } = {}) {
       biPush = { sent: pushed.sent, failed: pushed.failed, skipped: pushed.skipped };
     } else if (!biSink.disabled()) {
       // No operator identity by run end: the run is unroutable in BI. Journal
-      // it as a push failure — this is real telemetry loss, not a hold-back.
+      // it as a push failure — this is real telemetry loss, not a hold-back,
+      // and recording it is strictly better than faking a routable subject
+      // (verified 2026-09-02: fabricated subjects ingest nothing — spec 0106).
       const rowCount = provisional.document.events.length + 2;
       seq += 1;
       appendJournal(projectDir, {
@@ -2174,6 +2354,10 @@ module.exports = {
   record,
   stage,
   meter,
+  sourceRead,
+  summarizeSourceReads,
+  validateSourceRead,
+  SOURCE_READ_COUNT_KEYS,
   transcriptDigest,
   wait,
   finalize,

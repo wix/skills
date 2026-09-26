@@ -84,16 +84,21 @@
       "candidateTargetRefs": [],
       "blocked": [
         {
-          "kind": "bridge-plugin",
-          "resolution": "No fulfillment path exists yet. Once wix-migration-helper's Case 2 is cleared for production and the site owner installs it, its route exposes this ledger read-only.",
+          "kind": "structure-bridge-plugin",
+          "resolution": "wix-wp-plugin-v2's query-structure route reads pimwick_gift_card_activity directly. VERIFIED LIVE 2026-08-28 against poratus.wpcomstaging.com: discover-structure returned this table's real schema (pimwick_gift_card_id, user_id, activity_date, action, amount, note, reference_activity_id). IMPORTANT -- this does NOT by itself resolve issue #186 (the masking/correlation contract): the consuming code (rp-import-codegen) MUST issue an AGGREGATE structureRequest (select pimwick_gift_card_id, SUM(amount) AS balance, groupBy pimwick_gift_card_id) rather than a raw row dump, so individual activity rows, user_id, and free-text note are never pulled at all -- only a per-card running balance. Correlating that balance back to an actual card's redeemable number/code is a SEPARATE step: the code is already captured via the gift-card entity's own order-embedded issuance data (see gift-card's issuance-is-core-meta-not-db-only pitfall), not from this table. #186 must still decide the exact masking/correlation contract before any of this is wired into a real import -- this fulfillment only establishes that the underlying data is technically reachable and how to reach it without over-fetching, not that the contract question is settled.",
           "declined": false,
           "fulfillment": {
-            "kind": "bridge-plugin",
-            "handlerId": "wix-migration-helper-pw-gift-cards",
-            "manifestCaseId": "case-2-pw-gift-cards-activity",
-            "expectedNamespace": "wix-migration-helper/v1",
-            "extractionRoute": "/wix-migration-helper/v1/pw-gift-cards",
-            "freshnessWindowHours": 24
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "pimwick_gift_card_activity",
+            "sampleStructureRequest": {
+              "select": [
+                { "column": "pimwick_gift_card_id" },
+                { "column": "amount", "aggregate": "sum", "as": "balance" }
+              ],
+              "groupBy": ["pimwick_gift_card_id"],
+              "orderBy": [{ "column": "pimwick_gift_card_id", "direction": "asc" }]
+            }
           }
         }
       ],
@@ -101,7 +106,7 @@
         {
           "code": "no-wix-write-surface-for-history",
           "severity": "warning",
-          "summary": "Per-card activity history (issuance, redemptions, adjustments) is durable data in the same plugin-owned tables as the cards [DOCUMENTED], but Wix has no public method to write historical gift-card transactions (see gift-cards/gift-card pitfall no-transaction-history-import); the domain entity's documented fallback is a CMS archive. Unlike issued-card identity (see gift-card's issuance-is-core-meta-not-db-only pitfall — that data turned out to be reachable via order line-item meta), this activity ledger itself has no REST path at all; see this same entity's redemption-invisible-even-in-order-rest-data pitfall, and spec 0040's bridge-plugin proposal for the actual unblock."
+          "summary": "Per-card activity history (issuance, redemptions, adjustments) is durable data in the same plugin-owned tables as the cards [DOCUMENTED], but Wix has no public method to write historical gift-card transactions (see gift-cards/gift-card pitfall no-transaction-history-import); the domain entity's documented fallback is a CMS archive. Unlike issued-card identity (see gift-card's issuance-is-core-meta-not-db-only pitfall — that data turned out to be reachable via order line-item meta), this activity ledger itself has no REST path at all; see this same entity's redemption-invisible-even-in-order-rest-data pitfall, and this entity's own blocked[].fulfillment (spec 0101, wix-wp-plugin-v2) for the actual unblock -- an aggregate query, not the raw ledger."
         },
         {
           "code": "redemption-invisible-even-in-order-rest-data",

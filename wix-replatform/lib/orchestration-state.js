@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { getDecisionValue, isExplicitUserOneClick } = require('./orchestration-decisions.js');
+const { ensureLedger } = require('./expectations-ledger.js');
 
 const SCHEMA_VERSION = 1;
 
@@ -335,6 +336,7 @@ async function appendEvent(projectDir, event) {
 }
 
 async function initArtifacts(projectDir, { projectId = path.basename(projectDir), timestamp = nowIso() } = {}) {
+  await ensureLedger(projectDir);
   const dirPath = orchestrationDir(projectDir);
   await mkdirp(dirPath);
   const run = createRun(projectId, timestamp);

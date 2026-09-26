@@ -70,8 +70,8 @@
       "url": "https://dev.wix.com/docs/api-reference/crm/forms/service-plugins/form-submissions-service-plugin",
       "group": "Service Plugins",
       "verdict": "not-relevant",
-      "reason": "An extension point pointing the other way. This is an SPI: WE stand up an HTTPS endpoint (`deploymentUri`) behind an App Market app, and Wix calls IT whenever a visitor submits a form, so the app can validate the submission. Data flows Wix -> us, per live submission. It is not a write API, it accepts no historical records, and it requires publishing an app — so it can never be an import path. Recorded so the surface is not mistaken for an absent write API later; that misreading is exactly what produced the wrong 'Wix cannot do this' verdicts on gift cards and events (plugins/README.md).",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- adds LIVE validation on new submissions. It accepts no historical records, so it cannot carry a source submission archive. (a form plugin's historical entries are typically unreachable for an unrelated reason anyway: the answers live in a denied *meta table.) See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/crm/forms/skills",

@@ -1,5 +1,7 @@
 'use strict';
 
+const { verificationKind } = require('./entity-verification');
+const { validReceipt } = require('./write-verification');
 const { OUTCOME_RANK, aggregateOutcome } = require('./blocked-data-requests.js');
 
 const COMPLETION_STATUS = [
@@ -129,6 +131,8 @@ function normalizeCompletenessRow(row, index = 0) {
     expectedReconciled,
     mismatch,
     reasons: Array.isArray(row.reasons) ? row.reasons : [],
+    verificationKind: verificationKind(row),
+    sourceKeys: Array.isArray(row.sourceKeys) ? row.sourceKeys : null,
   };
 }
 
@@ -243,16 +247,32 @@ function normalizeBlockedDataRequest(request, index = 0) {
 function createCompletionReport(input = {}) {
   const entityCompleteness = asArray(input.entityCompleteness, 'entityCompleteness')
     .map((row, index) => normalizeCompletenessRow(row, index));
+  const verification = input.verification || {};
+  const verificationGaps = [];
+  for (const row of entityCompleteness) {
+    if (row.verificationKind === 'none') continue;
+    const report = verification[row.entity];
+    const entries = Array.isArray(report?.rows) ? report.rows : [];
+    const unique = new Set(entries.map(r => r.sourceKey));
+    const ids = entries.map(r => r.targetId);
+    const kind = row.verificationKind;
+    const expectedKeys = row.sourceKeys;
+    const covered = Array.isArray(expectedKeys) && new Set(expectedKeys).size === row.inScope && expectedKeys.length === row.inScope && expectedKeys.every(k => unique.has(k)) && report?.siteId && report.siteId === (input.siteId || input.destinations?.siteId) && entries.every(r => typeof r.sourceKey === 'string' && r.sourceKey) && unique.size === entries.length && entries.length === row.inScope;
+    const verified = entries.filter(r => validReceipt(r.receipt, { siteId: report?.siteId, sourceKey: r.sourceKey, targetId: r.targetId, kind })).length;
+    if ((row.inScope && (!covered || verified !== row.inScope || new Set(ids).size !== ids.length)) || entries.length !== row.inScope) {
+      verificationGaps.push({ entity: row.entity, message: `${row.entity}: identity/value verification missing or invalid; reconcile source records before completing` });
+    }
+  }
   const mismatches = entityCompleteness.filter((row) => row.mismatch);
-  const headline = entityCompleteness.map(headlineForRow).filter(Boolean);
+  const headline = [...entityCompleteness.map(headlineForRow).filter(Boolean), ...verificationGaps];
   const warnings = asArray(input.warnings, 'warnings');
-  const recoveryActions = asArray(input.recoveryActions, 'recoveryActions');
+  const recoveryActions = [...asArray(input.recoveryActions, 'recoveryActions'), ...verificationGaps.map(g => ({ entity: g.entity, action: g.message }))];
   const blockedDataRequests = asArray(input.blockedDataRequests, 'blockedDataRequests')
     .map((request, index) => normalizeBlockedDataRequest(request, index));
   const status = chooseCompletionStatus({
     statuses: input.statuses,
     aborted: input.aborted,
-    hasMismatches: mismatches.length > 0,
+    hasMismatches: mismatches.length > 0 || verificationGaps.length > 0,
     hasFailures: hasCount(entityCompleteness, 'failed') || blockedDataRequests.some((request) => request.aggregateOutcome === 'failed'),
     hasDeferred: hasCount(entityCompleteness, 'deferred') || blockedDataRequests.some((request) => request.aggregateOutcome === 'deferred'),
     hasRecoveredRecords: recoveryActions.length > 0 || Boolean(input.hasRecoveredRecords),
@@ -265,13 +285,15 @@ function createCompletionReport(input = {}) {
     status,
     headline,
     entityCompleteness,
+    verificationGaps,
+    verification,
     mismatches: mismatches.map((row) => ({
       entity: row.entity,
       subtype: row.subtype,
       expectedReconciled: row.expectedReconciled,
       reconciled: row.reconciled,
       unexpectedSkipped: row.unexpectedSkipped,
-    })),
+    })).concat(verificationGaps.map(gap => ({ ...gap, type: 'identity_value_verification' }))),
     warnings,
     recoveryActions,
     blockedDataRequests,

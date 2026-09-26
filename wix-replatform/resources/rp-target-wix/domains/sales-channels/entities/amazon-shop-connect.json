@@ -35,7 +35,7 @@
     {
       "code": "amazon-integration-history-unclear",
       "severity": "warning",
-      "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated since 2025-05-04, with Wix recommending a third-party app (Koongo) as the replacement. But a live internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, was created 2026-06-17 and last updated 2026-07-20 — well after that deprecation — and implements an automatic feed-push mechanism (AMAZON_XML format, pushed to an Amazon-owned S3 bucket). This suggests Wix has since built a newer native Amazon integration distinct from the deprecated app, but the exact current merchant click-path was not independently confirmed against a live dashboard this session. Re-verify the steps below (and whether the current \"Amazon\" sidebar entry is this newer service or a third-party app) against a live site before relying on them for a real migration report."
+      "summary": "Public support docs describe the original \"Amazon by Wix\" app as deprecated, with Wix recommending a third-party replacement. A newer internal service, wix.stores_channels.amazon.v1.amazon_passive_feed, implements an automatic AMAZON_XML feed push to an Amazon-owned S3 bucket. The current merchant onboarding path is not independently verified; re-verify whether the dashboard's Amazon entry uses this service or a third-party app before relying on the steps below."
     }
   ],
   "mappingGuidance": [],
@@ -59,7 +59,7 @@
       { "actor": "merchant", "text": "Go to Catalog > Sales Channels > Amazon in the Wix dashboard and follow Connect/Setup to link (or create) an Amazon Seller account." },
       { "actor": "merchant", "text": "Publish Wix products to Amazon, or link existing Amazon listings back to their Wix product counterparts, per the dashboard flow." }
     ],
-    "mechanism": "Believed push-based (a feed is built and automatically pushed to an Amazon-owned S3 bucket per live internal evidence), but the exact current onboarding click-path was not reconfirmed against a live Wix site this session — see the amazon-integration-history-unclear pitfall.",
+    "mechanism": "Believed push-based because the internal service builds a feed and pushes it to an Amazon-owned S3 bucket, but the current onboarding path remains unverified; see the amazon-integration-history-unclear pitfall.",
     "evidence": [
       { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-amazon-shop" },
       { "type": "internal-fqdn", "path": "wix.stores_channels.amazon.v1.amazon_passive_feed" }

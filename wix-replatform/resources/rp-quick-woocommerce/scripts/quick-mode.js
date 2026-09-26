@@ -10,6 +10,12 @@ const crypto = require('node:crypto');
 const ADAPTER_DIR = path.resolve(__dirname, '..');
 const CONTRACT = require(path.join(ADAPTER_DIR, 'quick-mode.json'));
 const recovery = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'limit-recovery.js'));
+// Spec 0106. On the public Store API this is a no-op — `src` there is already the original — so
+// the URLs produced here do not change. It is called anyway because naming an image field
+// directly is how a whole catalog once shipped as thumbnails: the same idiom got copied onto the
+// authenticated wc/v3 payload, where `src` can be the smallest crop.
+const { resolveImageUrls } = require(path.join(ADAPTER_DIR, '..', 'rp-source-wordpress', 'lib', 'wp-image-url.js'));
+const { composeProductDescription } = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-build.js'));
 
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
@@ -204,7 +210,7 @@ async function importData(projectDir) {
     const sourceSlug = productSlugCounts.get(baseSlug) > 1 ? `${baseSlug}-${row.id}` : baseSlug;
     const actualPrice = price(row.prices?.price, row.prices?.currency_minor_unit); const regular = price(row.prices?.regular_price, row.prices?.currency_minor_unit);
     const normalized = recovery.normalizeProduct({ sourceId: row.id, sku: nonEmpty(row.sku) || '', tagIds: (row.tags || []).map((tag) => productTagIds.get(String(tag.id))).filter(Boolean) });
-    const created = existingProducts.get(sourceSlug) || (productSlugCounts.get(baseSlug) > 1 && existingProducts.get(baseSlug)) || await writers.createStoresProduct(wix, { name: text(row.name), slug: sourceSlug, description: row.description || row.short_description || undefined, productType: 'PHYSICAL', visible: true, tags: { publicTags: { tagIds: normalized.tagIds } }, media: { itemsInfo: { items: (row.images || []).map((image) => image.src).filter(Boolean).map((url) => ({ url })) } }, variantsInfo: { variants: [{ visible: true, sku: normalized.sku || undefined, inStock: row.is_in_stock !== false, price: { actualPrice: { amount: actualPrice }, ...(Number(regular) > Number(actualPrice) ? { compareAtPrice: { amount: regular } } : {}) } }] } });
+    const created = existingProducts.get(sourceSlug) || (productSlugCounts.get(baseSlug) > 1 && existingProducts.get(baseSlug)) || await writers.createStoresProduct(wix, { name: text(row.name), slug: sourceSlug, description: composeProductDescription({ description: row.description, shortDescription: row.short_description }), productType: 'PHYSICAL', visible: true, tags: { publicTags: { tagIds: normalized.tagIds } }, media: { itemsInfo: { items: resolveImageUrls(row.images).map(({ url, altText, displayName }) => ({ url, ...(altText ? { altText } : {}), ...(displayName ? { displayName } : {}) })) } }, variantsInfo: { variants: [{ visible: true, sku: normalized.sku || undefined, inStock: row.is_in_stock !== false, price: { actualPrice: { amount: actualPrice }, ...(Number(regular) > Number(actualPrice) ? { compareAtPrice: { amount: regular } } : {}) } }] } });
     if (normalized.recoveries.length) { await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
     const targets = (row.categories || []).map((category) => categoryIds.get(String(category.id))).filter(Boolean); if (targets.length) await writers.bulkAddItemToCategories(wix, { productId: created.id, categoryIds: targets }); remember('product', row.id, created.id); products += 1;
   }

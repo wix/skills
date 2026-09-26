@@ -101,6 +101,38 @@ Only check existence plus `present` / `blank` / `missing` status for required ke
 5. If execution is allowed, perform missing setup steps through the shared setup runtime
    and re-verify.
 6. Save the verification results and setup execution artifacts.
+7. **Carry the source store's own configuration.** See the section below — this is a
+   required step, not an optional extra, and it is the one every run before it skipped.
+
+## Carry the source store's own configuration
+
+A migrated site that publishes with a blank business address is not a cosmetic miss: it is a
+whole class of source data that no run ever read, because two independent obstacles each made
+the route look like a dead end (the REST index advertises only the parameterized settings
+route, and the WooCommerce consumer key 401s on it while the WordPress application password
+succeeds). Nothing reported it missing, because no domain owned it.
+
+Three steps, in order:
+
+1. **Capture.** Run `rp-source-wordpress/scripts/capture-store-settings.js <projectDir>`.
+   Deterministic; writes `data/store-settings-general.json`. Do not hand-roll the fetch — the
+   script exists specifically because the credential and the route shape are both traps.
+2. **Write the business address.** Build the payload with
+   `rp-target-wix/lib/store-config-build.js`'s `buildBusinessContactInput`, write it with
+   `wix-writers.js`'s `updateBusinessContact`, then read it back with `getSiteProperties` and
+   compare. The read-back is not optional: the update returns an empty body, so a 200 proves
+   only that the request was accepted. See `domains/site/entities/business-contact.json`.
+   NEVER assemble the `fields.paths` mask by hand — a path listed but not sent is CLEARED, and
+   Wix's own documented example demonstrates that hazard rather than the safe pattern.
+3. **Report the rest at the gate.** `collectReportOnlySettings` returns currency, selling
+   countries, ship-to countries, tax on/off, coupons on/off and price format, each with its
+   source value and why it matters. These are NOT written by this pipeline — surfacing them
+   beside the destination's current values is what turns "we didn't migrate it" from an
+   invisible omission into a decision the merchant can make in one look.
+
+The captured address also feeds the shipping step: with it, a collection point whose source
+carries no address is proposed ("your store address is X — is that where customers collect?")
+instead of prompting blank. See `shipping-build.js`'s `resolvePickupAddressSource`.
 
 ## Execute the setup artifacts — do not re-derive setup from prose
 
@@ -237,6 +269,27 @@ Concrete mechanisms:
   account-level billing. These are the only categories that may be reported as manual —
   and only after confirming no API covers them.
 
+## Inventory prerequisites for product imports
+
+For planned variant inventory, resolve the intended Stores location with
+`rp-target-wix/lib/stores-inventory.js` → `resolveInventoryLocation(wix, locationId?)`.
+Do not create a location if the lookup is empty or ambiguous. Verify inventory-read access.
+Inventory create and update require their own write permissions in addition to product
+create; a token field or configured scope name is not proof that those permissions work.
+
+On an explicitly selected, already-muted disposable target, run:
+
+```bash
+node resources/rp-target-wix/scripts/verify-stores.js stores inventory-import --env <test-target-config> --artifact <verification-json>
+```
+
+This creates hidden synthetic products, verifies bulk stock create, tracked/untracked updates,
+inline stock, and a no-write rerun, then deletes only those probe products. It does not mute
+or unmute a site. Record actual target, token context, timestamp, assertions, and cleanup in
+the setup receipt; a failed probe cannot satisfy the inventory requirement. A disposable-site
+receipt verifies that token/site only: run the authorized canary under the real destination's
+own setup approval before its full import. Reuse current evidence rather than probing per product.
+
 ## Artifact to create or update
 
 - `migrations/<project>/setup/setup-verification.json`
@@ -331,3 +384,36 @@ setup artifacts, not from improvised per-run logic in this skill.
   the exact API that was refused and why.
 - Do not start import execution from this skill.
 - Do not reinterpret setup requirements from markdown when machine artifacts exist.
+
+## Provisioning user-defined extended fields (Data Extension Schema)
+
+Never build a Data Extension Schema update by hand. Use
+`rp-target-wix/lib/data-extension-schema.js` and send the request it returns.
+
+The reason is a single API property: **Update Data Extension Schema is a `PUT` that overrides the
+stored schema**, and `jsonSchema` is required. Sending only the fields this migration needs
+therefore DELETES every field the merchant created, silently and permanently, on their own data.
+`planDataExtensionSchemaProvisioning()` reads the existing schema, merges into it, and refuses the
+update when it would drop, retype, narrow or re-classify anything already there.
+
+The order it enforces:
+
+1. List the existing schema with `fields=ARCHIVED` — archived fields are hidden by default, and an
+   archived key cannot be reused, so the collision check is blind without them.
+2. Select the schema by `namespace` (`_user_fields`). List returns global and app schemas
+   alongside the user-defined one; picking by position merges into somebody else's schema.
+3. Plan. The result is `create`, `update`, `noop` or `blocked` — `noop` is what a repeated run
+   returns, and `blocked` carries the reason.
+4. Send the returned request. An update carries the schema `id` and the **current** `revision`;
+   the API uses the revision to reject conflicting changes.
+5. Re-read and verify each field with `verifyDataExtensionSchemaFields()`, and persist the
+   evidence. A create or update can report success without producing the field.
+6. Generated import code writes an extended-field value only after verification passed for that
+   exact field — `validateExtendedFieldWriterReferences()` enforces it.
+
+Scope today: the eCommerce order object only. Products are unimplemented, and
+both CRM contact paths need live verification first — the supported-objects table lists only
+Products and eCommerce Orders. Field types are restricted to `string`; the helper refuses an
+unverified type rather than guessing.
+
+The inventory verification token also needs Catalog read access to hidden products and variants. The canary must verify default-location availability in both Inventory and Catalog before the inventory path is marked verified.

@@ -11,6 +11,9 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "crm/contact"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -66,6 +69,5 @@
       "url": "https://dev.wix.com/docs/api-reference/crm/communication/email-subscriptions/emailsubscription-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     }
-    
   ]
 }

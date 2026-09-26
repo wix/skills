@@ -289,6 +289,16 @@ async function determineNextStep(projectDir, artifacts) {
     };
   }
 
+  if (!handoffStatus.ok) {
+    return {
+      ok: true,
+      nextState: 'mapping_running',
+      nextResource: 'resources/rp-mapper/',
+      reason: 'invalid_website_handoff',
+      errors: handoffStatus.blockingWarnings,
+    };
+  }
+
   if (managementImportMode !== 'quick' && !(await exists(path.join(projectDir, 'execution', 'execution-manifest.json')))) {
     return { ok: true, nextState: 'codegen_running', nextResource: 'resources/rp-import-codegen/', reason: 'missing_execution_manifest' };
   }

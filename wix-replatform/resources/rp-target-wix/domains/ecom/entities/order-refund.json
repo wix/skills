@@ -12,7 +12,8 @@
     "crosswalkRequired": true
   },
   "dependsOn": [
-    "ecom/order"
+    "ecom/order",
+    "ecom/order-payment"
   ],
   "sourceAliases": [
     {
@@ -59,7 +60,7 @@
     {
       "code": "import-payload-refund-unproven",
       "severity": "info",
-      "summary": "RESOLVED 2026-08-12 (the reference store, same day, different run): the 2026-08-12 subset run correctly found no import-safe refund representation on the Import Order payload itself — that observation was accurate, not a dead end. The Import Order payload never carries refunds at all; the real write path is a separate pair of eCom APIs (Order Transactions + Order Billing), documented below. Kept as `info` rather than removed so the negative finding stays traceable to what it actually ruled out."
+      "summary": "The Import Order payload has no import-safe refund representation. Refunds use separate eCom Order Transactions and Order Billing APIs, documented below. This pitfall records that the negative finding applies only to the Import Order payload, not to refund migration overall."
     },
     {
       "code": "createorder-was-the-wrong-tool-not-a-dead-end",
@@ -69,18 +70,57 @@
     {
       "code": "import-order-creates-no-payment-record",
       "severity": "warning",
-      "summary": "Verified live: an order created via Import Order reads back `GET /ecom/v1/payments/orders/{id}` with `payments: []` — Import Order does not create any payment transaction, so Refund Payments has nothing to reference (`paymentId` required) without first calling Add Payments. `ensureOrderPaymentAndRefund` (wix-writers.js) checks for an existing non-refund-disabled payment and adds one sized to the order total (offlinePayment:true, status:APPROVED) only when none exists, before refunding."
+      "summary": "Verified live: an order created via Import Order reads back `GET /ecom/v1/payments/orders/{id}` with `payments: []` -- Import Order creates no payment transaction, so Refund Payments has nothing to reference (`paymentId` is required) without first calling Add Payments. CHANGED by spec 0124: `ensureOrderPaymentAndRefund` no longer invents that payment. It used to add one sized to the order total with `offlinePayment: true, status: APPROVED`, which asserted an approved offline payment dated migration day for an order that may never have been paid. It now takes a MAPPED payment that has passed the existence gate (a positive amount AND a source paid date), reconciles it against the order's existing payments by identity, and creates one only when no matching record exists. A qualified refund whose order evidences no payment is reported as `refund-without-payment` rather than given a fabricated counterpart."
     },
     {
       "code": "external-refund-is-the-load-bearing-field",
       "severity": "blocker",
-      "summary": "`paymentRefunds[].externalRefund` defaults to `false` (automatic refund — calls the payment provider's API for real). For historical/imported data this MUST be set to `true` explicitly, or the call will attempt a genuine provider-side refund against a payment that was never actually processed by that provider."
+      "summary": "`paymentRefunds[].externalRefund` defaults to `false` (automatic refund — calls the payment provider's API for real). For historical/imported data this MUST be `true`, or the call attempts a genuine provider-side refund against a payment that provider never processed. VERIFIED IN CODE 2026-09-02: `wix-writers.js::buildRefundOrderPaymentRequest()` hardcodes it as a literal — not a parameter, not a defaulted option — and this is now locked by `tests/target-wix/refund-external-only-contract-test.js`, which fails on the parameter form, on the `externalRefund = true` default form (a form that would pass every behavioral test whose callers pass nothing), and on the introduction of any second refund endpoint. Keep it a literal. Do not add an override, however well-intentioned the caller."
+    },
+    {
+      "code": "refund-existence-must-be-corroborated",
+      "severity": "blocker",
+      "summary": "NEVER infer that a refund exists from a payment-gateway meta field whose semantics have not been verified against that gateway's own documentation -- gateway field names lie. VERIFIED LIVE 2026-09-02 on a production store (7,281 card orders via PayPlus): the field `payplus_refunded` reads as \"amount refunded\" and actually means \"amount still available to refund\" -- its value equals the FULL ORDER TOTAL on 556 of the 557 orders carrying it, while the store has 0 WooCommerce refund objects and 0 orders in `refunded` status. A mapper trusting the name would mark essentially that gateway's whole revenue as refunded. Its sibling `payplus_status` is the constant `approved` on all 557 and so discriminates nothing. THE RULE (corrected 2026-09-03): a canonical WooCommerce refund entity with a stable source id and a parseable positive amount IS the refund record and is sufficient to import on its own -- it needs no second witness. Corroboration is required only where existence is INFERRED: an order-level `refunded` status can corroborate an entity but cannot supply a missing amount, and gateway flags, statuses, responses and refundable-balance fields never create a refund however many of them agree, because fields written by one gateway callback are one signal. An earlier version of this rule demanded two independently produced signals even for real entities; since both core signals share a producer, that would have refused all 18 canonical refund entities found on the second surveyed store. Where signals disagree, REFUSE and report; never pick the signal that produces data. The registry is rp-source-wordpress/lib/refund-corroboration.json and the qualifier is its sibling .js. Full evidence recorded internally, not part of this public bundle."
+    },
+    {
+      "code": "refund-date-is-read-only-and-immutable",
+      "severity": "warning",
+      "summary": "SCHEMA-CONFIRMED 2026-09-03 by re-checking the live Refund Payments schema: the refund's `createdDate` is BOTH read-only and immutable, and defaults to the current time. So an imported refund cannot carry its original date, while a PAYMENT's `createdDate` is settable. Refunds still import where qualified -- omitting them leaves a refunded order reading as fully paid, which overstates revenue and is the worse error -- but every written refund is counted in `refund-date-not-preserved` and disclosed. The true date must NOT be smuggled into a customer-visible field. Owner ask ECOM-03."
+    },
+    {
+      "code": "customer-reason-is-a-top-level-request-field",
+      "severity": "info",
+      "summary": "NAMING DRIFT, recorded 2026-09-03. The request field is top-level `customerReason` (maxLength 200); `details.reason` is where it comes back in the RESPONSE. Spec prose that referred to writing `details.reason` meant this field. `buildRefundOrderPaymentRequest` already sends `customerReason` correctly. It is customer-visible, so it carries no date and no source identifier."
+    },
+    {
+      "code": "side-effects-omitted-means-no-restock-no-email",
+      "severity": "warning",
+      "summary": "SCHEMA-CONFIRMED: `sideEffects` is optional and `sideEffects.notifications.sendCustomerEmail` defaults to false, so OMITTING the whole `sideEffects` object is what keeps a historical refund from restocking inventory and emailing the customer. Never populate it for imported data. Pinned by tests/target-wix/refund-corroboration-test.js."
+    },
+    {
+      "code": "refund-disabled-probably-blocks-our-own-refund",
+      "severity": "warning",
+      "summary": "OPEN QUESTION, now better informed. Setting `refundDisabled: true` on imported payments was proposed as a second guard against a merchant issuing a provider-side refund against a migrated payment. The re-checked Refund Payments schema documents a `428 PAYMENT_NOT_REFUNDABLE` error and defines `refundDisabled: true` as \"this payment is not refundable\", which strongly suggests it would also block our own `externalRefund: true` write -- and `refundDisabled` is only settable when the payment is created, so it cannot be applied after refunds are written. It therefore stays UNSET in phase 1. Adopting it needs a live test proving an external refund still succeeds."
+    },
+    {
+      "code": "external-refund-expected-is-a-real-error-code",
+      "severity": "info",
+      "summary": "SCHEMA-CONFIRMED: the API defines `428 EXTERNAL_REFUND_EXPECTED` -- \"Payment requires an external refund. Set externalRefund to true\". Some payments accept nothing else, which independently confirms that `externalRefund: true` is the correct and expected mode for historical records rather than a workaround."
+    },
+    {
+      "code": "a-refund-does-not-settle-instantly",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-09-05 on a disposable site: writing a second refund against the same payment while the first is still processing is refused with `428 PAYMENT_NOT_REFUNDABLE` and `nonRefundableReason: PENDING_REFUND`. It is intermittent -- sometimes the first settles fast enough that the second succeeds -- which makes it worse, not better, because a run can pass in testing and drop refunds in production. This is exactly the shape occurrence-aware identity exists for (two equal refunds on one payment), so treating the refusal as a failure would lose the second refund of every such pair. Wait and retry: PENDING_REFUND is a wait, distinct from every other non-refundable reason, which are genuine refusals. If it never settles the order is reported as `refund-still-settling` rather than written or dropped."
     }
   ],
   "mappingGuidance": [
+    "Qualify the refund before mapping it: a canonical WooCommerce refund entity with a stable id and a positive amount is sufficient on its own; nothing weaker creates a refund. Use rp-source-wordpress/lib/refund-corroboration.js.",
     "Map refunds with their parent order (via the order crosswalk) and preserve source refund IDs.",
-    "One refund per parent order was this project's shape (verified: 18 refunds, 18 distinct parent orders, no partials-plus-full-refund cases) — a source with multiple refunds per order would need `ensureOrderPaymentAndRefund`'s payment lookup extended to select/split across payments rather than assuming one.",
-    "`sideEffects` (inventory restock, customer notification email) is intentionally omitted for historical data — set only if a specific migration explicitly wants either effect."
+    "Resolve the target payment by identity, never by position. `ensureOrderPaymentAndRefund` reads the order's payments first and matches by provider transaction reference, else by an exact fingerprint of the payment facts; more than one match is ambiguous and prohibits writing.",
+    "A source with multiple refunds per order needs the writer to select or split across payments rather than assuming one. Phase 1 imports an authoritative total at order level and reports `refund-line-detail-not-preserved`; it invents no line ids.",
+    "`sideEffects` (inventory restock, customer notification email) is intentionally omitted for historical data -- set only if a specific migration explicitly wants either effect.",
+    "Refund COUNT is a first-class number to report at the approval gate, not an implementation detail: \"0 refunds\" is reviewable at a glance and an implausible count is the cheapest place to catch a mis-mapped source field. A store with weak gateway signals and no entities must report \"0 refunds found; N orders carry an uncorroborated gateway refund field\" rather than reporting nothing.",
+    "Do not read refund amounts from gateway-specific order meta (`payplus_*`, `_stripe_*`, and equivalents) unless that specific key's meaning is confirmed in the gateway's own docs AND it has a stable id and amount -- see the `refund-existence-must-be-corroborated` pitfall."
   ],
   "setupRequirements": [],
   "evidence": [
@@ -89,11 +129,10 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     },
-    
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/mapping/entity-decisions/order-refund.json",
-      "note": "subset run 2026-08-12: action=skip, no import-safe writer found on the Import Order payload — accurate for that payload; see the separate Order Transactions/Order Billing path found the same day"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: action=skip, no import-safe writer found on the Import Order payload — accurate for that payload; see the separate Order Transactions/Order Billing path found the same day"
     },
     {
       "type": "wix-docs",
@@ -109,7 +148,17 @@
     },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real POST /ecom/v1/payments/orders/{id}/add-payment and POST /ecom/v1/order-billing/refund-payments against the live reference store; 18/18 refunds created and independently re-queried, amounts matching source exactly."
+      "path": "anonymized-live-verification"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Live survey 2026-09-02 of a production WooCommerce store on the PayPlus gateway: `payplus_refunded` == order total on every order, 0 Woo refund objects, 0 refunded orders. Source of the refund-existence-must-be-corroborated pitfall."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/order-billing/refund-payments",
+      "note": "Full method schema re-checked 2026-09-03 per spec 0124 A.1. Established: refund createdDate is read-only AND immutable; externalRefund is immutable once written; customerReason is a top-level request field capped at 200; paymentRefunds accepts 1-50 entries and paymentId is required; sideEffects is optional with sendCustomerEmail defaulting to false; the API defines 428 EXTERNAL_REFUND_EXPECTED and 428 PAYMENT_NOT_REFUNDABLE."
     }
   ]
 }

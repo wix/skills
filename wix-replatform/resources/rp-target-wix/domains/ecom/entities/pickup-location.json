@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "pickup-location",
+  "displayName": "Wix Pickup Location",
+  "capability": "commerce.pickup-location",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "PickupLocation",
+    "verifiedFqdn": "wix.ecom.v1.pickup_location",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "ecom/delivery-profile"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "shipping-zone.method[local_pickup|pickup_location]",
+      "routes": [
+        "/wc/v3/shipping/zones/{id}/methods"
+      ],
+      "confidence": "high",
+      "note": "shipping-build.js's classifyMethod returns kind:'pickup' for these two method_ids. That classification produces a PickupLocation and NEVER a ShippingOption. It does NOT mean no carrier: the Pickup DeliveryCarrier must still be attached, with backupRate {amount '0', active FALSE}, or the collection point does not render at checkout at all -- see the attach-the-pickup-carrier blocker pitfall. What the classification is terminal about is the SHIPPING side: no ShippingOption, and no delivery carrier of any other role."
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "settings.pickup_locations",
+      "routes": [
+        "/wp/v2/settings"
+      ],
+      "confidence": "high",
+      "note": "WooCommerce Blocks Local Pickup stores its locations as WordPress options surfaced on the core settings route -- NOT under /wc/v3/. This route is already part of the default discovery sweep, so a Blocks source's pickup addresses are already captured; they just had no consumer until now."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Pickup Locations",
+    "endpoint": "POST https://manage.wix.com/_api/pickup-locations/v1/pickup-locations (the public www.wixapis.com host 404s — see the host pitfall)",
+    "writerId": "createPickupLocation",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": true,
+    "releaseStatus": "beta",
+    "decision": "Collection points are their own entity on their own service host. Bulk create/update/delete exist (max 100 per call) but a migration rarely has more than a handful of collection points, so the single create is the default path."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "pickup-is-not-a-shipping-option",
+      "severity": "blocker",
+      "summary": "A source local_pickup method must NEVER be written as a ShippingOption. A ShippingOption has no app/carrier/role field, so a 0-amount collection option renders at checkout as a free DELIVERY sitting next to the real paid delivery -- buyers pick it expecting their order shipped for nothing. Observed live: a migrated store showed collection as a 0-priced shipping choice beside a paid one. The classification is terminal: kind:'pickup' produces a PickupLocation and no shipping option."
+    },
+    {
+      "code": "attach-the-pickup-carrier-but-never-with-an-active-backup-rate",
+      "severity": "blocker",
+      "summary": "Two facts that look contradictory and are not. (a) A Pickup carrier whose backupRate is ACTIVE renders as a 0-priced DELIVERY row beside the paid one -- live-observed on a real store, alongside a duplicate 0-priced shipping option for the same collection point. (b) But removing the Pickup carrier ENTIRELY made the collection point stop appearing at all, even though the PickupLocation still existed, was active, and was bound to the region -- reported by the site owner 2026-09-01 after exactly that removal. The correct shape is therefore: attach the Pickup carrier so the region can render collection, with backupRate {amount '0', active FALSE} so the carrier itself never becomes a delivery row -- and create the PickupLocation for the actual collection point. Never an active backupRate, never no carrier at all. resolvePickupAppId is how the Pickup app's installation-scoped appId is resolved; it IS a write path after all, just a carefully constrained one."
+    },
+    {
+      "code": "address-is-required-and-only-one-source-shape-has-one",
+      "severity": "blocker",
+      "summary": "`address` (with at least `country`) is required by the create call, and whether the source has one depends entirely on WHICH pickup implementation it uses. BLOCKS Local Pickup (`pickup_location` method) keeps real locations WITH addresses in WordPress options, exposed on GET /wp/v2/settings as `pickup_locations[]` = {name, address:{address_1, city, state, postcode, country}, details, enabled} plus `pickup_location_settings` = {enabled, title, tax_status, cost}. LEGACY `local_pickup` (a shipping-zone method) carries only {title, tax_status, cost} -- no address, no linked record, nothing to read; its town is often named inside the method's own TITLE text, which is a label and must never be parsed as an address. So check the Blocks locations FIRST (shipping-build.js's resolvePickupAddressSource): a Blocks source needs no human input at all, while a legacy source can only be answered by the merchant. buildPickupLocationInput throws without an address either way, because the server-side failure carries far less context than the local one."
+    },
+    {
+      "code": "blocks-global-settings-gate-the-locations-and-carry-the-fee",
+      "severity": "blocker",
+      "summary": "BLOCKS Local Pickup splits its configuration in two, and the GLOBAL half owns things no individual location carries: `pickup_location_settings` = {enabled, title, tax_status, cost}. (1) `enabled` is the MASTER SWITCH. Every location can be individually `enabled: true` while pickup as a whole is off, so reading only the per-location flag re-enables a fulfillment method the merchant deliberately turned off, and Wix checkout starts offering collection. Both gates must pass: a location is active only when the global switch is not explicitly off AND the location itself is not `enabled: false`. WooCommerce writes this as the strings yes/no on some routes and as a real boolean on others, and ABSENT means \"not configured\", which for a feature switch reads as ON -- only an explicit no/false/0/off turns it off. (2) `cost` is the collection FEE, set ONCE for all locations. Blocks pickup has no per-zone cost field, so the zone method's own `settings.cost` -- which is where the LEGACY local_pickup method correctly keeps its fee -- is absent for this shape and the classification reads 0. Read the fee from the global settings and pass it to buildPickupLocationInput's `amount`, or every pickup order silently charges nothing. shipping-build.js's pickupLocationsFromWpSettings returns both the resolved `active` and the `amount` per location, so a caller never has to know which half of the config they came from."
+    },
+    {
+      "code": "shipping-rule-id-is-deprecated-and-internal",
+      "severity": "warning",
+      "summary": "`shippingRuleId` is deprecated, marked internal, and replaced by `deliveryRegionIds`, with a removal target already in the past. Wix's own dashboard front-end still sends it; that is not a reason for a migration to. Send `deliveryRegionIds` only."
+    },
+    {
+      "code": "delivery-regions-are-not-updatable-through-update",
+      "severity": "warning",
+      "summary": "The Update call cannot change region membership -- the service says so explicitly. Use the dedicated Add Delivery Region / Remove Delivery Region calls on the pickup location (each takes pickupLocationId + deliveryRegionId + revision). Note the name collision with the Delivery Profiles API's own addDeliveryRegion, which adds a REGION TO A PROFILE; this one adds a PICKUP LOCATION TO A REGION."
+    },
+    {
+      "code": "create-failed-precondition-limits",
+      "severity": "warning",
+      "summary": "Create can fail FAILED_PRECONDITION with LOCATIONS_IN_SHIPPING_RULE_LIMIT_EXCEEDED or LIMIT_OF_OPTIONS_PER_DELIVERY_REGION_EXCEEDED. Caps: deliveryRegionIds max 50 per location, rates max 50, name 1-100 chars, deliveryTime max 500, instructions max 1000."
+    },
+    {
+      "code": "documented-public-host-404s-use-the-dashboard-proxy",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-09-01, and NOT what the service's own documentation says. Its documentation.yaml declares `host: www.wixapis.com/pickup-locations`, but EVERY path under that host returns 404 with a valid site token -- both the hyphenated and camelCase spellings, and the /ecom/ prefix too. The service is BETA and is not exposed on the public gateway yet. The route that works is the dashboard proxy, `https://manage.wix.com/_api/pickup-locations/v1/pickup-locations`, which accepts the same CLI-minted site token. wix-writers.js's resolvePickupLocationsBase probes the public host first and falls back to the proxy on 404 (rethrowing anything else, so a 401/403 is never hidden behind a fallback), so this starts using the public host by itself once Wix exposes it. Permission scopes are unchanged: ECOM.PICKUP_LOCATION_CREATE / _READ / _UPDATE / _DELETE."
+    },
+    {
+      "code": "a-blank-address-is-a-real-choice-but-cannot-mean-absent",
+      "severity": "warning",
+      "summary": "Plenty of merchants coordinate collection by phone and deliberately do not publish a street -- the source method's own title usually says exactly that. That is a legitimate configuration, NOT missing data, and must not be treated as a failure to migrate. But `address` is required by the create call, so 'blank' cannot mean omitted. The honest minimum is the one part actually known: the country, DERIVED from the delivery region the location is bound to (shipping-build.js's buildMinimalPickupAddress), with no street, city or postcode invented to fill the gap. The location's `name` is then what tells buyers where and how to collect. Two guards: a region spanning more than one country has no single answer and throws rather than picking one; and a country-plus-city collection point (no street) was CREATED AND READ BACK LIVE 2026-09-01, address {country, city} preserved exactly as sent. How it renders at checkout is still worth one look."
+    }
+  ],
+  "mappingGuidance": [
+    "Two source shapes, checked in this order. (1) BLOCKS: `pickup_locations[]` on /wp/v2/settings already holds real locations -- map name -> name, address.address_1 -> addressLine (whole line, unparsed), address.city -> city, address.state -> subdivision, address.postcode -> postalCode, address.country -> country, details -> instructions, enabled -> active. Note `state` is a SEPARATE field here, unlike the store address's COUNTRY:STATE packing. (2) LEGACY `local_pickup` zone method: one PickupLocation per method, bound to the delivery region built from that method's zone via deliveryRegionIds[]; the method's title becomes `name` and its cost the single rate (a non-numeric cost falls back to 0 and is flagged).",
+    "`address` cannot be derived from a LEGACY method -- resolve it from the store address as a proposal the merchant confirms, or ask. `deliveryTime` has no WooCommerce counterpart in either shape; leave it unset rather than inventing a value. `instructions` maps from a Blocks location's `details`, and has no legacy counterpart.",
+    "Never also create a ShippingOption for the same method -- that re-creates the 0-priced-delivery defect this entity exists to avoid. The Pickup DeliveryCarrier is the opposite case and must NOT be omitted: attach it with backupRate {amount '0', active FALSE}. An ACTIVE backup rate re-creates the same 0-priced-delivery row, and no carrier at all makes the collection point vanish from checkout even though the PickupLocation exists and is bound to the region -- both were observed live. See the two blocker pitfalls above.",
+    "A zone whose only enabled method is pickup is NOT a checkout dead end -- collection is a real way to receive an order -- so it does not get delivery-profile.json's missing-rates alert even though it offers no DELIVERY rate. It still carries the Pickup carrier; that carrier's backup rate is inactive by design, so the zone has a carrier and no deliverable rate at the same time, which is the correct shape here rather than the gap the alert looks for.",
+    "A merchant who declines to publish a street address gets a country-only address derived from the delivery region, and the full source method title as `name`. Reach that branch only through an explicit decline (resolvePickupAddressSource's `addressDeclined`) -- never as a silent fallback when an address could not be found, because those two states need different follow-ups."
+  ],
+  "setupRequirements": [
+    "Wix Stores app (eCommerce checkout) — the site's default delivery profile must exist so a delivery region id is available to bind to."
+  ],
+  "objectPageException": "The public API-reference tree for shipping and delivery exposes Delivery Profiles only; there is no PickupLocations subsection and no '…-object' page for this entity anywhere in it. The field shape, limits, deprecations, error codes, host and permission names are taken from Wix's own service contract for the resource instead.",
+  "evidence": [
+    {
+      "type": "service-definition",
+      "path": "wix-internal-service-definition",
+      "note": "Wix's own PickupLocations service contract and its shipped create/query examples: entity fields and limits, the required-on-create set, the shippingRuleId deprecation and its replacement, the Add/Remove Delivery Region calls, the FAILED_PRECONDITION application codes, the public REST host, and the permission names. Read directly from the service definition rather than from a documentation page."
+    },
+    {
+      "type": "service-definition",
+      "path": "wix-internal-service-definition",
+      "note": "PickupLocation.rates is the same ConditionalRates type as ShippingOption.rates, so the conditional-rate shape documented on ecom/shipping-option applies here unchanged."
+    }
+  ],
+  "notes": "Authored to close the pickup half of the shipping phase-2 work: phase 1 wrote collection points as shipping options, which is what put a 0-priced delivery next to a paid one on a live store. Create and read-back VERIFIED LIVE 2026-09-01 against a real store, through the dashboard proxy host (the documented public host 404s -- see its pitfall). A country+city address with no street round-tripped exactly. What is still unverified is purely cosmetic: how a street-less collection point renders at checkout."
+}

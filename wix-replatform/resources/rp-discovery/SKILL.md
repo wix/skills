@@ -42,8 +42,10 @@ Before running source capture, verify the project-local config files created by
 
 - `config/wix.env` should always exist with `WIX_SITE_STRATEGY`, `WIX_SITE_ID`, and
   `WIX_AUTH_TOKEN` keys, even though discovery itself may not use Wix credentials yet.
-- `config/source.<platform>.env` should exist once the source platform is known. For
-  WordPress this is `config/source.wordpress.env`.
+- `config/source.<platform>.env` should exist once the source platform is known. A
+  WordPress-only source uses `config/source.wordpress.env`; a source with confirmed
+  WooCommerce evidence uses `config/source.woocommerce.env` and records
+  `sourcePlatform=woocommerce`. Both use the `rp-source-wordpress` discovery adapter.
 
 If a required non-sensitive key is missing or blank, ask the user for that value and fill
 the config file before continuing. If a required sensitive key is missing or blank, use
@@ -230,10 +232,28 @@ and data-shaped routes, and record the reasoning either way. Three exits, and on
   or `basis: proposed` (your own reading) and the `rationale` filled in — a list hit with no
   recorded confirmation is a failure.
 - **It holds data** → propose a Wix capability; the row is *Migration planned*
-  as `proposed`, decided at the mapping review.
+  as `proposed`, decided at the mapping review. When the capability has no REST route,
+  check whether wix-wp-plugin-v2 can reach it as a `structure-bridge-plugin` fulfillment
+  before assuming a `user-file`/CSV request is the only path — see
+  `rp-source-wordpress/plugins/README.md`'s "Resolving a db-only capability" section. Which
+  credential the bridge needs depends on whether the source has WooCommerce (Application
+  Password requires it; the migration key does not) — same section.
 - **Cannot tell** → leave the row *Pending* with `reason: cannot-tell`. An honest "cannot
   tell" is the point of Pending — it is what stops this step from becoming a silent way to
   drop data. Never resolve it yourself; the mapping review is the only exit.
+
+**"Cannot tell" means tried and still uncertain, not merely unexamined.** Before landing a
+plugin on Pending, make the same best-effort reachability pass `rp-source-wordpress/plugins/README.md`'s
+"Resolving a db-only capability" section describes for a confirmed capability — REST route,
+built-in export, public docs/source for its storage mechanism, wix-wp-plugin-v2 reachability —
+so the question put to the human at the mapping review is "here is what we found, decide the
+target" rather than "we didn't look, please figure this out." A live-verified negative result
+(e.g. every candidate table 404s, or the plugin's own source shows the data never leaves its
+vendor's cloud) is itself a valid, useful finding to record on the row — it is not the same as
+never having checked, and it changes what the human is actually being asked to decide. This
+does not license guessing a candidate target on your own judgement (see the "It holds data"
+exit above and `rp-mapper`'s pending-row-verdict section) — it means the row that reaches the
+human is backed by an actual attempt, not a name and a shrug.
 
 You may never conclude that Wix cannot do something — *Requires development* is reachable
 only from the human-signed register or from the human at the gate.
