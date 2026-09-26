@@ -10,7 +10,8 @@ content and commerce.
 
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
 field name or a body. Every Wix call comes from a source open in front of you: the code the skills
-deployed here, a `wix-manage` recipe, or a `wix-docs` page. No source open, no call.
+deployed here, a `wix-manage` recipe, or the Wix API reference reached through `wix-docs`. No
+source open, no call.
 
 ## Skills
 
@@ -20,7 +21,9 @@ Installed at `.agents/skills/`. If missing, restore with:
 - `{{SKILL}}` — the code in this app and how to extend it. Each business solution has a playbook at
   `references/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
   adds one.
-- `wix-docs` — the Wix API reference, by search.
+- `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
+  you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
+  is confirmed there before you write it.
 - `wix-manage` — recipes for the live site itself (content, prices, settings), run from the shell
   with `npx -y @wix/cli@latest token --site <siteId>`; the token never lands in a file or in
   client code.
