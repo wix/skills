@@ -238,6 +238,8 @@ when no `initialPlans` is passed); `/plans/:slug` → fetch with `fetchPlanBySlu
 client-side, then your detail surface (null → your not-found state). Deploy wrote the public
 client id into `wix/config.ts`; nothing else to configure.
 
+Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded directly — hash routes, or one HTML file per route, decided before the first route is written; any URL handed to Wix as a return target must be one the host serves (SKILL.md step 1).
+
 ## Hard rules
 
 - **Purchase only through the shipped exports** — `SubscribeButton` / `usePlanPurchase` /
