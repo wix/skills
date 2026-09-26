@@ -18,8 +18,9 @@
 // lockfile → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -120,6 +121,11 @@ emit("deployed", deployResult);
 // move before anything is touched. `--subfolder` skips this step.
 const targetDir = process.cwd();
 if (!subfolder && projectDir !== targetDir) {
+  // The CLI's own agent config files, when its generator managed to write them, are dropped from
+  // the scaffold: ours (written below, after the move) carries the same CLI section plus this
+  // project's skills. A file the user's folder already has is never overwritten or merged into —
+  // it is kept as is, and the agent_configs event says so.
+  for (const f of AGENT_CONFIG_FILES) rmSync(join(projectDir, f), { recursive: true, force: true });
   const entries = readdirSync(projectDir);
   const clashes = entries.filter((e) => existsSync(join(targetDir, e)));
   if (clashes.length) {
@@ -134,6 +140,11 @@ if (!subfolder && projectDir !== targetDir) {
     fail("place", e?.stack || e);
   }
 }
+
+// ---- 2d · the agent config files `wix create` would have written --------------------------------
+// Skipped by the CLI because of --skip-install (see cli-agents-md.mjs). Written after the move so
+// they land at the project root.
+emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");
