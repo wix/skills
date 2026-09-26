@@ -100,12 +100,11 @@ doesn't express — or once the site exists and the work turns to managing or ex
    you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
    commit (which would otherwise become a nested-repo gitlink if the project lands inside a repo).
 
-   Optional `--flatten`: by default the project is created in a **new subfolder** (named after the
-   business). Pass `--flatten` to create it **directly in the current directory** instead — a plain
-   move of the scaffold's files up into the CWD, done **before** the dependency install starts so
-   nothing is half-moved (and since git was skipped, there's no nested repo to reconcile). Use it
-   when bootstrapping into an existing repo that must stay a single flat tree; otherwise omit it
-   and keep the subfolder.
+   The project is created **in the current directory** — the folder the entry had you work from,
+   which already holds the installed skills — so the project is self-contained and a later session
+   opened in it finds everything. It refuses if the folder already holds a file the scaffold would
+   write. `--subfolder` creates it in a new folder named after the business instead, for a current
+   folder that must stay as it is; the skills then sit one level above the project.
 
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
    **deploys** the shipped code (patching `package.json` with every dependency the code
