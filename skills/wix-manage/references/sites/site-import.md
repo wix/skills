@@ -1,6 +1,6 @@
 ---
 name: "Site Import"
-description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
+description: Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into a new Wix site, or to build a new Wix site/store from CSV/TSV export files with no source site. Use this skill when the user wants to migrate, clone, or recreate a whole store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL to bring into Wix. Not for a user who already has a Wix site and just wants to bring data into it from a file — that belongs to that data's own import path, not a site migration. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 ---
 
 # Site Import
@@ -95,6 +95,16 @@ While an import is the task at hand, ALL site-creation work goes through this
 API. Never fall back to other site-building tools (site-builder/template/AI
 site-generation tools) to "compensate" — not when the import is slow, and
 especially not when it FAILS.
+
+**"Import my products/orders/customers" on an existing site is not this
+skill.** This service builds or replaces a whole site/store. If the user
+already has a Wix site and just wants to bring data — products, orders,
+customers, or anything else — from a CSV/TSV export into it, that is a
+request against that business solution's own data-import path, not a site
+migration — do not route it here just because a file is involved. Only take
+a CSV/TSV request through this skill when the user is explicitly building a
+new site/store from the export, or has no existing Wix site/store the data
+should land in instead.
 
 **Status comes ONLY from this API's Poll endpoint.** Never call
 `WixSiteBuilder`, `CreateSiteFromTemplate`, `pullSiteCreationJob`, or any

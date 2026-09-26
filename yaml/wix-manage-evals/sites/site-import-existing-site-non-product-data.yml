@@ -1,0 +1,32 @@
+name: sites/site-import-existing-site-non-product-data
+description: >-
+  Regression guard — the existing-site data-import exclusion is not product-specific. A user with
+  an existing Wix site who wants to bring in a non-product data type (here, customer contacts)
+  from a file must also NOT trigger Wix Site Import.
+triggerPrompt: >-
+  I already have a Wix site (site ID 331d0c05-2ab0-4edb-91a6-4078c7e500b9) with a CRM/contacts
+  list set up. I have a bunch of customer contacts in a CSV export at
+  https://example.com/exports/customers.csv — can you import that file for me?
+tags: [sites, stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already has an existing Wix site and only wants to import customer contacts from a
+      CSV export into it — they did not ask to migrate, clone, rebuild, or replace their site.
+
+      Pass if the response treats this as a contacts/CRM data-import request against the existing
+      site — however it chooses to help (e.g. reading the contacts from the file and creating them
+      via a Wix contacts/CRM import path, or asking for missing mandatory fields before creating)
+      — and does NOT start, poll, or otherwise invoke the Wix Site Import service (no
+      POST /v1/imports, no talk of a migration/import job, no source-platform crawl).
+
+      Fail if the response starts or describes starting a Wix Site Import migration/import job for
+      this request, treats the existing site as something to be replaced or rebuilt, or otherwise
+      routes a plain "import these contacts" request into the site/store migration flow just
+      because a file URL was given.

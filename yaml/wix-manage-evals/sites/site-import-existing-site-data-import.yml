@@ -1,0 +1,32 @@
+name: sites/site-import-existing-site-catalog-only
+description: >-
+  Regression guard — a user who already has a Wix site and just wants to add products from a
+  CSV export must NOT trigger Wix Site Import, which migrates/builds a whole site/store. This is
+  a catalog-only Stores request and should be handled as bulk product creation instead.
+triggerPrompt: >-
+  I already have a Wix store (site ID 331d0c05-2ab0-4edb-91a6-4078c7e500b9) and I just want to add
+  a bunch of new products to it. I have them all in a CSV export at
+  https://example.com/exports/products.csv — can you import that file for me?
+tags: [sites, stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already has an existing Wix store and only wants to add products from a CSV export
+      file to it — they did not ask to migrate, clone, rebuild, or replace their site/store.
+
+      Pass if the response treats this as a catalog/product-creation request against the existing
+      store — however it chooses to help (e.g. reading the products from the file and creating
+      them via Wix Stores Catalog V3, or asking for missing mandatory fields like name/price
+      before creating) — and does NOT start, poll, or otherwise invoke the Wix Site Import service
+      (no POST /v1/imports, no talk of a migration/import job, no source-platform crawl).
+
+      Fail if the response starts or describes starting a Wix Site Import migration/import job for
+      this request, treats the existing site as something to be replaced or rebuilt, or otherwise
+      routes a plain "add these products" request into the site/store migration flow just because
+      a file URL was given.
