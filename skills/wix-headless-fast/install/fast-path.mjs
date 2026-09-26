@@ -4,10 +4,12 @@
 // or for connect/iterate runs (which must NOT scaffold and don't use this script).
 //
 //   node <SKILL_ROOT>/install/fast-path.mjs --business-name "<Brand>" --plan plan.json \
-//        --vertical <storefront|bookings|…> [--stack astro] [--folder-name <npm-safe-name>] [--flatten]
+//        --vertical <storefront|bookings|…> [--stack astro] [--subfolder [--folder-name <npm-safe-name>]]
 //
-// --flatten (opt-in): leave the project directly in the current directory instead of a subfolder,
-// moving it before the background install starts. Default off — the normal output is a subfolder.
+// The project is created in the CURRENT DIRECTORY — the folder the entry had the agent work from,
+// which already holds the installed skills (`.agents/skills/`), so the project is self-contained
+// and a later session opened in it finds them. `--subfolder` (opt-in) leaves it in a new folder
+// named after the business instead, for a current folder that must stay as it is.
 //
 // It emits ONE JSON event per line and exits in ~35s with BOTH long steps — the dependency
 // install AND the seed — running detached in the background (logs + completion markers
@@ -37,8 +39,8 @@ const businessName = flag("business-name");
 const planPath = flag("plan");
 const vertical = flag("vertical");
 const stack = flag("stack") ?? "astro";
-// Opt-in: leave the project in the current directory (flat) instead of a subfolder.
-const flatten = argv.includes("--flatten");
+// Opt-in: keep the project in a subfolder instead of the current directory.
+const subfolder = argv.includes("--subfolder");
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong
 // seed against the plan — fail loudly with the discovered choices instead.
 const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
@@ -56,9 +58,9 @@ const plan = JSON.parse(readFileSync(planPath, "utf8"));
 const folderName =
   flag("folder-name") ??
   businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-// `let`: after deploy we flatten the scaffold up into the repo root and repoint
-// projectDir there, so the detached install/seed and every reported path use the
-// final location.
+// `let`: the Wix CLI can only scaffold into a subfolder; by default we then move the scaffold up
+// into the current directory and repoint projectDir there, so the detached install/seed and every
+// reported path use the final location.
 let projectDir = resolve(process.cwd(), folderName);
 
 // ---- 1 · scaffold -------------------------------------------------------------------------------
@@ -108,25 +110,28 @@ try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going with raw
 if (deployResult.error) fail("deploy", deployResult.error);
 emit("deployed", deployResult);
 
-// ---- 2c · optional --flatten: move the scaffold into the current directory ----------------------
-// OFF by default — the normal output is a self-contained subfolder, unchanged. Opt in when the
-// caller wants the project directly in the current directory (e.g. bootstrapping into an existing
-// repo that must stay one flat tree). Done HERE, before the detached install below, on purpose:
-// no node_modules exists yet, so the move is instant and cannot collide with a running install —
-// the failure mode when a project is flattened by hand after the background install has started.
-// A pure move: the scaffold was created with --skip-git (above), so there is no nested repo to
-// reconcile — git is whatever the destination already is.
+// ---- 2c · place the project in the current directory --------------------------------------------
+// The default. The Wix CLI scaffolds into a subfolder, so the scaffold is moved up into the current
+// directory — the folder that already holds the installed skills — and the subfolder removed. Done
+// HERE, before the detached install below, on purpose: no node_modules exists yet, so the move is
+// instant and cannot collide with a running install. A pure move: the scaffold was created with
+// --skip-git, so there is no nested repo to reconcile — git is whatever the folder already is.
+// Refuses rather than overwrite: an entry that already exists in the current directory stops the
+// move before anything is touched. `--subfolder` skips this step.
 const targetDir = process.cwd();
-if (flatten && projectDir !== targetDir) {
+if (!subfolder && projectDir !== targetDir) {
+  const entries = readdirSync(projectDir);
+  const clashes = entries.filter((e) => existsSync(join(targetDir, e)));
+  if (clashes.length) {
+    fail("place", `the current directory already has: ${clashes.join(", ")} — run with --subfolder to keep the project in ${folderName}/, or start in an empty folder`);
+  }
   try {
-    for (const entry of readdirSync(projectDir)) {
-      renameSync(join(projectDir, entry), join(targetDir, entry));
-    }
+    for (const entry of entries) renameSync(join(projectDir, entry), join(targetDir, entry));
     rmSync(projectDir, { recursive: true, force: true });
     projectDir = targetDir;
-    emit("flattened", { into: targetDir });
+    emit("project_placed", { into: targetDir });
   } catch (e) {
-    fail("flatten", e?.stack || e);
+    fail("place", e?.stack || e);
   }
 }
 

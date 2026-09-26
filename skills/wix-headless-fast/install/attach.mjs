@@ -5,7 +5,7 @@
 // fast-path.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
 //
 //   node <SKILL_ROOT>/install/attach.mjs --site <metaSiteId> --business-name "<Brand>" \
-//        --vertical <a>[,<b>…] [--stack astro|react|static] [--folder-name <name>] [--flatten]
+//        --vertical <a>[,<b>…] [--stack astro|react|static] [--subfolder [--folder-name <name>]]
 //
 // --business-name  the site's name (names the folder, the hosting slug and the app project).
 // --vertical       which shipped code deploys (no seed runs — the site owns its content). Both are
@@ -13,7 +13,9 @@
 // --stack       astro (default): scaffolds the CLI's blank Astro template with the hosting adapter,
 //               ready for `wix build` / `wix release`. react|static: writes wix.config.json into the
 //               folder and stops — the caller scaffolds (Vite / plain HTML) per SKILL.md.
-// --flatten     leave the project directly in the current directory instead of a subfolder.
+// The project is created in the CURRENT DIRECTORY — the folder that already holds the installed
+// skills — so it is self-contained. `--subfolder` (opt-in) creates it in a new folder named after
+// the business instead.
 //
 // Emits ONE JSON event per line (attached, scaffolded, deployed, install_started,
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@latest whoami`)
@@ -44,7 +46,7 @@ const flag = (name) => {
 };
 const siteId = flag("site");
 const stack = flag("stack") ?? "astro";
-const flatten = argv.includes("--flatten");
+const subfolder = argv.includes("--subfolder");
 const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
   .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
   .map((d) => d.name);
@@ -90,8 +92,8 @@ async function call(base, path, { method = "POST", token, site, body, query } = 
 }
 
 const folderName = flag("folder-name") ?? (businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "site");
-let projectDir = resolve(process.cwd(), folderName);
-if (existsSync(join(projectDir, "wix.config.json"))) fail("args", `${folderName}/ is already a Wix project — pick --folder-name, or run deploy.mjs there`);
+const projectDir = subfolder ? resolve(process.cwd(), folderName) : process.cwd();
+if (subfolder && existsSync(join(projectDir, "wix.config.json"))) fail("args", `${folderName}/ is already a Wix project — pick --folder-name, or run deploy.mjs there`);
 
 // ---- 1 · attach: OAuth app + hosting + env, on the manage host with a site token -----------------
 // The same calls `init` makes after it has created a site, in the same order.
@@ -160,7 +162,7 @@ if (stack === "astro") {
   if (clone.status !== 0) fail("scaffold", clone.stderr || "git clone of the template repo failed");
   const sparse = spawnSync("git", ["-C", tmp, "sparse-checkout", "set", TEMPLATE_PATH], { encoding: "utf8", timeout: 60_000 });
   if (sparse.status !== 0 || !existsSync(join(tmp, TEMPLATE_PATH, "package.json"))) fail("scaffold", sparse.stderr || `template ${TEMPLATE_PATH} not found in ${TEMPLATES_REPO}`);
-  cpSync(join(tmp, TEMPLATE_PATH), projectDir, { recursive: true });
+  cpSync(join(tmp, TEMPLATE_PATH), projectDir, { recursive: true, force: false, errorOnExist: false });
   rmSync(tmp, { recursive: true, force: true });
   const pkgPath = join(projectDir, "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -227,18 +229,7 @@ let deployResult = {};
   emit("deployed", deployResult);
 }
 
-// ---- 4 · optional --flatten ---------------------------------------------------------------------
-const targetDir = process.cwd();
-if (flatten && projectDir !== targetDir) {
-  try {
-    for (const entry of readdirSync(projectDir)) renameSync(join(projectDir, entry), join(targetDir, entry));
-    rmSync(projectDir, { recursive: true, force: true });
-    projectDir = targetDir;
-    emit("flattened", { into: targetDir });
-  } catch (e) { fail("flatten", e?.stack || e); }
-}
-
-// ---- 5 · dependency install, detached -----------------------------------------------------------
+// ---- 4 · dependency install, detached -----------------------------------------------------------
 const installLog = join(projectDir, "npm-install.log");
 const logFd = openSync(installLog, "a");
 const install = spawn("sh", ["-c", "npm ci --ignore-scripts || npm install --ignore-scripts"], { cwd: projectDir, detached: true, stdio: ["ignore", logFd, logFd] });

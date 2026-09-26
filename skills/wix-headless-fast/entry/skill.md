@@ -41,7 +41,13 @@ hand off:
 The bootstrap only verifies the CLI and logs you in, so it's fine to run in every case (an
 existing session just reports `logged_in`).
 
-## Phase 0 — Node (the one manual prerequisite)
+## Phase 0 — The project's folder, and Node
+
+**Work from the folder that will hold the project.** For a **new** build: an empty folder is the
+project; if the current folder is not empty, make one named for the business and `cd` into it.
+For **connect**, **iterate** and **existing site**: you are already in it. Everything below — the
+bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
+finds all of it.
 
 The Wix CLI requires **Node ≥ 20.11**. Check `node -v`; if it errors or prints a lower
 version, install or upgrade Node first — do **not** work around it:
