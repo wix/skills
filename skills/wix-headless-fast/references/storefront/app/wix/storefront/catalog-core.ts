@@ -232,7 +232,10 @@ export function toModifiers(raw: Raw): ProductModifier[] {
 }
 
 /** Variants keyed by optionName → choiceName. Buyable when in stock OR pre-orderable. */
-export function toVariants(raw: Raw): ProductVariant[] {
+// `variant.media` is read-only on the API: Wix derives it from the media linked to the variant's
+// choice (a product with several options derives it only when the choices agree). Mapped to a
+// URL so a PDP can show the selected variant's picture without knowing how Wix derives it.
+export function toVariants(raw: Raw, imgSrc: ImgSrc): ProductVariant[] {
   return ((raw.variantsInfo?.variants ?? []) as Raw[])
     .filter((v) => v.visible !== false)
     .map((v) => {
@@ -242,6 +245,7 @@ export function toVariants(raw: Raw): ProductVariant[] {
         if (on && cn) choices[on] = cn;
       }
       const { current, original } = sellingPrice(v.price);
+      const vm = v.media ? (v.media.image ?? v.media) : null;
       return {
         variantId: id(v),
         choices,
@@ -249,6 +253,7 @@ export function toVariants(raw: Raw): ProductVariant[] {
         compareAtPrice: strike(original, current),
         inStock: v.inventoryStatus?.inStock !== false,
         preorderEnabled: v.inventoryStatus?.preorderEnabled === true,
+        imageUrl: vm ? imgSrc(vm, 1200, 1200) || null : null,
       };
     });
 }
@@ -264,7 +269,7 @@ export function toDetail(raw: Raw, imgSrc: ImgSrc, mediaKey: MediaKey): ProductD
     gallery: mediaEntries(raw, mediaKey).map((m) => imgSrc(m, 1200, 1200)).filter(Boolean),
     options: toOptions(raw),
     modifiers: toModifiers(raw),
-    variants: toVariants(raw),
+    variants: toVariants(raw, imgSrc),
   };
 }
 

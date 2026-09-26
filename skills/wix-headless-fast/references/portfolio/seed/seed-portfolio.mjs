@@ -125,22 +125,25 @@ export { importImage } from "../../shared/seed/images.mjs";
 // Cover = the listing-card thumbnail. PATCH per entity, echoing the current revision (missing/
 // stale revision fails); height + width are required alongside the imported file id.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/update-project.md
-export async function attachProjectCovers(ctx, items) {
+// One PATCH per entity; a failure on one must not cost the rest theirs. Returns
+// { attached: [id], failures: [{ id, error }] } — the caller counts what persisted, not what was sent.
+async function attachEach(ctx, items, urlOf, bodyOf) {
+  const attached = [];
+  const failures = [];
   for (const it of items) {
-    await req(ctx, `/portfolio/v1/projects/${it.id}`, {
-      method: "PATCH",
-      body: { project: { id: it.id, revision: it.revision, coverImage: { imageInfo: { id: it.imageId, height: it.height, width: it.width } } } },
-    });
+    try { await req(ctx, urlOf(it), { method: "PATCH", body: bodyOf(it) }); attached.push(it.id); }
+    catch (e) { failures.push({ id: it.id, error: e?.message ?? String(e) }); }
   }
+  return { attached, failures };
+}
+export async function attachProjectCovers(ctx, items) {
+  return attachEach(ctx, items, (it) => `/portfolio/v1/projects/${it.id}`,
+    (it) => ({ project: { id: it.id, revision: it.revision, coverImage: { imageInfo: { id: it.imageId, height: it.height, width: it.width } } } }));
 }
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/update-collection.md
 export async function attachCollectionCovers(ctx, items) {
-  for (const it of items) {
-    await req(ctx, `/portfolio/v1/collections/${it.id}`, {
-      method: "PATCH",
-      body: { collection: { id: it.id, revision: it.revision, coverImage: { imageInfo: { id: it.imageId, height: it.height, width: it.width } } } },
-    });
-  }
+  return attachEach(ctx, items, (it) => `/portfolio/v1/collections/${it.id}`,
+    (it) => ({ collection: { id: it.id, revision: it.revision, coverImage: { imageInfo: { id: it.imageId, height: it.height, width: it.width } } } }));
 }
 
 // The detail-page gallery is a SEPARATE `item` entity — one POST per image; sortOrder (1,2,3…)
@@ -218,23 +221,18 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
       ? { id: c.id, revision: c.revision, imageId: files[colCoverAt + i].id, ...dims }
       : null))
     .filter(Boolean);
+  // coversAttached counts the PATCHes that succeeded; coverFailures names the rest. Neither blocks the seed.
   let coversAttached = 0;
-  try {
-    if (projCovers.length) { await attachProjectCovers(ctx, projCovers); coversAttached += projCovers.length; }
-  } catch {
-    /* those projects stay cover-less */
-  }
-  try {
-    if (colCovers.length) { await attachCollectionCovers(ctx, colCovers); coversAttached += colCovers.length; }
-  } catch {
-    /* those collections stay cover-less */
-  }
+  const coverFailures = [];
+  if (projCovers.length) { const r = await attachProjectCovers(ctx, projCovers); coversAttached += r.attached.length; coverFailures.push(...r.failures.map((f) => ({ project: f.id, error: f.error }))); }
+  if (colCovers.length) { const r = await attachCollectionCovers(ctx, colCovers); coversAttached += r.attached.length; coverFailures.push(...r.failures.map((f) => ({ collection: f.id, error: f.error }))); }
 
   return {
     collections: cols,
     projects: projs,
     itemsCreated: items.length,
     coversAttached,
+    coverFailures,
   };
 }
 
