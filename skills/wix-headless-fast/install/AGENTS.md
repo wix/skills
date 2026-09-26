@@ -6,8 +6,7 @@ node_modules/@wix/cli/agents/instructions.md
 ## This app
 
 A Wix Headless app built on the live Wix site named in `wix.config.json`. The site owns the
-content and commerce. A code change here reaches the site only through a release; verified on a
-dev server is not done.
+content and commerce.
 
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
 field name or a body. Every Wix call you write comes from the official Wix skills installed here,
@@ -21,7 +20,7 @@ Installed at `.agents/skills/`. If missing, restore with:
 
 - `{{SKILL}}` — the code in this app and how to extend it. Each business solution has a playbook at
   `references/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
-  adds one.
+  adds one. A code change ends with a release; the live URL shows it, the dev server does not count.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
   is confirmed there before you write it.
