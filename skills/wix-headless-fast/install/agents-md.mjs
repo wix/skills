@@ -12,20 +12,28 @@ import { fileURLToPath } from "node:url";
 
 const TEMPLATE = join(dirname(fileURLToPath(import.meta.url)), "AGENTS.md");
 
+// The three files, as the CLI names them. Exported so fast-path can drop the CLI's own copies from
+// the scaffold before moving it up (ours replaces them; a file the USER already has is kept).
+export const AGENT_CONFIG_FILES = ["AGENTS.md", "CLAUDE.md", ".gemini"];
+
 export function writeAgentsMd(projectDir, vars) {
-  const written = [];
+  const written = [], kept = [];
   const agents = join(projectDir, "AGENTS.md");
-  if (!existsSync(agents)) {
+  if (existsSync(agents)) kept.push("AGENTS.md");
+  else {
     const text = readFileSync(TEMPLATE, "utf8").replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k.toLowerCase()] ?? "");
     writeFileSync(agents, text); written.push("AGENTS.md");
   }
   const claude = join(projectDir, "CLAUDE.md");
-  if (!existsSync(claude)) { writeFileSync(claude, "@AGENTS.md"); written.push("CLAUDE.md"); }
+  if (existsSync(claude)) kept.push("CLAUDE.md");
+  else { writeFileSync(claude, "@AGENTS.md"); written.push("CLAUDE.md"); }
   const gemini = join(projectDir, ".gemini", "settings.json");
-  if (!existsSync(gemini)) {
+  if (existsSync(gemini)) kept.push(".gemini/settings.json");
+  else {
     mkdirSync(join(projectDir, ".gemini"), { recursive: true });
     writeFileSync(gemini, JSON.stringify({ contextFileName: "AGENTS.md" }, null, 2) + "\n");
     written.push(".gemini/settings.json");
   }
-  return written;
+  // kept: the folder already had its own — left untouched, so it says nothing about these skills
+  return { written, kept };
 }

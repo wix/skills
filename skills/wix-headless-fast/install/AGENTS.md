@@ -8,8 +8,9 @@ node_modules/@wix/cli/agents/instructions.md
 A Wix Headless app built on the live Wix site named in `wix.config.json`. The site owns the
 content and commerce.
 
-**No Wix endpoint, body or field from memory.** Every Wix call comes from the skills below or the
-code they deployed.
+**Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
+field name or a body. Every Wix call comes from a source open in front of you: the skills below, or
+the code they deployed. No source open, no call.
 
 ## Skills
 

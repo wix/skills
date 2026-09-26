@@ -214,7 +214,7 @@ writeFileSync(join(projectDir, ".env.local"), [
 ].join("\n"));
 emit("scaffolded", { folder: folderName, stack, template: stack === "astro" ? `${TEMPLATES_REPO}#${TEMPLATE_PATH}` : null });
 // the agent config files `wix create` writes (attach never runs the CLI's scaffold at all)
-emit("agent_configs", { written: writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }) });
+emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
 
 if (stack !== "astro") {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
