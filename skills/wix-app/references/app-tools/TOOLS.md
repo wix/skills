@@ -25,6 +25,7 @@ export default extensions.appTools({
   tools: [
     {
       methodName: 'get-order-status',
+      displayName: 'Get Order Status',
       description: 'Returns the current fulfillment status, shipping carrier, and tracking number for a customer order. Use this tool when a collaborator or customer asks where their order is, whether it has shipped, when it will arrive, or needs a tracking number. Requires a valid orderId.',
       requestSchema: {
         type: 'object',
@@ -52,9 +53,10 @@ export default extensions.appTools({
 | --- | --- | --- | --- |
 | `methodName` | `string` | Yes | Unique word identifying the tool. Used to route calls in the service plugin handler. 1–30 characters. |
 | `description` | `string` | Yes | Natural-language description the AI assistant uses to decide when to invoke this tool. Write it like a prompt: state what the tool does, list the user intents or trigger phrases that should activate it, and describe what it returns. A narrow one-liner reduces relevance matching — prefer 2–4 sentences covering intent, triggers, and output. 10–1000 characters. |
+| `displayName` | `string` | No | Human-readable name for the tool, shown in AI agent UIs. 2–50 characters. The CLI's generated stub always fills this in — keep it when you replace the stub tool. |
 | `requestSchema` | `Record<string, any>` | No | JSON Schema describing the tool's request payload. The AI assistant uses this for context — it is NOT validated by Wix at call time. |
 | `responseSchema` | `Record<string, any>` | No | JSON Schema describing the tool's response payload. |
-| `activated` | `boolean` | Yes | Only tools with `activated: true` are called by the AI assistant. |
+| `activated` | `boolean` | No | Only tools with `activated: true` are called by the AI assistant. **Defaults to `false` if omitted** — there's no build-time or generate-time error for leaving it out, so a forgotten `activated` silently produces a tool the assistant will never call. Always set it explicitly. |
 
 ## Important Constraints
 

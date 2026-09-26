@@ -5,6 +5,8 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 **Important:** This extension automatically enables the site's code editor, which is required for the Wix Data APIs to work. Without this extension, apps using Data APIs would need the Wix user to manually enable the code editor on their site, which isn't guaranteed. With the data collections extension, your app can reliably use Data APIs to read and write data in the collections.
 
+> **Verifying collections were actually created:** Check the site's CMS dashboard (`/wix-cms`) directly — collections show up there correctly and promptly after a release + app update. The [List Data Collections](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/list-data-collections) REST endpoint is **not** a reliable way to verify this: confirmed live, it only returned pre-existing `collectionType: "WIX_APP"` system collections and never included our app's own custom collections, even though they were correctly visible and fully functional in the CMS dashboard UI the whole time. Don't conclude collections are missing based on that endpoint alone. Most sites already have the CMS (Content Manager) app installed, so `/wix-cms` is usually there — but if that page 404s or shows no CMS entry at all, ask the user to confirm the CMS app is installed on the site before assuming the collection itself failed to create.
+
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The only other param is `collectionName` (1-36 chars: letters, numbers, underscores, hyphens) — fields, permissions, displayName overrides, etc. are all edited after scaffolding in the generated file.
@@ -91,7 +93,7 @@ export default {
 }
 ```
 
-> ⚠️ `objectOptions: {}` (without the `fields` key) is **not valid** and will cause a runtime error. Always include `fields`, even as an empty array.
+> ⚠️ `objectOptions: {}` (without the `fields` key) fails **TypeScript compilation** — `DevCenterDataCollectionObjectOptions` requires `fields` once `objectOptions` is present, so `wix build`/`astro check` reports `ts(2741): Property 'fields' is missing in type '{}'...`. Omitting `objectOptions` entirely on an `OBJECT` field, by contrast, passes TypeScript (the property is optional on the field itself) — that mistake is only caught by the live API when the collection is released. Always include `fields`, even as an empty array, so both checks pass.
 
 For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
 

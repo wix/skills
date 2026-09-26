@@ -66,8 +66,7 @@ Slots are UI placeholders on dashboard pages of Wix first-party business apps. E
   | Name | Type | Description |
   |------|------|-------------|
   | `staffResourceId` | String | Staff resource ID |
-  | `scheduleId` | String | Schedule ID |
-  | `timezone` | String | Time zone |
+  | `staffId` | String | Staff member ID |
 - **Multi-plugin:** Vertical, newest at top
 - **Use case:** Display staff availability analytics or performance metrics.
 

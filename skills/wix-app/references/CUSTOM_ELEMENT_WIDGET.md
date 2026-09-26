@@ -150,6 +150,7 @@ When using the Wix Data API in widgets, you **must** handle the Wix Editor envir
 
 **Requirements (both patterns):**
 
+- Install `@wix/site-window` if not already present: `npm install @wix/site-window`. It is not part of the CLI's base scaffold and must be added separately.
 - Import `{ window as wixWindow }` from `'@wix/site-window'`.
 - Check `await wixWindow.viewMode()` before fetching data.
 - If `viewMode === 'Editor'`, render a placeholder instead of fetching.

@@ -141,6 +141,7 @@ worth emphasizing, not the whole of what a reviewer may raise about the writing.
 - The skill names no MCP tool, agent, client, provider, model or device — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
 - Instructions are ones [an agent can act on](#orchestration-and-worked-examples): no hedging where a decision is required, and steps whose order matters are written as an order.
 - Mutating flows [ask for user confirmation](#stay-agnostic-to-agent-and-client) before changing site or account data.
+- The content describes the topic, not its own edit history. A line like *"Split out of X.md so..."* or *"extracted from Y"* explains this PR's refactor, not the thing a reader came for — it belongs in the PR description or commit message, not in a file that ships to every future reader and agent. Run `node scripts/check-pr-content.mjs --base=main` before opening the PR — it also flags a `SKILL.md` over ~500 lines, a reference file over ~300 lines with no table of contents, and dead relative links.
 
 **Eval scenario content** — see [What a Scenario Must Test](docs/eval-scenarios.md#what-a-scenario-must-test)
 
