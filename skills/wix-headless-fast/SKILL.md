@@ -129,13 +129,19 @@ doesn't express — or once the site exists and the work turns to managing or ex
      to a new site (the site is named after the folder), then the shipped code deploys into
      the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
      project what that stack needs on Wix hosting (step 1) before or right after the call.
-   - **`wix.config.json` present** → refuses: the folder is already a Wix project, whether the
-     CLI made it, a hand wrote it, or this skill built it. Three commands from the project root
-     do everything setup would: `deploy.mjs <vertical…> --stack <stack>` adds this skill's code
-     or a solution (the client id is read from the config), then ONE install, then the seed
-     module if there is content to create. A project this skill built needs only the first,
-     for a new solution; a change to what is built is file edits and a release.
-   - The brief names a site by id → the existing-site path below, not this call.
+   - **`wix.config.json` and a project** → refuses: the folder is already a Wix project with a
+     frontend, whether the CLI made it, a hand wrote it, or this skill built it. Three commands
+     from the project root do everything setup would: `deploy.mjs <vertical…> --stack <stack>`
+     adds this skill's code or a solution (the client id is read from the config), then ONE
+     `npm install`, then the seed module if there is content to create. A project this skill
+     built needs only the first, for a new solution; a change to what is built is file edits
+     and a release.
+   - **`wix.config.json` and no project** (what `init` leaves in an empty folder) → the site
+     exists and has no frontend yet: `attach.mjs` (below), which takes the site from the config,
+     reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
+   - The brief names a site by id → the existing-site path below, not this call. In a folder
+     that already holds a project, attach writes the config into it and deploys for `--stack`
+     instead of scaffolding.
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
