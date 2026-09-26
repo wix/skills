@@ -182,7 +182,38 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 
 ### STEP 5: Handling pagination
 
-When there are more products than the page limit, use cursor-based or offset-based paging:
+**⚠️ `offset` paging is capped at `offset + limit ≤ 10,000`.** Past that, the request fails or silently truncates — so offset paging can never walk a full catalog larger than ~10k products. Use `offset` only for a one-off "show page N" request against a small, already-filtered result set. For listing, counting, or exporting the catalog — anything that walks every product — use `cursorPaging` instead. A cursor has no depth limit: paging a 50k-product catalog in pages of 100 takes ~500 calls and never hits the cap, because the engine continues from a bookmark instead of re-sorting and skipping N rows.
+
+**Cursor paging (default for listing/counting/exporting):**
+
+First call — omit `cursor`:
+
+```json
+{
+  "query": {
+    "cursorPaging": {
+      "limit": 100
+    }
+  }
+}
+```
+
+Each later call sends back the cursor from the previous response's `pagingMetadata.cursors.next`:
+
+```json
+{
+  "query": {
+    "cursorPaging": {
+      "limit": 100,
+      "cursor": "<pagingMetadata.cursors.next>"
+    }
+  }
+}
+```
+
+Stop when `pagingMetadata.cursors.next` is empty or absent — that's the last page.
+
+**Offset paging (only for "show page N" on a small, filtered result set):**
 
 ```json
 {
@@ -195,7 +226,7 @@ When there are more products than the page limit, use cursor-based or offset-bas
 }
 ```
 
-Check the response `pagingMetadata` to determine if more pages exist.
+Never let `offset + limit` exceed 10,000. If you need page N of a large or unfiltered catalog, narrow the result set first (e.g. `visible`, date range, category) or switch to `cursorPaging`.
 
 ---
 
@@ -206,6 +237,8 @@ Check the response `pagingMetadata` to determine if more pages exist.
 - Default fields include: `id`, `name`, `slug`, `visible`, `productType`, `inventory`, `media`, `createdDate`, `updatedDate`.
 - **Availability is not in STEP 4's filterable set.** To list out-of-stock products, query the catalog — paging until `pagingMetadata` reports no more results — and select on each returned product's `inventory` availability status in your own code, rather than putting it in `query.filter`.
 - The `fields` parameter adds fields **on top of** the defaults — you never need to request `id` or `name` explicitly.
+- **Never report `pagingMetadata.count` (or a count you stopped at) as the exact product count once it reads exactly `10,000`.** A search-backed total commonly caps its reported count at that number even when the real catalog is much larger — reading it as ground truth understates the count with no error. If you need an exact total, walk `cursorPaging` to the end and count the products yourself, or ask whether a dedicated count endpoint exists for this catalog before trusting `count`.
+- **Narrow before you page.** Filters like `visible`, date ranges, or categories keep each result set small, which limits how much cursor-paging work is needed and avoids offset-cap edge cases entirely.
 
 ## Conclusion
 
