@@ -1,0 +1,63 @@
+name: google-ads/manage-campaign-success-guide-merchant-center
+description: >-
+  Verifies the agent offers to link Google Merchant Center for a supplied
+  GOOGLE_MERCHANT_CENTER_CONNECTION suggestion, resolves an existing account ID
+  before asking the user, and only updates the account after approval.
+triggerPrompt: |-
+  I opened the campaign success guide for the Google Ads lead campaign on my
+  Wix site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e). It says I still need
+  to connect Google Merchant Center. What should I do next? Don't change
+  anything until I approve it.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/manage-a-campaign-success-guide
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response:
+      - presents the suggestion as a single self-contained task with a clear
+        user-facing label, describes the change first, then states plainly
+        that the agent will make the connection once approved — this is one
+        of the few agent-performed suggestion types, so it must not be framed
+        as something the user has to do manually;
+      - never shows a tracking-status word like "Pending" or "Marked complete"
+        for this task, and adds no CTA to it (this task carries no navigation
+        link — its own offer is the action);
+      - reads the selected site's Google Ads account (GET
+        https://www.wixapis.com/_serverless/pa-google/v1/accounts/current-site)
+        at most once to check for an existing `merchantCenterAccountId` before
+        asking the user for one;
+      - if no account ID is available from that read, asks the user for the
+        Merchant Center account ID rather than guessing or inventing one;
+      - does not call the account-update mutation before the user approves it,
+        consistent with "don't change anything until I approve it"; and
+      - if it describes what happens once approved, explains that the link
+        starts as `PENDING` and the account's owner may still need to approve
+        it on Google's side.
+
+      Fail if it invents suggestions, changes anything despite the user's
+      instruction, shows any tracking status to the user, adds a CTA to this
+      task, guesses or invents a Merchant Center account ID, calls the
+      account-update mutation without approval, claims the connection is fully
+      active without noting the pending/owner-approval step, probes other
+      sites, or receives a non-2xx response it doesn't surface.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent handled the request. Examine the tool-call
+      trace. Score 0-10, where 10 is a direct path: read the campaign success
+      guide documentation, read the site's Google Ads account at most once to
+      check for an existing Merchant Center account ID, and stop at an inline
+      offer awaiting approval without mutating anything.
+
+      Penalize using another site, probing multiple sites, guessing an account
+      ID, calling the update mutation before approval, redundant confirmation
+      once approval is clearly given, any non-2xx call even if recovered,
+      redundant documentation, and internal service or tool names in the
+      user-facing answer. Name the likely recipe, MCP, or docs gap for each
+      detour. Return only {"score":<0-10>,"reason":"<terse findings or clean
+      path>"}.

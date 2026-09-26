@@ -1,15 +1,15 @@
 name: google-ads/manage-campaign-success-guide-rich-output
 description: >-
-  Verifies the agent presents returned campaign success guide suggestions as an
-  actionable plan, consolidates repeated Editor navigation into one
-  destination-specific CTA, and offers to perform supported campaign and
-  account work after approval.
+  Verifies the agent presents supplied campaign success guide suggestions as
+  independent, self-contained tasks — each with its own destination-specific
+  CTA and its own inline offer to help, no shared navigation block, and no
+  visible tracking status.
 triggerPrompt: |-
   I opened the campaign success guide for the Google Ads lead campaign on my
   Wix site (MSID: b342a30b-616e-40ce-ad26-52a83397e08e). It says I still need
   to clarify the main call-to-action button, move that action above the fold,
-  configure Google Ads search themes, and connect Merchant Center, in that
-  order. What should I do next? Don't change anything until I approve it.
+  and configure Google Ads search themes, in that order. What should I do
+  next? Don't change anything until I approve it.
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
@@ -20,49 +20,48 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - presents exactly the four supplied suggestions in their priority order,
-        with clear user-facing labels, clearly communicates that the supplied
-        items are pending, and gives a concrete next step for each rather than
-        returning a bare list of enum values;
-      - gives the two landing-page tasks one shared Editor CTA after the task
-        list, using the exact Editor URL resolved for site
-        b342a30b-616e-40ce-ad26-52a83397e08e. If that read-only lookup cannot
-        return an exact URL, it clearly says the Editor link is unavailable
-        instead of guessing one. It never repeats an Editor link per task or
-        labels it "Open in Wix";
-      - includes one Google Ads dashboard link after the task list, using
-        https://manage.wix.com/dashboard/b342a30b-616e-40ce-ad26-52a83397e08e/google-ads
-        and CTA text that names Google Ads or the campaign action rather than
-        "Open in Wix";
+      - presents the three supplied suggestions as independent, self-contained
+        tasks in their priority order, each with a clear user-facing label and
+        a concrete next step, rather than a bare list of enum values;
+      - never shows a tracking-status word like "Pending" or "Marked complete"
+        for any task;
+      - gives each of the two landing-page tasks its own Editor CTA, using the
+        exact Editor URL resolved for site b342a30b-616e-40ce-ad26-52a83397e08e,
+        even though both point to the same destination. It never merges them
+        into one shared link after the list, never labels the CTA "Open in
+        Wix", and if the read-only lookup cannot return an exact URL it says
+        the Editor link is unavailable instead of guessing one;
+      - does not add any CTA to the search-themes task, since that offer has
+        not been approved and applied yet; and
       - offers to generate and apply search themes only after the user reviews
-        and approves the proposed set; and
-      - offers to link Merchant Center after the account ID and update are
-        approved, noting that Google-side owner approval may still be required.
+        and approves the proposed set, phrased as part of that task itself
+        rather than a separate closing question.
 
       Fail if it invents suggestions, retrieves the already-supplied guide or
-      changes anything despite the user's instruction, labels navigation URLs
-      generically as "Open in Wix", repeats the Editor link beside multiple
-      tasks, guesses an Editor URL, tells the user to perform agent-supported
-      Google Ads work manually without offering help, presents a supplied item
-      as completed, or claims that marking a guide item complete implements its
-      underlying change.
+      changes anything despite the user's instruction, shows any tracking
+      status to the user, merges the two Editor links into one shared or
+      closing block, labels a CTA generically as "Open in Wix", guesses an
+      Editor URL, adds a Google Ads or search-themes CTA before that offer is
+      approved and applied, tells the user to perform agent-supported Google
+      Ads work manually without offering help, or claims that marking a guide
+      item complete implements its underlying change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent turned the supplied API result into a useful
-      guide. Examine the tool-call trace. Score 0-10, where 10 means it reads the
-      campaign success guide documentation directly, preserves the user's order,
-      resolves site b342a30b-616e-40ce-ad26-52a83397e08e's Editor URL without
-      guessing, consolidates shared navigation at the bottom, gives each link a
-      destination-specific CTA, makes one concise offer for supported work, and
-      performs no guide retrieval or mutation. An explicit Editor-link
-      unavailable state is acceptable only after the exact URL cannot be
-      resolved; the Google Ads route is still required.
+      guide. Examine the tool-call trace. Score 0-10, where 10 means it reads
+      the campaign success guide documentation directly, preserves the user's
+      order, resolves site b342a30b-616e-40ce-ad26-52a83397e08e's Editor URL
+      without guessing, gives each task its own CTA, makes one inline offer per
+      agent-doable task, and performs no guide retrieval or mutation. An
+      explicit Editor-link-unavailable state is acceptable only after the exact
+      URL cannot be resolved.
 
       Penalize using another site, generic "Open in Wix" labels, generic
-      optimization advice, repeated links or approval questions, guessed URLs,
-      unsupported automation claims, redundant docs or probing, any non-2xx
-      call, and internal service or tool names in the user-facing answer. Name
-      the likely recipe, MCP, or docs gap for each detour. Return only
+      optimization advice, a shared or deduplicated CTA block, a CTA added to
+      the still-pending search-themes task, guessed URLs, unsupported
+      automation claims, redundant docs or probing, any non-2xx call, and
+      internal service or tool names in the user-facing answer. Name the
+      likely recipe, MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
