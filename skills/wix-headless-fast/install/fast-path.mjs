@@ -13,7 +13,7 @@
 // install AND the seed — running detached in the background (logs + completion markers
 // reported in the final event), so the caller can build the brand layer while they finish.
 // Steps: scaffold (Wix CLI; requires a logged-in session) → deploy shipped code + deps +
-// lockfile → pin AGENTS.md → start `npm ci || npm install` detached → start the seed detached.
+// lockfile → start `npm ci || npm install` detached → start the seed detached.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -107,14 +107,6 @@ let deployResult = {};
 try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going with raw output below */ }
 if (deployResult.error) fail("deploy", deployResult.error);
 emit("deployed", deployResult);
-
-// ---- 2b · record what this project is, for later sessions ---------------------------------------
-const pin = spawnSync(
-  "node",
-  [join(SKILL_ROOT, "install", "pin-agents-md.mjs"), "--vertical", vertical, "--stack", stack],
-  { cwd: projectDir, encoding: "utf8", timeout: 10_000 },
-);
-try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block the build on the note */ }
 
 // ---- 2c · optional --flatten: move the scaffold into the current directory ----------------------
 // OFF by default — the normal output is a self-contained subfolder, unchanged. Opt in when the

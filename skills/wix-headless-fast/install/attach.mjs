@@ -225,8 +225,6 @@ let deployResult = {};
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
   if (deployResult.error) fail("deploy", deployResult.error);
   emit("deployed", deployResult);
-  const pin = spawnSync("node", [join(SKILL_ROOT, "install", "pin-agents-md.mjs"), "--vertical", verticals.join(", "), "--stack", stack], { cwd: projectDir, encoding: "utf8", timeout: 10_000 });
-  try { emit("agents_md", JSON.parse(pin.stdout)); } catch { /* never block on the note */ }
 }
 
 // ---- 4 · optional --flatten ---------------------------------------------------------------------
