@@ -1,7 +1,6 @@
 # Data Collection — permissions
 
-> Split out of [DATA_COLLECTION.md](../DATA_COLLECTION.md). The scaffolded `dataPermissions` are
-> placeholders; set them from this file before shipping.
+> The scaffolded `dataPermissions` are placeholders. Set them from this file before shipping.
 
 ## Permissions
 

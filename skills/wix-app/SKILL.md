@@ -135,8 +135,8 @@ against the real package at build time. Walk them: [The Discovery Chain](referen
 Two paths this skill owns rather than the guides: a **worked router skeleton** for multi-page
 extensions (Cases B/D) is in [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md),
 and a **collection whose fields the CMS owns** is a different package — `useCmsSchemaSource`
-from `@wix/patterns-cms`, plus `tableSchemaSource` and `EntityPageFieldsCard`, where the schema supplies
-fetch, filters, columns and the form. See [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md).
+from `@wix/patterns-cms`, with `EntityPageFieldsCard` from `@wix/patterns/schema`, where the schema
+supplies fetch, filters, columns and the form. See [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md).
 
 The short version — probe `<pkgRoot>/dist/docs/index.json` first (`grep`/`python3`, not a
 whole-file `Read`), then the guides it lists. From

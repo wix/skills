@@ -1,7 +1,8 @@
 # Data Collection — declaring the schema
 
-> Split out of [DATA_COLLECTION.md](../DATA_COLLECTION.md), which owns scaffolding, the file shape
-> and the CLI constraints. This file is the `fields` and `indexes` you write inside it.
+> The `fields` and `indexes` you write inside a collection file.
+> [DATA_COLLECTION.md](../DATA_COLLECTION.md) owns scaffolding, the file shape and the CLI
+> constraints.
 
 ## Field Types
 

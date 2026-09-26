@@ -1,8 +1,7 @@
 # Data Collection — getting it onto the site
 
-> Split out of [DATA_COLLECTION.md](../DATA_COLLECTION.md). Declaring a collection is not the same
-> as creating one: releasing, updating the site, and the CMS prerequisite all sit here, plus what
-> access the extension actually grants.
+> Declaring a collection is not the same as creating one. Releasing, updating the site, the CMS
+> prerequisite, and what access the extension actually grants.
 
 ## Item access and collection management are different scopes
 

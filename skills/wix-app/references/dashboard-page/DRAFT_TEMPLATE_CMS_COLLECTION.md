@@ -1,35 +1,40 @@
 # Draft Template — CMS-backed collection and entity (schema-driven)
 
-> The two data paths are different templates, not variants of one; this is the schema-driven one.
-> [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path) chooses. Converting later rewrites both
-> pages, so settle it first.
+> The schema-driven one of the two data paths;
+> [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path) chooses. Converting later rewrites
+> both pages, so settle it first.
 
 **The tell is where the field list lives.** Columns a CMS schema owns belong here; hand-writing them
-throws away the add/edit-field UI and the field types with them. Columns you chose from a bookings
-row give the schema nothing to read, so [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md)
-is right. Mixing them is the failure this file prevents: a CMS collection wired by hand compiles,
-runs, and silently loses schema-driven columns, field management and the generated form.
+throws away the add/edit-field UI and the field types. Columns you chose from a bookings row give
+the schema nothing to read, so [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) is
+right. A CMS collection wired by hand compiles, runs, and silently loses schema-driven columns,
+field management and the generated form.
 
 **Stop if the prompt names an exact column subset.** This path renders *every* schema field:
-`columns` only adds, no `Field` has a hidden flag, and only the end user's `customColumns` picker
-drops one. A narrower stated column list is the one case a CMS collection is hand-wired —
+`columns` adds extras and can replace a field's column by reusing its id, but removes no field; no
+`Field` has a hidden flag; and only the end user's `customColumns` picker drops one. A narrower stated column list is the one case a CMS collection is hand-wired —
 [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path).
 
-You write a `SchemaSource` and no `columns` prop; `<EntityPageFieldsCard />` renders the whole form.
-The cost is one extra dependency — `@wix/patterns-cms`, plus `@wix/patterns` at the **exact** version
-it pins.
+You write a `SchemaSource` and no field columns; `<EntityPageFieldsCard />` renders the whole form.
+The cost is one dependency — `@wix/patterns-cms`, plus `@wix/patterns` at the **exact** version it
+pins.
 
-## None of these names are in the docs bundle index
+## The docs index answers these names with the wrong version
 
-`useCmsSchemaSource`, and `useTableCollection` / `useEntityPage` / `Table` / `EntityPage` /
-`EntityPageFieldsCard` behind `@wix/patterns/schema`, are exported and usable, and **none appear in
-`dist/dts-bundle/index.json`**. Concluding from that index that they don't exist is how this path
-gets missed — check `dist/types/index.d.ts`, what `tsc` resolves
-([WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong)).
+`Table`, `useTableCollection`, `EntityPage` and `useEntityPage` are in
+`dist/dts-bundle/index.json` as `importPath: @wix/patterns` — the **root, hand-wired** versions. The
+lookup succeeds and returns the signature that cannot read a schema, which is worse than a miss:
+nothing says you're on the wrong path. `SchemaSource` is indexed under `/core`; `useSchemaSource` and
+`EntityPageFieldsCard` are absent, and `useCmsSchemaSource` is in another package.
+
+Resolve every name here from **`dist/types/exports/schema.d.ts`**; the root
+`dist/types/index.d.ts` does not re-export them
+([WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong)). Cairo is adding a
+`variants` field listing both entry points per key; once it ships, pick by `importPath` instead.
 
 ## 1. The schema source
 
-One source backs both pages, and it is a **hook** — no httpClient, no `useMemo` plumbing:
+One source backs both pages, and it is a **hook** — no httpClient, no `useMemo`:
 
 ```tsx
 import { useCmsSchemaSource } from '@wix/patterns-cms';
@@ -42,8 +47,8 @@ interface CmsItem extends Record<string, unknown> {
 const source = useCmsSchemaSource<CmsItem>({ collectionId: COLLECTION_ID });
 ```
 
-Call it on **both** pages — each builds its own source from the same `collectionId`, as
-`example-bm`'s `CmsEntitiesTable` and `CmsSourceEntityPage` do. A hook, not a prop to thread.
+Call it on **both** pages — each builds its own from the same `collectionId`, as `example-bm`'s
+`CmsEntitiesTable` and `CmsSourceEntityPage` do. A hook, not a prop to thread.
 
 `COLLECTION_ID` is the full scoped id — `<app-namespace>/<idSuffix>` for a collection your extension
 ships ([DATA_COLLECTION.md](../DATA_COLLECTION.md)).
@@ -53,29 +58,22 @@ ships ([DATA_COLLECTION.md](../DATA_COLLECTION.md)).
 leave it off unless you want that UI.
 
 **Install both, and match the pin — a floor is not enough.** `@wix/patterns-cms` depends on an
-**exact** `@wix/patterns` version (no caret) — `patterns-cms@1.56.0` requires precisely
-`@wix/patterns@1.472.0`. Install that version, or npm keeps a second copy and the two halves of the page
-land on different React contexts. Never hardcode the pair — read it out of the installed package:
+**exact** `@wix/patterns` version (no caret). Install that exact version, or npm keeps a second copy
+and the two halves of the page land on different React contexts. Never hardcode the pair — read it
+off the installed package, then confirm one copy survives: a second line is a bug `tsc` and
+`wix build` both pass. (`@wix/patterns-fields` is pinned too, but it is `patterns-cms`'s own
+dependency — let npm pull it in.)
 
 ```bash
 npm install @wix/patterns-cms
 npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
 npm dedupe
-```
-
-`@wix/patterns-fields` is pinned exactly too, but it is `patterns-cms`'s own dependency — let npm
-pull it in rather than adding it yourself.
-
-Then confirm exactly one copy survives — a second line is a bug both `tsc` and `wix build` pass:
-
-```bash
 find node_modules -path '*@wix/patterns/package.json' -not -path '*/dist/*'
 ```
 
 ## 2. Collection page
 
-Import the collection hook and `Table` from **`@wix/patterns/schema`**, not from the root — the
-root exports are the hand-wired versions and will not read a schema.
+Import the collection hook and `Table` from **`@wix/patterns/schema`** — see above.
 
 ```tsx
 import { CollectionPage } from '@wix/patterns/page';
@@ -192,7 +190,7 @@ export const FeatureEntityPage: FC = () => {
 ```
 
 `entityId: undefined` makes it a create page, so one component serves `/new` and `/:id`. Reach for
-`useController` + WDS fields only for what the schema cannot express, and keep them alongside
+`useController` + WDS fields only for what the schema cannot express, alongside
 `EntityPageFieldsCard`, not instead of it.
 
 ## 4. Routing
@@ -211,5 +209,5 @@ route) is likewise hand-wired Case A, and this path does not need it.
 
 What isn't about where the data comes from carries over: MobX and `useSelector`
 ([TABLE_STATE.md](TABLE_STATE.md)), `errorState` on every table, the drill-in requirement, and the
-release-and-update steps a Data Collection needs before the collection exists
+release a Data Collection needs before the collection exists
 ([LIFECYCLE.md](../data-collection/LIFECYCLE.md#the-extension-does-not-create-the-collection)).

@@ -1,7 +1,7 @@
 # Draft Template — Collection page (Cases A, B and D)
 
-> Split out of [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) so the case chooser stays short. Pick your
-> case there first. This page is shared by A, B and D.
+> Pick your case in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) first. This page is shared by A, B
+> and D.
 
 > **This is the hand-wired path — you write `fetchData`, the filters and the columns.** If the rows
 > are a CMS collection, its schema already knows all three: use

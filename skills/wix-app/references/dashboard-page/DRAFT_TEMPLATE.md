@@ -30,8 +30,8 @@ columns, field management and the generated entity form. Decide this before writ
 after — converting means rewriting both the collection page and the entity page.
 
 **The one carve-out: a prompt that names an exact column subset.** The schema path renders *every*
-field the schema has. `SchemaTableProps.columns` is "columns beyond the source's fields" — it adds
-an action column, it cannot remove a data one — a `Field` carries no hidden/visible flag, and the
+field the schema has. `SchemaTableProps.columns` adds extras, and reusing a field's id replaces that
+field's column — but neither removes a field; a `Field` carries no hidden/visible flag; and the
 initial selection is set internally to all columns (`ToolbarCollectionState`). The only way to drop
 one is `customColumns={<CustomColumns />}`, a picker the **end user** operates. So "the table shows
 name, tier and date — email and notes are not columns" is a requirement this path cannot express:
