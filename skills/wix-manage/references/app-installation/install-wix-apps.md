@@ -16,6 +16,18 @@ This recipe guides you through installing Wix apps on a site using the Apps Inst
 - **Apps Installer API**: [REST](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app)
 
 ---
+
+## ⚠️ Wix Vibe (Picasso) Site Limitation
+
+Wix apps created by Wix — Wix Stores, Wix Bookings, Wix Events, Wix Blog, Wix Pricing Plans, Wix CMS, etc. — **cannot be installed on Wix Vibe (Picasso) sites**. The App Market and the Apps Installer API are not available on this editor type.
+
+Before attempting any install:
+- Check the site's editor type first.
+- If the site is a Wix Vibe (Picasso) site, **do not attempt the install** — it will fail.
+- **Do not** tell the user to search the App Market manually as a workaround; the App Market is not available on these sites either.
+- Explain the limitation clearly to the user, and suggest alternatives: use a different editor type for that functionality, or use the headless/vibe-headless integration for the equivalent capability (e.g. a store, bookings, or events experience built via API/SDK instead of the native app).
+
+---
 ## Step 0: Find the App ID (skip if you already have it)
 
 If you already know the `appDefId` (e.g. from the table of Wix-built apps below), skip to Step 1.
@@ -117,6 +129,9 @@ If you receive an error indicating a required app is not installed, use this rec
 
 If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
 
+### Vibe (Picasso) Site Errors
+If the install fails with `NOT_FOUND` from `MetaSiteReadApi#getEditorClientSpecMap`, or `PERMISSION_DENIED` from `PendingInstallations`, the site is a Wix Vibe (Picasso) site and app installation is not supported there. Do not retry the install or try alternate endpoints — see the [Wix Vibe (Picasso) Site Limitation](#️-wix-vibe-picasso-site-limitation) section above and explain the limitation to the user instead.
+
 ---
 
 ## Next Steps
@@ -132,3 +147,4 @@ After installing an app:
 - **"I don't have the appDefId"** → Run Step 0. The table in Step 2 only covers Wix-built apps; the App Market has thousands of others.
 - **Don't try to scrape the App Market website to find IDs** — pages are client-rendered and the appId is not in the HTML. Use Search Market Listings instead.
 - **Don't try `InstallAppFromShareUrl` as a workaround for unknown IDs** — `shareUrlId` is an internal identifier you generally don't have either.
+- **Wix Vibe (Picasso) sites don't support app installation** — check the editor type before attempting an install, and never send the user to search the App Market on these sites.
