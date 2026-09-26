@@ -1,12 +1,12 @@
 ---
 name: "CMS Data Items CRUD"
-description: "Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
+description: "Add, query, update, and delete items in CMS collections, one at a time or in bulk. Also covers counting items, upserting with bulk save, truncating a collection, aggregating data with a pipeline, linking items through single- and multi-reference fields, and reading items with their referenced items expanded."
 ---
 # CMS Data Items CRUD
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
-This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix CMS data items.
+This recipe covers Create, Read, Update, Delete (CRUD) operations for Wix CMS data items, plus count, upsert, truncate, aggregate, and reference-field links.
 
 ## Prerequisites
 
@@ -231,6 +231,8 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 
 **Endpoint**: `POST /wix-data/v2/bulk/items/update`
 
+> There is no update-by-filter endpoint. To update the items matching a filter, query them first (see [Query Data Items](#query-data-items)), then send their ids to bulk update or bulk patch.
+
 > **Important**: Use `id` (not `_id`) at the element level. The `data` object should NOT contain `_id`.
 
 ```json
@@ -297,7 +299,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 }
 ```
 
-**Setting a reference field** (single REFERENCE only):
+**Setting a reference field** (works for a single `REFERENCE` and, with `SET_FIELD`, for `MULTI_REFERENCE` links too):
 ```json
 {
   "dataCollectionId": "events",
@@ -324,17 +326,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 
 > **Recommended**: Use bulk patch instead of bulk update when you only need to change specific fields.
 
-> **Reference Fields**:
-> - **Single REFERENCE**: CAN be set during insert/update by providing the referenced item's ID as the field value (e.g., `"venue": "venue-item-id"`)
-> - **MULTI_REFERENCE**: **STOP** - You cannot use this recipe for multi-reference fields. They cannot be set via insert/update/patch.
->
-> **For MULTI_REFERENCE operations (add speakers, assign tags, link categories, etc.):**
-> **READ [CMS References & Relationships](cms-references-and-relationships.md)** for the exact endpoints and request bodies:
-> - `POST /wix-data/v2/bulk/items/insert-references` - add references
-> - `POST /wix-data/v2/items/replace-references` - replace all references
-> - `POST /wix-data/v2/bulk/items/remove-references` - remove references
->
-> Error `WDE0303` occurs when attempting to set multi-reference fields via data operations.
+> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). `MULTI_REFERENCE` links are written only by a `SET_FIELD` patch (single or bulk) or by the reference endpoints in [Reference Fields](#reference-fields) below; insert, bulk insert and PUT return 200 but silently drop multi-reference values, and bulk update (also a full-item replace) is unverified — read the item back after any of them.
 
 ## Delete Data Item
 
@@ -356,6 +348,215 @@ curl -X DELETE \
   "dataItemIds": ["item-id-1", "item-id-2", "item-id-3"]
 }
 ```
+
+## Count Data Items
+
+Count items in a collection, optionally with filters.
+
+**Endpoint**: `POST /wix-data/v2/items/count`
+
+**Count All Items**:
+```json
+{
+  "dataCollectionId": "Products"
+}
+```
+
+**Response**:
+```json
+{
+  "totalCount": 42
+}
+```
+
+**Count with Filter**:
+```json
+{
+  "dataCollectionId": "Products",
+  "filter": {
+    "$and": [
+      { "inStock": true },
+      { "price": { "$gte": 50 } }
+    ]
+  }
+}
+```
+
+## Bulk Save (Upsert)
+
+Insert new items or update existing items in a single operation. This is useful for syncing data.
+
+**Endpoint**: `POST /wix-data/v2/bulk/items/save`
+
+```json
+{
+  "dataCollectionId": "Products",
+  "dataItems": [
+    {
+      "id": "existing-item-id",
+      "data": {
+        "title": "Updated Product",
+        "price": 199.99,
+        "inStock": true
+      }
+    },
+    {
+      "data": {
+        "title": "New Product",
+        "price": 79.99,
+        "inStock": true
+      }
+    }
+  ],
+  "returnEntity": true
+}
+```
+
+| Scenario | Action |
+|----------|--------|
+| No `id` provided | INSERT - Creates new item with generated ID |
+| `id` provided, doesn't exist | INSERT - Creates new item with provided ID |
+| `id` provided, exists | UPDATE - Replaces existing item |
+
+> **Warning**: When updating, the entire item is replaced. Include all fields you want to keep. Confirm with the user before saving over existing items.
+
+## Truncate Collection
+
+Remove all items from a collection.
+
+**Endpoint**: `POST /wix-data/v2/items/truncate`
+
+```json
+{
+  "dataCollectionId": "TestCollection"
+}
+```
+
+> **Warning**: This permanently deletes ALL items in the collection and cannot be undone. Ask the user to confirm before calling it.
+
+## Aggregate Data
+
+Perform calculations on collection data using a pipeline of sequential stages. The example shows one `group` stage; the full set of stages (`filter`, `group`, `sort`, `projection`, `unwindArray`, `skip`, `limit`) and accumulators is in the [Aggregate Pipeline Data Items reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/aggregate-pipeline-data-items).
+
+**Endpoint**: `POST /wix-data/v2/items/aggregate-pipeline`
+
+**Count by Category**:
+```json
+{
+  "dataCollectionId": "Products",
+  "pipeline": {
+    "stages": [
+      {
+        "group": {
+          "groupIds": [
+            {"key": "category", "expression": {"fieldPath": "category"}}
+          ],
+          "accumulators": [
+            {
+              "resultFieldName": "count",
+              "sum": {"expression": {"numeric": 1}}
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+## Operation Comparison
+
+| Operation | Use Case | Behavior |
+|-----------|----------|----------|
+| **Bulk Insert** | Add new items only | Fails if ID exists |
+| **Bulk Update** | Update existing items | Fails if ID doesn't exist, replaces entire item |
+| **Bulk Save** | Upsert (insert or update) | Creates or updates based on ID |
+| **Bulk Patch** | Partial update | Only modifies specified fields |
+
+## Reference Fields
+
+Reference fields link items across collections. A single `REFERENCE` field holds one item ID and is set like any other value in insert, update, or patch. A `MULTI_REFERENCE` field holds many links, and only two kinds of write create them: a `SET_FIELD` patch on the field (single or bulk), or the reference endpoints below, which add, replace, or remove links without touching the rest of the item. To add a reference field to a collection, see [Add a Reference Field](cms-schema-management.md#add-a-reference-field).
+
+> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and its behaviour here is unverified; treat it the same way. Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
+
+### Insert Multi-Reference Links
+
+**Endpoint**: `POST /wix-data/v2/bulk/items/insert-references`
+
+```json
+{
+  "dataCollectionId": "Products",
+  "dataItemReferences": [
+    {
+      "referringItemId": "product-item-id",
+      "referringItemFieldName": "tags",
+      "referencedItemId": "tag-1-item-id"
+    },
+    {
+      "referringItemId": "product-item-id",
+      "referringItemFieldName": "tags",
+      "referencedItemId": "tag-2-item-id"
+    }
+  ],
+  "returnEntity": true
+}
+```
+
+### Replace All References
+
+**Endpoint**: `POST /wix-data/v2/items/replace-references`
+
+```json
+{
+  "dataCollectionId": "Products",
+  "referringItemId": "product-item-id",
+  "referringItemFieldName": "tags",
+  "newReferencedItemIds": ["new-tag-1-id", "new-tag-2-id", "new-tag-3-id"]
+}
+```
+
+> **Note**: To remove all references, pass an empty array for `newReferencedItemIds`.
+
+### Remove References (Bulk)
+
+**Endpoint**: `POST /wix-data/v2/bulk/items/remove-references`
+
+```json
+{
+  "dataCollectionId": "Products",
+  "dataItemReferences": [
+    {
+      "referringItemId": "product-id-1",
+      "referringItemFieldName": "tags",
+      "referencedItemId": "tag-to-remove-id"
+    }
+  ]
+}
+```
+
+### Query with Referenced Items Expanded
+
+**Endpoint**: `POST /wix-data/v2/items/query`
+
+```json
+{
+  "dataCollectionId": "Products",
+  "query": {
+    "filter": {
+      "inStock": true
+    }
+  },
+  "includeReferencedItems": ["category", "tags"]
+}
+```
+
+### Reference Query Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `$eq` | Exact match (single reference) | `{ "category": "id" }` |
+| `$hasSome` | Has at least one of | `{ "tags": { "$hasSome": ["id1", "id2"] } }` |
+| `$hasAll` | Has all of | `{ "tags": { "$hasAll": ["id1", "id2"] } }` |
 
 ## Field Types Reference
 
@@ -379,7 +580,7 @@ curl -X DELETE \
 | `ARRAY_STRING` | Array of strings | `["tag1", "tag2"]` |
 | `OBJECT` | JSON object | `{"key": "value"}` |
 | `REFERENCE` | Single reference | Item ID string |
-| `MULTI_REFERENCE` | Multiple references, use separate *reference* endpoints to manipulate, `include` to include in queries | Array of IDs |
+| `MULTI_REFERENCE` | Multiple references, use the *reference* endpoints to manipulate, `includeReferencedItems` to expand in queries | Array of IDs |
 
 ---
 
@@ -465,7 +666,6 @@ confirmation before performing the install.
 | `PERMISSION_DENIED` | Insufficient access | Check API permissions |
 | `WDE0007` | Bulk update: wrong ID field name | Use `id` not `_id` at element level |
 | `WDE0080` | Validation failed (multiple causes) | Bulk update: don't include `_id` in `data`; Bulk patch: use `patches` array not `dataItems` |
-| `WDE0303` | Can't set multi-reference field via data operations | Use reference endpoints: `insert-references`, `replace-references` |
 | `WDE0110` | Wix CMS (Wix Data) application is not installed | Install application with appDefId: `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 
 ---
@@ -474,6 +674,4 @@ confirmation before performing the install.
 
 - [Data Items API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 - [CMS Schema Management](cms-schema-management.md) - Creating and modifying collections
-- [CMS References & Relationships](cms-references-and-relationships.md) - Linking collections
-- [CMS Data Operations Extended](cms-data-operations-extended.md) - Count, upsert, aggregate
 - [CMS Draft & Publish Workflow](cms-publishing-flow.md) - Collections gated behind a draft/publish (Draft Items plugin) workflow

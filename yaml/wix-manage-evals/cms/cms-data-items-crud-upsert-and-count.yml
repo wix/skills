@@ -1,0 +1,104 @@
+name: cms/cms-data-items-crud-upsert-and-count
+description: >-
+  Verifies the agent syncs a small inventory into a CMS collection — updating existing items and
+  inserting a new one — using the bulk write endpoints with the right id/wrapper rules, then answers
+  a count question with the count endpoint rather than by paging through items.
+triggerPrompt: >-
+  In my Inventory CMS collection, set the quantity of SKU-001 to 12 and SKU-002 to 0, and add a new
+  item SKU-003 with quantity 7. Then tell me how many items in the collection now have quantity 0.
+  Go ahead and make the changes.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Inventory
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Inventory
+            displayName: Inventory
+            fields:
+              - key: sku
+                displayName: SKU
+                type: TEXT
+              - key: quantity
+                displayName: Quantity
+                type: NUMBER
+              - key: location
+                displayName: Location
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Seed inventory
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/bulk/items/insert
+        body:
+          dataCollectionId: Inventory
+          dataItems:
+            - data: { sku: SKU-001, quantity: 5, location: Shelf A }
+            - data: { sku: SKU-002, quantity: 3, location: Shelf A }
+            - data: { sku: SKU-004, quantity: 0, location: Shelf B }
+            - data: { sku: SKU-005, quantity: 9, location: Shelf B }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to update two existing Inventory items (SKU-001 -> quantity 12, SKU-002 ->
+      quantity 0), add a new item SKU-003 with quantity 7, and report how many items now have
+      quantity 0. Before the run the collection held SKU-001 (5, Shelf A), SKU-002 (3, Shelf A),
+      SKU-004 (0, Shelf B), SKU-005 (9, Shelf B). Evaluate the tool calls and the final response.
+
+      Pass only if all of the following hold:
+      - The agent looked up the existing items by `sku` to get their IDs (it did not guess IDs).
+      - After the run SKU-001 has quantity 12 and SKU-002 has quantity 0, and each still has its
+        `location` value (Shelf A). Any write that achieves this is acceptable: bulk save, bulk update
+        with the full item, bulk patch, or single-item calls.
+      - SKU-003 exists exactly once with quantity 7.
+      - SKU-004 and SKU-005 are unchanged and no other items were created or deleted.
+      - The final answer states that 2 items have quantity 0 (SKU-002 and SKU-004), and that number
+        comes from a tool call made after the writes (a count call or a filtered query), not from
+        arithmetic on the pre-run state.
+
+      Fail if the agent:
+      - lost the `location` of SKU-001 or SKU-002 (for example by replacing the item with only sku and
+        quantity), OR
+      - created a duplicate SKU-001/SKU-002 instead of updating, or created SKU-003 more than once, OR
+      - reported a count other than 2, or a count not backed by a tool call after the writes, OR
+      - only described the calls without executing them.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx error even
+      if recovered; `_id` used where `id` was required (or the reverse) and then corrected;
+      `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a full-item
+      replace that dropped fields and had to be repaired; an invented endpoint; a final count that
+      is not backed by a count call or a filtered query made after the writes.
+      Subtract 1 for each of these inefficiencies, up to 3 points in total: a second read of the
+      collection schema; a docs or search call beyond the first skill read; listing the whole
+      collection to find the SKUs instead of one filtered query; an extra verification query beyond
+      one.
+      Reading the skill once, reading the schema once, one lookup query, the write calls, and one
+      count or filtered query are the expected path and cost nothing.
+      LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.
