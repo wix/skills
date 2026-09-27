@@ -14,6 +14,20 @@ description: Configures delivery profiles and regions — creating profiles, add
 - Up to **100 regions** per profile.
 - Each region requires: `name`, `destinations` (array of country codes), `active` flag.
 
+To add a country as a region and offer the store's existing shipping options there:
+
+1. Query delivery profiles and take the target profile's `id` and current `revision`.
+2. Add the region with Add Delivery Region:
+   `POST https://www.wixapis.com/ecom/v1/delivery-profiles/{deliveryProfileId}/delivery-region`. The
+   response is the updated profile, which carries the new region's `id`. `DESTINATIONS_COLLISION`
+   means the country is already listed in another region of that profile; use that region.
+3. Query shipping options (`cursorPaging.limit` at most 100) and attach each one to the region with
+   `POST https://www.wixapis.com/ecom/v1/shipping-options/{shippingOptionId}/add-delivery-region`,
+   passing the region `id` and that option's current `revision`.
+
+Request and response shapes for these calls are in the
+[Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference).
+
 ### Domestic Region
 
 Set `countryCode` to match `site_context.country`.
