@@ -41,4 +41,6 @@ export const {Feature}SettingsPage = () => {
 };
 ```
 
+`SettingsPage.Content` enforces the same children rule as `EntityPage.Content` — only `MainContent`, then `AdditionalContent` — and fails the same two ways ([DRAFT_TEMPLATE_ROUTER.md § 3](DRAFT_TEMPLATE_ROUTER.md#3-entity-page--one-component-for-both-new-and-id)): both page types share one validator.
+
 `useSettingsPage`'s params are all required except `saveSuccessToast`/`saveErrorToast`: `form`, `fetch`, `onSave`, `onCancel`. There is no `parentPath`/`parentPageId` — a settings page isn't reached by drilling into a row, so it carries no back-navigation contract, and Case C needs no router at all to reach it (Section 1's entry renders it directly).
