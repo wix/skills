@@ -1,7 +1,8 @@
 name: seo/manage-content-plan-happy-path
 description: >-
   Requires the full generation workflow on an isolated site with business data:
-  trigger, reach KEYWORD_RESEARCH, release, reach SUCCESS, and read candidates.
+  trigger, reach KEYWORD_RESEARCH, wait for the keyword research items,
+  release, reach SUCCESS, and read candidates.
 triggerPrompt: >-
   Generate an SEO content plan for my Wix site and show me the resulting blog
   post topics. Continue until the plan is ready; I want the actual results.
@@ -17,9 +18,11 @@ assertions:
       Require evidence of ALL steps in order for the same flow:
       1. POST /content-plan-flows/trigger and capture the returned contentPlanFlowId.
       2. GET /content-plan-flows/{id} until contentPlanFlow.status is KEYWORD_RESEARCH.
-      3. POST /create-content-plan with that ID and confirm success.
-      4. GET the same flow until status SUCCESS.
-      5. GET /content-plan-flows/{id}/blog-post-candidates and report actual returned topics.
+      3. GET /content-plan-keyword-research-items until it returns items whose
+         keywordResearchId matches the flow's keywordResearchId.
+      4. POST /create-content-plan with that ID and confirm success.
+      5. GET the same flow until status SUCCESS.
+      6. GET /content-plan-flows/{id}/blog-post-candidates and report actual returned topics.
       Score 0 if any step is missing, if only an explanation/promise is given,
       or if results are fabricated. PENDING_REQUIREMENTS, FAIL, or a timeout
       must be reported honestly but do not pass this happy-path scenario.
@@ -29,12 +32,16 @@ assertions:
     maxTokens: 2048
     prompt: |
       Score 0-10 for a clean completed generation: one trigger, bounded status
-      checks, one successful release at KEYWORD_RESEARCH, then SUCCESS and
-      reading the actual candidates. Routine necessary polling is not friction.
+      checks, one successful release at KEYWORD_RESEARCH after the flow's
+      keyword research items exist, then SUCCESS and reading the actual
+      candidates. Routine necessary polling is not friction.
       Score 0 for polling the parked state without releasing, missing the release,
-      no API execution, or claiming completion without reading candidates.
+      releasing before the keyword research items exist, no API execution, or
+      claiming completion without reading candidates.
       Penalize guessed shapes, repeated triggers, non-2xx errors, and unnecessary
       discovery after the recipe already supplies the needed request shape.
+      Not-found responses from the keyword research items check while the
+      research runs are expected waiting, not errors.
       Identify likely skill, MCP, API, or provisioning causes for each friction.
       Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.
 siteSetup:
