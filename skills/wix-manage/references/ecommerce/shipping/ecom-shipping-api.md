@@ -17,7 +17,7 @@ Two services govern the shipping configuration of a Wix eCommerce store:
 
 ### Query Shipping Options
 
-Retrieves all shipping options for the site. Up to 1,000 per request (cursor paging).
+Retrieves the site's shipping options with cursor paging. `cursorPaging.limit` is at most 100 — a larger value fails with `400`.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/shipping-options/query`
 

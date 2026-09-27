@@ -1,9 +1,9 @@
 name: ecommerce/shipping/add-delivery-region
 description: >-
-  Verifies the shipping dispatcher carries the shipping-options query paging cap, so an agent
-  extending a store's delivery coverage reads its shipping options with a valid page size and adds
-  the region in one pass — rather than discovering by a 400 that `cursorPaging.limit` tops out at
-  100.
+  Verifies the Shipping API Reference states the shipping-options query page cap correctly, so an
+  agent extending a store's delivery coverage reads its shipping options with a valid page size and
+  adds the region in one pass — rather than requesting 1,000 per page and discovering by a 400 that
+  `cursorPaging.limit` tops out at 100.
 triggerPrompt: Add Canada as a delivery region to my shipping options.
 tags: [ecommerce]
 maxTokens: 500000
@@ -13,7 +13,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference
   - type: llm_judge          # correctness
     minScore: 7
     maxTokens: 2048
@@ -41,14 +41,14 @@ assertions:
       Examine the tool-call trace, including request bodies and any error bodies. 10 = no wasted
       calls and no errors.
 
-      Reading the shipping dispatcher and the recipe it routes to is expected and is never a wasted
-      call.
+      Reading the shipping dispatcher, the recipe it routes to, and the Shipping API Reference is
+      expected and is never a wasted call.
 
       Penalize and LIST any of the following, even where a later call succeeded:
 
       - any non-2xx response, in particular a `400` from `POST /ecom/v1/shipping-options/query` or
-        another shipping query caused by a `cursorPaging.limit` above 100 — the dispatcher states
-        the cap, so a larger page size is an avoidable wrong turn, not bad luck;
+        another shipping query caused by a `cursorPaging.limit` above 100 — the Shipping API
+        Reference states the cap, so a larger page size is an avoidable wrong turn, not bad luck;
       - a shipping API call made before any shipping recipe was read;
       - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out a shape
         or a paging limit the recipes already give;
