@@ -46,6 +46,24 @@ from re-running dozens of scenarios on every merge that touches it. Setting the
 `MERGE_TAG_SWEEP_ENABLED` repository variable to `false` turns the sweep off without a code
 change.
 
+To run the same sweep before merging, comment `/sweep` on the PR. It works like `/review`:
+[`evalforge-pr-sweep.yml`](../.github/workflows/evalforge-pr-sweep.yml) runs on every PR, but a
+push only records whether the commit is unswept and spends nothing; a PR that touches nothing a
+sweep covers passes without a trace. `/sweep` re-runs that head's run,
+which resolves the tags from the PR's diff, runs the tag-matched scenarios against the PR's own
+MCP version (the same `pr-<number>-<sha>` version the gate builds) with the same sampling cap
+and retries, and reports in a PR comment rather than Slack. The command must be the first word
+of the comment, and only the PR author or a collaborator with write access can use it.
+
+Repository variables control the `pr-sweep` check:
+
+| Variable | Default | When set to `true` |
+|---|---|---|
+| `PR_SWEEP_REQUIRED` | off | An unswept commit fails the `pr-sweep` check |
+| `PR_SWEEP_BLOCK_MERGE` | off | A sweep that found a regression, or couldn't run, fails the check |
+| `PR_SWEEP_REMIND` | off | Unswept commits get a "not swept" comment explaining `/sweep` |
+| `PR_SWEEP_ENABLED` | on | Set to `false` to turn the sweep off entirely |
+
 ## wix-app scenarios: the PR eval gate
 
 Every PR touching `skills/wix-app/**` or `yaml/wix-app-evals/**` runs

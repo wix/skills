@@ -66,8 +66,7 @@ Slots are UI placeholders on dashboard pages of Wix first-party business apps. E
   | Name | Type | Description |
   |------|------|-------------|
   | `staffResourceId` | String | Staff resource ID |
-  | `scheduleId` | String | Schedule ID |
-  | `timezone` | String | Time zone |
+  | `staffId` | String | Staff member ID |
 - **Multi-plugin:** Vertical, newest at top
 - **Use case:** Display staff availability analytics or performance metrics.
 
@@ -108,12 +107,12 @@ Slots are UI placeholders on dashboard pages of Wix first-party business apps. E
   | `onSuccess()` | `() => Promise<void>` | Progresses to the next modal after successful order update |
   | `onCancel()` | `() => void` | Progresses to the next modal without changes |
   | `menuOption` | Object | Data for the selected menu item |
-  | `menuOption.key` | String | `CHARGE_WITH_CREDIT_CARD`, `RECORD_ORDER_MANUAL_PAYMENT`, `CHARGE_WITH_INVOICE`, or `EXTENSION` |
+  | `menuOption.key` | String | `CHARGE_WITH_CREDIT_CARD`, `RECORD_ORDER_MANUAL_PAYMENT`, `CHARGE_WITH_INVOICE`, `CAPTURE_AUTHORIZED_PAYMENT`, `CREATE_AUTHORIZED_PAYMENT`, or `EXTENSION` |
   | `menuOption.componentId` | String | Component ID when `EXTENSION` key is triggered |
 - **Multi-plugin:** Sequential modals, each appearing before the default modal
 - **Use case:** Add items to an order such as additional services, notes, or booking fees like insurance.
 
-> **Note:** This slot also appears on the Wix eCommerce Order Page.
+> **Note:** This slot also appears on the [Wix eCommerce Order Page](#order-page--pre-collect-payment-modal).
 
 ### Booking List Page
 
@@ -145,23 +144,10 @@ Slots are UI placeholders on dashboard pages of Wix first-party business apps. E
 
 ### Order Page — Pre-Collect Payment Modal
 
-**Slot ID:** `b92f0e25-535f-4bef-b130-8e5abc85b2fe`
+**Slot ID:** `b92f0e25-535f-4bef-b130-8e5abc85b2fe` — the same slot as [Bookings Calendar Page — Pre-Collect Payment Modal](#calendar-page--pre-collect-payment-modal) above (same parameters, multi-plugin behavior, and modal mechanics).
 
 - **Dashboard path:** Sales > Orders > Order > Collect Payment
-- **Location:** Custom modal displayed before the default Collect Payment modal
-- **Parameters:**
-  | Name | Type | Description |
-  |------|------|-------------|
-  | `orderId` | String | Order ID |
-  | `onSuccess()` | `() => Promise<void>` | Progresses to the next modal after successful order update |
-  | `onCancel()` | `() => void` | Progresses to the next modal without changes |
-  | `menuOption` | Object | Data for the selected menu item |
-  | `menuOption.key` | String | `CHARGE_WITH_CREDIT_CARD`, `RECORD_ORDER_MANUAL_PAYMENT`, `CHARGE_WITH_INVOICE`, or `EXTENSION` |
-  | `menuOption.componentId` | String | Component ID when `EXTENSION` key is triggered |
-- **Multi-plugin:** Sequential modals, each appearing before the default modal
 - **Use case:** Add items to an order such as additional items, notes, or extra fees.
-
-> **Note:** This slot also appears on the Wix Bookings Calendar Page.
 
 ---
 

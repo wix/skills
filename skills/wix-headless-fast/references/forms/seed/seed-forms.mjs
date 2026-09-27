@@ -70,18 +70,20 @@ export async function installFormsApp(ctx) {
 
 // ---- field expansion -------------------------------------------------------------------------
 
-// kind → { inputType, componentType, identifier, block, componentBlock, format? }
+// kind → { inputType, componentType, identifier, format?, contact? }
 // The two block names are what the API nests settings under, and they are named after the
 // field's own enums — which is why they are looked up here rather than spelled at each call.
+// `contact` is the per-field contactMapping: it is what makes a submission create or update the
+// site's CRM contact (the older postSubmissionTriggers.upsertContact is ignored by v4).
 const KINDS = {
   text:      { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "TEXT_INPUT" },
   textarea:  { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "TEXT_AREA" },
-  email:     { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_EMAIL", format: "EMAIL" },
-  phone:     { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_PHONE", format: "PHONE" },
+  email:     { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_EMAIL", format: "EMAIL", contact: { contactField: "EMAIL", emailInfo: { tag: "UNTAGGED" } } },
+  phone:     { inputType: "STRING", componentType: "PHONE_INPUT",    identifier: "CONTACTS_PHONE", format: "PHONE", contact: { contactField: "PHONE", phoneInfo: { tag: "UNTAGGED" } } },
   url:       { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "URL_INPUT", format: "URL" },
-  firstName: { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_FIRST_NAME" },
-  lastName:  { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_LAST_NAME" },
-  company:   { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_COMPANY" },
+  firstName: { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_FIRST_NAME", contact: { contactField: "FIRST_NAME" } },
+  lastName:  { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_LAST_NAME", contact: { contactField: "LAST_NAME" } },
+  company:   { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_COMPANY", contact: { contactField: "COMPANY" } },
   date:      { inputType: "STRING", componentType: "DATE_PICKER",    identifier: "DATE_PICKER", format: "DATE" },
   number:    { inputType: "NUMBER", componentType: "NUMBER_INPUT",   identifier: "NUMBER_INPUT" },
   rating:    { inputType: "NUMBER", componentType: "RATING_INPUT",   identifier: "RATING_INPUT" },
@@ -98,7 +100,7 @@ const INPUT_BLOCK = {
   ARRAY: "arrayOptions", ADDRESS: "addressOptions", WIX_FILE: "wixFileOptions",
 };
 const COMPONENT_BLOCK = {
-  TEXT_INPUT: "textInputOptions", NUMBER_INPUT: "numberInputOptions",
+  TEXT_INPUT: "textInputOptions", PHONE_INPUT: "phoneInputOptions", NUMBER_INPUT: "numberInputOptions",
   RATING_INPUT: "ratingInputOptions", DATE_PICKER: "datePickerOptions",
   CHECKBOX: "checkboxOptions", CHECKBOX_GROUP: "checkboxGroupOptions",
   RADIO_GROUP: "radioGroupOptions", DROPDOWN: "dropdownOptions",
@@ -179,6 +181,9 @@ function buildField(spec, taken) {
       inputType: kind.inputType,
       // `required` lives HERE, never inside the validation block.
       required: spec.required ?? false,
+      // Contact fields carry pii and the CRM mapping; without contactMapping a submission is
+      // stored but no contact is created or updated.
+      ...(kind.contact ? { pii: true, contactMapping: kind.contact } : {}),
       [INPUT_BLOCK[kind.inputType]]: {
         // `validation` is always present, even as {}, and nests under the INPUT-TYPE block —
         // not the component one. Absent, the target is not registered as an accepted value and
@@ -201,7 +206,9 @@ function buildForm(planForm) {
     identifier: "SUBMIT_BUTTON",
     fieldType: "DISPLAY",
     displayOptions: {
-      displayFieldType: "SUBMIT_BUTTON",
+      // The button's identifier is SUBMIT_BUTTON; its display type is PAGE_NAVIGATION (the enum
+      // has no SUBMIT_BUTTON value — the create is a 400 with anything else).
+      displayFieldType: "PAGE_NAVIGATION",
       pageNavigationOptions: { submitText: planForm.submitText ?? "Submit" },
     },
   };

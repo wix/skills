@@ -67,8 +67,16 @@ const REVIEW_RUN: WorkflowRun = {
   html_url: 'https://github.com/wix/skills/actions/runs/902',
 };
 
+const SWEEP_RUN: WorkflowRun = {
+  id: 903,
+  status: 'completed',
+  conclusion: 'success',
+  html_url: 'https://github.com/wix/skills/actions/runs/903',
+};
+
 const YAML_GATE = 'evalforge-yaml-gate.yml';
 const SKILL_REVIEW = 'evalforge-skill-review.yml';
+const PR_SWEEP = 'evalforge-pr-sweep.yml';
 
 const run = (overrides: Partial<WorkflowRun>): WorkflowRun => ({ ...FAILED_RUN, ...overrides });
 
@@ -84,6 +92,8 @@ function harness(options: {
   manageRuns?: WorkflowRun[];
   /** The skill reviewer's runs — none by default, for the same reason. */
   reviewRuns?: WorkflowRun[];
+  /** The PR sweep's runs — none by default, for the same reason. */
+  sweepRuns?: WorkflowRun[];
   rerunError?: Error;
 } = {}) {
   const comments: string[] = [];
@@ -104,6 +114,7 @@ function harness(options: {
     const byWorkflow: Record<string, WorkflowRun[] | undefined> = {
       [YAML_GATE]: options.manageRuns ?? [],
       [SKILL_REVIEW]: options.reviewRuns ?? [],
+      [PR_SWEEP]: options.sweepRuns ?? [],
     };
     const workflowRuns = byWorkflow[String(query.workflow_id)] ?? options.runs ?? [FAILED_RUN];
     return { data: { workflow_runs: workflowRuns } };
@@ -298,6 +309,27 @@ describe('finding the run to re-run', () => {
         per_page: 1,
       }),
     ]);
+  });
+
+  // The sweep is green in soak mode and manual after every push, so the run worth re-running is a
+  // passing one that only posted a reminder.
+  it('re-runs the PR sweep on /sweep, passing run and all', async () => {
+    const test = harness({ body: '/sweep', sweepRuns: [SWEEP_RUN] });
+    await test.execute();
+
+    expect(test.runQueries.map(query => query.workflow_id)).toEqual([PR_SWEEP]);
+    expect(test.rerunIds).toEqual([SWEEP_RUN.id]);
+    expect(test.comments[0]).toContain('<!-- evalforge-pr-sweep-ack -->');
+    expect(test.comments[0]).toContain(PR_SWEEP);
+  });
+
+  it('declines a /sweep with a reason of its own when the sweep has no run for the commit', async () => {
+    const test = harness({ body: '/sweep' });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([]);
+    expect(test.comments[0]).toContain('cannot re-run the PR sweep');
+    expect(test.comments[0]).toContain('no PR sweep run exists');
   });
 
   // The point of the split: each command touches only its own workflows, so neither can spend on

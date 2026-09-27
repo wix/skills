@@ -75,10 +75,27 @@ export function getScheduleConfig(): ScheduleConfig {
   };
 }
 
+/**
+ * Present when the sweep runs against an open PR rather than on a push to `main`. `mcpId` is the
+ * per-PR capability the gate builds its `pr-<n>-<sha>` versions on. `required` reddens an unswept
+ * commit; `blocking` reddens a sweep that found a regression; `remind` posts a "not swept" comment
+ * on an unswept commit. They are independent dials.
+ */
+export type PrSweepContext = {
+  number: number;
+  headSha: string;
+  mcpId: string;
+  mcpSkillsRepo: string;
+  blocking: boolean;
+  required: boolean;
+  remind: boolean;
+};
+
 export type MergeSweepConfig = {
   evalforgeUrl: string;
   projectId: string;
   agentId: string;
+  /** Required for a merge sweep; a PR sweep pins the PR version instead and never reads it. */
   prodMcpId: string;
   appId: string;
   appSecret: string;
@@ -86,20 +103,48 @@ export type MergeSweepConfig = {
   owner: string;
   repo: string;
   changedFilesRaw: string;
+  pr?: PrSweepContext;
 };
 
-export function getMergeSweepConfig(): MergeSweepConfig {
+export type PrSweepConfig = MergeSweepConfig & { pr: PrSweepContext };
+
+function getSweepConfigBase(prodMcpRequired: boolean): Omit<MergeSweepConfig, 'pr'> {
   return {
     evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     agentId: core.getInput('evalforge-agent-id', { required: true }),
-    prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: true }),
+    prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: prodMcpRequired }),
     appId: coreSafeGetSecret(core, 'evalforge-app-id'),
     appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
     githubToken: coreSafeGetSecret(core, 'github-token'),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
     changedFilesRaw: core.getInput('changed-files'),
+  };
+}
+
+export function getMergeSweepConfig(): MergeSweepConfig {
+  return getSweepConfigBase(true);
+}
+
+/** The PR sweep runs on `pull_request`, so the PR's number and head come from the event payload. */
+export function getPrSweepConfig(): PrSweepConfig {
+  const pull = github.context.payload.pull_request;
+  const headSha = (pull?.head as { sha?: string } | undefined)?.sha;
+  if (!headSha) throw new Error('PR payload missing head.sha');
+  return {
+    ...getSweepConfigBase(false),
+    pr: {
+      number: coreGetPrNumber(github.context.payload),
+      headSha,
+      mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+      mcpSkillsRepo: core.getInput('mcp-skills-repo')
+        || process.env.GITHUB_REPOSITORY
+        || `${github.context.repo.owner}/${github.context.repo.repo}`,
+      blocking: core.getInput('blocking') === 'true',
+      required: core.getInput('required') === 'true',
+      remind: core.getInput('remind') === 'true',
+    },
   };
 }
 
@@ -127,11 +172,6 @@ export function getEvalConfig(): Config {
   };
 }
 
-/**
- * The prompt as the PR has it, not the base copy, so a prompt change is testable in the PR that
- * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
- */
-export const DEFAULT_REVIEW_PROMPT_PATH = '.github/prompts/skill-review.md';
 /**
  * The Wix AI Gateway, which is Anthropic-API-compatible. Not optional in practice: direct
  * api.anthropic.com egress is IP-allowlisted at the Wix org level, so a native key from a
@@ -166,7 +206,6 @@ export type ReviewConfig = {
   baseSha: string;
   anthropicApiKey: string;
   anthropicBaseUrl: string;
-  promptPath: string;
   model: string;
   effort: string;
   timeoutSeconds: number;
@@ -192,7 +231,6 @@ export function getReviewConfig(): ReviewConfig {
     baseSha,
     anthropicApiKey: coreSafeGetSecret(core, 'anthropic-api-key'),
     anthropicBaseUrl: core.getInput('anthropic-base-url') || DEFAULT_ANTHROPIC_BASE_URL,
-    promptPath: core.getInput('prompt-path') || DEFAULT_REVIEW_PROMPT_PATH,
     model: core.getInput('review-model') || DEFAULT_REVIEW_MODEL,
     effort: core.getInput('review-effort') || DEFAULT_REVIEW_EFFORT,
     // Clamped rather than thrown: config loads before `isBlocking` is known, so a typo'd repo

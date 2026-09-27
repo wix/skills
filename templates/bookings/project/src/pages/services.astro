@@ -1,0 +1,22 @@
+---
+// Services listing — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR listing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import ServicesView from "../components/bookings/ServicesView";
+import { fetchServices, fetchBookingCategories } from "../wix/bookings/services";
+import type { BookingCategory, ServiceSummary } from "../wix/bookings/types";
+
+let services: ServiceSummary[] = [];
+let categories: BookingCategory[] = [];
+try {
+  [services, categories] = await Promise.all([fetchServices(), fetchBookingCategories()]);
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Services">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Services</h1>
+  <ServicesView client:load initialServices={services} initialCategories={categories} />
+</SiteLayout>
