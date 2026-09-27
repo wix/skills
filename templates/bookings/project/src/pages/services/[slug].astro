@@ -1,0 +1,76 @@
+---
+// Service detail + booking page.
+//
+// This is a Wix ITEM PAGE: the wixMetadata export + <SEO.Tags> below let the site owner edit
+// this page's title/description/OG in the dashboard and register the route in the sitemap.
+// Keep all three SEO pieces and this frontmatter; swap the island import to YOUR booking
+// component. The booking island is client:only — availability is timezone/session-specific.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import ServiceBookingView from "../../components/bookings/ServiceBookingView";
+import { fetchServiceBySlug } from "../../wix/bookings/services";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.bookings.id,
+  pageIdentifier: WIX_APPS.bookings.servicePageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.bookings.servicePageMetadata.identifiers.slug,
+  },
+};
+
+const slug = Astro.params.slug!;
+
+// Behind Wix's proxy the request URL is internal — the real public page URL arrives on
+// x-wix-forwarded-url; the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let service = null;
+let seoTagsServiceConfig = null;
+try {
+  [service, seoTagsServiceConfig] = await Promise.all([
+    fetchServiceBySlug(slug),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.BOOKINGS_SERVICE,
+      itemData: { slug },
+    }).catch(() => null),
+  ]);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!service) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={service.name}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+
+  <div class="grid gap-10 md:grid-cols-2">
+    <div>
+      {service.imageUrl && (
+        <div class="aspect-[4/3] overflow-hidden rounded-xl bg-secondary">
+          <img src={service.imageUrl} alt={service.name} class="h-full w-full object-cover" />
+        </div>
+      )}
+      <h1 class="mt-5 text-2xl font-semibold tracking-tight">{service.name}</h1>
+      {service.tagLine && <p class="mt-1 text-muted-foreground">{service.tagLine}</p>}
+      <p class="mt-2 text-sm text-muted-foreground">
+        {service.durationMinutes ? `${service.durationMinutes} min · ` : ""}
+        <span class="text-foreground">{service.price}</span>
+      </p>
+      {service.description && <p class="mt-4 text-sm leading-relaxed text-muted-foreground">{service.description}</p>}
+    </div>
+    <div>
+      <ServiceBookingView client:only="react" service={service} />
+    </div>
+  </div>
+</SiteLayout>
