@@ -23,7 +23,7 @@
 // steps — the dependency install and the seed — running detached in the background (logs and
 // completion markers in the final event), so the caller can build the brand layer while they finish.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
@@ -131,6 +131,14 @@ if (mode === "create") {
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
 const siteId = wixConfig.siteId ?? wixConfig.projectId;
+// Static: `wix release` uploads the output folder whole, so the project root (config, plan, seed
+// output, the skills) must not be it. The site lives in site/: the config points there and the REST
+// layer deploys into it; the pages, styles and assets are the agent's to move (the `next` says so).
+const STATIC_OUT = "site";
+if (stack === "static") {
+  wixConfig.site = { ...(wixConfig.site ?? {}), outputDirectory: `./${STATIC_OUT}` };
+  writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify(wixConfig, null, 2) + "\n");
+}
 emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd, siteId, stack });
 
 // ---- 2 · deploy shipped code + deps ---------------------------------------------------------------
@@ -138,7 +146,7 @@ emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd
 // reports the project; a CONNECT gets the code and its dependencies here.
 const deploy = spawnSync(
   "node",
-  [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack, ...(planPath ? ["--plan", resolve(planPath)] : [])],
+  [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
 if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
@@ -228,7 +236,7 @@ const release = {
   astro: "npx @wix/cli@latest build, then npx @wix/cli@latest release",
   react: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (what Wix hosting serves and how routes must be shaped: SKILL.md step 1)",
   lib: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (SKILL.md step 1)",
-  static: "npx @wix/cli@latest release — no build; wix.config.json site.outputDirectory points at the folder the pages live in",
+  static: `npx @wix/cli@latest release — no build; it uploads ${STATIC_OUT}/ whole (wix.config.json site.outputDirectory), so the pages, styles and assets move into ${STATIC_OUT}/ first and import the modules from ./js/wix/ there; the root keeps the config, the plan, the seed output and the skills`,
 }[stack];
 emit("ready_for_brand_layer", {
   mode,

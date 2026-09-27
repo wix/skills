@@ -145,6 +145,9 @@ folder; the paths below are relative to `<SKILL_ROOT>`, where it lands.
      to a new site (the site is named after the folder), then the shipped code deploys into
      the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
      project what that stack needs on Wix hosting (step 1) before or right after the call.
+     With `--stack static` setup also makes `site/` the folder `wix release` uploads and deploys
+     the REST layer into `site/js/wix/`; you move the pages, styles and assets in (reference
+     mode, below).
    - **`wix.config.json` and a project** → refuses: the folder is already a Wix project with a
      frontend, whether the CLI made it, a hand wrote it, or this skill built it. Three commands
      from the project root do everything setup would: `deploy.mjs <vertical…> --stack <stack>`
@@ -305,13 +308,14 @@ importing the same `*-core.ts` rule files as the SDK layer — one implementatio
 transports. The vertical's `INSTRUCTIONS.md` names its modules and what each surface does with
 them; this section is the mechanics, the same for every vertical.
 
-- **Static site (no bundler).** `npm create @wix/new@latest init` in the project folder (site,
-  OAuth app, `wix.config.json`). The site lives in a **subfolder** — `site/` — holding only the
-  pages, styles, and `js/`; set `site.outputDirectory` in the config to `"./site"`. `wix release`
-  uploads that directory whole, so the project root (config, `plan.json`, seed output, anything
-  else) must not be it. Then `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static --out
-  site` composes the REST layer and the vertical's framework-free stores flat into `site/js/wix/`
-  and strips them to browser ESM (comments kept, the `.ts` kept beside the `.js` to read). Pages
+- **Static site (no bundler).** Step 3's setup with `--stack static` runs `init` in the project
+  folder (site, OAuth app, `wix.config.json`), points `site.outputDirectory` at `"./site"`, and
+  runs `deploy.mjs <vertical> --stack static --out site`, which composes the REST layer and the
+  vertical's framework-free stores flat into `site/js/wix/` and strips them to browser ESM
+  (comments kept, the `.ts` kept beside the `.js` to read). The site lives in that **subfolder**,
+  `site/`, holding only the pages, styles, assets and `js/`: `wix release` uploads it whole, so the
+  project root (config, `plan.json`, seed output, the skills) must not be it; move the pages in.
+  (On a project that already has its config, the same `deploy.mjs` call does the deploy.) Pages
   import the vertical's modules from `./js/wix/` in a `<script type="module">`: the stores hold
   the state machines (subscribe, render from `getState()`, call actions), the page holds the
   rendering. The visitor token lives in `localStorage` and is the
