@@ -65,17 +65,28 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent executed the chain. Examine the tool-call
-      trace. Score 0-10 (10 = direct: the skill/docs article was read once,
-      and the whole chain — install, wait/retry, enabling multilingual mode,
-      and creating every requested locale — ran inside as few execution tool
-      calls as the retry logic requires, rather than round-tripping back to
-      the model between steps.
+      trace. Score 0-10 (10 = direct).
 
-      Penalize and LIST any of: reading the skill/docs article more than
-      once; splitting the install call, the retry, or the per-locale calls
-      across separate execution tool calls when a single script could have
-      done it; any step run as its own round-trip that could have been part
-      of the same script. For each, name the likely skill-guidance gap.
+      The install-wix-apps skill covers ONLY the install step (endpoint,
+      request body, appDefId table) — it does not document the Locale
+      Settings or Locales APIs needed to enable multilingual mode or create
+      locales. A first-time lookup of those two APIs (e.g. via a REST/API
+      doc search or method-schema read) is REQUIRED and must NOT be
+      penalized — the skill never claimed to cover them.
+
+      Penalize and LIST only:
+      - reading the install-wix-apps skill/docs article itself more than once
+      - re-looking-up the install endpoint, request body, or appDefId table
+        via a separate doc/API search when the skill already gave them
+      - a call to check whether Wix Multilingual is already installed before
+        installing it
+      - splitting the install call, its retry, or the per-locale calls
+        across separate execution tool calls when a single script could have
+        done it
+
+      For each, name the likely skill-guidance gap. Do not count necessary,
+      non-redundant lookups of the Locale Settings/Locales API shape as
+      friction.
 
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or
       'clean path' if none>"}.

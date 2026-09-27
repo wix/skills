@@ -107,6 +107,8 @@ Some common apps:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
+- The endpoint, request body, and appDefId table above are complete and canonical for a listed Wix-built app — don't re-verify them with a separate REST/API doc search first; that's a redundant round-trip.
+- Don't spend a call checking whether the app is already installed before installing it. If the task or the error you're handling already tells you it isn't installed (e.g. a fresh site, or a `*_NOT_INSTALLED` error), just call install directly.
 
 ---
 
