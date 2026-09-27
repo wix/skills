@@ -229,7 +229,9 @@ A standalone "connect my <channel>" request (no post to create) is also in scope
 - **`DISCONNECTED`** → was connected, now disconnected → offer to reconnect (STEP 4c).
 - **`INVALID`** → connection expired → offer to reconnect (STEP 4c).
 
-Only `VALID` proceeds to `List Accounts`. For every other status, go to STEP 4c and **do not call `List Accounts`** — there's no connected user, so it can only error.
+**GBP is the exception.** For `GBP`, any status other than `VALID` goes to **STEP 4d**, not 4c — Google Business Profile has no OAuth flow in this API, so `connect-url` can't connect it.
+
+Only `VALID` proceeds to `List Accounts`. For every other status, go to STEP 4c (or 4d for GBP) and **do not call `List Accounts`** — there's no connected user, so it can only error.
 
 **This is per-channel** — the status tells you only about the channel you queried, nothing about others. Scope statements to that channel ("Pinterest isn't connected yet"); never say "no accounts connected on this site" from a single-channel check.
 
@@ -284,10 +286,12 @@ Here `channel.accountId` = `facebook.id` (`1022334455667788`) and `facebookPost.
   - Google Business Profile → `{ "gbp": { "defaultLocationId": "<id>" } }`
   - TikTok → `{ "tiktok": { "defaultAccountId": "<id>" } }`
   - LinkedIn → `{ "linkedin": { "defaultChannelId": "<id>" } }`
-- **`accounts` is empty (or `NO_PAGES_FOR_USER`) even though STEP 4a returned `VALID`** → the token exists but no postable page/account was granted during authorization (e.g. no Facebook Page with a linked Instagram **Business/Creator** account). Treat it as "not connected": re-run STEP 4c and tell the user to grant the Page.
+- **`accounts` is empty (or `NO_PAGES_FOR_USER`) even though STEP 4a returned `VALID`** → the token exists but no postable page/account was granted during authorization (e.g. no Facebook Page with a linked Instagram **Business/Creator** account). Treat it as "not connected": re-run STEP 4c and tell the user to grant the Page. **For GBP**, an empty list (or `NO_VALID_LOCATIONS_FOR_USER`) means the Google account manages no verified business location — reconnecting changes nothing. Tell the user to verify a location in Google Business Profile, then retry.
 - **A `400 USER_NOT_EXIST_FOR_CHANNEL` error** (shouldn't happen after a `VALID` status, but possible if the channel was disconnected between calls) → treat exactly like "not connected" for **this channel only** and offer STEP 4c.
 
 ### STEP 4c: Connect the channel (only if not connected)
+
+**Every channel except GBP** — for Google Business Profile, use STEP 4d instead.
 
 Ask the user if they'd like to connect the channel now. If yes, run the OAuth connect flow — the site owner must authorize in their browser; it can't be completed server-side alone.
 
@@ -312,6 +316,19 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
 4. **If this was a standalone connect request, stop here** — the channel is connected. Otherwise, run **STEP 4b** (`List Accounts`) to get the now-connected account's `id` for `channel.accountId`. (The poll already confirmed `VALID`, so no need to re-check status.)
 
 If the user declines to connect, stop: the post can't be delivered to an unconnected channel.
+
+### STEP 4d: Google Business Profile isn't connected as a social channel (GBP only)
+
+**Never call `GET /social-publisher/v1/GBP/connect-url`.** GBP has no OAuth flow in this API and that call fails with `UNSUPPORTED_CHANNEL`. No API call connects GBP as a social channel — the site owner does it in their dashboard. Say so plainly instead of attempting a connect flow.
+
+A site has **two different kinds of GBP connection**, and posting needs both, in this order:
+
+1. **The Google connection** — the site is linked to the owner's Google Business Profile account, which the owner does in the Google Business Profile section of the dashboard. Check it with `GET https://www.wixapis.com/gbp/v1/connection`; if it isn't `VALID`, the [Connect a Wix Site to Google Business Profile](../google-business-profile/connect-google-business-profile.md) skill drives it end to end, and the site owner authorizes in their own browser.
+2. **The social channel connection** — the owner chooses to add Google Business Profile as a channel in Social Media Marketing, on the social posts hub: `https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web` (see [Marketing Dashboard Navigation](./marketing-dashboard-navigation.md) for the URL contract). STEP 4a reports this one. No API call creates it, so hand the user the URL and tell them to connect Google Business Profile there.
+
+**The first never implies the second.** Connecting GBP as a social channel is the owner's own decision, and it counts toward the plan's limit on connected social channels — a free plan allows one, so it can take the slot the owner wants for Instagram or Facebook. Never tell the user GBP is connected for posting because the Google connection is `VALID`, and never treat the second step as a formality. If the plan's channel limit is already used, connecting it on the hub is blocked; explain that, and offer the same two options as the `428` in STEP 4c.
+
+When the user asks "is my Google Business Profile connected?", answer for each connection separately — for example: "Your site is connected to Google, but Google Business Profile isn't added as a social channel in Social Marketing yet, so posts can't go to it." If the Google connection is already `VALID`, the social channel connection is the missing one; say that, rather than telling the user to reconnect Google. After the owner connects it, re-run **STEP 4a** — only a `VALID` there means posts can be delivered.
 
 ---
 
@@ -482,6 +499,9 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | STEP 4a `long-lived-token-status` returns `NEVER_CREATED` / `DISCONNECTED` / `INVALID` | Channel not connected (or connection expired) | Offer STEP 4c to connect/reconnect; **don't** call `List Accounts` for this channel — status already told you there's no user |
+| Same, but the channel is **GBP** | GBP has no OAuth flow here, so `connect-url` can't fix it — GBP is added as a social channel in the dashboard | Follow STEP 4d: never call `GBP/connect-url`, and tell the user which of the two connections is missing |
+| `GBP/connect-url` returns `UNSUPPORTED_CHANNEL` | You called the wrong step for GBP — this endpoint has never supported it | Use STEP 4d |
+| `gbp/v1/connection` says `VALID` but STEP 4a doesn't | Two different connections: the site is linked to Google, but the owner hasn't added GBP as a social channel. Both answers are true | STEP 4a decides whether a post can be delivered. Follow STEP 4d, answer for each connection separately, and never report the Google connection as the posting answer |
 | STEP 4b returns empty `accounts` even though status was `VALID` | Token exists but no postable page/account was granted at authorization | Treat as not-connected for that channel; re-run STEP 4c and tell the user to grant the Page |
 | `400 USER_NOT_EXIST_FOR_CHANNEL` on List Accounts | The **queried channel** has no connected user. Shouldn't occur after a `VALID` status (STEP 4a gates this) — a stray one means it disconnected between calls | Treat as not-connected for that channel only; offer STEP 4c. Don't conclude the whole site has no connected accounts — the check is per-channel |
 | `428 INELIGIBLE_FOR_FEATURE` on Get Connect Url | Site has hit its plan's cap on **number of connected channels** (e.g. free = 1), not a channel-specific block | Explain the channel-count limit; offer to upgrade, or find the already-connected channel (List Accounts / ask) and offer to post there. Don't suggest connecting a *different* new channel (same cap), don't suggest disconnecting/switching, don't retry the connect flow |

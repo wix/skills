@@ -59,6 +59,20 @@ Google — for example after the owner revoked Wix's access in their Google
 account settings. Treat a Google-side authorization failure on a Locations
 call as the authoritative signal and re-run the connect flow when one appears.
 
+**`VALID` does not mean Google Business Profile is connected for social
+posting.** This endpoint reports only the Google connection. Posting to a
+Business Profile through Social Media Marketing also needs a separate social
+channel connection, which the owner chooses to add on the social posts hub
+(`https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`) and which
+no API call can create. It counts toward the plan's limit on connected social
+channels, so never assume the owner wants it. Its status lives at
+`GET https://www.wixapis.com/social-publisher/v1/GBP/long-lived-token-status` —
+see the **Create and Publish a Social Media Post** skill, STEP 4d. A `VALID`
+here alongside a non-`VALID` there is a consistent, expected state, not a
+contradiction. Never answer "can I post to Google Business Profile?" from this
+endpoint; scope the answer to the Google connection and point at the social
+channel status for the rest.
+
 ## Run the connect flow
 
 1. Call **Get Connect URL** once and read `connectUrl`.

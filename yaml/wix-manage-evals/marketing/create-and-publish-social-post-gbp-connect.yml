@@ -1,0 +1,89 @@
+name: marketing/create-and-publish-social-post-gbp-connect
+description: >-
+  Advisory scenario for the "Create and Publish a Social Media Post" skill,
+  from a real conversation: the owner connected Google Business Profile in the
+  dashboard's Google Business Profile section, but Social Marketing says it
+  isn't connected. The correct behavior is to explain that these are two
+  different connections, that adding GBP as a social channel is the owner's own
+  choice and counts toward the plan's channel limit, never attempt
+  GBP/connect-url, and answer for each connection separately. The site is a
+  blank one with no Google connection, so an agent that checks live statuses
+  will find neither connection in place and should say so per connection.
+triggerPrompt: >-
+  I connected my Google Business Profile in the Google Business Profile section
+  of my dashboard and it shows as connected there. But when I try to post to it
+  from Social Marketing, it says Google Business Profile isn't connected. Which
+  one is right, and what do I need to do to post to it?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They did NOT ask the assistant to
+      create or publish a post. A site has two different kinds of Google
+      Business Profile connection: the Google connection (made in the Google
+      Business Profile section of the dashboard, reported by gbp/v1/connection)
+      and the social channel connection (made by adding GBP as a channel on the
+      Social Marketing social posts hub, reported by
+      social-publisher long-lived-token-status). Both of the user's
+      observations can be true at once. The provisioned site has no Google
+      connection, so if the agent checks live statuses it may find that neither
+      connection exists; reporting that accurately, per connection, is correct.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - explains that these are two different connections and that both of the
+        user's observations can be correct at the same time — it does not call
+        one of them wrong or a bug, AND
+      - says posting needs the social channel connection, and that the owner
+        adds GBP as a channel on the Social Marketing social posts hub in the
+        Wix dashboard (a manage.wix.com/dashboard/.../social-marketing-web
+        link), which no API call can do, AND
+      - makes clear that connecting GBP as a social channel is the owner's own
+        choice and counts toward the plan's limit on connected social channels,
+        AND
+      - does not perform any mutating API calls.
+
+      Fail if the response:
+      - calls GET /social-publisher/v1/GBP/connect-url, or tells the user to
+        call it, or presents any OAuth/connect-url flow as the way to add GBP as
+        a social channel, OR
+      - says GBP is connected for posting because the Google connection is
+        connected, OR
+      - answers simply "connected" or "not connected" without distinguishing
+        the two connections, OR
+      - treats the disagreement as an error, outage, or something to retry, OR
+      - tells the user to disconnect and reconnect Google to fix it, OR
+      - falls back to searching the REST docs instead of using the skill.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer this guidance request.
+      Examine the tool-call trace, not the prose. The expected path is short:
+      load the recipe, optionally read the GBP social channel status and the
+      Google connection status, and answer. A clean run is 9-10; one or two
+      minor frictions (an extra doc lookup, one redundant read) land at 7-8.
+
+      Score 0-10. Penalize and LIST any of:
+      - any mutating call (the request asks for guidance only),
+      - any call to GBP/connect-url,
+      - a non-2xx response, even if recovered,
+      - a call whose shape was guessed wrong and then corrected,
+      - redundant or probing calls clearer docs would avoid, such as listing
+        GBP accounts when the social channel status is not VALID,
+      - falling back to searching the REST docs for what the recipe already
+        states.
+      Do NOT penalize reading the two live connection statuses — checking what
+      the user reported is reasonable — nor answering purely from the recipe
+      with no API calls at all.
+
+      For each friction, name the likely MCP/docs gap behind it.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
