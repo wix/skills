@@ -1,7 +1,8 @@
-name: calendar/site-opening-hours-routing
+name: site-properties/site-opening-hours-routing
 description: Route general site opening hours to Site Properties without changing booking availability.
 triggerPrompt: Set my website's general opening hours to Monday through Friday, 9am to 5pm, closed on weekends.
 tags:
+  - site-properties
   - calendar
   - bookings
 siteSetup:
