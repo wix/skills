@@ -289,8 +289,9 @@ A label is its own entity with a GUID `id` and a `name`; an item references labe
 3. Only when the user asks to put the label on items: read the items first with Query Items (Step 8),
    append `{ "id": "<LABEL_ID>" }` to each item's `labels`, and send them with
    `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/update`. That call rejects an item
-   whose pricing fields are missing with `428`, even with a `labels` field mask, so copy each item's
-   `name` and its pricing fields (`pricingType`, `priceInfo`) from the query response unchanged.
+   whose pricing fields are missing with `428`, even with a `labels` field mask, so send each item as the
+   query returned it — including its `revision`, `name`, `pricingType` and `priceInfo` — with only
+   `labels` changed.
 
 ## Error Handling
 

@@ -1,0 +1,58 @@
+name: restaurants/label-all-items
+description: >-
+  Verifies the restaurants recipe gives the agent the label assignment flow, so putting a label on
+  menu items is one read of the items and one bulk update that sends each item as queried — rather
+  than a bulk update with only `labels` that fails with `428` on the missing pricing fields.
+triggerPrompt: Create a Chef's Pick label and put it on every item on my restaurant menu.
+tags: [restaurants]
+maxTokens: 600000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/wix-restaurants-setup
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create a Chef's Pick label and put it on every item on my
+      restaurant menu."
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if a label named "Chef's Pick" was created (or an existing one with exactly that name
+      was reused, not duplicated) by a successful (2xx) call, AND a successful (2xx) item update added
+      that label's `id` to every menu item the site's item query returned, keeping each item's existing
+      labels, AND the agent confirmed the result.
+
+      Fail if any item was left without the label; OR an item lost a label it already had; OR an
+      item's name or price changed; OR a duplicate label was created; OR the final item update
+      errored; OR the agent only described how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to every item carrying the label. Examine the
+      tool-call trace, including request bodies and any error bodies. 10 = no wasted calls and no
+      errors.
+
+      Reading the restaurants recipe, one label lookup, one label create, one items query and the
+      bulk item update are expected and are never wasted calls.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+      - a `428` from the bulk item update because an item was sent without its pricing fields, or any
+        other non-2xx response;
+      - `400` for a label ID that is not a GUID — a label name or slug sent where a label `id` is
+        required;
+      - reading item or label reference pages, `SearchWixAPISpec` or `ReadFullDocsMethodSchema` calls,
+        or documentation searches spent on the label or item-update shape the recipe gives;
+      - a separate call spent only inspecting item fields before retrying an update.
+
+      A crash inside a Wix MCP tool itself is an MCP defect, not an agent mistake: name it in the
+      reason but do NOT deduct for it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
