@@ -148,8 +148,18 @@ export async function createTicketTiers(ctx, eventId, tiers) {
       },
       fields: ["SALES_DETAILS"],
     };
-    const r = await req(ctx, "/events/v3/ticket-definitions", { body });
-    return { id: r.ticketDefinition?.id };
+    // Right after the Events app is installed, the site's fee settings can lag behind: the first
+    // tier then fails with INVALID_FEE_TYPE ("feeType=FEE_INCLUDED feeRequired=false") and the
+    // same request succeeds seconds later (seen on a fresh site, 2026-09-27). Wait it out, briefly.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const r = await req(ctx, "/events/v3/ticket-definitions", { body });
+        return { id: r.ticketDefinition?.id };
+      } catch (e) {
+        if (!/INVALID_FEE_TYPE/.test(e.message) || attempt >= 6) throw e;
+        await new Promise((res) => setTimeout(res, 5000));
+      }
+    }
   }));
 }
 
