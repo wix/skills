@@ -86,4 +86,5 @@ jobs:
           changed-files: ${{ steps.diff.outputs.files }}
           required: ${{ vars.PR_SWEEP_REQUIRED || 'false' }}
           blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}
-          remind: ${{ vars.PR_SWEEP_REMIND || 'false' }}
+          # DEMO ONLY: reminders forced on for this branch. Not to be merged.
+          remind: 'true'
