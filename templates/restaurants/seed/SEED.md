@@ -51,7 +51,12 @@ restaurant that takes orders and reservations:
 }
 ```
 
-- `price` — a number; stored as a decimal string in the **site currency** (never send one).
+- `price` — a number; stored as a decimal string in the **site currency** (never send one per item).
+- `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
+  sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
+  infer it from a language, a country, or an address. The seed sets the site to it before creating
+  anything, because prices are stored in the site currency at create time; a new site starts in the
+  currency of the account that created it, not the business's.
 - `ordering` — installs the Orders app, which **auto-provisions** a working setup (ENABLED
   operation, Pickup + Delivery methods, every menu orderable); the seed verifies it. The
   `address` is **required for real ordering** — without one, ordering is "testing only" and

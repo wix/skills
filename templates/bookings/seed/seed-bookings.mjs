@@ -17,6 +17,7 @@
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
 // wix-headless/references/inline-recipes/setup-bookings.md.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
@@ -210,7 +211,9 @@ export async function attachServiceImage(ctx, it) {
  * ONE-CALL seed: install → resolve staff (poll) → categories → services → CLASS sessions →
  * images, ids threaded in memory. The default path.
  */
-export async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
+export async function setupBookings(ctx, { services = [], staffResourceId, currency } = {}) {
+  // Before any service exists: a service's price is stored in the site currency.
+  if (currency) await setSiteCurrency(ctx, currency);
   await installBookingsApp(ctx);
 
   let resourceId = staffResourceId;

@@ -19,6 +19,7 @@
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
 // wix-headless/references/inline-recipes/setup-pricing-plans.md.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -241,7 +242,9 @@ export async function attachBookingsCoverage(ctx, planId, serviceIds, { creditAm
  * ONE-CALL seed: install → create plans (ids kept in memory) → per covering plan, wire
  * bookings coverage (2a → 2b → 2c, strictly ordered). The default path.
  */
-export async function setupPricingPlans(ctx, { plans = [] } = {}) {
+export async function setupPricingPlans(ctx, { plans = [], currency } = {}) {
+  // Before any plan exists: a plan's price is stored in the site currency.
+  if (currency) await setSiteCurrency(ctx, currency);
   await installPricingPlansApp(ctx);
   const created = await createPlans(ctx, plans);
   const coverageAttached = [];

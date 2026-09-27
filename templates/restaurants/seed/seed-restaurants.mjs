@@ -20,6 +20,7 @@
 // shapes → read the live API reference; authoritative source recipes:
 // wix-headless/references/inline-recipes/setup-restaurants.md, setup-restaurant-orders.md,
 // setup-restaurant-reservations.md.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
@@ -362,6 +363,8 @@ export async function enableOnlineReservations(ctx, reservationLocationId, revis
  * ordering add-on → reservations add-on, ids threaded in memory. The default path.
  */
 export async function setupRestaurants(ctx, plan) {
+  // Before any item exists: an item's price is stored in the site currency.
+  if (plan.currency) await setSiteCurrency(ctx, plan.currency);
   const menusPlan = plan.menus ?? [];
   const wasPresent = await menusAppPresent(ctx);
   await installMenusApp(ctx);

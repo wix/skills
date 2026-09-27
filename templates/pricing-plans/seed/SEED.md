@@ -37,7 +37,12 @@ per plan in the dashboard).
   `"one-time"` (bills once, then ends; `billingCycle: null` makes it never expire), or
   `"free"` (amount forced to `"0"` + a per-member-lifetime purchase limit).
 - `price` — a decimal string (`"29.00"`; a number is stringified). Currency is site-derived —
-  never sent.
+  never sent per plan.
+- `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
+  sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
+  infer it from a language, a country, or an address. The seed sets the site to it before creating
+  anything, because prices are stored in the site currency at create time; a new site starts in the
+  currency of the account that created it, not the business's.
 - `perks` — display-only bullets on the plan card; they grant nothing by themselves.
 - `termsAndConditions` (plain text), `visibility` (`"PUBLIC"`), `buyable` (`true`) — optional
   overrides. A `buyable: false` plan renders without a subscribe CTA (merchant-assigned).

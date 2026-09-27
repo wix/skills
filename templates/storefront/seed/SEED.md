@@ -66,8 +66,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
   both is rejected.
-- `currency` — 3-letter ISO code. Set it **only when the brief names one** ("prices in euros",
-  "a German store charging EUR"). Do **not** infer it from a language, a country, or an address
+- `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
+  currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before
   creating anything, because a product's price is stored in the site currency at create time.
   For a few seconds afterwards product reads can still report the old currency; that lag is

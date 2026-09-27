@@ -19,6 +19,7 @@
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; authoritative source recipe:
 // wix-headless/references/inline-recipes/setup-events.md.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
@@ -202,9 +203,11 @@ export async function setEventMainImage(ctx, it) {
  * ONE-CALL seed: install → site currency → per event create DRAFT → tiers → publish →
  * categories → images, ids threaded in memory. The default path.
  */
-export async function setupEvents(ctx, { events = [] } = {}) {
+export async function setupEvents(ctx, { events = [], currency } = {}) {
+  // Before any event exists: a ticket tier's currency is fixed at creation.
+  if (currency) await setSiteCurrency(ctx, currency);
   await installEventsApp(ctx);
-  const siteCurrency = await getSiteCurrency(ctx);
+  const siteCurrency = currency ?? await getSiteCurrency(ctx);
 
   const created = [];
   for (const ev of events) {

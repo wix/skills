@@ -42,7 +42,12 @@ image leaves that service text-only.
   (fixed `sessions` you schedule here — **future local wall-clock** `YYYY-MM-DDThh:mm:ss`, no Z;
   a CLASS without sessions shows no bookable times).
 - `price` — a number; omit or `free: true` → a no-fee, pay-in-person service (books without
-  checkout). The site currency wins over `currency`.
+  checkout). The site currency wins over a per-service `currency`.
+- `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
+  sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
+  infer it from a language, a country, or an address. The seed sets the site to it before creating
+  anything, because prices are stored in the site currency at create time; a new site starts in the
+  currency of the account that created it, not the business's.
 - `category` — a name; created idempotently. Every service gets one (required for live-site
   visibility) — uncategorized services fall into a default "Services" category.
 - Staff: appointments are auto-assigned to the site's default staff resource; the flow books

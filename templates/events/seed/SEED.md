@@ -2,7 +2,7 @@
 
 Seed by **running `seed-events.mjs` with a plan file** — don't hand-write the REST calls.
 The script mints its own site token via the Wix CLI (logged-in session + `wix.config.json`
-required), installs the Wix Events app if needed, resolves the site currency, and creates
+required), installs the Wix Events app if needed, sets the site currency when the plan names one, and creates
 everything in the one order that works (create DRAFT → tiers → publish — the registration
 type is immutable and publishing is one-way).
 
@@ -62,7 +62,12 @@ seed; a failed image leaves that event text-only.
   the brief → default ~60–90 days out and say so.
 - `ticketTiers` — TICKETING only, created before publish. `price` is a **decimal STRING**
   (`"45.00"`, never a number), `name` ≤ 30 chars, omit `initialLimit` for unlimited. Tier
-  currency is the site currency (resolved automatically).
+  currency is the site currency, fixed at creation: a wrong one means deleting the event.
+- `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
+  sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
+  infer it from a language, a country, or an address. The seed sets the site to it before creating
+  anything, because prices are stored in the site currency at create time; a new site starts in the
+  currency of the account that created it, not the business's.
 - `location` — `{ name, type: "VENUE", address }` (address `subdivision` is ISO-3166-2 like
   `US-WA`, `country` ISO alpha-2), `{ name, type: "ONLINE" }`, or
   `{ locationTbd: true, name }`.

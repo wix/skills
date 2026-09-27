@@ -16,7 +16,8 @@ common), open the PDF, fetch the page, look at the images. Then map, don't autho
   → 200; a local file → the plan's image path field. An entry with no image is seeded without one
   and listed in your summary. **Never an `imagePrompt` beside supplied content** — these are their
   things, not a mood board.
-- Currency, time zone, address: only when the source or the brief states them.
+- Currency, time zone, address: only when the source or the brief states them. A price written
+  with its unit ("9 dollars", "$9", "€20") states the currency: it goes in the plan's `currency`.
 - Show the user the count you read next to the count you seeded, and the mapping you applied.
 
 The vertical's `SEED.md` says what an entry is for that vertical and which of its plan fields the
