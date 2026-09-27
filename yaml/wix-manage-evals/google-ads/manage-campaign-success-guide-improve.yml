@@ -4,8 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  What should I fix next in my existing Wix Google Ads campaign on my site
-  (MSID: b342a30b-616e-40ce-ad26-52a83397e08e)?
+  How can I improve my Google Ads campaign?
 tags: [marketing]
 assertions:
   - tool: ReadFullDocsArticle
