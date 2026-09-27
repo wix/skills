@@ -18,7 +18,7 @@ https://manage.wix.com/dashboard/{metaSiteId}/blog/{route}
 | Page | URL after `/dashboard/{metaSiteId}/` | What it manages |
 |---|---|---|
 | Overview | `blog/overview` | Blog summary and quick actions |
-| Posts | `blog/posts` | All posts — the page has tabs for published posts and drafts |
+| Posts | `blog/manage-posts` | All posts — the page has tabs for published posts and drafts |
 | Categories | `blog/categories` | Post categories |
 | Edit category | `blog/categories/edit` | A specific category |
 | Tags | `blog/tags` | Post tags |
@@ -33,12 +33,12 @@ The bare app root `blog` lands on the posts page. Older writer-management links 
 
 ## Pairing Entities with Their Read APIs
 
-Fetch the entity via REST, then link the matching dashboard page. All calls use `https://www.wixapis.com` with an `Authorization` header. Published posts and drafts are separate endpoints (Blog Posts API vs Draft Posts API) but share the same dashboard page — drafts sit in the Drafts tab of `blog/posts`.
+Fetch the entity via REST, then link the matching dashboard page. All calls use `https://www.wixapis.com` with an `Authorization` header. Published posts and drafts are separate endpoints (Blog Posts API vs Draft Posts API) but share the same dashboard page — drafts sit in the Drafts tab of `blog/manage-posts`.
 
 | Entity | Read API | Dashboard link |
 |---|---|---|
-| Post (published) | `GET /blog/v3/posts` · `POST /blog/v3/posts/query` · `GET /blog/v3/posts/{postId}` | `blog/posts` |
-| Draft post | `GET /blog/v3/draft-posts` · `POST /blog/v3/draft-posts/query` · `GET /blog/v3/draft-posts/{draftPostId}` | `blog/posts` (Drafts tab) |
+| Post (published) | `GET /blog/v3/posts` · `POST /blog/v3/posts/query` · `GET /blog/v3/posts/{postId}` | `blog/manage-posts` |
+| Draft post | `GET /blog/v3/draft-posts` · `POST /blog/v3/draft-posts/query` · `GET /blog/v3/draft-posts/{draftPostId}` | `blog/manage-posts` (Drafts tab) |
 | Category | `GET /blog/v3/categories` · `POST /blog/v3/categories/query` | `blog/categories` |
 | Tag | `POST /blog/v3/tags/query` · `GET /blog/v3/tags/{tagId}` | `blog/tags` |
 | Comment | Comments API — `POST /comments/v1/comments/query-cursor` | `blog/comments` |
@@ -48,9 +48,9 @@ Example — after publishing a post, hand back the dashboard link:
 
 ```
 Published "10 Tips for Better Coffee".
-Manage your posts here: https://manage.wix.com/dashboard/{metaSiteId}/blog/posts
+Manage your posts here: https://manage.wix.com/dashboard/{metaSiteId}/blog/manage-posts
 ```
 
 ## Notes
 
-- Unknown deeper paths fall back to the longest matching route, so `blog/posts/...` links land on the posts list rather than 404.
+- Unknown deeper paths fall back to the longest matching route, so `blog/manage-posts/...` links land on the posts list rather than 404.
