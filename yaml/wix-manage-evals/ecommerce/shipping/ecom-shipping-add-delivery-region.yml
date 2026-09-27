@@ -7,7 +7,7 @@ description: >-
   discovering by a 400 that `cursorPaging.limit` tops out at 100.
 triggerPrompt: Add Canada as a delivery region and make all of my existing shipping options available there.
 tags: [ecommerce]
-maxTokens: 500000
+maxTokens: 1000000
 siteSetup:
   mode: template
   templateId: stores-v3-editor
