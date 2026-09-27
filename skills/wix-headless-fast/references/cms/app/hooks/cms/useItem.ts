@@ -1,14 +1,12 @@
-// One item — by `_id` or by a field match (slug routing). SSR-friendly: pass the
-// server-fetched item as `initialItem` and no client fetch happens; a SPA passes nothing.
-import { useEffect, useState } from "react";
-import { getItemBy, getItemById } from "../../wix/cms/items";
+// React binding of the item store (wix/cms/item-store.ts) — one item by `_id` or by a field match
+// (slug routing), the loader lives there, framework-free. SSR-friendly: pass the server-fetched
+// item as `initialItem` and no client fetch happens; a SPA passes nothing.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createItemStore, type ItemRef, type ItemStore } from "../../wix/cms/item-store";
 import type { CmsItem } from "../../wix/cms/types";
 
 /** Exactly one of `id` / `by`. */
-export interface UseItemRef {
-  id?: string;
-  by?: { field: string; value: string | number };
-}
+export type UseItemRef = ItemRef;
 
 export interface UseItemOptions {
   initialItem?: CmsItem;
@@ -25,33 +23,15 @@ export interface UseItem {
 
 export function useItem(collectionId: string, ref: UseItemRef, options: UseItemOptions = {}): UseItem {
   const { initialItem, include } = options;
-  const [item, setItem] = useState<CmsItem | null>(initialItem ?? null);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  // A new ref (another id or slug) is another item — a fresh store, as useProductDetail does per slug.
+  const key = JSON.stringify([collectionId, ref.id ?? null, ref.by?.field ?? null, ref.by?.value ?? null]);
+  const holder = useRef<{ key: string; store: ItemStore } | null>(null);
+  if (!holder.current || holder.current.key !== key) holder.current = { key, store: createItemStore({ collectionId, ref, initialItem, include }) };
+  const store = holder.current.store;
   useEffect(() => {
-    if (initialItem) return;
-    let alive = true;
-    const fetching = ref.id
-      ? getItemById(collectionId, ref.id, { include })
-      : ref.by
-        ? getItemBy(collectionId, ref.by.field, ref.by.value, { include })
-        : Promise.reject(new Error("useItem: pass ref.id or ref.by"));
-    fetching
-      .then((found) => {
-        if (!alive) return;
-        setItem(found);
-        setNotFound(found === null);
-      })
-      .catch((e) => {
-        if (!alive) return;
-        setError(e instanceof Error ? e.message : String(e));
-      });
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionId, ref.id, ref.by?.field, ref.by?.value]);
-
-  return { item, notFound, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
+  return { item: state.item, notFound: state.notFound, error: state.error };
 }

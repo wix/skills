@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/storefront/useCart";
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
 import type { ProductSummary } from "../../wix/storefront/types";
+import OptionPicker from "./OptionPicker";
 
 export default function QuickAdd({ product }: { product: ProductSummary }) {
   return (
@@ -71,7 +72,8 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
   );
 }
 
-// The picker fetches the full product only when it opens — cards never carry PDP data.
+// The picker fetches the full product only when it opens — cards never carry PDP data. Its controls
+// are the shipped OptionPicker, the same component the PDP mounts.
 function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
   const d = useProductDetail({ slug: product.slug });
   const panelRef = useRef<HTMLElement>(null);
@@ -127,57 +129,7 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
           </a>
         )}
 
-        {d.product && !needsPdp && (
-          <div className="flex flex-col gap-3">
-            {d.optionGroups.map((g) => (
-              <fieldset key={g.id}>
-                <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.name}</legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {g.choices.map((c) =>
-                    g.isColor && c.colorCode ? (
-                      <button key={c.choiceId} type="button" aria-label={c.name} title={c.name} aria-pressed={c.selected}
-                        disabled={!c.inStock} onClick={() => d.selectOption(g.name, c.name)}
-                        className={`h-8 w-8 rounded-full border-2 disabled:opacity-30 ${c.selected ? "border-foreground" : "border-border"}`}
-                        style={{ backgroundColor: c.colorCode }} />
-                    ) : (
-                      <button key={c.choiceId} type="button" aria-pressed={c.selected} disabled={!c.inStock}
-                        onClick={() => d.selectOption(g.name, c.name)}
-                        className={`rounded-full border px-3 py-1 text-sm disabled:line-through disabled:opacity-40 ${c.selected ? "border-foreground bg-foreground text-background" : "border-border"}`}>
-                        {c.name}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </fieldset>
-            ))}
-            {d.product.modifiers.filter((m) => m.type === "choices").map((m) => (
-              <fieldset key={m.key}>
-                <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {m.name}{m.mandatory ? " *" : ""}
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {m.choices.map((c) => (
-                    <button key={c.key} type="button" aria-pressed={d.modifierValues[m.key] === c.key}
-                      onClick={() => d.setModifier(m.key, c.key)}
-                      className={`rounded-full border px-3 py-1 text-sm ${d.modifierValues[m.key] === c.key ? "border-foreground bg-foreground text-background" : "border-border"}`}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-            <button
-              type="button"
-              disabled={!d.canAdd || d.adding}
-              onClick={() => d.add().then(onClose).catch(() => {})}
-              className="rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {d.adding ? "Adding…" : d.isPreorder ? "Pre-order" : "Add to cart"}
-            </button>
-            {d.blockedReason && !d.canAdd && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
-            {d.error && <p className="text-xs text-red-600">{d.error}</p>}
-          </div>
-        )}
+        {d.product && !needsPdp && <OptionPicker detail={d} onAdded={onClose} />}
       </section>
     </>
   );

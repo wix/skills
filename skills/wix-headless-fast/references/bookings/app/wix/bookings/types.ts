@@ -56,12 +56,14 @@ export interface Slot {
   staff: { id: string; name: string }[];
 }
 
-/** A booking-form field (flat, from getFormSummary; values are keyed by `target`). */
+/** A booking-form field (flat, from the form summary + schema; values are keyed by `target`). */
 export interface BookingFormField {
   target: string;
   label: string;
   type: "STRING" | "EMAIL" | "PHONE" | "NUMBER" | "URL";
   options?: string[];
+  /** The form marks it required — the only fields that gate `canBook`; the rest may stay empty. */
+  required: boolean;
 }
 
 /** The outcome of book(): either the browser is being redirected, or it's done. */
