@@ -39,8 +39,9 @@ discussed earlier in the conversation. To finish it or read its results:
    [Check the flow status](#2-poll-until-keyword_research).
 3. At `SUCCESS`, go directly to [Read the briefs](#6-read-the-briefs).
    At `KEYWORD_RESEARCH`, when completion is requested,
-   [confirm the keyword research is ready](#3-wait-for-the-keyword-research), then
-   call [Create Content Plan](#4-release-the-flow) once with this flow ID.
+   [confirm the keyword research is ready](#3-wait-for-the-keyword-research),
+   then check the flow once more. Call [Create Content Plan](#4-release-the-flow)
+   once with this flow ID only if it is still at `KEYWORD_RESEARCH`.
    For an earlier in-progress status, continue checking this same flow until
    it reaches the pause. If already at `CONTENT_PLAN`, continue to step 4
    without calling Create Content Plan again. For a terminal or unmet-requirement
@@ -114,7 +115,8 @@ GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId
 
 Execute this GET once and return its response. This execution contains no
 `for`/`while` loop and no timer. Repeat it as a separate call when another
-status check is needed. Keep the response compact: flow ID and status suffice.
+status check is needed. Keep the response compact: flow ID, status, and (once at `KEYWORD_RESEARCH`)
+`keywordResearchId` suffice.
 
 Example response, showing the public flow fields (optional fields may be absent):
 
