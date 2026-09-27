@@ -52,8 +52,8 @@ doesn't express — or once the site exists and the work turns to managing or ex
   **The test, before every request:** the exact path and body appear in the output of a file
   read or a docs search you ran in this session, and you copy them from that output. Anything
   else is memory: a file whose output was cut short before the call, a source you remember
-  reading earlier, a sibling call with one word changed (`products/search` →
-  `categories/search`). A guessed call that returns 400 or nothing is not a step toward the
+  reading earlier, a call built by changing part of one you did find. A guessed call that
+  returns 400 or nothing is not a step toward the
   answer; it is the failure this rule exists to prevent, trying the next variant is still
   guessing, and an empty or error reply to a call that failed the test tells you about the
   call, never about the site. Keep errors visible while a call is unconfirmed: no `2>/dev/null`,
