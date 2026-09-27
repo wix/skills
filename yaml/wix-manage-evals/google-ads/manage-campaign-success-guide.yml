@@ -86,23 +86,26 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct path: read the campaign success
-      guide documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e,
-      identify its campaign with at most one campaign-list call, retrieve or
-      create the guide once, use existing navigation metadata or at most one
-      read-only site-metadata lookup when needed, and present the first batch
-      with a deduplicated Editor link or plain fallback and a grouped
-      supported-work offer when applicable, without querying analytics, reading
-      action recipes prematurely, or mutating guide state.
+      trace. Score 9-10 for a direct path: read the campaign success guide
+      documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e, identify
+      its campaign with at most one campaign-list call, retrieve or create the
+      guide once, use existing navigation metadata or at most one read-only
+      site-metadata lookup when needed, and present the first batch without
+      querying analytics, reading action recipes prematurely, or mutating guide
+      state.
 
-      Penalize redundant approval, a different site, probing multiple sites,
-      pre-campaign suggestion or analytics calls, repeated guide retrieval,
-      guide-status mutation, repeated navigation lookup or continued probing
-      after no exact Editor URL is available, omission of both the link and
-      plain Editor fallback, semantic regrouping, visible completed or
-      later-batch items, repeated links or approval questions, an irrelevant
-      campaign CTA, premature action-recipe calls, guessed request shapes, any
-      non-2xx call even if recovered, redundant documentation, and internal
-      service or tool names in the user-facing answer. Name the likely recipe,
-      MCP, or docs gap for each detour. Return only
+      Score 7-8 when the agent completes that path correctly but uses extra
+      documentation or other non-error discovery. Do not penalize plain "Go to
+      the Editor" guidance when no exact Editor URL is available from context
+      or after the single allowed metadata lookup; that is the required
+      fallback, not a missing link.
+
+      Score below 7 for using a different site or probing multiple sites,
+      pre-campaign suggestion or analytics calls, a non-2xx call even if
+      recovered, repeated campaign or guide calls, guide-status mutation,
+      repeated navigation lookup or continued probing after the single attempt,
+      premature action-recipe calls, omission of both the exact Editor link and
+      its plain fallback, or internal service or tool names in the user-facing
+      answer. Name the likely recipe, MCP, or docs gap for each detour. Return
+      only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
