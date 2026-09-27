@@ -182,9 +182,8 @@ export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<D
 /**
  * Titles containing a slash. The docs pipeline (md-resolver in wix-private/docs) sets a doc's
  * menu display name to `title.split('/').pop()` — the API-repo convention for
- * "ServiceName/Doc Title" — and derives the page slug from it, so a skill titled
- * "CMS Publishing Flow & Visible/Hidden" was served at /skills/hidden while the gate's URL
- * (a slugify of the whole title) said otherwise. For a skill a slash is never wanted.
+ * "ServiceName/Doc Title" — and derives the page slug from it, which silently diverges from the
+ * gate's own URL (a slugify of the whole title). For a skill a slash is never wanted.
  */
 export function slashedTitles(workspace: string): DocsEntryTarget[] {
   return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
