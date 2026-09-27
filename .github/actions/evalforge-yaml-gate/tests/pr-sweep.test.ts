@@ -29,7 +29,24 @@ describe('formatPrSweepPending', () => {
     const body = formatPrSweepPending('abc1234def5678');
     expect(body).toContain(PR_SWEEP_PENDING_MARKER);
     expect(body).toContain('abc1234');
-    expect(body).toContain('/sweep');
+    expect(body).toContain('`/sweep`');
+  });
+
+  // Readers arrive knowing the gate, not the sweep. The reminder has to explain what a sweep is,
+  // how it differs from the gate they already see, why it is manual, and what a result looks like.
+  it('explains what a sweep is and how it differs from the gate', () => {
+    const body = formatPrSweepPending('abc1234def5678');
+    expect(body).toMatch(/other (areas|scenarios)/i);
+    expect(body).toMatch(/shares? a tag|same tag/i);
+    expect(body).toMatch(/gate/i);
+    expect(body).toMatch(/this PR's (docs|version)/i);
+  });
+
+  it('says why it is on request and what to expect back', () => {
+    const body = formatPrSweepPending('abc1234def5678');
+    expect(body).toMatch(/minutes/i);
+    expect(body).toMatch(/comment/i);
+    expect(body).toMatch(/push|new commit/i);
   });
 
   it('does not carry the result marker, so it never replaces a previous verdict', () => {
