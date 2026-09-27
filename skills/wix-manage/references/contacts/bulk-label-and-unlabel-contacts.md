@@ -43,11 +43,12 @@ The job's status can be retrieved with [Get Bulk Job](https://dev.wix.com/docs/a
 2. **Resolve named contacts to IDs** with Search Contacts, as in
    [Update a Contact](update-a-contact.md) — Query Contacts cannot filter on a name:
    `POST https://www.wixapis.com/contacts/v5/contacts/search` with `{"search":{"search":{"expression":"Leo Marsh"}}}`.
-   Keep only exact name matches. If none or more than one contact matches, stop and ask the user.
+   Each result in `contacts` has an `id` and `name.first` / `name.last`; keep only exact name matches. If none or
+   more than one contact matches, stop and ask the user.
 3. **Start the job** with the endpoint below, filtering by the resolved IDs:
    `{"filter":{"id":{"$in":["<CONTACT_ID>"]}},"labelKeysToAdd":["<LABEL_KEY>"]}` (or `labelKeysToRemove`).
 4. **Confirm the job finished** with `GET https://www.wixapis.com/contacts/v4/bulk/jobs/{jobId}`; repeat until
-   `job.status` is `COMPLETED` before reporting the result.
+   `job.status` is `COMPLETED`, then report `job.successTotal` and `job.failedTotal`.
 
 ## API Endpoint
 `POST https://www.wixapis.com/contacts/v4/bulk/contacts/add-remove-labels`
@@ -61,10 +62,10 @@ curl -X POST \
   -H 'Content-Type: application/json' \
   -d '{
     "filter": {
-      "info.name.first": "John"
+      "id": { "$in": ["<CONTACT_ID_1>", "<CONTACT_ID_2>"] }
     },
-    "labelKeysToAdd": ["custom.name-john", "custom.name-starts-with-J"],
-    "labelKeysToRemove": ["custom.last-name-smith"]
+    "labelKeysToAdd": ["custom.newsletter"],
+    "labelKeysToRemove": ["custom.prospect"]
   }'
 ```
 
