@@ -54,3 +54,4 @@ Manage your posts here: https://manage.wix.com/dashboard/{metaSiteId}/blog/posts
 ## Notes
 
 - Unknown deeper paths fall back to the longest matching route, so `blog/posts/...` links land on the posts list rather than 404.
+- The meta site id is the path segment right after `/dashboard/`; every link for one site shares it.
