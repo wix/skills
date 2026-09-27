@@ -1,0 +1,45 @@
+name: Close Stale PRs
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: close-stale-prs
+  cancel-in-progress: false
+
+env:
+  # Default threshold; override per-repo without code changes via
+  # Settings > Secrets and variables > Actions > Variables > STALE_PR_DAYS
+  STALE_PR_DAYS: ${{ vars.STALE_PR_DAYS || '30' }}
+
+jobs:
+  close-stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close PRs open longer than STALE_PR_DAYS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          days="${STALE_PR_DAYS}"
+          cutoff_ts=$(date -u -d "-${days} days" +%s)
+          echo "Closing open PRs created before $(date -u -d "@${cutoff_ts}" --iso-8601=seconds) (older than ${days} days)"
+
+          gh pr list --repo "$REPO" --state open --limit 500 --json number,createdAt \
+            --jq '.[] | [.number, .createdAt] | @tsv' \
+            | while IFS=$'\t' read -r number created_at; do
+                created_ts=$(date -u -d "$created_at" +%s)
+                if [ "$created_ts" -lt "$cutoff_ts" ]; then
+                  echo "Closing PR #${number} (open since ${created_at})"
+                  gh pr comment "$number" --repo "$REPO" --body "This pull request has been open for more than ${days} days without being merged, so it is being closed automatically to keep the review queue actionable. If it's still relevant, feel free to reopen it or open a fresh PR."
+                  gh pr close "$number" --repo "$REPO"
+                fi
+              done
