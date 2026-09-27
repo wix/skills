@@ -115,9 +115,29 @@ Some common apps:
 ## Error Handling
 
 ### App Not Installed Error
-If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
+If you receive an error indicating a required app is not installed (e.g. a `428` or a `*_NOT_INSTALLED` error code), install the app it names using its appDefId, then retry the call that failed. If the user's own request already implies this app is needed — e.g. asking to add site languages, or enable a feature that only that app provides — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
 
-If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. If the user's own request already implies this app is needed — e.g. asking to add site languages, or to enable multilingual mode — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
+**Example** (install the missing app, then retry the call that surfaced the error — all in one script):
+```javascript
+async function() {
+  const siteId = "<SITE_ID>";
+
+  await wix.request({
+    method: "POST",
+    url: "https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    body: {
+      tenant: { tenantType: "SITE", id: siteId },
+      appInstance: { appDefId: "<APP_DEF_ID>" }
+    }
+  });
+
+  return await wix.request({
+    method: "<METHOD>",
+    url: "<ORIGINAL_URL_THAT_FAILED>",
+    body: { /* original request body */ }
+  });
+}
+```
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
 Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
@@ -125,6 +145,39 @@ Installing an app and immediately calling one of that app's own APIs — e.g. ca
 If a call to an API owned by the app you just installed fails with a not-found error immediately afterward: wait briefly (roughly 1-2 seconds) and retry the dependent call yourself, up to 3 attempts with backoff, before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
 
 Write the install call, the wait, and the retried dependent call as one script in a single tool call — loop with a short sleep inside that one execution — rather than splitting the install, the wait, and the retry into separate tool calls. A round-trip back to you costs a full extra turn per call; a retry loop inside the same script costs only the wait itself.
+
+**Example** (install Wix Multilingual, then enable multilingual mode, retrying past the propagation delay — all in one script):
+```javascript
+async function() {
+  const siteId = "<SITE_ID>";
+
+  await wix.request({
+    method: "POST",
+    url: "https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    body: {
+      tenant: { tenantType: "SITE", id: siteId },
+      appInstance: { appDefId: "14d84998-ae09-1abf-c6fc-3f3cace5bf19" }
+    }
+  });
+
+  const delaysMs = [1000, 2000, 4000];
+  let lastError;
+  for (const delayMs of delaysMs) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    try {
+      return await wix.request({
+        method: "POST",
+        url: "https://www.wixapis.com/locale-settings/v2/settings/mode",
+        body: { multilingualModeEnabled: true }
+      });
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+```
+Chain any further app-dependent calls (e.g. creating locales) inside this same function, after the mode call succeeds — don't split them into a separate tool call either.
 
 ---
 
