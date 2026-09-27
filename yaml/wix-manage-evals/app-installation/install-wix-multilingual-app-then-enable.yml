@@ -7,6 +7,9 @@ triggerPrompt: >-
   My site currently only has Turkish. Please install Wix Multilingual and
   add German and English as site languages.
 tags: [app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
