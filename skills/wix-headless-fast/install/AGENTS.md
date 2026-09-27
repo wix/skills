@@ -22,7 +22,8 @@ Installed at `.agents/skills/`. If missing, restore with:
 
 - `{{SKILL}}` — the code in this app and how to extend it. Each business solution has a playbook at
   `references/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
-  adds one. A code change ends with a release; the live URL shows it, the dev server does not count.
+  adds one; `node .agents/skills/{{SKILL}}/references/<solution>/seed/read-site.mjs` reads what the
+  site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
   is confirmed there before you write it.

@@ -206,16 +206,25 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
    **Get the measure of the site before you design.** Enough to know what you are building
    for: what the chosen verticals will render, roughly how much of it, and what it is like — a
-   bakery with six products in three categories designs differently from six hundred. Go
-   deeper only where the brief points (a flash sale on cakes: is there a Cakes category, do the
-   cakes carry a sale price). Everything else the pages read live through the deployed data
-   layer; you are sizing the content, not collecting it. These are build-time reads with the
-   **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
+   bakery with six products in three categories designs differently from six hundred. One
+   command per vertical does this read, with nothing for you to compose:
+
+   ```bash
+   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
+   ```
+
+   It mints the site token inside the process, makes the reads the deployed code makes, and
+   prints one JSON: whether the vertical's app is installed, counts, a sample of each entity
+   with the fields the pages render, and `calls`, every request it made with its method's
+   documentation URL. Go deeper only where the brief points (a flash sale on cakes: is there a
+   Cakes category, do the cakes carry a sale price): open a URL from `calls` (plus `.md` for the
+   full document) or the sources below. Everything else the pages read live through the
+   deployed data layer; you are sizing the content, not collecting it.
+
+   Any read beyond the script is a build-time call with the **site's** token, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site),
    minted inline in each command — `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` —
-   and never written to a file, not in the project and not in `/tmp`. A call that comes back
-   empty or with an error says nothing about the site; it says the request was not the one on
-   the page you read. Open the source again rather than read the silence as "none".
+   and never written to a file, not in the project and not in `/tmp`.
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
    - **The vertical's shipped `rest/` module**, at
