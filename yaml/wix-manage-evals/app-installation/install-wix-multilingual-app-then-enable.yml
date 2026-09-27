@@ -1,0 +1,53 @@
+name: app-installation/install-wix-multilingual-app-then-enable
+description: >-
+  Verifies the agent reads the install-wix-apps skill and retries a
+  right-after-install 404 on a dependent API instead of giving up on the
+  first attempt.
+triggerPrompt: >-
+  My site currently only has Turkish. Please install Wix Multilingual and
+  add German and English as site languages.
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to install Wix Multilingual and add German and English as
+      site languages, starting from a site that only has Turkish.
+      Intent: the app gets installed, multilingual mode gets enabled, and the
+      two new locales get created — ending in a working multilingual site.
+
+      Pass if the response:
+      - confirms Wix Multilingual was installed, AND
+      - confirms multilingual mode was enabled and German and English were
+        added as locales, AND
+      - does not stop and tell the user the setup failed or to try again later.
+
+      Fail if the response:
+      - reports the install succeeded but enabling multilingual mode or adding
+        locales failed, without having retried, OR
+      - never completes adding the two locales.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Installing Wix Multilingual and immediately calling one of its own APIs
+      (Locale Settings or Locales) can race the platform's own install
+      propagation: the dependent call returns a 404 Entity not found whose
+      notFound.entityId is the placeholder GUID
+      00000000-0000-0000-0000-000000000000, not a real entity ID, even though
+      the install itself already succeeded.
+
+      Pass if, when that exact shape occurs right after the agent's own
+      install call succeeded:
+      - the agent waits briefly and retries the dependent call itself
+        (bounded, with backoff) before doing anything else, AND
+      - the user is not shown a raw 404 or told to try again later on the
+        first attempt.
+
+      Fail if the agent surfaces the 404 to the user, asks the user to retry
+      later, or treats it as proof Wix Multilingual is not installed, without
+      first retrying the call itself.
