@@ -74,14 +74,25 @@ export async function runReader({ vertical, appId, read }) {
     process.exit(1);
   }
   const api = makeApi(siteId);
-  const out = { vertical, siteId };
+  const out = { vertical, siteId, scope: null };
   out.installed = appId ? await api.installed(appId) : undefined;
+  let data = {};
   if (out.installed === false) {
-    out.note = `${vertical}: the app is not installed on this site — nothing to read; the vertical's seed installs it`;
+    out.scope = `${vertical}: the app is not installed on this site — nothing to read; the vertical's seed installs it`;
   } else {
-    try { Object.assign(out, await read(api, { limit: limit() })); }
+    try { data = await read(api, { limit: limit() }); }
     catch (e) { out.error = String(e.message).slice(0, 300); }
   }
+  // What this output is and is not: a SIZING. Every list is a sample page; the counts are the site.
+  const partial = Object.entries(data)
+    .filter(([k, v]) => Array.isArray(v) && typeof data[`${k.replace(/s$/, "")}Count`] === "number" && data[`${k.replace(/s$/, "")}Count`] > v.length)
+    .map(([k, v]) => `${k}: ${v.length} of ${data[`${k.replace(/s$/, "")}Count`]} shown`);
+  if (!out.scope) {
+    out.scope = "A sizing, not the content. Lists are one page (--limit, max 100); counts are the whole site. " +
+      (partial.length ? `Partial here: ${partial.join("; ")}. ` : "") +
+      "The pages read everything live through the deployed data layer. To read more or filter, page the same call: its method and documentation URL are in `calls`.";
+  }
+  Object.assign(out, data);
   out.calls = api.calls;
   out.docs = [...new Set(api.calls.map((c) => c.docs).filter(Boolean))];
   console.log(JSON.stringify(out, null, 2));
