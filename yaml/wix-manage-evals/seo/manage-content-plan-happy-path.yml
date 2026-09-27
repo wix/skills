@@ -19,7 +19,9 @@ assertions:
       1. POST /content-plan-flows/trigger and capture the returned contentPlanFlowId.
       2. GET /content-plan-flows/{id} until contentPlanFlow.status is KEYWORD_RESEARCH.
       3. GET /content-plan-keyword-research-items until it returns items whose
-         keywordResearchId matches the flow's keywordResearchId.
+         keywordResearchId matches the flow's keywordResearchId, or until a
+         flow status check shows CONTENT_PLAN or SUCCESS. 404 responses while
+         the research runs are expected waiting, not a failed step.
       4. Check the flow once more. If it is still KEYWORD_RESEARCH, POST
          /create-content-plan with that ID and confirm success. If it already
          moved to CONTENT_PLAN or SUCCESS, skipping the release is correct.

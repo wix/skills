@@ -189,14 +189,17 @@ Decide from each response:
 | HTTP `404` (not found), or no items | Research is still running. Check again in 10 to 15 seconds. |
 | `keywordResearchId` differs from the flow's | Earlier research. Check again in 10 to 15 seconds. |
 | Any other error | Report it and stop; do not keep waiting. |
+
+If a status check while you wait shows `CONTENT_PLAN` or `SUCCESS`, generation
+started; continue with step 5.
 | Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 
 Decide from that status check:
 
 - `KEYWORD_RESEARCH`: call Create Content Plan once
   (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan` with
-  `{ "contentPlanFlowId": "<flow-uuid>" }`; see step 4). A `428` reply then
-  means generation already started; do not retry, continue with step 5.
+  `{ "contentPlanFlowId": "<flow-uuid>" }`; see step 4). After a `428` reply,
+  do not retry: check the flow status and follow the status table.
 - `CONTENT_PLAN` or `SUCCESS`: generation already started. Skip Create Content
   Plan and continue with step 5.
 
@@ -235,9 +238,10 @@ when `success` is false), and `contentPlanFlowId` (flow UUID when returned).
 Check `success` as well as the HTTP status. If false, report `message` and stop;
 a successful HTTP response alone is not a completed plan.
 
-HTTP `428` with `FLOW_NOT_READY_FOR_CONTENT_PLAN` after the keyword research is
-ready means generation already started for this flow. Do not call Create Content
-Plan again; continue with step 5 using the same flow ID.
+HTTP `428` with `FLOW_NOT_READY_FOR_CONTENT_PLAN` means the flow is no longer
+at `KEYWORD_RESEARCH`, for example because generation already started. Do not
+call Create Content Plan again; check the same flow's status and follow the
+status table (`CONTENT_PLAN` or `SUCCESS`: continue with step 5).
 
 On success, retain the returned `contentPlanFlowId` for the next status check
 and candidate read. This response is not the list of briefs: continue to steps
