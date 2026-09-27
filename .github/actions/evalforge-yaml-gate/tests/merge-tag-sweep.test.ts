@@ -135,6 +135,21 @@ describe('buildEvalRunInput', () => {
     expect(src).not.toMatch(/createAndRunEvalRun\([^)]*\{\s*\n\s*name,/);
   });
 
+  it('pins the given capability version when a PR sweep supplies one', () => {
+    const input = buildEvalRunInput(config, 'pr-sweep-42-abc1234', 'for PR #42', ['s-1'], {
+      capabilityId: 'pr-mcp-1', versionId: 'ver-9',
+    });
+    expect(input.capabilityIds).toEqual(['pr-mcp-1']);
+    expect(input.capabilityVersions).toEqual({ 'pr-mcp-1': 'ver-9' });
+  });
+
+  it('does not also attach the production MCP when a PR version is pinned', () => {
+    const input = buildEvalRunInput(config, 'pr-sweep-42-abc1234', 'for PR #42', ['s-1'], {
+      capabilityId: 'pr-mcp-1', versionId: 'ver-9',
+    });
+    expect(input.capabilityIds).not.toContain('mcp-1');
+  });
+
   it('carries the run name, description, agent and scenarios through', () => {
     const input = buildEvalRunInput(config, 'merge-sweep-abc1234', 'for tags: blog', ['s-1', 's-2']);
     expect(input).toMatchObject({

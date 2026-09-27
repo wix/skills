@@ -223,10 +223,11 @@ describe('EvalForge re-eval workflow', () => {
     expect(workflow.on.issue_comment?.types).toEqual(['created']);
   });
 
-  it('fires only for PR comments, from non-bots, mentioning either command', () => {
+  it('fires only for PR comments, from non-bots, mentioning one of the commands', () => {
     expect(job.if).toContain('github.event.issue.pull_request');
     expect(job.if).toContain('/re-eval');
     expect(job.if).toContain('/review');
+    expect(job.if).toContain('/sweep');
     // Its own comments name the commands; without this they re-fire the webhook.
     expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
   });
@@ -247,13 +248,14 @@ describe('EvalForge re-eval workflow', () => {
     expect(script).toBeDefined();
 
     const commands = [...script!.matchAll(/\['(\/[a-z-]+)', \{/g)].map(match => match[1]);
-    expect(commands).toEqual(['/re-eval', '/review']);
+    expect(commands).toEqual(['/re-eval', '/review', '/sweep']);
 
     const gateLists = [...script!.matchAll(/gates: \[([^\]]*)\]/g)]
       .map(match => [...match[1].matchAll(/'([^']+)'/g)].map(quoted => quoted[1]));
     expect(gateLists).toEqual([
       ['evalforge-wix-app-gate.yml', 'evalforge-yaml-gate.yml'],
       ['evalforge-skill-review.yml'],
+      ['evalforge-pr-sweep.yml'],
     ]);
 
     for (const file of gateLists.flat()) {

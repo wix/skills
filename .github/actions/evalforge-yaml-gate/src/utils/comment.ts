@@ -5,12 +5,94 @@ import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
+import type { SweepVerdict } from './sweep-verdict';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 
+/** Its own marker: the sweep comment sits beside the gate's, never in place of it.
+ * No marker may contain another: comments are matched by `includes`. */
+export const PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep-result -->';
+/** The "not swept yet" reminder, edited in place on every push and deleted once a sweep reports. */
+export const PR_SWEEP_PENDING_MARKER = '<!-- evalforge-pr-sweep-pending -->';
+/** The `/sweep` acknowledgement the re-eval workflow posts; deleted once the sweep reports. */
+export const PR_SWEEP_ACK_MARKER = '<!-- evalforge-pr-sweep-ack -->';
+const PR_SWEEP_HEADING = 'EvalForge PR Sweep';
+
+export function formatPrSweepPending(headSha: string): string {
+  return [
+    PR_SWEEP_PENDING_MARKER,
+    `## ⏳ ${PR_SWEEP_HEADING}: Not Swept — commit \`${headSha.slice(0, 7)}\``,
+    '',
+    '**What this is.** The eval gate above runs only the scenarios that cover the docs you changed. A *sweep* goes wider: it re-runs every EvalForge scenario that shares a tag with your changes — including scenarios for other areas and ones that exist only in EvalForge — against this PR\'s version of the docs. It catches a change to one recipe breaking another one that the gate never looks at.',
+    '',
+    '**When to run it.** Worth doing once your change is close to final, or whenever you touch a recipe that other areas link to. It takes a few minutes for a handful of scenarios, longer if retries are needed.',
+    '',
+    '**How.** Comment `/sweep` on this PR (it must be the first word of the comment). The result replaces this comment: which tags matched, how many scenarios ran, and any confirmed failures with the assertion that failed. A new push brings this reminder back for the new commit.',
+  ].join('\n');
+}
+
 function render(icon: string, label: string, body: string[]): string {
   return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+
+function renderSweep(icon: string, label: string, body: string[]): string {
+  return [PR_SWEEP_MARKER, `## ${icon} ${PR_SWEEP_HEADING}: ${label}`, '', ...body].join('\n');
+}
+
+function sweepScopeLines(v: { tags: string[]; sampled: number; total: number; runUrl: string }, versionLabel: string): string[] {
+  const sampled = v.sampled < v.total
+    ? ` — sampled: a tag matching more than ${v.sampled} scenarios runs a fixed subset`
+    : '';
+  return [
+    `**Tags:** ${v.tags.map(t => `\`${t}\``).join(', ')}`,
+    `**Scenarios:** ${v.sampled} / ${v.total} matched${sampled}`,
+    `**MCP version:** \`${versionLabel}\``,
+    `**Run:** ${v.runUrl}`,
+  ];
+}
+
+function recoveredLines(recovered: Array<{ scenarioName: string }>): string[] {
+  if (recovered.length === 0) return [];
+  return ['', '**Recovered on retry (flaky):**', ...recovered.map(v => `- \`${v.scenarioName}\``)];
+}
+
+/**
+ * The PR-comment rendering of a sweep verdict. The merge sweep reports the same verdict to Slack;
+ * this is the on-demand PR sweep's report, so it names the PR's MCP version and stays a warning
+ * until the sweep is made blocking.
+ */
+export function formatPrSweep(verdict: SweepVerdict, opts: { blocking: boolean; versionLabel: string }): string {
+  switch (verdict.kind) {
+    case 'nothing-to-run':
+      return renderSweep('ℹ️', 'Nothing to Run', [verdict.reason]);
+    case 'infra-error':
+      return renderSweep(opts.blocking ? '❌' : '⚠️', 'Could Not Run', [
+        verdict.message,
+        ...(verdict.runUrl ? ['', `**Run:** ${verdict.runUrl}`] : []),
+      ]);
+    case 'passed':
+      return renderSweep('✅', 'Passed', [
+        'Every tag-matched scenario passed against this PR\'s docs.',
+        '',
+        ...sweepScopeLines(verdict, opts.versionLabel),
+        ...recoveredLines(verdict.recovered ?? []),
+      ]);
+    case 'failed': {
+      const { icon, label } = failIcon(opts.blocking);
+      const lines = [
+        `${verdict.confirmed.length} scenario(s) confirmed failed against this PR's docs.`,
+        '',
+        ...sweepScopeLines(verdict, opts.versionLabel),
+        '',
+        '**Confirmed failures:**',
+        ...verdict.confirmed.map(v => `- \`${v.scenarioName}\` (${v.reasons.join(', ')})`),
+        ...recoveredLines(verdict.recovered),
+      ];
+      if (verdict.skipNote) lines.push('', `> ⚠️ ${verdict.skipNote}`);
+      return renderSweep(icon, label, lines);
+    }
+  }
 }
 
 function failIcon(blocking: boolean): { icon: string; label: string } {
