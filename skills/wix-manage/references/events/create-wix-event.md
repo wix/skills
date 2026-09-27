@@ -200,7 +200,11 @@ The response is the definition under `ticketDefinition`:
 Keep `revision` — `PATCH /events/v3/ticket-definitions/{id}` requires the current value, and it
 increments on every update.
 
-- **`feeType` is required** — `FEE_ADDED_AT_CHECKOUT` or `FEE_INCLUDED`.
+- **`feeType` is required.** A free ticket (`fixedPrice` of `"0"`) takes `NO_FEE`. A paid ticket
+  takes `FEE_ADDED_AT_CHECKOUT` (the guest pays the service fee) unless the user asked to absorb it,
+  then `FEE_INCLUDED`. `NO_FEE` on a paid ticket is accepted only on sites that do not collect ticket
+  fees. If a paid ticket fails with `400 INVALID_FEE_TYPE`, the site is one that does not collect
+  ticket fees: retry that ticket once with `NO_FEE`.
 - **`value` is a string.** `"value": 10` fails `400 Unexpected value for field value`.
 - **No writable `free` flag** — `pricingMethod.free` is read-only; a free ticket is a `fixedPrice`
   of `"0"`.
