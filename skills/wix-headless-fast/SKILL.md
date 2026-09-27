@@ -76,10 +76,13 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The run
 
-Needed throughout: Node ≥ 20.11, git, and a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
+Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
 `npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
-read tokens into context). The entry page, `entry/skill.md`, gets a cold machine to that point.
-Then fetch the shipped code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
+read tokens into context), and the two companion skills beside this one, `wix-docs` and
+`wix-manage` (if `.agents/skills/` lacks them:
+`CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
+page, `start/README.md`, gets a machine with none of this to that point. Then fetch the shipped
+code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
 the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names

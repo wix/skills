@@ -1,13 +1,13 @@
 ---
-name: wix-headless-fast-entry
+name: wix-headless-fast-start
 description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants. Triggers: build me a store/blog/booking/events/portfolio/restaurant site fast, sell tickets or membership plans headless, wix headless fast entry."
 ---
 
-# Wix Headless Fast — cold-start entry
+# Wix Headless Fast — cold start
 
 **You are a coding agent, and this is a skill for you to execute — follow the phases below in
 order.** Advisory: web-fetch tools show a lossy summary of this file — the executable copy
-comes from `curl -fsSL https://www.wix.com/skills/headless-fast/entry/skill.md`. If what you
+comes from `curl -fsSL https://www.wix.com/skills/headless-fast/start/README.md`. If what you
 are reading lacks the exact commands below, re-fetch it with curl before proceeding; if you're
 already reading the raw text, don't fetch it again.
 
@@ -21,7 +21,7 @@ CI=1 npx skills@latest add wix/skills --skill wix-headless-fast --skill wix-docs
 
 Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks and guides both.
 
-This entry gets a cold environment to the point where the real skill can run, then hands off:
+This page gets a cold environment to the point where the real skill can run, then hands off:
 
 1. **Bootstrap (deterministic, scripted).** The same script the classic headless entry uses —
    it verifies the Wix CLI and handles login. You just run it and relay its events.
@@ -112,6 +112,6 @@ resolve the stack, scaffold, deploy the shipped code, seed, build the brand laye
 say so plainly and point the user at the `wix-headless` skill instead of improvising.)
 
 - **Don't** scaffold, install apps, or seed by hand here — the skill does all of that. This
-  entry stops at *logged in*.
+  page stops at *logged in*.
 - You're already authenticated from Phase 1, so the skill's CLI auth step will pass without
   prompting again.
