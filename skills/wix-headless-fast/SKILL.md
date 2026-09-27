@@ -204,7 +204,11 @@ doesn't express — or once the site exists and the work turns to managing or ex
    cakes carry a sale price). Everything else the pages read live through the deployed data
    layer; you are sizing the content, not collecting it. These are build-time reads with the
    **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
-   `Authorization` header (the account token from the call above does not scope to a site).
+   `Authorization` header (the account token from the call above does not scope to a site),
+   minted inline in each command — `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` —
+   and never written to a file, not in the project and not in `/tmp`. A call that comes back
+   empty or with an error says nothing about the site; it says the request was not the one on
+   the page you read. Open the source again rather than read the silence as "none".
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
    - **The vertical's shipped `rest/` module**, at
