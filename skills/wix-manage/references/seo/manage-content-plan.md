@@ -187,12 +187,12 @@ Decide from each response:
 | Response | Next action |
 | --- | --- |
 | HTTP `404` (not found), or no items | Research is still running. Check again in 10 to 15 seconds. |
-| `keywordResearchId` differs from the flow's | Earlier research. Check again in 10 to 15 seconds. |
+| `keywordResearchId` differs from the flow's | Earlier research. Check again, as above. |
+| Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 | Any other error | Report it and stop; do not keep waiting. |
 
-If a status check while you wait shows `CONTENT_PLAN` or `SUCCESS`, generation
-started; continue with step 5.
-| Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
+If a status check while you wait shows `CONTENT_PLAN`, continue with step 5; if
+it shows `SUCCESS`, go to step 6.
 
 Decide from that status check:
 
@@ -201,7 +201,7 @@ Decide from that status check:
   `{ "contentPlanFlowId": "<flow-uuid>" }`; see step 4). After a `428` reply,
   do not retry: check the flow status and follow the status table.
 - `CONTENT_PLAN` or `SUCCESS`: generation already started. Skip Create Content
-  Plan and continue with step 5.
+  Plan; continue with step 5, or step 6 at `SUCCESS`.
 
 Research usually takes one to two minutes. If it is not ready after five
 minutes, report the flow ID as incomplete. Calling Create Content Plan before
@@ -241,7 +241,7 @@ a successful HTTP response alone is not a completed plan.
 HTTP `428` with `FLOW_NOT_READY_FOR_CONTENT_PLAN` means the flow is no longer
 at `KEYWORD_RESEARCH`, for example because generation already started. Do not
 call Create Content Plan again; check the same flow's status and follow the
-status table (`CONTENT_PLAN` or `SUCCESS`: continue with step 5).
+status table (`CONTENT_PLAN`: continue with step 5; `SUCCESS`: go to step 6).
 
 On success, retain the returned `contentPlanFlowId` for the next status check
 and candidate read. This response is not the list of briefs: continue to steps
