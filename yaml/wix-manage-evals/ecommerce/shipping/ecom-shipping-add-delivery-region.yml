@@ -31,6 +31,8 @@ assertions:
       Delivery Profiles add-delivery-region (or update-delivery-region) call whose destinations
       explicitly include Canada (`CA`); then listed the store's shipping options and attached every
       one of them to that region with successful (2xx) calls; and confirmed the result to the user.
+      The site ships with existing shipping options, so at least one successful attach call is
+      required: a run that lists no shipping options, or attaches none, fails.
 
       Fail if the agent described dashboard steps instead of doing it; OR reported success with no
       successful call that puts `CA` in a delivery region's destinations; OR left any existing
