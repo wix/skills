@@ -82,6 +82,8 @@ export interface ProductVariant {
   inStock: boolean;
   /** Out of stock but pre-orderable — still buyable (the add carries preOrderRequested). */
   preorderEnabled: boolean;
+  /** This variant's own image (from its choice's linked media), resolved to an https URL; null when it has none. */
+  imageUrl: string | null;
 }
 
 /** A product as the detail page needs it. */

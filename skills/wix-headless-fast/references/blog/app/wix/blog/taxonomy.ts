@@ -1,42 +1,24 @@
-// Category + tag reads (Wix Blog V3) — the only file that touches raw taxonomy entities.
-// Everything it returns is a plain DTO from ./types. Copy as-is; extend by adding functions.
+// Category + tag reads (Wix Blog V3) over the SDK — the only file that touches raw taxonomy
+// entities on this transport. Everything it returns is a plain DTO from ./types. The mappers live
+// in ./taxonomy-core (shared with the REST twin in references/blog/rest/); this file is the
+// transport only. Copy as-is; extend by adding functions.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/query-categories.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 import { categories as categoriesModule, tags as tagsModule } from "@wix/blog";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
+import { TAXONOMY_LIMIT, toCategory, toTag } from "./taxonomy-core";
+import type { Raw } from "./posts-core";
 import type { BlogCategory, BlogTag } from "./types";
 
 const categories = wixModule(categoriesModule);
 const tags = wixModule(tagsModule);
 
-type Raw = Record<string, any>;
-
-function toCategory(raw: Raw): BlogCategory {
-  return {
-    id: raw._id ?? "",
-    slug: raw.slug ?? "",
-    label: raw.label ?? "",
-    description: raw.description ?? "",
-    postCount: raw.postCount ?? 0,
-    coverUrl: imgSrc(raw.coverImage, 1200, 675),
-  };
-}
-
-function toTag(raw: Raw): BlogTag {
-  return {
-    id: raw._id ?? "",
-    slug: raw.slug ?? "",
-    label: raw.label ?? "",
-    postCount: raw.publishedPostCount ?? 0,
-  };
-}
-
 /** Categories in menu order (displayPosition) — non-fatal (empty array on failure). */
 export async function fetchBlogCategories(): Promise<BlogCategory[]> {
   try {
-    const res = await categories.queryCategories().ascending("displayPosition").limit(100).find();
-    return (res.items ?? []).map((c: Raw) => toCategory(c)).filter((c) => c.id);
+    const res = await categories.queryCategories().ascending("displayPosition").limit(TAXONOMY_LIMIT).find();
+    return (res.items ?? []).map((c: Raw) => toCategory(c, imgSrc)).filter((c) => c.id);
   } catch {
     return [];
   }
@@ -45,7 +27,7 @@ export async function fetchBlogCategories(): Promise<BlogCategory[]> {
 /** Tags, most-published-posts first — non-fatal (empty array on failure). */
 export async function fetchBlogTags(): Promise<BlogTag[]> {
   try {
-    const res = await tags.queryTags().descending("publishedPostCount").limit(100).find();
+    const res = await tags.queryTags().descending("publishedPostCount").limit(TAXONOMY_LIMIT).find();
     return (res.items ?? []).map((t: Raw) => toTag(t)).filter((t) => t.id);
   } catch {
     return [];
@@ -59,7 +41,7 @@ export async function fetchBlogTags(): Promise<BlogTag[]> {
 export async function fetchCategoryBySlug(slug: string): Promise<BlogCategory | null> {
   try {
     const res = await categories.getCategoryBySlug(slug);
-    return res.category ? toCategory(res.category as Raw) : null;
+    return res.category ? toCategory(res.category as Raw, imgSrc) : null;
   } catch {
     return null;
   }

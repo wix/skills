@@ -72,10 +72,6 @@ inputs:
     description: 'Anthropic API key for the AI reviewer (review mode). Never reaches a fork PR — GitHub withholds secrets from those'
     required: false
     default: ''
-  prompt-path:
-    description: 'Workspace-relative path to the review prompt. Defaults to the PR head, so a PR that improves the prompt is reviewed by the improved prompt'
-    required: false
-    default: '.github/prompts/skill-review.md'
   anthropic-base-url:
     description: 'Anthropic-compatible endpoint, without a trailing /v1 — the CLI appends /v1/messages itself. Defaults to the Wix AI Gateway; direct api.anthropic.com egress is IP-allowlisted at the org level, so a GitHub-hosted runner cannot reach it'
     required: false

@@ -76,6 +76,15 @@ dashboard. That's an owner step, not a seeding failure; relay it.
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup
 seems needed.
 
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For events, each event the user
+lists is one entry. Its title becomes `title`; its date and time become `startDate` and `endDate` in
+ISO with the `timeZoneId` the user stated; the venue and address become `location`; named tickets
+with prices become `ticketTiers` on a `TICKETING` event, and an event with no tickets is `RSVP`; a
+category becomes `category`; their image becomes `imageUrl`. A date without a year or without a
+time zone is a question for the user, never a guess.
+
 ## Escape hatch — individual functions
 `setupEvents` composes exported steps — `installEventsApp`, `getSiteCurrency`, `createEvent`,
 `createTicketTiers`, `publishEvent`, `createEventCategories`, `assignEventsToCategory`,

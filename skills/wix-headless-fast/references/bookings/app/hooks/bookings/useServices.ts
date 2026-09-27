@@ -1,54 +1,23 @@
-// Services listing + category filter. SSR-friendly: pass server-fetched data as `initial*`
-// (Astro frontmatter / server component) and no client fetch happens; a SPA passes nothing.
-// Category filtering is client-side (bookings catalogs are small and fully fetched).
-import { useEffect, useMemo, useState } from "react";
-import { fetchBookingCategories, fetchServices } from "../../wix/bookings/services";
-import type { BookingCategory, ServiceSummary } from "../../wix/bookings/types";
+// React binding of the services store (wix/bookings/services-store.ts) — the listing state lives
+// there, framework-free; this hook subscribes to one instance per mounted listing and exposes its
+// state and actions under one name. SSR-friendly: pass server-fetched data as `initial*` (Astro
+// frontmatter / server component) and no client fetch happens; a SPA passes nothing. Astro islands
+// and React SPAs use this; a static page, Vue, or Svelte uses the store directly.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createServicesStore, type ServicesState, type ServicesStore, type ServicesStoreOptions } from "../../wix/bookings/services-store";
 
-export interface UseServicesOptions {
-  initialServices?: ServiceSummary[];
-  initialCategories?: BookingCategory[];
-}
+export type UseServicesOptions = ServicesStoreOptions;
 
-export interface UseServices {
-  /** null while the first load is in flight — render skeletons, not an empty state. */
-  services: ServiceSummary[] | null;
-  categories: BookingCategory[];
-  activeCategoryId: string | null;
-  setActiveCategoryId: (id: string | null) => void;
-  error: string | null;
-}
+export type UseServices = ServicesState & Pick<ServicesStore, "setActiveCategoryId">;
 
-export function useServices({ initialServices, initialCategories }: UseServicesOptions = {}): UseServices {
-  const [all, setAll] = useState<ServiceSummary[] | null>(initialServices ?? null);
-  const [categories, setCategories] = useState<BookingCategory[]>(initialCategories ?? []);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+export function useServices(options: UseServicesOptions = {}): UseServices {
+  const ref = useRef<ServicesStore | null>(null);
+  if (!ref.current) ref.current = createServicesStore(options);
+  const store = ref.current;
   useEffect(() => {
-    let alive = true;
-    if (!initialServices) {
-      fetchServices()
-        .then((s) => alive && setAll(s))
-        .catch((e) => {
-          if (!alive) return;
-          setAll([]);
-          setError(e instanceof Error ? e.message : String(e));
-        });
-    }
-    if (!initialCategories) {
-      fetchBookingCategories().then((c) => alive && setCategories(c));
-    }
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const services = useMemo(() => {
-    if (all === null) return null;
-    return activeCategoryId ? all.filter((s) => s.categoryId === activeCategoryId) : all;
-  }, [all, activeCategoryId]);
-
-  return { services, categories, activeCategoryId, setActiveCategoryId, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
+  return { ...state, setActiveCategoryId: store.setActiveCategoryId };
 }

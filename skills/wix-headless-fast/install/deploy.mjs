@@ -8,6 +8,21 @@
 //   --stack react  — copies only the core (app/) into src/, and writes the public OAuth
 //                  client id into src/wix/config.ts (pass --client-id, or it's read from
 //                  wix.config.json's appId when present).
+//   --stack lib    — a bundled JS project that isn't React (Vue, Svelte, Solid, plain Vite): copies
+//                  ONLY the data layer — shared app/wix/ (sdk, media, money, config) and each
+//                  vertical's app/wix/<vertical>/ (data layer, cart store, types, *-core rules) —
+//                  none of which imports React; writes the client id like react. No hooks, no
+//                  components, no global.css, no Tailwind deps. The agent writes its framework's
+//                  stores and components against the same DTO contracts.
+//   --stack static — a site with NO bundler (plain HTML/CSS/JS): composes the REST layer flat into
+//                  <out>/js/wix/ — shared/rest/ (client, media, config) + each vertical's rest/ + the
+//                  vertical's transport-agnostic core files (types, *-core) from its app/ — writes
+//                  the client id, and strips it to browser-ready ESM with tsc (comments kept, the
+//                  .ts sources kept beside the .js). No package.json is touched. Storefront only
+//                  until other verticals ship a rest/. `--out <dir>` (default: the project root)
+//                  is the folder the site is served from — the one wix.config.json's
+//                  site.outputDirectory points at — so the modules land where the pages import
+//                  them and nothing else in the project gets uploaded.
 //
 // TWO mechanisms, driven by the same vertical arguments:
 // 1. Recursive file copy with force:false — only files that AREN'T there yet are written, so
@@ -158,17 +173,18 @@ const flag = (name) => {
 const stack = flag("stack") ?? "astro";
 const clientIdFlag = flag("client-id");
 const planPath = flag("plan");
+const outDir = flag("out");
 const flagArgs = new Set(
-  ["--stack", "--client-id", "--plan", stack, clientIdFlag, planPath].filter(Boolean),
+  ["--stack", "--client-id", "--plan", "--out", stack, clientIdFlag, planPath, outDir].filter(Boolean),
 );
 const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
 
 const result = { stack, verticals: [], skillRoot: SKILL_ROOT };
 
-if (!["astro", "react"].includes(stack)) {
+if (!["astro", "react", "lib", "static"].includes(stack)) {
   console.log(
     JSON.stringify({
-      error: `unknown --stack "${stack}" — expected astro|react`,
+      error: `unknown --stack "${stack}" — expected astro|react|lib|static`,
     }),
   );
   process.exit(1);
@@ -193,6 +209,87 @@ if (!Array.isArray(uploadPolicies)) {
   console.log(JSON.stringify({ error: "plan.capabilities.mediaUpload.policies must be an array" }));
   process.exit(1);
 }
+// ---- static stack: the REST layer, composed flat and stripped ------------------------------------
+if (stack === "static") {
+  const { spawnSync } = await import("node:child_process");
+  const { rmSync } = await import("node:fs");
+  const OUT = outDir ? resolve(PROJECT, outDir) : PROJECT;
+  const JS = join(OUT, "js", "wix");
+  result.out = outDir ?? ".";
+  let clientId = clientIdFlag;
+  if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
+    clientId = JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ?? null;
+  }
+  if (!clientId) {
+    console.log(JSON.stringify({ error: "static stack needs the public OAuth client id — run `npm create @wix/new@latest init` here first, or pass --client-id" }));
+    process.exit(1);
+  }
+  const missing = requested.filter((v) => !existsSync(join(REF, v, "rest")));
+  if (missing.length) {
+    console.log(JSON.stringify({ error: `no rest/ layer yet for ${missing.map((v) => `"${v}"`).join(", ")} — the static stack ships: ${VERTICALS.filter((v) => existsSync(join(REF, v, "rest"))).join(", ")}` }));
+    process.exit(1);
+  }
+  // Only files that aren't there yet — a re-run restores, never clobbers (same as the copy below).
+  cpSync(join(REF, "shared", "rest"), JS, COPY);
+  for (const vertical of requested) {
+    cpSync(join(REF, vertical, "rest"), JS, COPY);
+    // The vertical's transport-agnostic core: types, every *-core.ts, and every *-store.ts under its
+    // app/wix/<vertical>/ — the stores are the hooks' logic without React, over the same function
+    // names the REST twin exports, so they run against it unchanged.
+    const appWix = join(REF, vertical, "app", "wix", vertical);
+    for (const f of readdirSync(appWix)) {
+      // Every vertical has a types.ts; flat in one folder they would collide, so each lands as
+      // <vertical>-types.ts and the vertical's own files are pointed at it below.
+      if (f === "types.ts") cpSync(join(appWix, f), join(JS, `${vertical}-types.ts`), COPY);
+      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+    }
+    const own = new Set([...readdirSync(join(REF, vertical, "rest")), ...readdirSync(appWix)].filter((f) => f.endsWith(".ts") && f !== "types.ts"));
+    for (const f of own) {
+      const fp = join(JS, f);
+      if (!existsSync(fp)) continue;
+      const src = readFileSync(fp, "utf8");
+      const fixed = src.replace(/from\s+"\.\/types(?:\.js)?"/g, `from "./${vertical}-types.js"`);
+      if (fixed !== src) writeFileSync(fp, fixed);
+    }
+    result.verticals.push(vertical);
+  }
+  // Browser ESM resolves nothing: every relative import needs its .js. The rest/ files are written
+  // that way; the files borrowed from app/wix/ are bundler-style and get the suffix here.
+  for (const f of readdirSync(JS).filter((f) => f.endsWith(".ts"))) {
+    const src = readFileSync(join(JS, f), "utf8");
+    const fixed = src.replace(/(from\s+"\.\/[^"]+?)(?<!\.js)"/g, '$1.js"');
+    if (fixed !== src) writeFileSync(join(JS, f), fixed);
+  }
+  const cfg = join(JS, "config.ts");
+  const current = readFileSync(cfg, "utf8");
+  if (/WIX_CLIENT_ID: string = ""/.test(current)) {
+    writeFileSync(cfg, current.replace(/WIX_CLIENT_ID: string = ""/, `WIX_CLIENT_ID: string = "${clientId}"`));
+    result.clientId = "written";
+  } else {
+    result.clientId = "already_set";
+  }
+  // Strip to ESM with tsc — comments are the spec for whoever reads js/wix/, so they stay.
+  const sources = readdirSync(JS).filter((f) => f.endsWith(".ts")).map((f) => join(JS, f));
+  const tsc = spawnSync(
+    "npx",
+    ["-y", "-p", "typescript@5", "tsc", ...sources, "--outDir", JS, "--module", "esnext", "--target", "es2022",
+     "--moduleResolution", "bundler", "--lib", "es2022,dom", "--strict", "--skipLibCheck", "--removeComments", "false"],
+    { encoding: "utf8", timeout: 180_000 },
+  );
+  if (tsc.status !== 0) {
+    console.log(JSON.stringify({ ...result, error: `tsc strip failed: ${(tsc.stdout || tsc.stderr || "").slice(-800)}` }));
+    process.exit(1);
+  }
+  rmSync(join(JS, "tsconfig.json"), { force: true });
+  result.js = `${outDir ? outDir.replace(/\/$/, "") + "/" : ""}js/wix/*.js`;
+  // The note lists what actually landed, so it holds for every vertical (and several at once).
+  const stores = readdirSync(JS).filter((f) => f.endsWith("-store.js")).map((f) => `./js/wix/${f}`);
+  const dataFiles = readdirSync(JS).filter((f) => f.endsWith(".js") && !f.endsWith("-store.js") && !f.endsWith("-core.js") && !f.endsWith("-types.js") && !["client.js", "config.js", "media.js"].includes(f)).map((f) => `./js/wix/${f}`);
+  result.note = `import the data layer (${dataFiles.join(", ")})${stores.length ? ` and the stores (${stores.join(", ")})` : ""} relative to ${outDir ?? "the project root"} in a <script type="module">; the .ts beside them are the same files with types, for reading; point wix.config.json site.outputDirectory at "./${outDir ?? "."}"`;
+  console.log(JSON.stringify(result));
+  process.exit(0);
+}
+
 if (uploadPolicies.length && stack !== "astro") {
   console.log(JSON.stringify({ error: "mediaUpload currently requires --stack astro because it ships a validated server endpoint" }));
   process.exit(1);
@@ -212,8 +309,9 @@ for (const policy of uploadPolicies) {
 }
 
 // ---- copy ---------------------------------------------------------------------------------------
-// Shared core — always.
-cpSync(join(REF, "shared", "app"), SRC, COPY);
+// Shared core — always. The lib stack takes only the framework-free wix/ part (no styles).
+if (stack === "lib") cpSync(join(REF, "shared", "app", "wix"), join(SRC, "wix"), COPY);
+else cpSync(join(REF, "shared", "app"), SRC, COPY);
 
 if (uploadPolicies.length) {
   cpSync(join(REF, "shared", "capabilities", "media-upload", "app"), SRC, COPY);
@@ -221,10 +319,12 @@ if (uploadPolicies.length) {
 }
 
 const unknown = requested.filter((v) => !VERTICALS.includes(v));
-const wantedDeps = { ...SHARED_DEPS };
+// lib: only @wix/sdk from the shared deps — the Tailwind pair serves the components, which don't ship there.
+const wantedDeps = stack === "lib" ? { "@wix/sdk": SHARED_DEPS["@wix/sdk"] } : { ...SHARED_DEPS };
 if (uploadPolicies.length) Object.assign(wantedDeps, CAPABILITY_DEPS["media-upload"]);
 for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
-  cpSync(join(REF, vertical, "app"), SRC, COPY);
+  if (stack === "lib") cpSync(join(REF, vertical, "app", "wix"), join(SRC, "wix"), COPY);
+  else cpSync(join(REF, vertical, "app"), SRC, COPY);
   if (stack === "astro" && existsSync(join(REF, vertical, "app-astro"))) {
     cpSync(join(REF, vertical, "app-astro"), SRC, COPY);
   }
@@ -386,7 +486,7 @@ if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
     JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ??
     null;
 }
-if (stack === "react") {
+if (stack === "react" || stack === "lib") {
   if (clientId) {
     const current = readFileSync(CONFIG_TS, "utf8");
     // A non-null id already set wins; only fill the shipped null placeholder.
@@ -404,7 +504,7 @@ if (stack === "react") {
     }
   } else {
     result.clientId =
-      "missing — pass --client-id (react stack needs the public OAuth client id)";
+      `missing — pass --client-id (the ${stack} stack needs the public OAuth client id)`;
   }
 }
 if (requested.includes("members")) {

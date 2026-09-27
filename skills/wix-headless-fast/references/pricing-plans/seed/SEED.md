@@ -61,6 +61,14 @@ omits both — coverage is skipped automatically.
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup
 seems needed.
 
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For pricing plans, each plan the
+user lists is one entry. Its name becomes `name`; a price with a billing period becomes `price`
+with `type: "recurring"` and the matching `billingCycle`; a price paid once becomes
+`type: "one-time"`; no price means `type: "free"`; a list of features or benefits becomes `perks`;
+the description becomes `description`. A price with no period is a question for the user.
+
 ## Escape hatch — individual functions
 `setupPricingPlans` composes exported steps — `installPricingPlansApp`, `createPlans`,
 `attachBookingsCoverage` (and its `getProgramDefinition`, `createPoolDefinition`,
