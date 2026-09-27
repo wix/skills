@@ -4,8 +4,8 @@ description: >-
   right-after-install 404 on a dependent API instead of giving up on the
   first attempt.
 triggerPrompt: >-
-  My site currently only has Turkish. Please add German and English as
-  site languages.
+  My site currently only has Turkish. Please add German, English, French,
+  and Spanish as site languages.
 tags: [app-installation]
 siteSetup:
   mode: template
@@ -18,18 +18,18 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked to add German and English as site languages, starting
-      from a site that only has Turkish. They did not ask to install any app
-      by name.
-      Intent: the site ends up multilingual with German and English added.
+      The user asked to add German, English, French, and Spanish as site
+      languages, starting from a site that only has Turkish. They did not
+      ask to install any app by name.
+      Intent: the site ends up multilingual with all four languages added.
       Getting there requires installing Wix Multilingual first (a site with
       only Turkish has no multilingual app yet), then enabling multilingual
-      mode and creating the two locales — the agent must recognize and do
+      mode and creating the four locales — the agent must recognize and do
       this itself, not ask the user which app to install.
 
       Pass if the response:
       - installs Wix Multilingual without needing to be told to, AND
-      - confirms multilingual mode was enabled and German and English were
+      - confirms multilingual mode was enabled and all four languages were
         added as locales, AND
       - does not stop and tell the user the setup failed or to try again later.
 
@@ -37,7 +37,7 @@ assertions:
       - asks the user whether/which app to install instead of just doing it, OR
       - reports the install succeeded but enabling multilingual mode or adding
         locales failed, without having retried, OR
-      - never completes adding the two locales.
+      - never completes adding all four locales.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
