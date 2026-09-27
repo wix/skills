@@ -205,9 +205,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
    replaces that frontend; say so when you close.
 
    **Get the measure of the site before you design.** Enough to know what you are building
-   for: what the chosen verticals will render, roughly how much of it, and what it is like — a
-   bakery with six products in three categories designs differently from six hundred. One
-   command per vertical does this read, with nothing for you to compose:
+   for: what the chosen verticals will render, roughly how much of it, and what it is like —
+   six items in three groups design differently from six hundred. One command per vertical does
+   this read, with nothing for you to compose:
 
    ```bash
    node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
@@ -217,9 +217,8 @@ doesn't express — or once the site exists and the work turns to managing or ex
    prints one JSON: whether the vertical's app is installed, counts, a sample of each entity
    with the fields the pages render, and `calls`, every request it made with its method's
    documentation URL. The lists are one page and say so; the counts are the site. Go deeper only
-   where the brief points (a flash sale on cakes: is there a Cakes category, do the cakes carry
-   a sale price), and then this way: the answer is often in the output already (the category's
-   id, the sampled products' `compareAt`); when it needs a filtered or fuller read, take the
+   where the brief points at a subset or a property of the content, and then this way: the
+   answer is often in the output already; when it needs a filtered or fuller read, take the
    entry in `calls` that made the closest read, open its documentation URL with `.md` appended,
    copy the request from that document, set the filter or the paging, and send it with the token
    minted inline as below. That is the one request you compose in this step, and it is copied
