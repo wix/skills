@@ -15,6 +15,7 @@
 // docs: https://dev.wix.com/docs/sdk/core-modules/sdk/oauth-strategy.md
 // docs: https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/about-the-astro-integration.md
 import { createClient, OAuthStrategy, EMPTY_TOKENS } from "@wix/sdk";
+import { fetchWithAuth as ambientFetch } from "@wix/sdk/context";
 import type { IOAuthStrategy, TokenStorage, Tokens } from "@wix/sdk";
 import { WIX_CLIENT_ID } from "./config";
 
@@ -64,6 +65,18 @@ export function wixModule<T>(module: T): T {
   return client
     ? (client.use(module as unknown as Record<string, unknown>) as unknown as T)
     : module;
+}
+
+/**
+ * An authenticated fetch of a Wix REST endpoint under the SAME auth as the SDK modules (ambient
+ * on managed Astro, the shared client elsewhere) — for the few APIs whose generated SDK module is
+ * too heavy to bundle (the Forms schema module alone is 15 MB: server-side it pushes a Wix
+ * deploy past its size limit, client-side every visitor downloads it). Same visitor identity,
+ * same token, no second mint. `path` is the wixapis.com path; returns the raw Response.
+ */
+export function wixFetch(path: string, init?: RequestInit): Promise<Response> {
+  const url = path.startsWith("http") ? path : `https://www.wixapis.com${path}`;
+  return client ? client.fetchWithAuth(url, init) : ambientFetch(url, init);
 }
 
 /**

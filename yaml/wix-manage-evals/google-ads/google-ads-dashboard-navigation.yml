@@ -5,7 +5,7 @@ description: >-
 triggerPrompt: >-
   My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. I just created a Google Ads campaign through the API — give me the direct dashboard link where I manage it.
 tags: [google-ads]
-maxTokens: 30000
+maxTokens: 150000
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -14,7 +14,7 @@ import {
   formatReviewSkipped,
   type ReviewFinding,
 } from './review-comment';
-import { runReviewAgent } from './review-agent';
+import { runReviewAgent, agentPath, REVIEW_AGENT } from './review-agent';
 
 /**
  * `synchronize` is absent because a push must not spend, but it still has to trigger the workflow:
@@ -42,7 +42,8 @@ function buildTask(config: ReviewConfig, files: ChangedFile[]): string {
   return [
     `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
     `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
-    'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
+    'The repository is checked out at GitHub\'s merge commit — the tree as it will be once this PR',
+    'lands — so its first parent is the base and `git diff HEAD^1 HEAD -- <path>` is this PR\'s diff.',
     '',
     'Changed files in review scope:',
     ...files.map(file => `- ${file.filename} (${file.status})`),
@@ -52,10 +53,11 @@ function buildTask(config: ReviewConfig, files: ChangedFile[]): string {
 /** A commit nobody could review is not a reviewed commit, so this fails like a push does. */
 async function reportUnavailable(
   reason: string,
-  pending: { post: (body: string) => Promise<void> },
+  pending: { post: (body: string) => Promise<void>; clearAck: () => Promise<void> },
   isBlocking: boolean,
 ): Promise<void> {
   await pending.post(formatReviewServiceError(reason));
+  await pending.clearAck();
   fail(`The skill review did not complete: ${reason}`, isBlocking);
 }
 
@@ -102,9 +104,8 @@ export async function runReview(): Promise<void> {
   }
 
   const workspace = workspaceRoot();
-  const promptPath = join(workspace, config.promptPath);
-  if (!existsSync(promptPath)) {
-    await reportUnavailable(`the review prompt was not found at \`${config.promptPath}\``, pending, config.isBlocking);
+  if (!existsSync(agentPath(workspace))) {
+    await reportUnavailable(`the reviewer definition \`.claude/agents/${REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
     return;
   }
 
@@ -112,7 +113,6 @@ export async function runReview(): Promise<void> {
 
   const outcome = await runReviewAgent({
     cwd: workspace,
-    promptPath,
     task: buildTask(config, files),
     apiKey: config.anthropicApiKey,
     baseUrl: config.anthropicBaseUrl,
@@ -130,6 +130,7 @@ export async function runReview(): Promise<void> {
     headSha: config.headSha,
     filesReviewed: files.length,
     discarded: outcome.discarded,
+    triggeredBy: config.triggeredBy || undefined,
   };
 
   const findings: ReviewFinding[] = outcome.findings;

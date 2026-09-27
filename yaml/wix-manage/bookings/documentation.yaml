@@ -2,6 +2,8 @@ apiDoc:
   title: Wix Bookings Management Recipes
 
   docs:
+    # The published slug is derived from this title — changing it forks the article URL and
+    # leaves the old one serving stale content. Keep it as is; the audience is stated in the body.
     - file: ../../../skills/wix-manage/references/bookings/end-to-end-booking-flow.md
       title: End-to-End Booking Flow
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings

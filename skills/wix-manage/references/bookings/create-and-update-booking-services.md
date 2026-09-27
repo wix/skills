@@ -201,6 +201,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "Consultation",
       "type": "APPOINTMENT",
@@ -234,6 +235,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "Free Consultation",
       "type": "APPOINTMENT",
@@ -264,6 +266,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "Yoga Class",
       "type": "CLASS",
@@ -283,7 +286,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   }'
 ```
 
-After creation, use the `service.schedule.id` from the response to create class events with `bulkCreateEvents` (see Step 3).
+After creation, use `results[0].item.schedule.id` from the response to create class events with `bulkCreateEvents` (see Step 3). This requires `returnEntity: true` on the request — without it the response carries only `results[0].itemMetadata.id`, which has no `schedule.id`; and the created service is directly under `item` (there is no `item.service`).
 
 **Required Fields:**
 

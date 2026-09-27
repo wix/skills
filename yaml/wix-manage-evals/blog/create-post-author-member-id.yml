@@ -62,18 +62,23 @@ assertions:
       Return ONLY {"score":<0-10>,"reason":"<one sentence naming the calls used to
       resolve the author id>"}.
   - type: llm_judge
-    minScore: 0
+    minScore: 7
     maxTokens: 2048
     prompt: |
-      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the
-      agent fulfill the request. Examine the tool-call trace. Score 0-10 (10 =
-      direct: no wasted calls, no errors).
+      Rate how smoothly the Wix MCP and its docs let the agent fulfill the
+      request. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted
+      calls, no errors).
 
       Penalize and LIST any of: a call that returned a non-2xx error even if the
       agent recovered from it; a probing call for an author/member id outside the
       Members API; a docs or spec search that produced nothing usable; a request
       body shape guessed wrong then corrected. For each issue, name the likely
       MCP/docs gap.
+
+      Calibration: a clean run is 9-10; one or two minor frictions (a redundant
+      docs read, the expected empty List Members call, one recovered error) land
+      at 7-8; probing non-Members surfaces for an author id or a run of guessed
+      shapes scores lower.
 
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected
       MCP/docs gap, or 'clean path' if none>"}.

@@ -128,11 +128,6 @@ export function getEvalConfig(): Config {
 }
 
 /**
- * The prompt as the PR has it, not the base copy, so a prompt change is testable in the PR that
- * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
- */
-export const DEFAULT_REVIEW_PROMPT_PATH = '.github/prompts/skill-review.md';
-/**
  * The Wix AI Gateway, which is Anthropic-API-compatible. Not optional in practice: direct
  * api.anthropic.com egress is IP-allowlisted at the Wix org level, so a native key from a
  * GitHub-hosted runner gets a 403 whatever its value.
@@ -166,13 +161,13 @@ export type ReviewConfig = {
   baseSha: string;
   anthropicApiKey: string;
   anthropicBaseUrl: string;
-  promptPath: string;
   model: string;
   effort: string;
   timeoutSeconds: number;
   isBlocking: boolean;
   /** Where the PR's head branch lives; `null` if that repository is gone. */
   headRepoFullName: string | null;
+  triggeredBy: string;
 };
 
 export function getReviewConfig(): ReviewConfig {
@@ -191,7 +186,6 @@ export function getReviewConfig(): ReviewConfig {
     baseSha,
     anthropicApiKey: coreSafeGetSecret(core, 'anthropic-api-key'),
     anthropicBaseUrl: core.getInput('anthropic-base-url') || DEFAULT_ANTHROPIC_BASE_URL,
-    promptPath: core.getInput('prompt-path') || DEFAULT_REVIEW_PROMPT_PATH,
     model: core.getInput('review-model') || DEFAULT_REVIEW_MODEL,
     effort: core.getInput('review-effort') || DEFAULT_REVIEW_EFFORT,
     // Clamped rather than thrown: config loads before `isBlocking` is known, so a typo'd repo
@@ -199,6 +193,7 @@ export function getReviewConfig(): ReviewConfig {
     timeoutSeconds: getClampedReviewTimeout(),
     isBlocking: core.getInput('blocking') === 'true',
     headRepoFullName: readHeadRepoFullName(github.context.payload),
+    triggeredBy: core.getInput('triggered-by'),
   };
 }
 

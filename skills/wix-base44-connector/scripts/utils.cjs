@@ -428,4 +428,36 @@ async function installApp(appDefId, siteId, token) {
     { tenant: { tenantType: "SITE", id: siteId }, appInstance: { appDefId } }, token);
 }
 
-module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp };
+// The headless OAuth app: the visitor client id, and the redirect config every Wix-hosted
+// return needs. Idempotent by name — a site reached by the "connect an existing site" flow
+// has none, and creating a second one for the same app strands the first app's returns.
+// Redirect lists are merged, never replaced: an app that already serves a custom domain
+// keeps it when a preview URL is added.
+async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains = [] }) {
+  const { oAuthApps = [] } = await post(
+    "https://www.wixapis.com/oauth-app/v1/oauth-apps/query", { query: {} }, token);
+  const existing = oAuthApps.find((a) => a.name === name);
+  const merge = (a = [], b = []) => [...new Set([...a, ...b])];
+  if (!existing) {
+    const { oAuthApp } = await post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
+      oAuthApp: { name, allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains },
+    }, token);
+    return { clientId: oAuthApp.id, created: true, oAuthApp };
+  }
+  const allowedRedirectUris = merge(existing.allowedRedirectUris, redirectUris);
+  const allowedRedirectDomains = merge(existing.allowedRedirectDomains, redirectDomains);
+  const unchanged =
+    allowedRedirectUris.length === (existing.allowedRedirectUris || []).length &&
+    allowedRedirectDomains.length === (existing.allowedRedirectDomains || []).length;
+  if (unchanged) return { clientId: existing.id, created: false, oAuthApp: existing };
+  // The update docs disagree with themselves on the mask field (prose says `paths`, the
+  // curl example says `path`); send both so the call does not silently no-op.
+  const paths = ["allowedRedirectUris", "allowedRedirectDomains"];
+  const { oAuthApp } = await patch(
+    `https://www.wixapis.com/oauth-app/v1/oauth-apps/${existing.id}`,
+    { oAuthApp: { id: existing.id, allowedRedirectUris, allowedRedirectDomains },
+      mask: { paths, path: paths.join(",") } }, token);
+  return { clientId: (oAuthApp || existing).id, created: false, oAuthApp: oAuthApp || existing };
+}
+
+module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp, ensureOAuthApp };

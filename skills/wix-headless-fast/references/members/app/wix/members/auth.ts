@@ -1,59 +1,42 @@
-// Custom, in-app member authentication. Credentials are submitted from the branded
-// LoginForm; there is no Wix-hosted login-page redirect or callback route.
+// Custom, in-app member authentication over the SDK — the transport only. Credentials are
+// submitted from the branded LoginForm; there is no Wix-hosted login-page redirect or callback
+// route. What a response means lives in ./auth-core (shared with the REST twin in
+// references/members/rest/auth.ts); this file makes the OAuthStrategy calls and delegates.
+// docs: https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-js-sdk.md
 import { membersAuth } from "./client";
+import {
+  NO_SESSION_ERROR,
+  authOutcome,
+  failure,
+  toLoginResult,
+  type LoginResult,
+  type LoginState,
+  type RawAuth,
+} from "./auth-core";
 
-export type LoginState =
-  | "SUCCESS"
-  | "EMAIL_VERIFICATION_REQUIRED"
-  | "OWNER_APPROVAL_REQUIRED"
-  | "FAILURE";
+export type { LoginResult, LoginState };
 
-export interface LoginResult {
-  state: LoginState;
-  stateToken?: string;
-  errorCode?: string;
-  error?: string;
-}
-
-type AuthResponse = {
-  loginState?: LoginState;
-  data?: { sessionToken?: string };
-  stateToken?: string;
-  errorCode?: string;
-  error?: string;
-};
-
+/** True when the explicit members client holds member tokens (no network). */
 export function loggedInHint(): boolean {
   return membersAuth.loggedIn();
 }
 
-async function finish(response: AuthResponse): Promise<LoginResult> {
-  const state = response.loginState ?? "FAILURE";
-  if (state === "SUCCESS") {
-    const sessionToken = response.data?.sessionToken;
-    if (!sessionToken)
-      return {
-        state: "FAILURE",
-        error: "Wix did not return a member session.",
-      };
-    const tokens =
-      await membersAuth.getMemberTokensForDirectLogin(sessionToken);
+// A SUCCESS carries a one-shot session token; the strategy exchanges it for member tokens
+// (getMemberTokensForDirectLogin) and setTokens writes them into Astro's wixSession cookie, so the
+// next server render and every island run as the member. Other states pass through.
+async function finish(raw: RawAuth): Promise<LoginResult> {
+  const outcome = authOutcome(raw);
+  if (outcome.state === "SUCCESS") {
+    if (!outcome.sessionToken) return failure(NO_SESSION_ERROR);
+    const tokens = await membersAuth.getMemberTokensForDirectLogin(outcome.sessionToken);
     membersAuth.setTokens(tokens);
-    return { state };
+    return { state: "SUCCESS" };
   }
-  return {
-    state,
-    ...(response.stateToken ? { stateToken: response.stateToken } : {}),
-    ...(response.errorCode ? { errorCode: response.errorCode } : {}),
-    ...(response.error ? { error: response.error } : {}),
-  };
+  return toLoginResult(outcome);
 }
 
-export async function loginMember(
-  email: string,
-  password: string,
-): Promise<LoginResult> {
-  return finish((await membersAuth.login({ email, password })) as AuthResponse);
+export async function loginMember(email: string, password: string): Promise<LoginResult> {
+  return finish((await membersAuth.login({ email, password })) as RawAuth);
 }
 
 export async function registerMember(
@@ -61,28 +44,16 @@ export async function registerMember(
   password: string,
   profile?: { firstName?: string; lastName?: string },
 ): Promise<LoginResult> {
-  return finish(
-    (await membersAuth.register({
-      email,
-      password,
-      ...(profile ? { profile } : {}),
-    })) as AuthResponse,
-  );
+  return finish((await membersAuth.register({ email, password, ...(profile ? { profile } : {}) })) as RawAuth);
 }
 
-export async function verifyMemberEmail(
-  verificationCode: string,
-): Promise<LoginResult> {
-  return finish(
-    (await membersAuth.processVerification({
-      verificationCode,
-    })) as AuthResponse,
-  );
+/** Continue an EMAIL_VERIFICATION_REQUIRED flow with the code from the email; the strategy holds the state token. */
+export async function verifyMemberEmail(verificationCode: string): Promise<LoginResult> {
+  return finish((await membersAuth.processVerification({ verificationCode })) as RawAuth);
 }
 
+/** Log out through Wix (clears the session cookie) and land on `returnTo` — navigates away. */
 export async function logoutMember(returnTo = "/"): Promise<void> {
-  const { logoutUrl } = await membersAuth.logout(
-    new URL(returnTo, window.location.origin).href,
-  );
+  const { logoutUrl } = await membersAuth.logout(new URL(returnTo, window.location.origin).href);
   window.location.assign(logoutUrl);
 }

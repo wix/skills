@@ -124,6 +124,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
 | Design — fallback visual quality bar for the built frontend, when the user gave no design direction of their own (managed **create** only) | `<SKILL_ROOT>/references/DESIGN.md` |
 | Content — fallback copy quality bar for the built frontend, when the user gave no copy/voice direction of their own (managed **create** only) | `<SKILL_ROOT>/references/CONTENT.md` |
+| Experience overlays — a vertical's own design + copy bar on top of DESIGN/CONTENT (optional per vertical; read when that vertical is loaded) | `<SKILL_ROOT>/references/inline-recipes/experience-<vertical>.md` (today: `experience-store.md`) |
 | AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
 | Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |

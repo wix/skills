@@ -1,0 +1,81 @@
+name: sites/upload-static-site-api
+description: >-
+  Verifies the agent reads the upload-static-site skill and, for files it authored itself in the
+  conversation, publishes them through the Headless instant-site API — create, multipart upload,
+  release — returning the live URL and the save link, instead of telling the user to go re-upload
+  files the agent already has. Also verifies it does not invent endpoints or reach for the
+  template/headless provisioning APIs.
+triggerPrompt: >-
+  That landing page you just wrote for me is exactly right. Can you put it online for me? I don't
+  have a Wix site yet and I'd rather not fiddle with uploading files myself.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The agent authored the site's HTML earlier in the conversation, so it holds the file bytes.
+      The user asked it to publish them and said they would rather not upload files themselves.
+      Intent: take Path B of the skill — publish the files through the Headless instant-site API
+      and hand back the live URL — rather than redirecting the user to the drop page.
+
+      Pass if the response:
+      - publishes (or lays out, ready to run, when the environment blocks outbound HTTP) the
+        three-call sequence in order against
+        https://www.wixapis.com/headless-business-setup: POST
+        /v1/headless-business/anonymous/{anonymousId} → POST
+        /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/upload as
+        multipart/form-data with `files` part(s) → POST
+        /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"}, AND
+      - reports the live siteUrl from the release response, AND
+      - tells the user the site is anonymous/temporary and gives them the save link
+        https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId} (or otherwise
+        explains how to keep it), AND
+      - if it could not make the calls at all, says so plainly and falls back to the drop URL
+        https://www.wix.com/headless/drop?utm_campaign=mcp (optionally adding
+        &agent=<its own agent id>) rather than claiming an upload it did not perform.
+
+      Fail if the response:
+      - sends the user to the drop page to upload files the agent already has, with no explanation
+        that it cannot reach them or cannot make the calls, OR
+      - invents endpoints, paths, or field names that are not the ones above, OR
+      - sends the files as a JSON body instead of multipart/form-data, OR
+      - performs the multipart upload through a Wix API-call/execute-API tool — e.g. hand-building a
+        multipart body as a string inside executed JavaScript — instead of a direct multipart file
+        client (curl -F / a real HTTP client reading the files off disk); that path can only carry
+        inlined text and drops binary assets, OR
+      - creates the site with the meta-site template API or the headless-business provisioning API,
+        OR
+      - claims the site is live without a URL, OR
+      - holds a user identity for the caller and still stops at a temporary anonymous site
+        instead of claiming it into their account and returning the final URL.
+      Mentioning the 1-hour window before the record expires, the 3 MB per file / 20 MB total
+      limits, or the top-level-HTML requirement is a plus, not required.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent reached a published site. Examine the tool-call trace, not the
+      final answer. Score 0-10, where 10 means a direct path: the agent read the
+      upload-static-site skill article and then ran create → upload → release (or stated it could
+      not and fell back cleanly), with no exploratory or unrelated calls in between.
+      Calibration: a clean run is 9-10; one or two redundant docs reads land at 7-8; a probing
+      spiral or a wrong-API attempt scores lower.
+
+      Penalize and LIST any of:
+        - a call to any site-creation API (meta-site templates, headless-business provisioning)
+        - a call to the site-import API or any crawl/migration tool
+        - an upload attempted as JSON rather than multipart
+        - a multipart upload hand-rolled inside a Wix API-call/execute-API tool rather than a direct
+          file client (curl -F / real HTTP client)
+        - calls made out of order, or release attempted without an uploadId
+        - a claim/transfer call made before the release, or against a site that was never released
+        - probing unrelated docs articles or APIs before settling on the flow
+
+      For each issue, name the likely skill or docs gap that caused the detour.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of detours and the
+      gap behind each, or 'direct path'>"}

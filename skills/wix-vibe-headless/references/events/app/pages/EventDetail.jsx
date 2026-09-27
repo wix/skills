@@ -4,7 +4,7 @@
 // shortDescription is a PLAIN string (safe to render). event.description is Ricos rich content
 // { nodes: [...] } — NOT a string; to show the full body render it with @wix/ricos or walk `nodes`.
 // NEVER call string methods (.slice/.substring/.split) on event.description — that crashes the page.
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { useEventDetail } from "@/hooks/useEventDetail";
 import EventRegistration from "@/components/EventRegistration";
 

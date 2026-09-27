@@ -1,6 +1,6 @@
 // Collection page — collection header + its project grid (paged). Thin view over
 // useCollectionProjects (all data logic lives in the hook). Styled with base44 design tokens (shadcn Tailwind classes).
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { useCollectionProjects } from "@/hooks/useCollectionProjects";
 import ProjectGrid from "@/components/ProjectGrid";
 

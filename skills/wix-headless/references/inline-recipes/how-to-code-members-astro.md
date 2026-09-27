@@ -1,6 +1,6 @@
 ---
 name: "How to Code Members (Astro)"
-description: The frontend contract for member sign-up / log-in / log-out and member-gated surfaces on a Wix-managed **Astro** frontend — the built-in `/api/auth/login` + `/api/auth/logout` routes that `@wix/astro` ships, the `returnToUrl` param, gating a page by resolving the member in SSR / a backend route, reading the current member with `@wix/members` `getCurrentMember`, and the two rules that keep this path from breaking: **no `OAuthStrategy`/no client** (that 500s under auto-auth) and **no `auth.elevate`** for a member reading their own data. Specifies the *how* for the Astro axis only — read `how-to-code-members-non-astro.md` for any non-Astro frontend.
+description: "The frontend contract for member sign-up / log-in / log-out and member-gated surfaces on a Wix-managed **Astro** frontend — the built-in `/api/auth/login` + `/api/auth/logout` routes that `@wix/astro` ships, the `returnToUrl` param, gating a page by resolving the member in SSR / a backend route, reading the current member with `@wix/members` `getCurrentMember`, and the two rules that keep this path from breaking: **no `OAuthStrategy`/no client** (that 500s under auto-auth) and **no `auth.elevate`** for a member reading their own data. Specifies the *how* for the Astro axis only — read `how-to-code-members-non-astro.md` for any non-Astro frontend."
 ---
 **RECIPE**: How to Code Member Auth on a Wix-managed **Astro** Frontend (built-in `/api/auth/*`, `@wix/members`)
 

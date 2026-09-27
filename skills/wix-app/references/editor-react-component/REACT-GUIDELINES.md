@@ -12,8 +12,7 @@ contracts changed by the request:
 2. Separate user-authored content and stable behavior from derived values and
    visual styling.
 3. Identify interaction and selectable states affected by the request.
-4. Keep implementation behavior internal unless the component specification
-   requests a public callback.
+4. Include common callbacks by capability; keep implementation handlers internal.
 5. Identify runtime concerns such as browser APIs, autoplay, editor-only
    behavior, or live site context before implementation.
 
@@ -49,8 +48,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
 - When local state intentionally mirrors a prop, synchronize it when that prop
   changes. Do not use effect-managed state for a value that can be derived
   during render.
-- Keep implementation-only handlers internal. Expose a callback only when the
-  specification makes it part of the component API.
+- Internal handlers run component behavior, then notify optional callbacks.
+  Callback presence never enables controlled mode.
 
 ### Structure and Parts
 
@@ -86,4 +85,4 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
 - [ ] Direction and accessibility contracts are wired to the correct elements.
 - [ ] Public handlers use supported SDK names; internal handlers stay internal.
 - [ ] CSS changed by the request keeps editable selectors flat and scoped.
-- [ ] The accessibility review runs after JSX edits.
+- [ ] The accessibility review command passes, or its remaining findings are triaged.

@@ -5,15 +5,14 @@
 // • prices come from the SERVER cart. In Cart V2 each line total is `pricing.totalPrice`, a
 //   ConvertedMoney { amount, convertedAmount } with NO formatted string — format it yourself with the
 //   cart's currency (see formatCartMoney). Never compute a total in the client: tax, shipping and
-//   promotions are resolved server-side, so the cart's `subtotal` is the only figure safe to show
-//   pre-checkout. The V2 cart has no `subtotalAfterDiscounts`/`discount`/`appliedDiscounts` — the
-//   discounted total comes from a currentCartV2 estimate/calculate `summary.priceSummary`, not the
-//   cart; absent that call, show the raw `subtotal`.
+//   promotions are resolved server-side. The V2 cart has no `subtotalAfterDiscounts`/`discount` —
+//   the after-discount subtotal and the cart-level discount come from the estimate the context keeps
+//   in `summary.priceSummary`; the raw cart `subtotal` is the fallback while it's unknown.
 // • `quantityInfo.availableQuantity` caps the stepper, so exceeding stock is refused here rather than
 //   at checkout.
 // • `status` is flagged per line here because checkout() refuses the whole cart when any item isn't
 //   IN_STOCK — showing it on the row is what makes that refusal understandable.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import { storeImage } from "@/lib/storeImage";
 
@@ -26,28 +25,41 @@ function formatCartMoney(money, cart) {
 }
 
 export default function CartDrawer() {
-  const { cart, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading, error, clearError } = useCart();
+  const { cart, summary, isOpen, setIsOpen, removeItem, updateQuantity, checkout, loading, error, clearError } = useCart();
   const lineItems = cart?.lineItems ?? [];
-  // The V2 cart carries only a raw `subtotal` (ConvertedMoney); discounted totals live on an
-  // estimate/calculate `summary.priceSummary`, which this cart helper doesn't fetch — so show `subtotal`.
-  const subtotal = formatCartMoney(cart?.subtotal, cart);
+  // Totals come from the estimate the context keeps next to the cart (after-discount subtotal, the
+  // cart-level discount). While it's unknown, or if it failed, fall back to the cart's raw subtotal.
+  // Delivery and tax are NOT in here — they resolve at checkout, and the footer says so.
+  const subtotal = formatCartMoney(summary?.priceSummary?.subtotal ?? cart?.subtotal, cart);
+  const discountAmount = Number(summary?.priceSummary?.discount?.convertedAmount ?? summary?.priceSummary?.discount?.amount ?? 0);
+  const discount = discountAmount > 0 ? formatCartMoney(summary.priceSummary.discount, cart) : "";
   const unavailable = lineItems.filter((li) => li.status && li.status !== "IN_STOCK");
 
-  // Escape closes the drawer while it's open — expected of anything modal, and the only way out for
-  // keyboard users (the backdrop click is pointer-only).
+  // The overlay contract, verified in the browser rather than assumed from CSS: Escape closes (the
+  // backdrop click is pointer-only), the page behind stops scrolling, focus moves into the panel on
+  // open and returns to whatever opened it on close.
+  const panelRef = useRef(null);
   useEffect(() => {
     if (!isOpen) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
     const onKey = (e) => e.key === "Escape" && setIsOpen(false);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement) opener.focus();
+    };
   }, [isOpen, setIsOpen]);
 
   if (!isOpen) return null;
 
   return (
     <div onClick={() => setIsOpen(false)} className="fixed inset-0 z-50 bg-black/40 flex justify-end">
-      <aside onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Your cart"
-        className="w-[min(420px,100%)] h-full flex flex-col bg-background text-foreground border-l border-border font-body">
+      <aside ref={panelRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Your cart"
+        className="w-[min(420px,100%)] h-full flex flex-col bg-background text-foreground border-l border-border font-body outline-none">
         <header className="flex justify-between items-center p-4 border-b border-border">
           <strong className="font-display">Your cart{lineItems.length ? ` (${lineItems.length})` : ""}</strong>
           <button onClick={() => setIsOpen(false)} aria-label="Close cart"
@@ -123,6 +135,12 @@ export default function CartDrawer() {
 
         {lineItems.length > 0 && (
           <footer className="p-4 border-t border-border flex flex-col gap-3">
+            {discount && (
+              <div className="flex justify-between items-baseline text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span>−{discount}</span>
+              </div>
+            )}
             {subtotal && (
               <div className="flex justify-between items-baseline">
                 <span className="text-muted-foreground">Subtotal</span>

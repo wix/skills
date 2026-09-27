@@ -1,7 +1,7 @@
 // Collection tile → links to /collection/:slug. Styled with base44 design tokens (shadcn Tailwind
 // classes) — re-skin via the app's design tokens (src/index.css :root/.dark), not this JSX. The
 // `//`-protocol image fix and the coverImage.imageInfo.url field path are load-bearing.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 
 function coverUrl(collection) {
   const url = collection?.coverImage?.imageInfo?.url;

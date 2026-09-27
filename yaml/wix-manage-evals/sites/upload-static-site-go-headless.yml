@@ -1,0 +1,58 @@
+name: sites/upload-static-site-go-headless
+description: >-
+  Verifies that when a user with an already-published static site asks for a real backend feature
+  (store, payments, bookings, CMS, members, forms), the agent moves the site to a Wix Headless
+  project by downloading the project to the local filesystem with a direct HTTP client and following
+  the headless guide — keeping the same site — and does NOT try to download the project through the
+  Wix API-call/execute tools (which return into the conversation, not to disk, and cannot follow the
+  storage redirect).
+triggerPrompt: >-
+  The site you published to Wix for me is live and it's in my account now (metaSiteId
+  07bafbf4-6dbb-483f-830e-3f2e2b923da8). Next I want to actually sell products on it — a real store
+  with checkout. Can you set that up? I'm in my terminal with the project folder handy.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has a published, claimed static instant site and now wants a real store (backend +
+      checkout). The correct move is to turn the static site into a Wix Headless project: download
+      the project to the local filesystem and follow the headless guide (https://wix.com/headless/skill.md),
+      keeping the same site. The drop flow is static-only, so a store cannot be added to it directly.
+
+      Pass if the response:
+      - explains that a real store/backend means moving the static site to a Wix Headless project
+        (a solution chosen because a backend is now needed), keeping the same site, AND
+      - downloads the project to disk with a direct/redirect-following HTTP client — e.g.
+        `curl -sSL -o … https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/{metaSiteId}/download.zip`
+        run in the shell — then points to the headless guide to wire up the store, AND
+      - does not try to add Stores to the static drop site in place (there is no backend there).
+
+      Fail if the response:
+      - attempts to download the project through a Wix API-call or execute-API tool (a tool that
+        runs the request/JS through the Wix API and returns the result into the conversation) instead
+        of fetching it to disk with the shell / a direct client, OR
+      - claims it added a working store to the static site without the headless project, OR
+      - re-uploads files through the drop API expecting that to add store functionality, OR
+      - invents a "add store" endpoint on the drop/instant-site API.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Examine the tool-call trace. Score 0-10 for how cleanly the agent moved toward a headless
+      project for the backend need. 10 = read the skill, downloaded the project to disk with a
+      direct client, and handed off to the headless guide, with no misuse.
+
+      Penalize and LIST any of:
+        - downloading the project via a Wix API-call / execute-API tool rather than the shell / a
+          direct HTTP client
+        - trying to add Stores/checkout to the static drop site in place
+        - re-uploading through the drop API to try to get backend features
+        - inventing an endpoint
+        - a probing spiral before settling on the headless path
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list, or 'clean headless handoff'>"}

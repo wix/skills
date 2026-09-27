@@ -1,13 +1,10 @@
-// REFERENCE detail surface: price/billing block + perks + terms + subscribe CTA, on the
-// @theme tokens. Correct and complete; per the skill's model you design and build your own
-// on usePlanPurchase (the plan itself arrives as an SSR-fetched DTO prop).
-import { usePlanPurchase } from "../../hooks/pricing-plans/usePlanPurchase";
+// REFERENCE detail surface: price/billing block + perks + terms + the shipped SubscribeButton, on
+// the @theme tokens. Correct and complete; per the skill's model you design and build your own
+// (the plan itself arrives as an SSR-fetched DTO prop; the purchase control is SubscribeButton).
+import SubscribeButton from "./SubscribeButton";
 import type { PlanDetail } from "../../wix/pricing-plans/types";
 
 export default function PlanDetailView({ plan }: { plan: PlanDetail }) {
-  const { purchase, purchasingId, error } = usePlanPurchase();
-  const purchasing = purchasingId === plan.id;
-
   return (
     <div>
       <p>
@@ -31,19 +28,11 @@ export default function PlanDetailView({ plan }: { plan: PlanDetail }) {
         </ul>
       )}
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      {plan.buyable ? (
-        <button
-          type="button"
-          disabled={purchasing}
-          onClick={() => void purchase(plan.id).catch(() => {})}
-          className="mt-6 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {purchasing ? "Redirecting…" : plan.free ? "Get this plan" : `Subscribe · ${plan.price}`}
-        </button>
-      ) : (
-        <p className="mt-6 text-sm text-muted-foreground">This plan is assigned by the site owner.</p>
-      )}
+      <div className="mt-6">
+        <SubscribeButton plan={plan} className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
+          {plan.free ? "Get this plan" : `Subscribe · ${plan.price}`}
+        </SubscribeButton>
+      </div>
 
       {plan.termsAndConditions && (
         <div className="mt-10 border-t border-border pt-5">

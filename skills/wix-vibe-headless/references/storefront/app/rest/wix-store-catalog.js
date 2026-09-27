@@ -13,8 +13,13 @@ import { wixApiRequest } from "./wix-client.js";
  *   actualPriceRange.minValue.formattedAmount {string} — lowest price with currency symbol,
  *   actualPriceRange.maxValue.formattedAmount {string} — highest price with currency symbol,
  *   compareAtPriceRange.minValue.formattedAmount {string} — strikethrough price (present when on sale),
- *   actualPriceRange/compareAtPriceRange .minValue.amount {string} — the same figures unformatted
- *     ("129.00"). Use these for arithmetic: a percent-off badge can't be computed from "€129.00",
+ *   actualPriceRange/compareAtPriceRange .minValue.amount {string} — the same figures unformatted.
+ *     Never compute a percent-off or "you save" claim from them: a range's minimum says nothing about
+ *     the variant the buyer picks. The price the buyer pays comes from sellingPrice() below.
+ *   variantSummary.minPriceVariant {object} — the lowest-priced visible variant (MIN_PRICE_VARIANT):
+ *     { id, price: { actualPrice, compareAtPrice?, priceAfterDiscount? } } — a card's price, and the
+ *     variantId for a direct add on a product with no options,
+ *   discountInfo.discountRuleNames {string[]} — automatic-discount names (DISCOUNT_INFO), product level,
  *   inventory.availabilityStatus {string} — "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
  *   inventory.preorderStatus {string} — "ENABLED"|"DISABLED". ENABLED + OUT_OF_STOCK is a pre-order,
  *     which is buyable — label it "Pre-order" rather than "Sold out",
@@ -23,8 +28,9 @@ import { wixApiRequest } from "./wix-client.js";
  *     getProductBySlug call per product,
  *   ribbon {object} — { id, name } merchant-set badge: "New", "Sale", "Best Seller". This is the
  *     catalogue's own label, so prefer it over anything derived — a "new" badge computed from
- *     createdDate flags every product at once right after seeding,
- *   additionalRibbons {array} — further { id, name } badges,
+ *     createdDate flags every product at once right after seeding. A ribbon is a LABEL: a "Sale"
+ *     ribbon is not proof of a lower price, and a compareAtPrice does not earn a ribbon,
+ *   additionalRibbons {array} — up to four further { id, name } badges. Render ALL of them,
  *   createdDate / updatedDate {string} — ISO timestamps,
  *   variantSummary.variantCount {number} — how many variants exist, without fetching them,
  *   options {array} — product options e.g. Size, Color:
@@ -45,15 +51,31 @@ import { wixApiRequest } from "./wix-client.js";
  *     dangerouslySetInnerHTML; strip tags only for plain-text contexts (meta description, teaser),
  *   variantsInfo.variants {array} — returned only by getProductBySlug:
  *     [{ id, visible, choices [{ optionChoiceIds: { optionId, choiceId } }],
- *        price: { actualPrice, compareAtPrice }, media, inventoryStatus: { inStock } }]
+ *        price: { actualPrice, compareAtPrice?, priceAfterDiscount? }, media,
+ *        inventoryStatus: { inStock, preorderEnabled } }]
  *     To resolve a buyer's option selections to a variantId: find the variant whose choices
  *     match all selected { optionId, choiceId } pairs, then pass variant.id to addToCart.
+ *     A variant is buyable when inStock OR preorderEnabled (a preorder add carries preOrderRequested).
  *
  * Category: { id, name, slug, visible, description, image, itemCounter, parentCategory.id }
  *   NB: queryCategories includes the auto-created system category { slug: "all-products" } —
  *   filter it out of a category menu (see INSTRUCTIONS.md). `visible` does not flag it.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories
  */
+
+/**
+ * The price the buyer pays, and the price to strike — exact precedence, shared by cards and the PDP.
+ * An automatic discount (priceAfterDiscount, present only when DISCOUNT_INFO is requested) wins and
+ * strikes the regular actualPrice; otherwise actualPrice with the merchant's compareAtPrice as the
+ * "was". `!== undefined` on purpose: a discounted price of 0 is a real price.
+ * @param {{ actualPrice?: object, compareAtPrice?: object, priceAfterDiscount?: object }} [price]
+ *   variant.price, or variantSummary.minPriceVariant.price. Each is { amount, formattedAmount }.
+ * @returns {{ current: object|undefined, original: object|undefined }} render .formattedAmount
+ */
+export function sellingPrice(price) {
+  if (price?.priceAfterDiscount !== undefined) return { current: price.priceAfterDiscount, original: price.actualPrice };
+  return { current: price?.actualPrice, original: price?.compareAtPrice };
+}
 
 // Search Products supports server-side sort/filter before cursor paging:
 // https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md
@@ -108,7 +130,9 @@ export async function searchProducts({ limit = 100, cursor, categoryId, sort = "
   }
   const res = await wixApiRequest("/stores/v3/products/search", {
     method: "POST",
-    body: { fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO"], search: query },
+    // MIN_PRICE_VARIANT + DISCOUNT_INFO → variantSummary.minPriceVariant with its discounted price:
+    // the card's price and the direct-add variantId, without a per-product fetch.
+    body: { fields: ["CURRENCY", "PLAIN_DESCRIPTION", "MEDIA_ITEMS_INFO", "MIN_PRICE_VARIANT", "DISCOUNT_INFO"], search: query },
   });
   return { products: res?.products ?? [], nextCursor: res?.pagingMetadata?.cursors?.next ?? null };
 }
@@ -137,6 +161,7 @@ export async function getProductBySlug(slug) {
         "MEDIA_ITEMS_INFO",
         "PRODUCT_CHOICES_MEDIA_REFERENCES",
         "VARIANT_OPTION_CHOICE_NAMES",
+        "DISCOUNT_INFO", // variant price.priceAfterDiscount + discountInfo.discountRuleNames
       ],
     },
   });

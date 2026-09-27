@@ -42,7 +42,7 @@ describe('the review comment', () => {
         finding({
           line: 44,
           section: undefined,
-          severity: 'fix-before-merge',
+          severity: 'advisory',
           quote: 'The response contains the bundle and its items.',
           consequence: 'An agent cannot tell which field the next call reads, so it guesses or goes back to the docs for it.',
           suggestion: 'The response returns `bundle.id`, which the publish call takes as `bundleId`.',
@@ -90,7 +90,7 @@ describe('the review comment', () => {
   // over something the contributor cannot read. Ranked before anything is dropped.
   it('leads with the blocking findings whatever order they arrive in', () => {
     const body = formatReviewFindings([
-      finding({ file: 'later.md', severity: 'fix-before-merge' }),
+      finding({ file: 'later.md', severity: 'advisory' }),
       finding({ file: 'worst.md', severity: 'blocking' }),
     ], summary());
 
@@ -100,5 +100,18 @@ describe('the review comment', () => {
   it('reports discarded findings rather than passing a half-broken run off as clean', () => {
     expect(formatReviewClean(summary({ discarded: 2 }))).toContain('2 findings');
     expect(formatReviewFindings([finding()], summary({ discarded: 1 }))).toContain('1 finding');
+  });
+});
+
+describe('who triggered the review', () => {
+  const summary = { headSha: 'abcdef1234567890', filesReviewed: 3, discarded: 0 };
+
+  it('names the actor in the verdict line', () => {
+    const body = formatReviewClean({ ...summary, triggeredBy: 'omerme' });
+    expect(body).toContain('triggered by @omerme');
+  });
+
+  it('says nothing when the trigger is unknown', () => {
+    expect(formatReviewClean(summary)).not.toContain('triggered by');
   });
 });

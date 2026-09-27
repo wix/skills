@@ -9,10 +9,12 @@ Every such component must ship an on-stage **play/pause button**.
 
 - [Apply When](#apply-when)
 - [Required Contract](#required-contract)
+- [Announce Manually Selected Parallel Content](#announce-manually-selected-parallel-content)
 - [Define Props](#1-define-props)
 - [Manage Playback State](#2-manage-playback-state)
 - [Add the Play/Pause Button](#3-add-the-playpause-button)
 - [Suppress Autoplay in `component.preview.tsx`](#4-suppress-autoplay-in-componentpreviewtsx)
+- [Edit the generated `component.preview.tsx`](#edit-the-generated-componentpreviewtsx)
 - [Checklist](#checklist)
 
 ## Apply When
@@ -41,12 +43,26 @@ implementation detail.
    existing playback prop names and add only the missing safety contract.
    Carousels, sliders, slideshows, and galleries **must** define `autoPlay`
    (default `true`).
-2. **Playback state** — `isPlaying` + `handlePause` / `handleResume`
+2. **Playback state** — play/pause toggle state, derived `isPlaying`, and
+   `handlePause` / `handleResume`
 3. **Play/pause button** — overlay `<button>` with inline SVG icon and CSS
    positioning; it must be a named part with `elementProps` wiring, a hover
    design state, and a standalone `:focus-visible` keyboard indicator
 4. **Modify `component.preview.tsx`** — suppress autoplay in editor design mode
-5. **Respect `prefers-reduced-motion`** — suppress autoplay when the OS requests reduced motion
+5. **Respect `prefers-reduced-motion`** — start paused when the OS requests reduced motion
+
+### Announce Manually Selected Parallel Content
+
+For carousel-like components that swap readable parallel items, make the item
+wrapper a live region:
+
+- Use `aria-live={isPlaying ? 'off' : 'polite'}` and `aria-atomic="false"`.
+- `isPlaying = isPlayOn && !isHovered && !isStoppedByFocus`. Reduced motion
+  starts paused; editor mode, `autoPlay={false}`, and pause set it false.
+  Keyboard focus remains stopped until the rotation control restarts; hover
+  pauses temporarily.
+- Previous/next changes items. Use root `onMouseEnter`/`onMouseLeave`;
+  leaving resumes unless focus has stopped rotation.
 
 ## 1. Define Props
 
@@ -83,40 +99,48 @@ support repeat behavior; do not add it only to match the example.
 
 ## 2. Manage Playback State
 
-Track play/pause state with `useState`. Initialize it from `autoPlay` and the OS reduced-motion preference — when the visitor has requested reduced motion, the animation starts paused:
+Track play/pause button state with `useState`. Initialize it from `autoPlay`
+and reduced motion; reduced motion starts paused, but a visitor can start it.
 
 ```tsx
 import { useReducedMotion } from '@wix/react-component-utils';
 
-// inside the component:
 const reducedMotion = useReducedMotion();
 
-const [isPlaying, setIsPlaying] = React.useState((autoPlay ?? true) && !reducedMotion);
+const [isPlayOn, setIsPlayOn] = React.useState(() => (autoPlay ?? true) && !reducedMotion);
 
-// when autoPlay prop changes, re-sync (but still respect reduced motion)
+const skipInitialAutoPlaySync = React.useRef(true);
 React.useEffect(() => {
-  setIsPlaying((autoPlay ?? true) && !reducedMotion);
+  if (skipInitialAutoPlaySync.current) {
+    skipInitialAutoPlaySync.current = false;
+    return;
+  }
+  setIsPlayOn(autoPlay ?? true);
 }, [autoPlay]);
 
-// when reduced motion is enabled, suppress playback; never re-enable on its own
-// (visitor may have manually paused — don't restart against their will)
-React.useEffect(() => {
-  if (reducedMotion) {
-    setIsPlaying(false);
-  }
-}, [reducedMotion]);
-
-const handlePause = () => setIsPlaying(false);
-const handleResume = () => setIsPlaying(true);
+const handlePause = () => setIsPlayOn(false);
+const handleResume = () => setIsPlayOn(true);
 ```
 
-**`reducedMotion`** is `true` when the hook reports that reduced motion is enabled. When active, the animation starts paused — the visitor can still press the play button to start it manually. It is a runtime browser signal, not a manifest/data prop; never expose it as a component prop or in the manifest.
+`reducedMotion` is a runtime signal, not a manifest/data prop.
 
-Pass `isPlaying` to the animation renderer and toggle between `handlePause` / `handleResume` on button click.
+Derive runtime playback from `isPlayOn` plus only needed conditions. Without
+another condition, use `const isPlaying = isPlayOn`. A carousel, slideshow,
+slider, or gallery also uses hover and focus-stop state:
+
+```tsx
+const isPlaying = isPlayOn && !isHovered && !isStoppedByFocus;
+```
+
+Pass `isPlaying` to the renderer. The button uses `isPlayOn` and toggles
+between `handlePause` / `handleResume` on click. In a carousel-like component,
+focus entering anything except that button sets `isPlayOn` to `false` and
+`isStoppedByFocus` to `true`; `handleResume` sets `isPlayOn` to `true` and
+clears `isStoppedByFocus`.
 
 ## 3. Add the Play/Pause Button
 
-Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size, stroke, and fill should feel native to the component's design.
+Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size and color of SVG should be controlled by CSS variables declared on the button level: --icon-size and --icon-color.
 
 Position the button absolutely so it overlays the content without pushing other elements out of place:
 
@@ -128,14 +152,14 @@ Position the button absolutely so it overlays the content without pushing other 
 }
 
 .playButton {
+  --icon-size: 20px;
+  --icon-color: #ffffff;
   position: absolute;
   inset-inline-end: 5px;
   inset-block-start: 5px;
 }
 
-/* Design-state selectors: pair native pseudo-class with editor-injected modifier class.
-   The editor applies the modifier class (e.g. my-animation-play-button--hover) when
-   the site owner previews that state in the design panel, so both selectors must exist. */
+/* Design-state selectors: pair native pseudo-class with editor-injected modifier class. */
 .playButton:global(.my-animation-play-button--hover),
 .playButton:hover {
   /* e.g. background: rgba(255, 255, 255, 1); */
@@ -177,12 +201,12 @@ Wire the named part completely:
     styles.playButton,
     elementProps?.playButton?.className,
   )}
-  onClick={isPlaying ? handlePause : handleResume}
+  onClick={isPlayOn ? handlePause : handleResume}
   aria-label={
-    isPlaying ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton
+    isPlayOn ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton
   }
 >
-  {isPlaying ? <PauseIcon /> : <PlayIcon />}
+  {isPlayOn ? <PauseIcon /> : <PlayIcon />}
 </button>
 ```
 
@@ -233,8 +257,7 @@ const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
 };
 ```
 
-In editor design mode (`isEditMode` is `true`) → `autoPlay` is forced to `false` and `pauseButtonVisibility` is forced to `'showAlways'` so the site owner can always see and interact with the button.
-In preview mode (`isEditMode` is `false`) → both use the user's configured values.
+Design mode stops autoplay and exposes the control; preview uses the user's values.
 
 ## Checklist
 
@@ -243,6 +266,8 @@ In preview mode (`isEditMode` is `false`) → both use the user's configured val
       present only when repeat behavior is supported.
 - [ ] Reduced motion starts paused and never restarts playback automatically.
 - [ ] The play/pause button is a fully wired named part with a stable accessible name.
+- [ ] Both icons inherit button-owned `--icon-size` for width and height and
+      `--icon-color` via `color` and `currentColor` for fill or stroke.
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.

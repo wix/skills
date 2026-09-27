@@ -40,17 +40,24 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
  * Throws on out-of-stock so the buyer can't reach checkout with an unbuyable line.
  * Full catalogReference reference: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md
  *
+ * A pre-order variant (inventoryStatus.preorderEnabled, out of stock) is added with `preorder: true`;
+ * a recurring subscription plan with its `subscriptionOptionId` (omit it for a one-time purchase).
+ * The two may coexist.
+ *
  * @param {string} catalogItemId    Product GUID (product.id).
  * @param {string} [variantId]      variantsInfo.variants[].id — required for products with variants.
  * @param {number} [quantity]
- * @param {{ modifierChoices?: Record<string,string>, customTextFields?: Record<string,string> }} [extras]
+ * @param {{ modifierChoices?: Record<string,string>, customTextFields?: Record<string,string>,
+ *           subscriptionOptionId?: string, preorder?: boolean }} [extras]
  * @returns {Promise<object>} Updated cart.
  */
-export async function addToCart(catalogItemId, variantId, quantity = 1, { modifierChoices, customTextFields } = {}) {
+export async function addToCart(catalogItemId, variantId, quantity = 1, { modifierChoices, customTextFields, subscriptionOptionId, preorder } = {}) {
   const catalogReferenceOptions = {};
   if (variantId) catalogReferenceOptions.variantId = variantId;
   if (modifierChoices && Object.keys(modifierChoices).length) catalogReferenceOptions.options = modifierChoices;
   if (customTextFields && Object.keys(customTextFields).length) catalogReferenceOptions.customTextFields = customTextFields;
+  if (subscriptionOptionId) catalogReferenceOptions.subscriptionOptionId = subscriptionOptionId;
+  if (preorder) catalogReferenceOptions.preOrderRequested = true;
 
   const catalogReference = { appId: STORES_APP_ID, catalogItemId };
   if (Object.keys(catalogReferenceOptions).length) catalogReference.options = catalogReferenceOptions;
@@ -93,7 +100,29 @@ export async function getCurrentCart() {
 }
 
 /**
+ * Estimate the current cart's totals — the ONLY source of the after-discount subtotal and the
+ * cart-level discount. Line prices already carry item-level discounts; delivery and tax resolve at
+ * checkout unless asked for, so never invent them. Returns null when there is no cart or the
+ * estimate fails (a display nicety — the cart itself stays valid).
+ * https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/estimate-current-cart.md
+ * @returns {Promise<{ priceSummary: { subtotal: object, discount: object, total: object } }|null>}
+ *   priceSummary amounts are ConvertedMoney { amount, convertedAmount } — format like line prices.
+ */
+export async function estimateCurrentCart() {
+  try {
+    const res = await wixApiRequest("/ecom/v2/carts/current/estimate", { method: "POST", body: {} });
+    return res?.summary ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Start the hosted checkout for the current cart and return its URL.
+ * This is the shopper's CURRENT cart. A "Buy now" that skips the cart needs a standalone cart
+ * (POST /ecom/v2/carts) handed to the redirect session — it must never append to or replace the
+ * current cart. Not shipped here; verify the redirect session accepts a standalone cart id under
+ * the visitor token before adding it.
  * In Cart V2 the cart id IS the checkout id — there is no separate checkout-creation call; the
  * redirect session is created straight from the current cart's id.
  * Throws on empty cart, unavailable lines, or a missing redirect URL.

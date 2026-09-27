@@ -4,7 +4,7 @@
 // formattedValue } — render formattedValue, NEVER the raw object (React "objects are not valid as a
 // child" crash). This is a different shape from the ticket-definition price (pricing.fixedPrice.amount)
 // used in the picker.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 
 export default function EventCard({ event }) {
   const when = event.dateAndTimeSettings?.formatted?.dateAndTime;

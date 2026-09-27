@@ -2,6 +2,7 @@
 // Correct and complete; per the skill's model you design and build your own on useBlogFeed.
 import type { ComponentType, ReactNode } from "react";
 import { useBlogFeed } from "../../hooks/blog/useBlogFeed";
+import { postMetaLine } from "../../wix/blog/posts";
 import type { BlogCategory, BlogTag, PostPage, PostSummary } from "../../wix/blog/types";
 
 export interface LinkLikeProps {
@@ -38,9 +39,7 @@ export function PostCard({ post, postHref = (slug) => `/blog/${slug}`, LinkCompo
       <h3 className="mt-3 text-base font-semibold leading-snug text-foreground">{post.title}</h3>
       {post.excerpt && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>}
       <p className="mt-2 text-xs text-muted-foreground">
-        {post.dateLabel && <time dateTime={post.dateISO}>{post.dateLabel}</time>}
-        {post.dateLabel && post.minutesToRead > 0 ? " · " : ""}
-        {post.minutesToRead > 0 ? `${post.minutesToRead} min read` : ""}
+        <time dateTime={post.dateISO}>{postMetaLine(post)}</time>
       </p>
     </LinkComponent>
   );

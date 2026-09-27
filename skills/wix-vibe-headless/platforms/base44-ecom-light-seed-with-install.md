@@ -22,7 +22,7 @@ Install three skills — they land under `.agents/skills/`:
 - **`wix-base44-connector`** — Wix connector usage, API contracts, and documentation discovery.
 
 
-Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/`, and pins the AGENTS.md note.
+Run this through exec_tool, exactly as written — installs all three skills, deploys the `storefront` REST scaffolds + UI into `src/` (the nav adapter at `src/lib/nav.js` among them), and pins the AGENTS.md note. **Its `deploy` result reports this app's `template`** — `react-router` wires routes into `src/App.jsx`, `tanstack` mounts them as files under `src/routes/`; see [`../references/_shared/routing.md`](../references/_shared/routing.md).
 
 ```js
 const { execSync } = require('child_process');

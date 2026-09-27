@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { classifyChanges, makeReviewPendingCommenter, parseChangedFiles } from '../src/utils/github';
+import {
+  classifyChanges, makeReviewCommenter, makeReviewPendingCommenter, parseChangedFiles,
+} from '../src/utils/github';
 import { REVIEW_PENDING_MARKER } from '../src/utils/review-comment';
 
 const f = (filename: string, status: 'added' | 'modified' | 'removed' | 'renamed') => ({ filename, status });
@@ -136,5 +138,75 @@ describe('makeReviewPendingCommenter', () => {
     deleteComment.mockRejectedValue(new Error('403'));
     await expect(makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).clear())
       .resolves.toBeUndefined();
+  });
+
+  it('deletes the /review acknowledgement too, so one run leaves one comment', async () => {
+    const { octokit, deleteComment } = octokitWith([
+      { id: 11, body: '<!-- evalforge-skill-review-ack -->\nRe-running the skill review' },
+    ]);
+    await makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).clear();
+    expect(deleteComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 11 }));
+  });
+
+  it('clearAck retires the acknowledgement but leaves the failure notice standing', async () => {
+    const { octokit, deleteComment } = octokitWith([
+      { id: 11, body: '<!-- evalforge-skill-review-ack -->\nRe-running the skill review' },
+      { id: 12, body: `${REVIEW_PENDING_MARKER}\nReview job failed` },
+    ]);
+    await makeReviewPendingCommenter(octokit, 'wix', 'skills', 42).clearAck();
+    expect(deleteComment).toHaveBeenCalledOnce();
+    expect(deleteComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 11 }));
+  });
+});
+
+describe('makeReviewCommenter', () => {
+  const octokitWith = (comments: { id: number; node_id: string; body: string }[]) => {
+    const createComment = vi.fn().mockResolvedValue({ data: { id: 99 } });
+    const updateComment = vi.fn().mockResolvedValue({});
+    const graphql = vi.fn().mockResolvedValue({});
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      octokit: {
+        graphql,
+        paginate: { iterator: () => [{ data: comments }] },
+        rest: { issues: { listComments: {}, createComment, updateComment } },
+      } as any,
+      createComment,
+      updateComment,
+      graphql,
+    };
+  };
+  const verdict = (id: number) => ({
+    id, node_id: `node-${id}`, body: '<!-- evalforge-skill-review-action -->\n1 blocking',
+  });
+
+  it('posts a new verdict rather than editing the last one', async () => {
+    const { octokit, createComment, updateComment } = octokitWith([verdict(3)]);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
+    expect(createComment).toHaveBeenCalledOnce();
+    expect(updateComment).not.toHaveBeenCalled();
+  });
+
+  it('marks every earlier verdict outdated', async () => {
+    const { octokit, graphql } = octokitWith([verdict(3), verdict(4)]);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
+    expect(graphql).toHaveBeenCalledTimes(2);
+    expect(graphql.mock.calls[0][0]).toContain('classifier: OUTDATED');
+    expect(graphql.mock.calls.map(call => call[1].subjectId)).toEqual(['node-3', 'node-4']);
+  });
+
+  it('still posts when collapsing the old verdict is refused', async () => {
+    const { octokit, createComment, graphql } = octokitWith([verdict(3)]);
+    graphql.mockRejectedValue(new Error('403'));
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
+    expect(createComment).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the pending reminder uncollapsed', async () => {
+    const { octokit, graphql } = octokitWith([
+      { id: 7, node_id: 'node-7', body: `${REVIEW_PENDING_MARKER}\nawaiting review` },
+    ]);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
+    expect(graphql).not.toHaveBeenCalled();
   });
 });

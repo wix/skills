@@ -207,8 +207,10 @@ export { importImage } from "../../shared/seed/images.mjs";
 // the binding field is the Wix Media file `id`.
 // items: [{ id, revision, price, image: { id, url, height, width } }]
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-update-item.md
+// The bulk update returns 200 on PARTIAL failure: each item's outcome is in
+// results[].itemMetadata (success, error, originalIndex). Returns { attached: [id], failures: [{ id, error }] }.
 export async function attachItemImages(ctx, items) {
-  return req(ctx, "/restaurants/menus/v1/bulk/items/update", {
+  const r = await req(ctx, "/restaurants/menus/v1/bulk/items/update", {
     body: {
       items: items.map((it) => ({
         item: {
@@ -220,6 +222,21 @@ export async function attachItemImages(ctx, items) {
       })),
     },
   });
+  return bulkOutcome(items, r.results);
+}
+
+// Pair a bulk response's results[] to the inputs by originalIndex; an input with no result did not persist.
+export function bulkOutcome(items, results) {
+  const attached = [];
+  const failures = [];
+  for (const x of results ?? []) {
+    const src = items[x.itemMetadata?.originalIndex];
+    if (!src) continue;
+    if (x.itemMetadata?.success) attached.push(src.id);
+    else failures.push({ id: src.id, error: x.itemMetadata?.error?.description ?? x.itemMetadata?.error?.code ?? "unknown" });
+  }
+  for (const it of items) if (!attached.includes(it.id) && !failures.some((f) => f.id === it.id)) failures.push({ id: it.id, error: "no result for item" });
+  return { attached, failures };
 }
 
 // ---- business location (shared STEP 0 for ordering + reservations) ------------------------------
@@ -383,12 +400,14 @@ export async function setupRestaurants(ctx, plan) {
           image: { id: files[i].id, url: files[i].url, width: 1024, height: 1024 } }
       : null))
     .filter(Boolean);
+  const imageFailures = [];
   if (toAttach.length) {
     try {
-      await attachItemImages(ctx, toAttach);
-      imagesAttached = toAttach.length;
-    } catch {
-      /* the items stay text-only */
+      const r = await attachItemImages(ctx, toAttach);
+      imagesAttached = r.attached.length;
+      for (const f of r.failures) imageFailures.push(f);
+    } catch (e) {
+      for (const it of toAttach) imageFailures.push({ id: it.id, error: e?.message ?? String(e) });
     }
   }
 
@@ -453,6 +472,7 @@ export async function setupRestaurants(ctx, plan) {
   return {
     menus: createdMenus.map(({ items, ...m }) => m),
     imagesAttached,
+    imageFailures,
     sampleMenuRemoved,
     ordering,
     reservations,

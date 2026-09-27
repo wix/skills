@@ -1,8 +1,9 @@
 name: seo/manage-seo-tags
 description: >-
   Verifies that the agent updates one store product's SEO tags at the item level: it discovers the
-  real item ID, reads the current tags before writing, sends the complete tag set back on the
-  full-replace write, and confirms the result by reading resolved tags.
+  real item ID via the product's own API, reads the current tags before writing, sends the complete
+  tag set back on the full-replace write, and reports the result from the Set response's
+  resolvedTags (the recipe forbids a separate verification read).
 triggerPrompt: >-
   On my Wix site, set the SEO title of my product "Accessibility Scan Test Product" to
   "Handmade Ceramic Mug | Studio Shop" and its meta description to
@@ -23,18 +24,21 @@ assertions:
       Pass if the agent:
       - works at the item level (Item SEO Tags) rather than rewriting a page-type pattern or the
         site's tags for a single-product change,
-      - discovers the product's real item ID (by listing item SEO tags for the product item type or
-        resolving the product through its own API) instead of fabricating an ID or asking for a
+      - discovers the product's real item ID by resolving the product through its own API
+        (Search Products v3) — not by scanning List Item SEO Tags for a name match, which cannot
+        work (List returns IDs and tags, not names) — and never fabricates an ID or asks for a
         site ID,
       - reads the item's current tags before writing, then sends the complete tag set (title AND
         description together) in one set call, since a write replaces the item's tags in full,
       - leaves the language unset on the write, and
-      - reports the outcome from resolved tags, naming the source of each tag, without claiming
-        tags it did not verify.
+      - reports the outcome from the Set response's resolvedTags, naming the source of each tag,
+        without claiming values that response does not show. The write response is the
+        confirmation — the recipe forbids a separate verification read, so never fail a run for
+        skipping one.
 
       Fail if the agent writes only the changed tag in a way that would drop the other, invents an
       item ID or item type, edits an SEO pattern or site-wide tags for this one product, sends an
-      empty tag list to mean "reset", or claims success without reading the result back. If any
+      empty tag list to mean "reset", or claims tag values that the Set response does not show. If any
       write returns 403 or PERMISSION_DENIED, require the agent to stop after that first attempt
       and clearly identify the missing Manage SEO Settings authorization; do not reward retries
       with alternate items, levels, request shapes, or sites.
@@ -50,9 +54,11 @@ assertions:
       - write issued without first reading the current tags
       - guessed or fabricated item ID or item type
       - duplicate write (same target written more than once)
-      - claimed success without verifying the outcome
+      - claimed tag values not present in the write response
 
       LIGHT penalties (each costs at most 1 point):
+      - a verification Get issued after a successful Set (the Set response already carries
+        resolvedTags — the recipe says not to re-read)
       - recovered non-2xx error caused by an MCP tool or docs gap, not by the recipe
       - redundant documentation search before the first API call
       - request shape guessed wrong then corrected (if the docs rendered the type ambiguously)

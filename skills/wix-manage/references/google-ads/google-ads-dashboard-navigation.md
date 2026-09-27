@@ -15,7 +15,7 @@ Build direct links into the Google Ads page of a site's dashboard. For the gener
 
 ## Pairing Entities with Their Read APIs
 
-Fetch state via the Google Ads recipes in this area (`GET /google-ads/v1/accounts/current-site`, `GET /google-ads/v1/accounts/current-site/conversion-actions`), then link the page.
+Fetch state via the Google Ads recipes in this area (`GET /_serverless/pa-google/v1/accounts/current-site`, `GET /_serverless/pa-google/v1/accounts/current-site/conversion-actions`), then link the page.
 
 Example — after creating a campaign:
 

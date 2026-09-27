@@ -8,7 +8,7 @@ import {
 } from '@wix/evalforge-core';
 import { COMMENT_MARKER } from './comment';
 import { MD_RE, EVALS_RE } from './paths';
-import { REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER } from './review-comment';
+import { REVIEW_ACK_MARKER, REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER } from './review-comment';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 export type { ChangedFile, Commenter };
@@ -87,6 +87,7 @@ export function makeCommenter(octokit: Octokit, owner: string, repo: string, prN
 export type PendingCommenter = {
   post: (body: string) => Promise<void>;
   clear: () => Promise<void>;
+  clearAck: () => Promise<void>;
 };
 
 /** Edited rather than re-posted: a new comment on every push notifies everyone watching the PR. */
@@ -98,32 +99,66 @@ export function makeReviewPendingCommenter(
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
   });
 
+  async function deleteMarked(markers: string[]): Promise<void> {
+    try {
+      const stale: number[] = [];
+      for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+        owner, repo, issue_number: prNumber, per_page: 100,
+      })) {
+        for (const comment of page.data) {
+          const body = comment.body ?? '';
+          if (markers.some(marker => body.includes(marker))) stale.push(comment.id);
+        }
+      }
+      for (const comment_id of stale) {
+        await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
+      }
+    } catch (error) {
+      core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+    }
+  }
+
   return {
     post,
-    async clear(): Promise<void> {
-      try {
-        const stale: number[] = [];
-        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-          owner, repo, issue_number: prNumber, per_page: 100,
-        })) {
-          for (const comment of page.data) {
-            if (comment.body?.includes(REVIEW_PENDING_MARKER)) stale.push(comment.id);
-          }
-        }
-        for (const comment_id of stale) {
-          await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
-        }
-      } catch (error) {
-        core.warning(`Could not clear the skill review reminder: ${String(error)}`);
-      }
-    },
+    clear: () => deleteMarked([REVIEW_PENDING_MARKER, REVIEW_ACK_MARKER]),
+    clearAck: () => deleteMarked([REVIEW_ACK_MARKER]),
   };
 }
 
-/** Its own marker: the upsert finds a comment by marker alone, so a shared one would collide. */
 export function makeReviewCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): Commenter {
-  return coreMakeCommenter(octokit, { owner, repo, prNumber, marker: REVIEW_COMMENT_MARKER }, {
-    warn: core.warning,
-    writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
-  });
+  return async function post(body: string): Promise<void> {
+    try {
+      await outdatePriorReviews(octokit, owner, repo, prNumber);
+      await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+    } catch (error) {
+      core.warning(`Failed to post the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
+      await core.summary.addRaw(body).write();
+    }
+  };
+}
+
+async function outdatePriorReviews(
+  octokit: Octokit, owner: string, repo: string, prNumber: number,
+): Promise<void> {
+  const priorNodeIds: string[] = [];
+  for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+    owner, repo, issue_number: prNumber, per_page: 100,
+  })) {
+    for (const comment of page.data) {
+      if (comment.body?.includes(REVIEW_COMMENT_MARKER)) priorNodeIds.push(comment.node_id);
+    }
+  }
+
+  for (const subjectId of priorNodeIds) {
+    try {
+      await octokit.graphql(
+        'mutation($subjectId: ID!) {'
+        + ' minimizeComment(input: { subjectId: $subjectId, classifier: OUTDATED })'
+        + ' { minimizedComment { isMinimized } } }',
+        { subjectId },
+      );
+    } catch (error) {
+      core.warning(`Could not mark an earlier skill review as outdated: ${String(error)}`);
+    }
+  }
 }

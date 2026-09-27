@@ -195,6 +195,12 @@ and do not expose a visual prop solely for that purpose.
 }
 ```
 
+The same override risk applies to paintable properties. A layout-only inner
+wrapper must stay visually transparent; if it isn't, promote it to its own
+named part instead of hardcoding an opaque style on an unexposed node, since
+that style would otherwise mask the parent part's own
+`background`/`border`/`box-shadow`.
+
 ## Interaction and Motion
 
 - Set `pointer-events: auto` on the root and each interactive element.
@@ -254,3 +260,6 @@ contract; the contrast relationship is.
 - [ ] Visual containers have deliberate hierarchy rather than bare scaffolding.
 - [ ] Every explicit foreground has a known contrasting background; transparent
       components inherit foregrounds from their host.
+- [ ] No unexposed descendant inside a named part paints its own opaque
+      `background`/`border`/`box-shadow`; a wrapper needing its own surface is
+      promoted to a named part instead.

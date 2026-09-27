@@ -71,6 +71,7 @@ jobs:
                 gates: ['evalforge-skill-review.yml'],
                 noRun:
                   'no skill review run exists for this commit — push a commit to produce one',
+                ackMarker: '<!-- evalforge-skill-review-ack -->',
               }],
             ]);
 
@@ -202,7 +203,8 @@ jobs:
             const heading = rerunCount > 0
               ? `Re-running ${command.label}`
               : `Nothing to re-run for ${command.label}`;
+            const marker = command.ackMarker ? `${command.ackMarker}\n` : '';
             await comment(
-              `${heading} for \`${pr.head.sha.substring(0, 7)}\`, `
+              `${marker}${heading} for \`${pr.head.sha.substring(0, 7)}\`, `
               + `requested by @${requester}:\n\n${notes.join('\n')}`
             );

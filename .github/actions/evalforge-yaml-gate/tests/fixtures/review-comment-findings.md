@@ -3,7 +3,7 @@
 
 <sub>✅ Review job completed</sub>
 
-**1 blocking, 1 fix-before-merge** · `abcdef1` · 3 files
+**1 blocking, 1 advisory** · `abcdef1` · 3 files
 
 ### `skills/wix-manage/references/stores/create-bundle.md`
 
@@ -12,7 +12,7 @@
 
   An agent without that tool reads an instruction it cannot follow.
 
-- 🟡 **fix-before-merge** — [line 44](../blob/abcdef1234567890/skills/wix-manage/references/stores/create-bundle.md#L44)
+- 🟡 **advisory** — [line 44](../blob/abcdef1234567890/skills/wix-manage/references/stores/create-bundle.md#L44)
   > The response contains the bundle and its items.
 
   An agent cannot tell which field the next call reads, so it guesses or goes back to the docs for it.

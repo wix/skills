@@ -32,3 +32,24 @@ Wrap each picker in the standard `<SidePanel.Field><FormField label={label}>…<
 </Button>
 ```
 
+## Date & Time Fields
+
+Use WDS `DatePicker` and `TimeInput` directly (no `@wix/editor` picker dialog involved) — but their `onChange` shapes differ, verified against the installed package's own types:
+
+| Field | Value type | `onChange` signature |
+|---|---|---|
+| `DatePicker` | `Date` | `(date: Date) => void` — receives the date directly |
+| `TimeInput` | `Date \| null` | `({ date }: { date: Date \| null }) => void` — receives a **destructured object**, not the date directly |
+
+```typescript
+import { FormField, DatePicker, TimeInput } from '@wix/design-system';
+
+<FormField label="Target date">
+  <DatePicker value={targetDate} onChange={(date) => onDateChange(date)} />
+</FormField>
+
+<FormField label="Target time">
+  <TimeInput value={targetTime} onChange={({ date }) => onTimeChange(date)} />
+</FormField>
+```
+
