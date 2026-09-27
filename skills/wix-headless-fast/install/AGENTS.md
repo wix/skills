@@ -11,7 +11,9 @@ content and commerce.
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
 field name or a body. Every Wix call you write comes from the official Wix skills installed here,
 the code they deployed first, or, when they do not cover the call, from the official Wix
-documentation through `wix-docs`. Read it there first, then write the call.
+documentation through `wix-docs`. Read it there first, then write the call: the exact path and
+body copied from a line open in front of you. A call built by analogy from another call is
+memory, and an empty or error reply to it says nothing about the site.
 
 ## Skills
 

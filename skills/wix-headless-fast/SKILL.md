@@ -48,10 +48,17 @@ doesn't express — or once the site exists and the work turns to managing or ex
   a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
   frontend, in a seed, in a build-time read of a site — comes from the official Wix skills
   installed here, the code they deployed first, or, when they do not cover the call, from the
-  official Wix documentation through `wix-docs`. Read it there first, then write the call. A guessed call that returns 400 or an empty page is not a
-  step toward the answer; it is the failure this rule exists to prevent, and trying the next
-  variant is still guessing. The shipped code is tested against live sites; a body that looks
-  similar is the one that returns nothing, and the API rarely says why.
+  official Wix documentation through `wix-docs`. Read it there first, then write the call.
+  **The test, before every request:** the exact path and body are on your screen, in a file or
+  a search result you opened in this session, and you copy them from there. If they are not on
+  your screen, you have not read them — a file cut off by `head`, a page you remember opening,
+  a sibling call with one word changed (`products/search` → `categories/search`) all fail the
+  test. Analogy is memory. A guessed call that returns 400 or an empty page is not a step toward
+  the answer; it is the failure this rule exists to prevent, trying the next variant is still
+  guessing, and an empty or error reply to a request that failed the test tells you about the
+  request, never about the site. Let errors show: no `2>/dev/null`, no `| echo`, on a call you
+  are still confirming. The shipped code is tested against live sites; a body that looks similar
+  is the one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -226,7 +233,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
      condensed method docs — endpoint, request example, response shape — and the rule that any
      `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
      full page only when the hit lacks what you need.
-   If what you opened does not have the call, go to the next; do not try a variant.
+   If what you opened does not have the call, go to the next; do not try a variant, and do not
+   build one from a call you did find: the path and body you send are copied from a line in
+   front of you or they are not sent.
 
    **Recovering one step, or adding a solution later:** the pieces run on their own from the
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
