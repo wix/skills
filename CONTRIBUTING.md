@@ -38,7 +38,7 @@ When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
 2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update its entry in the same commit.
-3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node).
+3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node). Use the skill's frontmatter `name` as the `title`, and keep it free of `/`: the docs pipeline treats a slash in a title as a section separator and publishes the page under the text after the last slash, so the recipe loses its name and its doc URL.
 4. **Add eval scenarios** under `yaml/wix-manage-evals/<area>/` that provide meaningful coverage of what the skill exists to help an agent do. At least one scenario is required. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.

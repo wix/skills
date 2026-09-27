@@ -67,12 +67,12 @@ const result = await modalClosed; // Resolves with data from closeModal()
 
 ## Receiving Data in Modal
 
-Inside the modal, subscribe via `dashboard.observeState()` to access whatever was passed in `openModal({ params })`. The callback receives the params object as `state`:
+Inside the modal, subscribe via `dashboard.observeState()` to access whatever was passed in `openModal({ params })`. The callback receives the params object as `state`. `observeState` is generic (`state`'s type defaults to `{}`), so **pass the params shape explicitly as a type argument** — without it, `tsc` fails every property access on `state` with "Property 'x' does not exist on type '{}'":
 
 ```typescript
 import { dashboard } from "@wix/dashboard";
 
-dashboard.observeState((state) => {
+dashboard.observeState<{ userId: string; itemData: unknown }>((state) => {
   // state contains the keys you passed in `openModal({ params: { ... } })`
   console.log(state.userId, state.itemData);
 });
@@ -109,7 +109,7 @@ export default {
 
 | Mistake | Fix |
 |---------|-----|
-| Can't find modal ID | Check the modal's generated builder file (`extensions.ts`) `id` field |
+| Can't find modal ID | Check the modal's generated builder file's `id` field (not `src/extensions.ts`, which only registers the extension) |
 | Using `extensionId` instead of `modalId` | Use `modalId` in `openModal()` |
 | Can't access params in modal | Use `dashboard.observeState()` to read passed data |
 | Modal won't close | Use `dashboard.closeModal()` from `@wix/dashboard` |
@@ -137,7 +137,7 @@ const handleDelete = async (item: Item) => {
 const [itemName, setItemName] = useState<string | null>(null);
 
 useEffect(() => {
-  dashboard.observeState((state) => {
+  dashboard.observeState<{ itemName?: string }>((state) => {
     if (state.itemName) setItemName(state.itemName);
   });
 }, []);

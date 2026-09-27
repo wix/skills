@@ -221,7 +221,7 @@ export default function PluginSettingsPage() {
 
 ## Wix Data API Integration
 
-When using Wix Data API in plugins, handle the Wix Editor environment:
+When using Wix Data API in plugins, handle the Wix Editor environment. This example imports `@wix/site-window` — install it first (`npm install @wix/site-window`), since it's not part of the CLI's default scaffolded `package.json`:
 
 ```typescript
 import { items } from "@wix/data";
