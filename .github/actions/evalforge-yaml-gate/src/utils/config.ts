@@ -76,9 +76,9 @@ export function getScheduleConfig(): ScheduleConfig {
 }
 
 /**
- * Present when the sweep runs on demand against an open PR rather than on a push to `main`.
- * An `issue_comment` run carries no `pull_request` payload, so the PR's number and head come
- * in as inputs; `mcpId` is the per-PR capability the gate builds its `pr-<n>-<sha>` versions on.
+ * Present when the sweep runs against an open PR rather than on a push to `main`. `mcpId` is the
+ * per-PR capability the gate builds its `pr-<n>-<sha>` versions on. `required` reddens an unswept
+ * commit; `blocking` reddens a sweep that found a regression. They are independent dials.
  */
 export type PrSweepContext = {
   number: number;
@@ -86,6 +86,7 @@ export type PrSweepContext = {
   mcpId: string;
   mcpSkillsRepo: string;
   blocking: boolean;
+  required: boolean;
 };
 
 export type MergeSweepConfig = {
@@ -103,38 +104,44 @@ export type MergeSweepConfig = {
   pr?: PrSweepContext;
 };
 
-function getPrSweepContext(): PrSweepContext | undefined {
-  const rawNumber = core.getInput('pr-number');
-  if (!rawNumber) return undefined;
-  const number = Number(rawNumber);
-  if (!Number.isInteger(number) || number < 1) {
-    throw new Error(`pr-number must be a positive integer (received: ${rawNumber})`);
-  }
-  return {
-    number,
-    headSha: core.getInput('pr-head-sha', { required: true }),
-    mcpId: core.getInput('evalforge-mcp-id', { required: true }),
-    mcpSkillsRepo: core.getInput('mcp-skills-repo')
-      || process.env.GITHUB_REPOSITORY
-      || `${github.context.repo.owner}/${github.context.repo.repo}`,
-    blocking: core.getInput('blocking') === 'true',
-  };
-}
+export type PrSweepConfig = MergeSweepConfig & { pr: PrSweepContext };
 
-export function getMergeSweepConfig(): MergeSweepConfig {
-  const pr = getPrSweepContext();
+function getSweepConfigBase(prodMcpRequired: boolean): Omit<MergeSweepConfig, 'pr'> {
   return {
     evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     agentId: core.getInput('evalforge-agent-id', { required: true }),
-    prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: pr === undefined }),
+    prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: prodMcpRequired }),
     appId: coreSafeGetSecret(core, 'evalforge-app-id'),
     appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
     githubToken: coreSafeGetSecret(core, 'github-token'),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
     changedFilesRaw: core.getInput('changed-files'),
-    pr,
+  };
+}
+
+export function getMergeSweepConfig(): MergeSweepConfig {
+  return getSweepConfigBase(true);
+}
+
+/** The PR sweep runs on `pull_request`, so the PR's number and head come from the event payload. */
+export function getPrSweepConfig(): PrSweepConfig {
+  const pull = github.context.payload.pull_request;
+  const headSha = (pull?.head as { sha?: string } | undefined)?.sha;
+  if (!headSha) throw new Error('PR payload missing head.sha');
+  return {
+    ...getSweepConfigBase(false),
+    pr: {
+      number: coreGetPrNumber(github.context.payload),
+      headSha,
+      mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+      mcpSkillsRepo: core.getInput('mcp-skills-repo')
+        || process.env.GITHUB_REPOSITORY
+        || `${github.context.repo.owner}/${github.context.repo.repo}`,
+      blocking: core.getInput('blocking') === 'true',
+      required: core.getInput('required') === 'true',
+    },
   };
 }
 

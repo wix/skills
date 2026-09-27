@@ -9,11 +9,11 @@ import { getMergeSweepConfig, type MergeSweepConfig, type PrSweepContext } from 
 import { loadEvals } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
-import { classifyChanges, makeSweepCommenter, parseChangedFiles } from './github';
+import { classifyChanges, parseChangedFiles } from './github';
 import { workspaceRoot } from './workspace';
 import { confirmOnFail, type ConfirmResult } from './confirm';
 import { resolveMergedBy, type MergedBy } from './merged-by';
-import { reportMergeVerdict, reportPrVerdict } from './sweep-report';
+import { reportMergeVerdict } from './sweep-report';
 import type { SweepVerdict } from './sweep-verdict';
 
 /** Above this many tag-matched scenarios, the sweep samples rather than running everything —
@@ -110,11 +110,10 @@ export function prVersionLabel(pr: Pick<PrSweepContext, 'number' | 'headSha'>): 
 }
 
 /**
- * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
- * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
- * Without this the job would only go red, and a red check on a `main` commit is not a signal
- * anyone is watching for; the Slack message (or, for a PR sweep, the PR comment) is the whole
- * point of this mode.
+ * The merge sweep. Wraps `sweep` so that anything thrown before the run's own error handling — bad
+ * config, a malformed workspace, an octokit constructor failure — still reaches the `infra-error`
+ * output. Without this the job would only go red, and a red check on a `main` commit is not a
+ * signal anyone is watching for; the Slack message is the whole point of this mode.
  */
 export async function runMergeTagSweep(): Promise<void> {
   let config: MergeSweepConfig;
@@ -137,15 +136,6 @@ export async function runMergeTagSweep(): Promise<void> {
       message: `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
-
-  if (config.pr) {
-    const comment = makeSweepCommenter(octokit, config.owner, config.repo, config.pr.number);
-    await reportPrVerdict(verdict, core, comment, {
-      blocking: config.pr.blocking,
-      versionLabel: prVersionLabel(config.pr),
-    });
-    return;
-  }
   await reportMergeVerdict(verdict, core, () => mergedByForPush(octokit, config));
 }
 
@@ -165,7 +155,12 @@ async function mergedByForPush(
   }
 }
 
-async function sweep(config: MergeSweepConfig): Promise<SweepVerdict> {
+/**
+ * One sweep: resolve the tags this change touches, run the tag-matched scenarios, confirm any
+ * failures. With `config.pr` set it pins the PR's MCP version; otherwise it takes the production MCP.
+ * Returns the verdict and reports nothing — the caller decides between Slack outputs and a PR comment.
+ */
+export async function sweep(config: MergeSweepConfig): Promise<SweepVerdict> {
   const workspace = workspaceRoot();
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const what = config.pr ? `PR #${config.pr.number}` : 'this push';

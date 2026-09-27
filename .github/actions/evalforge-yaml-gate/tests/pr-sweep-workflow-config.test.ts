@@ -3,126 +3,88 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 
-type Step = { id?: string; name?: string; uses?: string; run?: string; if?: string; with?: Record<string, string> };
+type Step = { id?: string; name?: string; uses?: string; run?: string; if?: string; with?: Record<string, string | number> };
 type Workflow = {
   on: {
-    issue_comment?: { types: string[] };
-    workflow_dispatch?: { inputs: Record<string, { required?: boolean }> };
+    pull_request?: { types: string[]; paths?: string[]; branches: string[] };
+    issue_comment?: unknown;
+    workflow_dispatch?: unknown;
     push?: unknown;
-    pull_request?: unknown;
   };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, {
+    name?: string;
     'timeout-minutes': number;
     permissions: Record<string, string>;
     if?: string;
-    needs?: string | string[];
-    outputs?: Record<string, string>;
     steps: Step[];
   }>;
 };
 
-const WORKFLOW_PATH = join(__dirname, '../../../workflows/evalforge-pr-sweep.yml');
-const raw = readFileSync(WORKFLOW_PATH, 'utf-8');
+const WORKFLOWS = join(__dirname, '../../../workflows');
+const raw = readFileSync(join(WORKFLOWS, 'evalforge-pr-sweep.yml'), 'utf-8');
 const workflow = yaml.load(raw) as Workflow;
+const reEval = readFileSync(join(WORKFLOWS, 'evalforge-re-eval.yml'), 'utf-8');
 
 describe('EvalForge PR Sweep workflow — trigger', () => {
-  it('runs on created comments only, never on push or pull_request', () => {
-    expect(workflow.on.issue_comment?.types).toEqual(['created']);
+  // Modelled on the skill review: a `pull_request` run is attached to the PR head, which is what
+  // lets its job be a required status check. A comment-triggered run is attached to the default
+  // branch commit and never appears on the PR.
+  it('runs on pull_request events, and on nothing else', () => {
+    expect(workflow.on.pull_request?.branches).toEqual(['main']);
+    expect(workflow.on.issue_comment).toBeUndefined();
+    expect(workflow.on.workflow_dispatch).toBeUndefined();
     expect(workflow.on.push).toBeUndefined();
-    expect(workflow.on.pull_request).toBeUndefined();
   });
 
-  it('can be dispatched by hand against a named PR, which is how a branch copy of this file is exercised', () => {
-    expect(workflow.on.workflow_dispatch?.inputs['pr-number']?.required).toBe(true);
+  it('includes synchronize, so every head commit gets a check for /sweep to re-run', () => {
+    expect(workflow.on.pull_request?.types).toEqual(expect.arrayContaining(['opened', 'synchronize', 'reopened', 'ready_for_review']));
   });
 
-  it('serialises per PR without cancelling an in-flight sweep, however it was triggered', () => {
+  // A required check whose workflow is path-scoped is never reported on PRs outside those paths,
+  // and GitHub then waits for it forever. The action decides scope from the diff instead.
+  it('has no paths filter', () => {
+    expect(workflow.on.pull_request?.paths).toBeUndefined();
+  });
+
+  it('supersedes an in-flight run of the same PR — only the newest head matters', () => {
     expect(workflow.concurrency.group).toContain('evalforge-pr-sweep-pr-');
-    expect(workflow.concurrency.group).toContain('github.event.issue.number');
-    expect(workflow.concurrency.group).toContain("inputs['pr-number']");
-    expect(workflow.concurrency['cancel-in-progress']).toBe(false);
-  });
-
-  it('has a repo-variable kill switch so the command can be stopped without a code change', () => {
-    expect(raw).toContain("vars.PR_SWEEP_ENABLED != 'false'");
+    expect(workflow.concurrency.group).toContain('github.event.pull_request.number');
+    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
   });
 });
 
-describe('EvalForge PR Sweep workflow — authorize job', () => {
-  const job = workflow.jobs.authorize;
-  const script = job.steps[job.steps.length - 1];
-
-  it('starts a runner for a dispatch, or for PR comments from non-bots that mention the command', () => {
-    expect(job.if).toContain("github.event_name == 'workflow_dispatch'");
-    expect(job.if).toContain('github.event.issue.pull_request');
-    expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
-    expect(job.if).toContain('/sweep');
-  });
-
-  it('checks out nothing — it decides whether to spend, it spends nothing itself', () => {
-    expect(job.steps.some(s => s.uses?.startsWith('actions/checkout'))).toBe(false);
-  });
-
-  it('pins github-script by commit sha', () => {
-    expect(script.uses).toMatch(/^actions\/github-script@[0-9a-f]{40}$/);
-  });
-
-  it('can only read the repo and comment on the PR', () => {
-    expect(job.permissions).toEqual({ contents: 'read', 'pull-requests': 'write' });
-  });
-
-  it('hands the sweep job the PR number and the exact head and base it authorised', () => {
-    expect(job.outputs).toMatchObject({
-      allowed: expect.stringContaining('allowed'),
-      'pr-number': expect.stringContaining('pr-number'),
-      'head-sha': expect.stringContaining('head-sha'),
-      'base-sha': expect.stringContaining('base-sha'),
-    });
-  });
-
-  it('requires the command as the first token of the first line, as /re-eval does', () => {
-    expect(script.with?.script).toContain("split('\\n')[0]");
-    expect(script.with?.script).toContain("!== '/sweep'");
-  });
-
-  it('applies the same spend gate as /re-eval: PR author or a collaborator with push access', () => {
-    expect(script.with?.script).toContain('getCollaboratorPermissionLevel');
-    expect(script.with?.script).toContain("['admin', 'maintain', 'write']");
-  });
-
-  it('declines closed, draft and fork PRs, which the gates never evaluate either', () => {
-    expect(script.with?.script).toContain("pr.state !== 'open'");
-    expect(script.with?.script).toContain('pr.draft');
-    expect(script.with?.script).toContain('pr.head.repo?.full_name');
-  });
-});
-
-describe('EvalForge PR Sweep workflow — sweep job', () => {
-  const job = workflow.jobs.sweep;
+describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
+  const job = workflow.jobs['pr-sweep'];
   const action = job.steps.find(s => s.uses === './.github/actions/evalforge-yaml-gate');
 
-  it('runs only once the authorize job allowed it', () => {
-    expect(job.needs).toEqual('authorize');
-    expect(job.if).toContain("needs.authorize.outputs.allowed == 'true'");
+  it('names its job pr-sweep, which is the required-status-check name', () => {
+    expect(job).toBeDefined();
+    expect(job.name).toBe('pr-sweep');
   });
 
-  it('checks out the authorised head sha with full history, so the diff and the action source are the PR\'s', () => {
+  it('skips drafts and fork PRs, as the gates do', () => {
+    expect(job.if).toContain('!github.event.pull_request.draft');
+    expect(job.if).toContain('github.event.pull_request.head.repo.full_name == github.repository');
+  });
+
+  it('has a repo-variable kill switch so the sweep can be stopped without a code change', () => {
+    expect(job.if).toContain("vars.PR_SWEEP_ENABLED != 'false'");
+  });
+
+  it('checks out the merge ref with full history, so HEAD^1 is the base', () => {
     const checkout = job.steps.find(s => s.uses?.startsWith('actions/checkout'));
-    expect(checkout?.with?.ref).toContain('needs.authorize.outputs.head-sha');
+    expect(checkout?.with?.ref).toBeUndefined();
     expect(checkout?.with?.['fetch-depth']).toBe(0);
   });
 
-  it('diffs the PR against its base with a three-dot range, so only the PR\'s own changes count', () => {
+  it('diffs the merge commit against its first parent, so only the PR\'s own changes count', () => {
     const diff = job.steps.find(s => s.id === 'diff');
-    expect(diff?.run).toContain('git -c core.quotePath=false diff --name-status');
-    expect(diff?.run).toMatch(/\$BASE_SHA"?\.\.\."?\$HEAD_SHA/);
+    expect(diff?.run).toContain('git -c core.quotePath=false diff --name-status HEAD^1 HEAD');
   });
 
-  it('runs the action in pr-sweep mode with the PR context and the diffed files', () => {
+  it('runs the action in pr-sweep mode with the diffed files', () => {
     expect(action?.with?.mode).toBe('pr-sweep');
-    expect(action?.with?.['pr-number']).toContain('needs.authorize.outputs.pr-number');
-    expect(action?.with?.['pr-head-sha']).toContain('needs.authorize.outputs.head-sha');
     expect(action?.with?.['changed-files']).toContain('steps.diff.outputs.files');
   });
 
@@ -131,7 +93,10 @@ describe('EvalForge PR Sweep workflow — sweep job', () => {
     expect(action?.with?.['evalforge-prod-mcp-id']).toBeUndefined();
   });
 
-  it('starts in soak mode, wired to a repo variable so it can be made blocking without a code change', () => {
+  // Two dials, both off by default. `required` makes an unswept commit red; `blocking` makes a
+  // sweep that found a regression red. Either can be turned on its own.
+  it('wires required and blocking to their own repo variables, both defaulting to off', () => {
+    expect(action?.with?.required).toBe("${{ vars.PR_SWEEP_REQUIRED || 'false' }}");
     expect(action?.with?.blocking).toBe("${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}");
   });
 
@@ -156,11 +121,24 @@ describe('EvalForge PR Sweep workflow — sweep job', () => {
     expect(raw).not.toContain('SLACK_WEBHOOK_URL');
   });
 
-  it('pins every action by commit sha rather than a tag', () => {
+  it('pins every external action by commit sha rather than a tag', () => {
     const external = Object.values(workflow.jobs).flatMap(j => j.steps)
       .map(s => s.uses)
       .filter((uses): uses is string => uses !== undefined && !uses.startsWith('./'));
     expect(external.length).toBeGreaterThan(0);
     for (const uses of external) expect(uses).toMatch(/@[0-9a-f]{40}$/);
+  });
+});
+
+describe('the /sweep command', () => {
+  // The command lives in the re-eval workflow's COMMANDS map, which re-runs the head's own
+  // pull_request run; that is what turns a comment into a verdict on the required check.
+  it('is registered in the re-eval command map, pointing at this workflow', () => {
+    expect(reEval).toContain("['/sweep', {");
+    expect(reEval).toMatch(/\['\/sweep', \{[^}]*gates: \['evalforge-pr-sweep\.yml'\]/s);
+  });
+
+  it('starts the re-eval runner for comments that mention it', () => {
+    expect(reEval).toContain("contains(github.event.comment.body, '/sweep')");
   });
 });

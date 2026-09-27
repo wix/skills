@@ -66358,14 +66358,14 @@ const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
 const merge_tag_sweep_1 = __nccwpck_require__(3821);
 const review_1 = __nccwpck_require__(5253);
+const pr_sweep_1 = __nccwpck_require__(8230);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
     'merge-tag-sweep': merge_tag_sweep_1.runMergeTagSweep,
-    // The same sweep, run on demand against an open PR: `pr-number` and `pr-head-sha` select the PR.
-    'pr-sweep': merge_tag_sweep_1.runMergeTagSweep,
+    'pr-sweep': pr_sweep_1.runPrSweep,
     review: review_1.runReview,
 };
 const mode = core.getInput('mode') || 'eval';
@@ -66482,7 +66482,8 @@ function errMsg(e) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PR_SWEEP_MARKER = exports.COMMENT_MARKER = void 0;
+exports.PR_SWEEP_ACK_MARKER = exports.PR_SWEEP_PENDING_MARKER = exports.PR_SWEEP_MARKER = exports.COMMENT_MARKER = void 0;
+exports.formatPrSweepPending = formatPrSweepPending;
 exports.formatPrSweep = formatPrSweep;
 exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
@@ -66504,9 +66505,24 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
-/** Its own marker: the sweep comment sits beside the gate's, never in place of it. */
-exports.PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep -->';
+/** Its own marker: the sweep comment sits beside the gate's, never in place of it.
+ * No marker may contain another: comments are matched by `includes`. */
+exports.PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep-result -->';
+/** The "not swept yet" reminder, edited in place on every push and deleted once a sweep reports. */
+exports.PR_SWEEP_PENDING_MARKER = '<!-- evalforge-pr-sweep-pending -->';
+/** The `/sweep` acknowledgement the re-eval workflow posts; deleted once the sweep reports. */
+exports.PR_SWEEP_ACK_MARKER = '<!-- evalforge-pr-sweep-ack -->';
 const PR_SWEEP_HEADING = 'EvalForge PR Sweep';
+function formatPrSweepPending(headSha) {
+    return [
+        exports.PR_SWEEP_PENDING_MARKER,
+        `⏳ **Not swept** — commit \`${headSha.slice(0, 7)}\``,
+        '',
+        'The sweep re-runs every EvalForge scenario sharing a tag with this PR\'s changes, against this PR\'s docs. It runs on request.',
+        '',
+        'Comment `/sweep` to sweep this commit.',
+    ].join('\n');
+}
 function render(icon, label, body) {
     return [exports.COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
 }
@@ -66798,6 +66814,7 @@ exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = ex
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
 exports.getMergeSweepConfig = getMergeSweepConfig;
+exports.getPrSweepConfig = getPrSweepConfig;
 exports.getEvalConfig = getEvalConfig;
 exports.getReviewConfig = getReviewConfig;
 const core = __importStar(__nccwpck_require__(7484));
@@ -66835,38 +66852,41 @@ function getScheduleConfig() {
         runName: core.getInput('run-name') || 'scheduled-run',
     };
 }
-function getPrSweepContext() {
-    const rawNumber = core.getInput('pr-number');
-    if (!rawNumber)
-        return undefined;
-    const number = Number(rawNumber);
-    if (!Number.isInteger(number) || number < 1) {
-        throw new Error(`pr-number must be a positive integer (received: ${rawNumber})`);
-    }
-    return {
-        number,
-        headSha: core.getInput('pr-head-sha', { required: true }),
-        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
-        mcpSkillsRepo: core.getInput('mcp-skills-repo')
-            || process.env.GITHUB_REPOSITORY
-            || `${github.context.repo.owner}/${github.context.repo.repo}`,
-        blocking: core.getInput('blocking') === 'true',
-    };
-}
-function getMergeSweepConfig() {
-    const pr = getPrSweepContext();
+function getSweepConfigBase(prodMcpRequired) {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         agentId: core.getInput('evalforge-agent-id', { required: true }),
-        prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: pr === undefined }),
+        prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: prodMcpRequired }),
         appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
         appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
         changedFilesRaw: core.getInput('changed-files'),
-        pr,
+    };
+}
+function getMergeSweepConfig() {
+    return getSweepConfigBase(true);
+}
+/** The PR sweep runs on `pull_request`, so the PR's number and head come from the event payload. */
+function getPrSweepConfig() {
+    const pull = github.context.payload.pull_request;
+    const headSha = pull?.head?.sha;
+    if (!headSha)
+        throw new Error('PR payload missing head.sha');
+    return {
+        ...getSweepConfigBase(false),
+        pr: {
+            number: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+            headSha,
+            mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+            mcpSkillsRepo: core.getInput('mcp-skills-repo')
+                || process.env.GITHUB_REPOSITORY
+                || `${github.context.repo.owner}/${github.context.repo.repo}`,
+            blocking: core.getInput('blocking') === 'true',
+            required: core.getInput('required') === 'true',
+        },
     };
 }
 function getEvalConfig() {
@@ -67889,6 +67909,7 @@ exports.fail = fail;
 exports.makeCommenter = makeCommenter;
 exports.makeSweepCommenter = makeSweepCommenter;
 exports.makeReviewPendingCommenter = makeReviewPendingCommenter;
+exports.makeSweepPendingCommenter = makeSweepPendingCommenter;
 exports.makeReviewCommenter = makeReviewCommenter;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -67968,13 +67989,17 @@ function makeSweepCommenter(octokit, owner, repo, prNumber) {
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
 }
-/** Edited rather than re-posted: a new comment on every push notifies everyone watching the PR. */
-function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
-    const post = (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: review_comment_1.REVIEW_PENDING_MARKER }, {
+/**
+ * A reminder edited in place rather than re-posted — a new comment on every push notifies everyone
+ * watching the PR — plus the ability to delete it, and the command acknowledgement, once a verdict
+ * replaces them. `label` names the feature in the warning when a delete fails.
+ */
+function makePendingCommenter(octokit, owner, repo, prNumber, markers, label) {
+    const post = (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: markers.pending }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
-    async function deleteMarked(markers) {
+    async function deleteMarked(toDelete) {
         try {
             const stale = [];
             for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
@@ -67982,7 +68007,7 @@ function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
             })) {
                 for (const comment of page.data) {
                     const body = comment.body ?? '';
-                    if (markers.some(marker => body.includes(marker)))
+                    if (toDelete.some(marker => body.includes(marker)))
                         stale.push(comment.id);
                 }
             }
@@ -67991,14 +68016,20 @@ function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
             }
         }
         catch (error) {
-            core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+            core.warning(`Could not clear the ${label} reminder: ${String(error)}`);
         }
     }
     return {
         post,
-        clear: () => deleteMarked([review_comment_1.REVIEW_PENDING_MARKER, review_comment_1.REVIEW_ACK_MARKER]),
-        clearAck: () => deleteMarked([review_comment_1.REVIEW_ACK_MARKER]),
+        clear: () => deleteMarked([markers.pending, markers.ack]),
+        clearAck: () => deleteMarked([markers.ack]),
     };
+}
+function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
+    return makePendingCommenter(octokit, owner, repo, prNumber, { pending: review_comment_1.REVIEW_PENDING_MARKER, ack: review_comment_1.REVIEW_ACK_MARKER }, 'skill review');
+}
+function makeSweepPendingCommenter(octokit, owner, repo, prNumber) {
+    return makePendingCommenter(octokit, owner, repo, prNumber, { pending: comment_1.PR_SWEEP_PENDING_MARKER, ack: comment_1.PR_SWEEP_ACK_MARKER }, 'PR sweep');
 }
 function makeReviewCommenter(octokit, owner, repo, prNumber) {
     return async function post(body) {
@@ -68083,6 +68114,7 @@ exports.rowsToOutcomes = rowsToOutcomes;
 exports.buildEvalRunInput = buildEvalRunInput;
 exports.prVersionLabel = prVersionLabel;
 exports.runMergeTagSweep = runMergeTagSweep;
+exports.sweep = sweep;
 const evalforge_core_1 = __nccwpck_require__(7495);
 const gate_1 = __nccwpck_require__(2302);
 const core = __importStar(__nccwpck_require__(7484));
@@ -68165,11 +68197,10 @@ function prVersionLabel(pr) {
     return `pr-${pr.number}-${pr.headSha.slice(0, 7)}`;
 }
 /**
- * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
- * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
- * Without this the job would only go red, and a red check on a `main` commit is not a signal
- * anyone is watching for; the Slack message (or, for a PR sweep, the PR comment) is the whole
- * point of this mode.
+ * The merge sweep. Wraps `sweep` so that anything thrown before the run's own error handling — bad
+ * config, a malformed workspace, an octokit constructor failure — still reaches the `infra-error`
+ * output. Without this the job would only go red, and a red check on a `main` commit is not a
+ * signal anyone is watching for; the Slack message is the whole point of this mode.
  */
 async function runMergeTagSweep() {
     let config;
@@ -68193,14 +68224,6 @@ async function runMergeTagSweep() {
             message: `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`,
         };
     }
-    if (config.pr) {
-        const comment = (0, github_1.makeSweepCommenter)(octokit, config.owner, config.repo, config.pr.number);
-        await (0, sweep_report_1.reportPrVerdict)(verdict, core, comment, {
-            blocking: config.pr.blocking,
-            versionLabel: prVersionLabel(config.pr),
-        });
-        return;
-    }
     await (0, sweep_report_1.reportMergeVerdict)(verdict, core, () => mergedByForPush(octokit, config));
 }
 async function mergedByForPush(octokit, config) {
@@ -68216,6 +68239,11 @@ async function mergedByForPush(octokit, config) {
         return fallback;
     }
 }
+/**
+ * One sweep: resolve the tags this change touches, run the tag-matched scenarios, confirm any
+ * failures. With `config.pr` set it pins the PR's MCP version; otherwise it takes the production MCP.
+ * Returns the verdict and reports nothing — the caller decides between Slack outputs and a PR comment.
+ */
 async function sweep(config) {
     const workspace = (0, workspace_1.workspaceRoot)();
     const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
@@ -68382,6 +68410,98 @@ exports.EVALS_GLOB = 'yaml/wix-manage-evals/*/**/*.{yml,yaml}';
 exports.DOC_YAML_GLOB = 'yaml/wix-manage/*/documentation.yaml';
 // Subdirectory used by the trusted-action-source two-checkout workflow pattern.
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
+
+
+/***/ }),
+
+/***/ 8230:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.shouldSweep = shouldSweep;
+exports.runPrSweep = runPrSweep;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const config_1 = __nccwpck_require__(7799);
+const github_1 = __nccwpck_require__(6246);
+const comment_1 = __nccwpck_require__(3116);
+const merge_tag_sweep_1 = __nccwpck_require__(3821);
+const sweep_report_1 = __nccwpck_require__(6296);
+/**
+ * A push must not spend, but it still has to produce a run: a required check has to be reported on
+ * every head commit, and `/sweep` re-runs the head's own run. A re-run replays the original payload,
+ * so the event cannot tell "someone asked" from "a commit was pushed" — the attempt number can.
+ */
+function shouldSweep(env) {
+    return Number(env.GITHUB_RUN_ATTEMPT ?? '1') > 1;
+}
+/**
+ * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it only
+ * reminds — red if `required`, green otherwise. On a re-run it sweeps the tag-matched scenarios
+ * against the PR's own MCP version and reports in a PR comment; that verdict goes red only if
+ * `blocking`.
+ */
+async function runPrSweep() {
+    const config = (0, config_1.getPrSweepConfig)();
+    const { pr } = config;
+    const octokit = github.getOctokit(config.githubToken);
+    const pending = (0, github_1.makeSweepPendingCommenter)(octokit, config.owner, config.repo, pr.number);
+    if (!shouldSweep(process.env)) {
+        core.info('The PR sweep runs on request. Comment `/sweep` to sweep this commit.');
+        await pending.post((0, comment_1.formatPrSweepPending)(pr.headSha));
+        (0, github_1.fail)(`Commit ${pr.headSha.slice(0, 7)} has not been swept. Comment \`/sweep\` on the PR to sweep it.`, pr.required);
+        return;
+    }
+    let verdict;
+    try {
+        verdict = await (0, merge_tag_sweep_1.sweep)(config);
+    }
+    catch (e) {
+        verdict = {
+            kind: 'infra-error',
+            message: `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`,
+        };
+    }
+    const comment = (0, github_1.makeSweepCommenter)(octokit, config.owner, config.repo, pr.number);
+    await (0, sweep_report_1.reportPrVerdict)(verdict, core, comment, { blocking: pr.blocking, versionLabel: (0, merge_tag_sweep_1.prVersionLabel)(pr) });
+    // The verdict comment replaces the reminder and the `/sweep` acknowledgement.
+    await pending.clear();
+}
 
 
 /***/ }),

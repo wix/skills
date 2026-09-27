@@ -6,7 +6,7 @@ import {
   type ChangedFile,
   type Commenter,
 } from '@wix/evalforge-core';
-import { COMMENT_MARKER, PR_SWEEP_MARKER } from './comment';
+import { COMMENT_MARKER, PR_SWEEP_ACK_MARKER, PR_SWEEP_MARKER, PR_SWEEP_PENDING_MARKER } from './comment';
 import { MD_RE, EVALS_RE } from './paths';
 import { REVIEW_ACK_MARKER, REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER } from './review-comment';
 
@@ -98,16 +98,21 @@ export type PendingCommenter = {
   clearAck: () => Promise<void>;
 };
 
-/** Edited rather than re-posted: a new comment on every push notifies everyone watching the PR. */
-export function makeReviewPendingCommenter(
+/**
+ * A reminder edited in place rather than re-posted — a new comment on every push notifies everyone
+ * watching the PR — plus the ability to delete it, and the command acknowledgement, once a verdict
+ * replaces them. `label` names the feature in the warning when a delete fails.
+ */
+function makePendingCommenter(
   octokit: Octokit, owner: string, repo: string, prNumber: number,
+  markers: { pending: string; ack: string }, label: string,
 ): PendingCommenter {
-  const post = coreMakeCommenter(octokit, { owner, repo, prNumber, marker: REVIEW_PENDING_MARKER }, {
+  const post = coreMakeCommenter(octokit, { owner, repo, prNumber, marker: markers.pending }, {
     warn: core.warning,
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
   });
 
-  async function deleteMarked(markers: string[]): Promise<void> {
+  async function deleteMarked(toDelete: string[]): Promise<void> {
     try {
       const stale: number[] = [];
       for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
@@ -115,22 +120,40 @@ export function makeReviewPendingCommenter(
       })) {
         for (const comment of page.data) {
           const body = comment.body ?? '';
-          if (markers.some(marker => body.includes(marker))) stale.push(comment.id);
+          if (toDelete.some(marker => body.includes(marker))) stale.push(comment.id);
         }
       }
       for (const comment_id of stale) {
         await octokit.rest.issues.deleteComment({ owner, repo, comment_id });
       }
     } catch (error) {
-      core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+      core.warning(`Could not clear the ${label} reminder: ${String(error)}`);
     }
   }
 
   return {
     post,
-    clear: () => deleteMarked([REVIEW_PENDING_MARKER, REVIEW_ACK_MARKER]),
-    clearAck: () => deleteMarked([REVIEW_ACK_MARKER]),
+    clear: () => deleteMarked([markers.pending, markers.ack]),
+    clearAck: () => deleteMarked([markers.ack]),
   };
+}
+
+export function makeReviewPendingCommenter(
+  octokit: Octokit, owner: string, repo: string, prNumber: number,
+): PendingCommenter {
+  return makePendingCommenter(
+    octokit, owner, repo, prNumber,
+    { pending: REVIEW_PENDING_MARKER, ack: REVIEW_ACK_MARKER }, 'skill review',
+  );
+}
+
+export function makeSweepPendingCommenter(
+  octokit: Octokit, owner: string, repo: string, prNumber: number,
+): PendingCommenter {
+  return makePendingCommenter(
+    octokit, owner, repo, prNumber,
+    { pending: PR_SWEEP_PENDING_MARKER, ack: PR_SWEEP_ACK_MARKER }, 'PR sweep',
+  );
 }
 
 export function makeReviewCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): Commenter {

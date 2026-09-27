@@ -2,7 +2,7 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge; "pr-sweep" runs the same sweep on demand against an open PR''s MCP version; "review" runs the AI content review of a PR'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge; "pr-sweep" reports a PR head as unswept, and on a re-run (via /sweep) runs the same sweep against the PR''s MCP version; "review" runs the AI content review of a PR'
     required: false
     default: 'eval'
   github-token:
@@ -26,14 +26,10 @@ inputs:
     description: 'EvalForge MCP capability ID for the production MCP (required for merge-tag-sweep mode; pr-sweep pins the per-PR version instead)'
     required: false
     default: ''
-  pr-number:
-    description: 'The open PR to sweep (pr-sweep mode only). An issue_comment run has no pull_request payload, so the PR is named here'
+  required:
+    description: 'Fail the check on a head commit that has not been swept yet (pr-sweep mode only). Independent of `blocking`, which fails the check on what a sweep found'
     required: false
-    default: ''
-  pr-head-sha:
-    description: 'The PR head commit to sweep (pr-sweep mode only). Labels the MCP version the sweep pins, the same pr-<number>-<sha> the gate builds'
-    required: false
-    default: ''
+    default: 'false'
   evalforge-app-id:
     description: 'EvalForge app ID for authentication'
     required: true

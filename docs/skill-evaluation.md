@@ -46,14 +46,20 @@ from re-running dozens of scenarios on every merge that touches it. Setting the
 `MERGE_TAG_SWEEP_ENABLED` repository variable to `false` turns the sweep off without a code
 change.
 
-To run the same sweep before merging, comment `/sweep` on the PR. The command must be the
-first word of the comment, and only the PR author or a collaborator with write access can use
-it. [`evalforge-pr-sweep.yml`](../.github/workflows/evalforge-pr-sweep.yml) then resolves the
-tags from the PR's diff, runs the tag-matched scenarios against the PR's own MCP version (the
-same `pr-<number>-<sha>` version the gate builds) with the same sampling cap and retries, and
-reports in a PR comment rather than Slack. It does not block: the check stays green whatever
-the verdict until the `PR_SWEEP_BLOCK_MERGE` repository variable is set to `true`. Setting
-`PR_SWEEP_ENABLED` to `false` turns the command off.
+To run the same sweep before merging, comment `/sweep` on the PR. It works like `/review`:
+[`evalforge-pr-sweep.yml`](../.github/workflows/evalforge-pr-sweep.yml) runs on every PR, but a
+push only posts a "not swept" reminder and spends nothing. `/sweep` re-runs that head's run,
+which resolves the tags from the PR's diff, runs the tag-matched scenarios against the PR's own
+MCP version (the same `pr-<number>-<sha>` version the gate builds) with the same sampling cap
+and retries, and reports in a PR comment rather than Slack. The command must be the first word
+of the comment, and only the PR author or a collaborator with write access can use it.
+
+Two repository variables, both off by default and independent, decide what turns the `pr-sweep`
+check red: `PR_SWEEP_REQUIRED` fails a head commit that has not been swept, and
+`PR_SWEEP_BLOCK_MERGE` fails a sweep that confirmed a regression or could not run. Making the
+sweep mandatory is therefore two settings: `PR_SWEEP_REQUIRED=true`, and `pr-sweep` added to the
+branch's required status checks. Setting `PR_SWEEP_ENABLED` to `false` turns the sweep off; a
+skipped job satisfies a required check, so that never blocks a merge.
 
 ## wix-app scenarios: the PR eval gate
 

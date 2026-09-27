@@ -10,9 +10,25 @@ import type { SweepVerdict } from './sweep-verdict';
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 
-/** Its own marker: the sweep comment sits beside the gate's, never in place of it. */
-export const PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep -->';
+/** Its own marker: the sweep comment sits beside the gate's, never in place of it.
+ * No marker may contain another: comments are matched by `includes`. */
+export const PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep-result -->';
+/** The "not swept yet" reminder, edited in place on every push and deleted once a sweep reports. */
+export const PR_SWEEP_PENDING_MARKER = '<!-- evalforge-pr-sweep-pending -->';
+/** The `/sweep` acknowledgement the re-eval workflow posts; deleted once the sweep reports. */
+export const PR_SWEEP_ACK_MARKER = '<!-- evalforge-pr-sweep-ack -->';
 const PR_SWEEP_HEADING = 'EvalForge PR Sweep';
+
+export function formatPrSweepPending(headSha: string): string {
+  return [
+    PR_SWEEP_PENDING_MARKER,
+    `⏳ **Not swept** — commit \`${headSha.slice(0, 7)}\``,
+    '',
+    'The sweep re-runs every EvalForge scenario sharing a tag with this PR\'s changes, against this PR\'s docs. It runs on request.',
+    '',
+    'Comment `/sweep` to sweep this commit.',
+  ].join('\n');
+}
 
 function render(icon: string, label: string, body: string[]): string {
   return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
