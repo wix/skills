@@ -55,15 +55,14 @@ MCP version (the same `pr-<number>-<sha>` version the gate builds) with the same
 and retries, and reports in a PR comment rather than Slack. The command must be the first word
 of the comment, and only the PR author or a collaborator with write access can use it.
 
-Two repository variables, both off by default and independent, decide what turns the `pr-sweep`
-check red: `PR_SWEEP_REQUIRED` fails a head commit that has not been swept, and
-`PR_SWEEP_BLOCK_MERGE` fails a sweep that confirmed a regression or could not run. Making the
-sweep mandatory is therefore two settings: `PR_SWEEP_REQUIRED=true`, and `pr-sweep` added to the
-branch's required status checks. `PR_SWEEP_REMIND`, also off by default, posts a "not swept"
-comment explaining `/sweep` on each unswept commit the sweep covers; with it off, nothing is
-posted on a PR until someone comments `/sweep`. A configuration error fails the check only when
-`PR_SWEEP_REQUIRED` or `PR_SWEEP_BLOCK_MERGE` is on. Setting `PR_SWEEP_ENABLED` to `false` turns
-the sweep off; a skipped job satisfies a required check, so that never blocks a merge.
+Repository variables control the `pr-sweep` check:
+
+| Variable | Default | When set to `true` |
+|---|---|---|
+| `PR_SWEEP_REQUIRED` | off | An unswept commit fails the `pr-sweep` check |
+| `PR_SWEEP_BLOCK_MERGE` | off | A sweep that found a regression, or couldn't run, fails the check |
+| `PR_SWEEP_REMIND` | off | Unswept commits get a "not swept" comment explaining `/sweep` |
+| `PR_SWEEP_ENABLED` | on | Set to `false` to turn the sweep off entirely |
 
 ## wix-app scenarios: the PR eval gate
 
