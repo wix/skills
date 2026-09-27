@@ -8,8 +8,8 @@
 //   1. a checkout of the repository itself (the skill folder sits in it): `<repo>/templates/`.
 //   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
 //   3. a fetch: a sparse, shallow clone of `templates/` from the repository the skill was installed
-//      from (skills-lock.json's `source`, default wix/skills), at the ref that source names or
-//      the repository's default branch. The lock records no commit, so there is nothing more exact
+//      from (skills-lock.json's `source`, default wix/skills), at the branch or tag the install
+//      named (its `ref`) or the repository's default branch. The lock records no commit, so there is nothing more exact
 //      to pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
 // The cache carries a `.gitignore` of `*` so it never enters the project's repository, and a
 // `.source` file with the repository, ref and commit it came from.
@@ -34,8 +34,12 @@ export function installSource() {
     const p = join(dir, "skills-lock.json");
     if (existsSync(p)) {
       try {
-        const src = JSON.parse(readFileSync(p, "utf8")).skills?.[skill]?.source;
-        if (typeof src === "string" && src) return parseSource(src);
+        const entry = JSON.parse(readFileSync(p, "utf8")).skills?.[skill];
+        if (typeof entry?.source === "string" && entry.source) {
+          const parsed = parseSource(entry.source);
+          // `ref` is the branch or tag the install named (skills-lock.json v1 keeps it beside `source`)
+          return { ...parsed, ref: parsed.ref ?? (typeof entry.ref === "string" && entry.ref ? entry.ref : null) };
+        }
       } catch { /* fall through to the default */ }
       break;
     }
