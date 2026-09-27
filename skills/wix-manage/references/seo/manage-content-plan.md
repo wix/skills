@@ -189,7 +189,7 @@ Decide from each response:
 
 | Response | Next action |
 | --- | --- |
-| Not found error | Research is still running. Check again in 10 to 15 seconds. |
+| Not found error, or no items | Research is still running. Check again in 10 to 15 seconds. |
 | `keywordResearchId` differs from the flow's | This is an earlier research. Check again in 10 to 15 seconds. |
 | Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 
