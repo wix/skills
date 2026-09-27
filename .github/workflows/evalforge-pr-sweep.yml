@@ -1,0 +1,170 @@
+name: EvalForge PR Sweep
+
+# Runs the merge-tag sweep on demand against an open PR, so a regression in another area can be
+# found before merge rather than after. `evalforge-merge-tag-sweep.yml` runs the same sweep on every
+# push to `main`; this one runs it when someone comments `/sweep` on the PR, against the PR's own
+# MCP version, and reports in a PR comment instead of Slack.
+#
+# Two jobs, because they trust different things. `authorize` checks out nothing and decides whether
+# to spend: it is modelled on the guards in evalforge-re-eval.yml. `sweep` checks out the PR head it
+# was handed and runs that head's action code — the same trust the PR-time gate extends.
+
+on:
+  issue_comment:
+    # `created` only. Editing an old comment to add the command is a confusing way to start a run
+    # that costs a live agent build per scenario.
+    types: [created]
+
+# Serialise per PR. `cancel-in-progress: false` because a sweep spends: a second `/sweep` should
+# queue behind the first, not throw its run away.
+concurrency:
+  group: evalforge-pr-sweep-pr-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # `contains` is loose on purpose — it only decides whether to start a runner, and the script
+    # below decides whether anything is spent. Bots are excluded because this job's own comments
+    # name the command, and a bot-authored body containing it would re-fire this webhook.
+    if: >-
+      ${{ vars.PR_SWEEP_ENABLED != 'false'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && contains(github.event.comment.body, '/sweep') }}
+    permissions:
+      contents: read
+      # To post the acknowledgement or refusal.
+      pull-requests: write
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+      pr-number: ${{ steps.check.outputs.pr-number }}
+      head-sha: ${{ steps.check.outputs.head-sha }}
+      base-sha: ${{ steps.check.outputs.base-sha }}
+    steps:
+      - id: check
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const requester = context.payload.comment.user.login;
+
+            // Strict: the command must be the first token of the first line. Anything looser turns
+            // discussing the feature — or quoting someone who used it — into a paid sweep.
+            const firstLine = (context.payload.comment.body ?? '').trim().split('\n')[0];
+            if (firstLine.trim().split(/\s+/)[0].toLowerCase() !== '/sweep') {
+              core.info('Comment is not a /sweep command — nothing to do.');
+              return;
+            }
+
+            const comment = (body) =>
+              github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+
+            // A refusal is an ordinary outcome, not a failed check: declining to spend money is the
+            // system working. So `core.info`, never `core.setFailed`.
+            const decline = async (reason) => {
+              core.info(`Declining /sweep from ${requester}: ${reason}`);
+              await comment(`@${requester} cannot run the sweep: ${reason}.`);
+            };
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: issue.number,
+            });
+
+            // The three states the gates exclude in their own workflow `if:`, which a comment
+            // trigger has to check for itself.
+            if (pr.state !== 'open') {
+              return decline('this PR is closed — the sweep only evaluates open PRs');
+            }
+            if (pr.draft) {
+              return decline('this PR is a draft — mark it ready for review first');
+            }
+            if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
+              return decline('the branch lives in a fork — the sweep only evaluates branches in this repository');
+            }
+
+            // Authorisation is a spend gate. The repo is public and each scenario is a live agent
+            // build, so a stranger must not be able to spend. The author check is first because it
+            // needs no API call and cannot 403.
+            let allowed = requester === pr.user.login;
+            if (!allowed) {
+              try {
+                const { data: level } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner, repo, username: requester,
+                });
+                // Both fields, because they answer differently. `permission` is the legacy collapsed
+                // one — admin/write/read/none — where the maintain role reports as `write` and
+                // triage as `read`. `role_name` carries the real role, including custom ones. Push
+                // access under either name is enough to spend.
+                const PUSH_ROLES = ['admin', 'maintain', 'write'];
+                allowed = PUSH_ROLES.includes(level.permission) || PUSH_ROLES.includes(level.role_name);
+              } catch (error) {
+                return decline(
+                  `the collaborator permission lookup failed (${error.message}), so the request `
+                  + 'could not be authorised'
+                );
+              }
+            }
+            if (!allowed) {
+              return decline('only the PR author or a collaborator with write access can trigger this');
+            }
+
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            await comment(
+              `Sweeping the tag-matched scenarios for \`${pr.head.sha.substring(0, 7)}\` against this PR's docs, `
+              + `requested by @${requester}. Results land in a comment here when it finishes ([view run](${runUrl})).`
+            );
+            core.setOutput('allowed', 'true');
+            core.setOutput('pr-number', String(pr.number));
+            core.setOutput('head-sha', pr.head.sha);
+            core.setOutput('base-sha', pr.base.sha);
+
+  sweep:
+    needs: authorize
+    if: ${{ needs.authorize.outputs.allowed == 'true' }}
+    runs-on: ubuntu-latest
+    # Three sequential eval runs are possible (initial + two retries) and each may poll for up
+    # to 30 minutes, so a 60-minute budget could kill the job mid-retry.
+    timeout-minutes: 105
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # The head the authorize job saw, not the merge ref: the MCP version is labelled by the head
+      # sha, and a merge ref would move under a re-run if base advanced.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ needs.authorize.outputs.head-sha }}
+          fetch-depth: 0  # need the base to be reachable for the diff
+
+      - name: Diff the PR against its base
+        id: diff
+        env:
+          BASE_SHA: ${{ needs.authorize.outputs.base-sha }}
+          HEAD_SHA: ${{ needs.authorize.outputs.head-sha }}
+        run: |
+          {
+            echo 'files<<EOF'
+            git -c core.quotePath=false diff --name-status "$BASE_SHA...$HEAD_SHA"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/evalforge-yaml-gate
+        id: sweep
+        with:
+          mode: pr-sweep
+          pr-number: ${{ needs.authorize.outputs.pr-number }}
+          pr-head-sha: ${{ needs.authorize.outputs.head-sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          changed-files: ${{ steps.diff.outputs.files }}
+          blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}

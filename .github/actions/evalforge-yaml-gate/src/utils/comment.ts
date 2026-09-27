@@ -5,12 +5,76 @@ import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
+import type { SweepVerdict } from './sweep-verdict';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 
+/** Its own marker: the sweep comment sits beside the gate's, never in place of it. */
+export const PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep -->';
+const PR_SWEEP_HEADING = 'EvalForge PR Sweep';
+
 function render(icon: string, label: string, body: string[]): string {
   return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+
+function renderSweep(icon: string, label: string, body: string[]): string {
+  return [PR_SWEEP_MARKER, `## ${icon} ${PR_SWEEP_HEADING}: ${label}`, '', ...body].join('\n');
+}
+
+function sweepScopeLines(v: { tags: string[]; sampled: number; total: number; runUrl: string }, versionLabel: string): string[] {
+  const sampled = v.sampled < v.total
+    ? ` — sampled: a tag matching more than ${v.sampled} scenarios runs a fixed subset`
+    : '';
+  return [
+    `**Tags:** ${v.tags.map(t => `\`${t}\``).join(', ')}`,
+    `**Scenarios:** ${v.sampled} / ${v.total} matched${sampled}`,
+    `**MCP version:** \`${versionLabel}\``,
+    `**Run:** ${v.runUrl}`,
+  ];
+}
+
+function recoveredLines(recovered: Array<{ scenarioName: string }>): string[] {
+  if (recovered.length === 0) return [];
+  return ['', '**Recovered on retry (flaky):**', ...recovered.map(v => `- \`${v.scenarioName}\``)];
+}
+
+/**
+ * The PR-comment rendering of a sweep verdict. The merge sweep reports the same verdict to Slack;
+ * this is the on-demand PR sweep's report, so it names the PR's MCP version and stays a warning
+ * until the sweep is made blocking.
+ */
+export function formatPrSweep(verdict: SweepVerdict, opts: { blocking: boolean; versionLabel: string }): string {
+  switch (verdict.kind) {
+    case 'nothing-to-run':
+      return renderSweep('ℹ️', 'Nothing to Run', [verdict.reason]);
+    case 'infra-error':
+      return renderSweep(opts.blocking ? '❌' : '⚠️', 'Could Not Run', [
+        verdict.message,
+        ...(verdict.runUrl ? ['', `**Run:** ${verdict.runUrl}`] : []),
+      ]);
+    case 'passed':
+      return renderSweep('✅', 'Passed', [
+        'Every tag-matched scenario passed against this PR\'s docs.',
+        '',
+        ...sweepScopeLines(verdict, opts.versionLabel),
+        ...recoveredLines(verdict.recovered ?? []),
+      ]);
+    case 'failed': {
+      const { icon, label } = failIcon(opts.blocking);
+      const lines = [
+        `${verdict.confirmed.length} scenario(s) confirmed failed against this PR's docs.`,
+        '',
+        ...sweepScopeLines(verdict, opts.versionLabel),
+        '',
+        '**Confirmed failures:**',
+        ...verdict.confirmed.map(v => `- \`${v.scenarioName}\` (${v.reasons.join(', ')})`),
+        ...recoveredLines(verdict.recovered),
+      ];
+      if (verdict.skipNote) lines.push('', `> ⚠️ ${verdict.skipNote}`);
+      return renderSweep(icon, label, lines);
+    }
+  }
 }
 
 function failIcon(blocking: boolean): { icon: string; label: string } {

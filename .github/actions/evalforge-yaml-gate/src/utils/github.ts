@@ -6,7 +6,7 @@ import {
   type ChangedFile,
   type Commenter,
 } from '@wix/evalforge-core';
-import { COMMENT_MARKER } from './comment';
+import { COMMENT_MARKER, PR_SWEEP_MARKER } from './comment';
 import { MD_RE, EVALS_RE } from './paths';
 import { REVIEW_ACK_MARKER, REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER } from './review-comment';
 
@@ -79,6 +79,14 @@ export function fail(message: string, blocking: boolean): void {
 
 export function makeCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): Commenter {
   return coreMakeCommenter(octokit, { owner, repo, prNumber, marker: COMMENT_MARKER }, {
+    warn: core.warning,
+    writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
+  });
+}
+
+/** The PR sweep's comment, upserted under its own marker so it sits beside the gate's rather than replacing it. */
+export function makeSweepCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): Commenter {
+  return coreMakeCommenter(octokit, { owner, repo, prNumber, marker: PR_SWEEP_MARKER }, {
     warn: core.warning,
     writeSummary: async (body: string) => { await core.summary.addRaw(body).write(); },
   });

@@ -12,6 +12,8 @@ const modes: Record<string, () => Promise<void>> = {
   cleanup: runCleanup,
   'run-all': runSchedule,
   'merge-tag-sweep': runMergeTagSweep,
+  // The same sweep, run on demand against an open PR: `pr-number` and `pr-head-sha` select the PR.
+  'pr-sweep': runMergeTagSweep,
   review: runReview,
 };
 
