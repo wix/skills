@@ -128,6 +128,16 @@ Keep the fields/plugins needed by the next operation. See
 }
 ```
 
+## Delete a Collection
+
+> **Warning**: This permanently deletes the collection and every item in it. Resolve the target first
+> (see [Resolve an Existing Collection](#resolve-an-existing-collection)) and confirm the resolved ID
+> and display name with the user before calling.
+
+**Endpoint**: `DELETE /wix-data/v2/collections/{dataCollectionId}`
+
+No request body. Use the resolved collection `id`, never the display name.
+
 ## Update Collection Settings
 
 **Endpoint**: `PATCH /wix-data/v2/collections/{collectionId}`
