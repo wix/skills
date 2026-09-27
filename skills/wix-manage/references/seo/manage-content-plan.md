@@ -12,11 +12,12 @@ a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
 `KEYWORD_RESEARCH` means the keyword research step has started. The flow keeps
-this status while the research runs and after it finishes. Generation of the
-briefs then starts either on its own or on the **Create Content Plan** request,
-which releases the pause. Release only after the flow's keyword research items
-exist, and only if the flow is still at `KEYWORD_RESEARCH`: releasing earlier
-fails the flow.
+this status while the research runs and after it finishes. Once the research
+finishes, the flow can move to `CONTENT_PLAN` in the background; otherwise it
+stays paused until a **Create Content Plan** request releases it. So always
+confirm the flow's keyword research items exist, then re-check the flow status,
+and release only if it is still at `KEYWORD_RESEARCH`. Releasing earlier fails
+the flow.
 
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
