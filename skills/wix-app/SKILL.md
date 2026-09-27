@@ -273,7 +273,7 @@ Two signals never settle it: the scope name — `locations.queryLocations` is `S
 
 Routing out means a Backend API endpoint that elevates and is reached with `httpClient.fetchWithAuth()`. Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself — see [Identity and Authorization](references/BACKEND_API.md#identity-and-authorization) for what each host can actually verify, and why an owner-only operation belongs in a dashboard extension instead.
 
-Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
+**Some extensions or SDK calls require a permission scope that `wix generate` doesn't add automatically.** Adding one is a Dev Center account change, not something the agent does — tell the user which scope to add: open their app at `https://manage.wix.com/apps/<appId>/home`, select **Develop > Permissions** in the left menu, then **Add Permissions**, then report it under [Manual Steps Required](#-manual-steps-required). If the app is already installed on a site, the owner must also re-approve it via the install/update flow — revisit that same app page's "Test App" flow (or the release output's install links) and accept "Agree & Update" — before the scope takes effect there.
 
 ---
 
