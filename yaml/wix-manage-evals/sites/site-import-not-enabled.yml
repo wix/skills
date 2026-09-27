@@ -13,9 +13,9 @@ description: >-
   failing, that's a real import, not a skill defect, and this scenario should not be judged on
   the closed-beta criteria for that run.
 triggerPrompt: >-
-  I want to migrate my existing online store at https://harborview-outfitters.example.com into a
-  brand-new Wix site — I don't have a Wix site yet, and this isn't a design file, it's a live
-  store I want moved over.
+  Please start a Wix Site Import for my live store at https://harborview-outfitters.example.com
+  into a brand-new Wix site. I don't have a Wix site yet; this is a live-store migration, not an
+  HTML, design, or export-file upload.
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
