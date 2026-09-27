@@ -315,12 +315,12 @@ the user has no way to open a file.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
   errors.
 - **Site Import is in closed beta, with no self-service enablement path.**
-  A `"code": "NOT_ENABLED"` on a `404`/`403` from Start always means this
+  A `"code": "NOT_ENABLED"` on a `401`, `403`, or `404` from Start always means this
   account isn't in the beta — whether the call was account-level or
   site-scoped. The code isn't always present on an **account-level** call:
   a not-yet-enrolled account's Start has been observed to come back as a
-  plain `403` (`{"message": "The caller is not permitted to perform this
-  action."}`, no code) as well as a plain `404` — treat either shape there
+  plain `401`/`403` (`{"message": "The caller is not permitted to perform this
+  action."}`, no code) as well as a plain `404` — treat any of those shapes there
   as the beta-lockout case too. Don't probe other endpoints to diagnose it,
   don't retry, and **don't create a site through any other site-building
   capability to compensate — creating a site through a different path is
@@ -335,7 +335,7 @@ the user has no way to open a file.
   public "importing a site created outside of Wix" help-center article is an
   unrelated, long-stalled feature-request page — sending a user to either is a
   dead end. The form above is the only channel that reaches the team.
-  **A `404` or `403` on a site-scoped call *without* `"code": "NOT_ENABLED"`
+  **A `401`, `403`, or `404` on a site-scoped call *without* `"code": "NOT_ENABLED"`
   is different** — it means the caller isn't authorized for that `siteId`
   (wrong id, wrong account, no access), not a beta-enrollment issue. Tell
   the user the destination site isn't accessible with their current
