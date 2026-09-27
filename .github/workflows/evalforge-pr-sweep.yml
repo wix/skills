@@ -23,6 +23,10 @@ on:
         description: 'The open PR to sweep'
         required: true
         type: string
+  # SMOKE TEST ONLY — a pull_request event runs this file from the PR head, which is the only way
+  # to exercise a branch copy before it reaches main. Not to be merged.
+  pull_request:
+    types: [opened, synchronize]
 
 # Serialise per PR. `cancel-in-progress: false` because a sweep spends: a second `/sweep` should
 # queue behind the first, not throw its run away.
@@ -40,6 +44,7 @@ jobs:
     if: >-
       ${{ vars.PR_SWEEP_ENABLED != 'false'
           && (github.event_name == 'workflow_dispatch'
+              || github.event_name == 'pull_request'
               || (github.event.issue.pull_request
                   && github.event.comment.user.type != 'Bot'
                   && contains(github.event.comment.body, '/sweep'))) }}
@@ -65,7 +70,10 @@ jobs:
             // first line. Anything looser turns discussing the feature — or quoting someone who used
             // it — into a paid sweep.
             let prNumber;
-            if (dispatched) {
+            if (context.eventName === 'pull_request') {
+              // SMOKE TEST ONLY: the PR is the event's own.
+              prNumber = context.payload.pull_request.number;
+            } else if (dispatched) {
               const raw = String(context.payload.inputs?.['pr-number'] ?? '').trim();
               if (!/^[1-9]\d*$/.test(raw)) {
                 core.info(`pr-number "${raw}" is not a PR number — nothing to do.`);
@@ -80,7 +88,7 @@ jobs:
               }
               prNumber = context.payload.issue.number;
             }
-            const requester = dispatched ? context.actor : context.payload.comment.user.login;
+            const requester = context.eventName === 'issue_comment' ? context.payload.comment.user.login : context.actor;
 
             const comment = (body) =>
               github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
