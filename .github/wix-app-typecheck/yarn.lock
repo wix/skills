@@ -4453,11 +4453,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/bex-core@npm:2.378.0":
-  version: 2.378.0
-  resolution: "@wix/bex-core@npm:2.378.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fbex-core%2F-%2F%40wix%2Fbex-core-2.378.0.tgz"
+"@wix/bex-core@npm:2.376.0":
+  version: 2.376.0
+  resolution: "@wix/bex-core@npm:2.376.0"
   dependencies:
-    "@wix/bex-utils": "npm:2.165.0"
+    "@wix/bex-utils": "npm:2.163.0"
     chance: "npm:^1.0.0"
     events: "npm:^3.0.0"
     formstate: "npm:^2.1.0"
@@ -4483,13 +4483,13 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10c0/788bc8febfd2d2105994ac75f5fd3cc2fa3d866f0646f2f4e1372fb099028b6e8183f57f533473d1357eff8f7afb05c54fbd46245126f6f39d7983091076ad9b
+  checksum: 10c0/2106bcfb996e3350b71c85bf08b3f126e099e7aa610007357c7595a9587eb682c671b2f334dc277466908de0a048537d71e28053c5e572c2f4331db61d820a81
   languageName: node
   linkType: hard
 
-"@wix/bex-utils@npm:2.165.0":
-  version: 2.165.0
-  resolution: "@wix/bex-utils@npm:2.165.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fbex-utils%2F-%2F%40wix%2Fbex-utils-2.165.0.tgz"
+"@wix/bex-utils@npm:2.163.0":
+  version: 2.163.0
+  resolution: "@wix/bex-utils@npm:2.163.0"
   dependencies:
     "@babel/runtime": "npm:^7.0.0"
     "@formatjs/intl-pluralrules": "npm:^1.5.9"
@@ -4517,7 +4517,7 @@ __metadata:
       optional: true
     react-native:
       optional: true
-  checksum: 10c0/4d686a3a45712d6a8a640b34e116068e235c93ac84d2f35fcac2886f3e785c89d31ebf39ec7cfc9f9b5d4fc2e4b33d28eb6df97470e3cbf5d8db032c2bada7e8
+  checksum: 10c0/e91fcccc9ab33735fd102a6bedc5159d96954f3e8871d636e1770ff875e4e2c237f220adf698bc52816584e0380f34d6b7ea20f11c5ea8104b22a1e78c059369
   languageName: node
   linkType: hard
 
@@ -5270,16 +5270,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/filter-builder@npm:1.0.253":
-  version: 1.0.253
-  resolution: "@wix/filter-builder@npm:1.0.253::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Ffilter-builder%2F-%2F%40wix%2Ffilter-builder-1.0.253.tgz"
-  dependencies:
-    "@babel/runtime": "npm:^7.28.4"
-    tslib: "npm:^2.8.1"
-  checksum: 10c0/e231af65d0487119fbc217bac13ec719f35a8cf1d6012e39df3e197bc1582c9017ec93787d6abb1c0068c88d6fc38e255ac729a6629637f551038d60e401cf92
-  languageName: node
-  linkType: hard
-
 "@wix/form-public@npm:^0.145.0":
   version: 0.145.0
   resolution: "@wix/form-public@npm:0.145.0"
@@ -5910,35 +5900,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/patterns-cms@npm:^1.56.0":
-  version: 1.56.0
-  resolution: "@wix/patterns-cms@npm:1.56.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fpatterns-cms%2F-%2F%40wix%2Fpatterns-cms-1.56.0.tgz"
-  dependencies:
-    "@babel/runtime": "npm:^7.0.0"
-    "@wix/bex-utils": "npm:2.165.0"
-    "@wix/data": "npm:^1.0.323"
-    "@wix/patterns": "npm:1.472.0"
-    "@wix/patterns-fields": "npm:1.100.0"
-    "@wix/wix-data-items-sdk": "npm:^1.0.504"
-    lodash: "npm:^4.17.20"
-    mobx: "npm:^6.1.8"
-    mobx-react-lite: "npm:^3.4.3"
-    tslib: "npm:^2.0.0"
-  peerDependencies:
-    "@wix/design-system": ^1.271.0
-    "@wix/essentials": ">=0.1.26"
-    "@wix/sdk-testkit": ">=0.1.6"
-    fetch-mock: ">=12.5.2"
-    react: ^16.13.1 || ^17.0.0 || ^18.0.0
-  peerDependenciesMeta:
-    "@wix/sdk-testkit":
-      optional: true
-    fetch-mock:
-      optional: true
-  checksum: 10c0/85d2bf07b0c6351082d6300423ec9770380fa0e3f4b43aa249acdbbc6bd7cd430ab6698de88d3681450c0f7f391c663f70cdfe08ddf3784ba60af2b12f6a3be4
-  languageName: node
-  linkType: hard
-
 "@wix/patterns-dnd-kit-accessibility@npm:3.4.0, @wix/patterns-dnd-kit-accessibility@npm:^3.4.0":
   version: 3.4.0
   resolution: "@wix/patterns-dnd-kit-accessibility@npm:3.4.0"
@@ -6024,9 +5985,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/patterns-fields-utils@npm:1.81.0":
-  version: 1.81.0
-  resolution: "@wix/patterns-fields-utils@npm:1.81.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fpatterns-fields-utils%2F-%2F%40wix%2Fpatterns-fields-utils-1.81.0.tgz"
+"@wix/patterns-fields-utils@npm:1.79.0":
+  version: 1.79.0
+  resolution: "@wix/patterns-fields-utils@npm:1.79.0"
   dependencies:
     "@babel/runtime": "npm:^7.0.0"
     "@wix/ricos": "npm:11.10.1"
@@ -6044,19 +6005,19 @@ __metadata:
       optional: true
     react-dom:
       optional: true
-  checksum: 10c0/d9d4f8ec6d4c38f0dcdf2b638fb0f9fe4fb795c644e4a0bd743ef4e207a54a21dd7c51951780430e6e3a92a405119f8c52acd8d5e817cd0417972dffd147ee8c
+  checksum: 10c0/67c2d305d8c7cb2225b065c56340725bfaa11208923830569d7c4cb744221202cad117145aac8e121ba746c2f4a0eaa04a53bdc4cbb43d26ea56a82d42b1b57b
   languageName: node
   linkType: hard
 
-"@wix/patterns-fields@npm:1.100.0":
-  version: 1.100.0
-  resolution: "@wix/patterns-fields@npm:1.100.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fpatterns-fields%2F-%2F%40wix%2Fpatterns-fields-1.100.0.tgz"
+"@wix/patterns-fields@npm:1.98.0":
+  version: 1.98.0
+  resolution: "@wix/patterns-fields@npm:1.98.0"
   dependencies:
     "@babel/runtime": "npm:^7.0.0"
     "@wix/atlas": "npm:^1.0.35"
     "@wix/data": "npm:^1.0.323"
     "@wix/media": "npm:^1.0.231"
-    "@wix/patterns-fields-utils": "npm:1.81.0"
+    "@wix/patterns-fields-utils": "npm:1.79.0"
     "@wix/rich-content": "npm:1.0.37"
     "@wix/sdk": "npm:^1.17.2"
     "@wix/wix-ui-icons-common": "npm:^3.189.0"
@@ -6079,7 +6040,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10c0/10f1dd407d13a8cd669b0186842704d5d5276f4ef6bbc85d267efb7a3bc3ad2ae2abf2c56007dea6faff84da3217a892b7fc67e89984c36eef59fe8a8016abe4
+  checksum: 10c0/de4fc43113466fb317ccb44a83fd449719005e39d4343fbcffa457911d92f21c9a4a5cbe1ef6730c9c5cdb684dd658b5eeb8bd35facc2034be3a00fc3162f553
   languageName: node
   linkType: hard
 
@@ -6115,16 +6076,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/patterns@npm:1.472.0":
-  version: 1.472.0
-  resolution: "@wix/patterns@npm:1.472.0::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fpatterns%2F-%2F%40wix%2Fpatterns-1.472.0.tgz"
+"@wix/patterns@npm:^1.469.0":
+  version: 1.470.0
+  resolution: "@wix/patterns@npm:1.470.0"
   dependencies:
     "@wix/agent-platform-bm-sdk": "npm:^1.0.0"
-    "@wix/bex-core": "npm:2.378.0"
-    "@wix/bex-utils": "npm:2.165.0"
+    "@wix/bex-core": "npm:2.376.0"
+    "@wix/bex-utils": "npm:2.163.0"
     "@wix/essentials": "npm:^0.1.26"
-    "@wix/patterns-fields": "npm:1.100.0"
-    "@wix/patterns-fields-utils": "npm:1.81.0"
+    "@wix/patterns-fields": "npm:1.98.0"
+    "@wix/patterns-fields-utils": "npm:1.79.0"
     "@wix/sdk": "npm:^1.15.22"
     "@wix/wix-style-react-incubator": "npm:^3.23.1"
     "@wix/wix-ui-test-utils": "npm:^1.1.9"
@@ -6175,7 +6136,7 @@ __metadata:
       optional: true
     webpack:
       optional: true
-  checksum: 10c0/4db8092087178b0dc639710aa8f3d9ef5cb49c7b34441f585aee021214e23b2bb0427165c0526a4e5987fe093937aabeece4b683ba0161c22a9194fab4db5be1
+  checksum: 10c0/5d0f4dbce7a14dc91a93867bf522db094253793ba61d1fb4dbdf865841e959695b48980b59f5d2f86afc6bafc908dd3f69c8812c39cce8938414a94d7e53e010
   languageName: node
   linkType: hard
 
@@ -6746,8 +6707,7 @@ __metadata:
     "@wix/editor": "npm:^1.508.0"
     "@wix/editor-react-types": "npm:^1.0.21"
     "@wix/essentials": "npm:^1.0.6"
-    "@wix/patterns": "npm:1.472.0"
-    "@wix/patterns-cms": "npm:^1.56.0"
+    "@wix/patterns": "npm:^1.469.0"
     "@wix/payments": "npm:*"
     "@wix/react-component-schema": "npm:^1.6.0"
     "@wix/react-component-utils": "npm:^1.9.0"
@@ -6877,18 +6837,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wix/wix-data-items-common@npm:1.0.331":
-  version: 1.0.331
-  resolution: "@wix/wix-data-items-common@npm:1.0.331::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fwix-data-items-common%2F-%2F%40wix%2Fwix-data-items-common-1.0.331.tgz"
-  dependencies:
-    "@babel/runtime": "npm:^7.28.4"
-    "@wix/filter-builder": "npm:1.0.253"
-    "@wix/sdk-runtime": "npm:^1.0.24"
-    "@wix/sdk-types": "npm:^1.17.11"
-  checksum: 10c0/205f91a4751e7fef78b1a168381e97857c369a426572d17d83cd380c7bffe5c8ff926cf9278da71da9a3d15edab6d60d0776f7d9f504035784e9b4af8258a7a3
-  languageName: node
-  linkType: hard
-
 "@wix/wix-data-items-sdk@npm:1.0.545":
   version: 1.0.545
   resolution: "@wix/wix-data-items-sdk@npm:1.0.545"
@@ -6897,17 +6845,6 @@ __metadata:
     "@wix/sdk-types": "npm:^1.17.9"
     "@wix/wix-data-items-common": "npm:1.0.324"
   checksum: 10c0/02ff431e6f045082806bef1603dac0bccc14fff53abbb00cc99d132d62f3a18c1bcc71418b74d9f681cdb6bd6febe78f981dc86d410bd84d2a021b264f35dc50
-  languageName: node
-  linkType: hard
-
-"@wix/wix-data-items-sdk@npm:^1.0.504":
-  version: 1.0.555
-  resolution: "@wix/wix-data-items-sdk@npm:1.0.555::__archiveUrl=https%3A%2F%2Fnpm.dev.wixpress.com%2Fapi%2Fnpm%2Fnpm-repos%2F%40wix%2Fwix-data-items-sdk%2F-%2F%40wix%2Fwix-data-items-sdk-1.0.555.tgz"
-  dependencies:
-    "@wix/sdk-runtime": "npm:^1.0.24"
-    "@wix/sdk-types": "npm:^1.17.11"
-    "@wix/wix-data-items-common": "npm:1.0.331"
-  checksum: 10c0/8a9ce5954b105763580b5bd9fb105371c536621bb89af9c7ad1f82e27dafb7e19c7d9b5d5c79f84fb21db6e4374bee722eaabd681c33c45b127a8a46dd3effa4
   languageName: node
   linkType: hard
 
