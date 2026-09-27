@@ -216,26 +216,19 @@ doesn't express — or once the site exists and the work turns to managing or ex
    It mints the site token inside the process, makes the reads the deployed code makes, and
    prints one JSON: whether the vertical's app is installed, counts, a sample of each entity
    with the fields the pages render, and `calls`, every request it made with its method's
-   documentation URL. The lists are one page and say so; the counts are the site. Go deeper only
-   where the brief points at a subset or a property of the content, and then this way: the
-   answer is often in the output already; when it needs a filtered or fuller read, take the
-   entry in `calls` that made the closest read, open its documentation URL with `.md` appended,
-   copy the request from that document, set the filter or the paging, and send it with the token
-   minted inline as below. That is the one request you compose in this step, and it is copied
-   from a document you opened, not written from memory. Everything else the pages read live
-   through the deployed data layer; you are sizing the content, not collecting it.
+   documentation URL. The lists are one page and say so; the counts are the site. Everything
+   else the pages read live through the deployed data layer; you are sizing the content, not
+   collecting it.
 
-   Any read beyond the script is a build-time call with the **site's** token, sent raw as the
-   `Authorization` header (the account token from the call above does not scope to a site),
-   minted inline in each command — `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` —
-   and never written to a file, not in the project and not in `/tmp`.
+   When the brief needs a read the script does not make, it is a build-time call with the
+   **site's** token, sent raw as the `Authorization` header (the account token from the call
+   above does not scope to a site), minted inline in each command —
+   `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` — and never written to
+   a file, not in the project and not in `/tmp`.
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
-   - **The vertical's shipped `rest/` module**, at
-     `.agents/skills/wix-headless-fast/references/<vertical>/rest/` — the same reads the pages
-     make, written as literal `fetch` calls: URL, body, `fields`, filter keys. It is not in
-     `src/` (the Astro stack deploys the SDK layer, which hides the body behind a method), so
-     read it from the skill.
+   - **The reader you just ran**, `references/<vertical>/seed/read-site.mjs` — its requests are
+     the reads the pages make, written as literal calls with their documentation URLs.
    - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
      business solutions: exact endpoint, method and payload per operation, curl included. Its
      SKILL.md is the index, by solution; open the recipe for the vertical's solution.
