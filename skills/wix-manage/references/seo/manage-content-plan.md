@@ -11,11 +11,10 @@ the asynchronous job that generates those briefs. Its `contentPlanFlowId` is
 a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
-`KEYWORD_RESEARCH` means keyword research has started; finishing it does not
-change the status by itself. The flow then either moves to `CONTENT_PLAN` in the
-background or waits for a **Create Content Plan** request to release it. So
-confirm the flow's keyword research items exist, re-check the status, and
-release only if it is still `KEYWORD_RESEARCH`. Releasing earlier fails the flow.
+`KEYWORD_RESEARCH` means keyword research has started, not finished. A
+**Create Content Plan** request releases the flow, but only after
+[step 3](#3-wait-for-the-keyword-research) confirms the research is ready:
+releasing earlier fails the flow.
 
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
@@ -173,7 +172,8 @@ read the site's keyword research:
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
 ```
 
-Execute this GET once, like a status check. Keep only the ID and item count:
+It takes no parameters and returns the site's most recent research. Execute it
+once, like a status check. Keep only the ID and item count:
 
 ```json
 {

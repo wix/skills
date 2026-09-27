@@ -33,7 +33,12 @@ assertions:
       ready; if the items are still missing, the flow should be reported
       as incomplete rather than waited on indefinitely.
 
+      The user did not give the flow ID. The agent must ask for the actual
+      contentPlanFlowId before running any check or release, and must not
+      invent, guess, or use a placeholder ID.
+
       Score 7+ if the agent:
+      - asked the user for the actual contentPlanFlowId,
       - said KEYWORD_RESEARCH is an intentional pause, not a bug or stall,
       - told the user to confirm the keyword research items exist for the
         flow's keywordResearchId before releasing,
@@ -45,6 +50,9 @@ assertions:
       Plan is on a different service than the one being polled.
 
       Fail (score below 5) if the agent:
+      - invented, guessed, or used a placeholder flow ID, or ran the check
+        or release without the user's actual flow ID,
+      - did not ask for the flow ID,
       - only said to keep polling the flow status or wait longer,
       - told the user to call Create Content Plan without first confirming
         the keyword research items exist,
