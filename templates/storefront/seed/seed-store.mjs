@@ -18,8 +18,8 @@
 //     "categories"?: { "<category name>": ["<product name>", ...] } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
-// If a call fails with an unexpected shape, read the live API reference (the authoritative
-// source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
+// If a call fails with an unexpected shape, read the live API reference (every call below
+// carries a docs: line with its reference page) — never guess.
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { basename } from "node:path";

@@ -96,5 +96,5 @@ time zone is a question for the user, never a guess.
 `importImage`, `setEventMainImage`, plus `makeCtx()` — import them only for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-events.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.

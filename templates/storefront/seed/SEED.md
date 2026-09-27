@@ -121,8 +121,8 @@ ordering: `installStoresApp`, `bulkCreateProducts`, `createCategories`,
 ## Reference
 
 If a call returns an unexpected shape or you need an operation this module doesn't cover, read
-the live Wix API reference — never guess. The authoritative source recipe is
-`wix-headless/references/inline-recipes/setup-online-store.md`. Key pages:
+the live Wix API reference — never guess. Every call in the script carries a `docs:` line
+with its reference page. Key pages:
 
 - Bulk Create Products With Inventory: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
 - Create Category: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md

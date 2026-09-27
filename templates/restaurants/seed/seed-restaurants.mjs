@@ -17,9 +17,8 @@
 // Seeding is ADDITIVE — with ONE recipe-sanctioned exception: when THIS run installs the
 // Menus app onto a site that didn't have it, the install's own sample "Dinner Menu" is
 // removed (it's provably not owner content). Nothing else is ever deleted. Unexpected
-// shapes → read the live API reference; authoritative source recipes:
-// wix-headless/references/inline-recipes/setup-restaurants.md, setup-restaurant-orders.md,
-// setup-restaurant-reservations.md.
+// shapes → read the live API reference; every call below
+// carries a docs: line with its reference page.
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

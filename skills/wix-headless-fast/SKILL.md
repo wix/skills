@@ -81,7 +81,7 @@ Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@lates
 read tokens into context), and the two companion skills beside this one, `wix-docs` and
 `wix-manage` (if `.agents/skills/` lacks them:
 `CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
-page, `start/README.md`, gets a machine with none of this to that point. Then fetch the shipped
+page, `cold-start/cold-start.md`, gets a machine with none of this to that point. Then fetch the shipped
 code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
 the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 
@@ -266,6 +266,6 @@ close.
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
 accounts) deploys them together — setup takes one vertical; deploy the rest with
 `node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
-starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
-this skill's shipped code — route it to `wix-headless` rather than improvising an unshipped
-vertical here.
+starts, and run each vertical's seed. A request that matches no shipped vertical has no shipped
+code: it is built from the Wix API reference through `wix-docs` (search, then the method page),
+with the same rule as every other call, on the same project and stack.

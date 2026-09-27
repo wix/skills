@@ -18,8 +18,8 @@
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. A fresh Portfolio
 // install ships its own sample content ("My Portfolio" + sample projects); removing it is the
-// owner's call, not this script's. Unexpected shapes → read the live API reference;
-// authoritative source recipe: wix-headless/references/inline-recipes/setup-portfolio.md.
+// owner's call, not this script's. Unexpected shapes → read the live API reference; every call
+// below carries a docs: line with its reference page.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";

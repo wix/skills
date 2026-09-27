@@ -11,14 +11,14 @@
 //
 // Plan shape (see SEED.md): { "installMembersArea": true }   // default true
 //
-// Seeding is ADDITIVE — never deletes or overwrites existing content. Authoritative source:
-// wix-headless/references/SETUP.md § members (the appDefId and the identity/profile split).
+// Seeding is ADDITIVE — never deletes or overwrites existing content. The appDefId below is the
+// Members Area app's App Market id; the identity/profile split is described beside it.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const API = "https://www.wixapis.com";
 // The Wix Members Area app (the profile layer). Not in the "Apps Created by Wix" table —
-// the GUID comes from the App Market listing; recorded in wix-headless/references/SETUP.md.
+// the GUID comes from the App Market listing.
 // Installing it pulls in its Site-Members dependency automatically.
 const MEMBERS_AREA_APP_ID = "14cc59bc-f0b7-15b8-e1c7-89ce41d0e0c9";
 

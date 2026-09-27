@@ -270,8 +270,8 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 Member-gated surfaces — a "my plans" page, the member's orders (`orders.memberListOrders`),
 cancel/pause flows, and booking a covered bookings service with a membership — require a
 logged-in member session this skill doesn't ship yet. Subscribers manage their plan through
-Wix's emails and hosted member flows. If the user asks for a member area, route to
-`wix-headless` (members recipes) rather than shipping code that returns nothing for visitors.
+Wix's emails and hosted member flows. If the user asks for a member area, deploy the
+`members` vertical beside this one rather than shipping code that returns nothing for visitors.
 Anything elevated (creating or editing plans) runs server-side per `templates/shared/CUSTOM_OPERATIONS.md`.
 
 ## Point the user to their dashboard

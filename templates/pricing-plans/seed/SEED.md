@@ -80,5 +80,5 @@ the description becomes `description`. A price with no period is a question for 
 `createBenefitItems` sub-steps), plus `makeCtx()` — import them only for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-pricing-plans.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.

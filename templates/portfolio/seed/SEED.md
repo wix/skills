@@ -82,5 +82,5 @@ photo with no caption gets its file name as `title`.
 for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-portfolio.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.

@@ -102,8 +102,8 @@ type is ambiguous, ask.
 for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-cms.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.
 Endpoints used: `POST /wix-data/v2/collections` (Create Data Collection),
 `POST /wix-data/v2/bulk/items/insert` (Bulk Insert Data Items),
 `POST /wix-data/v2/bulk/items/insert-references` (Bulk Insert Data Item References),

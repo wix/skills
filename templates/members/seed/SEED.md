@@ -32,8 +32,8 @@ seems needed.
 import them for a partial re-run.
 
 ## Reference
-The appDefId and the identity/profile split come from
-`wix-headless/references/SETUP.md` (§ members). Signup security (email verification, owner
+The appDefId is the Members Area app's App Market id, hardcoded in the script; the
+identity/profile split is described beside it. Signup security (email verification, owner
 approval, reCAPTCHA) is dashboard-governed — never seeded. If a run's prompt explicitly needs
 a pre-created member (rare), the admin Create Member shape is in the live Wix API reference —
 read it via the `wix-docs` skill; don't guess it here.

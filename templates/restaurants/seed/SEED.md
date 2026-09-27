@@ -89,6 +89,5 @@ photo as `imageUrl`. The restaurant's address, hours and party sizes go into `or
 for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipes are `wix-headless/references/inline-recipes/setup-restaurants.md`,
-`setup-restaurant-orders.md`, and `setup-restaurant-reservations.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.
