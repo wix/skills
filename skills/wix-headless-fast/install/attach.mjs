@@ -212,7 +212,36 @@ try {
   fail("attach", e?.message || e);
 }
 const baseUrl = appProject ? String(appProject.baseUrl).replace(/\/$/, "") : null;
-emit("attached", { siteId, appId, baseUrl, hosting, origins: hosting0 === "self" ? origins : undefined, note: hosting === "reused" ? "this site already has a headless frontend at baseUrl; `wix release` from this project replaces it" : hosting === "self" ? "no Wix hosting: the frontend is yours to host; its origins must be on the OAuth app's allow-list" : undefined });
+// Is a frontend serving at that address? The hosting project says nothing about it (init and the
+// provisioning call create one with nothing behind it). The site's release slots do: the release
+// with slug `prod` is production traffic and names the deployment it serves — the same read the
+// headless back office makes for its frontend status. Absent means nothing was ever released.
+// Deployments keep their own addresses, so a replaced one is not lost; prod can be pointed back.
+// A folder that reaches this point is not the one that released (a linked project never runs
+// attach), so a `prod` release here means a NEW project is about to take over a live frontend.
+let frontend = null;
+if (appProject) {
+  try {
+    const r = await call(MANAGE, `/_api/wix-code-app-releases/v1/app-projects/${appProject.id}/app-releases/query`, { ...opts, body: { query: { cursorPaging: { limit: 20 } } } });
+    const prod = (r.appReleases ?? []).find((x) => x.releaseSlug === "prod");
+    frontend = prod
+      ? { serving: true, releasedAt: prod.updatedDate ?? prod.createdDate ?? null, deploymentId: prod.appDeploymentId ?? null }
+      : { serving: false };
+  } catch (e) {
+    emit("note", { step: "releases", detail: String(e.message).slice(0, 200) });
+    frontend = { serving: null };
+  }
+}
+const note =
+  hosting === "self" ? "no Wix hosting: the frontend is yours to host; its origins must be on the OAuth app's allow-list"
+  : frontend?.serving === true
+    ? `a frontend is SERVING at ${baseUrl}, released ${frontend.releasedAt}. This is a new project: a \`wix release\` from here replaces it (the current deployment keeps its own address and prod can be pointed back). Tell the user before releasing; unless the brief asked for a new frontend, ask.`
+  : frontend?.serving === false
+    ? `${hosting === "created" ? "hosting created" : "hosting exists"} at ${baseUrl}; nothing served yet — the first release from this project fills it`
+  : frontend
+    ? `could not read whether a frontend is serving at ${baseUrl}; check the address before releasing`
+    : undefined;
+emit("attached", { siteId, appId, baseUrl, hosting, frontend, origins: hosting0 === "self" ? origins : undefined, note });
 
 // ---- 2 · scaffold (only where there is no project) -------------------------------------------------
 mkdirSync(projectDir, { recursive: true });
@@ -278,7 +307,7 @@ emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaff
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
 
 if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
-  emit("ready", { projectDir, siteId, appId, baseUrl, hosting, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
+  emit("ready", { projectDir, siteId, appId, baseUrl, hosting, frontend, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
     next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack} (the client id is read from wix.config.json); no seed — the site owns its content` +
       (hosting === "self" ? `; you host it: origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}` : "") });
   process.exit(0);
@@ -312,6 +341,7 @@ emit("ready_for_brand_layer", {
   appId,
   baseUrl,
   hosting,
+  frontend,
   verticals,
   dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
   productsUrl: deployResult.productsUrl,
