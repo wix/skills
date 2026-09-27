@@ -200,10 +200,12 @@ The response is the definition under `ticketDefinition`:
 Keep `revision` — `PATCH /events/v3/ticket-definitions/{id}` requires the current value, and it
 increments on every update.
 
-- **`feeType` is required** and must match the site's ticket-fee setting — `FEE_ADDED_AT_CHECKOUT` or
-  `FEE_INCLUDED` on a site that collects Wix ticket fees, `NO_FEE` on one that does not. A free ticket
-  (`fixedPrice` of `"0"`) always takes `NO_FEE`. `400 INVALID_FEE_TYPE` means the value does not match
-  the site's setting; on a site that does not collect fees only `NO_FEE` is accepted.
+- **`feeType` is required.** A free ticket (`fixedPrice` of `"0"`) takes `NO_FEE`. A paid ticket
+  takes `FEE_ADDED_AT_CHECKOUT` (the guest pays the service fee) unless the user asked to absorb it,
+  then `FEE_INCLUDED`. `NO_FEE` on a paid ticket is accepted only on sites that do not collect ticket
+  fees. If a paid ticket fails with `400 INVALID_FEE_TYPE`, the site rejects that fee type: retry that
+  ticket once with the value the error details point to — `NO_FEE` when they say fees are not
+  collected, otherwise the other paid fee type.
 - **`value` is a string.** `"value": 10` fails `400 Unexpected value for field value`.
 - **No writable `free` flag** — `pricingMethod.free` is read-only; a free ticket is a `fixedPrice`
   of `"0"`.

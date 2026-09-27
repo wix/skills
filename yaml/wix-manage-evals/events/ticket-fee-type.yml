@@ -1,9 +1,9 @@
 name: events/ticket-fee-type
 description: >-
   Verifies the events recipe tells the agent which `feeType` a ticket definition takes — `NO_FEE`
-  for a free ticket and on a site that does not collect Wix ticket fees — so it prices a free tier
-  and a paid tier in one pass, rather than discovering by `400 INVALID_FEE_TYPE` that the fee value
-  depends on the site, or spending schema probes to avoid the trap.
+  for a free ticket, `FEE_ADDED_AT_CHECKOUT` by default for a paid one, and a single retry when the
+  site rejects that — so it prices a free tier and a paid tier without guessing at the fee value or
+  spending schema probes to find it.
 triggerPrompt: >-
   Set up ticketing for a new event called Fall Fest next month with two ticket types — a free
   General Admission ticket and a $25 Supporter ticket.
@@ -33,6 +33,8 @@ assertions:
         now, with `registration.initialType` of `TICKETING`;
       - two successful (2xx) `POST /events/v3/ticket-definitions` calls against that event id — one
         named for General Admission priced 0, one for Supporter priced 25, in the site's currency;
+      - the successful General Admission request carries `"feeType": "NO_FEE"`, and the successful
+        Supporter request carries whichever `feeType` the site accepted with a 2xx;
       - the event is usable, i.e. not left as an unreachable draft.
 
       Fail if only one ticket type exists; OR a price is wrong; OR the event was created as an RSVP
@@ -54,16 +56,18 @@ assertions:
       Penalize and LIST any of the following, even where a later call succeeded:
 
       - any non-2xx response, in particular:
-        - `400 INVALID_FEE_TYPE` — a `feeType` the site's ticket-fee setting rejects. The recipe says
-          a free ticket takes `NO_FEE`, and that a site which does not collect Wix ticket fees accepts
-          only `NO_FEE`; a retry with a different fee value is an avoidable wrong turn, not bad luck;
+        - `400 INVALID_FEE_TYPE` on the free tier — the recipe says a free ticket takes `NO_FEE`, so
+          any other value there is an avoidable wrong turn;
+        - more than one retry of the paid tier after `400 INVALID_FEE_TYPE`. Which paid fee type a
+          site accepts is site-dependent, so one retry with the value the recipe names is expected
+          and is NOT a deduction; a second retry, or schema probes spent instead of that retry, are;
         - `400 feeType value is required` — `feeType` omitted or outside its enum;
         - `400 Unexpected value for field value` — a price sent as a number instead of a string;
         - `400 initialType is unexpected` — including `TICKETS`; the accepted value is `TICKETING`;
         - `403` on a draft event (`READ_DRAFT_EVENTS`) — the event was created with `draft: true`;
       - an attempt to set the read-only `pricingMethod.free` instead of a `fixedPrice` of `"0"`;
       - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out the fee
-        or pricing shape the recipe already gives;
+        or pricing values the recipe already gives;
       - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
 
       A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is

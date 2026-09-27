@@ -60,9 +60,9 @@ assertions:
         - `400 feeType value is required` — omitted, or a value outside
           `FEE_ADDED_AT_CHECKOUT` / `FEE_INCLUDED` / `NO_FEE`, since an invalid enum reports as a
           missing one;
-        - `400 INVALID_FEE_TYPE` — a fee value the site's ticket-fee setting rejects; the recipe says
-          which value each setting accepts, so a second attempt with another fee value is an
-          avoidable wrong turn;
+        - more than one retry of a ticket after `400 INVALID_FEE_TYPE`. Which paid fee type a site
+          accepts is site-dependent, so one retry with the value the recipe names is expected and
+          is NOT a deduction; a second retry, or schema probes spent instead of that retry, are;
         - `400 Unexpected value for field value` — a price sent as a number instead of a string;
         - `400 initialType is unexpected` — including `TICKETS`, which the API's own error text
           advertises but rejects; the accepted value is `TICKETING`;
