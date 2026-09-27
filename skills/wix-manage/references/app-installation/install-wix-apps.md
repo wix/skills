@@ -115,7 +115,7 @@ Some common apps:
 ### App Not Installed Error
 If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
 
-If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
+If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. If the user's own request already implies this app is needed — e.g. asking to add site languages, or to enable multilingual mode — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
 Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
