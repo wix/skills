@@ -1,7 +1,7 @@
 name: ecommerce/pricing-promotions/create-coupon
 description: Convert a COUPON recommendation from the eCommerce strategy into a Wix coupon via the Coupons API.
 triggerPrompt: |
-  For my Wix store, I ran the eCommerce strategy and got this recommendation output:
+  For my Wix store, I ran the eCommerce strategy and it recommended this promotion:
 
   {
     "mechanism": "COUPON",
@@ -19,7 +19,7 @@ triggerPrompt: |
     }
   }
 
-  Convert this recommendation into a coupon using the Wix Coupons API.
+  Go ahead and set this up on my store.
 tags: [ecommerce]
 siteSetup:
   mode: template

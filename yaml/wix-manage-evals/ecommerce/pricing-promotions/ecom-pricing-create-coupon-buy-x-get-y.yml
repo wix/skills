@@ -10,6 +10,10 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon
+  - tool: SearchWixRESTDocumentation
+    negate: true
+  - tool: BrowseWixRESTDocsMenu
+    negate: true
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -45,5 +49,8 @@ assertions:
           for a SITE-scope BuyXGetY coupon, then retrying after removing `group`).
         - Any other probing or corrective retry against the Coupons API.
         - The agent giving up and reporting failure instead of retrying.
+        - Any docs-search or docs-menu-browsing tool call (searching for the right article instead
+          of fetching `pricing-create-coupon` directly via `ReadFullDocsArticle`) — the recipe's
+          routing index already points straight at this article, so no search should be needed.
 
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.
