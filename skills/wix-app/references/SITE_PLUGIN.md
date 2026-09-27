@@ -3,6 +3,19 @@
 
 Site plugins are custom elements that integrate into predefined **slots** within Wix business solutions (Wix Stores, Wix Bookings, Wix eCommerce, etc.), extending their functionality and user experience. Site owners place site plugins into UI slots using the plugin explorer in Wix editors.
 
+## Contents
+
+- [Scaffold](#scaffold)
+- [Architecture](#architecture)
+- [Plugin Component Pattern](#plugin-component-pattern)
+- [Settings Panel Pattern](#settings-panel-pattern)
+- [Color & Font Picker Fields](#color--font-picker-fields)
+- [References](#references)
+- [Available Slots](#available-slots)
+- [Checkout Plugins](#checkout-plugins)
+- [Examples](#examples)
+- [Best Practices](#best-practices)
+
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: SITE_PLUGIN`. `slotId` is `<componentId>:<slotId>` — the colon-joined widget component ID and slot ID. Run `wix schema generate --type SITE_PLUGIN` to list the available `slotId` values (each `anyOf` entry has the slot's human-readable title). The CLI generates the folder, the plugin `.tsx`, the settings panel `.tsx`, the builder file, the UUID, the logo SVG, and the `src/extensions.ts` registration.
@@ -78,14 +91,8 @@ class MyElement extends HTMLElement {
 export default MyElement;
 ```
 
-**Key Points:**
+**Key Points** (beyond the structure already listed under [Architecture](#architecture)):
 
-- Extend `HTMLElement` class directly
-- Define `observedAttributes` static getter to list reactive attributes
-- Attributes use **kebab-case** (e.g., `display-name`, `bg-color`)
-- Implement `connectedCallback()` for initial render
-- Implement `attributeChangedCallback()` to re-render when attributes change
-- Use inline styles via template strings
 - Use `this.getAttribute('attribute-name')` to read attribute values
 - Wix handles `define()` for you — do NOT call `customElements.define()` in your code
 
@@ -141,13 +148,9 @@ const Panel: FC = () => {
 export default Panel;
 ```
 
-**Key Points:**
+**Key Points** (beyond the structure already listed under [Architecture](#architecture)):
 
-- Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"display-name"`)
-- Always update both local state AND widget prop in onChange handlers
-- Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
-- Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system`
+- Always update both local state AND widget prop in the same onChange handler
 - Import `@wix/design-system/styles.global.css` for styles
 - Include `aria-label` for accessibility
 
@@ -233,16 +236,6 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
 - Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })`
 - Import `inputs` from `@wix/editor` (not from `@wix/sdk`)
 
-## Attribute Naming Convention
-
-Site plugins use **kebab-case** consistently for HTML attributes:
-
-| File                              | Convention | Example                            |
-| --------------------------------- | ---------- | ---------------------------------- |
-| `<plugin>.tsx` (getAttribute)     | kebab-case | `this.getAttribute('display-name')` |
-| `<plugin>.tsx` (observedAttributes) | kebab-case | `['display-name', 'bg-color']`     |
-| `<plugin>.panel.tsx` (widget API) | kebab-case | `widget.getProp('display-name')`   |
-
 ## References
 
 | Topic | Reference |
@@ -259,9 +252,7 @@ Site plugins integrate into predefined slots in Wix business solutions. Each slo
 - **widgetId**: The ID of the page containing the slot
 - **slotId**: The specific slot identifier
 
-Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages.
-
-For App Definition IDs, per-slot runtime APIs, design guidelines, and placement constraints, see [SLOTS.md](site-plugin/SLOTS.md). Run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum.
+Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages. For App Definition IDs, per-slot runtime APIs, and design guidelines, see [SLOTS.md](site-plugin/SLOTS.md) (linked above under [References](#references)).
 
 ## Checkout Plugins
 
@@ -284,9 +275,7 @@ For complete examples with all three required files (plugin component, settings 
 
 - **Use inline styles** - CSS imports are not supported in custom elements
 - **Handle editor environment** - Show placeholders when in editor mode for data-dependent plugins
-- **Do not call `define()`** - Wix handles `customElements.define()` for you automatically
 - **Validate all input** - Check required props are present
-- **Follow naming conventions** - kebab-case for all attributes and widget API
 - **Keep plugins focused** - Each plugin should do one thing well
 - **Test in multiple slots** - If supporting multiple placements, test each one
 - **Support both Stores versions** - Include placements for both old and new Wix Stores product pages for maximum compatibility

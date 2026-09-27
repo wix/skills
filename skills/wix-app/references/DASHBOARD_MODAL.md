@@ -109,7 +109,7 @@ export default {
 
 | Mistake | Fix |
 |---------|-----|
-| Can't find modal ID | Check the modal's generated builder file (`extensions.ts`) `id` field |
+| Can't find modal ID | Check the modal's generated builder file's `id` field (not `src/extensions.ts`, which only registers the extension) |
 | Using `extensionId` instead of `modalId` | Use `modalId` in `openModal()` |
 | Can't access params in modal | Use `dashboard.observeState()` to read passed data |
 | Modal won't close | Use `dashboard.closeModal()` from `@wix/dashboard` |
