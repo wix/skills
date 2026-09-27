@@ -177,7 +177,7 @@ curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
 | To create | `pricingMethod` |
 | --- | --- |
 | Fixed price | `{ "fixedPrice": { "value": "25.00", "currency": "USD" } }` |
-| Free | `{ "fixedPrice": { "value": "0", "currency": "USD" } }` |
+| Free | `{ "fixedPrice": { "value": "0", "currency": "USD" } }` with `"feeType": "NO_FEE"` |
 | Donation, with a minimum | `{ "guestPrice": { "value": "5.00", "currency": "USD" } }` |
 
 The response is the definition under `ticketDefinition`:
@@ -200,7 +200,10 @@ The response is the definition under `ticketDefinition`:
 Keep `revision` — `PATCH /events/v3/ticket-definitions/{id}` requires the current value, and it
 increments on every update.
 
-- **`feeType` is required** — `FEE_ADDED_AT_CHECKOUT` or `FEE_INCLUDED`.
+- **`feeType` is required** and must match the site's ticket-fee setting — `FEE_ADDED_AT_CHECKOUT` or
+  `FEE_INCLUDED` on a site that collects Wix ticket fees, `NO_FEE` on one that does not. A free ticket
+  (`fixedPrice` of `"0"`) always takes `NO_FEE`. `400 INVALID_FEE_TYPE` means the value does not match
+  the site's setting; on a site that does not collect fees only `NO_FEE` is accepted.
 - **`value` is a string.** `"value": 10` fails `400 Unexpected value for field value`.
 - **No writable `free` flag** — `pricingMethod.free` is read-only; a free ticket is a `fixedPrice`
   of `"0"`.

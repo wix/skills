@@ -1,0 +1,74 @@
+name: events/ticket-fee-type
+description: >-
+  Verifies the events recipe tells the agent which `feeType` a ticket definition takes — `NO_FEE`
+  for a free ticket and on a site that does not collect Wix ticket fees — so it prices a free tier
+  and a paid tier in one pass, rather than discovering by `400 INVALID_FEE_TYPE` that the fee value
+  depends on the site, or spending schema probes to avoid the trap.
+triggerPrompt: >-
+  Set up ticketing for a new event called Fall Fest next month with two ticket types — a free
+  General Admission ticket and a $25 Supporter ticket.
+tags: [events]
+maxTokens: 500000
+siteSetup:
+  mode: template
+  # events-studio, not events-editor: the Editor events dev-site template ships
+  # without Wix Events, so every /events/v3 call returns 428 until the agent
+  # installs it — an incidental setup step this scenario is not measuring.
+  templateId: events-studio
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/create-event
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Set up ticketing for a new event called Fall Fest next month
+      with two ticket types — a free General Admission ticket and a $25 Supporter ticket."
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if ALL of these hold:
+      - a successful (2xx) `POST /events/v3/events` created "Fall Fest", starting about a month from
+        now, with `registration.initialType` of `TICKETING`;
+      - two successful (2xx) `POST /events/v3/ticket-definitions` calls against that event id — one
+        named for General Admission priced 0, one for Supporter priced 25, in the site's currency;
+      - the event is usable, i.e. not left as an unreachable draft.
+
+      Fail if only one ticket type exists; OR a price is wrong; OR the event was created as an RSVP
+      event (an RSVP event can never be converted to ticketing); OR the agent only explained how
+      without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to a ticketed event with a free tier and a
+      paid tier. Examine the tool-call trace, including request bodies and any error bodies.
+      10 = no wasted calls and no errors.
+
+      Reading the recipes is expected and is never a wasted call. Two ticket-definition calls are
+      correct and are not redundancy — there is no bulk-create for ticket definitions.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - any non-2xx response, in particular:
+        - `400 INVALID_FEE_TYPE` — a `feeType` the site's ticket-fee setting rejects. The recipe says
+          a free ticket takes `NO_FEE`, and that a site which does not collect Wix ticket fees accepts
+          only `NO_FEE`; a retry with a different fee value is an avoidable wrong turn, not bad luck;
+        - `400 feeType value is required` — `feeType` omitted or outside its enum;
+        - `400 Unexpected value for field value` — a price sent as a number instead of a string;
+        - `400 initialType is unexpected` — including `TICKETS`; the accepted value is `TICKETING`;
+        - `403` on a draft event (`READ_DRAFT_EVENTS`) — the event was created with `draft: true`;
+      - an attempt to set the read-only `pricingMethod.free` instead of a `fixedPrice` of `"0"`;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out the fee
+        or pricing shape the recipe already gives;
+      - a `428 WIX_EVENTS_APP_NOT_INSTALLED` that the agent did not anticipate.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

@@ -58,7 +58,11 @@ assertions:
           which blocks adding tickets and querying it. The recipe says to create the
           event already published; creating a draft here is an avoidable wrong turn, not bad luck;
         - `400 feeType value is required` — omitted, or a value outside
-          `FEE_ADDED_AT_CHECKOUT` / `FEE_INCLUDED`, since an invalid enum reports as a missing one;
+          `FEE_ADDED_AT_CHECKOUT` / `FEE_INCLUDED` / `NO_FEE`, since an invalid enum reports as a
+          missing one;
+        - `400 INVALID_FEE_TYPE` — a fee value the site's ticket-fee setting rejects; the recipe says
+          which value each setting accepts, so a second attempt with another fee value is an
+          avoidable wrong turn;
         - `400 Unexpected value for field value` — a price sent as a number instead of a string;
         - `400 initialType is unexpected` — including `TICKETS`, which the API's own error text
           advertises but rejects; the accepted value is `TICKETING`;
