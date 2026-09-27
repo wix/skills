@@ -66520,8 +66520,6 @@ function formatPrSweepPending(headSha) {
         '',
         '**What this is.** The eval gate above runs only the scenarios that cover the docs you changed. A *sweep* goes wider: it re-runs every EvalForge scenario that shares a tag with your changes — including scenarios for other areas and ones that exist only in EvalForge — against this PR\'s version of the docs. It catches a change to one recipe breaking another one that the gate never looks at.',
         '',
-        '**Why it hasn\'t run.** The same sweep runs automatically after every merge to `main`. Before merge it runs on request only, because each scenario is a live agent run and the sweep can cover up to 20 of them (with retries for anything that fails).',
-        '',
         '**When to run it.** Worth doing once your change is close to final, or whenever you touch a recipe that other areas link to. It takes a few minutes for a handful of scenarios, longer if retries are needed.',
         '',
         '**How.** Comment `/sweep` on this PR (it must be the first word of the comment). The result replaces this comment: which tags matched, how many scenarios ran, and any confirmed failures with the assertion that failed. A new push brings this reminder back for the new commit.',

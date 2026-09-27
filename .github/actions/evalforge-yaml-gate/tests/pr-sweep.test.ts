@@ -33,7 +33,7 @@ describe('formatPrSweepPending', () => {
   });
 
   // Readers arrive knowing the gate, not the sweep. The reminder has to explain what a sweep is,
-  // how it differs from the gate they already see, why it is manual, and what a result looks like.
+  // how it differs from the gate they already see, when to run it, and what a result looks like.
   it('explains what a sweep is and how it differs from the gate', () => {
     const body = formatPrSweepPending('abc1234def5678');
     expect(body).toMatch(/other (areas|scenarios)/i);
@@ -42,7 +42,7 @@ describe('formatPrSweepPending', () => {
     expect(body).toMatch(/this PR's (docs|version)/i);
   });
 
-  it('says why it is on request and what to expect back', () => {
+  it('says when to run it and what to expect back', () => {
     const body = formatPrSweepPending('abc1234def5678');
     expect(body).toMatch(/minutes/i);
     expect(body).toMatch(/comment/i);
