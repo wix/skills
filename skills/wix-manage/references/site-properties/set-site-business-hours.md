@@ -10,11 +10,11 @@ A site's general opening hours live in the Site Properties business schedule. Th
 
 ## Read, update, and verify
 
-Update the schedule with [Update Business Schedule](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-schedule), `POST https://www.wixapis.com/site-properties/v4/properties/business-schedule`.
-
 Use [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) to read `properties.businessSchedule`:
 `GET https://www.wixapis.com/site-properties/v4/properties?fields.paths=businessSchedule`.
 Replace only the requested weekly periods and preserve `specialHourPeriod` unless the user explicitly requests changes to exceptions. An explicit request to set a specified schedule authorizes that change; otherwise confirm the target and desired hours first.
+
+Write the new schedule with [Update Business Schedule](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-schedule), `POST https://www.wixapis.com/site-properties/v4/properties/business-schedule`, then read it back.
 
 This example sets Monday–Friday 09:00–17:00 with weekends closed. Supply the authorized site's ID and authorization header. All three requests must succeed; compare the persisted schedule, not the request object, before reporting completion.
 
