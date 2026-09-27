@@ -45,7 +45,6 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 
@@ -84,9 +83,12 @@ paymentSettings.provideHandlers({
       };
     }
   },
-  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
+
+## Manual Setup Required
+
+No dashboard configuration beyond installing the app — Wix calls this SPI automatically once installed. The one real prerequisite: **a payment provider must already be connected** on the site (Wix Payments or another provider), or there's nothing for `requires3dSecure` to apply to. You can't exercise this handler with just a Cart `calculate`/`refresh` call — it only fires during actual payment submission (a customer entering card details), so verifying it end-to-end needs a real or sandbox payment attempt, not just an API-level cart inspection.
 
 ## Key Implementation Notes
 

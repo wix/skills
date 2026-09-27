@@ -1,41 +1,11 @@
 // REFERENCE project detail: header, details[] rows (text or link), media gallery (image AND
 // video items) on the @theme tokens. Correct and complete; per the skill's model you design
-// and build your own on useProjectDetail. GalleryMedia's kind branching is the load-bearing
-// part — keep it (or its logic) in whatever you build.
-import type { ReactNode } from "react";
+// and build your own on useProjectDetail. The gallery items render through the SHIPPED
+// GalleryMedia (kind branching, poster, link wrap) — keep that in whatever you build.
 import { useProjectDetail } from "../../hooks/portfolio/useProjectDetail";
+import { imgAttrs } from "../../wix/media";
 import type { GalleryItem, ProjectDetail } from "../../wix/portfolio/types";
-
-/** One gallery item: image, or video with poster. Nothing renderable → null (never a broken tag). */
-export function GalleryMedia({ item }: { item: GalleryItem }) {
-  if (item.kind === "video" && item.videoUrl) {
-    return (
-      <video
-        src={item.videoUrl}
-        poster={item.imageUrl || undefined}
-        controls
-        playsInline
-        className="block w-full rounded-lg bg-secondary"
-      />
-    );
-  }
-  if (item.imageUrl) {
-    return (
-      <img src={item.imageUrl} alt={item.title} loading="lazy" className="block w-full rounded-lg" />
-    );
-  }
-  return null;
-}
-
-function MaybeLink({ item, children }: { item: GalleryItem; children: ReactNode }) {
-  return item.linkUrl ? (
-    <a href={item.linkUrl} target={item.linkTarget ?? undefined} rel="noopener">
-      {children}
-    </a>
-  ) : (
-    <>{children}</>
-  );
-}
+import { GalleryLink, GalleryMedia } from "./GalleryMedia";
 
 export interface ProjectDetailViewProps {
   slug: string;
@@ -92,7 +62,7 @@ export default function ProjectDetailView({ slug, initialProject, initialItems }
       ) : items.length === 0 ? (
         // No gallery items — the cover is the project's only real media; text-only otherwise.
         project.imageUrl ? (
-          <img src={project.imageUrl} alt={project.title} className="block w-full rounded-lg" />
+          <img {...imgAttrs(project.imageUrl, "(min-width: 1024px) 64rem, 100vw", 0.75)} alt={project.title} className="block w-full rounded-lg" />
         ) : (
           <p className="py-16 text-center text-muted-foreground">No media in this project yet.</p>
         )
@@ -100,9 +70,9 @@ export default function ProjectDetailView({ slug, initialProject, initialItems }
         <div className="flex flex-col gap-6">
           {items.map((item) => (
             <figure key={item.id} className="m-0">
-              <MaybeLink item={item}>
-                <GalleryMedia item={item} />
-              </MaybeLink>
+              <GalleryLink item={item}>
+                <GalleryMedia item={item} className="block w-full rounded-lg bg-secondary" />
+              </GalleryLink>
               {item.title && (
                 <figcaption className="mt-1.5 text-sm text-muted-foreground">{item.title}</figcaption>
               )}

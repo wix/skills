@@ -2,7 +2,7 @@
 // pick a slot, enter details, book → hosted checkout. Two columns: what you're booking on the left,
 // the booking panel on the right, sticky on desktop so the times stay in reach while reading.
 // Styled with base44 design tokens (shadcn Tailwind classes).
-import { useParams } from "react-router-dom";
+import { useParams } from "@/lib/nav";
 import { useServiceDetail } from "@/hooks/useServiceDetail";
 import { mediaUrl } from "@/rest/wix-bookings-services";
 import SlotPicker from "@/components/SlotPicker";

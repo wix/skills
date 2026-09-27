@@ -39,12 +39,29 @@ real fallback — a runtime error, or a field the snippets don't cover (see "Fal
 end). (Files missing? the install's `deploy` result lists what it wrote; re-run install, or copy
 `references/blog/app/` → `src/`.)
 
+**Their `Link`/`useParams` imports come from `@/lib/nav`**, so the same sources run on either
+template. That adapter is installed at `src/lib/nav.js` with the rest of the deployed tree — use
+the file that is there, and on TanStack check it first ([which template?](../_shared/routing.md)).
+Import from `@/lib/nav` in the pages you write too, and they stay portable the same way.
+
+
 
 ## STEP 2 — Theme
 Use the existing Base44 theme in `src/index.css` so your pages and the shipped components
 share the same colors and typography.
 
 ## STEP 3 — Wire routes + provider (surgical `find_replace` on `src/App.jsx`, never a rewrite)
+
+> **The template decides this step, and `src/routes/__root.jsx` is the question to ask first.**
+> Present → TanStack Start, which mounts these pages as route files at the end of this step; absent
+> → React Router, which the wiring below is written for. Ask in that order: an `src/App.jsx` can
+> exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
+> The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
+> [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
+
 **No file reads needed to wire this.** Every shipped page and `WixManageBanner` is a default export that takes **no props** — wire them exactly as the snippet shows; nothing in those files needs looking up.
 `App.jsx` carries required platform auth scaffolding (`AuthProvider`/`useAuth`) — edit it in, don't
 replace it.
@@ -107,6 +124,33 @@ function Layout() {
   </Routes>
 </TaxonomyProvider>
 ```
+
+
+### TanStack Start template — the same pages, mounted as files
+
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
+
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/blog` | `src/routes/blog.index.jsx` | `Blog` |
+| `/blog/:slug` | `src/routes/blog.$slug.jsx` | `PostDetail` |
+| `/blog/category/:slug` | `src/routes/blog.category.$slug.jsx` | `CategoryPage` |
+| `/blog/tag/:slug` | `src/routes/blog.tag.$slug.jsx` | `TagPage` |
+
+```jsx
+// src/routes/blog.index.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Blog from "@/pages/Blog";
+
+export const Route = createFileRoute("/blog")({ component: Blog });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
 
 ## What you build (not shipped)
 The **home / landing page**, the **`Header`** and a **`Footer`** — the two you drop into the `Layout`

@@ -1,10 +1,31 @@
 // Slide-over cart with quantity stepper, remove, live subtotal, and Wix-hosted checkout.
 // Mount ONCE per page, as-is; opens via useCart().openCart() / CartButton. Styled from the
 // @theme tokens.
+import { useEffect, useRef } from "react";
 import { useCart } from "../../hooks/storefront/useCart";
 
 export default function CartDrawer() {
   const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout } = useCart();
+
+  // The overlay contract, done here rather than assumed from CSS: Escape closes (the backdrop
+  // click is pointer-only), the page behind stops scrolling, focus moves into the panel on open
+  // and returns to whatever opened it on close. Hooks run before the early return below.
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeCart();
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, [open, closeCart]);
+
   if (!open) return null;
   const lines = cart?.lines ?? [];
 
@@ -14,10 +35,13 @@ export default function CartDrawer() {
       onClick={closeCart}
     >
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="Cart"
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full max-w-md flex-col bg-background text-foreground shadow-2xl"
+        className="flex h-full w-full max-w-md flex-col bg-background text-foreground shadow-2xl outline-none"
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-5">
           <span className="text-base font-semibold">
@@ -56,6 +80,9 @@ export default function CartDrawer() {
                     {d}
                   </p>
                 ))}
+                {line.subscription && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">Subscription: {line.subscription}</p>
+                )}
                 {line.status !== "IN_STOCK" && (
                   <p className="mt-1 text-xs text-red-600">No longer available at this quantity</p>
                 )}
@@ -98,12 +125,19 @@ export default function CartDrawer() {
 
         {lines.length > 0 && (
           <div className="border-t border-border px-6 py-5">
+            {cart?.discount && (
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span>−{cart.discount}</span>
+              </div>
+            )}
             {cart?.subtotal && (
-              <div className="mb-4 flex justify-between text-sm">
+              <div className="mb-1 flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <strong className="font-semibold">{cart.subtotal}</strong>
               </div>
             )}
+            <p className="mb-4 text-xs text-muted-foreground">Shipping and taxes are calculated at checkout.</p>
             {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
             <button
               type="button"
@@ -111,7 +145,7 @@ export default function CartDrawer() {
               onClick={() => checkout().catch(() => {})}
               className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? "One moment…" : "Checkout"}
+              {busy ? "One moment…" : "Continue to secure checkout"}
             </button>
           </div>
         )}

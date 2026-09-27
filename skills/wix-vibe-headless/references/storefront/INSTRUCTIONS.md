@@ -235,24 +235,6 @@ export default function ProductDetail() {
 - Render the PDP gallery from `images` — every image reachable (thumbnails, arrows, or a swipeable rail), not just the first; a single-image product gets no empty strip.
 - `submit()` resets `adding` after completion and preserves the cart result: `undefined` on success, `null` on failure. Add failures live in `useCart().error`, not the PDP load `error`; the shipped drawer opens to display them.
 
-For an optional **add and check out** shortcut, check the add result before checkout:
-```jsx
-// Inside ProductDetail, with the other hooks above any conditional returns:
-const { checkout, loading: cartLoading } = useCart(); // named import from @/context/CartContext
-async function addAndCheckout() {
-  if (!d.product || !d.canAdd || d.adding || cartLoading) return;
-  const result = await d.submit();
-  if (result === null) return; // add failed; preserve its error and do not check out the old cart
-  await checkout();
-}
-// <button disabled={!d.canAdd || d.adding || cartLoading} onClick={addAndCheckout}>Add and check out</button>
-```
-This adds to the shopper's **current cart** and checks that cart out — so label it that way. A true
-**Buy Now** (skip the cart, buy just this item) needs a standalone cart handed to the redirect session;
-it is not shipped, and routing "Buy now" through the current cart is wrong (it would carry whatever the
-cart already holds). For direct `addToCart(...)` calls, use the same `result === null` check before checkout.
-A resolved promise alone does not mean success; a truthiness check also rejects successful `undefined`.
-
 ### Variant and modifier controls
 The product-detail example above provides both groups:
 ```js
@@ -353,6 +335,17 @@ when finite. `status` can be `IN_STOCK`, `PARTIALLY_IN_STOCK`, `OUT_OF_STOCK`, o
 `REMOVED_FROM_CATALOG`; surface unavailable lines and prevent checkout until resolved.
 
 ## Routes and provider
+
+> **The template decides this step, and `src/routes/__root.jsx` is the question to ask first.**
+> Present → TanStack Start, which mounts these pages as route files at the end of this step; absent
+> → React Router, which the wiring below is written for. Ask in that order: an `src/App.jsx` can
+> exist on a TanStack app because an agent created one, and `__root.jsx` is never there by mistake.
+> The installed `src/lib/nav.js` defaults to the React Router adapter, so on TanStack swap it:
+> [both patterns](../_shared/routing.md).
+>
+> **Import `Link`, `useParams` and friends from `@/lib/nav` in the pages you write too** — same
+> names as the router exports, and nothing you write is pinned to one template.
+
 **No shipped source reads needed to wire this.** `CartDrawer` and `CartButton`
 are default exports that take **no props**. `CartProvider` is a named export accepting `children`;
 wire these exactly as shown below.
@@ -439,27 +432,30 @@ function Layout() {
 }
 ```
 
-## What a complete storefront shows
 
-The wiring above is necessary, not sufficient. These are defaults for when the brief doesn't say
-otherwise — whatever the user asked for in their prompt wins over any line here. Look at the
-catalog before designing — categories, assortment size, media, options, sales — and design for this
-store, not for a stereotype of its category. Then:
+### TanStack Start template — the same pages, mounted as files
 
-- **Home:** what the store sells and one shopping action in the first screen; real products from
-  the catalog under truthful headings; not a repeat of the shop page.
-- **Shop:** a real product card — image, name, price, link — in the first screen; sort and the
-  filters the catalog supports; loading, empty, no-results, and error states that look different.
-- **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
-  in the first screen; every ribbon; every image reachable in the gallery.
-- **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
-- **Overlays you build** (quick-add, mobile nav, filters): mount at the document root, lock
-  background scroll, close on Escape, return focus on close — as the shipped `CartDrawer` does.
-- **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
-  promises; no Wix IDs or technical words in visible text.
+Chrome (header, footer, the fixed banner region described above) goes in `src/routes/__root.jsx`
+around its `<Outlet/>`, and any provider this vertical asks for wraps that `<Outlet/>` once. Each
+route is a two-line file; shipped pages stay in `src/pages/` untouched.
 
-Pre-order ships (`isPreorder`). Subscriptions, product groups, promotions, and notify-me are built
-only when the catalog has them — never fabricated; consult the documentation skill for their endpoints.
+| route | file | component |
+|---|---|---|
+| `/` | `src/routes/index.jsx` | `Home` |
+| `/shop` | `src/routes/shop.jsx` | `Shop` |
+| `/product/:slug` | `src/routes/product.$slug.jsx` | `ProductDetail` |
+
+```jsx
+// src/routes/shop.jsx
+import { createFileRoute } from "@tanstack/react-router";
+import Shop from "@/pages/Shop";
+
+export const Route = createFileRoute("/shop")({ component: Shop });
+```
+
+Path params are `$name` in both the filename and the route path; `useParams()` from `@/lib/nav`
+reads them unchanged. Full pattern, including `ssr: false` for per-user routes:
+[`../_shared/routing.md`](../_shared/routing.md).
 
 ## Missing capabilities
 For anything these interfaces do not cover, consult the official Wix API documentation using

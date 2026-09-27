@@ -140,7 +140,7 @@ clears `isStoppedByFocus`.
 
 ## 3. Add the Play/Pause Button
 
-Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size, stroke, and fill should feel native to the component's design.
+Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size and color of SVG should be controlled by CSS variables declared on the button level: --icon-size and --icon-color.
 
 Position the button absolutely so it overlays the content without pushing other elements out of place:
 
@@ -152,14 +152,14 @@ Position the button absolutely so it overlays the content without pushing other 
 }
 
 .playButton {
+  --icon-size: 20px;
+  --icon-color: #ffffff;
   position: absolute;
   inset-inline-end: 5px;
   inset-block-start: 5px;
 }
 
-/* Design-state selectors: pair native pseudo-class with editor-injected modifier class.
-   The editor applies the modifier class (e.g. my-animation-play-button--hover) when
-   the site owner previews that state in the design panel, so both selectors must exist. */
+/* Design-state selectors: pair native pseudo-class with editor-injected modifier class. */
 .playButton:global(.my-animation-play-button--hover),
 .playButton:hover {
   /* e.g. background: rgba(255, 255, 255, 1); */
@@ -257,8 +257,7 @@ const ComponentNamePreview: FC<ComponentProps<typeof Component>> = (props) => {
 };
 ```
 
-In editor design mode (`isEditMode` is `true`) → `autoPlay` is forced to `false` and `pauseButtonVisibility` is forced to `'showAlways'` so the site owner can always see and interact with the button.
-In preview mode (`isEditMode` is `false`) → both use the user's configured values.
+Design mode stops autoplay and exposes the control; preview uses the user's values.
 
 ## Checklist
 
@@ -267,6 +266,8 @@ In preview mode (`isEditMode` is `false`) → both use the user's configured val
       present only when repeat behavior is supported.
 - [ ] Reduced motion starts paused and never restarts playback automatically.
 - [ ] The play/pause button is a fully wired named part with a stable accessible name.
+- [ ] Both icons inherit button-owned `--icon-size` for width and height and
+      `--icon-color` via `color` and `currentColor` for fill or stroke.
 - [ ] Hover has a paired editor design state; `:focus-visible` remains a
       standalone keyboard indicator.
 - [ ] Hover-only visibility changes behavior, not the button's editable styling surface.

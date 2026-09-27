@@ -2,7 +2,7 @@
 // — re-skin via the app's design tokens (src/index.css :root/.dark), not this JSX. The cover is a
 // one-of: image when present, else the video's poster / first resolution. The `//`-protocol fix and
 // these field paths are load-bearing.
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/nav";
 
 function https(url) {
   return url ? (url.startsWith("//") ? `https:${url}` : url) : null;

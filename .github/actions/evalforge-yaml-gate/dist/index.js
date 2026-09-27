@@ -66487,6 +66487,7 @@ exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatDocsEntryProblems = formatDocsEntryProblems;
+exports.formatSlashedTitles = formatSlashedTitles;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -66564,6 +66565,17 @@ function formatDocsEntryProblems(problems) {
     });
     return render('❌', 'Invalid docsEntry', [
         '`docsEntry` must be the URL of a **category** in the docs menu — pointing at an individual API page silently fails after merge and the skill never appears. Copy the URL with the "Copy Docs Entry" button (it only appears on categories).',
+        '',
+        ...lines,
+    ]);
+}
+function formatSlashedTitles(entries) {
+    const lines = entries.map((e) => {
+        const served = e.title.split('/').pop()?.trim() || '';
+        return `- \`${e.yamlPath}\` → "${e.title}" would be published as **"${served}"**`;
+    });
+    return render('❌', 'Slash in a documentation.yaml title', [
+        'The docs pipeline treats a `/` in a `title` as a section separator and publishes the page under the text after the last slash — the recipe loses its name and its doc URL. Remove the slash (the frontmatter `name` is a good title).',
         '',
         ...lines,
     ]);
@@ -66731,7 +66743,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_EFFORT = exports.DEFAULT_REVIEW_MODEL = exports.DEFAULT_ANTHROPIC_BASE_URL = exports.DEFAULT_REVIEW_PROMPT_PATH = void 0;
+exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_EFFORT = exports.DEFAULT_REVIEW_MODEL = exports.DEFAULT_ANTHROPIC_BASE_URL = void 0;
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
 exports.getMergeSweepConfig = getMergeSweepConfig;
@@ -66809,11 +66821,6 @@ function getEvalConfig() {
     };
 }
 /**
- * The prompt as the PR has it, not the base copy, so a prompt change is testable in the PR that
- * makes it. The tradeoff: a PR can edit the rules it is judged by. Revisit before `blocking` is on.
- */
-exports.DEFAULT_REVIEW_PROMPT_PATH = '.github/prompts/skill-review.md';
-/**
  * The Wix AI Gateway, which is Anthropic-API-compatible. Not optional in practice: direct
  * api.anthropic.com egress is IP-allowlisted at the Wix org level, so a native key from a
  * GitHub-hosted runner gets a 403 whatever its value.
@@ -66849,7 +66856,6 @@ function getReviewConfig() {
         baseSha,
         anthropicApiKey: (0, evalforge_core_1.safeGetSecret)(core, 'anthropic-api-key'),
         anthropicBaseUrl: core.getInput('anthropic-base-url') || exports.DEFAULT_ANTHROPIC_BASE_URL,
-        promptPath: core.getInput('prompt-path') || exports.DEFAULT_REVIEW_PROMPT_PATH,
         model: core.getInput('review-model') || exports.DEFAULT_REVIEW_MODEL,
         effort: core.getInput('review-effort') || exports.DEFAULT_REVIEW_EFFORT,
         // Clamped rather than thrown: config loads before `isBlocking` is known, so a typo'd repo
@@ -67168,8 +67174,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.loadDocsEntryIndex = loadDocsEntryIndex;
 exports.changedDocsEntries = changedDocsEntries;
 exports.validateDocsEntries = validateDocsEntries;
+exports.slashedTitles = slashedTitles;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
@@ -67299,6 +67307,15 @@ async function validateDocsEntries(targets) {
         return { problems: [], serviceError: error instanceof Error ? error.message : String(error) };
     }
     return { problems };
+}
+/**
+ * Titles containing a slash. The docs pipeline (md-resolver in wix-private/docs) sets a doc's
+ * menu display name to `title.split('/').pop()` — the API-repo convention for
+ * "ServiceName/Doc Title" — and derives the page slug from it, which silently diverges from the
+ * gate's own URL (a slugify of the whole title). For a skill a slash is never wanted.
+ */
+function slashedTitles(workspace) {
+    return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
 }
 
 
@@ -67618,6 +67635,13 @@ async function runGate() {
             (0, github_1.fail)(`${problems.length} docsEntry value(s) do not point at a docs menu category`, config.blocking);
             return;
         }
+    }
+    // A slash in a title publishes the page under the last segment (see slashedTitles).
+    const slashed = (0, docs_entry_check_1.slashedTitles)(workspace);
+    if (slashed.length > 0) {
+        await comment((0, comment_1.formatSlashedTitles)(slashed));
+        (0, github_1.fail)(`${slashed.length} documentation.yaml title(s) contain a slash`, config.blocking);
+        return;
     }
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)
@@ -68451,11 +68475,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.testables = void 0;
+exports.testables = exports.REVIEW_AGENT = void 0;
 exports.buildAgentEnv = buildAgentEnv;
+exports.agentPath = agentPath;
 exports.runReviewAgent = runReviewAgent;
 const node_child_process_1 = __nccwpck_require__(1421);
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
+const jsYaml = __importStar(__nccwpck_require__(4281));
 const review_comment_1 = __nccwpck_require__(8333);
 /**
  * `--tools` is the closed set. Bash is wider than the grant below, though: `ls`, `cat`, `grep` and
@@ -68527,12 +68555,42 @@ function buildAgentEnv(apiKey, baseUrl) {
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     };
 }
+exports.REVIEW_AGENT = 'skill-review';
+const AGENT_DIR = '.claude/agents';
+function agentPath(workspace) {
+    return (0, node_path_1.join)(workspace, AGENT_DIR, `${exports.REVIEW_AGENT}.md`);
+}
+function buildAgents(workspace) {
+    const raw = (0, node_fs_1.readFileSync)(agentPath(workspace), 'utf8');
+    const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(raw);
+    if (match === null)
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no frontmatter`);
+    const front = (jsYaml.load(match[1]) ?? {});
+    if (front.name !== exports.REVIEW_AGENT) {
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md declares name "${front.name}", which must match its filename`);
+    }
+    if (front.description === undefined || front.description.trim() === '') {
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no description`);
+    }
+    const prompt = match[2].trim();
+    if (prompt === '')
+        throw new Error(`${AGENT_DIR}/${exports.REVIEW_AGENT}.md has no prompt body`);
+    const tools = (front.tools ?? '').split(',').map(entry => entry.trim()).filter(entry => entry !== '');
+    return JSON.stringify({
+        [exports.REVIEW_AGENT]: {
+            description: front.description.trim(),
+            prompt,
+            ...(tools.length > 0 ? { tools } : {}),
+        },
+    });
+}
 function buildArgs(invocation) {
     return [
         '-p',
         ...SANDBOX_ARGS,
         '--tools', TOOLS,
-        '--append-system-prompt-file', invocation.promptPath,
+        '--agents', buildAgents(invocation.cwd),
+        '--agent', exports.REVIEW_AGENT,
         '--allowedTools', ALLOWED_TOOLS,
         '--json-schema', OUTPUT_SCHEMA,
         '--output-format', 'json',
@@ -68899,7 +68957,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runReview = runReview;
 const node_fs_1 = __nccwpck_require__(3024);
-const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -68932,7 +68989,8 @@ function buildTask(config, files) {
     return [
         `Review pull request #${config.prNumber} in ${config.owner}/${config.repo}.`,
         `Head commit ${config.headSha}. Base commit ${config.baseSha}.`,
-        'The repository is checked out at the merge result: the tree as it will be once this PR lands.',
+        'The repository is checked out at GitHub\'s merge commit — the tree as it will be once this PR',
+        'lands — so its first parent is the base and `git diff HEAD^1 HEAD -- <path>` is this PR\'s diff.',
         '',
         'Changed files in review scope:',
         ...files.map(file => `- ${file.filename} (${file.status})`),
@@ -68979,15 +69037,13 @@ async function runReview() {
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
-    const promptPath = (0, node_path_1.join)(workspace, config.promptPath);
-    if (!(0, node_fs_1.existsSync)(promptPath)) {
-        await reportUnavailable(`the review prompt was not found at \`${config.promptPath}\``, pending, config.isBlocking);
+    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(workspace))) {
+        await reportUnavailable(`the reviewer definition \`.claude/agents/${review_agent_1.REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
         return;
     }
     core.info(`Reviewing ${files.length} file(s) at ${config.headSha.slice(0, 7)} with ${config.model} at ${config.effort} effort.`);
     const outcome = await (0, review_agent_1.runReviewAgent)({
         cwd: workspace,
-        promptPath,
         task: buildTask(config, files),
         apiKey: config.anthropicApiKey,
         baseUrl: config.anthropicBaseUrl,

@@ -1,7 +1,9 @@
-// REFERENCE registration surface: branches on event.registrationType — TICKETING renders
-// the tier picker (quantity steppers → checkout CTA), RSVP the built-in name+email form,
-// EXTERNAL a link out, NONE/closed an honest closed state — on the @theme tokens. Correct
-// and complete; per the skill's model you design and build your own on useEventRegistration.
+// The registration controls for one event — wire as-is (the events counterpart of storefront's
+// OptionPicker): branches on event.registrationType — TICKETING renders the tier picker (quantity
+// steppers clamped by limitPerCheckout, tiers not on sale unbuyable, the CTA gated by canCheckout),
+// RSVP the built-in name+email form with its confirmed / waitlisted / declined states, EXTERNAL a
+// link out, NONE/closed an honest closed state — on the @theme tokens. The event page's layout
+// around it is yours; build your own on useEventRegistration only when the brief wants more.
 // Mount client:only — it runs visitor-session SDK calls and redirects.
 import { useEventRegistration } from "../../hooks/events/useEventRegistration";
 import type { EventDetail } from "../../wix/events/types";
@@ -36,7 +38,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
             ? "You're on the waitlist"
             : confirmed.status === "NO"
               ? "Thanks for letting us know"
-              : "You're in! 🎉"}
+              : "You're in!"}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           {confirmed.status === "WAITLIST"
