@@ -94,6 +94,10 @@ function fetchTemplates(cache) {
     r = cloneSparse(repo, null);
   }
   const tmp = r.tmp;
+  if (r.error?.code === "ENOENT") {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error("git is not installed or not on PATH; the shipped code is fetched with a git clone of the skill's repository");
+  }
   if (r.status !== 0 || !existsSync(join(tmp, "templates", "shared", "app"))) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error(`could not fetch templates/ from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || "no templates/shared/app in the clone").trim().slice(-400)}`);
