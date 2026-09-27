@@ -11,13 +11,11 @@ the asynchronous job that generates those briefs. Its `contentPlanFlowId` is
 a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
-`KEYWORD_RESEARCH` means the keyword research step has started. The flow keeps
-this status while the research runs and after it finishes. Once the research
-finishes, the flow can move to `CONTENT_PLAN` in the background; otherwise it
-stays paused until a **Create Content Plan** request releases it. So always
-confirm the flow's keyword research items exist, then re-check the flow status,
-and release only if it is still at `KEYWORD_RESEARCH`. Releasing earlier fails
-the flow.
+`KEYWORD_RESEARCH` means keyword research has started; finishing it does not
+change the status by itself. The flow then either moves to `CONTENT_PLAN` in the
+background or waits for a **Create Content Plan** request to release it. So
+confirm the flow's keyword research items exist, re-check the status, and
+release only if it is still `KEYWORD_RESEARCH`. Releasing earlier fails the flow.
 
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
@@ -175,8 +173,7 @@ read the site's keyword research:
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
 ```
 
-Execute this GET once and return its response, the same as a status check.
-Example response (keep only the ID and the item count):
+Execute this GET once, like a status check. Keep only the ID and item count:
 
 ```json
 {
@@ -189,8 +186,9 @@ Decide from each response:
 
 | Response | Next action |
 | --- | --- |
-| Not found error, or no items | Research is still running. Check again in 10 to 15 seconds. |
-| `keywordResearchId` differs from the flow's | This is an earlier research. Check again in 10 to 15 seconds. |
+| HTTP `404` (not found), or no items | Research is still running. Check again in 10 to 15 seconds. |
+| `keywordResearchId` differs from the flow's | Earlier research. Check again in 10 to 15 seconds. |
+| Any other error | Report it and stop; do not keep waiting. |
 | Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 
 Decide from that status check:
