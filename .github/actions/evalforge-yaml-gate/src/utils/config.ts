@@ -78,7 +78,8 @@ export function getScheduleConfig(): ScheduleConfig {
 /**
  * Present when the sweep runs against an open PR rather than on a push to `main`. `mcpId` is the
  * per-PR capability the gate builds its `pr-<n>-<sha>` versions on. `required` reddens an unswept
- * commit; `blocking` reddens a sweep that found a regression. They are independent dials.
+ * commit; `blocking` reddens a sweep that found a regression; `remind` posts a "not swept" comment
+ * on an unswept commit. They are independent dials.
  */
 export type PrSweepContext = {
   number: number;
@@ -87,6 +88,7 @@ export type PrSweepContext = {
   mcpSkillsRepo: string;
   blocking: boolean;
   required: boolean;
+  remind: boolean;
 };
 
 export type MergeSweepConfig = {
@@ -141,6 +143,7 @@ export function getPrSweepConfig(): PrSweepConfig {
         || `${github.context.repo.owner}/${github.context.repo.repo}`,
       blocking: core.getInput('blocking') === 'true',
       required: core.getInput('required') === 'true',
+      remind: core.getInput('remind') === 'true',
     },
   };
 }

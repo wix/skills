@@ -66888,6 +66888,7 @@ function getPrSweepConfig() {
                 || `${github.context.repo.owner}/${github.context.repo.repo}`,
             blocking: core.getInput('blocking') === 'true',
             required: core.getInput('required') === 'true',
+            remind: core.getInput('remind') === 'true',
         },
     };
 }
@@ -68116,6 +68117,7 @@ exports.rowsToOutcomes = rowsToOutcomes;
 exports.buildEvalRunInput = buildEvalRunInput;
 exports.prVersionLabel = prVersionLabel;
 exports.runMergeTagSweep = runMergeTagSweep;
+exports.resolveSweepTags = resolveSweepTags;
 exports.sweep = sweep;
 const evalforge_core_1 = __nccwpck_require__(7495);
 const gate_1 = __nccwpck_require__(2302);
@@ -68246,28 +68248,39 @@ async function mergedByForPush(octokit, config) {
  * failures. With `config.pr` set it pins the PR's MCP version; otherwise it takes the production MCP.
  * Returns the verdict and reports nothing — the caller decides between Slack outputs and a PR comment.
  */
-async function sweep(config) {
-    const workspace = (0, workspace_1.workspaceRoot)();
-    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const what = config.pr ? `PR #${config.pr.number}` : 'this push';
-    if (config.changedFilesRaw.trim() === '') {
-        return { kind: 'nothing-to-run', reason: `no changed files reported for ${what} (e.g. first push on this ref)` };
+/**
+ * The tags a sweep would run, from the diff and the checked-out scenario YAML alone — no EvalForge
+ * call, so it is cheap enough to decide scope before anything is spent. Returns a reason instead
+ * when there is nothing to sweep. Scenario load problems are passed to `warn` when given.
+ */
+function resolveSweepTags(changedFilesRaw, workspace, what, warn) {
+    if (changedFilesRaw.trim() === '') {
+        return { reason: `no changed files reported for ${what} (e.g. first push on this ref)` };
     }
-    const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
-    const classified = (0, github_1.classifyChanges)(changedFiles);
+    const classified = (0, github_1.classifyChanges)((0, github_1.parseChangedFiles)(changedFilesRaw));
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
-    for (const e of loadErrors)
-        core.warning(`Scenario load issue (${e.path}): ${e.message}`);
+    if (warn)
+        for (const e of loadErrors)
+            warn(`Scenario load issue (${e.path}): ${e.message}`);
     const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     const changedEvalPaths = new Set([
         ...classified.evalsAdded.map(f => f.filename),
         ...classified.evalsModified.map(f => f.filename),
     ]);
     const tags = tagsOfDirectlyAffected(headScenarios, changedEvalPaths, cov.coveredBy);
-    if (tags.size === 0) {
-        return { kind: 'nothing-to-run', reason: `no eval-relevant tags in ${what}` };
-    }
-    const sortedTags = [...tags].sort();
+    if (tags.size === 0)
+        return { reason: `no eval-relevant tags in ${what}` };
+    return { tags: [...tags].sort() };
+}
+async function sweep(config) {
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const what = config.pr ? `PR #${config.pr.number}` : 'this push';
+    const resolved = resolveSweepTags(config.changedFilesRaw, workspace, what, core.warning);
+    if ('reason' in resolved)
+        return { kind: 'nothing-to-run', reason: resolved.reason };
+    const sortedTags = resolved.tags;
+    const tags = new Set(sortedTags);
     core.setOutput('matched-tags', sortedTags.join(', '));
     const runName = config.pr
         ? `pr-sweep-${config.pr.number}-${config.pr.headSha.slice(0, 7)}`
@@ -68464,6 +68477,7 @@ const github_1 = __nccwpck_require__(6246);
 const comment_1 = __nccwpck_require__(3116);
 const merge_tag_sweep_1 = __nccwpck_require__(3821);
 const sweep_report_1 = __nccwpck_require__(6296);
+const workspace_1 = __nccwpck_require__(9620);
 /**
  * A push must not spend, but it still has to produce a run: a required check has to be reported on
  * every head commit, and `/sweep` re-runs the head's own run. A re-run replays the original payload,
@@ -68473,19 +68487,43 @@ function shouldSweep(env) {
     return Number(env.GITHUB_RUN_ATTEMPT ?? '1') > 1;
 }
 /**
- * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it only
- * reminds — red if `required`, green otherwise. On a re-run it sweeps the tag-matched scenarios
- * against the PR's own MCP version and reports in a PR comment; that verdict goes red only if
- * `blocking`.
+ * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it spends
+ * nothing: a PR the sweep does not cover passes silently; one it does cover is red only if
+ * `required`, and gets a reminder comment only if `remind`. On a re-run it sweeps the tag-matched
+ * scenarios against the PR's own MCP version and reports in a PR comment; that verdict is red only
+ * if `blocking`.
+ *
+ * Anything that throws — a missing repo variable, a malformed payload — is red only when `required`
+ * or `blocking` is on. With both off the check cannot block a merge, whatever goes wrong.
  */
 async function runPrSweep() {
+    // Read before anything that can throw, so a failure can be judged against them.
+    const required = core.getInput('required') === 'true';
+    const blocking = core.getInput('blocking') === 'true';
+    try {
+        await prSweep();
+    }
+    catch (e) {
+        (0, github_1.fail)(`PR sweep could not run: ${e instanceof Error ? e.message : String(e)}`, required || blocking);
+    }
+}
+async function prSweep() {
     const config = (0, config_1.getPrSweepConfig)();
     const { pr } = config;
     const octokit = github.getOctokit(config.githubToken);
     const pending = (0, github_1.makeSweepPendingCommenter)(octokit, config.owner, config.repo, pr.number);
     if (!shouldSweep(process.env)) {
-        core.info('The PR sweep runs on request. Comment `/sweep` to sweep this commit.');
-        await pending.post((0, comment_1.formatPrSweepPending)(pr.headSha));
+        // The workflow runs on every PR in the repo; one the sweep does not cover must look as if the
+        // workflow did not exist. The clear removes a reminder an earlier commit of this PR earned.
+        const scope = (0, merge_tag_sweep_1.resolveSweepTags)(config.changedFilesRaw, (0, workspace_1.workspaceRoot)(), `PR #${pr.number}`);
+        if ('reason' in scope) {
+            core.info(`PR sweep: ${scope.reason} — nothing to sweep`);
+            await pending.clear();
+            return;
+        }
+        core.info(`PR sweep: tags ${scope.tags.join(', ')} are unswept. Comment \`/sweep\` to sweep this commit.`);
+        if (pr.remind)
+            await pending.post((0, comment_1.formatPrSweepPending)(pr.headSha));
         (0, github_1.fail)(`Commit ${pr.headSha.slice(0, 7)} has not been swept. Comment \`/sweep\` on the PR to sweep it.`, pr.required);
         return;
     }

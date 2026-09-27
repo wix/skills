@@ -160,30 +160,42 @@ async function mergedByForPush(
  * failures. With `config.pr` set it pins the PR's MCP version; otherwise it takes the production MCP.
  * Returns the verdict and reports nothing — the caller decides between Slack outputs and a PR comment.
  */
-export async function sweep(config: MergeSweepConfig): Promise<SweepVerdict> {
-  const workspace = workspaceRoot();
-  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const what = config.pr ? `PR #${config.pr.number}` : 'this push';
-
-  if (config.changedFilesRaw.trim() === '') {
-    return { kind: 'nothing-to-run', reason: `no changed files reported for ${what} (e.g. first push on this ref)` };
+/**
+ * The tags a sweep would run, from the diff and the checked-out scenario YAML alone — no EvalForge
+ * call, so it is cheap enough to decide scope before anything is spent. Returns a reason instead
+ * when there is nothing to sweep. Scenario load problems are passed to `warn` when given.
+ */
+export function resolveSweepTags(
+  changedFilesRaw: string,
+  workspace: string,
+  what: string,
+  warn?: (message: string) => void,
+): { tags: string[] } | { reason: string } {
+  if (changedFilesRaw.trim() === '') {
+    return { reason: `no changed files reported for ${what} (e.g. first push on this ref)` };
   }
-
-  const changedFiles = parseChangedFiles(config.changedFilesRaw);
-  const classified = classifyChanges(changedFiles);
+  const classified = classifyChanges(parseChangedFiles(changedFilesRaw));
   const { scenarios: headScenarios, errors: loadErrors } = loadEvals(workspace);
-  for (const e of loadErrors) core.warning(`Scenario load issue (${e.path}): ${e.message}`);
+  if (warn) for (const e of loadErrors) warn(`Scenario load issue (${e.path}): ${e.message}`);
   const cov = computeCoverage(classified.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
   const changedEvalPaths = new Set<string>([
     ...classified.evalsAdded.map(f => f.filename),
     ...classified.evalsModified.map(f => f.filename),
   ]);
   const tags = tagsOfDirectlyAffected(headScenarios, changedEvalPaths, cov.coveredBy);
+  if (tags.size === 0) return { reason: `no eval-relevant tags in ${what}` };
+  return { tags: [...tags].sort() };
+}
 
-  if (tags.size === 0) {
-    return { kind: 'nothing-to-run', reason: `no eval-relevant tags in ${what}` };
-  }
-  const sortedTags = [...tags].sort();
+export async function sweep(config: MergeSweepConfig): Promise<SweepVerdict> {
+  const workspace = workspaceRoot();
+  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+  const what = config.pr ? `PR #${config.pr.number}` : 'this push';
+
+  const resolved = resolveSweepTags(config.changedFilesRaw, workspace, what, core.warning);
+  if ('reason' in resolved) return { kind: 'nothing-to-run', reason: resolved.reason };
+  const sortedTags = resolved.tags;
+  const tags = new Set(sortedTags);
   core.setOutput('matched-tags', sortedTags.join(', '));
 
   const runName = config.pr

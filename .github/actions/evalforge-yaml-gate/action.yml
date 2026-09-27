@@ -30,6 +30,10 @@ inputs:
     description: 'Fail the check on a head commit that has not been swept yet (pr-sweep mode only). Independent of `blocking`, which fails the check on what a sweep found'
     required: false
     default: 'false'
+  remind:
+    description: 'Post a "not swept" comment explaining /sweep on a head commit the sweep covers but nobody has swept (pr-sweep mode only). Off: nothing is posted until someone comments /sweep'
+    required: false
+    default: 'false'
   evalforge-app-id:
     description: 'EvalForge app ID for authentication'
     required: true

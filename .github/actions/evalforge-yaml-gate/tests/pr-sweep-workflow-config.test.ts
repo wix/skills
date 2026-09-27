@@ -100,6 +100,11 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
     expect(action?.with?.blocking).toBe("${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}");
   });
 
+  // Off by default: until someone comments `/sweep`, the sweep posts nothing on a PR.
+  it('wires the not-swept reminder to its own repo variable, defaulting to off', () => {
+    expect(action?.with?.remind).toBe("${{ vars.PR_SWEEP_REMIND || 'false' }}");
+  });
+
   it('passes every credential the action needs', () => {
     expect(action?.with?.['github-token']).toBe('${{ secrets.GITHUB_TOKEN }}');
     expect(action?.with?.['evalforge-url']).toBe('${{ vars.EVALFORGE_URL }}');

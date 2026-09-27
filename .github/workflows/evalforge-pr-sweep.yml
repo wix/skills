@@ -5,13 +5,16 @@ name: EvalForge PR Sweep
 # push to `main`; this one runs it against the PR's own MCP version and reports in a PR comment
 # instead of Slack.
 #
-# Manual, like the skill review: a push does not spend. Every head commit gets a run that only posts
-# a "not swept" reminder, and `/sweep` re-runs that run via the COMMANDS map in evalforge-re-eval.yml.
-# It has to be shaped this way because a required status check must be reported on the PR head, and
-# only a `pull_request` run is — a comment-triggered run is attached to the default branch commit.
+# Manual, like the skill review: a push does not spend. Every head commit gets a run that only
+# records whether the commit is unswept, and `/sweep` re-runs that run via the COMMANDS map in
+# evalforge-re-eval.yml. It has to be shaped this way because a required status check must be
+# reported on the PR head, and only a `pull_request` run is — a comment-triggered run is attached to
+# the default branch commit.
 #
-# Two repo variables, both off by default and independent: PR_SWEEP_REQUIRED makes an unswept
-# commit red, PR_SWEEP_BLOCK_MERGE makes a sweep that found a regression red.
+# Three repo variables, all off by default and independent: PR_SWEEP_REQUIRED makes an unswept
+# commit red, PR_SWEEP_BLOCK_MERGE makes a sweep that found a regression red, and PR_SWEEP_REMIND
+# posts a "not swept" comment explaining `/sweep`. With all three off, nothing is posted on a PR
+# until someone comments `/sweep`.
 #
 # The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
 # the tests covering this wiring.
@@ -83,3 +86,4 @@ jobs:
           changed-files: ${{ steps.diff.outputs.files }}
           required: ${{ vars.PR_SWEEP_REQUIRED || 'false' }}
           blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}
+          remind: ${{ vars.PR_SWEEP_REMIND || 'false' }}

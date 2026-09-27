@@ -3,8 +3,9 @@ import * as github from '@actions/github';
 import { getPrSweepConfig } from './config';
 import { fail, makeSweepCommenter, makeSweepPendingCommenter } from './github';
 import { formatPrSweepPending } from './comment';
-import { prVersionLabel, sweep } from './merge-tag-sweep';
+import { prVersionLabel, resolveSweepTags, sweep } from './merge-tag-sweep';
 import { reportPrVerdict } from './sweep-report';
+import { workspaceRoot } from './workspace';
 import type { SweepVerdict } from './sweep-verdict';
 
 /**
@@ -17,20 +18,43 @@ export function shouldSweep(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
- * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it only
- * reminds — red if `required`, green otherwise. On a re-run it sweeps the tag-matched scenarios
- * against the PR's own MCP version and reports in a PR comment; that verdict goes red only if
- * `blocking`.
+ * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it spends
+ * nothing: a PR the sweep does not cover passes silently; one it does cover is red only if
+ * `required`, and gets a reminder comment only if `remind`. On a re-run it sweeps the tag-matched
+ * scenarios against the PR's own MCP version and reports in a PR comment; that verdict is red only
+ * if `blocking`.
+ *
+ * Anything that throws — a missing repo variable, a malformed payload — is red only when `required`
+ * or `blocking` is on. With both off the check cannot block a merge, whatever goes wrong.
  */
 export async function runPrSweep(): Promise<void> {
+  // Read before anything that can throw, so a failure can be judged against them.
+  const required = core.getInput('required') === 'true';
+  const blocking = core.getInput('blocking') === 'true';
+  try {
+    await prSweep();
+  } catch (e) {
+    fail(`PR sweep could not run: ${e instanceof Error ? e.message : String(e)}`, required || blocking);
+  }
+}
+
+async function prSweep(): Promise<void> {
   const config = getPrSweepConfig();
   const { pr } = config;
   const octokit = github.getOctokit(config.githubToken);
   const pending = makeSweepPendingCommenter(octokit, config.owner, config.repo, pr.number);
 
   if (!shouldSweep(process.env)) {
-    core.info('The PR sweep runs on request. Comment `/sweep` to sweep this commit.');
-    await pending.post(formatPrSweepPending(pr.headSha));
+    // The workflow runs on every PR in the repo; one the sweep does not cover must look as if the
+    // workflow did not exist. The clear removes a reminder an earlier commit of this PR earned.
+    const scope = resolveSweepTags(config.changedFilesRaw, workspaceRoot(), `PR #${pr.number}`);
+    if ('reason' in scope) {
+      core.info(`PR sweep: ${scope.reason} — nothing to sweep`);
+      await pending.clear();
+      return;
+    }
+    core.info(`PR sweep: tags ${scope.tags.join(', ')} are unswept. Comment \`/sweep\` to sweep this commit.`);
+    if (pr.remind) await pending.post(formatPrSweepPending(pr.headSha));
     fail(
       `Commit ${pr.headSha.slice(0, 7)} has not been swept. Comment \`/sweep\` on the PR to sweep it.`,
       pr.required,
