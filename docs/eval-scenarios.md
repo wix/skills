@@ -287,3 +287,5 @@ Assertions decide whether a scenario passed; the schema requires at least one, a
 | `type: api_call` | both | Makes an HTTP request after the scenario runs and validates the response (end-to-end state checks). |
 | `type: cost` | both | Fails if the run exceeded a USD cost ceiling. |
 | `type: time_limit` | both | Fails if the run exceeded a duration ceiling. |
+
+Sanity-test line for the PR sweep.
