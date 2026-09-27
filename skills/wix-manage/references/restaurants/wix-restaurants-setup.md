@@ -281,7 +281,8 @@ A label is its own entity with a GUID `id` and a `name`; an item references labe
 `"labels": [{ "id": "<LABEL_ID>" }]`.
 
 1. Look the label up by name first. Sites often already carry common dietary labels such as Vegan:
-   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query`
+   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query` with
+   `{ "query": { "cursorPaging": { "limit": 500 } } }`, then match the name in the response's `labels`.
 2. Create it only if no label has that exact name:
    `POST https://www.wixapis.com/restaurants/item-labels/v1/labels` with
    `{ "label": { "name": "Chef's Pick" } }`. The response carries the new label's `id`.
