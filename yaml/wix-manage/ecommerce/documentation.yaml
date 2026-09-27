@@ -9,6 +9,7 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/ecom-load-context.md
       title: "eCommerce: Load Context"
+      description: "eCommerce L1 context loader — calls wix-profile-client/v4/profile/metasite (NOT site-properties) to load siteId, country, currency, industry, last-30-day visitors/orders/GPV. Skip if already loaded."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
@@ -19,6 +20,7 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
       title: "API: Recommendation Tracking"
+      description: "Cross-cutting tracking API for AI-generated recommendations across eCommerce categories (checkout, shipping, pricing). ALWAYS LOAD BEFORE generating a \"give me N recommendations / concrete actions\" response, in addition to the category recipe."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
@@ -29,63 +31,75 @@ apiDoc:
     # Category-doc + dispatcher merged into one README-surfaced file (no -default hop)
     - file: ../../../skills/wix-manage/references/ecommerce/ecom-pricing.md
       title: "Pricing & Promotions"
+      description: "Pricing & Promotions boundary owner — discounts, coupons, sales, ribbons, bundles. **Always load this dispatcher first when a question touches both discount work and refunds, payments, product-price edits, or shipping rates** — the rules for which side owns each topic live in this file, not in this README line."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     # Promotions (actions + troubleshoot)
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md
       title: "Pricing: Create Coupon"
+      description: "PREFERRED recipe for converting a COUPON recommendation (mechanism: COUPON) into a Wix coupon. Use THIS entry — NOT the legacy setup-coupons entry which is superseded. Maps scope/discountType/conditions to Coupons V2 API fields."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md
       title: "Pricing: Create Discount Rule"
+      description: "Configures automatic discount rules using the eCommerce Discount Rules API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide, specific collections, or individual products), scheduling active periods, and the find-by-name + update pattern."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md
       title: "Pricing: Discount Not Applying"
+      description: "Diagnostic tree for when a discount rule exists but isn't applying at checkout. Checks active status, time window, scope targeting, revision, and app installation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     # Support files (loaded only via embedded body links from the orchestrator)
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md
       title: "Goal: Increase AOV"
+      description: "UPSELL_BOOST goal — always load BEFORE recommending AOV / upsell / \"boost my sales\" / shipping-threshold actions. Owns the cross-domain lever map (discount + shipping + bundle) for open-ended sales prompts."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md
       title: "Goal: Clear Inventory"
+      description: "STOCK_MOVER clearance goal — always load BEFORE recommending any clearance / overstock / slow-stock / dead-inventory action."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md
       title: "Goal: Seasonal Revenue"
+      description: "SEASONAL goal — always load BEFORE recommending any holiday / event / date-tied promotion. Owns the priority rule (holiday beats UPSELL_BOOST when both signals are present)."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md
       title: "Goal: Drive Cross-Sells"
+      description: "BUNDLE_AND_SAVE goal — always load BEFORE recommending bundling / cross-sell / multi-item / \"buy together\" actions."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md
       title: "Flow: Upsell Boost"
+      description: "UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md
       title: "Flow: Bundle and Save"
+      description: "BUNDLE_AND_SAVE sub-flow — load [Goal: Drive Cross-Sells] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md
       title: "Flow: Stock Mover"
+      description: "Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing); this is a sub-step."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md
       title: "Flow: Seasonal Promotion"
+      description: "SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
@@ -97,41 +111,49 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md
       title: "Shipping"
+      description: "Shipping-setup boundary owner for an eCommerce store. **Always load this dispatcher first whenever a question touches shipping setup** — rates, regions, pickup, free-shipping thresholds, and diagnosing wrong/missing shipping. Order fulfillment (mark shipped, tracking, labels, invoices) is currently handled outside the routing tree."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-rates.md
       title: "Shipping: Set Up Rates"
+      description: "Configures shipping option rates — rate types (flat, tiered, free), condition types and operators, free shipping threshold calibration, AOV sanity check, per-item penalty avoidance, and tier gap detection."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-regions.md
       title: "Shipping: Set Up Regions"
+      description: "Configures delivery profiles and regions — creating profiles, adding regions with destinations, assigning carriers, enabling backup rates, and handling externally managed regions."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-pickup.md
       title: "Shipping: Set Up Pickup & Local Delivery"
+      description: "Configures a pickup option for an online store so customers can choose in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup carrier, add a delivery region, and attach the carrier with a free pickup rate."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-free-shipping.md
       title: "Shipping: Add Free Shipping"
+      description: "Creates a free shipping option with an AOV-calibrated threshold to reduce cart abandonment and increase average order value. Validates threshold against catalog price distribution."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-optimize-rates.md
       title: "Shipping: Optimize Rates"
+      description: "Analyzes catalog price distribution and current rate structure to recommend optimal shipping rate strategy. Handles flat-to-tiered conversion, tier gap detection, and per-item penalty removal."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fix-coverage.md
       title: "Shipping: Fix Coverage Gaps"
+      description: "Coverage gap = active delivery region with ZERO Shipping Options (NOT zero carriers or no backup rate). Step 1: POST /ecom/v1/delivery-profiles/query. Step 2: POST /ecom/v1/shipping-options/query — count options per region; gap = active region with count 0. Step 3: POST /ecom/v1/shipping-options to create standard shipping for each gap region."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-api.md
       title: "Shipping: API Reference"
+      description: "Shipping Options API: POST /ecom/v1/shipping-options/query (list all), POST /ecom/v1/shipping-options (create), PATCH /ecom/v1/shipping-options/{id} (update), DELETE /ecom/v1/shipping-options/{id} (delete). Delivery Profiles API: POST /ecom/v1/delivery-profiles/query. Base: https://www.wixapis.com/ecom"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
@@ -145,6 +167,7 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
       title: "Recommend: eCommerce Strategy"
+      description: "Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Entry point for requests about earning more from the visitors a store already has: sales, promotions, discounts, coupons, clearance, holiday deals, AOV, shipping. Out of scope — traffic acquisition (SEO, ads, social, content); route \"grow my traffic\" requests to marketing instead. Tracking is built-in."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
@@ -158,5 +181,6 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md
       title: "Goal: Sell Gift Cards"
+      description: "SELL_GIFT_CARDS goal — the GIFT_CARDS domain logic loaded by the strategy orchestrator. Sizes a gift card product from the site's own AOV and catalog prices (preset denominations, custom amount range, expiration policy) and gates on the site already selling gift cards. Sub-step, NOT a direct entry point — load Recommend: eCommerce Strategy first; it owns domain activation, cross-domain dedup, and tracking."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]

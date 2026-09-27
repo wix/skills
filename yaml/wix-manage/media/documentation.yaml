@@ -4,10 +4,12 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/media/upload-media-to-wix.md
       title: Upload Media to Wix
+      description: "Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs."
       docsEntry: https://dev.wix.com/docs/api-reference/assets/media
       tags: [media]
 
     - file: ../../../skills/wix-manage/references/media/generate-image-with-ai.md
       title: Generate an Image with AI
+      description: "Generates an image from a text prompt with the Wix AI APIs (Runware). Returns a short-lived URL that must be imported to be kept — importing is Upload Media to Wix's job, and this recipe hands off to it. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the AI credit each call spends, and why a content refusal arrives as a success response with no image."
       docsEntry: https://dev.wix.com/docs/api-reference/assets/media
       tags: [media]

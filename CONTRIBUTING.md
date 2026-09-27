@@ -37,8 +37,8 @@ Start with [When a skill earns its place](#when-a-skill-earns-its-place): read t
 When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
-2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update its entry in the same commit.
-3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node). Use the skill's frontmatter `name` as the `title`, and keep it free of `/`: the docs pipeline treats a slash in a title as a section separator and publishes the page under the text after the last slash, so the recipe loses its name and its doc URL.
+2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update both its index entry and its `documentation.yaml` description in the same commit.
+3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node). Copy the skill's frontmatter `description` verbatim into a `description` field. PR recipe indexes read this YAML field, so a description change in Markdown alone will not update the PR index. Use the skill's frontmatter `name` as the `title`, and keep it free of `/`: the docs pipeline treats a slash in a title as a section separator and publishes the page under the text after the last slash, so the recipe loses its name and its doc URL.
 4. **Add eval scenarios** under `yaml/wix-manage-evals/<area>/` that provide meaningful coverage of what the skill exists to help an agent do. At least one scenario is required. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
@@ -125,7 +125,7 @@ worth emphasizing, not the whole of what a reviewer may raise about the writing.
 - The content is in the right existing skill. New top-level skills are admin-only.
 - Each skill's `description` is at most 1024 characters.
 - The relevant `SKILL.md` index is updated, and each entry still matches its skill's frontmatter `name` and `description` word for word.
-- Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
+- Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`. Its YAML `description` matches the frontmatter verbatim; description updates include the Markdown, YAML, and `SKILL.md` index in the same commit.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) on its doc URL.
 - Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
 - The [wix-app eval gate](docs/skill-evaluation.md#wix-app-scenarios-the-pr-eval-gate) comment has been read: no uncovered tags, and any scenario you added or edited has at least 3 assertions including an `llm_judge`.

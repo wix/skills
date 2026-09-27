@@ -4,5 +4,6 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/calendar/configure-default-business-hours.md
       title: Configure Default Business Hours
+      description: "Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/calendar
       tags: [bookings, calendar]

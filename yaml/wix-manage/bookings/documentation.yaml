@@ -6,53 +6,66 @@ apiDoc:
     # leaves the old one serving stale content. Keep it as is; the audience is stated in the body.
     - file: ../../../skills/wix-manage/references/bookings/end-to-end-booking-flow.md
       title: End-to-End Booking Flow
+      description: "Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-and-update-booking-services.md
       title: Create and Update Booking Services
+      description: "Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/bookings-staff-setup.md
       title: Bookings Staff Setup
+      description: "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/booking-service-policy-setup.md
       title: Booking Service Policy Setup
+      description: "Sets up booking policies, cancellation rules, and waitlist configuration using the Booking Policies API (query, then PATCH the bookingPolicy entity with its revision). Covers cancellationPolicy, reschedulePolicy, booking-notice limits, waitlistPolicy, and participants limits — e.g. \"customers can cancel up to 24 hours before\"."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/multi-resource-service-creation.md
       title: Multi-Resource Service Creation
+      description: "Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/external-calendar-integration.md
       title: External Calendar Integration
+      description: "OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings, calendar]
     - file: ../../../skills/wix-manage/references/bookings/booking-system-integration-gaps.md
       title: Booking System Integration Gaps
+      description: "Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-booking-service-from-prompt.md
       title: Create Booking Service from Prompt
+      description: "Create a booking service from a user prompt — e.g. 'create a yoga class for $50', 'set up consultations for $75', 'add a personal training appointment', 'create a 6-week photography workshop', 'create a hidden free test course with 8 online sessions'. Determines the service type (APPOINTMENT, CLASS, or COURSE) and delegates to the type-specific recipe. For COURSE services with session dates/counts, follow the course recipe's separate Calendar bulkCreateEvents step; Services V2 alone does not create bookable course sessions."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-appointment-service.md
       title: Create Appointment Service
+      description: "Create an appointment booking service — e.g. 'set up consultations', 'create a 1-on-1 session', 'add a personal training appointment', 'create a meeting service for $25'. Handles staff assignment (required), session duration, pricing, and 1-on-1 capacity defaults via bulkCreateServices API."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-class-service.md
       title: Create Class Service
+      description: "Create a class booking service — e.g. 'create a yoga class for $50', 'set up a pilates class', 'add a group fitness session', 'create a weekly meditation class'. Handles group capacity, recurring session defaults, and pricing via bulkCreateServices API. Staff assignment is not used for classes."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-course-service.md
       title: Create Course Service
+      description: "Create a course booking service — e.g. 'create a 6-week photography workshop', 'set up a training program', 'add a bootcamp course for $300', 'create a hidden free test course with 8 sessions'. Handles group capacity, full-course pricing, bulkCreateServices, and separate course session events via bulkCreateEvents. Staff assignment is not used for courses."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/diagnose-availability-issues.md
       title: Diagnose Bookings Availability Issues
+      description: "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/bookings-dashboard-navigation.md
       title: Bookings Dashboard Navigation
+      description: "Builds direct links to Wix Bookings dashboard pages on manage.wix.com — services list, edit a specific service, calendar, booking list, staff, availability, resources, and settings pages. Pairs each main Bookings entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]

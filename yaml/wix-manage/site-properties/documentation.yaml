@@ -4,9 +4,11 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/site-properties/change-payment-currency-site-properties.md
       title: Change Payment Currency (Site Properties)
+      description: "Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language through the same call, whose field mask names top-level properties."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
       tags: [site-properties]
     - file: ../../../skills/wix-manage/references/site-properties/site-properties-dashboard-navigation.md
       title: Site Settings Dashboard Navigation
+      description: "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
       tags: [site-properties]

@@ -4,13 +4,16 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/app-installation/install-wix-apps.md
       title: Install Wix Apps
+      description: "Installs Wix apps on a site using Apps Installer API. Covers enabling Velo (Wix Code), app installation, and common app definition IDs."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
       tags: [app-installation]
     - file: ../../../skills/wix-manage/references/app-installation/list-installed-apps.md
       title: List Installed Apps
+      description: "Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
       tags: [app-installation]
     - file: ../../../skills/wix-manage/references/app-installation/app-installation-dashboard-navigation.md
       title: App Management Dashboard Navigation
+      description: "Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
       tags: [app-installation]

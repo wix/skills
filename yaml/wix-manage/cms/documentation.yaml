@@ -4,29 +4,36 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/cms/cms-data-items-crud.md
       title: CMS Data Items CRUD
+      description: "Add, query, update, and delete items in CMS collections. Use this to insert content, bulk insert/update/patch/delete items, query with filters, and manage collection data. Key endpoints: /wix-data/v2/items, /wix-data/v2/bulk/items/*."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-data-operations-extended.md
       title: CMS Data Operations Extended
+      description: "Additional CMS data operations including count, upsert (bulk save), and update by filter patterns."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-schema-management.md
       title: CMS Schema Management
+      description: "Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-references-and-relationships.md
       title: CMS References And Relationships
+      description: "Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-ecommerce-catalog-integration.md
       title: CMS eCommerce Catalog Integration
+      description: "The recommended way to sell existing CMS collection items (tickets, bookings, memberships) through Wix checkout. Add the CATALOG plugin to convert any CMS collection into purchasable products with cart and payment integration."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms, ecommerce]
     - file: ../../../skills/wix-manage/references/cms/cms-publishing-flow.md
       title: CMS Publishing Flow & Visible-Hidden
+      description: "Interact with CMS collections that gate their items behind a draft/publish workflow via the Draft Items plugin. Covers detecting the plugin, locating the paired drafts collection, reading published vs draft items, authoring/editing drafts, and publishing, unpublishing, reverting, and deleting items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-draft-items-plugin, and the paired drafts collection referenced by draftItemsPluginOptions.draftsCollectionId."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-dashboard-navigation.md
       title: CMS Dashboard Navigation
+      description: "Builds direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com — the collections list and a specific collection's items view. Pairs collections and data items with their read APIs so you can fetch data and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]

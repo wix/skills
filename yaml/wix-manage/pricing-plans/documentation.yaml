@@ -4,13 +4,16 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/pricing-plans/create-and-update-pricing-plans.md
       title: Create and Update Pricing Plans
+      description: "Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
       tags: [pricing-plans]
     - file: ../../../skills/wix-manage/references/pricing-plans/pricing-plans-bookings-integration.md
       title: Pricing Plans Bookings Integration
+      description: "Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
       tags: [bookings, pricing-plans]
     - file: ../../../skills/wix-manage/references/pricing-plans/pricing-plans-dashboard-navigation.md
       title: Pricing Plans Dashboard Navigation
+      description: "Builds direct links to Wix Pricing Plans dashboard pages on manage.wix.com — plans list, create a plan, edit a plan, record a manual order, and settings. Pairs each main Pricing Plans entity (plan, order) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
       tags: [pricing-plans]

@@ -4,9 +4,11 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/rich-content/ricos-converter-service.md
       title: Ricos Converter Service
+      description: "Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation."
       docsEntry: https://dev.wix.com/docs/api-reference/assets/rich-content
       tags: [rich-content]
     - file: ../../../skills/wix-manage/references/rich-content/author-ricos-rich-content.md
       title: Author Ricos Rich Content
+      description: "Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) used across Wix Blog posts, Stores product descriptions, Events, and CMS rich-text fields. Use whenever a user asks to create, output, or return Ricos, richContent, or nodes-tree JSON; retrieve and read this full recipe before API schema search or constructing the JSON. Covers paragraphs, headings, lists, blockquotes, dividers, tables, code blocks, images, buttons, audio, video, galleries, collapsible lists, HTML embeds, inline decorations, and nesting rules."
       docsEntry: https://dev.wix.com/docs/api-reference/assets/rich-content
       tags: [rich-content]

@@ -4,10 +4,12 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/restaurants/wix-restaurants-setup.md
       title: Wix Restaurants Setup
+      description: "Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]
 
     - file: ../../../skills/wix-manage/references/restaurants/restaurants-dashboard-navigation.md
       title: Restaurants Dashboard Navigation
+      description: "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]

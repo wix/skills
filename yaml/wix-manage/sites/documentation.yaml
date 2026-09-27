@@ -4,33 +4,41 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/sites/read-site-context.md
       title: Read Account or Site Context
+      description: "Probe a Wix site or account for full context in one call — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to."
       docsEntry: https://dev.wix.com/docs/api-reference/tools/dynamic-site-context
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/query-sites.md
       title: Query Sites
+      description: "List, count, and find the sites in a Wix account. Covers the namespace filter for headless sites, counting before enumerating, cursor pagination, and resolving a site by name."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/create-site-from-template.md
       title: Create Site from Template
+      description: "Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/create-headless-site.md
       title: Create Headless Site
+      description: "Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/manage-oauth-apps.md
       title: Manage OAuth Apps
+      description: "Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/site-import.md
       title: Site Import
+      description: "Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix, or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/sites-dashboard-navigation.md
       title: Sites Dashboard Navigation
+      description: "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/upload-static-site.md
       title: Upload a Website or HTML Files
+      description: "Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — handing the user the Wix Headless drop page, and calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files."
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]

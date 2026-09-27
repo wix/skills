@@ -4,9 +4,11 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/google-business-profile/connect-google-business-profile.md
       title: Connect a Wix Site to Google Business Profile
+      description: "Connect the authenticated Wix site to a Google Business Profile account, check whether an existing connection is still usable, recover a connection whose stored credentials are gone, switch to a different Google account, or disconnect. The site owner authorizes in their own browser through a single-use connect URL; the agent never completes the Google authorization itself. Warns before any reconnect that permanently removes the site's imported locations."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
       tags: [seo]
     - file: ../../../skills/wix-manage/references/google-business-profile/manage-google-business-profile-locations.md
       title: Manage Google Business Profile Locations for a Wix Site
+      description: "Import Google Business Profile locations into the authenticated Wix site, list and query them with or without live Google data, update Wix-side and Google-side details through the correct method for each, create a new Google listing, check whether a profile is actually live on Google, and remove a location from Wix or delete its Google listing. Checks the site's Google connection first and reports a missing one as a setup step, warns before destructive or Google-visible writes, and respects Google's shared rate budget."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/google-business-profile
       tags: [seo]

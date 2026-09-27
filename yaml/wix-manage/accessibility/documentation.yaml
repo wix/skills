@@ -4,5 +4,6 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/accessibility/scan-site-accessibility.md
       title: Scan a Wix Site for Accessibility Issues
+      description: "Run a Wix accessibility scan for a full site, one page, or every page in any supported page collection, including products, blog posts, booking services, events, and restaurant pages. Poll the asynchronous scan to completion, report failed pages separately, retrieve prioritized findings, and use the returned fix guidance to help the user resolve and verify issues."
       docsEntry: https://dev.wix.com/docs/api-reference/site/accessibility
       tags: [aria, stores]

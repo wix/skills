@@ -1,8 +1,6 @@
 ---
 name: "Domain Search, Purchase and Connect"
-description: Buy a domain through Wix or connect one the user already owns — intent, availability,
-  suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path
-  including ownership lookup and binding a domain to a site.
+description: 'Buy a domain through Wix or connect one the user already owns — intent, availability, suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path including ownership lookup and binding a domain to a site.'
 ---
 
 # Domain Search, Purchase and Connect

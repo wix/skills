@@ -4,9 +4,11 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/analytics/query-site-analytics.md
       title: Query Site Analytics
+      description: "Retrieve a Wix site's analytics through the Semantic Model API. Covers listing semantic models, inspecting a model's schema (measures, dimensions, parameters), and querying model data with a required time interval, filters, sorting, paging, and human-readable formatting."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
       tags: [analytics]
     - file: ../../../skills/wix-manage/references/analytics/analytics-dashboard-navigation.md
       title: Analytics Dashboard Navigation
+      description: "Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/analytics
       tags: [analytics]

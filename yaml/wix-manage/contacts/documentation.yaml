@@ -4,21 +4,26 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-manage/references/contacts/bulk-delete-contacts.md
       title: Bulk Delete Contacts
+      description: "Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies."
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
     - file: ../../../skills/wix-manage/references/contacts/bulk-label-and-unlabel-contacts.md
       title: Bulk Label and Unlabel Contacts
+      description: "Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling."
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
     - file: ../../../skills/wix-manage/references/contacts/create-a-contact.md
       title: Create a Contact
+      description: "Creates a contact with the Contacts API. Covers the minimum identifying fields, the single-object shape of `email` and `phone`, and adding a physical address with the ISO 3166-2 subdivision format required for state, region, and province codes."
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
     - file: ../../../skills/wix-manage/references/contacts/update-a-contact.md
       title: Update a Contact
+      description: "Updates an existing contact's email, phone, name, or address with the Contacts API. Covers locating the contact when the user identifies it by name, passing its current revision, and the ISO 3166-2 subdivision format required for state, region and province codes."
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
     - file: ../../../skills/wix-manage/references/contacts/contacts-dashboard-navigation.md
       title: Contacts Dashboard Navigation
+      description: "Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
       docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts
       tags: [contacts]
