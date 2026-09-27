@@ -11,7 +11,9 @@ content and commerce.
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
 field name or a body. Every Wix call you write comes from the official Wix skills installed here,
 the code they deployed first, or, when they do not cover the call, from the official Wix
-documentation through `wix-docs`. Read it there first, then write the call.
+documentation through `wix-docs`. Read it there first, then write the call: the exact path and
+body copied from the output you read in this session. A call built by analogy from another
+call is memory, and an empty or error reply to it says nothing about the site.
 
 ## Skills
 
@@ -20,7 +22,8 @@ Installed at `.agents/skills/`. If missing, restore with:
 
 - `{{SKILL}}` — the code in this app and how to extend it. Each business solution has a playbook at
   `references/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
-  adds one. A code change ends with a release; the live URL shows it, the dev server does not count.
+  adds one; `node .agents/skills/{{SKILL}}/references/<solution>/seed/read-site.mjs` reads what the
+  site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
   is confirmed there before you write it.

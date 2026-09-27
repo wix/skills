@@ -48,10 +48,17 @@ doesn't express — or once the site exists and the work turns to managing or ex
   a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
   frontend, in a seed, in a build-time read of a site — comes from the official Wix skills
   installed here, the code they deployed first, or, when they do not cover the call, from the
-  official Wix documentation through `wix-docs`. Read it there first, then write the call. A guessed call that returns 400 or an empty page is not a
-  step toward the answer; it is the failure this rule exists to prevent, and trying the next
-  variant is still guessing. The shipped code is tested against live sites; a body that looks
-  similar is the one that returns nothing, and the API rarely says why.
+  official Wix documentation through `wix-docs`. Read it there first, then write the call.
+  **The test, before every request:** the exact path and body appear in the output of a file
+  read or a docs search you ran in this session, and you copy them from that output. Anything
+  else is memory: a file whose output was cut short before the call, a source you remember
+  reading earlier, a call built by changing part of one you did find. A guessed call that
+  returns 400 or nothing is not a step toward the
+  answer; it is the failure this rule exists to prevent, trying the next variant is still
+  guessing, and an empty or error reply to a call that failed the test tells you about the
+  call, never about the site. Keep errors visible while a call is unconfirmed: no `2>/dev/null`,
+  no `| echo`. The shipped code is tested against live sites; a body that looks similar is the
+  one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -141,7 +148,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
      reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
    - The brief names a site by id → the existing-site path below, not this call. In a folder
      that already holds a project, attach writes the config into it and deploys for `--stack`
-     instead of scaffolding.
+     instead of scaffolding. A frontend that will be hosted elsewhere (Vercel, your own server)
+     runs attach with `--hosting self --origin <url>[,<url>]`: no Wix hosting is created, and the
+     origins go on the OAuth app's allow-list so checkout can return to them.
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
@@ -191,25 +200,34 @@ doesn't express — or once the site exists and the work turns to managing or ex
    after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
    given, scaffolds the CLI's Astro template, deploys the shipped code, and starts the install
    detached. No seed runs and nothing on the site changes: the content is the site's own, read
-   live through the deployed data layer. When the site already has a headless frontend,
-   `attached` says so (`hosting: "reused"`) with its URL — `wix release` from this project
-   replaces that frontend; say so when you close.
+   live through the deployed data layer. `attached` also says whether a frontend is already
+   serving at the site's address (`frontend.serving`, with the release date). When it is, a
+   `wix release` from this project replaces it — the old deployment keeps its own address and
+   production can be pointed back, but the user's site changes. Tell the user before you release,
+   with the address and the date; if the brief did not ask for a new frontend, ask first and
+   wait. Say it again when you close.
 
    **Get the measure of the site before you design.** Enough to know what you are building
-   for: what the chosen verticals will render, roughly how much of it, and what it is like — a
-   bakery with six products in three categories designs differently from six hundred. Go
-   deeper only where the brief points (a flash sale on cakes: is there a Cakes category, do the
-   cakes carry a sale price). Everything else the pages read live through the deployed data
-   layer; you are sizing the content, not collecting it. These are build-time reads with the
-   **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
-   `Authorization` header (the account token from the call above does not scope to a site).
+   for: what the chosen verticals will render, roughly how much of it, and what it is like —
+   six items in three groups design differently from six hundred. Run the vertical's reader:
+
+   ```bash
+   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
+   ```
+
+   It prints one JSON: whether the vertical's app is installed, counts, one page of each entity
+   with the fields the pages render, and `calls`, the requests it made with their documentation
+   URLs. The lists are one page; the counts are the site.
+
+   When the brief needs a read the script does not make, it is a build-time call with the
+   **site's** token, sent raw as the `Authorization` header (the account token from the call
+   above does not scope to a site), minted inline in each command —
+   `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` — and never written to
+   a file, not in the project and not in `/tmp`.
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
-   - **The vertical's shipped `rest/` module**, at
-     `.agents/skills/wix-headless-fast/references/<vertical>/rest/` — the same reads the pages
-     make, written as literal `fetch` calls: URL, body, `fields`, filter keys. It is not in
-     `src/` (the Astro stack deploys the SDK layer, which hides the body behind a method), so
-     read it from the skill.
+   - **The reader**, `references/<vertical>/seed/read-site.mjs` — the reads the pages make, as
+     literal calls with their documentation URLs.
    - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
      business solutions: exact endpoint, method and payload per operation, curl included. Its
      SKILL.md is the index, by solution; open the recipe for the vertical's solution.
@@ -219,8 +237,10 @@ doesn't express — or once the site exists and the work turns to managing or ex
      /mcp-docs-search/v1/docs/search/markdown`, natural-language `search_term`) that returns
      condensed method docs — endpoint, request example, response shape — and the rule that any
      `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
-     full page only when the hit lacks what you need.
-   If what you opened does not have the call, go to the next; do not try a variant.
+     full document only when the hit lacks what you need.
+   If what you opened does not have the call, go to the next; do not try a variant, and do not
+   build one from a call you did find: the path and body you send are copied from the output
+   you read or they are not sent.
 
    **Recovering one step, or adding a solution later:** the pieces run on their own from the
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
@@ -313,6 +333,13 @@ them; this section is the mechanics, the same for every vertical.
     per-visitor tokens. If that state must run server-side anyway, `client.ts`'s header applies:
     one token set per visitor in the visitor's session, never one process-wide token (that is one
     identity shared by everyone).
+  - **A Wix-hosted flow returns to the origin that started it, and only to one it knows.**
+    Checkout, a booking payment, a plan purchase all open on Wix and come back to your server;
+    the return works only for an origin on the site's OAuth app allow-list. Add the server's
+    origin — the dev one while verifying (`http://localhost:<port>`), the public https one when it
+    goes live — before the first checkout test: wix-manage's *Manage OAuth Apps* recipe, "Update an
+    OAuth App", field `allowedRedirectDomains`, on the app whose id is `appId` in
+    `wix.config.json`. Without it the Wix page opens and cannot return. Do it; do not only say it.
   - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
     Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
     <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
@@ -344,8 +371,8 @@ them; this section is the mechanics, the same for every vertical.
   tile's bottom, an overlay that locks scroll and returns focus). Take the rules; write them in the
   CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Close with run (or
   rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
-  hosting is theirs — the allowed-domain step (add the public https origin to the OAuth app
-  before a Wix-hosted flow such as checkout can return).
+  hosting is theirs — which origins are on the OAuth app's allow-list and that the public one
+  must be added when the server moves (the step above).
 - Both: the calls in `rest/` are the ones a **visitor token** may make from a page — public reads
   and the visitor's own actions. Anything elevated (writes to content, other people's data) runs
   server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI token never belongs in

@@ -30,13 +30,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     A filtered table with no drill-in and no working filters is what gets built when nobody states the requirement — the most common way a generated dashboard disappoints. The aggregate is the judgment call; the drill-in and the filters are not.
   - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
-  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only, for whatever the template case didn't already show):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have, and read that one — not all three:
-    - **Where do I import it from?** → the entry's `importPath`. No file read at all.
-    - **How do I call it?** (generics, what a callback receives and returns, how the pieces nest) → the **example** named in `examples`. One worked example beats reconstructing a call from a chain of type files; a hook's example is often filed under the component it pairs with.
-    - **What props, and which are optional?** → **the example first** — it shows the props in use, correctly typed. For what an example cannot show (optionality, union members, an exact callback signature): entry has `bundle` ⇒ read that `.d.ts`; entry has no `bundle` ⇒ the doc's own table is complete and marks `Required`, so read the doc. The two are mutually exclusive — reading both is always one hop too many. **Two thirds of bundles stub the parent that holds the props** (`propsTotal` far above what the file declares is the tell); when that happens, read the parent the index names — one hop — batch any `readWith` files you still need into a single call, and fall back to `dist/types/` for the declaration `tsc` enforces. WIX_PATTERNS_DOCS.md step 5 has the procedure.
-    - **Any setup requirement or gotcha?** → the doc's prose. Rare, but load-bearing where present (routers, providers).
+  - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have — `importPath`, `examples`, or `bundle` — and read only that one, per [Component Selection Order](#component-selection-order)'s "the short version". State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
 
-    For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent. State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
+    For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
   - [ ] **Dashboard page over Wix data:** located the method and verified every mapped field against the installed SDK's own declaration first — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
   - [ ] **Vertical SDK prerequisites — for every `@wix/*` vertical the page touches, including one added later:** confirmed the package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required). **A second vertical added during Step 4b needs this check too, and its failure must not take down the page** — see [A second vertical is a second scope](references/dashboard-page/DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
@@ -60,25 +56,6 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ---
 
-## ❌ ANTI-PATTERNS (DO NOT DO)
-
-| ❌ WRONG                                    | ✅ CORRECT                                     |
-| ------------------------------------------- | ---------------------------------------------- |
-| Creating a CMS Data Collection for data an existing Wix app already owns (orders, products, bookings, contacts…), or deciding "no SDK exists" without a single MCP search | Use the domain's SDK module per the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) |
-| Hand-writing builder files, folders, UUIDs, or extension registration | Run `wix generate --params` — it owns scaffolding |
-| Implementing without reading the extension reference | Always read the relevant reference file first |
-| Using MCP discovery without checking refs   | Check reference files first                    |
-| Reporting done without validation           | Always run validation at the end               |
-| Letting manual action items get buried      | Aggregate all manual steps at the very end     |
-| Building a dashboard page's collection UI (table, grid, filters, sort, bulk actions, page header) out of raw WDS or hand-written React | Use the `@wix/patterns` equivalent — it exists (see [Component Selection Order](#component-selection-order)) |
-| Guessing a `@wix/patterns` or WDS component/prop name from memory | Look it up: patterns via `dist/docs/index.json` + `dist/dts-bundle/index.json` (see [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md)), WDS via the `wix-design-system` skill |
-| Hand-rolling a component (empty state, badge, tooltip, pagination) that one of the two libraries already ships | Search patterns first, then WDS; only build custom when both genuinely lack it |
-| Calling `auth.elevate` from a site or editor extension, or calling an admin-only method there | Put the call in a backend extension and elevate there — elevation only works in backend code |
-| Elevating a session-resolved `current*`/`my*` method (`currentCartV2.*`, `members.getMyMember`) to "be safe" | Call it directly — elevating replaces the caller's session identity and retargets the operation |
-| Elevating a read the platform filters by caller (`members.getMember`/`queryMembers`, `items.*`, catalog) to "make it return more" | Call it directly — elevating removes the filter and returns data the visitor was never entitled to |
-
----
-
 ## Quick Decision Helper
 
 1. **What are you trying to build?**
@@ -94,22 +71,18 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 3. **Where will it appear?**
    - Dashboard sidebar/page →
-     - Full admin screen: Dashboard Page — UI built with `@wix/patterns` + `@wix/design-system` (see [Component Selection Order](#component-selection-order))
+     - Full admin screen: Dashboard Page — UI built with `@wix/patterns` + `@wix/design-system` (see [Component Selection Order](#component-selection-order)). **Cannot use `<Modal />`** — use a separate Dashboard Modal extension and `dashboard.openModal()` instead.
      - Popup/form: Dashboard Modal
    - Existing Wix app dashboard (widget) → Dashboard Plugin
-   - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
-   - Anywhere on site → custom element widget
-   - Anywhere on site (with editor manifest) → Editor React component
-   - Wix business solution page → Site Plugin
-   - During business flow → Service Plugin
-   - Exposing tools to the Wix AI assistant → App Tools
-   - After event occurs → Backend Event Extension
-
-## Decision Flow (Not sure?)
-
-- **Admin:** Admin screen in the site owner's dashboard? → Dashboard Page — build its UI with `@wix/patterns` first, `@wix/design-system` for whatever patterns does not cover (see [Component Selection Order](#component-selection-order)). Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
-- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. Exposing tools to the Wix AI assistant? → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md)). After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app-owned data? → Data Collection (see [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms)).
-- **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+   - Existing Wix app dashboard (menu item, more-actions/bulk-actions menu) → Dashboard Menu Plugin
+   - Anywhere on site, standalone → custom element widget
+   - Anywhere on site, with editor manifest (styling/content/elements) → Editor React component
+   - Fixed slot on a Wix business solution page → Site Plugin
+   - Scripts/analytics only, no UI → Embedded Script
+   - During business flow (checkout/shipping/tax) → Service Plugin
+   - Exposing tools to the Wix AI assistant → App Tools (requires both `APP_TOOLS` declaration + `TOOLS_PROVIDER_CONFIG` handler — see [APP_TOOLS.md](references/APP_TOOLS.md))
+   - After event occurs (webhooks/sync) → Backend Event Extension
+   - Custom HTTP endpoint → Backend API
 
 ---
 
@@ -224,14 +197,6 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 
 > **HTTP endpoints:** Generate with `extensionType: "HTTP_ENDPOINT"` (not `BACKEND_API`). See [BACKEND_API.md](references/BACKEND_API.md) for project-specific directories, handler types, and frontend URLs.
 
-## Extension Comparison
-
-| Custom element widget vs Editor React component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
-| -------------------------------------------------------------- | ----------------------- | ----------------------- |
-| Custom element widget: standalone interactive component. Editor React component: React with editor manifest (CSS/data/elements). Plugin: fixed slot in Wix app page. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
-
----
-
 ## Cross-Cutting References
 
 | Topic | Reference |
@@ -259,46 +224,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 
 **CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
 
-**Entity → SDK module map** (find the entity the user mentioned, use that package):
-
-| Entity | SDK package |
-| --- | --- |
-| orders / carts / checkout / refund records / fulfillments | `@wix/ecom` — orders live here regardless of vertical |
-| products / inventory / catalog | `@wix/stores` — ⚠️ V1/V3 check, see [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
-| payments / refunds / disputes | `@wix/payments` |
-| invoices / payment links / receipts | `@wix/get-paid` |
-| gift cards | `@wix/gift-vouchers` |
-| coupons | `@wix/marketing` |
-| pricing plans / subscriptions | `@wix/pricing-plans` |
-| bookings / services / staff / time slots | `@wix/bookings` |
-| calendar events / schedules | `@wix/calendar` |
-| table reservations | `@wix/table-reservations` |
-| restaurant menus / online orders | `@wix/restaurants` |
-| blog posts | `@wix/blog` |
-| site events / tickets / RSVPs | `@wix/events` |
-| reviews | `@wix/reviews` |
-| comments | `@wix/comments` |
-| groups | `@wix/groups` |
-| online programs | `@wix/online-programs` |
-| donations | `@wix/donations` |
-| portfolio | `@wix/portfolio` |
-| media files | `@wix/media` |
-| contacts / labels / tasks | `@wix/crm` |
-| members | `@wix/members` |
-| inbox conversations | `@wix/inbox` |
-| forms / form submissions | `@wix/forms` |
-| loyalty points / rewards | `@wix/loyalty` |
-| email marketing | `@wix/email-marketing` |
-| notifications | `@wix/notifications` |
-| analytics | `@wix/analytics-data` |
-| automations | `@wix/automations` |
-| SEO tags / redirects | `@wix/seo` |
-| site search | `@wix/search` |
-| secrets | `@wix/secrets` |
-| locations / site properties | `@wix/business-tools` |
-| app instances | `@wix/app-management` |
-
-If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
+Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
 ---
 
@@ -381,7 +307,7 @@ Two signals never settle it: the scope name — `locations.queryLocations` is `S
 
 Routing out means a Backend API endpoint that elevates and is reached with `httpClient.fetchWithAuth()`. Elevation bypasses Wix's permission check, so the endpoint must re-check the caller itself — see [Identity and Authorization](references/BACKEND_API.md#identity-and-authorization) for what each host can actually verify, and why an owner-only operation belongs in a dashboard extension instead.
 
-Add the scope in Dev Center → **Permissions** (it isn't declared in a repo file) and report it under [Manual Steps Required](#-manual-steps-required).
+**Some extensions or SDK calls require a permission scope that `wix generate` doesn't add automatically.** Adding one is a Dev Center account change, not something the agent does — tell the user which scope to add: open their app at `https://manage.wix.com/apps/<appId>/home`, select **Develop > Permissions** in the left menu, then **Add Permissions**, then report it under [Manual Steps Required](#-manual-steps-required). If the app is already installed on a site, the owner must also re-approve it via the install/update flow — revisit that same app page's "Test App" flow (or the release output's install links) and accept "Agree & Update" — before the scope takes effect there.
 
 ---
 
@@ -469,7 +395,6 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 Open every path returned in `newFiles` and replace stubbed handler bodies / UI / queries with the user's actual logic, guided by the extension reference file's API and configuration sections.
 
 - ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
-- ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
 ### Step 4c: UX Completeness Self-Audit
@@ -496,16 +421,7 @@ If a box fails and no exception applies, add the missing piece now. Do not let "
 
 ### Step 5: Run Validation
 
-After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
-
-1. Package installation (detect package manager, run install)
-2. TypeScript compilation check (`npx tsc --noEmit -p .`)
-3. Build validation (`npx wix build`)
-4. Preview deployment (`npx wix preview`)
-
-**Do NOT report completion to the user until validation passes.**
-
-If validation fails, fix the errors and re-validate until it passes.
+Run the four steps in [Validation](#validation) below. **Do NOT report completion to the user until validation passes** — if it fails, fix the errors and re-validate until it does.
 
 ### Step 6: Report Completion
 
@@ -569,18 +485,6 @@ Execute these steps sequentially after all implementation is complete. See [APP_
 Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 
 ---
-
-## Cost Optimization
-
-- **Let the CLI scaffold** — don't burn tokens describing folder layouts or builder boilerplate
-- **Only run `wix schema generate --type <extensionType>`** when `wix generate --params` fails — don't pre-fetch it
-- **Read extension reference first** — always read the relevant extension reference file before implementing
-- **Check API references first** — read relevant API reference files before using MCP discovery
-- **Skip discovery** when all required APIs are in reference files
-- **maxResults: 5** for all MCP SDK searches
-- **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
-- **Invoke wix-design-system** first when using WDS (prevents import errors)
-- **Patterns before WDS** for dashboard page UI — check `@wix/patterns` docs before building anything collection- or page-shaped (see [Component Selection Order](#component-selection-order))
 
 ## Documentation
 
