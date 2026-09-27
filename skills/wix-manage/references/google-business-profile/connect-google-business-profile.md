@@ -25,8 +25,8 @@ locations.
 > the **next action is the final response** explaining the blocker. Make no
 > further tool call: no API probe, documentation search, alternate request
 > shape, or call against another site. Only the explicitly
-> retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits one more
-> connect-URL attempt; if that fails too, stop and explain.
+> retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits another connect-URL
+> attempt.
 
 Wix stores the Google credentials server-side. The API never returns tokens or
 any Google identity — only whether a connection exists and its dates.
@@ -135,8 +135,7 @@ Wix's grant inside the Google account.
 
 - **`CONNECTING_USER_LOOKUP_UNAVAILABLE`:** the site-owner lookup failed
   temporarily, before any authorization attempt was created. This is the one
-  failure of **Get Connect URL** that is safe to retry — once. If the retry
-  fails the same way, stop and tell the owner to try again later.
+  failure of **Get Connect URL** that is safe to retry.
 - **`CONNECTING_USER_NOT_RESOLVABLE`:** Wix could not identify a user to own
   the credential. Stop — this is not retryable until the caller identity or
   site ownership is corrected. Explain the blocker instead of trying other
