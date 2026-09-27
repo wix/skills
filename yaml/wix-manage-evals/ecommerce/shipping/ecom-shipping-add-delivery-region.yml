@@ -1,0 +1,62 @@
+name: ecommerce/shipping/add-delivery-region
+description: >-
+  Verifies the shipping dispatcher carries the shipping-options query paging cap, so an agent
+  extending a store's delivery coverage reads its shipping options with a valid page size and adds
+  the region in one pass — rather than discovering by a 400 that `cursorPaging.limit` tops out at
+  100.
+triggerPrompt: Add Canada as a delivery region to my shipping options.
+tags: [ecommerce]
+maxTokens: 500000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Add Canada as a delivery region to my shipping options."
+      Intent: extend the store's existing shipping coverage to Canada.
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if the agent located the site's existing shipping configuration (shipping options
+      and/or delivery profiles) with successful (2xx) read calls, then added Canada as a delivery
+      region through a successful (2xx) Shipping Options or Delivery Profiles write, and confirmed
+      the result to the user.
+
+      Fail if the agent described dashboard steps instead of doing it; OR reported success with no
+      successful region-adding call; OR created a whole new shipping profile or option when the site
+      already had one to extend; OR did not call any Wix REST API.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to Canada being a delivery region.
+      Examine the tool-call trace, including request bodies and any error bodies. 10 = no wasted
+      calls and no errors.
+
+      Reading the shipping dispatcher and the recipe it routes to is expected and is never a wasted
+      call.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - any non-2xx response, in particular a `400` from `POST /ecom/v1/shipping-options/query` or
+        another shipping query caused by a `cursorPaging.limit` above 100 — the dispatcher states
+        the cap, so a larger page size is an avoidable wrong turn, not bad luck;
+      - a shipping API call made before any shipping recipe was read;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out a shape
+        or a paging limit the recipes already give;
+      - a new shipping profile or option created when an existing one could have been extended.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
