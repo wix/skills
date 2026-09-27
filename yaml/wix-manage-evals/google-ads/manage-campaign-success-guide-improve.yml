@@ -37,16 +37,18 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 9-10 for a direct path to the Campaign Success Guide on site
+      trace only through the first successful Campaign Success Guide retrieval;
+      ignore presentation, navigation, and tool calls after that point in this
+      intent-routing scenario. Score 9-10 for a direct path on site
       b342a30b-616e-40ce-ad26-52a83397e08e: select that site, list its campaigns
-      at most once if needed, retrieve or create the guide once, and report the
-      result. Score 7-8 if extra documentation discovery is needed but the agent
+      at most once if needed, and retrieve or create the guide once. Score 7-8
+      if extra documentation discovery is needed before retrieval but the agent
       stays on this route and completes it without an erroneous API call.
 
-      Score below 7 if it detours into analytics or pre-campaign suggestions,
-      uses or probes another site, guesses between campaigns, encounters a
-      non-2xx call, repeats campaign or guide calls, or exposes internal service
-      or tool names in the user-facing answer. Do not judge the guide's visual
-      presentation in this routing scenario. Name the likely recipe, MCP, or
-      docs gap for each detour. Return only
+      Score below 7 if, before the first successful guide retrieval, it detours
+      into analytics or pre-campaign suggestions, uses or probes another site,
+      guesses between campaigns, encounters a non-2xx call, or repeats campaign
+      or guide calls. Do not judge the guide's visual presentation or any
+      post-retrieval navigation in this scenario. Name the likely recipe, MCP,
+      or docs gap for each pre-retrieval detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
