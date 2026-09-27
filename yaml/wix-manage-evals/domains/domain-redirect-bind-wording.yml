@@ -47,7 +47,7 @@ assertions:
       - promises or denies any timing/propagation/DNS/SSL detail for a bind that hasn't happened, OR
       - narrates internal mechanics — API or tool names, endpoint paths, or response field names.
   - type: llm_judge
-    minScore: 0
+    minScore: 7
     maxTokens: 2048
     prompt: >
       Rate how smoothly the Wix MCP let the agent fulfill the request. Examine

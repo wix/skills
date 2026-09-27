@@ -2039,11 +2039,17 @@ premium check, the bundle link and the checkout link.
 
 ## R4. API Reference
 
-### R4.1 Public — no auth
+### R4.1 Domain Search — account-level API key
 
-These are open endpoints. Send a plain GET with query parameters: **no headers, no tokens, no
-scopes.** If you get `403` / `access_denied`, you added auth that does not belong — remove it and
-retry.
+Per the API reference, both calls below **require an account-level API key and cannot be
+authenticated with the standard session/authorization header** used everywhere else in this
+skill (§R4.2–§R4.4). If the only auth available in this channel is ordinary Wix session auth,
+this call cannot be made. A `400` or `403` here (for example `INVALID_TARGET_ACCOUNT_ID`,
+`access_denied`) is that constraint, not a header you added by mistake — do **not** silently
+retry it (§R8) or try a different tool hoping one omits auth; treat it exactly like the
+"call cannot be made at all" row in §P3 and go straight to the fallback link. Send a plain GET
+with query parameters and no other headers only because that is the correct shape of the call
+itself, not because it makes the call authenticate as public.
 
 > Do **not** use the `GetSuggestedDomains` tool. Always use the v2 endpoint below.
 
@@ -2267,8 +2273,8 @@ exactly), and the rule that nothing but the match and the site name comes out of
 
 `subject is missing` (HTTP 400) has been observed from the `assigned` endpoint while `unassigned`
 answered normally in the same breath. **It does not mean you got the auth wrong**, and §R4.1's
-*"remove the headers and retry"* rule does not apply to it — that one is about `403` on the **public**
-endpoints.
+account-level-API-key constraint does not apply to it — that one is about the **domain search**
+endpoints, a separate API family from `assigned`/`unassigned` here.
 
 So do not go hunting for a second auth shape. Not `scope: "account"` in place of `scope: "site"`, not a
 different `siteId`, not `ManageWixSite` after the same 400 came back from `ExecuteWixAPI`. **Two calls,
@@ -2473,7 +2479,7 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
 | Error | Action |
 |-------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | Not an error to the user — a branch. See §A6. |
-| `403` / `access_denied` on domain-search v2 | You added auth to a public endpoint. Remove all headers and retry. |
+| `400` / `403` on domain-search v2 (e.g. `INVALID_TARGET_ACCOUNT_ID`, `access_denied`) | This call needs an account-level API key (§R4.1), not session auth. Do not retry it — stop and use the fallback link. |
 | Offering returns no products | *"Wix doesn't support purchasing this TLD. Try a different extension like .com, .net, or .org."* |
 | Intent upsert validation error | Show which fields are wrong, ask for corrections, retry. See §P5. |
 | Cart `add-items` fails | Confirm `productId` came from the offering response, not hardcoded. Retry once. |
