@@ -61,20 +61,21 @@ assertions:
       later, or treats it as proof Wix Multilingual is not installed, without
       first retrying the call itself.
   - type: llm_judge
-    minScore: 0
+    minScore: 7
     maxTokens: 2048
     prompt: |
-      The install-wix-apps skill says to read the recipe once, then run the
-      full chain — install, wait/retry, enabling multilingual mode, and
-      creating every requested locale — as one script inside a single
-      execution tool call, rather than round-tripping back to the model
-      between steps.
+      Rate how smoothly the agent executed the chain. Examine the tool-call
+      trace. Score 0-10 (10 = direct: the skill/docs article was read once,
+      and the whole chain — install, wait/retry, enabling multilingual mode,
+      and creating every requested locale — ran inside as few execution tool
+      calls as the retry logic requires, rather than round-tripping back to
+      the model between steps.
 
-      Score low if the agent reads the skill/docs article more than once, or
-      splits the install call, the retry, or the per-locale calls across
-      multiple separate execution tool calls when a single script could have
-      done it. Score high if the skill was read once and the whole chain ran
-      in one (or as few as the retry logic requires) execution tool call.
+      Penalize and LIST any of: reading the skill/docs article more than
+      once; splitting the install call, the retry, or the per-locale calls
+      across separate execution tool calls when a single script could have
+      done it; any step run as its own round-trip that could have been part
+      of the same script. For each, name the likely skill-guidance gap.
 
-      This is a friction judge: it never fails the scenario outright, it
-      only scores how efficiently the agent got there.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or
+      'clean path' if none>"}.
