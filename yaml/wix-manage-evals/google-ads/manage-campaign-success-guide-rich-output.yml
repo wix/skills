@@ -31,12 +31,13 @@ assertions:
       - uses a single-column response rather than a table, grid, columns, or
         side-by-side layout;
       - gives the contact-details and FAQ tasks one shared Editor CTA in a
-        Next actions block after the suggestions and offer, using the exact
-        Editor URL resolved for site
-        b342a30b-616e-40ce-ad26-52a83397e08e. If that read-only lookup cannot
-        return an exact URL, it clearly says the Editor link is unavailable
-        instead of guessing one. The CTA must be a real absolute Markdown link,
-        not an unlinked label or suggested follow-up message;
+        Next actions block after the suggestions and offer. It uses the exact
+        Editor URL for site b342a30b-616e-40ce-ad26-52a83397e08e when available
+        from context or one read-only site-metadata lookup. If no suitable
+        lookup is available or at most one attempt cannot return an exact URL,
+        it says "Go to the Editor" once as plain guidance instead of guessing
+        or continuing to probe. A resolved CTA must be a real absolute Markdown
+        link, not a suggested follow-up message;
       - does not include a Google Ads or campaign-dashboard CTA, because the
         only campaign-related suggestion is completed;
       - makes one grouped offer to help draft the FAQ and check and initiate the
@@ -55,12 +56,14 @@ assertions:
       regroups the supplied items, returns a bare list, uses a multi-column
       layout, turns recommendation labels into links or suggested messages,
       labels navigation generically as "Open in Wix", repeats the Editor link,
-      guesses an Editor URL, includes "Open campaign" or any Google Ads CTA,
-      shows or names Merchant Center before its batch, shows the completed
-      Search Themes item, exposes a tracking-status label, omits the next-batch
-      invitation, tells the user to perform agent-supported connection work
-      manually, presents an OPEN item as completed, or claims that marking a
-      guide item complete implements its underlying change.
+      guesses an Editor URL, continues probing after one metadata attempt,
+      omits both the exact Editor link and the plain Editor fallback, includes
+      "Open campaign" or any Google Ads CTA, shows or names Merchant Center
+      before its batch, shows the completed Search Themes item, exposes a
+      tracking-status label, omits the next-batch invitation, tells the user to
+      perform agent-supported connection work manually, presents an OPEN item
+      as completed, or claims that marking a guide item complete implements its
+      underlying change.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -69,18 +72,19 @@ assertions:
       guide. Examine the tool-call trace. Score 0-10, where 10 means it reads the
       campaign success guide documentation directly, preserves the supplied
       order in a three-item OPEN batch, hides the later and completed items,
-      resolves site
-      b342a30b-616e-40ce-ad26-52a83397e08e's Editor URL without guessing,
-      provides that real link once at the bottom, makes one concise offer for
-      supported work, and performs no guide retrieval, action recipe calls, or
-      mutation. An explicit Editor-link unavailable state is acceptable only
-      after the exact URL cannot be resolved.
+      uses site b342a30b-616e-40ce-ad26-52a83397e08e's existing Editor URL or
+      performs at most one read-only metadata lookup, provides the real link
+      once at the bottom when resolved or plain "Go to the Editor" guidance
+      when it is not, makes one concise offer for supported work, and performs
+      no campaign resolution, guide retrieval, action recipe calls, or
+      mutation.
 
       Penalize using another site, semantic reordering, a table/grid/columns,
       suggestion-level pseudo-actions, generic "Open in Wix" labels, an
       irrelevant campaign CTA, more than three tasks, visible completed items,
-      repeated links or approval questions, guessed URLs, unsupported
-      automation claims, redundant docs or probing, any non-2xx call, and
-      internal service or tool names in the user-facing answer. Name the likely
-      recipe, MCP, or docs gap for each detour. Return only
+      repeated links or approval questions, guessed URLs, continued navigation
+      probing after one attempt, unsupported automation claims, redundant docs
+      or API calls, any non-2xx call, and internal service or tool names in the
+      user-facing answer. Name the likely recipe, MCP, or docs gap for each
+      detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

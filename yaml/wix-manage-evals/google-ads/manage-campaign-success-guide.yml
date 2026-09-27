@@ -37,11 +37,13 @@ assertions:
       - links the analyzed landing page when the guide returns its URL, makes
         one grouped offer when visible OPEN items have supported agent work,
         and, when destinations appropriate for the visible batch exist,
-        finishes with a Next actions block that contains each destination once
-        as a real absolute Markdown link. If visible site-editing tasks exist,
-        it uses the
-        exact Editor URL for this site rather than repeating task-level links,
-        guessing a URL, or substituting a suggested follow-up message;
+        finishes with a Next actions block that contains each destination once.
+        If visible site-editing tasks exist, it uses the exact Editor URL when
+        that URL is available from site context or one read-only site-metadata
+        lookup. If no suitable lookup is available or no exact URL is available
+        after at most one attempt, it says "Go to the Editor" once as plain
+        guidance instead of repeating links, guessing a URL, continuing to
+        probe, or substituting a suggested follow-up message;
       - if Search Themes is in the visible batch, offers to propose and apply
         an approved set for the user. It does not show a Keywords Manager link
         unless the user explicitly prefers the manual path;
@@ -61,10 +63,12 @@ assertions:
       labels into pseudo-links or suggested messages, shows more than three
       OPEN suggestions, exposes completed items, omits the next-batch
       invitation when more OPEN suggestions remain, repeats or guesses
-      navigation, includes a destination required only by completed or hidden
-      items, shows a manual Search Themes link without the user's preference,
-      changes a suggestion status, claims recommendations are automatically
-      implemented, or routes to pre-campaign suggestions.
+      navigation, omits both the exact Editor link and the plain Editor fallback
+      when a visible task belongs there, includes a destination required only
+      by completed or hidden items, shows a manual Search Themes link without
+      the user's preference, changes a suggestion status, claims
+      recommendations are automatically implemented, or routes to pre-campaign
+      suggestions.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -73,17 +77,18 @@ assertions:
       trace. Score 0-10, where 10 is a direct path: read the campaign success
       guide documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e,
       identify its campaign with at most one campaign-list call, retrieve or
-      create the guide once, resolve current-batch navigation metadata at most
-      once when needed, and present the first batch with deduplicated
-      navigation and a grouped supported-work offer when applicable, without
-      querying analytics, reading action recipes prematurely, or mutating guide
-      state.
+      create the guide once, use existing navigation metadata or at most one
+      read-only site-metadata lookup when needed, and present the first batch
+      with a deduplicated Editor link or plain fallback and a grouped
+      supported-work offer when applicable, without querying analytics, reading
+      action recipes prematurely, or mutating guide state.
 
       Penalize redundant approval, a different site, probing multiple sites,
       pre-campaign suggestion or analytics calls, repeated guide retrieval,
-      guide-status mutation, missing or repeated navigation resolution,
-      premature action-recipe calls, guessed request shapes, any non-2xx call
-      even if recovered, redundant documentation, and internal service or tool
-      names in the user-facing answer. Name the likely recipe, MCP, or docs gap
-      for each detour. Return only
+      guide-status mutation, repeated navigation lookup or continued probing
+      after no exact Editor URL is available, omission of both the link and
+      plain Editor fallback, premature action-recipe calls, guessed request
+      shapes, any non-2xx call even if recovered, redundant documentation, and
+      internal service or tool names in the user-facing answer. Name the likely
+      recipe, MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

@@ -32,10 +32,13 @@ assertions:
       - links the analyzed landing page when available, makes one grouped offer
         when visible OPEN items have supported agent work, and includes each
         verified destination appropriate for the visible batch exactly once as
-        a real absolute Markdown link. It does not turn manual
-        recommendation labels into links or suggested follow-up messages; any
-        conversational follow-up is limited to one explicit request for a
-        genuinely supported task;
+        a real absolute Markdown link. For a visible Editor task, if no suitable
+        lookup is available or at most one read-only site-metadata lookup cannot
+        provide an exact URL, it instead says "Go to the Editor" once as plain
+        guidance and stops probing. It does not turn manual recommendation
+        labels into links or suggested follow-up messages; any conversational
+        follow-up is limited to one explicit request for a genuinely supported
+        task;
       - if Search Themes is visible, offers to propose and apply an approved set
         rather than showing the Keywords Manager link unless the user explicitly
         asks to add the themes manually;
@@ -50,9 +53,11 @@ assertions:
       creates suggestion-level pseudo-actions, shows more than three OPEN
       suggestions, exposes completed items, omits the next-batch invitation
       when more OPEN suggestions remain, repeats or guesses navigation,
-      includes a destination required only by completed or hidden items, shows
-      a manual Search Themes link without the user's preference, or claims
-      recommendations are automatically implemented.
+      continues probing after no exact Editor URL is available, omits both the
+      exact Editor link and its plain fallback, includes a destination required
+      only by completed or hidden items, shows a manual Search Themes link
+      without the user's preference, or claims recommendations are
+      automatically implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -67,8 +72,9 @@ assertions:
       Penalize querying analytics first, routing through pre-campaign
       suggestions, using a different site, probing multiple sites, guessing
       between campaigns, any non-2xx call even if recovered, repeated calls,
-      missing or repeated navigation resolution, premature action-recipe calls,
-      unrelated or repeated documentation, and internal service or tool names
-      in the user-facing answer. Name the likely recipe, MCP, or docs gap for
-      each detour. Return only
+      repeated navigation lookup or continued probing after no exact Editor URL
+      is available, omission of both the link and plain Editor fallback,
+      premature action-recipe calls, unrelated or repeated documentation, and
+      internal service or tool names in the user-facing answer. Name the likely
+      recipe, MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
