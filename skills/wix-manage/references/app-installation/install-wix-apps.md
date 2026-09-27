@@ -122,7 +122,7 @@ Installing an app and immediately calling one of that app's own APIs — e.g. ca
 
 If a call to an API owned by the app you just installed fails with a not-found error immediately afterward: wait briefly (roughly 1-2 seconds) and retry the dependent call, up to 3 attempts with backoff. Do this yourself before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
 
-Write the install call, the wait, and the retried dependent call as one script in a single tool call — loop with a short sleep inside that one execution — rather than making the retry a separate follow-up tool call. A retry that round-trips back to you costs a full extra turn per attempt; a retry loop inside the same script costs only the wait itself.
+Write the install call, the wait, the retried dependent call, and every remaining step of the task (e.g. enabling multilingual mode, then creating each requested locale) as one script in a single tool call — loop with a short sleep inside that one execution — rather than splitting the install, the retry, or each follow-up call into separate tool calls. Read the recipe once; then run the whole chain to completion in that single script. A round-trip back to you costs a full extra turn per call; a retry loop and the rest of the chain inside the same script cost only the wait itself.
 
 ---
 

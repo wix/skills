@@ -1,8 +1,9 @@
 name: app-installation/install-wix-multilingual-app-then-enable
 description: >-
-  Verifies the agent reads the install-wix-apps skill and retries a
-  right-after-install 404 on a dependent API instead of giving up on the
-  first attempt.
+  Verifies the agent reads the install-wix-apps skill once and executes the
+  whole chain (install, retry, enable multilingual mode, create every
+  locale) in a single script/tool call, retrying a right-after-install 404
+  on a dependent API instead of giving up on the first attempt.
 triggerPrompt: >-
   My site currently only has Turkish. Please add German, English, French,
   and Spanish as site languages.
@@ -59,3 +60,21 @@ assertions:
       Fail if the agent surfaces the 404 to the user, asks the user to retry
       later, or treats it as proof Wix Multilingual is not installed, without
       first retrying the call itself.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      The install-wix-apps skill says to read the recipe once, then run the
+      full chain — install, wait/retry, enabling multilingual mode, and
+      creating every requested locale — as one script inside a single
+      execution tool call, rather than round-tripping back to the model
+      between steps.
+
+      Score low if the agent reads the skill/docs article more than once, or
+      splits the install call, the retry, or the per-locale calls across
+      multiple separate execution tool calls when a single script could have
+      done it. Score high if the skill was read once and the whole chain ran
+      in one (or as few as the retry logic requires) execution tool call.
+
+      This is a friction judge: it never fails the scenario outright, it
+      only scores how efficiently the agent got there.
