@@ -1,19 +1,19 @@
 name: marketing/create-and-publish-social-post-gbp-connect
 description: >-
   Advisory scenario for the "Create and Publish a Social Media Post" skill,
-  from a real conversation: the owner connected Google Business Profile in the
-  dashboard's Google Business Profile section, but Social Marketing says it
-  isn't connected. The correct behavior is to explain that these are two
-  different connections, that adding GBP as a social channel is the owner's own
-  choice and counts toward the plan's channel limit, never attempt
-  GBP/connect-url, and answer for each connection separately. The site is a
-  blank one with no Google connection, so an agent that checks live statuses
-  will find neither connection in place and should say so per connection.
+  from a real conversation: Social Marketing says Google Business Profile isn't
+  connected, and the owner believes they already connected it in the
+  dashboard. The correct behavior is to explain that these are two different
+  connections, report each one separately, say that adding GBP as a social
+  channel is the owner's own choice and counts toward the plan's channel limit,
+  and never attempt GBP/connect-url or start a connect flow unprompted. The
+  prompt claims no status values, because no eval site can hold a Google
+  connection: on this blank site both connections are missing, and the prompt
+  is worded so that is consistent with what the user reports.
 triggerPrompt: >-
-  I connected my Google Business Profile in the Google Business Profile section
-  of my dashboard and it shows as connected there. But when I try to post to it
-  from Social Marketing, it says Google Business Profile isn't connected. Which
-  one is right, and what do I need to do to post to it?
+  Social Marketing says my Google Business Profile isn't connected, but I
+  thought I'd already connected Google Business Profile somewhere in my
+  dashboard. Is it connected or not, and what do I need to do to post to it?
 tags: [marketing]
 siteSetup:
   mode: template
@@ -27,34 +27,25 @@ assertions:
     maxTokens: 2048
     prompt: |
       The user is asking for guidance only. They did NOT ask the assistant to
-      create or publish a post. A site has two different kinds of Google
-      Business Profile connection: the Google connection (made in the Google
-      Business Profile section of the dashboard, reported by gbp/v1/connection)
-      and the social channel connection (made by adding GBP as a channel on the
-      Social Marketing social posts hub, reported by
-      social-publisher long-lived-token-status). Both of the user's
-      observations can be true at once.
-
-      The provisioned site has no Google connection, so an agent that checks
-      live statuses will find the Google connection is not VALID either, which
-      contradicts what the user reported. Two answers are both correct: (a)
-      explaining the two connections from the user's report, or (b) reporting
-      the live result per connection — the site shows no Google connection, and
-      GBP isn't added as a social channel — and offering to connect Google
-      without starting that flow. Offering to connect Google in case (b) is
-      correct, not a failure.
+      connect anything or to create a post. A site has two different kinds of
+      Google Business Profile connection: the Google connection (made in the
+      Google Business Profile section of the dashboard, reported by
+      gbp/v1/connection) and the social channel connection (made by adding GBP
+      as a channel on the Social Marketing social posts hub, reported by
+      social-publisher long-lived-token-status). The provisioned site has
+      neither. An agent may answer from the skill alone, or check the live
+      statuses and report what it finds; both are correct.
 
       Pass if the response:
       - uses the Create and Publish a Social Media Post skill / recipe, AND
-      - explains that these are two different connections and that
-        "connected in the GBP section" and "not connected in Social Marketing"
-        can both be true at the same time — it does not call the difference a
-        bug, AND
+      - explains that these are two different connections and answers for
+        each one separately, rather than a single "connected" / "not connected",
+        AND
       - says posting needs the social channel connection, and that the owner
         adds GBP as a channel on the Social Marketing social posts hub in the
         Wix dashboard (a manage.wix.com/dashboard/.../social-marketing-web
         link), which no API call can do, AND
-      - makes clear that connecting GBP as a social channel is the owner's own
+      - makes clear that adding GBP as a social channel is the owner's own
         choice and counts toward the plan's limit on connected social channels,
         AND
       - does not perform any mutating API calls.
@@ -63,13 +54,8 @@ assertions:
       - calls GET /social-publisher/v1/GBP/connect-url, or tells the user to
         call it, or presents any OAuth/connect-url flow as the way to add GBP as
         a social channel, OR
-      - says GBP is connected for posting because the Google connection is
-        connected, OR
-      - answers simply "connected" or "not connected" without distinguishing
-        the two connections, OR
-      - treats the disagreement as an outage or something to retry, OR
-      - tells the user to disconnect and reconnect Google while also saying the
-        Google connection is VALID, OR
+      - says GBP can receive posts because a Google connection exists, OR
+      - treats the situation as an outage or something to retry, OR
       - starts the Google connect flow (requests a Google connect URL) without
         the user asking to connect, OR
       - falls back to searching the REST docs instead of using the skill.
