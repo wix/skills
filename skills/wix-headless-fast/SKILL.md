@@ -266,5 +266,3 @@ accounts) deploys them together — setup takes one vertical; deploy the rest wi
 starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
 this skill's shipped code — route it to `wix-headless` rather than improvising an unshipped
 vertical here.
-
-Adding a vertical: the structure contract is `templates/CONTRIBUTING.md` in the repository, beside the code it describes.
