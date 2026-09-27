@@ -177,7 +177,7 @@ curl -X POST 'https://www.wixapis.com/events/v3/ticket-definitions' \
 | To create | `pricingMethod` |
 | --- | --- |
 | Fixed price | `{ "fixedPrice": { "value": "25.00", "currency": "USD" } }` |
-| Free | `{ "fixedPrice": { "value": "0", "currency": "USD" } }` with `"feeType": "NO_FEE"` |
+| Free | `{ "fixedPrice": { "value": "0", "currency": "USD" } }` |
 | Donation, with a minimum | `{ "guestPrice": { "value": "5.00", "currency": "USD" } }` |
 
 The response is the definition under `ticketDefinition`:
