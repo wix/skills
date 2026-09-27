@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useMenus } from "../../hooks/restaurants/useMenus";
 import { useOrderCart } from "../../hooks/restaurants/useOrderCart";
+import { imgAttrs } from "../../wix/media";
 import type { MenuData, MenuItem } from "../../wix/restaurants/types";
 
 export interface MenuItemCardProps {
@@ -22,9 +23,8 @@ export function MenuItemCard({ item, menuId, sectionId }: MenuItemCardProps) {
     <div className="flex gap-4 rounded-lg border border-border p-4">
       {item.imageUrl && (
         <img
-          src={item.imageUrl}
+          {...imgAttrs(item.imageUrl, "6rem")}
           alt={item.name}
-          loading="lazy"
           className="h-24 w-24 flex-shrink-0 rounded-md bg-secondary object-cover"
         />
       )}

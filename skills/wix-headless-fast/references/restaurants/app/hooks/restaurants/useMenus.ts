@@ -1,8 +1,9 @@
-// Menu browsing. SSR-friendly: pass server-fetched menus as `initialMenus` (Astro
-// frontmatter) and no client fetch happens; a SPA passes nothing. Menu switching is
-// client-side (the whole tree is fetched once).
-import { useEffect, useMemo, useState } from "react";
-import { fetchMenus } from "../../wix/restaurants/menu";
+// React binding of the menu store (wix/restaurants/menu-store.ts) — menu browsing and switching
+// live there, framework-free; this hook subscribes to one instance per mounted surface. SSR-friendly:
+// pass server-fetched menus as `initialMenus` (Astro frontmatter) and no client fetch happens; a SPA
+// passes nothing. Astro islands and React SPAs use this; a static page, Vue, or Svelte uses the store.
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createMenuStore, type MenuStore } from "../../wix/restaurants/menu-store";
 import type { MenuData } from "../../wix/restaurants/types";
 
 export interface UseMenusOptions {
@@ -21,35 +22,13 @@ export interface UseMenus {
 }
 
 export function useMenus({ initialMenus }: UseMenusOptions = {}): UseMenus {
-  const [menus, setMenus] = useState<MenuData[] | null>(initialMenus ?? null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(initialMenus?.[0]?.id ?? null);
-  const [error, setError] = useState<string | null>(null);
-
+  const ref = useRef<MenuStore | null>(null);
+  if (!ref.current) ref.current = createMenuStore({ initialMenus });
+  const store = ref.current;
   useEffect(() => {
-    let alive = true;
-    if (!initialMenus) {
-      fetchMenus()
-        .then((m) => {
-          if (!alive) return;
-          setMenus(m);
-          setActiveMenuId((id) => id ?? m[0]?.id ?? null);
-        })
-        .catch((e) => {
-          if (!alive) return;
-          setMenus([]);
-          setError(e instanceof Error ? e.message : String(e));
-        });
-    }
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const activeMenu = useMemo(() => {
-    if (!menus) return null;
-    return menus.find((m) => m.id === activeMenuId) ?? menus[0] ?? null;
-  }, [menus, activeMenuId]);
-
-  return { menus, activeMenuId: activeMenu?.id ?? null, setActiveMenuId, activeMenu, error };
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
+  return { ...state, setActiveMenuId: store.setActiveMenuId };
 }

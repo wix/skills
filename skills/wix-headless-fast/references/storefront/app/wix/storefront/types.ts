@@ -37,6 +37,11 @@ export interface ProductSummary {
   hoverImageUrl: string;
   /** e.g. "2 colors · 3 sizes"; "" for a single-variant product. */
   optionsSummary: string;
+  /**
+   * Hex colors of a color option's visible choices, catalog order — render as small dots on the
+   * tile (a preview, not a picker: selection happens in QuickAdd or on the PDP). [] when none.
+   */
+  swatches: string[];
   /** True when the product can be added to the cart with no choices (single variant, in stock). */
   quickAddable: boolean;
 }
@@ -77,6 +82,8 @@ export interface ProductVariant {
   inStock: boolean;
   /** Out of stock but pre-orderable — still buyable (the add carries preOrderRequested). */
   preorderEnabled: boolean;
+  /** This variant's own image (from its choice's linked media), resolved to an https URL; null when it has none. */
+  imageUrl: string | null;
 }
 
 /** A product as the detail page needs it. */
@@ -115,6 +122,19 @@ export interface Facet {
   choices: FacetChoice[];
 }
 
+/** The catalog's (or category's) lowest and highest product price, as numbers in site currency — the slider's bounds. */
+export interface PriceRange {
+  min: number;
+  max: number;
+  currency: string;
+}
+
+/** What the filter panel needs beyond the product page: the facets and the price bounds of the scope. */
+export interface FacetData {
+  facets: Facet[];
+  priceRange: PriceRange | null;
+}
+
 export interface CartLine {
   /** The cart line id — what update/remove take (NOT the product id). */
   lineItemId: string;
@@ -130,6 +150,11 @@ export interface CartLine {
   descriptionLines: string[];
   /** Not IN_STOCK → the line can't be checked out as-is. */
   status: string;
+  /**
+   * The recurring plan's terms for a subscription line — "Monthly plan · every month · 12 payments";
+   * "" for a one-time purchase. A subscription line must read as one in the cart.
+   */
+  subscription: string;
 }
 
 export interface Cart {

@@ -2,23 +2,46 @@
 //   • no options            → Direct Add: one click, the cheapest variant, quantity 1
 //   • options / choice mods → Quick Add: a picker on the card (bottom sheet on small screens)
 //   • free-text modifier    → the product page (the gallery can't collect the text)
-// Mount inside a `relative` tile:  <QuickAdd product={p} />   Wire as-is; style via the tokens.
+// Mount as the LAST ROW of the tile's text block (under name and price), as a direct child of the
+// tile root that carries `relative flex flex-col` — the picker anchors to that root and takes its
+// width, and the control pins itself to the tile's bottom (mt-auto) so the action row lines up
+// across a grid row whether or not a neighbour carries swatches or a struck price. Never overlay
+// it on the image, never wrap it in a narrower positioned box.
+//   <QuickAdd product={p} />   Wire as-is; style via the tokens.
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/storefront/useCart";
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
 import type { ProductSummary } from "../../wix/storefront/types";
+import OptionPicker from "./OptionPicker";
 
 export default function QuickAdd({ product }: { product: ProductSummary }) {
+  return (
+    // A tile is often one big <a>. A click inside the buy control must never become a navigation
+    // to the product page — this boundary cancels the link's default for everything below it
+    // (the button, the picker, the sheet). Still: keep the control OUTSIDE the tile's link.
+    <div
+      className="contents"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <QuickAddControl product={product} />
+    </div>
+  );
+}
+
+function QuickAddControl({ product }: { product: ProductSummary }) {
   const { addToCart, busy } = useCart();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (product.availability === "OUT_OF_STOCK" && !product.preorder) {
-    return <span className="text-sm text-muted-foreground">Out of stock</span>;
+    return <span className="mt-auto block pt-3 text-sm text-muted-foreground">Out of stock</span>;
   }
   if (product.quickAddable) {
     return (
-      <div>
+      <div className="mt-auto pt-3">
         <button
           type="button"
           disabled={busy}
@@ -36,7 +59,7 @@ export default function QuickAdd({ product }: { product: ProductSummary }) {
   // Options to pick, or a single variant that isn't plainly in stock (pre-order, partial stock):
   // the picker resolves it through useProductDetail, exactly as the PDP would.
   return (
-    <>
+    <div className="mt-auto pt-3">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -45,11 +68,12 @@ export default function QuickAdd({ product }: { product: ProductSummary }) {
         {product.optionsSummary ? "Choose options" : product.preorder ? "Pre-order" : "Add to cart"}
       </button>
       {open && <QuickAddPicker product={product} onClose={() => setOpen(false)} />}
-    </>
+    </div>
   );
 }
 
-// The picker fetches the full product only when it opens — cards never carry PDP data.
+// The picker fetches the full product only when it opens — cards never carry PDP data. Its controls
+// are the shipped OptionPicker, the same component the PDP mounts.
 function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose: () => void }) {
   const d = useProductDetail({ slug: product.slug });
   const panelRef = useRef<HTMLElement>(null);
@@ -81,7 +105,9 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
         role="dialog"
         aria-modal="true"
         aria-label={`Choose options for ${product.name}`}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-background p-5 text-foreground shadow-2xl outline-none md:absolute md:inset-x-0 md:bottom-0 md:max-h-none md:rounded-lg md:p-4"
+        // md+: anchored to the tile (its nearest `relative` ancestor), the tile's full width — and never
+        // narrower than 18rem even when mounted inside a small wrapper.
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-background p-5 text-foreground shadow-2xl outline-none md:absolute md:inset-x-auto md:bottom-0 md:right-0 md:w-[max(100%,18rem)] md:max-h-none md:rounded-lg md:p-4"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -103,57 +129,7 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
           </a>
         )}
 
-        {d.product && !needsPdp && (
-          <div className="flex flex-col gap-3">
-            {d.optionGroups.map((g) => (
-              <fieldset key={g.id}>
-                <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.name}</legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {g.choices.map((c) =>
-                    g.isColor && c.colorCode ? (
-                      <button key={c.choiceId} type="button" aria-label={c.name} title={c.name} aria-pressed={c.selected}
-                        disabled={!c.inStock} onClick={() => d.selectOption(g.name, c.name)}
-                        className={`h-8 w-8 rounded-full border-2 disabled:opacity-30 ${c.selected ? "border-foreground" : "border-border"}`}
-                        style={{ backgroundColor: c.colorCode }} />
-                    ) : (
-                      <button key={c.choiceId} type="button" aria-pressed={c.selected} disabled={!c.inStock}
-                        onClick={() => d.selectOption(g.name, c.name)}
-                        className={`rounded-full border px-3 py-1 text-sm disabled:line-through disabled:opacity-40 ${c.selected ? "border-foreground bg-foreground text-background" : "border-border"}`}>
-                        {c.name}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </fieldset>
-            ))}
-            {d.product.modifiers.filter((m) => m.type === "choices").map((m) => (
-              <fieldset key={m.key}>
-                <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {m.name}{m.mandatory ? " *" : ""}
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {m.choices.map((c) => (
-                    <button key={c.key} type="button" aria-pressed={d.modifierValues[m.key] === c.key}
-                      onClick={() => d.setModifier(m.key, c.key)}
-                      className={`rounded-full border px-3 py-1 text-sm ${d.modifierValues[m.key] === c.key ? "border-foreground bg-foreground text-background" : "border-border"}`}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-            <button
-              type="button"
-              disabled={!d.canAdd || d.adding}
-              onClick={() => d.add().then(onClose).catch(() => {})}
-              className="rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {d.adding ? "Adding…" : d.isPreorder ? "Pre-order" : "Add to cart"}
-            </button>
-            {d.blockedReason && !d.canAdd && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
-            {d.error && <p className="text-xs text-red-600">{d.error}</p>}
-          </div>
-        )}
+        {d.product && !needsPdp && <OptionPicker detail={d} onAdded={onClose} />}
       </section>
     </>
   );

@@ -80,6 +80,9 @@ export default function CartDrawer() {
                     {d}
                   </p>
                 ))}
+                {line.subscription && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">Subscription: {line.subscription}</p>
+                )}
                 {line.status !== "IN_STOCK" && (
                   <p className="mt-1 text-xs text-red-600">No longer available at this quantity</p>
                 )}

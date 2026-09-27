@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as core from '@actions/core';
+import * as jsYaml from 'js-yaml';
 import { REVIEW_SEVERITIES, type ReviewFinding, type ReviewSeverity } from './review-comment';
 
 /**
@@ -65,7 +68,6 @@ const OUTPUT_SCHEMA = JSON.stringify({
 
 export type AgentInvocation = {
   cwd: string;
-  promptPath: string;
   task: string;
   apiKey: string;
   baseUrl: string;
@@ -99,12 +101,55 @@ export function buildAgentEnv(apiKey: string, baseUrl: string): NodeJS.ProcessEn
   };
 }
 
+export const REVIEW_AGENT = 'skill-review';
+
+const AGENT_DIR = '.claude/agents';
+
+type AgentFrontmatter = {
+  name?: string;
+  description?: string;
+  tools?: string;
+};
+
+export function agentPath(workspace: string): string {
+  return join(workspace, AGENT_DIR, `${REVIEW_AGENT}.md`);
+}
+
+function buildAgents(workspace: string): string {
+  const raw = readFileSync(agentPath(workspace), 'utf8');
+
+  const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(raw);
+  if (match === null) throw new Error(`${AGENT_DIR}/${REVIEW_AGENT}.md has no frontmatter`);
+
+  const front = (jsYaml.load(match[1]) ?? {}) as AgentFrontmatter;
+  if (front.name !== REVIEW_AGENT) {
+    throw new Error(`${AGENT_DIR}/${REVIEW_AGENT}.md declares name "${front.name}", which must match its filename`);
+  }
+  if (front.description === undefined || front.description.trim() === '') {
+    throw new Error(`${AGENT_DIR}/${REVIEW_AGENT}.md has no description`);
+  }
+
+  const prompt = match[2].trim();
+  if (prompt === '') throw new Error(`${AGENT_DIR}/${REVIEW_AGENT}.md has no prompt body`);
+
+  const tools = (front.tools ?? '').split(',').map(entry => entry.trim()).filter(entry => entry !== '');
+
+  return JSON.stringify({
+    [REVIEW_AGENT]: {
+      description: front.description.trim(),
+      prompt,
+      ...(tools.length > 0 ? { tools } : {}),
+    },
+  });
+}
+
 function buildArgs(invocation: AgentInvocation): string[] {
   return [
     '-p',
     ...SANDBOX_ARGS,
     '--tools', TOOLS,
-    '--append-system-prompt-file', invocation.promptPath,
+    '--agents', buildAgents(invocation.cwd),
+    '--agent', REVIEW_AGENT,
     '--allowedTools', ALLOWED_TOOLS,
     '--json-schema', OUTPUT_SCHEMA,
     '--output-format', 'json',

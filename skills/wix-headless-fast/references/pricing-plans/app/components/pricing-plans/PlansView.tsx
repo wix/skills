@@ -1,9 +1,9 @@
 // REFERENCE pricing surface: plan cards in a grid on the @theme tokens. Correct and
-// complete; per the skill's model you design and build your own on usePlans +
-// usePlanPurchase.
+// complete; per the skill's model you design and build your own on usePlans, with the shipped
+// SubscribeButton as each card's purchase control.
 import type { ComponentType, ReactNode } from "react";
 import { usePlans } from "../../hooks/pricing-plans/usePlans";
-import { usePlanPurchase } from "../../hooks/pricing-plans/usePlanPurchase";
+import SubscribeButton from "./SubscribeButton";
 import type { PlanSummary } from "../../wix/pricing-plans/types";
 
 export interface LinkLikeProps {
@@ -20,19 +20,11 @@ const PlainLink = ({ href, className, children }: LinkLikeProps) => (
 
 export interface PlanCardProps {
   plan: PlanSummary;
-  onSubscribe: (planId: string) => void;
-  purchasing: boolean;
   planHref?: (slug: string) => string;
   LinkComponent?: ComponentType<LinkLikeProps>;
 }
 
-export function PlanCard({
-  plan,
-  onSubscribe,
-  purchasing,
-  planHref = (slug) => `/plans/${slug}`,
-  LinkComponent = PlainLink,
-}: PlanCardProps) {
+export function PlanCard({ plan, planHref = (slug) => `/plans/${slug}`, LinkComponent = PlainLink }: PlanCardProps) {
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-background p-6">
       <p className="text-base font-semibold text-foreground">{plan.name}</p>
@@ -57,16 +49,7 @@ export function PlanCard({
         </ul>
       )}
       <div className="mt-auto grid gap-2 pt-6">
-        {plan.buyable && (
-          <button
-            type="button"
-            disabled={purchasing}
-            onClick={() => onSubscribe(plan.id)}
-            className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {purchasing ? "Redirecting…" : "Subscribe"}
-          </button>
-        )}
+        <SubscribeButton plan={plan} assignedText={null} />
         <LinkComponent
           href={planHref(plan.slug)}
           className="rounded-full border border-border px-6 py-2.5 text-center text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary"
@@ -94,11 +77,10 @@ export default function PlansView({
   CardComponent = PlanCard,
 }: PlansViewProps) {
   const { plans, error } = usePlans({ initialPlans });
-  const { purchase, purchasingId, error: purchaseError } = usePlanPurchase();
 
   return (
     <div>
-      {(error ?? purchaseError) && <p className="mb-4 text-sm text-red-600">{error ?? purchaseError}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {plans === null ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
           {Array.from({ length: 3 }, (_, i) => (
@@ -110,14 +92,7 @@ export default function PlansView({
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((p) => (
-            <CardComponent
-              key={p.id}
-              plan={p}
-              onSubscribe={(id) => void purchase(id).catch(() => {})}
-              purchasing={purchasingId === p.id}
-              planHref={planHref}
-              LinkComponent={LinkComponent}
-            />
+            <CardComponent key={p.id} plan={p} planHref={planHref} LinkComponent={LinkComponent} />
           ))}
         </div>
       )}

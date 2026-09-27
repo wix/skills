@@ -174,6 +174,12 @@ function buildOptions(options = []) {
 function validateProducts(products) {
   const seen = new Map();
   for (const product of products) {
+    // Wix caps a product name at 80 characters and the bulk create rejects the WHOLE batch over it
+    // ("name has size 175, expected 80 or less"), so the 81st character costs the entire seed.
+    if (typeof product.name === "string" && product.name.length > 80) {
+      throw new Error(`Product "${product.name.slice(0, 48)}…": the name is ${product.name.length} characters and Wix allows 80. ` +
+        `Shorten it and move the detail into description. No products were created by this call.`);
+    }
     if (product.inStock !== undefined && typeof product.inStock !== "boolean") {
       throw new Error(`Product "${product.name}": inStock must be a boolean. No products were created by this call.`);
     }

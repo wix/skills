@@ -51,6 +51,16 @@ image leaves that service text-only.
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup
 seems needed.
 
+## Supplied content
+
+The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For bookings, each service the
+user lists is one entry. Its name becomes `name` and its length in minutes becomes `duration`. Its
+price becomes `price`; a service marked free, or with no price, gets `"free": true`. A group activity
+with a capacity or fixed times becomes a `CLASS` with `capacity` and one `sessions` entry per listed
+time; everything else is an `APPOINTMENT`. A category or group becomes `category`. Their photo
+becomes `imageUrl`. A service with no duration is a question for the user. Staff members and
+opening hours are not seeded — say so; the owner sets them in the dashboard.
+
 ## Escape hatch — individual functions
 `setupBookings` composes exported steps — `installBookingsApp`, `queryStaffWithRetry`,
 `createCategories`, `createServices`, `scheduleClassSessions`, `importImage`,

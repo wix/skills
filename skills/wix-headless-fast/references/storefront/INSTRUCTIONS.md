@@ -8,25 +8,31 @@ be exact. You never write commerce code; you never skip designing the store.
 
 ## The file map (deployed into `src/`)
 
-**Don't read the shipped files** — this table and the contracts below are everything you
-need. Open a shipped file's source **only** on a real fallback: a runtime error, or a field
-this playbook doesn't cover. Files you edit: `SiteLayout.astro` and `styles/global.css`.
+**On Astro and React the shipped files are tested and work as they are** — this table and the
+contracts below are everything you need to use them, so don't spend the run reading their source;
+wire them and build your surfaces. Reading them is the right move when something is off (a runtime
+error, a field this playbook doesn't cover) or when the brief wants a behaviour they don't offer —
+then read the file that owns it and change or extend it. On `lib`, `static`, and a port the
+components don't deploy at all, and each wiring section below opens with the files to read before
+writing their equivalents. Files you edit: `SiteLayout.astro` and `styles/global.css`.
 Files you **create** (skeletons below): the shop, category, and PDP pages with their island
 components, plus your home page.
 
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgSrc()` / `imgSrcSet()` / `formatMoney()` — already used by everything shipped; `imgSrcSet` + `sizes` for responsive tiles |
+| `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(p.imageUrl, "25vw")} alt={p.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath, already used by everything shipped |
 | `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
-| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` |
+| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
 | `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
+| `wix/storefront/shop-store.ts` · `product-detail-store.ts` | the listing and product-detail state machines, framework-free (`createShopStore()`, `createProductDetailStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/storefront/useCart.ts` | cart state + actions — contract below |
-| `hooks/storefront/useShop.ts` | listing: category scope, sort, filters, option facets, result count, paging — contract below |
-| `hooks/storefront/useProductDetail.ts` | option selection → variant resolution → add-to-cart — contract below |
+| `hooks/storefront/useShop.ts` | React binding of `shop-store.ts`: category scope, sort, filters, option facets, result count, paging — contract below |
+| `hooks/storefront/useProductDetail.ts` | React binding of `product-detail-store.ts`: option selection → variant resolution → add-to-cart — contract below |
 | `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
-| `components/storefront/FilterPanel.tsx` | the gallery's filters — result count, sort, price bounds, in-stock, the catalog's option facets (swatches/pills), active chips, a bottom sheet under `md` — **wire as-is** in your `ShopView` (`<FilterPanel shop={shop} />`) |
-| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, an anchored picker (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** inside every tile (`<QuickAdd product={p} />`) |
+| `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per option facet with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
+| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
+| `components/storefront/OptionPicker.tsx` | the purchase controls for one product — option groups (swatches/pills, sold-out choices disabled), choice and text modifiers, an optional quantity stepper, the buy button gated by `useProductDetail` with its plain reason, "Pre-order" when pre-orderable — **wire as-is** in your PDP (`<OptionPicker detail={d} showQuantity />`); QuickAdd's picker is this same component |
 | `components/storefront/ShopView.tsx` · `ProductDetailView.tsx` | **don't ship — YOU create them** (skeletons below): the client islands your shop, category, and PDP pages mount |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — same token family as the official Wix templates). Everything, shipped and yours, styles from these tokens |
 
@@ -72,10 +78,15 @@ assortment size, media, options, sales, ribbons) and design for this store, not 
 of its category. Then, by default:
 
 - **Home:** what the store sells and one shopping action in the first screen; real products under
-  truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page.
+  truthful headings ("Best Sellers" needs data behind it); not a repeat of the shop page. A
+  category tile or link on the home page goes to that category's page (`/category/<slug>`) —
+  never to an anchor on the shop page that every tile shares — and its image is a product from
+  THAT category (fetched with the category filter) or the category's own image, never a
+  positional guess into the all-products list.
 - **Shop:** a real product card — image, name, price, link — in the first screen; the shipped
-  `FilterPanel` (sort, price, stock, and the option facets this catalog has) — a store with any
-  filterable catalog ships it, not "when it fits"; the shipped `QuickAdd` in every tile; each
+  `FilterPanel` around the grid (toolbar, then a filter sidebar beside the results on desktop and
+  a sheet on phones) — a store with any filterable catalog ships it, not "when it fits"; the
+  shipped `QuickAdd` as the last row of every tile; each
   category reachable by a real link (`/category/<slug>`) — from the nav, the home page, or the
   shop's category row; loading, empty, no-results, and error states that look different.
 - **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
@@ -85,7 +96,12 @@ of its category. Then, by default:
 - **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
 - **Overlays you build** (quick-add, mobile nav, filters): mount at the document root (a fixed
   panel inside the `backdrop-blur` header gets clipped), lock background scroll, close on Escape,
-  return focus on close — as the shipped `CartDrawer` does.
+  return focus on close — as the shipped `CartDrawer` does. An anchored picker is positioned
+  inside its tile, not `fixed` with computed offsets. If you add dismiss-on-outside-click, decide
+  inside/outside before anything re-renders (a capture-phase listener), or a click on a swatch
+  that re-renders the panel reads as "outside" and closes it.
+- **A page whose slug resolves to nothing** (category, product) shows only the not-found state —
+  no heading, toolbar, or empty grid rendered around it.
 - **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
   promises; no Wix IDs or technical words in visible text.
 
@@ -99,6 +115,7 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 // { id, slug, name, price, maxPrice, compareAtPrice|null, ribbon|null, ribbons: string[],
 //   minPriceVariantId|null, availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
 //   preorder: boolean, imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */,
+//   swatches: string[] /* hex colors of a color option's choices — dots on the tile, not a picker */,
 //   quickAddable: boolean }
 // price !== maxPrice → the product is a RANGE: render "price – maxPrice" (compareAtPrice is null
 // then — never a struck price beside a range). Otherwise price is what the buyer pays (a discount
@@ -115,11 +132,14 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 //   facets: Facet[], selectedChoiceIds, toggleChoice(choiceId), clearFilters(), hasActiveFilters,
 //   loading, error, retry(), hasMore, loadMore(), loadingMore }
 // Category = { id, slug, name, description }. Facet = { name, isColor, choices: [{ id, name, colorCode|null }] }.
-// The shipped <FilterPanel shop={useShop(...)} /> renders total/sort/filters/facets/chips — hand it
-// the whole hook result. Categories are LINKS (`/category/${c.slug}`) — a category page is a URL
+// The shipped <FilterPanel shop={shop}>{…your grid…}</FilterPanel> renders total/sort/chips, the
+// filter sidebar (md+) or sheet, and lays your results out beside it — hand it the whole hook result
+// and put your grid + states inside it; don't build a second filter UI or a second sort control. Categories are LINKS (`/category/${c.slug}`) — a category page is a URL
 // a shopper can share and a search engine can index; setActiveCategoryId is for a live scope
 // switch on /shop, not a substitute for the links.
 // Sort/filter/facets/search/paging run on Wix across the WHOLE catalog (a change restarts the list).
+// The selection is mirrored into the query string (?sort=&min=&max=&stock=1&q=&choice=…) and read
+// back on load — a filtered gallery is a shareable link; nothing for you to wire.
 // SORTS (exported next to useShop) is Record<sortKey, { label: string }> — the value is an
 // OBJECT, so render entry.label, never the entry itself:
 //   Object.entries(SORTS).map(([key, { label }]) => <option value={key}>{label}</option>)
@@ -142,6 +162,8 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 
 // useCart() →
 // { cart: { lines, itemCount, subtotal, discount /* "" when none */, currency }|null, busy, error, open,
+//   // a line: { lineItemId, productName, quantity, unitPrice, linePrice, imageUrl, descriptionLines,
+//   //           status, subscription /* "Monthly plan · every month · 12 payments" or "" */ }
 //   addToCart(productId, variantId?, qty?, extras?), updateQuantity(lineItemId, qty),
 //   removeLine(lineItemId), checkout(), openCart(), closeCart(), refresh() }
 // addToCart rejects on refusal (out of stock, digital product with no file) AND records
@@ -150,6 +172,10 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 ```
 
 ### The pages and islands you create — skeletons
+
+The class names in these skeletons are the Astro/React spelling of layout rules that hold on
+every stack, and each rule is also named in words beside its classes. On a stack where the shipped
+components don't deploy (`lib`, `static`, a port), keep the rule and write it in your own CSS.
 
 Nothing renders until you write these — the store IS your work. Each page is a thin SSR shell
 (fetch → DTO props → island); each island is a thin view over a hook. The pages' frontmatter
@@ -299,6 +325,7 @@ if (!product) {
 import { useShop } from "../../hooks/storefront/useShop";
 import FilterPanel from "./FilterPanel";
 import QuickAdd from "./QuickAdd";
+import { imgAttrs } from "../../wix/media";
 import type { Category, ProductSummary } from "../../wix/storefront/types";
 
 export default function ShopView(props: {
@@ -312,22 +339,45 @@ export default function ShopView(props: {
   //   • a category row when categories.length > 1: LINKS to `/category/${c.slug}` (plus "All" →
   //     /shop), the active one marked by activeCategoryId — real URLs, not only pills that
   //     swap state (setActiveCategoryId is fine for an additional live switch on /shop)
-  //   • <FilterPanel shop={shop} /> above the grid — shipped: result count, sort, price, stock,
-  //     the option facets, active chips; inline on wide screens, a sheet under md. Always
-  //     mounted; it renders only the facets this catalog actually has.
+  //   • <FilterPanel shop={shop}> … </FilterPanel> WRAPS your results — shipped: the toolbar
+  //     (result count, sort), active chips, a filter sidebar on md+ (price slider, availability,
+  //     the option facets, collapsible) beside your grid, a sheet under md. Your loading / empty /
+  //     error states and your grid go inside it as children. Always mounted; it shows only the
+  //     facets this catalog actually has. No sort control or filter UI of your own.
   //   • error → a short inline message (retry() re-runs the query)
   //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
   //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
-  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image (hoverImageUrl on
-  //     hover; imgSrcSet + sizes for responsive delivery), name, price — a range when
+  //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image via
+  //     <img {...imgAttrs(p.imageUrl, "(min-width: 768px) 25vw, 50vw")} alt={p.name} /> — src,
+  //     srcSet, sizes and lazy loading in one spread, so a tile never ships srcSet without src;
+  //     an empty imageUrl gives {} — render your placeholder then; hoverImageUrl
+  //     on hover — name, price — a range when
   //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
-  //     optionsSummary; tile links to `/products/${p.slug}`; and in every tile
-  //     <QuickAdd product={p} /> — the shipped buy control (direct add / anchored option
-  //     picker / product page, decided from the product). Give the tile `relative` so the
-  //     picker anchors to it on wide screens.
+  //     swatches as small color dots when present (else optionsSummary as text); tile links to
+  //     `/products/${p.slug}`; and <QuickAdd product={p} /> as the LAST ROW of the tile's text
+  //     block, under name and price, full width — the shipped buy control (direct add / option
+  //     picker / product page, decided from the product). It is a direct child of the tile root,
+  //     which carries `relative`: the picker anchors to that root and takes the tile's width.
+  //     THE TILE ROOT IS A <div className="relative flex flex-col">, NOT THE LINK: the <a> wraps
+  //     the image and the name/price, and <QuickAdd> sits beside it as the flex column's last child
+  //     (it pins itself to the bottom with mt-auto). A button inside an <a> is invalid HTML and its
+  //     click navigates to the product page instead of adding.
+  //   • ROW RHYTHM: the grid stretches every tile in a row to the tallest; with the tile a flex
+  //     column and the control pinned to the bottom, the buy buttons share one baseline across the
+  //     row even when one tile has swatches, a struck price, or a two-line name and its neighbours
+  //     don't. Put the swatches between price and control; never let them push only that tile's
+  //     button down. Never overlay the control on the image or float it
+  //     between image and text, and never wrap it in a smaller positioned box (the picker would
+  //     inherit that box's width).
+  //   • the name WRAPS (`min-w-0`, `break-words`) — no `truncate` / `line-clamp-1`: a shopper reads
+  //     "Red Velvet Cupcake 4-Pack", not "Red Velvet Cupc…"; price on its own line under it.
   //   • badges come ONLY from p.ribbons. Do NOT render a "Sale" badge because compareAtPrice
   //     is set — the struck price already says it, and a product the merchant ribboned "Sale"
   //     would show the badge twice.
+  //   • name and price on SEPARATE lines — never one flex row where a long name and a price
+  //     range fight for width and the price gets clipped at 390px. Keep the page intro short
+  //     enough that a full tile (image, name, price) is in the first screen, also on a short
+  //     desktop window.
   //   • hasMore → your "load more" control calling loadMore() (disabled while loadingMore)
 }
 ```
@@ -336,6 +386,7 @@ export default function ShopView(props: {
 // src/components/storefront/ProductDetailView.tsx — YOU build the whole PDP surface;
 // your [slug].astro mounts it with the server-fetched product.
 import { useProductDetail } from "../../hooks/storefront/useProductDetail";
+import OptionPicker from "./OptionPicker";
 import type { ProductDetail } from "../../wix/storefront/types";
 
 export default function ProductDetailView(props: {
@@ -353,16 +404,15 @@ export default function ProductDetailView(props: {
   //       to full-width images stacked down the column (products with per-color
   //       linked media carry several gallery urls, so that stacks big duplicates).
   //       A single-image gallery is just the one primary — no empty strip.
+  //       When d.variant resolves and carries imageUrl, that image becomes the primary (it is
+  //       one of the gallery urls) — a shopper who picks a color sees that color.
   //     • name, EVERY ribbon (d.product.ribbons), live d.price (the range until every option
   //       is picked) with d.compareAtPrice as a labelled "was" when present — never invent one;
   //       descriptionHtml rendered as HTML, then d.product.infoSections as sections/accordions
-  //     • option controls from d.optionGroups → d.selectOption(optionName, choiceName)
-  //       (isColor → real swatches via colorCode; disable out-of-stock choices);
-  //       modifiers from d.product.modifiers → d.setModifier(key, value), "*" = mandatory
-  //     • quantity (d.quantity / d.setQuantity), then the buy button gated by d.canAdd
-  //       ONLY — never resolve variants yourself — calling d.add(); label it "Pre-order" when
-  //       d.isPreorder; while disabled, render d.blockedReason beside it as neutral guidance
-  //       (not error styling); d.adding disables, d.error renders inline
+  //     • <OptionPicker detail={d} showQuantity /> right under the price — the shipped option
+  //       groups (swatches for a color option, sold-out choices disabled), modifiers, quantity,
+  //       and the buy button gated by the hook with its plain reason, "Pre-order" when it applies,
+  //       the add error inline. Never resolve variants or gate the button yourself.
   //     • in the first screen at mobile AND desktop: the image, name, price, the first choice,
   //       and the button with its reason — a shopper decides without scrolling. On a phone that
   //       means the primary image is a bounded band, not a full-height hero: e.g. the gallery
@@ -372,6 +422,31 @@ export default function ProductDetailView(props: {
 }
 ```
 
+### The reference files for stacks where the components don't deploy
+
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives. The state
+machines behind the hooks do arrive — `wix/storefront/shop-store.ts`, `product-detail-store.ts`,
+`cart-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
+`getState()`, call its actions. Their `*State` interfaces are the render contract; read those.
+What you write is the rendering — grid, product page, picker, filter panel, drawer — and for that
+read these first; they are tested code for exactly that behaviour, and rewriting them from the
+prose above is where the bugs come from:
+
+1. `components/storefront/QuickAdd.tsx` — the three purchase paths decided from the summary DTO;
+   the panel is positioned inside the tile (the tile is `relative`), a bottom sheet on small
+   screens, never `fixed` with computed offsets; it closes on Escape, the close button, a
+   successful add, or the scrim — there is NO outside-click handler (one that runs after a
+   re-render sees the clicked swatch detached and closes on every pick).
+2. `components/storefront/OptionPicker.tsx` — the purchase controls as working code: swatches vs
+   pills, sold-out choices disabled, quantity, the gated button with its reason and the
+   "Pre-order" label; the PDP and the tile picker share it.
+3. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
+   scrim, scroll lock, Escape, focus in and back.
+4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
+   the price pair commits only when valid.
+
+All under `references/storefront/app/`.
+
 ### Wiring — Astro (default)
 
 1. Set the `@theme` tokens (one edit); brand `SiteLayout.astro` (one pass).
@@ -379,6 +454,88 @@ export default function ProductDetailView(props: {
    frontmatter machinery exact, presentation yours. Primary-content islands mount `client:load` with the
    SSR props; browser-state widgets (cart) are `client:only="react"`.
 3. Write `pages/index.astro` (home) on `SiteLayout`.
+
+### Wiring — another JS framework (`--stack lib`: Vue, Svelte, Solid, plain Vite)
+
+Read the reference files listed above before writing any surface.
+
+`deploy.mjs storefront --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
+(the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
+`wix/storefront/` — `catalog.ts`, `cart.ts`, `types.ts`, the `*-core.ts` rules, and the three
+stores `shop-store.ts`, `product-detail-store.ts`, `cart-store.ts`. None of it is React. The
+hooks and components don't ship on this stack; the stores replace the hooks, and you write the
+components in your framework to the contracts on this page:
+
+- bind the stores with your framework's external-store primitive (Vue: `shallowRef` updated in
+  `subscribe`; Svelte: `readable(store.getState(), (set) => store.subscribe(() => set(store.getState())))`;
+  Solid: a signal set in `subscribe`). `createShopStore(options)` per listing (`start()` when
+  mounted, `stop()` when unmounted), `createProductDetailStore({ initial | slug })` per product
+  surface, the cart store as-is (module-level). State in, actions out — exactly the hooks'
+  contracts above;
+- your filter panel, quick add, and cart drawer to the contracts in "What a complete storefront
+  shows" — the shipped `FilterPanel.tsx`, `QuickAdd.tsx`, `CartDrawer.tsx` are readable as
+  behaviour specs (the overlay contract, the three purchase paths, the sidebar/sheet split).
+
+Routes `/shop`, `/category/:slug` (via `fetchCategoryBySlug`, null → your 404), `/products/:slug`;
+dev server on 4321; a static build goes through `npx @wix/cli@latest release` with
+`site.outputDirectory` pointing at the build folder, an SSR build is hosted by you. Item-page tags
+from the entity's `seoData`.
+
+### Wiring — static site (`--stack static`, no bundler)
+
+Read the reference files listed above before writing any surface.
+
+`deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser
+ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
+pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
+root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+above, so the contracts on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
+`fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` from `./js/wix/catalog.js`;
+`fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `checkoutUrl` from `./js/wix/cart.js`.
+The state machines ship too: `createShopStore` from `./js/wix/shop-store.js` (the listing —
+selection, facets, URL sync, cursor paging; `start()` once the page is up), `createProductDetailStore`
+from `./js/wix/product-detail-store.js` (the PDP and every quick-add picker — selections start
+empty, `resolveVariant`, `canAdd`/`blockedReason`, `add()`), and `./js/wix/cart-store.js` (the
+cart, `subscribeCart`/`getCartState`, `addLine`, `updateLineQuantity`, `removeCartLine`,
+`goToCheckout`, `setCartOpen`). No components ship — you write the rendering in plain JS: one
+render function per surface that reads `getState()`, called from `subscribe`, with the
+surface's controls calling the store's actions. The drawer opens after every add on its own;
+overlays follow the CartDrawer contract (root-level, scroll lock, Escape, focus back). Pages are
+`shop.html`, `category.html?slug=…`,
+`product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
+once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
+its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+
+### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
+
+Read the reference files listed above before writing any surface.
+
+Run `deploy.mjs storefront --stack static` in the project folder anyway: `js/wix/` is both the
+browser-side code and the readable spec. Then split by where the call runs. **Reads on the
+server:** port `js/wix/catalog.ts` and `catalog-core.ts` to your language — the same six functions
+returning the same DTO shapes as dicts, one anonymous visitor token per process for these public
+reads (mint and refresh per `client.ts`) — and render shop, category, and PDP in your templates to
+the contracts above, so product names and prices are in the HTML; item-page tags from the entity's
+`seoData`. **Buying in the browser:** the cart drawer on `./js/wix/cart-store.js`, the PDP's
+option picker and the tile's quick add on `./js/wix/product-detail-store.js` (pass the product's
+slug, or the rendered `ProductDetail` as `initial` in a JSON script tag), exactly as the static
+wiring above — the browser owns the shopper's visitor token, so the server never handles
+per-shopper tokens. Routes stay `/shop`, `/category/<slug>`, `/products/<slug>`. Add your public https origin
+to the OAuth app's allowed domains before checkout can return.
+
+**Pre-rendered (Frozen-Flask, Pelican, any static-site generator) → Wix-hosted.** Same port for
+the reads, run at build time with one anonymous token; the generator must emit every product and
+category page (a URL generator over `fetchCategories()` plus a full `searchCatalog` walk by
+cursor — never only the first page). Run `deploy.mjs storefront --stack static --out <build dir>`
+so `js/wix/` is inside the output the pages import from, point `site.outputDirectory` at that
+folder, `wix release`. Pages sit at different depths (`/`, `/category/…`, `/products/…`): give
+the templates one base path to `js/wix/` (a template variable, or root-relative `/js/wix/…`),
+never a relative `./js/wix/` — it breaks one level down. The frozen grid is the first paint; the
+shop's sort, filters, facets, search, and load-more still run client-side on it through
+`createShopStore()` from `./js/wix/shop-store.js`, exactly as on a static site, so the gallery
+contract above applies. Close
+with the live URL, the rebuild + release command, and one line for the owner: dashboard edits to
+the catalog reach the site when that command runs; cart and checkout are live regardless.
 
 ### Wiring — React SPA (Vite etc.)
 
@@ -391,22 +548,27 @@ client-side when no `initial` is passed).
 Mount the shipped `CartButton` in the header and `CartDrawer` once. Deploy wrote the public
 client id into `wix/config.ts`; nothing else to configure.
 
+Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded directly — hash routes, or one HTML file per route, decided before the first route is written; any URL handed to Wix as a return target must be one the host serves (SKILL.md step 1).
+
 ## Hard rules
 
 - **Data and commerce logic only through the shipped exports** — never rewrite their
   internals or re-derive a request shape. Extend by calling the exports or adding a new
   function in `wix/storefront/` for what they don't cover (API contracts: the `wix-docs` skill).
 - **Selection→cart goes through `useProductDetail`** — never add a product with options by
-  picking `variants[0]`, and never gate `canAdd` yourself. In the gallery that is the shipped
-  `QuickAdd` — a tile never adds a product with options itself, and never hides the buy path
+  picking `variants[0]`, and never gate `canAdd` yourself. On the PDP that is the shipped
+  `OptionPicker`; in the gallery the shipped `QuickAdd` — a tile never adds a product with options itself, and never hides the buy path
   behind "go to the product page" for a product that has no options.
 - **Filters are the shipped `FilterPanel`** — mounted in the gallery whenever the store has a
   catalog to filter; not rebuilt with fewer controls, not dropped because the brief didn't ask.
 - **Categories are pages** — `/category/[slug]` with its SEO block, linked from the chrome; a
   category that exists only as a state toggle on `/shop` has no URL to share or index.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.
-- Theme via the `@theme` tokens; your markup uses Tailwind utilities on the same tokens. No
-  parallel theme files, no hardcoded palette values in components.
+- Where the shipped components deploy (Astro, React): theme via the `@theme` tokens, and your
+  markup uses Tailwind utilities on the same tokens — one design system across shipped and written
+  code. No parallel theme files, no hardcoded palette values in components. Where they don't
+  (`lib`, `static`, a port): style with whatever your stack does well, on one token set of your
+  own; the rule that survives is the token set, not Tailwind.
 - Checkout only through the shipped cart (`checkout()`) — never a hand-built checkout URL.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
 - **Prices and ribbons come from the DTOs as-is** — no computed percent-off, no "Sale" badge
@@ -428,37 +590,23 @@ client id into `wix/config.ts`; nothing else to configure.
 
 ## Point the user to their dashboard
 
-Give the owner the dashboard, products, and categories links — **the deploy step's JSON
-output already printed them ready-made** (`dashboardUrl`, `productsUrl`, `categoriesUrl`);
-copy, don't re-derive. Real payments additionally need a premium plan + a connected payment
-method (dashboard) — mention it, don't treat it as a code failure.
+Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON also prints
+`dashboardUrl`, `productsUrl`, `categoriesUrl`); an entity id fills the placeholder from the seed result.
+
+| page | `https://manage.wix.com/dashboard/{siteId}/` + |
+|---|---|
+| Products | `wix-stores/products` |
+| Edit a product | `wix-stores/products/product/{productId}` |
+| Categories | `wix-stores/categories/list` |
+| Inventory | `wix-stores/inventory` |
+| Orders | `ecom-platform/orders-list` |
+| Store settings | `wix-stores/settings` |
+
+Real payments additionally need a premium plan + a connected payment method (Settings → Accept
+payments) — mention it, don't treat it as a code failure.
 
 ## Seeding
 
 Per `seed/SEED.md` — a plain-data `plan.json` into `seed-store.mjs`, run from the project
 root. Independent of the frontend work; seed a catalog that exercises the UI (≥1 product with
 a color option, ≥1 on sale, an image per product) unless the brief says otherwise.
-
-## Verify (before declaring done)
-
-- [ ] `/shop` renders live products SSR (view-source shows product names) through **your**
-      grid/card; the `FilterPanel` shows the result count and this catalog's facets (a Color
-      option → swatches); category links lead to `/category/<slug>`, which renders scoped and
-      carries the SEO tags in view-source; an unknown slug is a 404; empty catalog shows your
-      honest empty state.
-- [ ] Tiles: a product with no options adds to the cart in one click; a product with options
-      opens the picker anchored to its tile (a bottom sheet at 390px wide) and adds the chosen
-      variant; the drawer opens after either.
-- [ ] Your PDP at 390px wide: image, name, price, the first option, and the buy button are all
-      visible before scrolling. Color options render as swatches, the button shows
-      `blockedReason` ("Choose Size") until every option is picked, the price is the range until then and the variant's
-      price after, a sale shows the labelled "was", a sold-out combination reads "Out of stock",
-      a pre-orderable one reads "Pre-order".
-- [ ] Cards: every ribbon renders; a multi-price product shows a range with no struck price.
-- [ ] Cart: add / quantity ± / remove work; badge count is live; subtotal shows; cart survives
-      a reload (same visitor token).
-- [ ] Checkout button redirects to Wix-hosted checkout.
-- [ ] PDP view-source carries the SEO tags (Astro).
-- [ ] Shop/PDP/home are YOUR designs on the tokens; the data-layer/hook/cart files are
-      unedited.
-- [ ] Dashboard links handed to the owner.

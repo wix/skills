@@ -41,6 +41,9 @@ const result = await seed.setupStore(ctx, {
 //   currency: { requested, actual, status, warnings } }
 ```
 
+A product `name` is at most **80 characters** — Wix rejects the whole batch over that, so keep
+names short and put the detail in `description`.
+
 The optional `currency` sets the site's payment currency before product creation. Pass it only when
 the user explicitly asked for a currency, or when it's obvious for the store — otherwise omit it. Do
 not infer a currency from the builder's country/region or the brief's language; when in doubt, leave
