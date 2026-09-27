@@ -1,0 +1,57 @@
+name: restaurants/create-item-label
+description: >-
+  Verifies the restaurants recipe gives the agent the item-label calls, so creating a label is a lookup
+  by name and one create — rather than sending a label name as a label ID and getting `400 not a valid
+  GUID`, or browsing the docs menu to find the label endpoints.
+triggerPrompt: Create a Chef's Pick label that I can use on my restaurant menu items.
+tags: [restaurants]
+maxTokens: 600000
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/wix-restaurants-setup
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Create a Chef's Pick label that I can use on my restaurant menu
+      items."
+      Intent: create a Wix Restaurants item label named "Chef's Pick". The user did not ask to put it on
+      any item.
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if the agent made a successful (2xx) label-create call for a label named "Chef's Pick"
+      and confirmed it, or a successful (2xx) label lookup showed a label with exactly that name already
+      exists and the agent reported it without creating a duplicate.
+
+      Fail if the agent created a menu, section or item instead of a label; OR the name is wrong; OR it
+      created a duplicate of an existing label; OR it assigned the label to menu items; OR it only
+      described how without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to the label existing. Examine the tool-call
+      trace, including request bodies and any error bodies. 10 = no wasted calls and no errors.
+
+      Reading the restaurants recipe is expected and is never a wasted call. One label lookup before the
+      create is expected and is not redundancy.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+      - any non-2xx response, in particular `400` for a label ID that is not a GUID — a label name or
+        slug such as `chef-recommendation` sent where a label `id` is required;
+      - `BrowseWixRESTDocsMenu` or documentation searches spent finding the label endpoints the recipe
+        gives;
+      - updating menu items at all, since the user asked only for the label;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent on the label shape.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is an
+      MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
