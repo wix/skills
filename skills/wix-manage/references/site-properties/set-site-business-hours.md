@@ -1,6 +1,6 @@
 ---
 name: "Set Site Business Hours"
-description: Reads, updates, and verifies a site's general opening hours in the Site Properties business schedule, preserving special-hour exceptions. For Wix Bookings default availability, use Configure Default Business Hours instead.
+description: "Reads, updates, and verifies a site's general opening hours in the Site Properties business schedule, preserving special-hour exceptions. Use for website or business opening hours; for Wix Bookings default availability, use Configure Default Business Hours."
 ---
 # Set Site Business Hours
 
