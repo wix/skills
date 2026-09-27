@@ -4,8 +4,9 @@ name: EvalForge Re-run Commands
 # report an unverified result for reasons that have nothing to do with the PR; without this the
 # only remedy is an empty commit.
 #
-# Two commands so one cannot spend on the other: `/re-eval` re-runs the scenario gates, `/review`
-# the skill content review. Same file, because the guards below are identical for both.
+# Three commands so none can spend on another's behalf: `/re-eval` re-runs the scenario gates,
+# `/review` the skill content review, `/sweep` the PR sweep. Same file, because the guards below
+# are identical for all of them.
 #
 # It re-runs the PR's own `pull_request` run rather than evaluating here, because an issue_comment
 # run is associated with the default branch's commit while required checks are evaluated on the PR
@@ -40,7 +41,8 @@ jobs:
       ${{ github.event.issue.pull_request
           && github.event.comment.user.type != 'Bot'
           && (contains(github.event.comment.body, '/re-eval')
-              || contains(github.event.comment.body, '/review')) }}
+              || contains(github.event.comment.body, '/review')
+              || contains(github.event.comment.body, '/sweep')) }}
     permissions:
       # To POST actions/runs/{run_id}/rerun.
       actions: write
@@ -72,6 +74,13 @@ jobs:
                 noRun:
                   'no skill review run exists for this commit — push a commit to produce one',
                 ackMarker: '<!-- evalforge-skill-review-ack -->',
+              }],
+              ['/sweep', {
+                label: 'the PR sweep',
+                gates: ['evalforge-pr-sweep.yml'],
+                noRun:
+                  'no PR sweep run exists for this commit — push a commit to produce one',
+                ackMarker: '<!-- evalforge-pr-sweep-ack -->',
               }],
             ]);
 
