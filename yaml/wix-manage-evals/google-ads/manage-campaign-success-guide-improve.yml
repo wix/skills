@@ -16,65 +16,37 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - routes the request to the campaign success guide for an existing Google
-        Ads campaign rather than to pre-campaign asset, keyword, budget, or
-        targeting suggestions;
+      - understands "improve my Google Ads campaign" as a request for the
+        existing campaign's Campaign Success Guide rather than for analytics or
+        pre-campaign asset, keyword, budget, or targeting suggestions;
       - uses site b342a30b-616e-40ce-ad26-52a83397e08e, lists that site's
         campaigns at most once with GET
         https://www.wixapis.com/_serverless/pa-google/v1/campaigns to identify
-        the campaign, retrieves or creates its campaign success guide, and
-        presents the returned suggestions as an actionable guide on this first
-        response, without requiring the user to ask for links or a richer view;
-      - presents at most the first three OPEN suggestions in relative API order
-        in a single column, hides later-batch and COMPLETED suggestions, and
-        shows no tracking-status labels. If more OPEN suggestions remain, it
-        invites the user to see the next priority batch;
-      - links the analyzed landing page when available, makes one grouped offer
-        when visible OPEN items have supported agent work, and includes each
-        verified destination appropriate for the visible batch exactly once as
-        a real absolute Markdown link. For a visible Editor task, if no suitable
-        lookup is available or at most one read-only site-metadata lookup cannot
-        provide an exact URL, it instead says "Go to the Editor" once as plain
-        guidance and stops probing. It does not turn manual recommendation
-        labels into links or suggested follow-up messages; any conversational
-        follow-up is limited to one explicit request for a genuinely supported
-        task;
-      - if Search Themes is visible, offers to propose and apply an approved set
-        rather than showing the Keywords Manager link unless the user explicitly
-        asks to add the themes manually;
+        the campaign, and retrieves or creates its Campaign Success Guide once
+        with platformType GOOGLE; and
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
       Fail if it gives only generic optimization advice, routes only to analytics
       or pre-campaign suggestions, does not retrieve the guide, uses a different
       site, tells the user to wait for metrics, probes several sites, receives a
-      non-2xx response, guesses between multiple campaigns, returns a bare list,
-      uses a table/grid/multi-column layout, semantically reorders suggestions,
-      creates suggestion-level pseudo-actions, shows more than three OPEN
-      suggestions, exposes completed items, omits the next-batch invitation
-      when more OPEN suggestions remain, repeats or guesses navigation,
-      continues probing after no exact Editor URL is available, omits both the
-      exact Editor link and its plain fallback, includes a destination required
-      only by completed or hidden items, shows a manual Search Themes link
-      without the user's preference, or claims recommendations are
-      automatically implemented.
+      non-2xx response, guesses between multiple campaigns, or claims
+      recommendations are automatically implemented.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct path to the campaign success guide
-      documentation followed by successful target resolution and guide
-      retrieval on site b342a30b-616e-40ce-ad26-52a83397e08e: select that site,
-      list its campaigns at most once if needed, retrieve or create the guide
-      once, and present its actual suggestions.
+      trace. Score 9-10 for a direct path to the Campaign Success Guide on site
+      b342a30b-616e-40ce-ad26-52a83397e08e: select that site, list its campaigns
+      at most once if needed, retrieve or create the guide once, and report the
+      result. Score 7-8 if extra documentation discovery is needed but the agent
+      stays on this route and completes it without an erroneous API call.
 
-      Penalize querying analytics first, routing through pre-campaign
-      suggestions, using a different site, probing multiple sites, guessing
-      between campaigns, any non-2xx call even if recovered, repeated calls,
-      repeated navigation lookup or continued probing after no exact Editor URL
-      is available, omission of both the link and plain Editor fallback,
-      premature action-recipe calls, unrelated or repeated documentation, and
-      internal service or tool names in the user-facing answer. Name the likely
-      recipe, MCP, or docs gap for each detour. Return only
+      Score below 7 if it detours into analytics or pre-campaign suggestions,
+      uses or probes another site, guesses between campaigns, encounters a
+      non-2xx call, repeats campaign or guide calls, or exposes internal service
+      or tool names in the user-facing answer. Do not judge the guide's visual
+      presentation in this routing scenario. Name the likely recipe, MCP, or
+      docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

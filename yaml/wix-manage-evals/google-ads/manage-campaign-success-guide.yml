@@ -1,8 +1,9 @@
 name: google-ads/manage-campaign-success-guide
 description: >-
   Verifies the agent retrieves the campaign success guide immediately when a
-  user requests it after campaign creation, without waiting for performance
-  metrics or routing to pre-campaign suggestions.
+  user requests it after campaign creation and presents an actionable
+  three-item batch without waiting for metrics or routing to pre-campaign
+  suggestions.
 triggerPrompt: >-
   I just created my Google Ads lead campaign on my Wix site (MSID:
   b342a30b-616e-40ce-ad26-52a83397e08e), and it's still learning, so I don't
@@ -27,26 +28,34 @@ assertions:
         improvements on this first response and does not wait for LEARNING to
         end, for performance metrics, or for the user to request links or a
         richer format;
-      - presents at most the first three OPEN suggestions in a single-column
-        action plan, preserving their relative API order, and does not expose
-        later-batch suggestions in the same response. If more OPEN suggestions
-        remain, it says this batch contains the highest-priority remaining
-        tasks and invites the user to see the next batch;
+      - presents the first three OPEN suggestions when at least three exist,
+        or all OPEN suggestions when fewer exist, in a single-column action
+        plan. It preserves their relative API order, does not semantically
+        regroup them by theme or destination, and does not expose or name a
+        later-batch suggestion. If more OPEN suggestions remain, it says this
+        batch contains the highest-priority remaining tasks and invites the
+        user to see the next batch;
       - hides COMPLETED suggestions and tracking-status labels, and creates no
         offer or destination from a completed or later-batch item;
       - links the analyzed landing page when the guide returns its URL, makes
         one grouped offer when visible OPEN items have supported agent work,
         and, when destinations appropriate for the visible batch exist,
-        finishes with a Next actions block that contains each destination once.
-        If visible site-editing tasks exist, it uses the exact Editor URL when
-        that URL is available from site context or one read-only site-metadata
-        lookup. If no suitable lookup is available or no exact URL is available
-        after at most one attempt, it says "Go to the Editor" once as plain
-        guidance instead of repeating links, guessing a URL, continuing to
-        probe, or substituting a suggested follow-up message;
+        finishes with a Next actions block after the suggestions and offer that
+        contains each destination once. If visible site-editing tasks exist, it
+        uses the exact Editor URL when that URL is available from site context
+        or one read-only site-metadata lookup. A resolved CTA is a real absolute
+        Markdown link with a destination-specific label, not a suggested
+        follow-up message or generic "Open in Wix" action. If no suitable
+        lookup is available or no exact URL is available after at most one
+        attempt, it says "Go to the Editor" once as plain guidance instead of
+        repeating links, guessing a URL, or continuing to probe;
       - if Search Themes is in the visible batch, offers to propose and apply
         an approved set for the user. It does not show a Keywords Manager link
         unless the user explicitly prefers the manual path;
+      - if Google Business Profile is in the visible batch, offers to check and
+        initiate the connection and explains that the site owner must finish
+        Google's consent. It does not tell the user to perform supported
+        connection work manually;
       - leaves recommendation labels and manual next steps as plain content. If
         it suggests a conversational follow-up, it offers at most one supported
         task and phrases it as explicit delegation rather than as a bare task
@@ -59,14 +68,17 @@ assertions:
       Fail if it asks for redundant approval, does not retrieve the guide, uses
       a different site, receives a non-2xx response, tells the user to wait for
       metrics, queries analytics first, returns a bare list, uses a table/grid/
-      multi-column layout, semantically reorders recommendations, turns task
-      labels into pseudo-links or suggested messages, shows more than three
-      OPEN suggestions, exposes completed items, omits the next-batch
+      multi-column layout, semantically reorders or regroups recommendations,
+      turns task labels into pseudo-links or suggested messages, shows more or
+      fewer than the first three OPEN suggestions when at least three exist,
+      exposes completed items, names a later-batch item, omits the next-batch
       invitation when more OPEN suggestions remain, repeats or guesses
-      navigation, omits both the exact Editor link and the plain Editor fallback
-      when a visible task belongs there, includes a destination required only
-      by completed or hidden items, shows a manual Search Themes link without
-      the user's preference, changes a suggestion status, claims
+      navigation, labels navigation generically as "Open in Wix", omits both
+      the exact Editor link and the plain Editor fallback when a visible task
+      belongs there, includes an unrelated campaign CTA or a destination
+      required only by completed or hidden items, shows a manual Search Themes
+      link without the user's preference, tells the user to perform supported
+      connection work manually, changes a suggestion status, claims
       recommendations are automatically implemented, or routes to pre-campaign
       suggestions.
   - type: llm_judge
@@ -87,8 +99,10 @@ assertions:
       pre-campaign suggestion or analytics calls, repeated guide retrieval,
       guide-status mutation, repeated navigation lookup or continued probing
       after no exact Editor URL is available, omission of both the link and
-      plain Editor fallback, premature action-recipe calls, guessed request
-      shapes, any non-2xx call even if recovered, redundant documentation, and
-      internal service or tool names in the user-facing answer. Name the likely
-      recipe, MCP, or docs gap for each detour. Return only
+      plain Editor fallback, semantic regrouping, visible completed or
+      later-batch items, repeated links or approval questions, an irrelevant
+      campaign CTA, premature action-recipe calls, guessed request shapes, any
+      non-2xx call even if recovered, redundant documentation, and internal
+      service or tool names in the user-facing answer. Name the likely recipe,
+      MCP, or docs gap for each detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.
