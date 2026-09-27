@@ -91,7 +91,7 @@ export default {
 }
 ```
 
-> ⚠️ `objectOptions: {}` (without `fields`) fails **TypeScript compilation**, not the live API. Always include `fields`, even as an empty array.
+> ⚠️ `objectOptions: {}` (without the `fields` key) is **not valid** and will cause a runtime error. Always include `fields`, even as an empty array.
 
 For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
 
