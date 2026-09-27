@@ -216,10 +216,15 @@ doesn't express — or once the site exists and the work turns to managing or ex
    It mints the site token inside the process, makes the reads the deployed code makes, and
    prints one JSON: whether the vertical's app is installed, counts, a sample of each entity
    with the fields the pages render, and `calls`, every request it made with its method's
-   documentation URL. Go deeper only where the brief points (a flash sale on cakes: is there a
-   Cakes category, do the cakes carry a sale price): open a URL from `calls` (plus `.md` for the
-   full document) or the sources below. Everything else the pages read live through the
-   deployed data layer; you are sizing the content, not collecting it.
+   documentation URL. The lists are one page and say so; the counts are the site. Go deeper only
+   where the brief points (a flash sale on cakes: is there a Cakes category, do the cakes carry
+   a sale price), and then this way: the answer is often in the output already (the category's
+   id, the sampled products' `compareAt`); when it needs a filtered or fuller read, take the
+   entry in `calls` that made the closest read, open its documentation URL with `.md` appended,
+   copy the request from that document, set the filter or the paging, and send it with the token
+   minted inline as below. That is the one request you compose in this step, and it is copied
+   from a document you opened, not written from memory. Everything else the pages read live
+   through the deployed data layer; you are sizing the content, not collecting it.
 
    Any read beyond the script is a build-time call with the **site's** token, sent raw as the
    `Authorization` header (the account token from the call above does not scope to a site),
