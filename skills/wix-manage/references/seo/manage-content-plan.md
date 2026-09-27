@@ -44,8 +44,9 @@ discussed earlier in the conversation. To finish it or read its results:
    then check the flow once more. Call [Create Content Plan](#4-release-the-flow)
    once with this flow ID only if it is still at `KEYWORD_RESEARCH`.
    For an earlier in-progress status, continue checking this same flow until
-   it reaches the pause. If already at `CONTENT_PLAN`, continue to step 4
-   without calling Create Content Plan again. For a terminal or unmet-requirement
+   it reaches the pause. If already at `CONTENT_PLAN`, continue to
+   [Poll until SUCCESS](#5-poll-until-success) without calling Create Content
+   Plan. For a terminal or unmet-requirement
    status, follow the status table and stop.
 4. After Create Content Plan succeeds, retain its returned flow ID and
    [check until SUCCESS](#5-poll-until-success), then
