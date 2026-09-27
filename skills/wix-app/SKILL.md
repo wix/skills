@@ -190,7 +190,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 
 **CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
 
-Find the entity the user mentioned in the [entity → SDK module map](references/SDK_FIRST_RULE.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
+Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
 ---
 
