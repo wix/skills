@@ -28,7 +28,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with no drill-in and no working filters is what gets built when nobody states the requirement — the most common way a generated dashboard disappoints. The aggregate is the judgment call; the drill-in and the filters are not.
-  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
+  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, **and which data path** — hand-wired ([DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)) for a vertical SDK, schema-driven ([DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md)) for a CMS collection — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
   - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have — `importPath`, `examples`, or `bundle` — and read only that one, per [Component Selection Order](#component-selection-order)'s "the short version". State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
 
@@ -105,8 +105,11 @@ up rather than assembling it from WDS parts.
 that answer as guides inside the installed package, with every component name in them checked
 against the real package at build time. Walk them: [The Discovery Chain](references/WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
-One thing this skill owns rather than the guides: a **worked router skeleton** for multi-page
-extensions (Cases B/D), in [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md).
+Two paths this skill owns rather than the guides: a **worked router skeleton** for multi-page
+extensions (Cases B/D) is in [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md),
+and a **collection whose fields the CMS owns** is a different package — `useCmsSchemaSource`
+from `@wix/patterns-cms`, with `EntityPageFieldsCard` from `@wix/patterns/schema`, where the schema
+supplies fetch, filters, columns and the form. See [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md).
 
 The short version — probe `<pkgRoot>/dist/docs/index.json` first (`grep`/`python3`, not a
 whole-file `Read`), then the guides it lists. From
@@ -212,6 +215,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Dashboard UX Success Model (what a good dashboard contains) | [UX_SUCCESS_MODEL.md](references/dashboard-page/UX_SUCCESS_MODEL.md) |
 | Draft template — start here for any dashboard page (Cases A/B/C/D) | [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md) |
 | Draft template — collection page for Cases A/B/D | [DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md) |
+| Draft template — CMS-backed collection + entity (schema-driven) | [DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md) |
 | Draft template — router wiring for Cases A/B/D, incl. the read-only detail route | [DRAFT_TEMPLATE_ROUTER.md](references/dashboard-page/DRAFT_TEMPLATE_ROUTER.md) |
 | Draft template — settings page for Cases C/D | [DRAFT_TEMPLATE_SETTINGS.md](references/dashboard-page/DRAFT_TEMPLATE_SETTINGS.md) |
 | The state object `useTableCollection()` returns | [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) |

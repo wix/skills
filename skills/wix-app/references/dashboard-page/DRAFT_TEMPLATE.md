@@ -15,18 +15,33 @@ Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts
 
 Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings or entity page unless the request needs one. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B.
 
-## Then: what `fetchData` calls
+## Then: which data path?
 
-Case tells you how many pages. This tells you only what `fetchData` calls — the page itself is
-[DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) either way:
+Case tells you how many pages. This tells you how they're built, and it is the other half of the
+decision — the two paths share almost no code:
 
-| The rows come from | `fetchData` calls |
+| The rows come from | Path |
 | --- | --- |
-| A vertical SDK (`@wix/bookings`, `@wix/ecom`, …) or any API you call yourself | that SDK's own query method — [DATA_SOURCES.md](DATA_SOURCES.md) |
-| A **CMS collection** — one your Data Collection extension ships, or an existing site collection | `@wix/data` `items.query()` — [WIX_DATA.md](../data-collection/WIX_DATA.md) |
+| A vertical SDK (`@wix/bookings`, `@wix/ecom`, …) or any API you call yourself | **Hand-wired** — [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md), below |
+| A **CMS collection** — one your Data Collection extension ships, or an existing site collection | **Schema-driven** — [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) |
 
-A CMS collection is not a different template, just a different call inside the same one: you write
-`fetchData`, the filters and the columns for both.
+A CMS collection built the hand-wired way compiles and runs while silently losing schema-driven
+columns, field management and the generated entity form. Decide this before writing the page, not
+after — converting means rewriting both the collection page and the entity page.
+
+**The one carve-out: a prompt that names an exact column subset.** The schema path renders *every*
+field the schema has. `SchemaTableProps.columns` adds extras, and reusing a field's id replaces that
+field's column — but neither removes a field; a `Field` carries no hidden/visible flag; and the
+initial selection is set internally to all columns (`ToolbarCollectionState`). The only way to drop
+one is `customColumns={<CustomColumns />}`, a picker the **end user** operates. So "the table shows
+name, tier and date — email and notes are not columns" is a requirement this path cannot express:
+you would ship all five and leave two for the reader to hide.
+
+When the prompt names the columns and the list is narrower than the collection, hand-wire the CMS
+collection and say why in a comment — `fetchData` calls `@wix/data` `items.query()`
+([WIX_DATA.md](../data-collection/WIX_DATA.md)), and free-text search becomes yours to build, so
+read [DRAFT_TEMPLATE_COLLECTION.md § Turning `query.search` into a query](DRAFT_TEMPLATE_COLLECTION.md#turning-querysearch-into-a-query)
+before writing the filter. Anything short of a stated column subset stays schema-driven.
 
 **Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). The collection and settings files are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
 

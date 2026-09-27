@@ -3,9 +3,12 @@
 > Pick your case in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) first. This page is shared by A, B
 > and D.
 
-> **You write `fetchData`, the filters and the columns.** This holds whatever the rows are: for a
-> CMS collection `fetchData` calls `@wix/data` `items.query()`
-> ([WIX_DATA.md](../data-collection/WIX_DATA.md)) and nothing else on this page changes.
+> **This is the hand-wired path — you write `fetchData`, the filters and the columns.** If the rows
+> are a CMS collection, its schema already knows all three: use
+> [DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md) instead — *unless* the prompt
+> names an exact column subset, which that path cannot express
+> ([DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path)). Then it is this file, over
+> `@wix/data`.
 
 ## Two rules this skeleton encodes, so read them before editing it
 
@@ -139,32 +142,9 @@ export const {Feature}CollectionPage: FC = () => {
 
 `{feature}-api.ts` turns one term into a filter over *several* fields — an OR. **This is where
 search ships broken**: it renders, it reaches the query, and still returns every row, so nothing
-looks wrong until someone counts results.
-
-### A CMS collection — `@wix/data`
-
-`or()` combines two filters; it is **not** a condition. Called on a query or filter holding no
-condition yet it contributes an empty `{}` branch, and `{} OR x` matches the whole collection. Seed
-the filter with the first field, `or()` the rest onto it, then `and()` it onto the query — which is
-also what keeps the facet filters applying to *every* branch:
-
-```ts
-// SHORT_TEXT / LONG_TEXT fields only: `contains` on a number, date or
-// reference field is not a narrower match, it is no match.
-const searchFilter = (term: string, fields: string[]) =>
-  fields.map((f) => items.filter().contains(f, term)).reduce((acc, f) => acc.or(f));
-
-let query = items.query(COLLECTION_ID).eq('status', status).limit(limit);
-const term = search?.trim();
-if (term) query = query.and(searchFilter(term, ['companyName', 'contactEmail']));
-
-// ❌ or() onto a query holding no condition — empty $or branch, every row matches
-items.query(ID).or(items.filter().contains('a', t)).or(items.filter().contains('b', t));
-// ❌ or() onto the query itself — `status` survives only on the first branch
-items.query(ID).eq('status', s).contains('a', t).or(items.filter().contains('b', t));
-```
-
-### A vertical SDK — `@wix/bookings`, `@wix/ecom`, …
+looks wrong until someone counts results. (A CMS collection builds none of this by hand — the
+schema source does it, including the scope rules:
+[DRAFT_TEMPLATE_CMS_COLLECTION.md](DRAFT_TEMPLATE_CMS_COLLECTION.md#search-is-the-sources-job-and-its-scope-is-the-visible-columns).)
 
 No shared free-text operator; the shape differs per endpoint. Read its *Supported Filters* page
 ([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint)),

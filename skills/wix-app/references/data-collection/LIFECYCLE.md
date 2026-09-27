@@ -17,10 +17,12 @@ about tooling, not evidence about the collection.
 
 ## Reading the collection from a dashboard page
 
-A page over a CMS collection is an ordinary collection page: the template is
-[DRAFT_TEMPLATE_COLLECTION.md](../dashboard-page/DRAFT_TEMPLATE_COLLECTION.md), and its `fetchData`
-calls `@wix/data` `items.query()` — see [WIX_DATA.md](WIX_DATA.md) for the query, result and paging
-shapes. You write the filters and the columns yourself, exactly as for a vertical SDK.
+A page over a CMS collection uses the **schema-driven** template, not the hand-wired one — the CMS
+already owns the field list, so `useCmsSchemaSource` supplies fetch, filters, columns and the
+entity form from it. See
+[DRAFT_TEMPLATE_CMS_COLLECTION.md](../dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md). Wiring
+`items.query()` and hand-written columns by hand still compiles, and quietly gives up everything the
+schema would have provided.
 
 ## The site must have CMS, or nothing is created at all
 
