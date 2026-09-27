@@ -25,8 +25,8 @@ locations.
 > the **next action is the final response** explaining the blocker. Make no
 > further tool call: no API probe, documentation search, alternate request
 > shape, or call against another site. Only the explicitly
-> retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits another connect-URL
-> attempt.
+> retryable `CONNECTING_USER_LOOKUP_UNAVAILABLE` error permits one more
+> connect-URL attempt; if that fails too, stop and explain.
 
 Wix stores the Google credentials server-side. The API never returns tokens or
 any Google identity — only whether a connection exists and its dates.
@@ -65,17 +65,21 @@ call as the authoritative signal and re-run the connect flow when one appears.
 **`VALID` does not mean Google Business Profile is connected for social
 posting.** This endpoint reports only the Google connection. Posting to a
 Business Profile through Social Media Marketing also needs a separate social
-channel connection, which the owner chooses to add on the social posts hub
-(`https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`) and which
-no API call can create. It counts toward the plan's limit on connected social
-channels, so never assume the owner wants it. Its status lives at
-`GET https://www.wixapis.com/social-publisher/v1/GBP/long-lived-token-status` —
-see STEP 4d of
-[Create and Publish a Social Media Post (with AI generation)](../marketing/create-and-publish-social-post.md).
-A `VALID` here alongside a non-`VALID` there is a consistent, expected state,
-not a contradiction. Never answer "can I post to Google Business Profile?" from
-this endpoint; scope the answer to the Google connection and point at the
-social channel status for the rest.
+channel connection: the owner chooses to add Google Business Profile as a
+channel on the social posts hub
+(`https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`), and no
+API call can create it. It counts toward the plan's limit on connected social
+channels (a free plan allows one), so never assume the owner wants it. Its
+status is `GET https://www.wixapis.com/social-publisher/v1/GBP/long-lived-token-status`
+— only `VALID` there means posts can be delivered.
+
+So a `VALID` here alongside a non-`VALID` there is a consistent, expected
+state, not a contradiction. Answer "is my Google Business Profile connected?"
+or "can Social Marketing post to it?" from this section, per connection — for
+example: "Your site is connected to Google, but Google Business Profile isn't
+added as a social channel in Social Marketing yet." You need
+[Create and Publish a Social Media Post (with AI generation)](../marketing/create-and-publish-social-post.md)
+only if the user goes on to create or publish a post.
 
 ## Run the connect flow
 
@@ -131,7 +135,8 @@ Wix's grant inside the Google account.
 
 - **`CONNECTING_USER_LOOKUP_UNAVAILABLE`:** the site-owner lookup failed
   temporarily, before any authorization attempt was created. This is the one
-  failure of **Get Connect URL** that is safe to retry.
+  failure of **Get Connect URL** that is safe to retry — once. If the retry
+  fails the same way, stop and tell the owner to try again later.
 - **`CONNECTING_USER_NOT_RESOLVABLE`:** Wix could not identify a user to own
   the credential. Stop — this is not retryable until the caller identity or
   site ownership is corrected. Explain the blocker instead of trying other
