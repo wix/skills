@@ -67,11 +67,12 @@ channel connection, which the owner chooses to add on the social posts hub
 no API call can create. It counts toward the plan's limit on connected social
 channels, so never assume the owner wants it. Its status lives at
 `GET https://www.wixapis.com/social-publisher/v1/GBP/long-lived-token-status` —
-see the **Create and Publish a Social Media Post** skill, STEP 4d. A `VALID`
-here alongside a non-`VALID` there is a consistent, expected state, not a
-contradiction. Never answer "can I post to Google Business Profile?" from this
-endpoint; scope the answer to the Google connection and point at the social
-channel status for the rest.
+see STEP 4d of
+[Create and Publish a Social Media Post (with AI generation)](../marketing/create-and-publish-social-post.md).
+A `VALID` here alongside a non-`VALID` there is a consistent, expected state,
+not a contradiction. Never answer "can I post to Google Business Profile?" from
+this endpoint; scope the answer to the Google connection and point at the
+social channel status for the rest.
 
 ## Run the connect flow
 

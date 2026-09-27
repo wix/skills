@@ -1,0 +1,80 @@
+name: google-business-profile/gbp-connection-vs-social-channel
+description: >-
+  Advisory scenario for the "Connect a Wix Site to Google Business Profile"
+  skill: the owner asks whether connecting the site to Google Business Profile
+  also lets Social Marketing post to it. The correct behavior is to explain that
+  the Google connection and the Social Marketing channel connection are
+  separate, that adding GBP as a social channel is the owner's own choice made
+  on the social posts hub and counts toward the plan's channel limit, and to
+  answer without starting a connect flow the user did not ask for.
+triggerPrompt: >-
+  I'm about to connect my Wix site to Google Business Profile. Once it's
+  connected, will Social Marketing be able to post to my Business Profile right
+  away, or is that a separate step?
+tags: [seo]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/google-business-profile/skills/connect-a-wix-site-to-google-business-profile
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They did NOT ask the assistant to
+      connect anything or to create a post. Connecting the site to Google
+      Business Profile (the Google connection, reported by gbp/v1/connection)
+      does not add Google Business Profile as a channel in Social Marketing.
+      That social channel connection is separate: the owner adds it on the
+      Social Marketing social posts hub, and its status is reported by
+      social-publisher long-lived-token-status.
+
+      Pass if the response:
+      - uses the Connect a Wix Site to Google Business Profile skill / recipe,
+        AND
+      - says posting from Social Marketing is a separate step: connecting to
+        Google does not by itself let Social Marketing post to the profile, AND
+      - says the owner adds Google Business Profile as a channel on the Social
+        Marketing social posts hub in the Wix dashboard (a
+        manage.wix.com/dashboard/.../social-marketing-web link), which no API
+        call can do, AND
+      - makes clear that adding it as a social channel is the owner's own choice
+        and counts toward the plan's limit on connected social channels, AND
+      - does not perform any mutating API calls and does not start the Google
+        connect flow unprompted.
+
+      Fail if the response:
+      - says Social Marketing can post to the profile as soon as the Google
+        connection is VALID, OR
+      - calls GET /social-publisher/v1/GBP/connect-url, or tells the user to
+        call it, OR
+      - requests a Google connect URL or otherwise starts connecting the site,
+        OR
+      - falls back to searching the REST docs instead of using the skill.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer this guidance request.
+      Examine the tool-call trace, not the prose. The expected path is short:
+      load the recipe, optionally read the Google connection status, and answer.
+      A clean run is 9-10; one or two minor frictions (an extra doc lookup, one
+      redundant read) land at 7-8.
+
+      Score 0-10. Penalize and LIST any of:
+      - any mutating call (the request asks for guidance only), including
+        requesting a connect URL,
+      - any call to GBP/connect-url,
+      - a non-2xx response, even if recovered,
+      - a call whose shape was guessed wrong and then corrected,
+      - redundant or probing calls clearer docs would avoid,
+      - falling back to searching the REST docs for what the recipe already
+        states.
+      Do NOT penalize a single read of the Google connection status or the GBP
+      social channel status, nor answering purely from the recipe with no API
+      calls at all.
+
+      For each friction, name the likely MCP/docs gap behind it.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
