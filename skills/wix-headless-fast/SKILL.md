@@ -206,19 +206,15 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
    **Get the measure of the site before you design.** Enough to know what you are building
    for: what the chosen verticals will render, roughly how much of it, and what it is like —
-   six items in three groups design differently from six hundred. One command per vertical does
-   this read, with nothing for you to compose:
+   six items in three groups design differently from six hundred. Run the vertical's reader:
 
    ```bash
    node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
    ```
 
-   It mints the site token inside the process, makes the reads the deployed code makes, and
-   prints one JSON: whether the vertical's app is installed, counts, a sample of each entity
-   with the fields the pages render, and `calls`, every request it made with its method's
-   documentation URL. The lists are one page and say so; the counts are the site. Everything
-   else the pages read live through the deployed data layer; you are sizing the content, not
-   collecting it.
+   It prints one JSON: whether the vertical's app is installed, counts, one page of each entity
+   with the fields the pages render, and `calls`, the requests it made with their documentation
+   URLs. The lists are one page; the counts are the site.
 
    When the brief needs a read the script does not make, it is a build-time call with the
    **site's** token, sent raw as the `Authorization` header (the account token from the call
@@ -227,8 +223,8 @@ doesn't express — or once the site exists and the work turns to managing or ex
    a file, not in the project and not in `/tmp`.
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
-   - **The reader you just ran**, `references/<vertical>/seed/read-site.mjs` — its requests are
-     the reads the pages make, written as literal calls with their documentation URLs.
+   - **The reader**, `references/<vertical>/seed/read-site.mjs` — the reads the pages make, as
+     literal calls with their documentation URLs.
    - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
      business solutions: exact endpoint, method and payload per operation, curl included. Its
      SKILL.md is the index, by solution; open the recipe for the vertical's solution.
