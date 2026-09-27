@@ -12,6 +12,7 @@ Build direct links into the Google Ads page of a site's dashboard. For the gener
 | Page | URL after `/dashboard/{metaSiteId}/` | What it manages |
 |---|---|---|
 | Google Ads | `google-ads` | The Google Ads account, campaigns, and their performance |
+| Keywords manager (campaign-scoped) | `google-ads/keywords-manager?campaignId={campaignId}` | Search themes or keywords for one campaign |
 
 ## Pairing Entities with Their Read APIs
 
@@ -22,4 +23,10 @@ Example — after creating a campaign:
 ```
 Your Performance Max campaign is live.
 Manage it here: https://manage.wix.com/dashboard/{metaSiteId}/google-ads
+```
+
+When a user explicitly prefers to add a campaign's search themes manually, link directly to that campaign's keywords manager. Do not substitute this manual route for an agent-supported update the user wants the agent to perform.
+
+```
+Add Search Themes: https://manage.wix.com/dashboard/{metaSiteId}/google-ads/keywords-manager?campaignId={campaignId}
 ```

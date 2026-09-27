@@ -27,19 +27,24 @@ assertions:
         improvements on this first response and does not wait for LEARNING to
         end, for performance metrics, or for the user to request links or a
         richer format;
-      - presents OPEN suggestions in a single-column action plan, preserving
-        their relative API order, with the first three explained under a start
-        section and any remainder kept compact without semantic regrouping;
-      - puts COMPLETED suggestions in a separate completed section, preserves
-        their relative API order, and creates no offer or destination solely
-        from a completed item;
+      - presents at most the first three OPEN suggestions in a single-column
+        action plan, preserving their relative API order, and does not expose
+        later-batch suggestions in the same response. If more OPEN suggestions
+        remain, it says this batch contains the highest-priority remaining
+        tasks and invites the user to see the next batch;
+      - hides COMPLETED suggestions and tracking-status labels, and creates no
+        offer or destination from a completed or later-batch item;
       - links the analyzed landing page when the guide returns its URL, makes
-        one grouped offer when OPEN items have supported agent work, and, when
-        relevant destinations exist, finishes with a Next actions block that
-        contains each destination once as a real absolute Markdown link. If
-        OPEN site-editing tasks exist, it uses the
+        one grouped offer when visible OPEN items have supported agent work,
+        and, when destinations appropriate for the visible batch exist,
+        finishes with a Next actions block that contains each destination once
+        as a real absolute Markdown link. If visible site-editing tasks exist,
+        it uses the
         exact Editor URL for this site rather than repeating task-level links,
         guessing a URL, or substituting a suggested follow-up message;
+      - if Search Themes is in the visible batch, offers to propose and apply
+        an approved set for the user. It does not show a Keywords Manager link
+        unless the user explicitly prefers the manual path;
       - leaves recommendation labels and manual next steps as plain content. If
         it suggests a conversational follow-up, it offers at most one supported
         task and phrases it as explicit delegation rather than as a bare task
@@ -53,8 +58,11 @@ assertions:
       a different site, receives a non-2xx response, tells the user to wait for
       metrics, queries analytics first, returns a bare list, uses a table/grid/
       multi-column layout, semantically reorders recommendations, turns task
-      labels into pseudo-links or suggested messages, repeats or guesses
-      navigation, includes a destination required only by completed items,
+      labels into pseudo-links or suggested messages, shows more than three
+      OPEN suggestions, exposes completed items, omits the next-batch
+      invitation when more OPEN suggestions remain, repeats or guesses
+      navigation, includes a destination required only by completed or hidden
+      items, shows a manual Search Themes link without the user's preference,
       changes a suggestion status, claims recommendations are automatically
       implemented, or routes to pre-campaign suggestions.
   - type: llm_judge
@@ -65,10 +73,11 @@ assertions:
       trace. Score 0-10, where 10 is a direct path: read the campaign success
       guide documentation, use site b342a30b-616e-40ce-ad26-52a83397e08e,
       identify its campaign with at most one campaign-list call, retrieve or
-      create the guide once, resolve navigation metadata at most once when
-      needed, and present the actual suggestions with deduplicated navigation
-      and a grouped supported-work offer when applicable, without querying
-      analytics, reading action recipes prematurely, or mutating guide state.
+      create the guide once, resolve current-batch navigation metadata at most
+      once when needed, and present the first batch with deduplicated
+      navigation and a grouped supported-work offer when applicable, without
+      querying analytics, reading action recipes prematurely, or mutating guide
+      state.
 
       Penalize redundant approval, a different site, probing multiple sites,
       pre-campaign suggestion or analytics calls, repeated guide retrieval,
