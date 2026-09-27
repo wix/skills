@@ -24,13 +24,17 @@ assertions:
       Examine the tool-call trace, including request bodies and any error bodies.
 
       Pass only if the agent located the site's existing shipping configuration (shipping options
-      and/or delivery profiles) with successful (2xx) read calls, then added Canada as a delivery
-      region through a successful (2xx) Shipping Options or Delivery Profiles write, and confirmed
-      the result to the user.
+      and/or delivery profiles) with successful (2xx) read calls, then made a successful (2xx)
+      Delivery Profiles add-delivery-region (or update-delivery-region) call whose destinations
+      explicitly include Canada (`CA`), and confirmed the result to the user. Attaching a shipping
+      option to that region through the Shipping Options API is fine on top of this, but is not a
+      substitute for it.
 
       Fail if the agent described dashboard steps instead of doing it; OR reported success with no
-      successful region-adding call; OR created a whole new shipping profile or option when the site
-      already had one to extend; OR did not call any Wix REST API.
+      successful call that puts `CA` in a delivery region's destinations; OR concluded no change was
+      needed because an existing international or rest-of-world region already covers Canada; OR
+      created a whole new shipping profile when the site already had one to extend; OR did not call
+      any Wix REST API.
 
       Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
   - type: llm_judge          # quality — the path
