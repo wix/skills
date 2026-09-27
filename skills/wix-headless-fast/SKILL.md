@@ -48,10 +48,17 @@ doesn't express — or once the site exists and the work turns to managing or ex
   a header, a field name, a filter key, or a body. Every Wix call you make or write — in the
   frontend, in a seed, in a build-time read of a site — comes from the official Wix skills
   installed here, the code they deployed first, or, when they do not cover the call, from the
-  official Wix documentation through `wix-docs`. Read it there first, then write the call. A guessed call that returns 400 or an empty page is not a
-  step toward the answer; it is the failure this rule exists to prevent, and trying the next
-  variant is still guessing. The shipped code is tested against live sites; a body that looks
-  similar is the one that returns nothing, and the API rarely says why.
+  official Wix documentation through `wix-docs`. Read it there first, then write the call.
+  **The test, before every request:** the exact path and body appear in the output of a file
+  read or a docs search you ran in this session, and you copy them from that output. Anything
+  else is memory: a file whose output was cut short before the call, a source you remember
+  reading earlier, a call built by changing part of one you did find. A guessed call that
+  returns 400 or nothing is not a step toward the
+  answer; it is the failure this rule exists to prevent, trying the next variant is still
+  guessing, and an empty or error reply to a call that failed the test tells you about the
+  call, never about the site. Keep errors visible while a call is unconfirmed: no `2>/dev/null`,
+  no `| echo`. The shipped code is tested against live sites; a body that looks similar is the
+  one that returns nothing, and the API rarely says why.
 - **Never mock, fail loudly, purchases via Wix.** Live data or an honest empty state; surfaced
   errors, not swallowed ones; checkout/purchase always through the Wix redirect session.
 - **Optional capabilities are deployed from the plan.** A vertical can opt into a shared
@@ -198,20 +205,26 @@ doesn't express — or once the site exists and the work turns to managing or ex
    replaces that frontend; say so when you close.
 
    **Get the measure of the site before you design.** Enough to know what you are building
-   for: what the chosen verticals will render, roughly how much of it, and what it is like — a
-   bakery with six products in three categories designs differently from six hundred. Go
-   deeper only where the brief points (a flash sale on cakes: is there a Cakes category, do the
-   cakes carry a sale price). Everything else the pages read live through the deployed data
-   layer; you are sizing the content, not collecting it. These are build-time reads with the
-   **site's** token, `npx -y @wix/cli@latest token --site <siteId>`, sent raw as the
-   `Authorization` header (the account token from the call above does not scope to a site).
+   for: what the chosen verticals will render, roughly how much of it, and what it is like —
+   six items in three groups design differently from six hundred. Run the vertical's reader:
+
+   ```bash
+   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
+   ```
+
+   It prints one JSON: whether the vertical's app is installed, counts, one page of each entity
+   with the fields the pages render, and `calls`, the requests it made with their documentation
+   URLs. The lists are one page; the counts are the site.
+
+   When the brief needs a read the script does not make, it is a build-time call with the
+   **site's** token, sent raw as the `Authorization` header (the account token from the call
+   above does not scope to a site), minted inline in each command —
+   `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` — and never written to
+   a file, not in the project and not in `/tmp`.
    **The rule above applies in full: not one of these calls comes from memory.** Read the
    request where it is written, then call. Where to read, in this order:
-   - **The vertical's shipped `rest/` module**, at
-     `.agents/skills/wix-headless-fast/references/<vertical>/rest/` — the same reads the pages
-     make, written as literal `fetch` calls: URL, body, `fields`, filter keys. It is not in
-     `src/` (the Astro stack deploys the SDK layer, which hides the body behind a method), so
-     read it from the skill.
+   - **The reader**, `references/<vertical>/seed/read-site.mjs` — the reads the pages make, as
+     literal calls with their documentation URLs.
    - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
      business solutions: exact endpoint, method and payload per operation, curl included. Its
      SKILL.md is the index, by solution; open the recipe for the vertical's solution.
@@ -221,8 +234,10 @@ doesn't express — or once the site exists and the work turns to managing or ex
      /mcp-docs-search/v1/docs/search/markdown`, natural-language `search_term`) that returns
      condensed method docs — endpoint, request example, response shape — and the rule that any
      `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
-     full page only when the hit lacks what you need.
-   If what you opened does not have the call, go to the next; do not try a variant.
+     full document only when the hit lacks what you need.
+   If what you opened does not have the call, go to the next; do not try a variant, and do not
+   build one from a call you did find: the path and body you send are copied from the output
+   you read or they are not sent.
 
    **Recovering one step, or adding a solution later:** the pieces run on their own from the
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
