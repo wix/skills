@@ -12,7 +12,7 @@ Build direct links into the Google Ads page of a site's dashboard. For the gener
 | Page | URL after `/dashboard/{metaSiteId}/` | What it manages |
 |---|---|---|
 | Google Ads | `google-ads` | The Google Ads account, campaigns, and their performance |
-| Keywords manager (campaign-scoped) | `google-ads/keywords-manager?campaignId={campaignId}` | Search themes or keywords for one campaign |
+| Keywords manager (campaign-scoped) | `google-ads/keywords-manager?campaignId={campaignId}` | Search themes and campaign exclusions: `excludedSearchTerms` for Smart campaigns and `excludedKeywords` for Performance Max Leads campaigns |
 
 ## Pairing Entities with Their Read APIs
 
@@ -30,3 +30,8 @@ When a user explicitly prefers to add a campaign's search themes manually, link 
 ```
 Add Search Themes: https://manage.wix.com/dashboard/{metaSiteId}/google-ads/keywords-manager?campaignId={campaignId}
 ```
+
+The same campaign-scoped route manages exclusions. Name the destination after the campaign field the user is managing:
+
+- **Smart campaigns:** `excludedSearchTerms` → **Manage Excluded Search Terms**
+- **Performance Max Leads campaigns:** `excludedKeywords` → **Manage Excluded Keywords**
