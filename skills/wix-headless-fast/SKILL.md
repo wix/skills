@@ -200,9 +200,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
    after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
    given, scaffolds the CLI's Astro template, deploys the shipped code, and starts the install
    detached. No seed runs and nothing on the site changes: the content is the site's own, read
-   live through the deployed data layer. When the site already has a headless frontend,
-   `attached` says so (`hosting: "reused"`) with its URL — `wix release` from this project
-   replaces that frontend; say so when you close.
+   live through the deployed data layer. `attached` also says whether a frontend is already
+   serving at the site's address (`frontend.serving`, with the release date). When it is, a
+   `wix release` from this project replaces it — the old deployment keeps its own address and
+   production can be pointed back, but the user's site changes. Tell the user before you release,
+   with the address and the date; if the brief did not ask for a new frontend, ask first and
+   wait. Say it again when you close.
 
    **Get the measure of the site before you design.** Enough to know what you are building
    for: what the chosen verticals will render, roughly how much of it, and what it is like —
