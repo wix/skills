@@ -21,9 +21,10 @@ assertions:
       for 10 minutes and polling doesn't change the status.
 
       The correct answer: KEYWORD_RESEARCH is not a stall. The flow shows
-      it while keyword research runs and then parks there. The status does
-      not change when the research finishes, so polling the flow alone never
-      shows progress. The user must first confirm the research is ready
+      it while keyword research runs and can then park there. Finishing the
+      research does not change the status by itself, so polling the flow
+      alone cannot show the research is ready. The user must first confirm
+      the research is ready
       (GET /content-plan-keyword-research-items returns items with the
       flow's keywordResearchId), then call Create Content Plan once
       (POST /create-content-plan with the flow ID) to release it. That

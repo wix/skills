@@ -164,9 +164,11 @@ Check every few seconds using separate calls. Completion time varies.
 
 ### 3. Wait for the keyword research
 
-The flow status does not change when the keyword research finishes, so check
-the research itself. After the flow reaches `KEYWORD_RESEARCH`, save its
-`contentPlanFlow.keywordResearchId`, then read the site's keyword research:
+Finishing the research does not change the flow status by itself: the flow
+either stays at `KEYWORD_RESEARCH` or moves to `CONTENT_PLAN` once generation
+starts in the background. So check the research itself: after the flow
+reaches `KEYWORD_RESEARCH`, save its `contentPlanFlow.keywordResearchId`, then
+read the site's keyword research:
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
@@ -177,7 +179,7 @@ Example response (keep only the ID and the item count):
 
 ```json
 {
-  "keywordResearchItems": [ { "id": "<item-id>", "keyword": "ceramic mug care" } ],
+  "keywordResearchItems": [ { "id": "<item-id>" } ],
   "keywordResearchId": "<keyword-research-uuid>"
 }
 ```
@@ -190,8 +192,7 @@ Decide from each response:
 | `keywordResearchId` differs from the flow's | This is an earlier research. Check again in 10 to 15 seconds. |
 | Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 
-When the research is ready, generation can start without a Create Content Plan
-request. Decide from that status check:
+Decide from that status check:
 
 - `KEYWORD_RESEARCH`: call Create Content Plan once
   (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan` with
