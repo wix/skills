@@ -9,8 +9,9 @@
 //   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
 //   3. a fetch: a sparse, shallow clone of `templates/` from the repository the skill was installed
 //      from (skills-lock.json's `source`, default wix/skills), at the branch or tag the install
-//      named (its `ref`) or the repository's default branch. The lock records no commit, so there is nothing more exact
-//      to pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
+//      named (its `ref`, falling back to the default branch when that ref no longer exists) or the
+//      repository's default branch. The lock records no commit, so there is nothing more exact to
+//      pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
 // The cache carries a `.gitignore` of `*` so it never enters the project's repository, and a
 // `.source` file with the repository, ref and commit it came from.
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -80,7 +81,35 @@ export function templatesSource(dir) {
 
 function fetchTemplates(cache) {
   const { repo, ref: lockRef } = installSource();
-  const ref = process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || lockRef || null;
+  const envRef = process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || null;
+  let ref = envRef || lockRef || null;
+  let r = cloneSparse(repo, ref);
+  // The branch the skill was installed from can be gone by the time the code is first needed
+  // (merged and deleted). The lock's ref then falls back to the default branch; an explicit env
+  // ref does not.
+  let fellBack = false;
+  if (r.status !== 0 && ref && !envRef && /not found|couldn't find remote ref|unknown revision/i.test(r.stderr || "")) {
+    rmSync(r.tmp, { recursive: true, force: true });
+    fellBack = true; ref = null;
+    r = cloneSparse(repo, null);
+  }
+  const tmp = r.tmp;
+  if (r.status !== 0 || !existsSync(join(tmp, "templates", "shared", "app"))) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error(`could not fetch templates/ from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || "no templates/shared/app in the clone").trim().slice(-400)}`);
+  }
+  const commit = git(["-C", tmp, "rev-parse", "HEAD"]).stdout.trim();
+  rmSync(cache, { recursive: true, force: true });
+  mkdirSync(dirname(cache), { recursive: true });
+  try { renameSync(join(tmp, "templates"), cache); }
+  catch { cpSync(join(tmp, "templates"), cache, { recursive: true }); }
+  rmSync(tmp, { recursive: true, force: true });
+  writeFileSync(join(cache, ".gitignore"), "*\n");
+  writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? (fellBack ? `default branch (${lockRef} not found)` : "default branch"), commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
+}
+
+// A sparse, shallow clone of templates/ at a ref (branch, tag, or commit id) into a temp dir.
+function cloneSparse(repo, ref) {
   const tmp = mkdtempSync(join(tmpdir(), "wix-headless-fast-templates-"));
   let r;
   if (ref && /^[0-9a-f]{40}$/i.test(ref)) {
@@ -93,18 +122,7 @@ function fetchTemplates(cache) {
     r = git(["clone", "--quiet", "--depth", "1", "--filter=blob:none", "--sparse", ...(ref ? ["-b", ref] : []), repo, tmp]);
     if (r.status === 0) r = git(["-C", tmp, "sparse-checkout", "set", "templates"]);
   }
-  if (r.status !== 0 || !existsSync(join(tmp, "templates", "shared", "app"))) {
-    rmSync(tmp, { recursive: true, force: true });
-    throw new Error(`could not fetch templates/ from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || "no templates/shared/app in the clone").trim().slice(-400)}`);
-  }
-  const commit = git(["-C", tmp, "rev-parse", "HEAD"]).stdout.trim();
-  rmSync(cache, { recursive: true, force: true });
-  mkdirSync(dirname(cache), { recursive: true });
-  try { renameSync(join(tmp, "templates"), cache); }
-  catch { cpSync(join(tmp, "templates"), cache, { recursive: true }); }
-  rmSync(tmp, { recursive: true, force: true });
-  writeFileSync(join(cache, ".gitignore"), "*\n");
-  writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? "default branch", commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
+  return { ...r, tmp };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
