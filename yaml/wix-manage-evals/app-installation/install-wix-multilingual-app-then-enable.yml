@@ -1,9 +1,10 @@
 name: app-installation/install-wix-multilingual-app-then-enable
 description: >-
-  Verifies the agent reads the install-wix-apps skill once and executes the
-  whole chain (install, retry, enable multilingual mode, create every
-  locale) in a single script/tool call, retrying a right-after-install 404
-  on a dependent API instead of giving up on the first attempt.
+  Verifies the agent reads the install-wix-apps skill once, then installs
+  Wix Multilingual, enables multilingual mode, and creates every requested
+  locale, retrying a right-after-install 404 on a dependent API (in a single
+  script alongside the install and its wait) instead of giving up on the
+  first attempt.
 triggerPrompt: >-
   My site currently only has Turkish. Please add German, English, French,
   and Spanish as site languages.
@@ -80,9 +81,8 @@ assertions:
         via a separate doc/API search when the skill already gave them
       - a call to check whether Wix Multilingual is already installed before
         installing it
-      - splitting the install call, its retry, or the per-locale calls
-        across separate execution tool calls when a single script could have
-        done it
+      - splitting the install call, its wait, or its retry across separate
+        execution tool calls when a single script could have done it
 
       For each, name the likely skill-guidance gap. Do not count necessary,
       non-redundant lookups of the Locale Settings/Locales API shape as
