@@ -9,10 +9,55 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping
-  - type: llm_judge
+  - type: llm_judge          # correctness
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response treats the two asks as separate categories — directs "set up shipping rates" to a Shipping resource (e.g. the setup-rates / optimize-rates / setup-regions recipes) AND directs "mark today's orders as shipped with tracking" to a Fulfillment resource (e.g. fulfill-orders / bulk-fulfill-orders) — and contains no claim that the Shipping category handles the mark-shipped / tracking action itself.
-      Fail if the response treats Fulfillment as part of Shipping, claims a single shipping skill covers both setup and post-purchase order updates, or routes "mark as shipped" / "tracking number" back to a Shipping recipe (setup-rates, fix-coverage, optimize-rates, free-shipping, setup-pickup, setup-regions).
-      Topic-completeness beyond the two asks (e.g. how to set rates, what flat vs tiered means, packing slips, labels) is NOT required to pass — judge the boundary, not the breadth.
+      The user's request (verbatim): "For my Wix store, I need to set up shipping rates for my US
+      delivery region, and I also need to mark today's paid orders as shipped with tracking numbers.
+      Handle both, or tell me which one I should ask about somewhere else."
+
+      The Shipping dispatcher owns shipping setup (rates, regions, pickup, free-shipping thresholds)
+      and states that marking orders fulfilled or adding tracking is not covered by the shipping
+      recipes: it points to the Order Fulfillments API or the Wix Dashboard instead. There is no
+      fulfillment recipe.
+
+      Examine the tool-call trace and the final response.
+
+      Pass if the agent kept the two asks on their own surfaces:
+      - shipping rates for the US region were set up, checked, or explained through the shipping
+        setup flow (the shipping recipes, or the Shipping Options / Delivery Profiles APIs); AND
+      - marking today's paid orders as shipped with tracking was either done through the order and
+        fulfillment APIs (for example searching today's paid orders and creating fulfillments), or
+        named as outside shipping setup and pointed to the Order Fulfillments API or the Dashboard.
+      Doing both tasks directly is a pass. Finding no paid orders today and saying so is a correct
+      outcome for the second ask.
+
+      Fail if the response claims the shipping setup recipes or the Shipping Options / Delivery
+      Profiles APIs mark orders as shipped or add tracking; OR treats both asks as one shipping
+      task; OR does neither task and only describes them; OR invents a fulfillment recipe or
+      endpoint.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent handled the two asks. Examine the tool-call trace, including request
+      bodies and any error bodies. 10 = no wasted calls and no errors.
+
+      Reading the Shipping dispatcher and the recipe it routes to is expected and is never a wasted
+      call.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+      - any non-2xx response;
+      - a shipping setup call made before any shipping recipe was read;
+      - an attempt to mark orders shipped or add tracking through a Shipping Options or Delivery
+        Profiles endpoint;
+      - two or more documentation searches spent looking for a fulfillment recipe the dispatcher
+        says does not exist.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
