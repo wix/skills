@@ -3,19 +3,6 @@
 
 Site plugins are custom elements that integrate into predefined **slots** within Wix business solutions (Wix Stores, Wix Bookings, Wix eCommerce, etc.), extending their functionality and user experience. Site owners place site plugins into UI slots using the plugin explorer in Wix editors.
 
-## Contents
-
-- [Scaffold](#scaffold)
-- [Architecture](#architecture)
-- [Plugin Component Pattern](#plugin-component-pattern)
-- [Settings Panel Pattern](#settings-panel-pattern)
-- [Color & Font Picker Fields](#color--font-picker-fields)
-- [References](#references)
-- [Available Slots](#available-slots)
-- [Checkout Plugins](#checkout-plugins)
-- [Examples](#examples)
-- [Best Practices](#best-practices)
-
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: SITE_PLUGIN`. `slotId` is `<componentId>:<slotId>` — the colon-joined widget component ID and slot ID. Run `wix schema generate --type SITE_PLUGIN` to list the available `slotId` values (each `anyOf` entry has the slot's human-readable title). The CLI generates the folder, the plugin `.tsx`, the settings panel `.tsx`, the builder file, the UUID, the logo SVG, and the `src/extensions.ts` registration.

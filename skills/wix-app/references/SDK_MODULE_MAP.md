@@ -1,6 +1,6 @@
-# SDK-First Rule — Existing Wix App Data Is Never CMS
+# Entity → SDK Module Map
 
-**CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
+Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection (see the [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms) in `SKILL.md`). A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
 
 **Entity → SDK module map** (find the entity the user mentioned, use that package):
 

@@ -91,6 +91,8 @@ export default {
 }
 ```
 
+> ⚠️ `objectOptions: {}` (without `fields`) fails **TypeScript compilation**, not the live API. Always include `fields`, even as an empty array.
+
 For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
 
 ```json
