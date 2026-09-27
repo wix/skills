@@ -34,6 +34,21 @@ The job's status can be retrieved with [Get Bulk Job](https://dev.wix.com/docs/a
 
 **IMPORTANT NOTE:** When specific contacts are to be labeled, they should be filtered by id.
 
+### Steps
+
+1. **Resolve label keys.** When adding, Find or Create Label (above) returns the `key`. To remove a label, or to
+   use only a label that already exists, look it up by name instead of creating it:
+   `POST https://www.wixapis.com/contacts/v4/labels/query` with
+   `{"query":{"filter":{"displayName":{"$eq":"Newsletter"}}}}`, and take each returned label's `key`.
+2. **Resolve named contacts to IDs** with Search Contacts, as in
+   [Update a Contact](update-a-contact.md) — Query Contacts cannot filter on a name:
+   `POST https://www.wixapis.com/contacts/v5/contacts/search` with `{"search":{"search":{"expression":"Leo Marsh"}}}`.
+   Keep only exact name matches. If none or more than one contact matches, stop and ask the user.
+3. **Start the job** with the endpoint below, filtering by the resolved IDs:
+   `{"filter":{"id":{"$in":["<CONTACT_ID>"]}},"labelKeysToAdd":["<LABEL_KEY>"]}` (or `labelKeysToRemove`).
+4. **Confirm the job finished** with `GET https://www.wixapis.com/contacts/v4/bulk/jobs/{jobId}`; repeat until
+   `job.status` is `COMPLETED` before reporting the result.
+
 ## API Endpoint
 `POST https://www.wixapis.com/contacts/v4/bulk/contacts/add-remove-labels`
 
