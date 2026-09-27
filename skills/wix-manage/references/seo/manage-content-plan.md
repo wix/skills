@@ -12,10 +12,11 @@ a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
 `KEYWORD_RESEARCH` means the keyword research step has started. The flow keeps
-this status while the research runs and after it finishes, then waits for the
-**Create Content Plan** request to generate the briefs. This request releases
-the intentional pause; polling alone does not advance it. Release only after
-the flow's keyword research items exist: releasing earlier fails the flow.
+this status while the research runs and after it finishes. Generation of the
+briefs then starts either on its own or on the **Create Content Plan** request,
+which releases the pause. Release only after the flow's keyword research items
+exist, and only if the flow is still at `KEYWORD_RESEARCH`: releasing earlier
+fails the flow.
 
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
@@ -58,7 +59,8 @@ response examples for each step are in [API steps](#api-steps).
 2. [Check the flow status](#2-poll-until-keyword_research) until `KEYWORD_RESEARCH`.
 3. [Wait for the keyword research](#3-wait-for-the-keyword-research) until the
    flow's keyword research items exist.
-4. [Call Create Content Plan](#4-release-the-flow) once to continue generation.
+4. [Call Create Content Plan](#4-release-the-flow) once if the flow is still at
+   `KEYWORD_RESEARCH`; if it already moved to `CONTENT_PLAN`, skip this step.
 5. [Check until SUCCESS](#5-poll-until-success).
 6. [Read the briefs](#6-read-the-briefs) and report the actual returned topics.
 
@@ -183,7 +185,17 @@ Decide from each response:
 | --- | --- |
 | Not found error | Research is still running. Check again in 10 to 15 seconds. |
 | `keywordResearchId` differs from the flow's | This is an earlier research. Check again in 10 to 15 seconds. |
-| Same `keywordResearchId`, at least one item | Ready. Call Create Content Plan once. |
+| Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
+
+When the research is ready, generation can start without a Create Content Plan
+request. Decide from that status check:
+
+- `KEYWORD_RESEARCH`: call Create Content Plan once
+  (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan` with
+  `{ "contentPlanFlowId": "<flow-uuid>" }`; see step 4). A `428` reply then
+  means generation already started; do not retry, continue with step 5.
+- `CONTENT_PLAN` or `SUCCESS`: generation already started. Skip Create Content
+  Plan and continue with step 5.
 
 Research usually takes one to two minutes. If it is not ready after five
 minutes, report the flow ID as incomplete. Calling Create Content Plan before
@@ -219,6 +231,10 @@ The response fields are `success` (boolean), `message` (failure reason, only
 when `success` is false), and `contentPlanFlowId` (flow UUID when returned).
 Check `success` as well as the HTTP status. If false, report `message` and stop;
 a successful HTTP response alone is not a completed plan.
+
+HTTP `428` with `FLOW_NOT_READY_FOR_CONTENT_PLAN` after the keyword research is
+ready means generation already started for this flow. Do not call Create Content
+Plan again; continue with step 5 using the same flow ID.
 
 On success, retain the returned `contentPlanFlowId` for the next status check
 and candidate read. This response is not the list of briefs: continue to steps
@@ -329,7 +345,8 @@ durable across generations.
 
 ## Do not
 
-- Poll forever without calling Create Content Plan (step 4).
+- Keep polling `KEYWORD_RESEARCH` after the research is ready without calling
+  Create Content Plan (step 4).
 - Call Create Content Plan as soon as the status is `KEYWORD_RESEARCH`, before
   the flow's keyword research items exist.
 - Read candidates before `SUCCESS`.

@@ -2,7 +2,7 @@ name: seo/manage-content-plan-happy-path
 description: >-
   Requires the full generation workflow on an isolated site with business data:
   trigger, reach KEYWORD_RESEARCH, wait for the keyword research items,
-  release, reach SUCCESS, and read candidates.
+  release unless generation already started, reach SUCCESS, and read candidates.
 triggerPrompt: >-
   Generate an SEO content plan for my Wix site and show me the resulting blog
   post topics. Continue until the plan is ready; I want the actual results.
@@ -20,7 +20,11 @@ assertions:
       2. GET /content-plan-flows/{id} until contentPlanFlow.status is KEYWORD_RESEARCH.
       3. GET /content-plan-keyword-research-items until it returns items whose
          keywordResearchId matches the flow's keywordResearchId.
-      4. POST /create-content-plan with that ID and confirm success.
+      4. Check the flow once more. If it is still KEYWORD_RESEARCH, POST
+         /create-content-plan with that ID and confirm success. If it already
+         moved to CONTENT_PLAN or SUCCESS, skipping the release is correct.
+         A 428 FLOW_NOT_READY_FOR_CONTENT_PLAN after the research was ready,
+         followed by continued polling of the same flow, also satisfies this step.
       5. GET the same flow until status SUCCESS.
       6. GET /content-plan-flows/{id}/blog-post-candidates and report actual returned topics.
       Score 0 if any step is missing, if only an explanation/promise is given,
@@ -32,11 +36,15 @@ assertions:
     maxTokens: 2048
     prompt: |
       Score 0-10 for a clean completed generation: one trigger, bounded status
-      checks, one successful release at KEYWORD_RESEARCH after the flow's
-      keyword research items exist, then SUCCESS and reading the actual
-      candidates. Routine necessary polling is not friction.
-      Score 0 for polling the parked state without releasing, missing the release,
-      releasing before the keyword research items exist, no API execution, or
+      checks, waiting for the flow's keyword research items, at most one
+      release (only while the flow is still KEYWORD_RESEARCH), then SUCCESS
+      and reading the actual candidates. Generation can start on its own once
+      the research is ready; skipping the release then, or one 428 on a
+      release that raced it, is correct and not friction. Routine necessary
+      polling is not friction.
+      Score 0 for polling KEYWORD_RESEARCH without ever releasing after the
+      research was ready, releasing before the keyword research items exist,
+      releasing more than once, no API execution, or
       claiming completion without reading candidates.
       Penalize guessed shapes, repeated triggers, non-2xx errors, and unnecessary
       discovery after the recipe already supplies the needed request shape.
