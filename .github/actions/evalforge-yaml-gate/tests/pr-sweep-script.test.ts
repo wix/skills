@@ -47,6 +47,8 @@ function harness(options: {
   pull?: Partial<PullRequest>;
   level?: { permission: string; role_name: string };
   levelError?: Error;
+  /** A `workflow_dispatch` run naming this PR, in place of a comment. */
+  dispatch?: { prNumber: string; actor: string };
 } = {}) {
   const comments: string[] = [];
   const outputs: Record<string, string> = {};
@@ -70,15 +72,26 @@ function harness(options: {
     info: vi.fn(), warning: vi.fn(), setFailed: vi.fn(),
     setOutput: vi.fn((name: string, value: string) => { outputs[name] = value; }),
   };
-  const context = {
-    repo: { owner: 'wix', repo: 'skills' },
-    serverUrl: 'https://github.com',
-    runId: 777,
-    payload: {
-      issue: { number: 42, pull_request: {} },
-      comment: { body: options.body ?? '/sweep', user: { login: options.requester ?? PR_AUTHOR } },
-    },
-  };
+  const context = options.dispatch
+    ? {
+      repo: { owner: 'wix', repo: 'skills' },
+      serverUrl: 'https://github.com',
+      runId: 777,
+      eventName: 'workflow_dispatch',
+      actor: options.dispatch.actor,
+      payload: { inputs: { 'pr-number': options.dispatch.prNumber } },
+    }
+    : {
+      repo: { owner: 'wix', repo: 'skills' },
+      serverUrl: 'https://github.com',
+      runId: 777,
+      eventName: 'issue_comment',
+      actor: options.requester ?? PR_AUTHOR,
+      payload: {
+        issue: { number: 42, pull_request: {} },
+        comment: { body: options.body ?? '/sweep', user: { login: options.requester ?? PR_AUTHOR } },
+      },
+    };
 
   return {
     comments, outputs, core, pullsGet, getCollaboratorPermissionLevel,
@@ -166,6 +179,29 @@ describe('the spend gate', () => {
     await test.execute();
     expect(test.outputs.allowed).toBeUndefined();
     expect(test.comments[0]).toContain('Not Found');
+  });
+});
+
+describe('a manual dispatch', () => {
+  it('takes the PR from the input and the requester from the actor, with no comment to parse', async () => {
+    const test = harness({ dispatch: { prNumber: '42', actor: PR_AUTHOR } });
+    await test.execute();
+    expect(test.pullsGet).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 42 }));
+    expect(test.outputs.allowed).toBe('true');
+  });
+
+  it('still applies the spend gate to the dispatching actor', async () => {
+    const test = harness({ dispatch: { prNumber: '42', actor: 'stranger' } });
+    await test.execute();
+    expect(test.outputs.allowed).toBeUndefined();
+    expect(test.comments[0]).toContain('write access');
+  });
+
+  it('declines a malformed PR number without calling the API', async () => {
+    const test = harness({ dispatch: { prNumber: 'abc', actor: PR_AUTHOR } });
+    await test.execute();
+    expect(test.pullsGet).not.toHaveBeenCalled();
+    expect(test.outputs.allowed).toBeUndefined();
   });
 });
 

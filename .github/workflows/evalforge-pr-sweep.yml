@@ -14,11 +14,20 @@ on:
     # `created` only. Editing an old comment to add the command is a confusing way to start a run
     # that costs a live agent build per scenario.
     types: [created]
+  # An `issue_comment` workflow only ever runs from the default branch's copy of this file, so a
+  # branch's copy can be exercised only by dispatching it: `gh workflow run evalforge-pr-sweep.yml
+  # --ref <branch> -f pr-number=<n>`. The same guards apply; the dispatching actor is the requester.
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: 'The open PR to sweep'
+        required: true
+        type: string
 
 # Serialise per PR. `cancel-in-progress: false` because a sweep spends: a second `/sweep` should
 # queue behind the first, not throw its run away.
 concurrency:
-  group: evalforge-pr-sweep-pr-${{ github.event.issue.number }}
+  group: evalforge-pr-sweep-pr-${{ github.event.issue.number || inputs['pr-number'] }}
   cancel-in-progress: false
 
 jobs:
@@ -30,9 +39,10 @@ jobs:
     # name the command, and a bot-authored body containing it would re-fire this webhook.
     if: >-
       ${{ vars.PR_SWEEP_ENABLED != 'false'
-          && github.event.issue.pull_request
-          && github.event.comment.user.type != 'Bot'
-          && contains(github.event.comment.body, '/sweep') }}
+          && (github.event_name == 'workflow_dispatch'
+              || (github.event.issue.pull_request
+                  && github.event.comment.user.type != 'Bot'
+                  && contains(github.event.comment.body, '/sweep'))) }}
     permissions:
       contents: read
       # To post the acknowledgement or refusal.
@@ -48,19 +58,32 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue = context.payload.issue;
-            const requester = context.payload.comment.user.login;
+            const dispatched = context.eventName === 'workflow_dispatch';
 
-            // Strict: the command must be the first token of the first line. Anything looser turns
-            // discussing the feature — or quoting someone who used it — into a paid sweep.
-            const firstLine = (context.payload.comment.body ?? '').trim().split('\n')[0];
-            if (firstLine.trim().split(/\s+/)[0].toLowerCase() !== '/sweep') {
-              core.info('Comment is not a /sweep command — nothing to do.');
-              return;
+            // A dispatch names the PR in its input; a comment is the PR's own. Only the comment has
+            // a body to parse, and the parse is strict: the command must be the first token of the
+            // first line. Anything looser turns discussing the feature — or quoting someone who used
+            // it — into a paid sweep.
+            let prNumber;
+            if (dispatched) {
+              const raw = String(context.payload.inputs?.['pr-number'] ?? '').trim();
+              if (!/^[1-9]\d*$/.test(raw)) {
+                core.info(`pr-number "${raw}" is not a PR number — nothing to do.`);
+                return;
+              }
+              prNumber = Number(raw);
+            } else {
+              const firstLine = (context.payload.comment.body ?? '').trim().split('\n')[0];
+              if (firstLine.trim().split(/\s+/)[0].toLowerCase() !== '/sweep') {
+                core.info('Comment is not a /sweep command — nothing to do.');
+                return;
+              }
+              prNumber = context.payload.issue.number;
             }
+            const requester = dispatched ? context.actor : context.payload.comment.user.login;
 
             const comment = (body) =>
-              github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+              github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
 
             // A refusal is an ordinary outcome, not a failed check: declining to spend money is the
             // system working. So `core.info`, never `core.setFailed`.
@@ -70,7 +93,7 @@ jobs:
             };
 
             const { data: pr } = await github.rest.pulls.get({
-              owner, repo, pull_number: issue.number,
+              owner, repo, pull_number: prNumber,
             });
 
             // The three states the gates exclude in their own workflow `if:`, which a comment

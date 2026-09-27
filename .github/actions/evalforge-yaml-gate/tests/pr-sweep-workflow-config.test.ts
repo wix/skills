@@ -5,7 +5,12 @@ import * as yaml from 'js-yaml';
 
 type Step = { id?: string; name?: string; uses?: string; run?: string; if?: string; with?: Record<string, string> };
 type Workflow = {
-  on: { issue_comment?: { types: string[] }; push?: unknown; pull_request?: unknown };
+  on: {
+    issue_comment?: { types: string[] };
+    workflow_dispatch?: { inputs: Record<string, { required?: boolean }> };
+    push?: unknown;
+    pull_request?: unknown;
+  };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, {
     'timeout-minutes': number;
@@ -28,9 +33,14 @@ describe('EvalForge PR Sweep workflow — trigger', () => {
     expect(workflow.on.pull_request).toBeUndefined();
   });
 
-  it('serialises per PR without cancelling an in-flight sweep', () => {
+  it('can be dispatched by hand against a named PR, which is how a branch copy of this file is exercised', () => {
+    expect(workflow.on.workflow_dispatch?.inputs['pr-number']?.required).toBe(true);
+  });
+
+  it('serialises per PR without cancelling an in-flight sweep, however it was triggered', () => {
     expect(workflow.concurrency.group).toContain('evalforge-pr-sweep-pr-');
     expect(workflow.concurrency.group).toContain('github.event.issue.number');
+    expect(workflow.concurrency.group).toContain("inputs['pr-number']");
     expect(workflow.concurrency['cancel-in-progress']).toBe(false);
   });
 
@@ -43,7 +53,8 @@ describe('EvalForge PR Sweep workflow — authorize job', () => {
   const job = workflow.jobs.authorize;
   const script = job.steps[job.steps.length - 1];
 
-  it('starts a runner only for PR comments from non-bots that mention the command', () => {
+  it('starts a runner for a dispatch, or for PR comments from non-bots that mention the command', () => {
+    expect(job.if).toContain("github.event_name == 'workflow_dispatch'");
     expect(job.if).toContain('github.event.issue.pull_request');
     expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
     expect(job.if).toContain('/sweep');
