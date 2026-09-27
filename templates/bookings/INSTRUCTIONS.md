@@ -123,7 +123,7 @@ these first; they are tested code for exactly that behaviour:
    skeleton tiles while `services === null`, the honest empty state, and `ServiceCard`: image with
    the type badge, name, tagLine, "duration · price".
 
-All under `references/bookings/app/`.
+All under `templates/bookings/app/`.
 
 ### Wiring — Astro (default)
 

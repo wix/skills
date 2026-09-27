@@ -1,0 +1,40 @@
+---
+// Plan detail page.
+//
+// Pricing Plans has no documented owner-editable SEO item type (unlike bookings services /
+// store products), so this page carries plain <title>/<meta> from the DTO — no wixMetadata,
+// no <SEO.Tags>. The island is client:load: the plan arrives as an SSR-fetched prop; only
+// the purchase action runs client-side.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import PlanDetailView from "../../components/pricing-plans/PlanDetailView";
+import { fetchPlanBySlug } from "../../wix/pricing-plans/plans";
+import type { PlanDetail } from "../../wix/pricing-plans/types";
+
+const slug = Astro.params.slug!;
+
+let plan: PlanDetail | null = null;
+try {
+  plan = await fetchPlanBySlug(slug);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!plan) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={plan.name} description={plan.description || undefined}>
+  <div class="mx-auto max-w-2xl">
+    {plan.imageUrl && (
+      <div class="mb-6 aspect-[16/9] overflow-hidden rounded-xl bg-secondary">
+        <img src={plan.imageUrl} alt={plan.name} class="h-full w-full object-cover" />
+      </div>
+    )}
+    <h1 class="text-2xl font-semibold tracking-tight">{plan.name}</h1>
+    {plan.description && <p class="mt-2 text-muted-foreground">{plan.description}</p>}
+    <div class="mt-6">
+      <PlanDetailView client:load plan={plan} />
+    </div>
+  </div>
+</SiteLayout>

@@ -445,7 +445,7 @@ prose above is where the bugs come from:
 4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
    the price pair commits only when valid.
 
-All under `references/storefront/app/`.
+All under `templates/storefront/app/`.
 
 ### Wiring — Astro (default)
 

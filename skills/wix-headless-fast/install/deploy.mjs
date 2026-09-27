@@ -43,21 +43,25 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { templatesDir } from "./templates.mjs";
+import { syncLockRoot } from "./lock.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const REF = join(SKILL_ROOT, "references");
+// The shipped code: the repository's templates/ (a checkout, the cache, or fetched now).
+const REF = templatesDir();
 const PROJECT = process.cwd();
 const SRC = join(PROJECT, "src");
 const CONFIG_TS = join(SRC, "wix", "config.ts");
 const PKG_JSON = join(PROJECT, "package.json");
 
-// The vertical registry: every directory under references/ that ships an app/ is a vertical.
+// The vertical registry: every directory under templates/ that ships an app/ is a vertical.
 const VERTICALS = readdirSync(REF, { withFileTypes: true })
   .filter(
     (d) =>
       d.isDirectory() &&
       existsSync(join(REF, d.name, "app")) &&
-      d.name !== "shared",
+      d.name !== "shared" &&
+      d.name !== "blank",
   )
   .map((d) => d.name);
 
@@ -73,8 +77,6 @@ const SHARED_DEPS = {
 };
 const CAPABILITY_DEPS = {
   "media-upload": {
-    // All shipped Astro locks already carry @wix/media >= 1.0.271 transitively. Keep this
-    // range compatible with them, then promote it to a root lock dependency below.
     "@wix/media": "^1.0.271",
     "@wix/essentials": "^1.0.10",
   },
@@ -179,7 +181,7 @@ const flagArgs = new Set(
 );
 const requested = [...new Set(argv.filter((a) => !flagArgs.has(a)))];
 
-const result = { stack, verticals: [], skillRoot: SKILL_ROOT };
+const result = { stack, verticals: [], skillRoot: SKILL_ROOT, templates: REF };
 
 if (!["astro", "react", "lib", "static"].includes(stack)) {
   console.log(
@@ -362,13 +364,6 @@ if (result.verticals.length && existsSync(PKG_JSON)) {
   if (added.length)
     writeFileSync(PKG_JSON, JSON.stringify(pkg, null, 2) + "\n");
   result.depsAdded = added.map(([name]) => name);
-  if (added.length)
-    result.note = [
-      result.note,
-      "run `npm install --ignore-scripts` to pick up depsAdded",
-    ]
-      .filter(Boolean)
-      .join("; ");
 } else if (result.verticals.length) {
   result.depsAdded = [];
   result.note = [
@@ -379,54 +374,20 @@ if (result.verticals.length && existsSync(PKG_JSON)) {
     .join("; ");
 }
 
-// ---- shipped lockfile (single vertical only) ------------------------------------------------------
-// A pre-resolved package-lock.json covering the scaffold + this vertical's deps ships at
-// references/<vertical>/lock/<stack>/package-lock.json. Placing it lets `npm ci` skip the whole
-// resolution phase (seconds instead of minutes). URLs are canonical registry.npmjs.org form —
-// npm substitutes the locally configured registry (mirrors/proxies) at fetch time. Placed only
-// when the project has no lock of its own; if it ever drifts out of sync, `npm ci` fails fast
-// and the `|| npm install` fallback self-heals.
+// ---- the project's lockfile ---------------------------------------------------------------------
+// A project created from a composed template (templates/<vertical>/project) carries that
+// template's package-lock.json, so `npm ci` installs it without resolving. When this run added
+// dependencies to package.json, the lock's root entry is brought in line where the tree already
+// holds the package (install/lock.mjs); anything the tree lacks makes `npm ci` fail fast and the
+// `|| npm install` fallback resolve it. A project without a lock installs with `npm install`.
 const PROJECT_LOCK = join(PROJECT, "package-lock.json");
-if (
-  result.verticals.length === 1 &&
-  existsSync(PKG_JSON) &&
-  !existsSync(PROJECT_LOCK)
-) {
-  const shippedLock = join(
-    REF,
-    result.verticals[0],
-    "lock",
-    stack,
-    "package-lock.json",
-  );
-  if (existsSync(shippedLock)) {
-    cpSync(shippedLock, PROJECT_LOCK);
-    if (uploadPolicies.length) {
-      // The supplied per-vertical lock already resolves Media + Essentials transitively. Add
-      // them to its root package entry too, so npm ci accepts package.json's new direct
-      // dependency without falling back to a slow dependency-resolution install.
-      const lock = JSON.parse(readFileSync(PROJECT_LOCK, "utf8"));
-      lock.packages ??= {};
-      lock.packages[""] ??= {};
-      lock.packages[""].dependencies ??= {};
-      const rootDeps = lock.packages[""].dependencies;
-      for (const [name, range] of Object.entries(CAPABILITY_DEPS["media-upload"])) {
-        if (!lock.packages?.[`node_modules/${name}`]) {
-          result.lockCapability = `UNPATCHED — supplied lock lacks ${name}; npm install will resolve it`;
-          break;
-        }
-        rootDeps[name] = range;
-      }
-      writeFileSync(PROJECT_LOCK, JSON.stringify(lock, null, 2) + "\n");
-      if (!result.lockCapability) result.lockCapability = "media_upload_promoted";
-    }
-    result.lockDeployed = true;
-    result.note = [
-      result.note,
-      "install with `npm ci --ignore-scripts || npm install --ignore-scripts`",
-    ]
-      .filter(Boolean)
-      .join("; ");
+if (result.verticals.length && existsSync(PKG_JSON)) {
+  if (existsSync(PROJECT_LOCK)) {
+    const sync = syncLockRoot(PROJECT);
+    if (sync && (sync.promoted.length || sync.missing.length)) result.lock = sync;
+    result.note = [result.note, "install with `npm ci --ignore-scripts || npm install --ignore-scripts`"].filter(Boolean).join("; ");
+  } else if (result.depsAdded?.length) {
+    result.note = [result.note, "run `npm install --ignore-scripts` to pick up depsAdded"].filter(Boolean).join("; ");
   }
 }
 

@@ -1,0 +1,114 @@
+// Where the shipped code is. The verticals live in the skill's repository under `templates/`
+// (each with its code layers, its tools and a composed project with a lockfile), not in the skill
+// folder: the skill stays small and the code is fetched once, when first needed.
+//
+//   node <SKILL_ROOT>/install/templates.mjs [--refresh]      # prints {templates, source, verticals}
+//
+// Resolution, in order:
+//   1. a checkout of the repository itself (the skill folder sits in it): `<repo>/templates/`.
+//   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
+//   3. a fetch: a sparse, shallow clone of `templates/` from the repository the skill was installed
+//      from (skills-lock.json's `source`, default wix/skills), at the ref that source names or
+//      the repository's default branch. The lock records no commit, so there is nothing more exact
+//      to pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
+// The cache carries a `.gitignore` of `*` so it never enters the project's repository, and a
+// `.source` file with the repository, ref and commit it came from.
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+export const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const DEFAULT_REPO = "https://github.com/wix/skills.git";
+
+const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", timeout: 180_000, ...opts });
+
+// The repository and ref the skill was installed from: the nearest skills-lock.json above the
+// skill folder, its entry for this skill. "wix/skills" → the default branch of that repository;
+// "https://github.com/owner/repo/tree/<ref>" → that ref.
+export function installSource() {
+  const skill = SKILL_ROOT.split("/").pop();
+  let dir = SKILL_ROOT;
+  for (let i = 0; i < 6; i++) {
+    const p = join(dir, "skills-lock.json");
+    if (existsSync(p)) {
+      try {
+        const src = JSON.parse(readFileSync(p, "utf8")).skills?.[skill]?.source;
+        if (typeof src === "string" && src) return parseSource(src);
+      } catch { /* fall through to the default */ }
+      break;
+    }
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return { repo: DEFAULT_REPO, ref: null };
+}
+
+function parseSource(src) {
+  const m = src.match(/^(?:https?:\/\/github\.com\/)?([^/\s]+)\/([^/\s#@]+?)(?:\.git)?(?:\/tree\/([^\s]+))?$/);
+  if (!m) return { repo: DEFAULT_REPO, ref: null };
+  return { repo: `https://github.com/${m[1]}/${m[2]}.git`, ref: m[3] ?? null };
+}
+
+export function listVerticals(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "shared" && d.name !== "blank" && existsSync(join(dir, d.name, "app")))
+    .map((d) => d.name)
+    .sort();
+}
+
+export function templatesDir({ refresh = false } = {}) {
+  const checkout = resolve(SKILL_ROOT, "..", "..", "templates");
+  if (existsSync(join(checkout, "shared", "app"))) return checkout;
+  const cache = join(SKILL_ROOT, "templates");
+  if (!refresh && existsSync(join(cache, "shared", "app"))) return cache;
+  fetchTemplates(cache);
+  return cache;
+}
+
+export function templatesSource(dir) {
+  const p = join(dir, ".source");
+  if (existsSync(p)) { try { return JSON.parse(readFileSync(p, "utf8")); } catch { /* below */ } }
+  return { checkout: dir };
+}
+
+function fetchTemplates(cache) {
+  const { repo, ref: lockRef } = installSource();
+  const ref = process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || lockRef || null;
+  const tmp = mkdtempSync(join(tmpdir(), "wix-headless-fast-templates-"));
+  let r;
+  if (ref && /^[0-9a-f]{40}$/i.test(ref)) {
+    // a commit: shallow-fetch just it (GitHub serves any reachable commit by id)
+    for (const args of [["init", "-q", tmp], ["-C", tmp, "remote", "add", "origin", repo], ["-C", tmp, "fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", ref], ["-C", tmp, "sparse-checkout", "set", "templates"], ["-C", tmp, "checkout", "-q", "FETCH_HEAD"]]) {
+      r = git(args);
+      if (r.status !== 0) break;
+    }
+  } else {
+    r = git(["clone", "--quiet", "--depth", "1", "--filter=blob:none", "--sparse", ...(ref ? ["-b", ref] : []), repo, tmp]);
+    if (r.status === 0) r = git(["-C", tmp, "sparse-checkout", "set", "templates"]);
+  }
+  if (r.status !== 0 || !existsSync(join(tmp, "templates", "shared", "app"))) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error(`could not fetch templates/ from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || "no templates/shared/app in the clone").trim().slice(-400)}`);
+  }
+  const commit = git(["-C", tmp, "rev-parse", "HEAD"]).stdout.trim();
+  rmSync(cache, { recursive: true, force: true });
+  mkdirSync(dirname(cache), { recursive: true });
+  try { renameSync(join(tmp, "templates"), cache); }
+  catch { cpSync(join(tmp, "templates"), cache, { recursive: true }); }
+  rmSync(tmp, { recursive: true, force: true });
+  writeFileSync(join(cache, ".gitignore"), "*\n");
+  writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? "default branch", commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const dir = templatesDir({ refresh: process.argv.includes("--refresh") });
+    console.log(JSON.stringify({ templates: dir, source: templatesSource(dir), verticals: listVerticals(dir) }));
+  } catch (e) {
+    console.log(JSON.stringify({ error: e.message }));
+    process.exit(1);
+  }
+}

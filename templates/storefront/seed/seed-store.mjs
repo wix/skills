@@ -1,7 +1,7 @@
 // Storefront seed — a BUILD-TIME script, never shipped in the app. Run it from the project
 // root (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
+//   node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
 //
 // It mints its own site token via the Wix CLI (the token never leaves this process), installs
 // the Wix Stores app if needed, waits for the V3 catalog, bulk-creates products (variants

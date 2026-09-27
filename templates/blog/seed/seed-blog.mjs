@@ -1,7 +1,7 @@
 // Blog seed — a BUILD-TIME script, never shipped in the app. Run from the project root
 // (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/blog/seed/seed-blog.mjs plan.json
+//   node <SKILL_ROOT>/templates/blog/seed/seed-blog.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Blog app if needed, resolves
 // a real author memberId (every post create requires one), creates categories/tags (idempotent

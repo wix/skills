@@ -1,7 +1,7 @@
 // Bookings seed — a BUILD-TIME script, never shipped in the app. Run from the project root
 // (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/bookings/seed/seed-bookings.mjs plan.json
+//   node <SKILL_ROOT>/templates/bookings/seed/seed-bookings.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Bookings app if needed,
 // resolves a staff resource (polling — a fresh install provisions the owner async), creates

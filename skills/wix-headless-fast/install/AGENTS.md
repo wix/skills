@@ -20,9 +20,11 @@ call is memory, and an empty or error reply to it says nothing about the site.
 Installed at `.agents/skills/`. If missing, restore with:
 `CI=1 npx skills@latest add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage --yes`
 
-- `{{SKILL}}` — the code in this app and how to extend it. Each business solution has a playbook at
-  `references/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
-  adds one; `node .agents/skills/{{SKILL}}/references/<solution>/seed/read-site.mjs` reads what the
+- `{{SKILL}}` — the code in this app and how to extend it. The shipped code sits in
+  `.agents/skills/{{SKILL}}/templates/`, fetched from the skill's repository; if that folder is missing,
+  `node .agents/skills/{{SKILL}}/install/templates.mjs` fetches it. Each business solution has a playbook at
+  `templates/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
+  adds one; `node .agents/skills/{{SKILL}}/templates/<solution>/seed/read-site.mjs` reads what the
   site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe

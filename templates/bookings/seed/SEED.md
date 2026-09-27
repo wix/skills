@@ -7,7 +7,7 @@ install provisions the owner asynchronously), and creates everything in the righ
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/references/bookings/seed/seed-bookings.mjs plan.json
+node <SKILL_ROOT>/templates/bookings/seed/seed-bookings.mjs plan.json
 ```
 
 `plan.json` is plain data — write it from the brief. **Default to 3 services** (the seed
@@ -53,7 +53,7 @@ seems needed.
 
 ## Supplied content
 
-The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For bookings, each service the
+The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For bookings, each service the
 user lists is one entry. Its name becomes `name` and its length in minutes becomes `duration`. Its
 price becomes `price`; a service marked free, or with no price, gets `"free": true`. A group activity
 with a capacity or fixed times becomes a `CLASS` with `capacity` and one `sessions` entry per listed

@@ -1,7 +1,7 @@
 // The shared runner behind every vertical's `seed/read-site.mjs` — the build-time read of what a
 // site holds, so the agent sizes the content without composing a single Wix request.
 //
-//   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs [--site <siteId>] [--limit <n>]
+//   node <SKILL_ROOT>/templates/<vertical>/seed/read-site.mjs [--site <siteId>] [--limit <n>]
 //
 // The site is `--site`, else the `siteId` in ./wix.config.json. The token is minted by the Wix CLI
 // inside this process and never written anywhere. Output is ONE JSON object on stdout:

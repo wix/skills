@@ -1,5 +1,5 @@
 // What the blog holds: posts, categories, tags.
-//   node <SKILL_ROOT>/references/blog/seed/read-site.mjs [--site <siteId>] [--limit <n>]
+//   node <SKILL_ROOT>/templates/blog/seed/read-site.mjs [--site <siteId>] [--limit <n>]
 import { runReader } from "../../shared/seed/read-site.mjs";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";

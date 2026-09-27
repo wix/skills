@@ -1,0 +1,30 @@
+---
+// Collection page — header + its projects, resolved by slug SERVER-SIDE.
+// Portfolio has no documented Wix SEO item type, so this page carries plain
+// <title>/<meta description> from the DTO (no wixMetadata / <SEO.Tags> — unlike
+// storefront/bookings item pages). Keep the frontmatter; swap the island import to YOUR
+// collection-page component.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import CollectionProjectsView from "../../components/portfolio/CollectionProjectsView";
+import { fetchCollectionBySlug, fetchProjects } from "../../wix/portfolio/portfolio";
+import type { CollectionSummary, ProjectSummary } from "../../wix/portfolio/types";
+
+const slug = Astro.params.slug!;
+
+let collection: CollectionSummary | null = null;
+let projects: ProjectSummary[] = [];
+try {
+  collection = await fetchCollectionBySlug(slug);
+  if (collection) projects = await fetchProjects({ collectionId: collection.id });
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!collection) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={collection.title} description={collection.description}>
+  <CollectionProjectsView client:load slug={slug} initialCollection={collection} initialProjects={projects} />
+</SiteLayout>

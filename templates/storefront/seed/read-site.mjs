@@ -1,6 +1,6 @@
 // What the store holds: products (names, prices, options, media, stock), categories. Run it before
 // designing a storefront for a site that already has content:
-//   node <SKILL_ROOT>/references/storefront/seed/read-site.mjs [--site <siteId>] [--limit <n>]
+//   node <SKILL_ROOT>/templates/storefront/seed/read-site.mjs [--site <siteId>] [--limit <n>]
 // Every request here is the one the deployed data layer makes (rest/catalog.ts); the doc URL of
 // each method is in the output's `calls`.
 import { runReader } from "../../shared/seed/read-site.mjs";

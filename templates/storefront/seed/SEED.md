@@ -12,7 +12,7 @@ not a store product.
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
+node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
 ```
 
 Run this way, the result is the process itself: exit code `0` and the JSON on stdout (redirect it
@@ -80,7 +80,7 @@ business (a ceramics studio has glaze colors; a bakery doesn't).
 
 ## Supplied content
 
-The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
+The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
 lists is one entry, whatever form the list arrives in. Its name, description and price become
 `name`, `description` and `price`. A "was", "regular" or "compare at" price becomes `compareAtPrice`
 when it is higher than the price. A stock count becomes `quantity`; "unlimited" or "made to order"

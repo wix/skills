@@ -9,8 +9,9 @@
 //     this skill's code or a solution to it, then one install, then the seed if there is content.
 //   - a project but no `wix.config.json` (a package.json, or an index.html at the root) → CONNECT:
 //     `npm create @wix/new@latest init` in place creates the site and the config, then deploy.
-//   - otherwise (empty, or loose files such as a CSV or a brief) → CREATE: scaffold the Wix CLI's
-//     Astro template and place it in the current directory (`--business-name` required).
+//   - otherwise (empty, or loose files such as a CSV or a brief) → CREATE: `wix create` with the
+//     vertical's composed template (templates/<vertical>/project: the CLI's blank scaffold with the
+//     vertical deployed and a lockfile), placed in the current directory (`--business-name` required).
 //
 // The script reads file markers only (wix.config.json, a package.json or index.html); everything
 // else is the agent's call: when connecting, `--stack` is required and comes from SKILL.md step 1,
@@ -26,6 +27,7 @@ import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } f
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
+import { listVerticals, templatesDir } from "./templates.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -47,9 +49,10 @@ const vertical = flag("vertical");
 const stackFlag = flag("stack");
 // Opt-in: keep a CREATE's project in a subfolder instead of the current directory.
 const subfolder = argv.includes("--subfolder");
-const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
-  .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
-  .map((d) => d.name);
+// The shipped code: the repository's templates/ (a checkout, the cache, or fetched now, in a second).
+let TEMPLATES;
+try { TEMPLATES = templatesDir(); } catch (e) { fail("templates", e.message); }
+const knownVerticals = listVerticals(TEMPLATES);
 const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}> [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong seed.
 if (!vertical) fail("args", usage);
@@ -92,7 +95,11 @@ if (mode === "create") {
   if (existsSync(join(projectDir, "wix.config.json"))) {
     emit("scaffold_skipped", { reason: "project already exists", folder: folderName });
   } else {
-    emit("scaffolding", { folder: folderName });
+    // The composed template: the CLI copies it in place of its blank one, creates the site and
+    // writes wix.config.json; the vertical's code and its lockfile arrive with it. Any other
+    // stack takes the CLI's blank Astro scaffold, as before, and deploy below adds the code.
+    const template = stack === "astro" ? join(TEMPLATES, vertical, "project") : null;
+    emit("scaffolding", { folder: folderName, template });
     const scaffold = spawnSync(
       "npm",
       // --skip-git: this wrapper composes its own steps and leaves version control to
@@ -102,7 +109,8 @@ if (mode === "create") {
       // same reason: deps install in a detached step below.
       ["create", "@wix/new@latest", "--", "headless",
        "--folder-name", folderName, "--business-name", businessName,
-       "--site-template", "--skip-install", "--skip-git", "--no-publish"],
+       "--site-template", "blank", ...(template ? ["--template-path", template] : []),
+       "--skip-install", "--skip-git", "--no-publish"],
       { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
     );
     if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
@@ -125,7 +133,9 @@ const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "
 const siteId = wixConfig.siteId ?? wixConfig.projectId;
 emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd, siteId, stack });
 
-// ---- 2 · deploy shipped code + deps + lockfile ---------------------------------------------------
+// ---- 2 · deploy shipped code + deps ---------------------------------------------------------------
+// A CREATE from the composed template already holds the code and the lock: deploy adds nothing and
+// reports the project; a CONNECT gets the code and its dependencies here.
 const deploy = spawnSync(
   "node",
   [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack, ...(planPath ? ["--plan", resolve(planPath)] : [])],
@@ -196,7 +206,7 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
 // additive: it never deletes or overwrites what the site holds.
 let seed = null;
 if (planPath) {
-  const seedDir = join(SKILL_ROOT, "references", vertical, "seed");
+  const seedDir = join(TEMPLATES, vertical, "seed");
   const seedName = existsSync(seedDir)
     ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs"))
     : undefined;
