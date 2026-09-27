@@ -39,10 +39,10 @@ Before adding anything, check whether the file already says it — badly:
   permissions matrix) is the easiest thing to extract to its own reference file — a rule +
   pointer stays in `SKILL.md`, the table moves. A section that mixes a rule with a table
   usually isn't worth splitting; only pull out the part that's pure data.
-- **`SKILL.md` body over ~500 lines**, or **a reference file over ~300 lines with no
-  `## Contents`** — skill-creator's size guidelines (see its own skill for where these numbers
-  come from). Not a hard rule this repo states, but the same reason applies: `SKILL.md` is
-  always loaded once the skill triggers, so it's the most expensive real estate in the skill.
+- **`SKILL.md` body over ~500 lines** is a hard CI gate on any PR that touches it
+  (`scripts/check-skill-md-size.mjs`, wired into the `typecheck` job) — it's always loaded once
+  the skill triggers, so it's the most expensive real estate in the skill. **A reference file
+  over ~300 lines with no `## Contents`** is the same skill-creator guideline, not yet CI-gated.
 
 ## Before removing or moving anything
 
@@ -73,7 +73,9 @@ API or behavior claim (a pure prose tightening, a table of contents, a typo fix)
    this one). Read the diff for that yourself. **It's also scoped to the diff against `--base`:**
    a file identical to `main` is silently excluded, not "checked and found clean" — if you're
    validating a change that isn't committed yet, confirm the file actually shows up in the
-   tool's own file count before trusting a clean result.
+   tool's own file count before trusting a clean result. The `SKILL.md`-over-500-lines part of
+   this is also a separate, hard CI gate (`scripts/check-skill-md-size.mjs`, in the `typecheck`
+   job) on any PR that touches the file — this local run just lets you catch it before pushing.
 2. **Anchors, one call:** re-run the `grep -rn '#your-anchor'` search from above against the
    *new* file — confirm every heading anything still links to still exists with the same text.
 3. **The repo's real CI gate for `wix-app` content, one call (when `skills/wix-app/**` changed):**
