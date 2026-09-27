@@ -11,7 +11,7 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: >-
-        https://dev.wix.com/docs/api-reference/business-management/calendar/skills/configure-default-business-hours
+        https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/set-site-business-hours
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -26,8 +26,9 @@ assertions:
     prompt: >-
       Score 0-10 for the tool-call path. Read the actual tool arguments and executed API
       requests, not just documentation titles or URL categories. Loading the required
-      configure-default-business-hours recipe is valid routing, even though its URL contains
-      /calendar/; it is NOT a Calendar API probe. Relevant Site Properties documentation reads
+      set-site-business-hours recipe is valid routing, and so is loading the
+      configure-default-business-hours recipe, even though its URL contains /calendar/; neither
+      is a Calendar API probe. Relevant Site Properties documentation reads
       and required schema checks are allowed.
       A clean path reads the current Site Properties business schedule, updates the requested
       weekly periods, then reads the persisted schedule back and checks it before reporting
