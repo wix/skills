@@ -120,7 +120,9 @@ If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, inst
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
 Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
 
-If a call to an API owned by the app you just installed fails with a not-found error immediately afterward, in the same execution: wait briefly (roughly 1-2 seconds) and retry the dependent call, up to 3 attempts with backoff. Do this yourself before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
+If a call to an API owned by the app you just installed fails with a not-found error immediately afterward: wait briefly (roughly 1-2 seconds) and retry the dependent call, up to 3 attempts with backoff. Do this yourself before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
+
+Write the install call, the wait, and the retried dependent call as one script in a single tool call — loop with a short sleep inside that one execution — rather than making the retry a separate follow-up tool call. A retry that round-trips back to you costs a full extra turn per attempt; a retry loop inside the same script costs only the wait itself.
 
 ---
 
