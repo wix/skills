@@ -118,9 +118,9 @@ If you receive an error indicating a required app is not installed, use this rec
 If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
-Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation. The dependent call returns a `404 Entity not found` whose `notFound.entityId` is the placeholder GUID `00000000-0000-0000-0000-000000000000`, not a real entity ID.
+Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
 
-If you see this exact shape (a 404 with that placeholder entity ID) on a call to an API owned by the app you just installed, in the same execution: wait briefly (roughly 1-2 seconds) and retry the dependent call, up to 3 attempts with backoff. Do this yourself before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
+If a call to an API owned by the app you just installed fails with a not-found error immediately afterward, in the same execution: wait briefly (roughly 1-2 seconds) and retry the dependent call, up to 3 attempts with backoff. Do this yourself before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
 
 ---
 
