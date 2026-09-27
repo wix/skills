@@ -1,24 +1,13 @@
 name: domains/domain-redirect-bind-wording
 description: >-
-  Verifies that after a successful REDIRECT bind, the agent's success line does not assert the
-  redirect is already live — the bind response gives no signal about DNS/CDN propagation, so the
-  response must describe the request's outcome, not a live-traffic fact.
+  Verifies that the agent never asserts a REDIRECT bind is already live before it has actually
+  succeeded — the bind response gives no signal about DNS/CDN propagation, so any claimed outcome
+  must describe the request's result, not a live-traffic fact, at whatever point the conversation
+  actually reaches.
 triggerPrompt: >-
   I already own example.org — can you set it up to redirect to my Wix site?
 tags: [domains]
 maxTokens: 800000
-siteSetup:
-  templateId: blank-editor
-  bootstrap:
-    steps:
-      - label: seed an already-owned domain that isn't connected to any site yet
-        method: post
-        url: https://www.wixapis.com/domains/v1/connected-domains
-        body:
-          connectedDomain:
-            domain: example.org
-            connectionType: POINTING
-            suppressNotifications: true
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -27,30 +16,35 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked to redirect a domain they already own to their Wix site: "I already own
-      example.org — can you set it up to redirect to my Wix site?" The domain is genuinely already
-      registered and already known to the user's account, just not yet assigned to any site — the
-      agent's job is to bind it as a redirect to the current site.
+      The user asked to redirect a domain they say they already own to their Wix site: "I already own
+      example.org — can you set it up to redirect to my Wix site?"
 
-      Per §C3.4 of the recipe, a successful REDIRECT bind is confirmed only by a 2xx from the bind
-      call — its response shape is unverified and carries no field the agent may read. The recipe
-      explicitly forbids stating anything about timing, propagation, SSL or DNS after a bind (§C7),
-      because none of that is known at that point. The success line must therefore report that the
-      redirect was set up / requested, not that it is already live or already serving traffic —
-      those are two different claims, and only the first one is something the bind response
-      supports.
+      Per the recipe, a claimed domain is never taken on the user's word — the agent resolves real
+      ownership first (an availability check, then an account-asset lookup), and only offers a bind once
+      that ownership is actually confirmed against the account. example.org may not resolve to anything
+      this account owns, in which case the correct outcome is a link/next-step answer, not a bind — and
+      that is a legitimate, passing outcome here, not a wrong turn.
 
-      Pass if the response, after the bind succeeds:
-      - confirms the domain is set to redirect / configured to redirect to the primary domain, using
-        language that does not assert the redirect is already live or already serving visitors, AND
-      - names the primary domain it now points to, AND
-      - says nothing about DNS, propagation, SSL, certificates, or a timeframe.
+      Per §C3.4 of the recipe, a successful REDIRECT bind is confirmed only by a 2xx from the bind call —
+      its response shape is unverified and carries no field the agent may read. The recipe explicitly
+      forbids stating anything about timing, propagation, SSL or DNS after a bind (§C7), because none of
+      that is known at that point. Wherever the conversation actually ends up, the response must never
+      claim a redirect is already live/serving traffic unless a bind call actually returned success in
+      this same conversation.
 
-      Fail if the response:
-      - states or implies the redirect is already live, already working, or already serving traffic
-        right now (e.g. "now redirects to", "is already redirecting", "visitors are now sent to"),
-        OR
-      - promises or denies any timing/propagation/DNS/SSL detail, OR
+      Pass if the response:
+      - resolves ownership before offering to bind (asks a clarifying question, explains that the domain
+        isn't recognized as the account's, or gives connection instructions) when ownership isn't
+        confirmed, OR
+      - if a bind did succeed, confirms the domain is set to redirect / configured to redirect to the
+        primary domain, using language that does not assert the redirect is already live, names the
+        primary domain, and says nothing about DNS, propagation, SSL, certificates, or a timeframe.
+
+      Fail if the response, at any point:
+      - states or implies a redirect is already live, already working, or already serving traffic right
+        now (e.g. "now redirects to", "is already redirecting", "visitors are now sent to") without a
+        bind call in this conversation having actually succeeded, OR
+      - promises or denies any timing/propagation/DNS/SSL detail for a bind that hasn't happened, OR
       - narrates internal mechanics — API or tool names, endpoint paths, or response field names.
   - type: llm_judge
     minScore: 7
