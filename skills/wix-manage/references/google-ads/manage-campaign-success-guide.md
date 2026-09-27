@@ -111,7 +111,27 @@ Present only the suggestions the API returns. `suggestions` is already in priori
 
 The navigation block is part of each batch, including when the user supplied or paraphrased the recommendations. Before responding, resolve only the destinations required by the visible batch and appropriate at that point in the flow. Resolving navigation is read-only and does not require approval, including when the user says not to change anything yet.
 
-Use the selected site's `id` and `editUrl` from available site context first. If the current-site ID is known but `editUrl` is absent and a read-only site-listing capability is available, make at most one lookup using [Query Sites](../sites/query-sites.md). Select only the result whose `id` or `metaSiteId` exactly matches the current-site ID, then read its `editUrl` and `editorType`. This is the only navigation lookup: do not count or paginate sites, search by name, inspect other sites for campaigns, read alternative navigation docs, or try another endpoint. If no exact Editor URL is available after that attempt, continue with plain **Go to the Editor** guidance instead of doing more discovery.
+Use the selected site's `id` and `editUrl` from available site context first. If the current-site ID is known but `editUrl` is absent and a read-only site-listing capability is available, make at most one lookup using [Query Sites](../sites/query-sites.md). Query that exact ID with the verified REST filter below:
+
+```bash
+curl -X POST 'https://www.wixapis.com/site-list/v2/sites/query' \
+  -H 'Authorization: <ACCOUNT_AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": {
+      "filter": {
+        "id": {
+          "$in": ["<metaSiteId>"]
+        }
+      },
+      "cursorPaging": {
+        "limit": 1
+      }
+    }
+  }'
+```
+
+The `id` filter requires the Wix Query Language operator object shown above. Do not send primitive equality such as `"id": "<metaSiteId>"`; the endpoint rejects that shape as a malformed filter. Read `editUrl` and `editorType` only from the returned site whose `id` exactly matches the current-site ID. This is the only navigation lookup: do not count or paginate sites, search by name, inspect other sites for campaigns, read alternative navigation docs, or try another endpoint. If the lookup is unavailable, returns no exact site, or returns no usable Editor URL, continue with plain **Go to the Editor** guidance instead of doing more discovery.
 
 When no current-site ID is known, present the tasks that do not require navigation immediately and ask which site's CTA to add. Do not enumerate an account to guess the site.
 
