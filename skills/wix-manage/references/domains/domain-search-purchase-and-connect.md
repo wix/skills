@@ -1648,7 +1648,7 @@ Success, one line, nothing after it:
 
 > Done — {displayName} is now the primary domain for **{siteName}**.
 
-> Done — {displayName} now redirects to **{current primary}**.
+> Done — {displayName} is set to redirect to **{current primary}**.
 
 On a **move**, the same line says where it came off — the user changed two sites and should see both
 named once:
@@ -1656,7 +1656,7 @@ named once:
 > Done — {displayName} is now the primary domain for **{siteName}**, and it's off
 > **{current siteName}**.
 
-> Done — {displayName} now redirects to **{current primary}**, and it's off **{current siteName}**.
+> Done — {displayName} is set to redirect to **{current primary}**, and it's off **{current siteName}**.
 
 Still one sentence. **Nothing about what {current siteName} does now** — that is not known (§C0c).
 
