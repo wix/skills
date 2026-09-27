@@ -4,7 +4,7 @@ description: >-
   redirect is already live — the bind response gives no signal about DNS/CDN propagation, so the
   response must describe the request's outcome, not a live-traffic fact.
 triggerPrompt: >-
-  Point mysecondbrand.com at my main Wix site as a secondary domain — I already own it.
+  Please redirect mysecondbrand.com to my main Wix site — I already own it.
 tags: [domains]
 maxTokens: 800000
 assertions:
