@@ -51,10 +51,11 @@ Astro stack additionally gets:
 1. **The rental card + listing surface** — your tile (image, "By the hour" / "By the day", the
    rate and range presentation) and rhythm, with skeletons while loading and an honest empty
    state — on `useRentals`.
-2. **The rental surface** — the start picker (times grouped by day for an hourly rental, one chip
-   per day for a daily one) with window paging, the length picker for the chosen start, the quote,
-   the schema-driven form, the CTA labelled from `ctaState`, and the confirmed state — on
-   `useRentalFlow`, which owns ALL rental logic; you own how it looks.
+2. **The rental surface** — the start picker one day at a time (a strip of the days that have
+   availability, then that day's times bucketed into morning, afternoon and evening; a daily rental
+   shows the strip alone) with window paging at the strip's ends, the length picker for the chosen
+   start, the quote, the schema-driven form, the CTA labelled from `ctaState`, and the confirmed
+   state — on `useRentalFlow`, which owns ALL rental logic; you own how it looks.
 3. **The home page** — hero, featured rentals (fetch in frontmatter → your components), brand story.
 
 Plus the **theme** (`@theme` block, one edit) and the **chrome** (`SiteLayout`, one pass).
@@ -72,11 +73,16 @@ business, not a stereotype of its category. Then, by default:
   `rangeLabel` ("1 to 8 hours"), link — in the first screen; nothing when a label is ""; a
   "Load more" affordance while `hasMore`; `rentals === null` → skeleton tiles, `[]` → your honest
   empty state.
-- **Rental page:** name, rate, and the first available starts in the first screen **at 390px wide
-  too** — the image is a bounded band on a phone, not a full-screen hero; window paging beside the
-  starts (`windowDays` is 7 for hourly, 14 for daily); "Times in {timeZone}" for an hourly rental
-  once known; a start chip keyed by `start.key`, disabled when `!bookable`; a window with no starts
-  says so and offers the next one; once a start is chosen, the length picker from `endOptions`
+- **Rental page:** name, rate, and the first available day's starts in the first screen **at 390px
+  wide too** — the image is a bounded band on a phone, not a full-screen hero. **One day at a
+  time:** a horizontal strip of the days in `days` (weekday and day number), the active day's
+  starts under it bucketed into morning / afternoon / evening, and the window pagers at the strip's
+  ends (`windowDays` is 7 for hourly, 14 for daily). Never list every day's times at once: a
+  rental's resources are usually bookable around the clock, so a week is over three hundred chips
+  and the form ends up below a wall of numbers. For a daily rental the strip is the start picker (a
+  day is a start). Switching day drops a start chosen on another day. "Times in {timeZone}" for an
+  hourly rental once known; a start chip keyed by `start.key`, disabled when `!bookable`; a window
+  with no starts says so and offers the next one; once a start is chosen, the length picker from `endOptions`
   (`null` → loading, `[]` → "this start can't be rented for the minimum length — pick another");
   once a length is chosen, the quote (`quote === null` → "calculating", `quote.total` → the total,
   "" → omit); the form under the pickers, the CTA under the form.
@@ -136,8 +142,10 @@ Their `RentalsState` / `RentalFlowState` interfaces are the render contract; rea
 write is the rendering — tiles, the start and length pickers, the form, the CTA — and for that read
 these first; they are tested code for exactly that behaviour:
 
-1. `components/rentals/RentalBookingView.tsx` — the rental surface as working code: the start
-   picker in both shapes (hourly day groups, daily day chips), window paging, the time-zone line,
+1. `components/rentals/RentalBookingView.tsx` — the rental surface as working code: the day strip
+   (the days with availability, pagers at its ends), the active day's starts in morning / afternoon
+   / evening buckets for an hourly rental, the strip as the start picker for a daily one, the
+   time-zone line,
    the length picker with its loading and empty states, the quote line, one input per `formFields`
    entry typed from its `type` (a `<select>` when it has `options`), the CTA disabled until
    `canRent` and labelled from `ctaState` + the money, `error` inline, and the confirmed state
