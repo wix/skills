@@ -1,71 +1,117 @@
 // Online ordering (Restaurants Orders + Wix eCom Cart V2) over the SDK — the only file that
-// touches the raw cart and operation entities on this transport. Rules and mappers live in
-// ./ordering-core (shared with the REST twin in templates/restaurants/rest/); this file is the
-// transport only. Copy as-is; extend by calling these exports, never by editing them. The request
-// shapes are exact and rewriting them is how carts break:
+// touches the raw cart, operation, and settings entities on this transport. Rules and mappers
+// live in ./ordering-core (shared with the REST twin in templates/restaurants/rest/); this file is
+// the transport only. Copy as-is; extend by calling these exports, never by editing them. The
+// request shapes are exact and rewriting them is how carts break:
 //   - the catalogReference appId is the ORDERS app (9a5d83fd-…), never the Stores id;
-//   - options MUST carry operationId + menuId + sectionId (all three) — no variantId;
-//   - modifier/variant selections are NOT sent on the line (undocumented for a client add).
-// Failures are loud: throws on a missing ordering operation, unavailable lines, and an empty
-// order at checkout — surface the message, don't swallow it.
+//   - options MUST carry operationId + menuId + sectionId (all three);
+//   - the visitor's choices ride in options.priceVariant / options.modifierGroups /
+//     options.specialRequests, the keys Wix's own ordering code sends (built in ordering-core).
+// Failures are loud: throws on a missing or paused ordering operation, an invalid selection,
+// unavailable lines, and an empty order at checkout — surface the message, don't swallow it.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/query-menu-ordering-settings.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/list-fulfillment-methods.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { operations as operationsModule, fulfillmentMethods as fulfillmentModule, items as itemsModule } from "@wix/restaurants";
+import {
+  operations as operationsModule,
+  fulfillmentMethods as fulfillmentModule,
+  menuOrderingSettings as menuSettingsModule,
+  items as itemsModule,
+} from "@wix/restaurants";
 import { currentCartV2 } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
+import { fetchSiteMoney } from "./menu";
+import { initialSelection, nextCursor, validateSelection, type Raw } from "./menu-core";
 import {
   RESTAURANTS_ORDERS_APP_ID,
   assertOrderAdded,
   assertOrderCheckoutable,
   assertOrderContext,
+  assertOrderable,
   estimateSubtotal,
   orderCatalogItem,
-  pickOperationId,
   rawId,
+  resolveOperation,
   toFulfillmentMethods,
+  toMenuOrderingMap,
   toOrderCart,
 } from "./ordering-core";
-import type { Raw } from "./menu-core";
-import type { FulfillmentMethodInfo, OrderCart } from "./types";
+import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
 
 export { RESTAURANTS_ORDERS_APP_ID };
 
 const operationsApi = wixModule(operationsModule);
 const fulfillmentApi = wixModule(fulfillmentModule);
+const menuSettingsApi = wixModule(menuSettingsModule);
 const itemsApi = wixModule(itemsModule);
 const cartApi = wixModule(currentCartV2);
 const redirects = wixModule(redirectsModule);
 
 // The ordering operation is site config — resolve once, reuse for every add.
-let operationIdPromise: Promise<string | null> | null = null;
+let orderingPromise: Promise<OrderingStatus> | null = null;
 
 /**
- * The id of the operation to order through (ENABLED, else default, else first) — null when
- * the site has no online ordering configured (show an "ordering unavailable" state).
+ * The operation to order through and its state (ENABLED, else the default, else the first).
+ * `status` "NONE" when the site has no online ordering configured; DISABLED / PAUSED_UNTIL refuse
+ * every add — the add control reads the reason from it.
  */
-export function resolveOperationId(): Promise<string | null> {
-  operationIdPromise ??= operationsApi
+export function resolveOrdering(): Promise<OrderingStatus> {
+  orderingPromise ??= operationsApi
     .listOperations()
-    .then((res: Raw) => pickOperationId(res.operations ?? []))
+    .then((res: Raw) => resolveOperation(res.operations ?? []))
     .catch(() => {
-      operationIdPromise = null; // transient failure — allow a retry on the next call
-      return null;
+      orderingPromise = null; // transient failure — allow a retry on the next call
+      return resolveOperation([]);
     });
-  return operationIdPromise;
+  return orderingPromise;
 }
 
-/** Enabled pickup/delivery methods, for display — the buyer picks one on the hosted checkout. */
+/** The id of the operation to order through — null when the site has none. */
+export function resolveOperationId(): Promise<string | null> {
+  return resolveOrdering().then((s) => s.operationId);
+}
+
+/**
+ * Every menu's ordering settings under the operation, keyed by menuId: which menus take online
+ * orders and when (availability windows in their own timezone). A menu absent from the map is
+ * not orderable. {} when there is no operation.
+ */
+export async function fetchMenuOrdering(): Promise<Record<string, MenuOrderingInfo>> {
+  const { operationId } = await resolveOrdering();
+  if (!operationId) return {};
+  const raws: Raw[] = [];
+  let page = await menuSettingsApi.queryMenuOrderingSettings().eq("operationId", operationId).find();
+  raws.push(...(page.items as Raw[]));
+  while (page.hasNext()) {
+    page = await page.next();
+    raws.push(...(page.items as Raw[]));
+  }
+  return toMenuOrderingMap(raws);
+}
+
+/**
+ * The operation's enabled pickup/delivery methods (operation.fulfillmentIds only), fees and
+ * minimums formatted in the site currency — for display; the buyer picks one on the hosted checkout.
+ */
 export async function fetchFulfillmentMethods(): Promise<FulfillmentMethodInfo[]> {
   try {
-    const res: Raw = await fulfillmentApi.listFulfillmentMethods();
-    return toFulfillmentMethods(res.fulfillmentMethods ?? []);
+    const [status, money] = await Promise.all([resolveOrdering(), fetchSiteMoney()]);
+    if (!status.fulfillmentIds.length) return [];
+    const raws: Raw[] = [];
+    let cursor: string | null = null;
+    do {
+      const res: Raw = await fulfillmentApi.listFulfillmentMethods(cursor ? { cursorPaging: { cursor } } : {});
+      raws.push(...((res.fulfillmentMethods ?? []) as Raw[]));
+      cursor = nextCursor(res);
+    } while (cursor);
+    return toFulfillmentMethods(raws, status.fulfillmentIds, money);
   } catch {
     return []; // display nicety — ordering still works without the list
   }
@@ -127,22 +173,28 @@ export async function fetchOrderCart(): Promise<OrderCart> {
 }
 
 /**
- * Add a menu item to the current order. `menuId` and `sectionId` are the ids of the menu and
- * section the item is RENDERED UNDER — thread them from the render context (the fetchMenus
- * tree), never re-derive them. Throws when ordering isn't configured or the line is refused.
+ * Add a dish to the current order. `item` is the MenuItem DTO as rendered; `menuId` and
+ * `sectionId` are the ids of the menu and section it is RENDERED UNDER — thread them from the
+ * render context (the fetchMenus tree), never re-derive them. `selection` is what the visitor
+ * chose (start from initialSelection(item)); omitted → the item's defaults. Throws when ordering
+ * isn't accepting, the dish can't be ordered, a modifier rule fails, or the line is refused.
  */
 export async function addToOrder(
-  itemId: string,
+  item: MenuItem,
   { menuId, sectionId }: { menuId: string; sectionId: string },
   quantity = 1,
+  selection: OrderSelection = initialSelection(item),
 ): Promise<OrderCart> {
-  const operationId = await resolveOperationId();
-  if (!operationId) throw new Error("Online ordering isn't available right now.");
-  assertOrderContext(itemId, menuId, sectionId);
+  const { operationId, status } = await resolveOrdering();
+  if (!operationId || status !== "ENABLED") throw new Error("Online ordering isn't available right now.");
+  assertOrderContext(item.id, menuId, sectionId);
+  assertOrderable(item);
+  const check = validateSelection(item, selection);
+  if (!check.ok) throw new Error(Object.values(check.errors)[0]);
   const { cart } = await cartApi.addLineItemsToCurrentCart({
-    catalogItems: [orderCatalogItem(itemId, { operationId, menuId, sectionId }, quantity)],
+    catalogItems: [orderCatalogItem(item, { operationId, menuId, sectionId }, quantity, selection)],
   });
-  assertOrderAdded(cart as Raw, itemId);
+  assertOrderAdded(cart as Raw, item.id);
   return readCartWithSubtotal(cart as Raw);
 }
 

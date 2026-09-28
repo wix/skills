@@ -5,6 +5,7 @@ import {
   addOrderLine,
   getOrderCartState,
   goToOrderCheckout,
+  isMenuOrderable,
   refreshOrderCart,
   removeLineFromOrder,
   setOrderCartOpen,
@@ -12,13 +13,20 @@ import {
   updateOrderLineQuantity,
   type OrderCartState,
 } from "../../wix/restaurants/order-store";
+import type { MenuItem, OrderSelection } from "../../wix/restaurants/types";
 
 const SERVER_STATE = getOrderCartState();
 
 export interface UseOrderCart extends OrderCartState {
   itemCount: number;
-  /** menuId/sectionId come from the render context (the fetchMenus tree) — pass both. */
-  addToOrder: (itemId: string, context: { menuId: string; sectionId: string }, quantity?: number) => Promise<void>;
+  /**
+   * Add a dish: the MenuItem DTO as rendered, the menu/section ids it is rendered under (the
+   * fetchMenus tree — never looked up again), the quantity, and the visitor's selection (from
+   * initialSelection(item) + toggleModifier; omit for a dish with nothing to choose).
+   */
+  addToOrder: (item: MenuItem, context: { menuId: string; sectionId: string }, quantity?: number, selection?: OrderSelection) => Promise<void>;
+  /** false → this menu takes no online orders right now (no add control); null while unknown. */
+  menuOrderable: (menuId: string) => boolean | null;
   updateQuantity: (lineItemId: string, quantity: number) => Promise<void>;
   removeLine: (lineItemId: string) => Promise<void>;
   checkout: () => Promise<void>;
@@ -33,6 +41,7 @@ export function useOrderCart(): UseOrderCart {
     ...state,
     itemCount: state.cart?.itemCount ?? 0,
     addToOrder: addOrderLine,
+    menuOrderable: isMenuOrderable,
     updateQuantity: updateOrderLineQuantity,
     removeLine: removeLineFromOrder,
     checkout: goToOrderCheckout,
