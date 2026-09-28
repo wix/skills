@@ -20,10 +20,14 @@ export const BLOG_BASE = "/blog";
 
 /**
  * The post page's fieldsets — without them richContent, contentText, seoData, and referenceId come
- * back undefined. REFERENCE_ID is the comments thread id; SEO carries the owner's title/description
- * overrides. (Fieldset enum: URL, CONTENT_TEXT, METRICS, SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID.)
+ * back undefined. SEO carries the owner's title/description overrides. The comments thread id is
+ * `referenceId`: verified live, the REFERENCE_ID fieldset returns the post WITHOUT it (silently),
+ * while INTERNAL_ID returns both `internalId` and `referenceId` — so both are requested, and the
+ * mapper falls back to the post id (which is what referenceId equalled on every post read live, and
+ * what Wix's own Blog widget addresses the thread by). (Fieldset enum: URL, CONTENT_TEXT, METRICS,
+ * SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID; INTERNAL_ID is accepted on the wire.)
  */
-export const DETAIL_FIELDSETS = ["RICH_CONTENT", "CONTENT_TEXT", "SEO", "REFERENCE_ID"] as const;
+export const DETAIL_FIELDSETS = ["RICH_CONTENT", "CONTENT_TEXT", "SEO", "REFERENCE_ID", "INTERNAL_ID"] as const;
 
 /**
  * The card fieldsets: METRICS puts view/like/comment counts on every post of a page in one read. The
@@ -240,7 +244,7 @@ export function toDetail(raw: Raw, imgSrc: ImgSrc): PostDetail {
     seoDescription: (seoDescriptionFrom(raw.seoData) || summary.excerpt || contentText).slice(0, SEO_DESCRIPTION_MAX),
     relatedPostIds: raw.relatedPostIds ?? [],
     commentingEnabled: raw.commentingEnabled === true,
-    referenceId: raw.referenceId ?? "",
+    referenceId: raw.referenceId ?? raw.internalId ?? raw.id ?? "",
   };
 }
 

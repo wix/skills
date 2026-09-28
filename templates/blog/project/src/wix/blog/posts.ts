@@ -69,7 +69,8 @@ export async function fetchPosts({ limit = 20, cursor, categoryId, tagId }: Fetc
 
 /**
  * One post by its URL slug with the full body and SEO/comments fields (RICH_CONTENT, CONTENT_TEXT,
- * SEO, REFERENCE_ID — without them those fields come back undefined). Null when the slug resolves
+ * SEO, REFERENCE_ID, INTERNAL_ID — without them those fields come back undefined; INTERNAL_ID is the
+ * one that actually carries referenceId). Null when the slug resolves
  * to nothing (404 / NOT_FOUND is an expected miss); any other failure throws. The dedicated
  * by-slug read, not a slug query: slugs are per translation, so a slug-only query is ambiguous on
  * a multilingual site.
