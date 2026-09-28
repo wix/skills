@@ -18,6 +18,9 @@ common), open the PDF, fetch the page, look at the images. Then map, don't autho
   things, not a mood board.
 - Currency, time zone, address: only when the source or the brief states them. A price written
   with its unit ("9 dollars", "$9", "€20") states the currency: it goes in the plan's `currency`.
+  When the source states none, the site's own currency applies: name it in the closing message
+  ("prices are in ILS, the site's default; say the word and I switch it") rather than quoting
+  prices in a currency you assumed.
 - Show the user the count you read next to the count you seeded, and the mapping you applied.
 
 The vertical's `SEED.md` says what an entry is for that vertical and which of its plan fields the
