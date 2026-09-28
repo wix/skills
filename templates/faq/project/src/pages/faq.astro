@@ -1,0 +1,39 @@
+---
+// FAQ page — data fetched SERVER-SIDE (SEO: every question and answer is in the HTML, collapsed) and
+// handed to the islands as DTO props. Keep this frontmatter (the fetch, the JSON-LD, the category
+// pre-selection); swap the island imports to YOUR components. The three islands share one module-scope
+// store, so they can stay separate or be merged into one — your call.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import FaqSearch from "../components/faq/FaqSearch";
+import FaqCategoryNav from "../components/faq/FaqCategoryNav";
+import FaqAccordion from "../components/faq/FaqAccordion";
+import { fetchFaq } from "../wix/faq/faq";
+import { faqJsonLd, parseDeepLink } from "../wix/faq/faq-core";
+import type { FaqData } from "../wix/faq/types";
+
+let data: FaqData = { categories: [], questions: [], truncated: false };
+try {
+  data = await fetchFaq();
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the islands render the empty state instead.
+}
+
+// Behind Wix's proxy the request URL is internal — the public page URL arrives on x-wix-forwarded-url.
+const forwarded = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwarded && URL.canParse(forwarded) && /^https?:$/.test(new URL(forwarded).protocol) ? forwarded : Astro.url.href;
+// `?category=` is server-visible (pre-select the nav so SSR and the first paint agree); `#q-…` is not — the store applies it in the browser.
+const { categoryId } = parseDeepLink(Astro.url.search, "");
+const initialCategoryId = categoryId && data.categories.some((c) => c.id === categoryId) ? categoryId : null;
+// The whole FAQ, not the filtered view: every marked-up answer is on the page (collapsed panels are still in the DOM).
+const jsonLd = JSON.stringify(faqJsonLd(data.questions, pageUrl.split("#")[0].split("?")[0])).replace(/</g, "\\u003c");
+const description = data.questions.slice(0, 3).map((q) => q.question).join(" · ");
+---
+
+<SiteLayout title="FAQ" description={description}>
+  <script type="application/ld+json" is:inline slot="seo-tags" set:html={jsonLd} />
+  <h1 class="mb-8 text-3xl font-semibold tracking-tight">Frequently asked questions</h1>
+  <FaqSearch client:load initialData={data} initialCategoryId={initialCategoryId} />
+  <FaqCategoryNav client:load initialData={data} initialCategoryId={initialCategoryId} />
+  <FaqAccordion client:load initialData={data} initialCategoryId={initialCategoryId} />
+</SiteLayout>
