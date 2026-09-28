@@ -170,6 +170,13 @@ const VERTICAL_DEPS = {
     },
     // no astro block: the FAQ page is a plain page (no wixMetadata item routing); its JSON-LD is inline
   },
+  donations: {
+    core: {
+      "@wix/donations": "^1.0.64",
+      "@wix/ecom": "^1.0.2454",
+      "@wix/redirects": "^1.0.125",
+    },
+  },
 };
 
 const COPY = { recursive: true, force: false, errorOnExist: false };

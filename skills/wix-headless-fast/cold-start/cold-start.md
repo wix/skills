@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants, faq. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ site fast, sell tickets or membership plans headless, wix headless fast entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
 ---
 
 # Wix Headless Fast — cold start
