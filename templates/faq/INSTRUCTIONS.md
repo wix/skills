@@ -288,8 +288,11 @@ Every category and question in the dashboard appears on the site; the API expose
 
 Per `seed/SEED.md` — plain-data `plan.json` into `seed-faq.mjs` from the project root. Seed
 questions that exercise the UI (2–4 categories, 2–4 questions each, at least one answer with a list
-or several paragraphs). A fresh FAQ install may carry Wix's sample categories and questions; the seed
-reports them and never deletes — removing them is the owner's call in the dashboard.
+or several paragraphs). A fresh FAQ install carries Wix's sample categories and questions ("General",
+"Setting up FAQs"), and the page shows them: for a new site whose brief lists the whole FAQ, put
+`"removeWixSamples": true` in the plan so the seed removes them first; otherwise the result's
+`preexisting[]` names what is still on the page, and the closing message says so with the dashboard
+link — never release a site that shows "Setting up FAQs" without telling the owner.
 
 ## Verification caveats
 

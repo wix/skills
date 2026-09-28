@@ -79,6 +79,14 @@ seed; a failed image leaves that event text-only.
   `{ locationTbd: true, name }`.
 - `category` — a name; created and assigned for you. Skip when the brief has no grouping.
 - `rsvpResponseType` — `"YES_AND_NO"` to let guests decline (default `"YES_ONLY"`).
+- `rsvpLimit` — RSVP only: the number of spots; `waitlist: true` opens a wait list once they are
+  taken (the page then offers "Join the waitlist").
+- `registrationOpensAt` — RSVP only: a future ISO-8601 UTC instant. The event publishes with
+  registration SCHEDULED and the page says when it opens — for a brief like "RSVP opens next week".
+- `guests` — RSVP only: how many additional guests one RSVP may bring (a GUEST_CONTROL on the
+  registration form: a count and the guests' names). The result's per-event `guestControl` says
+  whether Wix accepted it; when it did not (`formRejected`), the event exists without it and the
+  owner adds the guest control in the dashboard — say so in the closing message.
 
 The result JSON carries a `notes` array — when any event is ticketed it reminds that
 **completing a paid purchase needs a premium plan + a configured payment method** in the

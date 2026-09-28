@@ -71,7 +71,36 @@ function buildRegistration(ev) {
   }
   return {
     initialType: "RSVP",
-    rsvp: { responseType: ev.rsvpResponseType ?? "YES_ONLY" }, // "YES_ONLY" | "YES_AND_NO"
+    rsvp: {
+      responseType: ev.rsvpResponseType ?? "YES_ONLY", // "YES_ONLY" | "YES_AND_NO"
+      ...(Number.isInteger(ev.rsvpLimit) && ev.rsvpLimit > 0 ? { limit: ev.rsvpLimit } : {}),
+      ...(ev.waitlist === true ? { waitlistEnabled: true } : {}),
+      // A future start date schedules the opening: the event publishes with status SCHEDULED_RSVP and
+      // the page says when registration opens; before it, an RSVP is refused.
+      ...(ev.registrationOpensAt ? { startDate: ev.registrationOpensAt } : {}),
+    },
+  };
+}
+
+// {guests: N} on an RSVP event -> a GUEST_CONTROL on the registration form: a count input (options
+// "0".."N") and a names list capped at N. The site's form reader (events-core toRsvpForm) reads the
+// max from either; the RSVP itself carries the answer as additionalGuestDetails, not as input values.
+function buildForm(ev) {
+  const n = Number(ev.guests);
+  if (ev.type === "TICKETING" || !Number.isInteger(n) || n < 1) return undefined;
+  return {
+    controls: [
+      {
+        type: "GUEST_CONTROL",
+        name: "guests",
+        label: "Additional guests",
+        orderIndex: 100,
+        inputs: [
+          { name: "additionalGuests", type: "NUMBER", label: "Additional guests", mandatory: false, options: Array.from({ length: n + 1 }, (_, i) => String(i)) },
+          { name: "guestNames", type: "TEXT_ARRAY", array: true, label: "Guest names", mandatory: false, maxSize: n },
+        ],
+      },
+    ],
   };
 }
 
@@ -122,11 +151,22 @@ export async function createEvent(ctx, ev) {
         showTimeZone: ev.showTimeZone ?? true,
       },
       registration: buildRegistration(ev),
+      ...(buildForm(ev) ? { form: buildForm(ev) } : {}),
     },
-    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
+    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS", "FORM"],
   };
-  const r = await req(ctx, "/events/v3/events", { body });
-  return { id: r.event?.id, slug: r.event?.slug };
+  let r;
+  try {
+    r = await req(ctx, "/events/v3/events", { body });
+  } catch (e) {
+    // The guest control's create shape is not in a public reference: when Wix rejects the form, the
+    // event is created without it and the result says so (the owner adds guests in the dashboard).
+    if (!body.event.form) throw e;
+    delete body.event.form;
+    r = await req(ctx, "/events/v3/events", { body });
+    return { id: r.event?.id, slug: r.event?.slug, formRejected: String(e.message).slice(0, 200) };
+  }
+  return { id: r.event?.id, slug: r.event?.slug, guestControl: !!r.event?.form?.controls?.some((c) => c.type === "GUEST_CONTROL") };
 }
 
 /**

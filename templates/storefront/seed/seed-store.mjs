@@ -441,7 +441,7 @@ export async function createCategories(ctx, names, details = {}) {
           name,
           visible: true,
           ...(d.description ? { description: String(d.description).slice(0, 600) } : {}),
-          ...(d.imageUrl ? { image: d.imageUrl } : {}),
+          ...(d.imageUrl ? { image: { url: d.imageUrl } } : {}), // an Image OBJECT — a bare URL string is rejected
         },
         treeReference: { appNamespace: "@wix/stores", treeKey: null },
       },

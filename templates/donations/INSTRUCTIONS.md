@@ -335,7 +335,7 @@ first real site and read the owning file if one bites.
   can answer `CURRENT_CART_ALREADY_EXISTS` for a visitor who already holds a cart — surfaced as the
   form's error.
 - **Site currency.** Comes from the metrics response ("returns only the site's default currency");
-  `@wix/ecom` exposes no settings read for a visitor, so there is no second source — unknown → "".
+  On a campaign nobody has donated to yet the metrics carry no currency either, so the transports read the site's currency once from the eCommerce settings (BUSINESS_INFO); unknown → "".
 - **Reading the order on the thank-you page.** `GET /ecom/v1/orders/{id}` with the visitor's token is
   unverified; any failure → `receipt` null and the page thanks without order facts.
 - **`orderId` spelling.** The redirect-session contract appends `orderId`; the Wix widget's own success
