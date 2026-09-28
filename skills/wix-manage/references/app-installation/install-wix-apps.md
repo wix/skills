@@ -140,9 +140,11 @@ async function() {
 ```
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
-Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
+Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded. This race is intermittent: it will not reproduce on every run, so do not skip the retry loop just because a first call succeeded in testing or seems likely to succeed.
 
-If a call to an API owned by the app you just installed fails with a not-found error immediately afterward: wait briefly (roughly 1-2 seconds) and retry the dependent call yourself, up to 3 attempts with backoff, before reporting a failure to the user — do not surface the error and ask the user to try again later on the first attempt.
+Always wrap every call to an API owned by the app you just installed in the retry loop below — proactively, not only after you observe a failure. A single fixed delay before an uncaught call (e.g. `await sleep(1000)` followed by one unguarded request) is not this pattern and does not protect against the race; the loop must catch the dependent call itself and retry it, up to 3 attempts with backoff, before reporting a failure to the user. Do not surface the error or ask the user to try again later on the first attempt.
+
+This applies only to calls owned by the app you just installed (e.g. Set Multilingual Mode, Locales endpoints) — not to calls that work on every site regardless of app installation (e.g. Get Locale Settings), which don't race the install and don't need the loop.
 
 Write the install call, the wait, and the retried dependent call as one script in a single tool call — loop with a short sleep inside that one execution — rather than splitting the install, the wait, and the retry into separate tool calls. A round-trip back to you costs a full extra turn per call; a retry loop inside the same script costs only the wait itself.
 
