@@ -140,18 +140,34 @@ async function() {
 ```
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
-Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded. This race is intermittent: it will not reproduce on every run, so do not skip the retry loop just because a first call succeeded in testing or seems likely to succeed.
+Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded. This race is intermittent: it will not reproduce on every run, so do not skip retry protection just because a first call succeeded in testing or seems likely to succeed.
 
-Always wrap every call to an API owned by the app you just installed in the retry loop below — proactively, not only after you observe a failure. A single fixed delay before an uncaught call (e.g. `await sleep(1000)` followed by one unguarded request) is not this pattern and does not protect against the race; the loop must catch the dependent call itself and retry it, up to 3 attempts with backoff, before reporting a failure to the user. Do not surface the error or ask the user to try again later on the first attempt.
+Route every call you make in the chain right after an install — not just the one you expect to be app-gated — through a retry helper like the one below: it tries immediately, so a call that was always going to succeed pays no extra delay, and only backs off if that first attempt actually fails. Don't try to work out case-by-case which specific call in the chain is the one that's actually gated on the app being installed and only protect that one — you don't reliably know, it costs nothing extra to protect a call that didn't need it, and getting the categorization wrong (or being wrong about which failure mode applies to which docs-described method) leaves a real gap. Wrap the call itself in the helper; don't substitute a single fixed delay before an unguarded request (e.g. `await sleep(1000)` then one bare call) — that doesn't retry anything and still fails outright on the first bad attempt. Retry up to 3 times with backoff before reporting a failure to the user — do not surface the error or ask the user to try again later on the first attempt.
 
-This applies only to calls owned by the app you just installed (e.g. Set Multilingual Mode, Locales endpoints) — not to calls that work on every site regardless of app installation (e.g. Get Locale Settings), which don't race the install and don't need the loop.
-
-Write the install call, the wait, and the retried dependent call as one script in a single tool call — loop with a short sleep inside that one execution — rather than splitting the install, the wait, and the retry into separate tool calls. A round-trip back to you costs a full extra turn per call; a retry loop inside the same script costs only the wait itself.
+Write the install call, the helper, and every retried dependent call as one script in a single tool call, rather than splitting them across separate tool calls. A round-trip back to you costs a full extra turn per call; a retry loop inside the same script costs only the wait, and only when a retry actually happens.
 
 **Example** (install Wix Multilingual, then enable multilingual mode, retrying past the propagation delay — all in one script):
 ```javascript
 async function() {
   const siteId = "<SITE_ID>";
+
+  async function requestWithRetry(requestOptions, delaysMs = [1000, 2000, 4000]) {
+    let lastError;
+    try {
+      return await wix.request(requestOptions);
+    } catch (err) {
+      lastError = err;
+    }
+    for (const delayMs of delaysMs) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      try {
+        return await wix.request(requestOptions);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
 
   await wix.request({
     method: "POST",
@@ -162,24 +178,14 @@ async function() {
     }
   });
 
-  const delaysMs = [1000, 2000, 4000];
-  let lastError;
-  for (const delayMs of delaysMs) {
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-    try {
-      return await wix.request({
-        method: "POST",
-        url: "https://www.wixapis.com/locale-settings/v2/settings/mode",
-        body: { multilingualModeEnabled: true }
-      });
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError;
+  return await requestWithRetry({
+    method: "POST",
+    url: "https://www.wixapis.com/locale-settings/v2/settings/mode",
+    body: { multilingualModeEnabled: true }
+  });
 }
 ```
-Chain any further app-dependent calls inside this same function, after the first one succeeds — don't split them into a separate tool call either.
+Chain any further calls inside this same function through the same `requestWithRetry` helper, after the first one succeeds — don't split them into a separate tool call either, and don't drop back to a bare `wix.request` for any of them just because they don't look like the call most likely to race.
 
 ---
 
