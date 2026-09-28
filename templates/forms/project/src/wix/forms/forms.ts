@@ -17,10 +17,11 @@
 // docs: https://dev.wix.com/docs/sdk/business-solutions/forms/forms/list-forms.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields.md
 import { wixFetch } from "../sdk";
-import { FORMS_NAMESPACE, toForm, type Raw } from "./forms-core";
+import { imgSrc } from "../media";
+import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "./forms-core";
 import type { FormDto } from "./types";
 
-export { FORMS_NAMESPACE };
+export { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue };
 
 async function getJson(path: string): Promise<Raw> {
   const res = await wixFetch(path);
@@ -31,24 +32,26 @@ async function getJson(path: string): Promise<Raw> {
 /**
  * Read one form by id. Throws when the id is wrong or the form was deleted — a form that
  * cannot load is a setup problem, so fail loudly rather than rendering a hand-built fallback
- * that would drop real enquiries silently.
+ * that would drop real enquiries silently. A form the owner switched OFF still loads, with
+ * `enabled: false` and the owner's `disabledMessage` — show that instead of the fields.
  */
 export async function getForm(formId: string): Promise<FormDto> {
   // GET /form-schema-service/v4/forms/{formId} → { form }; 404 FORM_NOT_FOUND on a wrong id.
   const res = await getJson(`/form-schema-service/v4/forms/${encodeURIComponent(formId)}`);
   if (!res?.form) throw new Error(`forms: form "${formId}" not found.`);
-  return toForm(res.form as Raw);
+  return toForm(res.form as Raw, imgSrc);
 }
 
 /**
  * Every form on the site, in the Wix Forms namespace. Use ONE call for several forms on a page
  * rather than a getForm each.
  *
- * Returns only ENABLED forms — a form the owner disabled vanishes from the listing rather
- * than erroring. That is usually right for a public site.
+ * Returns only ENABLED forms: the list call's `enabled` filter defaults to true
+ * (ListFormsOptions in the v4 typings), so a form the owner disabled vanishes from the listing
+ * rather than erroring. That is usually right for a public site; `getForm` still reads it.
  */
 export async function listForms(): Promise<FormDto[]> {
   // GET /form-schema-service/v4/forms?namespace=… → { forms }; the namespace is required (400 without).
   const res = await getJson(`/form-schema-service/v4/forms?namespace=${encodeURIComponent(FORMS_NAMESPACE)}`);
-  return ((res?.forms ?? []) as Raw[]).map(toForm);
+  return ((res?.forms ?? []) as Raw[]).map((raw) => toForm(raw, imgSrc));
 }
