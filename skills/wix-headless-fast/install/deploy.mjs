@@ -160,6 +160,12 @@ const VERTICAL_DEPS = {
       "@wix/redirects": "^1.0.125",
     },
   },
+  faq: {
+    core: {
+      "@wix/faq": "^1.0.76",
+    },
+    // no astro block: the FAQ page is a plain page (no wixMetadata item routing); its JSON-LD is inline
+  },
 };
 
 const COPY = { recursive: true, force: false, errorOnExist: false };
