@@ -11,10 +11,11 @@ the asynchronous job that generates those briefs. Its `contentPlanFlowId` is
 a flow UUID, distinct from the site's ID, and its `status` reports progress.
 Generation creates briefs, not published posts.
 
-`KEYWORD_RESEARCH` means keyword research has started, not finished. A
-**Create Content Plan** request releases the flow, but only after
-[step 3](#3-wait-for-the-keyword-research) confirms the research is ready:
-releasing earlier fails the flow.
+`KEYWORD_RESEARCH` means keyword research has started, not finished. When the
+research finishes, the flow usually moves to `CONTENT_PLAN` on its own. A
+**Create Content Plan** request is the fallback for a flow that stays paused,
+used only as [step 3](#3-wait-for-the-keyword-research) says: releasing before
+the research is ready fails the flow.
 
 Use the selected site's authorization context. Trigger and Create Content Plan
 are writes requiring **Manage SEO Settings**; execute them when the user has
@@ -141,8 +142,8 @@ See [Get Content Plan Flow](https://dev.wix.com/docs/api-reference/business-mana
 `contentPlanFlow.status` is a string enum. Status checks may skip intermediate
 states; decide from the returned value rather than requiring every transition.
 Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`
-→ **keyword research items exist** → **call Create Content Plan** →
-`CONTENT_PLAN` → `SUCCESS`.
+→ `CONTENT_PLAN` (usually on its own; Create Content Plan only as step 3's
+fallback) → `SUCCESS`.
 
 | Status | Meaning and next action |
 | --- | --- |
@@ -161,12 +162,14 @@ Check every few seconds using separate calls. Completion time varies.
 
 ### 3. Wait for the keyword research
 
-Keep checking the flow status (the step 2 request) every 15 seconds. When
-the research finishes, generation usually starts on its own:
+Keep checking the flow status (the step 2 request). Wait 15 seconds between
+checks if your client can wait; count the checks either way. When the
+research finishes, generation usually starts on its own:
 
 - `CONTENT_PLAN`: skip Create Content Plan; continue with step 5.
 - `SUCCESS`: go to step 6.
-- Still `KEYWORD_RESEARCH` after two minutes: check the research once:
+- Still `KEYWORD_RESEARCH` after 10 checks in a row, or the user says it has
+  been there for two minutes or more: check the research once:
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
@@ -184,13 +187,14 @@ the ID and item count:
 
 | Response | Next action |
 | --- | --- |
-| `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Check the flow status again in 30 seconds. |
-| Other `keywordResearchId` than the flow's | Earlier research. Check the flow status again in 30 seconds. |
+| `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Make 5 more flow status checks before you check the research again. |
+| Other `keywordResearchId` than the flow's | Earlier research. Make 5 more flow status checks before you check the research again. |
 | Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
 | Any other error | Report it and stop. |
 
 After a `428` from Create Content Plan, do not retry: check the flow status.
-If nothing is ready after five minutes, report the flow ID as incomplete.
+If the flow is still at `KEYWORD_RESEARCH` after 40 checks, report the flow ID
+as incomplete.
 Calling Create Content Plan before the research is ready moves the flow to
 `FAIL`; that flow cannot be resumed.
 See [List Keyword Research Items](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-keyword-research-v1/list-keyword-research-items).
