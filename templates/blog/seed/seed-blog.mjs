@@ -154,8 +154,10 @@ export async function createPosts(ctx, posts, { memberId, publish = true } = {})
 // Existing label -> id, straight from the query (the source of truth for what persisted).
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/query-categories.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
+// Both live under /blog/v3/ on the public gateway (the SDK's host mapping also accepts the bare
+// /v3/tags alias the earlier seeds called — one path for one endpoint here, the same one rest/ uses).
 async function labelIdMap(ctx, kind) {
-  const path = kind === "categories" ? "/blog/v3/categories/query" : "/v3/tags/query";
+  const path = kind === "categories" ? "/blog/v3/categories/query" : "/blog/v3/tags/query";
   const r = await req(ctx, path, { body: { query: { paging: { limit: 100 } } } });
   return new Map((r[kind] ?? []).map((x) => [x.label, x.id]));
 }
