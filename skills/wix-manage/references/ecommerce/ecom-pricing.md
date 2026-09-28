@@ -40,7 +40,7 @@ Content-Type: application/json
 {"ribbonName":"Bestseller"}
 ```
 
-Read the returned `ribbon.id`. If the user requested only the ribbon definition, report that result and stop. If they also requested assignment to a product, send only the ribbon with the product's current `revision` through [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product); fields you omit are left unchanged:
+Read the returned `ribbon.id`. If the user requested only the ribbon definition, report that result and stop. If they also requested assignment to a product, take the product's current `revision` from the Search Products result that resolved it, or from `GET https://www.wixapis.com/stores/v3/products/{productId}` as in [Update Product with Options](../stores/update-product-with-options.md). Then send only the ribbon with that `revision` through [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product); fields you omit are left unchanged:
 
 ```http
 PATCH https://www.wixapis.com/stores/v3/products/{productId}
