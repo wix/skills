@@ -45,6 +45,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { templatesDir } from "./templates.mjs";
 import { syncLockRoot } from "./lock.mjs";
+import { siteContext } from "./context.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The shipped code: the repository's templates/ (a checkout, the cache, or fetched now).
@@ -256,10 +257,9 @@ if (stack === "static") {
   const OUT = outDir ? resolve(PROJECT, outDir) : PROJECT;
   const JS = join(OUT, "js", "wix");
   result.out = outDir ?? ".";
-  let clientId = clientIdFlag;
-  if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
-    clientId = JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ?? null;
-  }
+  // The client id the browser mints visitor tokens with: --client-id, else the CONTENT app from
+  // .env.local (`wix env pull`; on a migration preview the parent site's app), else the config's appId.
+  let clientId = clientIdFlag ?? (existsSync(join(PROJECT, "wix.config.json")) ? siteContext({ cwd: PROJECT }).content.clientId : null);
   if (!clientId) {
     console.log(JSON.stringify({ error: "static stack needs the public OAuth client id — run `npm create @wix/new@latest init` here first, or pass --client-id" }));
     process.exit(1);
@@ -481,12 +481,15 @@ if (stack === "astro" && result.verticals.length && existsSync(ASTRO_CONFIG)) {
 
 // ---- ready-made links -----------------------------------------------------------------------------
 // Emit the siteId and the dashboard deep links so nothing downstream re-derives or retypes them.
+// The site the links point at is the CONTENT site — the parent on a migration preview, where the
+// config's site only hosts the deployment (install/context.mjs).
 const WIX_CONFIG = join(PROJECT, "wix.config.json");
-if (existsSync(WIX_CONFIG)) {
-  const config = JSON.parse(readFileSync(WIX_CONFIG, "utf8"));
-  const siteId = config.siteId ?? config.projectId;
+const ctx = existsSync(WIX_CONFIG) ? siteContext({ cwd: PROJECT }) : null;
+if (ctx) {
+  const siteId = ctx.content.siteId;
   if (siteId) {
     result.siteId = siteId;
+    if (ctx.migration.active) result.migration = { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId };
     result.dashboardUrl = `https://manage.wix.com/dashboard/${siteId}`;
     if (result.verticals.includes("storefront")) {
       result.productsUrl = `https://manage.wix.com/dashboard/${siteId}/wix-stores/products`;
@@ -505,13 +508,10 @@ if (!requested.length) {
 // ---- client ids ---------------------------------------------------------------------------------
 // The shared data client is ambient on managed Astro. Members are different: their shipped
 // custom credential flow always needs an explicit public OAuth client, including on Astro.
-let clientId = clientIdFlag;
-if (!clientId && existsSync(join(PROJECT, "wix.config.json"))) {
-  // On a Wix-managed project the public OAuth client id IS the appId.
-  clientId =
-    JSON.parse(readFileSync(join(PROJECT, "wix.config.json"), "utf8")).appId ??
-    null;
-}
+// --client-id, else the CONTENT app: .env.local's WIX_CLIENT_ID (what `wix env pull` writes — on a
+// migration preview the parent site's app, the one the Astro integration itself runs as), else the
+// config's appId. Never the config first: on a preview that is the deploy-only child app.
+const clientId = clientIdFlag ?? ctx?.content.clientId ?? null;
 if (stack === "react" || stack === "lib") {
   if (clientId) {
     const current = readFileSync(CONFIG_TS, "utf8");

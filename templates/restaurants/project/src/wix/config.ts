@@ -4,8 +4,10 @@
 //                         every SDK call automatically; there is no client and nothing to set).
 // WIX_CLIENT_ID = "..." → manual visitor client (any other React setup): the public OAuth client id.
 //                         It is NOT a secret — it only mints anonymous visitor tokens — so
-//                         hardcoding and committing it is fine. On a Wix-managed non-Astro project
-//                         it equals the `appId` in wix.config.json.
+//                         hardcoding and committing it is fine. deploy.mjs copies it from `.env.local`
+//                         (`WIX_CLIENT_ID`, what `wix env pull` writes): the CONTENT site's app — on a
+//                         migration preview the site being migrated, while wix.config.json names
+//                         only the deploy target.
 export const WIX_CLIENT_ID: string | null = null;
 
 // The Members vertical uses an explicit OAuthStrategy client only to drive the

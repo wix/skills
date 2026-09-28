@@ -27,6 +27,7 @@ import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
+import { seedSiteId } from "../../shared/seed/site-context.mjs";
 
 const API = "https://www.wixapis.com";
 const MENUS_APP_ID = "b278a256-2757-4f19-9313-c05c783bec92";
@@ -34,9 +35,9 @@ const ORDERS_APP_ID = "9a5d83fd-8570-482e-81ab-cfa88942ee60";
 const TABLE_RESERVATIONS_APP_ID = "f9c07de2-5341-40c6-b096-8eb39de391fb";
 
 export function makeCtx({ cwd = process.cwd() } = {}) {
-  const config = JSON.parse(readFileSync(`${cwd}/wix.config.json`, "utf8"));
-  const siteId = config.siteId ?? config.projectId;
-  if (!siteId) throw new Error("wix.config.json has no siteId — is this a Wix CLI project?");
+  // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
+  // a seed there unless --allow-parent is passed after the user confirmed).
+  const siteId = seedSiteId({ cwd, argv: process.argv });
   const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
     encoding: "utf8",
     cwd,

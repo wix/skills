@@ -45,6 +45,7 @@ import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } 
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
+import { siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,6 +77,15 @@ const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
 const cwdConfig = has("wix.config.json") ? JSON.parse(readFileSync(join(cwd, "wix.config.json"), "utf8")) : null;
 const hasProject = has("package.json") || has("index.html");
+// A migration preview (wix.config.json names a deploy-only site, .env.local names the site being
+// migrated) is already provisioned: its app, hosting and credentials came with the folder. Nothing
+// here applies — setup.mjs takes it (SKILL.md step 3).
+if (cwdConfig) {
+  const ctx = siteContext({ cwd });
+  if (ctx.migration.active) {
+    fail("place", `this folder deploys a migration preview of site ${ctx.migration.parentSiteId} (deploy site ${ctx.deploy.siteId}): the app and hosting are provisioned already — run setup.mjs --vertical <vertical> [--stack <stack>] here instead; nothing is attached or re-pointed`);
+  }
+}
 const siteId = flag("site") ?? cwdConfig?.siteId ?? cwdConfig?.projectId ?? null;
 const stack = stackFlag ?? "astro";
 const knownVerticals = listVerticals(TEMPLATES);

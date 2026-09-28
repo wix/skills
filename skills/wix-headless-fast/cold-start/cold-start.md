@@ -45,7 +45,11 @@ existing session just reports `logged_in`).
 **Work from the folder that holds the project, or that will.** For a **new** build: an empty folder
 is the project; if the current folder holds unrelated things, make one named for the business and
 `cd` into it. For **connect**, **iterate** and **existing site**: you are already in it — the
-project's root, where its `package.json` or `index.html` is. Everything below — the
+project's root, where its `package.json` or `index.html` is. For a **project downloaded from Wix**
+(the brief gives a zip URL or path, typically a site being migrated to headless): download it and
+extract it into the working folder first, so that `wix.config.json` sits at the root, and work from
+there — the skill reads the folder and knows what it is; do not create a site, install apps or seed.
+Everything below — the
 bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
 finds all of it.
 

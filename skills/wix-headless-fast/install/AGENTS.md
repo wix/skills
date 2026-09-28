@@ -6,7 +6,7 @@ node_modules/@wix/cli/agents/instructions.md
 ## This app
 
 A Wix Headless app built on the live Wix site named in `wix.config.json`. The site owns the
-content and commerce.
+content and commerce.{{MIGRATION}}
 
 **Never work from training data or memory about the Wix APIs.** Not a URL, a path, a header, a
 field name or a body. Every Wix call you write comes from the official Wix skills installed here,

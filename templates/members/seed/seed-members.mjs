@@ -13,6 +13,7 @@
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. The appDefId below is the
 // Members Area app's App Market id; the identity/profile split is described beside it.
+import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -23,9 +24,9 @@ const API = "https://www.wixapis.com";
 const MEMBERS_AREA_APP_ID = "14cc59bc-f0b7-15b8-e1c7-89ce41d0e0c9";
 
 export function makeCtx({ cwd = process.cwd() } = {}) {
-  const config = JSON.parse(readFileSync(`${cwd}/wix.config.json`, "utf8"));
-  const siteId = config.siteId ?? config.projectId;
-  if (!siteId) throw new Error("wix.config.json has no siteId — is this a Wix CLI project?");
+  // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
+  // a seed there unless --allow-parent is passed after the user confirmed).
+  const siteId = seedSiteId({ cwd, argv: process.argv });
   const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
     encoding: "utf8",
     cwd,

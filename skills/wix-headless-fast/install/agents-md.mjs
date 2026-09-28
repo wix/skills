@@ -21,7 +21,11 @@ export function writeAgentsMd(projectDir, vars) {
   const agents = join(projectDir, "AGENTS.md");
   if (existsSync(agents)) kept.push("AGENTS.md");
   else {
-    const text = readFileSync(TEMPLATE, "utf8").replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k.toLowerCase()] ?? "");
+    // {{MIGRATION}} is a paragraph on a migration preview (vars.migration = { parentSiteId, deploySiteId }), else nothing.
+    const migration = vars.migration
+      ? `\n\n**Under migration.** \`wix.config.json\` names site ${vars.migration.deploySiteId}, which only hosts this deployment; the site being migrated is ${vars.migration.parentSiteId} — its content is what the pages show and its dashboard (\`https://manage.wix.com/dashboard/${vars.migration.parentSiteId}\`) is where the business is managed. \`.env.local\` (\`wix env pull\`) carries that site's app: the SDK client and every admin, discovery and seed call run against it; only \`wix release\` goes to the deploy site. Completing the migration is a separate Wix CLI step, run by the user after approving the preview.`
+      : "";
+    const text = readFileSync(TEMPLATE, "utf8").replace(/\{\{(\w+)\}\}/g, (_, k) => (k === "MIGRATION" ? migration : (vars[k.toLowerCase()] ?? "")));
     writeFileSync(agents, text); written.push("AGENTS.md");
   }
   const claude = join(projectDir, "CLAUDE.md");
