@@ -1,10 +1,14 @@
-// REFERENCE booking surface: time-zone label, staff filter (with photos), day-grouped slot picker
-// with next availability, a course's dates and seats, a class's upcoming sessions, participants,
-// deposit choice, add-ons, the schema-driven form, and the CTA labelled from ctaState — on the @theme
-// tokens. Correct and complete; per the skill's model you design and build your own on
-// useBookingFlow. Mount client:only — availability is timezone/session-specific.
+// REFERENCE booking surface: time-zone label, staff filter (with photos), the slot picker ONE DAY AT
+// A TIME (a strip of the days that have availability with the week pagers at its ends, then that
+// day's times bucketed into morning / afternoon / evening) with next availability, a course's dates
+// and seats, a class's upcoming sessions, participants, deposit choice, add-ons, the schema-driven
+// form, and the CTA labelled from ctaState — on the @theme tokens. A week of a busy calendar is well
+// over a hundred slots; listing every day at once buries the form and reads as a wall of numbers.
+// Correct and complete; per the skill's model you design and build your own on useBookingFlow.
+// Mount client:only — availability is timezone/session-specific.
+import { useEffect, useState } from "react";
 import { useBookingFlow } from "../../hooks/bookings/useBookingFlow";
-import type { CtaState, ServiceDetail } from "../../wix/bookings/types";
+import type { CtaState, ServiceDetail, Slot } from "../../wix/bookings/types";
 
 const chip = (selected: boolean, disabled = false) =>
   `rounded-full border px-4 py-1.5 text-sm transition-colors ${
@@ -15,8 +19,27 @@ const chip = (selected: boolean, disabled = false) =>
         : "border-border text-foreground hover:bg-secondary"
   }`;
 
+const dayTile = (selected: boolean) =>
+  `w-[68px] shrink-0 rounded-md border px-1 py-2 text-center transition-colors ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-secondary"}`;
+const pager = "w-[68px] shrink-0 rounded-md border border-border px-1 py-2 text-center text-xs leading-tight text-foreground transition-colors hover:bg-secondary";
+
 const input = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:ring-2 focus:ring-primary";
 const heading = "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+
+// startLocal is "YYYY-MM-DDThh:mm:ss" (no zone): chars 11–13 are the local hour, no Date parsing needed.
+const hourOf = (s: Slot): number => Number(s.startLocal.slice(11, 13));
+const BUCKETS: { label: string; test: (h: number) => boolean }[] = [
+  { label: "Morning", test: (h) => h < 12 },
+  { label: "Afternoon", test: (h) => h >= 12 && h < 17 },
+  { label: "Evening", test: (h) => h >= 17 },
+];
+const fmtDay = (dayKey: string, opts: Intl.DateTimeFormatOptions): string => {
+  try {
+    return new Date(`${dayKey}T12:00:00`).toLocaleDateString(undefined, opts);
+  } catch {
+    return dayKey;
+  }
+};
 
 const dateLabel = (iso: string | null): string => {
   if (!iso) return "";
@@ -78,8 +101,22 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
     confirmed,
     error,
   } = useBookingFlow(service);
+  const [activeDay, setActiveDay] = useState<string | null>(null);
+
+  // Follow the data: land on the first day with availability, and don't strand the view on a day
+  // that left when the week moved.
+  useEffect(() => {
+    if (days && days.length && !days.some((d) => d.dayKey === activeDay)) setActiveDay(days[0].dayKey);
+  }, [days, activeDay]);
 
   const isCourse = service.type === "COURSE";
+  const current = days?.find((d) => d.dayKey === activeDay) ?? days?.[0] ?? null;
+  const buckets = current ? BUCKETS.map((b) => ({ label: b.label, slots: current.slots.filter((s) => b.test(hourOf(s))) })).filter((b) => b.slots.length) : [];
+  // Switching day drops a slot chosen on another day — otherwise the CTA names a time that isn't on screen.
+  const pickDay = (dayKey: string) => {
+    setActiveDay(dayKey);
+    if (selectedSlot && selectedSlot.dayKey !== dayKey) setSelectedSlot(null);
+  };
 
   if (confirmed) {
     const when = isCourse ? (service.course?.startDate ? ` — starts ${dateLabel(service.course.startDate)}` : "") : selectedSlot ? ` — ${selectedSlot.dayKey} at ${selectedSlot.label}` : "";
@@ -133,69 +170,84 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
 
       {!isCourse && (
         <>
-          <div className="mb-2 flex items-center justify-between">
-            <p className={heading}>Pick a time</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={prevWeek} aria-label="Previous week" className="rounded-full border border-border px-3 py-1 text-sm text-foreground transition-colors hover:bg-secondary">
-                Prev
+          <p className={heading}>Pick a day</p>
+          {days === null ? (
+            <div className="flex gap-2" aria-busy="true">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="h-14 w-[68px] animate-pulse rounded-md bg-secondary" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Choose a day">
+              <button type="button" onClick={prevWeek} className={pager} aria-label="Previous week">
+                Earlier
               </button>
-              <button type="button" onClick={nextWeek} aria-label="Next week" className="rounded-full border border-border px-3 py-1 text-sm text-foreground transition-colors hover:bg-secondary">
-                Next
+              {days.length === 0 && (
+                <p className="self-center text-sm text-muted-foreground">
+                  No times this week.{" "}
+                  {nextAvailable && nextAvailable.length > 0 ? (
+                    <button type="button" className="underline" onClick={() => jumpTo(nextAvailable[0].dayKey)}>
+                      Next available: {nextAvailable[0].dayKey} at {nextAvailable[0].label}
+                    </button>
+                  ) : nextAvailable === null ? (
+                    "Looking for the next available time…"
+                  ) : (
+                    "Try the next week."
+                  )}
+                </p>
+              )}
+              {days.map((day) => (
+                <button key={day.dayKey} type="button" aria-pressed={day.dayKey === current?.dayKey} className={dayTile(day.dayKey === current?.dayKey)} onClick={() => pickDay(day.dayKey)}>
+                  <span className="block text-[10px] uppercase tracking-wide opacity-70">{fmtDay(day.dayKey, { weekday: "short" })}</span>
+                  <span className="block text-lg font-semibold leading-tight">{fmtDay(day.dayKey, { day: "numeric" })}</span>
+                </button>
+              ))}
+              <button type="button" onClick={nextWeek} className={pager} aria-label="Next week">
+                More
+                <br />
+                dates
               </button>
             </div>
-          </div>
-          {(timeZoneLabel || customerCanChangeTimeZone) && (
-            <p className="mb-3 text-xs text-muted-foreground">
-              {timeZoneLabel && <>Times in {timeZoneLabel}. </>}
-              {customerCanChangeTimeZone && (
-                <button type="button" className="underline" onClick={() => setDisplayTimeZone(displayTimeZone === "BUSINESS" ? "CUSTOMER" : "BUSINESS")}>
-                  {displayTimeZone === "BUSINESS" ? "Show in my time zone" : "Show in the business time zone"}
-                </button>
-              )}
-            </p>
           )}
 
-          {days === null ? (
-            <div className="space-y-3" aria-busy="true">
-              {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-md bg-secondary" />
-              ))}
-            </div>
-          ) : days.length === 0 ? (
-            <p className="rounded-md border border-border p-4 text-sm text-muted-foreground">
-              No times this week.{" "}
-              {nextAvailable && nextAvailable.length > 0 ? (
-                <button type="button" className="underline" onClick={() => jumpTo(nextAvailable[0].dayKey)}>
-                  Next available: {nextAvailable[0].dayKey} at {nextAvailable[0].label}
-                </button>
-              ) : nextAvailable === null ? (
-                "Looking for the next available time…"
-              ) : (
-                "Try the next week."
+          {current && (
+            <div className="mt-5">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-sm font-medium">{fmtDay(current.dayKey, { weekday: "long", month: "short", day: "numeric" })}</p>
+                <span className="text-xs text-muted-foreground">
+                  {current.slots.length} {current.slots.length === 1 ? "time" : "times"}
+                  {timeZoneLabel ? ` · in ${timeZoneLabel}` : ""}
+                </span>
+              </div>
+              {customerCanChangeTimeZone && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  <button type="button" className="underline" onClick={() => setDisplayTimeZone(displayTimeZone === "BUSINESS" ? "CUSTOMER" : "BUSINESS")}>
+                    {displayTimeZone === "BUSINESS" ? "Show in my time zone" : "Show in the business time zone"}
+                  </button>
+                </p>
               )}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {days.map((day) => (
-                <div key={day.dayKey}>
-                  <p className="mb-2 text-sm font-medium">{day.dayLabel}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {day.slots.map((s) => (
-                      <button
-                        key={s.key}
-                        type="button"
-                        disabled={!s.bookable}
-                        title={s.location?.name || undefined}
-                        className={chip(selectedSlot?.key === s.key, !s.bookable)}
-                        onClick={() => setSelectedSlot(s)}
-                      >
-                        {s.label}
-                        {!s.bookable ? (s.waitlistCapacity ? " · Full, waitlist" : " · Full") : s.remainingCapacity != null && s.remainingCapacity <= 3 ? ` · ${s.remainingCapacity} left` : ""}
-                      </button>
-                    ))}
+              <div className="space-y-4">
+                {buckets.map((b) => (
+                  <div key={b.label}>
+                    <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{b.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {b.slots.map((s) => (
+                        <button
+                          key={s.key}
+                          type="button"
+                          disabled={!s.bookable}
+                          title={s.location?.name || undefined}
+                          className={chip(selectedSlot?.key === s.key, !s.bookable)}
+                          onClick={() => setSelectedSlot(s)}
+                        >
+                          {s.label}
+                          {!s.bookable ? (s.waitlistCapacity ? " · Full, waitlist" : " · Full") : s.remainingCapacity != null && s.remainingCapacity <= 3 ? ` · ${s.remainingCapacity} left` : ""}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </>

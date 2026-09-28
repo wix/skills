@@ -44,8 +44,10 @@ Astro stack additionally gets:
 1. **The service card + listing surface** — your tile (image, type badge, duration/price
    presentation) and rhythm, with skeletons while loading and an honest empty state — on
    `useServices`.
-2. **The booking surface** — day-grouped slot picking (full sessions disabled), week paging with
-   "next available", the time-zone line, staff filter (only when >1 staff), participants, deposit
+2. **The booking surface** — slot picking one day at a time (a strip of the days that have
+   availability, then that day's times bucketed into morning, afternoon and evening; full sessions
+   disabled), week paging at the strip's ends with "next available", the time-zone line, staff
+   filter (only when >1 staff), participants, deposit
    choice, add-ons, the schema-driven form, the CTA labelled from `ctaState`, and the confirmed
    state — or, for a course, its dates, seats, and one CTA — on `useBookingFlow`, which owns ALL
    booking logic; you own how it looks.
@@ -74,7 +76,11 @@ for this business, not a stereotype of its category. Then, by default:
   `/services?location=<id>` (the store reads and writes them).
 - **Service page (appointment / class):** name, price, and the first bookable day's times in the
   first screen **at 390px wide too** — the image is a bounded band on a phone, not a full-screen
-  hero; week paging beside the times; "Times in {timeZoneLabel}" once known, with a switch only when
+  hero. **One day at a time:** a horizontal strip of the days in `days` (weekday and day number),
+  the active day's slots under it bucketed into morning / afternoon / evening, and the week pagers
+  at the strip's ends. Never list every day's times at once: a week of a busy calendar is well over a
+  hundred chips and the form ends up below a wall of numbers. Switching day drops a slot chosen on
+  another day. "Times in {timeZoneLabel}" once known, with a switch only when
   `customerCanChangeTimeZone`; the staff filter only when `service.staff.length > 1` (photos when
   `imageUrl`); a slot chip keyed by `slot.key`, disabled with "Full" when `!bookable` ("Full, waitlist"
   when `waitlistCapacity`), "N left" when `remainingCapacity` is small; a week with no times says so
@@ -168,7 +174,8 @@ these first; they are tested code for exactly that behaviour:
 
 1. `components/bookings/ServiceBookingView.tsx` — the booking surface as working code: the course
    panel (dates, seats), the time-zone line, the staff filter only when there is more than one staff
-   member, day groups with slot chips (disabled "Full"), the empty week pointing at `nextAvailable`,
+   member, the day strip with the week pagers at its ends, the active day's slot chips in morning /
+   afternoon / evening buckets (disabled "Full"), the empty week pointing at `nextAvailable`,
    the sessions list, participants, deposit choice, add-ons, one input per `formFields` entry typed
    from its `type` (a `<select>` when it has `options`), the CTA disabled until `canBook` and labelled
    from `ctaState` + the money, `error` inline, and the confirmed state rendered only from
