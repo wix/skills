@@ -86,6 +86,8 @@ read tokens into context), and the two companion skills beside this one, `wix-do
 page, `cold-start/cold-start.md`, gets a machine with none of this to that point. Then fetch the shipped
 code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
 the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
+`node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
+and prints the update commands; it changes nothing.
 
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names
    another framework or the directory already holds one. Then, by what the shipped code can run

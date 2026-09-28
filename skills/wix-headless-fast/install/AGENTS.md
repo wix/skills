@@ -27,6 +27,8 @@ Installed at `.agents/skills/`. If missing, restore with:
   `templates/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
   adds one; `node .agents/skills/{{SKILL}}/templates/<solution>/seed/read-site.mjs` reads what the
   site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
+  `node .agents/skills/{{SKILL}}/install/check.mjs` says whether the skill or its templates have a newer
+  version and prints the update commands; an update touches the skill folder or `templates/`, never `src/`.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
   is confirmed there before you write it.
