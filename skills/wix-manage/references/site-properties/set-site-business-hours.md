@@ -12,7 +12,7 @@ A site's general opening hours live in the Site Properties business schedule. Th
 
 Use [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) to read `properties.businessSchedule`:
 `GET https://www.wixapis.com/site-properties/v4/properties?fields.paths=businessSchedule`.
-Replace only the requested weekly periods and preserve `specialHourPeriod` unless the user explicitly requests changes to exceptions. An explicit request to set a specified schedule authorizes that change; otherwise confirm the target and desired hours first.
+The write replaces the whole schedule: a day missing from `periods` is closed, and a missing `specialHourPeriod` drops the exceptions. So build the new `periods` from the current ones, changing only the days the user named (for "close at 6pm on Fridays", keep every other day as read), and send `specialHourPeriod` back unchanged unless the user explicitly asks to change exceptions. An explicit request to set a specified schedule authorizes that change; otherwise confirm the target and desired hours first.
 
 Write the new schedule with [Update Business Schedule](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-schedule), `POST https://www.wixapis.com/site-properties/v4/properties/business-schedule`, then read it back.
 
