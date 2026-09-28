@@ -176,7 +176,7 @@ GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
 ```
 
 It takes no parameters and returns the site's most recent research. Keep only
-the ID and item count:
+`keywordResearchId` and the length of the `keywordResearchItems` array:
 
 ```json
 {
@@ -192,7 +192,6 @@ the ID and item count:
 | Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
 | Any other error | Report it and stop. |
 
-After a `428` from Create Content Plan, do not retry: check the flow status.
 If the flow is still at `KEYWORD_RESEARCH` after 40 checks, report the flow ID
 as incomplete.
 Calling Create Content Plan before the research is ready moves the flow to
