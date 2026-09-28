@@ -71,3 +71,25 @@ The browser can select only the **named policy** and the bytes. The deployed API
 the destination and elevates only `files.generateFileUploadUrl`. A vertical uses the same
 capability by putting its own policy in its plan. Do not copy, fork, or widen the endpoint in
 vertical code.
+
+## Optional Site Search capability
+
+A search box with suggestions and a `/search?q=` results page across the deployed verticals'
+products, services, posts and events, linking to this site's own routes. Put the entry in the site
+plan; the Fast deployer ships the data layer, stores, hooks, components and the search page once,
+plus a generated read-only config module:
+
+```json
+{
+  "capabilities": {
+    "siteSearch": { "install": true, "types": ["products", "services", "posts", "events"] }
+  }
+}
+```
+
+Every call is a visitor read — no endpoint, no elevation. What it needs from the site is one
+mutation the deploy does not make: the **Wix Site Search app** must be installed, or every search
+answers zero documents. `install: true` marks that for the seed step, which runs
+`node <SKILL_ROOT>/templates/shared/capabilities/site-search/seed/install.mjs` after the content
+seed; the install indexes the existing content within about half a minute. The playbook, the plan
+fields and the contracts are in `templates/shared/capabilities/site-search/INSTRUCTIONS.md`.

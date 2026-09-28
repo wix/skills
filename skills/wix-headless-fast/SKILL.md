@@ -74,7 +74,13 @@ doesn't express — or once the site exists and the work turns to managing or ex
   `capabilities.mediaUpload.policies` entry to the plan; Fast ships its client helper, Astro
   endpoint, dependencies, and generated policy module once. Read
   `templates/shared/CUSTOM_OPERATIONS.md` before choosing it. The agent wires the helper to
-  the product UI; it never authors or widens the endpoint.
+  the product UI; it never authors or widens the endpoint. For a site-wide search (a header box
+  with suggestions, a `/search?q=` page over the deployed verticals' products, services, posts
+  and events), add a `capabilities.siteSearch` entry; Fast ships its data layer, stores, hooks,
+  components and search page once. Enabling it means the Wix Site Search app is installed on the
+  site by the seed step (`install: true`; the capability's `seed/install.mjs`, run after the
+  content seed) — the index fills within about half a minute of the install. Playbook:
+  `templates/shared/capabilities/site-search/INSTRUCTIONS.md`.
 
 ## The run
 

@@ -9,7 +9,10 @@ The data layer ships a second time as a **REST layer**: `templates/shared/rest/`
 vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against the same `types.ts` and
 importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules, two
 transports. The vertical's `INSTRUCTIONS.md` names its modules and what each surface does with
-them; this section is the mechanics, the same for every vertical.
+them; this section is the mechanics, the same for every vertical. The site-search capability
+(`templates/shared/capabilities/site-search/`, on from `plan.capabilities.siteSearch`) has the same
+two transports: with `--plan` its REST twin and stores land in `js/wix/` beside the vertical's
+(`search.js`, `search-store.js`, `suggest-store.js`), and its `INSTRUCTIONS.md` applies.
 
 - **Static site (no bundler).** Step 3's setup with `--stack static` runs `init` in the project
   folder (site, OAuth app, `wix.config.json`), points `site.outputDirectory` at `"./site"`, and
