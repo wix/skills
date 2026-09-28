@@ -98,7 +98,9 @@ if (mode === "create") {
     // The composed template: the CLI copies it in place of its blank one, creates the site and
     // writes wix.config.json; the vertical's code and its lockfile arrive with it. Any other
     // stack takes the CLI's blank Astro scaffold, as before, and deploy below adds the code.
-    const template = stack === "astro" ? join(TEMPLATES, vertical, "project") : null;
+    // The composed project is the one part of the templates a project's repository does not keep;
+    // a committed copy fetches it here, at the commit the rest came from.
+    const template = stack === "astro" ? join(templatesDir({ need: `${vertical}/project` }), vertical, "project") : null;
     emit("scaffolding", { folder: folderName, template });
     const scaffold = spawnSync(
       "npm",

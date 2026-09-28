@@ -24,7 +24,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 - **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
   the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
   fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
-  script below fetches it itself when the folder is missing. Each vertical holds:
+  script below fetches it itself when the folder is missing. The folder stays with the project
+  (only the composed `project/` scaffolds are left out of its repository), so a later session
+  reads the version the project was built from. Each vertical holds:
   - `app/` — the framework-agnostic core (TypeScript): a data layer that returns **plain,
     serializable DTOs** (images resolved to https URLs, prices pre-formatted), React hooks, and
     routing-free headless components. Works in Astro islands, Vite SPAs, and Next.

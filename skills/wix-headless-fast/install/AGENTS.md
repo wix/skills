@@ -21,7 +21,8 @@ Installed at `.agents/skills/`. If missing, restore with:
 `CI=1 npx skills@latest add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage --yes`
 
 - `{{SKILL}}` — the code in this app and how to extend it. The shipped code sits in
-  `.agents/skills/{{SKILL}}/templates/`, fetched from the skill's repository; if that folder is missing,
+  `.agents/skills/{{SKILL}}/templates/`, fetched once from the skill's repository and kept with this
+  project at the commit it was built from (`templates/.source`); if that folder is missing,
   `node .agents/skills/{{SKILL}}/install/templates.mjs` fetches it. Each business solution has a playbook at
   `templates/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
   adds one; `node .agents/skills/{{SKILL}}/templates/<solution>/seed/read-site.mjs` reads what the

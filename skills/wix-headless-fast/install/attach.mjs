@@ -249,7 +249,7 @@ if (stack === "astro" && mode === "scaffold") {
   // and its lockfile, the same folder `wix create --template-path` copies for a new site. Copied
   // here because the CLI's create makes a new site and this folder gets an existing one. Further
   // verticals are deployed below.
-  cpSync(join(TEMPLATES, verticals[0], "project"), projectDir, { recursive: true, force: false, errorOnExist: false });
+  cpSync(join(templatesDir({ need: `${verticals[0]}/project` }), verticals[0], "project"), projectDir, { recursive: true, force: false, errorOnExist: false });
   const pkgPath = join(projectDir, "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   pkg.name = folderName;

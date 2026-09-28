@@ -12,8 +12,11 @@
 //      named (its `ref`, falling back to the default branch when that ref no longer exists) or the
 //      repository's default branch. The lock records no commit, so there is nothing more exact to
 //      pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
-// The cache carries a `.gitignore` of `*` so it never enters the project's repository, and a
-// `.source` file with the repository, ref and commit it came from.
+// The cache stays with the project: its `.gitignore` leaves out only the composed `project/`
+// folders (the scaffolds with their lockfiles, read once, at create or attach) and the repository
+// tooling, so the code layers, playbooks, seeds and readers are committed at the commit the project
+// was built from, recorded in `.source`. A caller that needs a `project/` folder passes it as
+// `need`; when a committed copy lacks it, that part is fetched at the same commit.
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -64,13 +67,38 @@ export function listVerticals(dir) {
     .sort();
 }
 
-export function templatesDir({ refresh = false } = {}) {
+export function templatesDir({ refresh = false, need = null } = {}) {
   const checkout = resolve(SKILL_ROOT, "..", "..", "templates");
   if (existsSync(join(checkout, "shared", "app"))) return checkout;
   const cache = join(SKILL_ROOT, "templates");
-  if (!refresh && existsSync(join(cache, "shared", "app"))) return cache;
+  if (!refresh && existsSync(join(cache, "shared", "app"))) {
+    if (need && !existsSync(join(cache, need))) fetchIgnoredPart(cache, need);
+    return cache;
+  }
   fetchTemplates(cache);
   return cache;
+}
+
+// What a project's repository does not carry: the composed scaffolds (heavy, read once) and the
+// repository's own tooling. Everything else in the cache is committed with the project.
+const IGNORED = ["*/project/", "blank/", "compose.mjs"];
+
+// A committed copy lacks the ignored parts. Fetch them at the commit the copy came from, so the
+// scaffold a create copies matches the code committed beside it; the committed files are untouched.
+function fetchIgnoredPart(cache, need) {
+  const src = templatesSource(cache);
+  const { repo } = installSource();
+  const r = cloneSparse(src.repo ?? repo, src.commit ?? process.env.WIX_HEADLESS_FAST_TEMPLATES_REF ?? null);
+  const tmp = r.tmp;
+  if (r.status !== 0 || !existsSync(join(tmp, "templates", need))) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error(`could not fetch templates/${need} from ${src.repo ?? repo}${src.commit ? ` @ ${src.commit.slice(0, 7)}` : ""}: ${(r.stderr || r.stdout || "not in the clone").trim().slice(-300)}`);
+  }
+  for (const part of ["blank", ...readdirSync(join(tmp, "templates"), { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(tmp, "templates", d.name, "project"))).map((d) => `${d.name}/project`)]) {
+    const from = join(tmp, "templates", part);
+    if (existsSync(from) && !existsSync(join(cache, part))) cpSync(from, join(cache, part), { recursive: true });
+  }
+  rmSync(tmp, { recursive: true, force: true });
 }
 
 export function templatesSource(dir) {
@@ -108,7 +136,7 @@ function fetchTemplates(cache) {
   try { renameSync(join(tmp, "templates"), cache); }
   catch { cpSync(join(tmp, "templates"), cache, { recursive: true }); }
   rmSync(tmp, { recursive: true, force: true });
-  writeFileSync(join(cache, ".gitignore"), "*\n");
+  writeFileSync(join(cache, ".gitignore"), IGNORED.join("\n") + "\n");
   writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? (fellBack ? `default branch (${lockRef} not found)` : "default branch"), commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
 }
 
