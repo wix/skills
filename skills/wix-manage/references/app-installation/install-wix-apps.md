@@ -115,7 +115,7 @@ Some common apps:
 ## Error Handling
 
 ### App Not Installed Error
-If you receive an error indicating a required app is not installed (e.g. a `428` or a `*_NOT_INSTALLED` error code), install the app it names using its appDefId, then retry the call that failed. If the user's own request already implies this app is needed — e.g. asking to add site languages, or enable a feature that only that app provides — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
+If you receive an error indicating a required app is not installed (e.g. a `428` or a `*_NOT_INSTALLED` error code), install the app it names using its appDefId, then retry the call that failed. If the user's own request already implies this app is needed — i.e. doing what they asked requires a feature only that app provides — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
 
 **Example** (install the missing app, then retry the call that surfaced the error — all in one script):
 ```javascript
@@ -179,7 +179,7 @@ async function() {
   throw lastError;
 }
 ```
-Chain any further app-dependent calls (e.g. creating locales) inside this same function, after the mode call succeeds — don't split them into a separate tool call either.
+Chain any further app-dependent calls inside this same function, after the first one succeeds — don't split them into a separate tool call either.
 
 ---
 
