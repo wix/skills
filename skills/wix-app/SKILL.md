@@ -440,7 +440,7 @@ Only after validation passes, provide a **concise summary section** at the top o
 - ✅ Dependencies: [Installed / status message]
 - ✅ TypeScript: [No compilation errors / status]
 - ✅ Build: [Completed successfully / status]
-- ✅/⚠️ Preview: [Created — URL / Failed - reason]
+- ✅/⚠️ Preview: [Created — Dashboard URL / Failed - reason]
 
 **⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
 ```
