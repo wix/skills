@@ -262,10 +262,13 @@ See [Create Content Plan](https://dev.wix.com/docs/api-reference/business-manage
 
 ### 5. Check the status until SUCCESS
 
-Same single-GET execution and nested response as step 2, using the release
-response's flow ID and returning after each check. Typical status progression:
-`CONTENT_PLAN` → `SUCCESS`. Read candidates in a subsequent execution after
-observing `SUCCESS`.
+Same single-GET execution and nested response as step 2, using the same flow
+ID and returning after each check, one at a time. Typical status progression:
+`CONTENT_PLAN` → `SUCCESS`. Generating the briefs took 20 to 50 seconds in
+observed runs, often more checks than the research wait: keep checking while
+the status is `CONTENT_PLAN`, up to 60 checks, before reporting the flow as
+incomplete. Read candidates in a subsequent execution after observing
+`SUCCESS`.
 
 ### 6. Read the briefs
 
