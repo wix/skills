@@ -165,8 +165,15 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    and for a project already on disk; **the folder decides** what it does:
 
    ```bash
-   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
+   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"]
    ```
+
+   Name every vertical the brief needs in this one call (a store with member accounts is
+   `storefront,members`): the first one's template scaffolds the project and its seed runs from
+   `--plan`; the others deploy in the same call, so the one install covers them all. A vertical
+   added after the install has started costs a second install. The other verticals' seeds run
+   afterwards, each with its own plan, when the brief gives them content (the members seed installs
+   the Members Area app and takes no plan).
 
    - **Empty** (or only loose files: a CSV, a brief) → **create**: `wix create` with the
      vertical's composed template, here; `--business-name` names the site.
@@ -288,6 +295,12 @@ close.
 
 ## Verticals
 
+The shortlist. Match the brief against the first column; when it names a Wix product or a
+feature not here, when two rows could fit, or when the request sounds like something this skill
+does not ship (rentals, meetings, gift cards, loyalty, groups), read
+`<SKILL_ROOT>/guides/capabilities.md`: every Wix product, what it covers, which vertical here
+ships it and what is not shipped.
+
 | The user wants…                                                                              | Vertical          | Playbook                                   |
 | -------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------ |
 | Online store: products, categories, variants, cart, checkout                                 | **storefront**    | `templates/storefront/INSTRUCTIONS.md`    |
@@ -304,8 +317,10 @@ close.
 | Donations: campaign pages, goal progress, one-time and recurring giving via hosted checkout   | **donations**     | `templates/donations/INSTRUCTIONS.md`     |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
-accounts) deploys them together — setup takes one vertical; deploy the rest with
-`node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
-starts, and run each vertical's seed. A request that matches no shipped vertical has no shipped
-code: it is built from the Wix API reference through `wix-docs` (search, then the method page),
-with the same rule as every other call, on the same project and stack.
+accounts) names them all in the setup call (`--vertical restaurants,blog`), so one install covers
+them; each vertical's seed runs with its own plan. On a project already built,
+`node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root adds one, then one
+`npm install`, then its seed. A request that matches no shipped vertical has no shipped
+code: say so in one line, then build it from the Wix API reference through `wix-docs` (search,
+then the method page), with the same rule as every other call, on the same project and stack,
+starting from the closest shipped vertical when one exists (`guides/capabilities.md` says which).

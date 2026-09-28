@@ -28,7 +28,7 @@ manages. So:
   `read-site.mjs` sizes the content as in `guides/existing-site.md`; when it says not to probe,
   design from the brief.
 
-**The run.** `setup.mjs --vertical <vertical> [--stack <stack>]` in the folder: it copies the
+**The run.** `setup.mjs --vertical <vertical>[,<vertical>…] [--stack <stack>]` in the folder (every vertical the brief needs, in one call): it copies the
 vertical's composed template around the config (managed Astro), deploys the code, starts the
 install, writes the project's AGENTS.md with the migration recorded, and skips the seed. Then
 SKILL.md steps 4 and 5 as for any run. `attach.mjs` refuses a migration folder on purpose: the
