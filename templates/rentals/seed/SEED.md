@@ -2,7 +2,9 @@
 
 Seed by **running `seed-rentals.mjs` with a plan file** — don't hand-write the REST calls. The
 script mints its own site token via the Wix CLI (logged-in session + `wix.config.json` required),
-installs the Wix Rentals app if needed, creates the resource types and their resources, then the
+installs the Wix Rentals app and the Wix Bookings app if needed (Bookings is the availability engine;
+without it an hourly rental with several units answers no availability), creates the resource types
+and their resources, then the
 rental services one at a time with every value that makes a Bookings service a rental, confirms the
 duration range landed, and attaches images.
 

@@ -52,7 +52,9 @@ API reference through `wix-docs` on the same project, with the same rules as eve
 ## Where things actually live
 
 - Meetings and Rentals ship no APIs of their own: both are Bookings with restricted field values,
-  so their contracts are the Bookings ones.
+  so their contracts are the Bookings ones. A rentals site also needs the Wix Bookings app installed
+  (the rentals seed does it): with Rentals alone, availability for an hourly rental with several
+  units answers 401 "Booking app not installed".
 - Loyalty coupons (`crm/loyalty-program/rewards/coupons`) are a different resource from eCommerce
   Coupons (`business-solutions/coupons`).
 - Stores categories are called Collections in Catalog V1 and Categories in Catalog V3; the shipped

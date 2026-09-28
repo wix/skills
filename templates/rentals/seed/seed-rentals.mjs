@@ -3,7 +3,9 @@
 //
 //   node <SKILL_ROOT>/templates/rentals/seed/seed-rentals.mjs plan.json
 //
-// It mints its own site token via the Wix CLI, installs the Wix Rentals app if needed, creates the
+// It mints its own site token via the Wix CLI, installs the Wix Rentals app AND the Wix Bookings app
+// if needed (an hourly rental with more than one resource answers availability with 401 "Booking app
+// not installed" on a Rentals-only site; verified live), creates the
 // resource types (idempotent by name) and their resources (idempotent by name within a type; no
 // working hours = bookable 24/7, which keeps a multi-day rental to ONE booking), creates the rental
 // services ONE AT A TIME with the five values that make a Bookings service a rental (the Rentals
@@ -30,6 +32,8 @@ const API = "https://www.wixapis.com";
 export const RENTALS_APP_ID = "ff5d6eb1-65e4-4f9a-8b14-64d34c12cc2e";
 /** The Rentals default booking form, provisioned by the install with the same id on every site. */
 export const RENTALS_FORM_ID = "3a2ea2ce-91f4-4617-ab24-629933c0c31a";
+/** The Wix Bookings app: the availability engine behind multi-resource hourly rentals. */
+export const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 
 export function makeCtx({ cwd = process.cwd() } = {}) {
   // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
@@ -102,14 +106,20 @@ export function buildRental(r, { resourceTypeId, resourceIds, currency }) {
 
 // ---- operations ----------------------------------------------------------------------------------
 
+// Both apps: Rentals owns the services and the dashboard; Bookings is the availability engine. On a
+// site with Rentals alone, List Availability Time Slots answers 401 "Booking app not installed / No MS
+// context" for an HOURLY rental whose service lists more than one resource (a single-resource hourly
+// rental and every daily rental work without it). Installing Bookings fixes it; verified live.
 // docs: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md
 export async function installRentalsApp(ctx) {
-  try {
-    await req(ctx, "/apps-installer-service/v1/app-instance/install", {
-      body: { tenant: { tenantType: "SITE", id: ctx.siteId }, appInstance: { appDefId: RENTALS_APP_ID, enabled: true } },
-    });
-  } catch {
-    /* already installed is fine */
+  for (const appDefId of [RENTALS_APP_ID, BOOKINGS_APP_ID]) {
+    try {
+      await req(ctx, "/apps-installer-service/v1/app-instance/install", {
+        body: { tenant: { tenantType: "SITE", id: ctx.siteId }, appInstance: { appDefId, enabled: true } },
+      });
+    } catch {
+      /* already installed is fine */
+    }
   }
 }
 
