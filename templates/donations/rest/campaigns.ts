@@ -13,6 +13,23 @@ import type { CampaignDetail, CampaignSummary } from "./types.js";
 
 const BASE = "/donation-campaigns/v2/donation-campaigns";
 
+// A campaign nobody has donated to yet has no metrics entry, and the entity carries no currency code:
+// the site's currency then comes from the eCommerce settings, read once.
+// GET /_api/ecommerce-settings/v1/ecommerce-settings?fields=BUSINESS_INFO → { ecommerceSettings: { businessInfo: { currency } } }
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
+let siteCurrencyPromise: Promise<string> | null = null;
+function siteCurrency(): Promise<string> {
+  siteCurrencyPromise ??= wixRequest<Raw>("/_api/ecommerce-settings/v1/ecommerce-settings", { method: "GET", query: { fields: ["BUSINESS_INFO"] } })
+    .then((res) => String(res?.ecommerceSettings?.businessInfo?.currency ?? ""))
+    .catch(() => { siteCurrencyPromise = null; return ""; });
+  return siteCurrencyPromise;
+}
+
+/** The campaign's currency: the metrics' when a donation exists, else the site's. */
+async function currencyFor(metrics: Raw[]): Promise<string> {
+  return currencyOf(metrics) || (await siteCurrency());
+}
+
 // GET /donation-campaigns/v2/donation-campaigns/{id}/metrics → { currencyMetricsList: [{ currencyCode, donationCount, totalAmount }] }
 async function metricsOf(campaignId: string): Promise<Raw[]> {
   try {
@@ -31,7 +48,8 @@ export async function fetchCampaigns({ limit = 100 } = {}): Promise<CampaignSumm
   const res = await wixRequest<Raw>(`${BASE}/query`, { body: { query: campaignsQuery({ limit }) } });
   const items = ((res?.donationCampaigns ?? []) as Raw[]).filter((raw) => !isArchived(raw));
   const metrics = await Promise.all(items.map((raw) => (raw.campaignGoal ? metricsOf(rawId(raw)) : Promise.resolve([] as Raw[]))));
-  return items.map((raw, i) => toSummary(raw, metrics[i], currencyOf(metrics[i]), imgSrc));
+  const currencies = await Promise.all(metrics.map(currencyFor));
+  return items.map((raw, i) => toSummary(raw, metrics[i], currencies[i], imgSrc));
 }
 
 /**
@@ -48,7 +66,7 @@ export async function fetchCampaign(campaignId: string): Promise<CampaignDetail 
   }
   if (!raw || isArchived(raw)) return null; // an archived campaign is reachable by id but never shows a form
   const metrics = await metricsOf(campaignId);
-  return toDetail(raw, metrics, currencyOf(metrics), imgSrc);
+  return toDetail(raw, metrics, await currencyFor(metrics), imgSrc);
 }
 
 /** The Wix widget's default: the first campaign by creation date. Null when the site has none. */

@@ -1,7 +1,9 @@
 # An existing site: a new frontend for a site that already has its content
 
 Read when the brief names a Wix site by its id. Nothing here is seeded: the site owns its content
-and the frontend reads it live. `<SKILL_ROOT>` is the installed skill folder; the shipped code is
+and the frontend reads it live. (A project downloaded from Wix whose `.env.local` declares a
+migration is the other way to arrive at an existing site: `guides/migration.md`; the reading
+part below applies there too, against the migrated site.) `<SKILL_ROOT>` is the installed skill folder; the shipped code is
 under `<SKILL_ROOT>/templates/` (SKILL.md, "The run").
 
 **Read the site, then run attach.** First, one call tells you what

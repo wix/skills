@@ -23,6 +23,7 @@
 // every call below carries a docs: line with its reference page.
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
+import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -35,9 +36,9 @@ const D = "https://dev.wix.com/docs/api-reference/business-solutions/donations/d
 const FREQUENCIES = ["ONE_TIME", "WEEK", "MONTH", "YEAR"];
 
 export function makeCtx({ cwd = process.cwd() } = {}) {
-  const config = JSON.parse(readFileSync(`${cwd}/wix.config.json`, "utf8"));
-  const siteId = config.siteId ?? config.projectId;
-  if (!siteId) throw new Error("wix.config.json has no siteId — is this a Wix CLI project?");
+  // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
+  // a seed there unless --allow-parent is passed after the user confirmed).
+  const siteId = seedSiteId({ cwd, argv: process.argv });
   const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
     encoding: "utf8",
     cwd,

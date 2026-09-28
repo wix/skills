@@ -161,7 +161,7 @@ Tested and working as they are; read the source when something is off or the bri
 // (render "replying to parentAuthorName") but sit in their top-level comment's thread (two levels).
 
 // <RichContent content={post.richContent} fallbackParagraphs={post.paragraphs} />
-//   — the ONLY body render path (comments too: content / text.split("\n")). In Astro: client:only="react".
+//   — the ONLY post-body render path; comments render their plain `text` (no viewer: their island is SSR'd). In Astro: client:only="react".
 ```
 
 ### The island you create — skeleton

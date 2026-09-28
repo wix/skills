@@ -89,7 +89,14 @@ Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@lates
 read tokens into context), and the two companion skills beside this one, `wix-docs` and
 `wix-manage` (if `.agents/skills/` lacks them:
 `CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
-page, `cold-start/cold-start.md`, gets a machine with none of this to that point. Then fetch the shipped
+page, `cold-start/cold-start.md`, gets a machine with none of this to that point. In a folder that
+already holds a `wix.config.json`, `node <SKILL_ROOT>/install/context.mjs` first: it runs
+`wix env pull` when `.env.local` is missing and prints the two identities a project has — the
+deploy site (the config, where `wix release` goes) and the content site (the env, whose app the SDK
+client runs as and whose dashboard manages the business). They are one site, except on a
+**migration preview** (`guides/migration.md`), where the env names the site being migrated.
+Every script here reads that context; the site a call targets is never guessed from the config
+alone. Then fetch the shipped
 code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
 the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
@@ -165,13 +172,20 @@ and prints the update commands; it changes nothing.
    - **`wix.config.json` and a project** → refuses: the folder is already a Wix project with a
      frontend, whether the CLI made it, a hand wrote it, or this skill built it. Three commands
      from the project root do everything setup would: `deploy.mjs <vertical…> --stack <stack>`
-     adds this skill's code or a solution (the client id is read from the config), then ONE
+     adds this skill's code or a solution (the client id comes from `.env.local`, the config as
+     the fallback), then ONE
      `npm install`, then the seed module if there is content to create. A project this skill
      built needs only the first, for a new solution; a change to what is built is file edits
      and a release.
-   - **`wix.config.json` and no project** (what `init` leaves in an empty folder) → the site
-     exists and has no frontend yet: `attach.mjs` (below), which takes the site from the config,
-     reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
+   - **`wix.config.json` and no project, and `.env.local` declares a migration** (a project
+     downloaded from Wix for a site being moved to headless; the config names a site that only
+     hosts the deployment, the env the site being migrated) → **migrate**: setup copies the
+     vertical's composed template in around the config, deploys with the migrated site's app as
+     the client, starts the install, seeds nothing. `ready_for_brand_layer` says `mode: "migrate"`,
+     the parent as `siteId` and the child as `deploySiteId`. `guides/migration.md` has the rules.
+   - **`wix.config.json` and no project**, no migration (what `init` leaves in an empty folder) →
+     the site exists and has no frontend yet: `attach.mjs` (below), which takes the site from the
+     config, reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
    - The brief names a site by id → not this call: read `<SKILL_ROOT>/guides/existing-site.md`
      and follow it (read the site, then `attach.mjs`, which does what setup does against the
      site given; self-hosting and a project already on disk are in there too).
@@ -243,7 +257,10 @@ and prints the update commands; it changes nothing.
    build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
-   `https://manage.wix.com/dashboard/<siteId>`. **Copy the live URL verbatim from the
+   `https://manage.wix.com/dashboard/<siteId>` (the `siteId` of the `ready_for_brand_layer`
+   event: on a migration preview that is the migrated site's dashboard, the release URL is the
+   preview's, the original site is unchanged, and completing the migration is the user's next
+   step in the Wix CLI once they approve — say all three). **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404).
 

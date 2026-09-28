@@ -57,8 +57,13 @@ look broken.
   exists in that category is skipped (`skipped` in the result). Nothing is updated or deleted.
 
 **Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup seems
-needed. A fresh FAQ install may come with Wix's own sample categories and questions — they show up in
-the result's per-category counts and on the page until the owner removes them in the dashboard.
+needed. A fresh FAQ install comes with Wix's own sample categories and questions ("General", "Setting
+up FAQs", …); the live page shows them above the owner's, so they are never silent: the result's
+`preexisting[]` lists every category the plan did not name with its question count, and the closing
+message names them with the dashboard link. On a NEW site whose brief lists the whole FAQ, set
+`"removeWixSamples": true` at the top of the plan: the seed then deletes exactly those pre-existing
+categories and their questions before creating the plan's (`removedWixSamples` in the result). Never
+set it for a site that already has real content — the flag removes whatever the plan does not name.
 
 The result lists every category with its id, whether this run created it, and how many questions it
 holds after the run; `created[]` carries each new question's `id` and `slug` (the anchor the page

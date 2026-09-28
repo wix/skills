@@ -1,6 +1,6 @@
 # Draft Template — the starting point for every dashboard page
 
-**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file for [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md), the package's own `Collection Toolkit.md` guide, [TABLE_STATE.md](TABLE_STATE.md), a component doc, or an MCP lookup when the request needs something no case shows.
+**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file when the request needs something no case shows, and then go to [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md) first — before any lookup inside `node_modules/@wix/patterns`, `index.json` included. It routes you to the package's own `Collection Toolkit.md` guide, a component doc or an example; [TABLE_STATE.md](TABLE_STATE.md) and MCP lookups come after it.
 
 Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts`, not from memory — confirm props against your own installed version before deviating.
 

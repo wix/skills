@@ -12,6 +12,7 @@
 // documents after a minute means the app is not installed or the content is not visible to the
 // index (hidden products, drafts), not that the query is wrong.
 import { execFileSync } from "node:child_process";
+import { seedSiteId } from "../../../seed/site-context.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { installSiteSearch } from "../../../seed/site.mjs";
 
@@ -20,11 +21,10 @@ function flag(name) {
   return i !== -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : null;
 }
 
+// --site, else the project's content site (wix.config.json, or the site being migrated on a
+// migration preview — where installing an app is a write into the live original: the guard applies).
 let siteId = flag("site");
-if (!siteId && existsSync("wix.config.json")) {
-  const c = JSON.parse(readFileSync("wix.config.json", "utf8"));
-  siteId = c.siteId ?? c.projectId ?? null;
-}
+if (!siteId && existsSync("wix.config.json")) siteId = seedSiteId({ argv: process.argv });
 if (!siteId) {
   console.log(JSON.stringify({ error: "no site: pass --site <siteId> or run in a folder with wix.config.json" }));
   process.exit(1);
