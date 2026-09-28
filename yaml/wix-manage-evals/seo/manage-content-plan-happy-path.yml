@@ -1,11 +1,12 @@
 name: seo/manage-content-plan-happy-path
 description: >-
   Requires the full generation workflow on an isolated site with business data:
-  trigger, reach KEYWORD_RESEARCH, wait for the keyword research items,
-  release unless generation already started, reach SUCCESS, and read candidates.
+  trigger, reach KEYWORD_RESEARCH, wait for the research by checking the flow,
+  release only if generation did not start on its own, reach SUCCESS, and read
+  candidates.
 triggerPrompt: >-
-  Generate an SEO content plan for my Wix site and show me the resulting blog
-  post topics. Continue until the plan is ready; I want the actual results.
+  Generate an SEO content plan for my Wix site and show me the blog post topics
+  it suggests.
 tags: [seo, content-plan]
 assertions:
   - tool: ReadFullDocsArticle
@@ -18,40 +19,40 @@ assertions:
       Require evidence of ALL steps in order for the same flow:
       1. POST /content-plan-flows/trigger and capture the returned contentPlanFlowId.
       2. GET /content-plan-flows/{id} until contentPlanFlow.status is KEYWORD_RESEARCH.
-      3. GET /content-plan-keyword-research-items until it returns items whose
-         keywordResearchId matches the flow's keywordResearchId, or until a
-         flow status check shows CONTENT_PLAN or SUCCESS. 404 responses while
-         the research runs are expected waiting, not a failed step.
-      4. Check the flow once more. If it is still KEYWORD_RESEARCH, POST
-         /create-content-plan with that ID and confirm success. If it already
-         moved to CONTENT_PLAN or SUCCESS, skipping the release is correct.
-         A 428 FLOW_NOT_READY_FOR_CONTENT_PLAN after the research was ready,
-         followed by continued polling of the same flow, also satisfies this step.
+      3. Keep checking the same flow while the research runs. If it moves to
+         CONTENT_PLAN or SUCCESS on its own, steps 3 and 4 are satisfied
+         without a release.
+      4. Only if the flow stays at KEYWORD_RESEARCH: GET
+         /content-plan-keyword-research-items, and POST /create-content-plan
+         once only after it returns items with the flow's keywordResearchId.
+         A 404 "No Keyword research" reply there means not ready yet. A 428
+         on the release, followed by more checks of the same flow, also
+         satisfies this step.
       5. GET the same flow until status SUCCESS.
       6. GET /content-plan-flows/{id}/blog-post-candidates and report actual returned topics.
       Score 0 if any step is missing, if only an explanation/promise is given,
       or if results are fabricated. PENDING_REQUIREMENTS, FAIL, or a timeout
       must be reported honestly but do not pass this happy-path scenario.
-      Reading docs and triggering/polling alone are not completion.
+      Reading docs and triggering or checking status alone are not completion.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Score 0-10 for a clean completed generation: one trigger, bounded status
-      checks, waiting for the flow's keyword research items, at most one
-      release (only while the flow is still KEYWORD_RESEARCH), then SUCCESS
-      and reading the actual candidates. Generation can start on its own once
-      the research is ready; skipping the release then, or one 428 on a
-      release that raced it, is correct and not friction. Routine necessary
-      polling is not friction.
-      Score 0 for polling KEYWORD_RESEARCH without ever releasing after the
-      research was ready, releasing before the keyword research items exist,
-      releasing more than once, no API execution, or
-      claiming completion without reading candidates.
-      Penalize guessed shapes, repeated triggers, non-2xx errors, and unnecessary
-      discovery after the recipe already supplies the needed request shape.
-      Not-found responses from the keyword research items check while the
-      research runs are expected waiting, not errors.
+      Score 0-10 for a clean completed generation: one trigger, separate
+      bounded status checks, at most one release (only while the flow is
+      still KEYWORD_RESEARCH and its keyword research items exist), then
+      SUCCESS and reading the actual candidates. Generation usually starts
+      on its own; skipping the release then, or one 428 on a release that
+      raced it, is correct and not friction. Routine status checks are not
+      friction.
+      Score 0 for releasing before the keyword research items exist,
+      releasing more than once, staying at KEYWORD_RESEARCH without ever
+      checking the research or releasing, no API execution, or claiming
+      completion without reading candidates.
+      Penalize: one API execution that loops, sleeps, or waits for a status
+      inside the call instead of separate checks; guessed shapes; repeated
+      triggers; non-2xx errors; more than two 404 replies from the keyword
+      research items check; and documentation lookups after an expected 404.
       Identify likely skill, MCP, API, or provisioning causes for each friction.
       Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.
 siteSetup:

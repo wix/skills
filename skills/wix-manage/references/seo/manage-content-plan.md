@@ -34,19 +34,18 @@ discussed earlier in the conversation. To finish it or read its results:
 2. Read that flow with
    `GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
    Read `contentPlanFlow.status`; see the response and status table in
-   [Check the flow status](#2-poll-until-keyword_research).
+   [Check the flow status](#2-check-the-status-until-keyword_research).
 3. At `SUCCESS`, go directly to [Read the briefs](#6-read-the-briefs).
-   At `KEYWORD_RESEARCH`, when completion is requested,
-   [confirm the keyword research is ready](#3-wait-for-the-keyword-research),
-   then check the flow once more. Call [Create Content Plan](#4-release-the-flow)
-   once with this flow ID only if it is still at `KEYWORD_RESEARCH`.
+   At `KEYWORD_RESEARCH`, when completion is requested, follow
+   [Wait for the keyword research](#3-wait-for-the-keyword-research) with this
+   flow ID; it says when to call [Create Content Plan](#4-release-the-flow).
    For an earlier in-progress status, continue checking this same flow until
    it reaches the pause. If already at `CONTENT_PLAN`, continue to
-   [Poll until SUCCESS](#5-poll-until-success) without calling Create Content
+   [Check until SUCCESS](#5-check-the-status-until-success) without calling Create Content
    Plan. For a terminal or unmet-requirement
    status, follow the status table and stop.
 4. After Create Content Plan succeeds, retain its returned flow ID and
-   [check until SUCCESS](#5-poll-until-success), then
+   [check until SUCCESS](#5-check-the-status-until-success), then
    [read the briefs](#6-read-the-briefs). Do not trigger a replacement or release
    a successful flow just to retrieve its results.
 
@@ -56,12 +55,12 @@ When the user requests a new plan, follow these steps in order. The request and
 response examples for each step are in [API steps](#api-steps).
 
 1. [Trigger](#1-trigger) once and retain the returned flow ID.
-2. [Check the flow status](#2-poll-until-keyword_research) until `KEYWORD_RESEARCH`.
-3. [Wait for the keyword research](#3-wait-for-the-keyword-research) until the
-   flow's keyword research items exist.
-4. [Call Create Content Plan](#4-release-the-flow) once if the flow is still at
-   `KEYWORD_RESEARCH`; if it already moved to `CONTENT_PLAN`, skip this step.
-5. [Check until SUCCESS](#5-poll-until-success).
+2. [Check the flow status](#2-check-the-status-until-keyword_research) until `KEYWORD_RESEARCH`.
+3. [Wait for the keyword research](#3-wait-for-the-keyword-research) by
+   checking the flow status.
+4. [Call Create Content Plan](#4-release-the-flow) once, only when step 3 says
+   so; usually generation starts on its own and you skip this step.
+5. [Check until SUCCESS](#5-check-the-status-until-success).
 6. [Read the briefs](#6-read-the-briefs) and report the actual returned topics.
 
 Only Trigger and Create Content Plan write data in the generation path. Do not
@@ -69,7 +68,7 @@ change the site's business profile, name, description, categories, or publicatio
 state to accelerate it. Those are separate tasks requiring real user data and
 authorization. `CREATED` can mean queued work, not missing setup.
 
-## Polling without losing progress
+## Waiting without losing progress
 
 **One API execution makes one HTTP request and returns.** The sequence below
 is a series of separate calls, with a decision after each response. It is not
@@ -106,7 +105,7 @@ and end this execution here. Save the ID before making any status request.
 Do not append step 2 to the trigger script.
 See [Trigger Content Plan Generation Flow](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-content-plan-flow-v1/trigger-content-plan-generation-flow).
 
-### 2. Poll until KEYWORD_RESEARCH
+### 2. Check the status until KEYWORD_RESEARCH
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}
@@ -150,10 +149,10 @@ Typical status progression: `CREATED` → `SITE_ANALYSIS` → `KEYWORD_RESEARCH`
 | `CREATED` | Queued or starting. Check the same flow again; do not change site settings. |
 | `SITE_ANALYSIS` | Analyzing site pages. Continue separate checks. |
 | `SITE_SUMMARY` | Summarizing existing content. Continue separate checks. |
-| `KEYWORD_RESEARCH` | Keyword research started. [Wait for the keyword research](#3-wait-for-the-keyword-research), then release once when generation is requested. |
+| `KEYWORD_RESEARCH` | Keyword research running or done. Continue with [step 3](#3-wait-for-the-keyword-research). |
 | `CONTENT_PLAN` | Generating briefs. Continue separate checks; do not release again. |
 | `SUCCESS` | Ready. Read candidates in step 6. |
-| `PENDING_REQUIREMENTS` | Missing business information. Stop polling and report the actual unmet requirement from evidence. Do not invent or update business data, or repeatedly trigger replacements. |
+| `PENDING_REQUIREMENTS` | Missing business information. Stop checking and report the actual unmet requirement from evidence. Do not invent or update business data, or repeatedly trigger replacements. |
 | `FAIL` | Generation failed. Report the flow ID and failure; do not silently start a replacement. |
 | `CANCELED` | Canceled and cannot be resumed. Report it and stop. |
 | `UNKNOWN` | No usable status. Inspect the response and report uncertainty instead of guessing progress. |
@@ -162,18 +161,19 @@ Check every few seconds using separate calls. Completion time varies.
 
 ### 3. Wait for the keyword research
 
-Finishing the research does not change the flow status by itself: the flow
-either stays at `KEYWORD_RESEARCH` or moves to `CONTENT_PLAN` once generation
-starts in the background. So check the research itself: after the flow
-reaches `KEYWORD_RESEARCH`, save its `contentPlanFlow.keywordResearchId`, then
-read the site's keyword research:
+Keep checking the flow status (the step 2 request) every 15 seconds. When
+the research finishes, generation usually starts on its own:
+
+- `CONTENT_PLAN`: skip Create Content Plan; continue with step 5.
+- `SUCCESS`: go to step 6.
+- Still `KEYWORD_RESEARCH` after two minutes: check the research once:
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
 ```
 
-It takes no parameters and returns the site's most recent research. Execute it
-once, like a status check. Keep only the ID and item count:
+It takes no parameters and returns the site's most recent research. Keep only
+the ID and item count:
 
 ```json
 {
@@ -182,27 +182,17 @@ once, like a status check. Keep only the ID and item count:
 }
 ```
 
-Decide from each response:
-
 | Response | Next action |
 | --- | --- |
-| HTTP `404` (not found), or no items | Research is still running. Check again in 10 to 15 seconds. |
-| `keywordResearchId` differs from the flow's | Earlier research. Check again, as above. |
-| Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
-| Any other error | Report it and stop; do not keep waiting. |
+| `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Check the flow status again in 30 seconds. |
+| Other `keywordResearchId` than the flow's | Earlier research. Check the flow status again in 30 seconds. |
+| Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
+| Any other error | Report it and stop. |
 
-Only after the Ready row, check the flow status once and decide:
-
-- `KEYWORD_RESEARCH`: call Create Content Plan once
-  (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan` with
-  `{ "contentPlanFlowId": "<flow-uuid>" }`; see step 4). After a `428` reply,
-  do not retry: check the flow status and follow the status table.
-- `CONTENT_PLAN` or `SUCCESS`: generation already started. Skip Create Content
-  Plan; continue with step 5, or step 6 at `SUCCESS`.
-
-Research usually takes one to two minutes. If it is not ready after five
-minutes, report the flow ID as incomplete. Calling Create Content Plan before
-the research is ready moves the flow to `FAIL`; that flow cannot be resumed.
+After a `428` from Create Content Plan, do not retry: check the flow status.
+If nothing is ready after five minutes, report the flow ID as incomplete.
+Calling Create Content Plan before the research is ready moves the flow to
+`FAIL`; that flow cannot be resumed.
 See [List Keyword Research Items](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-keyword-research-v1/list-keyword-research-items).
 
 ### 4. Release the flow
@@ -246,7 +236,7 @@ and candidate read. This response is not the list of briefs: continue to steps
 flow it regenerates a plan under a new flow ID.
 See [Create Content Plan](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-blog-post-candidate-v1/create-content-plan).
 
-### 5. Poll until SUCCESS
+### 5. Check the status until SUCCESS
 
 Same single-GET execution and nested response as step 2, using the release
 response's flow ID and returning after each check. Typical status progression:
@@ -350,7 +340,7 @@ durable across generations.
 
 ## Do not
 
-- Keep polling `KEYWORD_RESEARCH` after the research is ready without calling
+- Keep checking `KEYWORD_RESEARCH` after the research is ready without calling
   Create Content Plan (step 4).
 - Call Create Content Plan as soon as the status is `KEYWORD_RESEARCH`, before
   the flow's keyword research items exist.
