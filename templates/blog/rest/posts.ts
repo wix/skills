@@ -62,7 +62,8 @@ export async function fetchPosts(o: FetchPostsOptions = {}): Promise<PostPage> {
  * One post by URL slug with the full body and SEO/comments fields. Null when the slug resolves to
  * nothing (a 404 from this read) — a real 404 for the page, never a fallback to another post; any
  * other failure throws.
- * GET /blog/v3/posts/slugs/{slug}?fieldsets=RICH_CONTENT&fieldsets=CONTENT_TEXT&fieldsets=SEO&fieldsets=REFERENCE_ID
+ * GET /blog/v3/posts/slugs/{slug}?fieldsets=RICH_CONTENT&fieldsets=CONTENT_TEXT&fieldsets=SEO&fieldsets=REFERENCE_ID&fieldsets=INTERNAL_ID
+ * (INTERNAL_ID is the fieldset that carries referenceId; REFERENCE_ID alone returns the post without it)
  */
 export async function fetchPostBySlug(slug: string): Promise<PostDetail | null> {
   let raw: Raw | undefined;

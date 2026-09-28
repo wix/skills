@@ -85,23 +85,29 @@ npx wix build
 
 ### Step 4: Preview Deployment
 
-Start the preview server:
+`npx wix preview` is a one-shot command, not a server: it uploads a preview build, prints the preview URLs and **exits on its own**, in seconds. Run it in the foreground and read its output:
 
 ```bash
 npx wix preview
 ```
 
+Don't wrap it in `timeout` (macOS has none, so the call fails before preview runs), background it, `sleep` or poll a log for it, or `kill` it afterwards. There is no process left to wait for or stop.
+
 **Success criteria:**
-- Preview server starts successfully
-- Preview URLs are generated (both site and dashboard)
+- The command exits 0
+- It printed `✔ Preview created successfully!` and the preview URLs
 
-**URL extraction:** Parse the terminal output to find both preview URLs. Look for patterns like:
-- Site preview: `Site preview: https://...` or `Site URL: https://...`
-- Dashboard preview: `Dashboard preview: https://...` or `Preview URL: https://...` or `Your app is available at: https://...`
+**URL extraction:** the URLs follow `Open the preview on:`, one per line, each in parentheses:
 
-Extract both URLs and provide them to the user for manual verification.
+```
+  › Site (https://www.wix.com/app-installer?appId=...)
+  › Editor (https://www.wix.com/app-installer?appId=...)
+  › Dashboard (https://www.wix.com/app-installer?appId=...)
+```
 
-**On failure:** Report the preview startup errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
+A long URL wraps across several lines. Join the lines up to the closing `)` before using it. Give the Site and Dashboard URLs to the user for manual verification.
+
+**On failure:** Report the preview errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
 
 ## Validation Report
 
@@ -111,7 +117,7 @@ After completing all steps, provide a summary:
 - Dependencies: ✓ All packages installed successfully
 - TypeScript: ✓ No compilation errors
 - Build: ✓ Compiled successfully
-- Preview: ✓ Running at [URL]
+- Preview: ✓ Created — [Dashboard URL]
 
 **Fail:**
 - Identify which step failed
@@ -138,7 +144,7 @@ Read: .wix/debug.log (with offset to the end)
 | Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
 | TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit -p .` output |
 | Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
-| Preview fails to start | Port conflict, config issue, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
+| Preview fails | Config issue, not logged in, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
 | Console errors in preview | Runtime exceptions | Check browser console output |
 | UI not rendering | Component errors | Review component code and imports |
 | CLI error with no clear message | Truncated terminal output | Read `.wix/debug.log` for the full error trace and stack details |

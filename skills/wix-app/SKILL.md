@@ -448,7 +448,7 @@ Only after validation passes, provide a **concise summary section** at the top o
 - ✅ Dependencies: [Installed / status message]
 - ✅ TypeScript: [No compilation errors / status]
 - ✅ Build: [Completed successfully / status]
-- ✅/⚠️ Preview: [Running at URL / Failed - reason]
+- ✅/⚠️ Preview: [Created — Dashboard URL / Failed - reason]
 
 **⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
 ```
@@ -488,7 +488,7 @@ Execute these steps sequentially after all implementation is complete. See [APP_
 1. **Package Installation** — Detect package manager, run install
 2. **TypeScript Compilation** — `npx tsc --noEmit -p .`
 3. **Build** — `npx wix build`
-4. **Preview** — `npx wix preview`
+4. **Preview** — `npx wix preview`, in the foreground: it uploads, prints the preview URLs and exits on its own, so no `timeout`, backgrounding or `sleep`
 
 Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 

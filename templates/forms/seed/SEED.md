@@ -115,6 +115,14 @@ onto the owner's CRM contact, so prefer them over a plain `text` field for those
 A required `address` requires country, address line, city and postal code; `parts` overrides
 that per subfield.
 
+**`file` needs a paid site plan.** Verified live: on a free site the create fails as a whole with
+`FILE_UPLOAD_RESTRICTIONS_ERROR` (the seed reports it by field label; nothing is created). No API
+call lifts it — the owner upgrades the site in the dashboard, then the same plan runs unchanged.
+When the brief needs the upload now and the site is free, use a `url` kind for that field and add a
+`capabilities.mediaUpload` policy to the plan (Astro stack only): the site uploads the file itself
+through the shared endpoint and submits the uploaded file's URL as the field's value. Say which way
+you went in the closing message; a "link to your CV" text field is not a substitute for an upload.
+
 ### Rules
 
 A rule shows, hides or requires fields while a condition on another field holds — the
@@ -188,6 +196,8 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
 - **A checkbox label is rich content** (Ricos), not a string — the owner may put a link to the
   terms in it. The app flattens it to text.
 - **Use `formFields`, never `fields`** — the latter is the legacy API.
+- **A `file` field fails the whole create on a free site** (`FILE_UPLOAD_RESTRICTIONS_ERROR`, a
+  plan restriction, not a payload bug); the seed names the field and the two ways out.
 
 ## Supplied content
 
