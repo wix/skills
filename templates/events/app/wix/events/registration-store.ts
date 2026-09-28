@@ -1,17 +1,30 @@
 // The registration flow for one event as a framework-free store — the logic behind
 // useEventRegistration, usable from React (the hook wraps it), from a static page's event view,
 // from Vue/Svelte, or as the specification for a port. Branched on event.registrationType:
-// TICKETING loads the tier picker and checkout() reserves → redirects to Wix's hosted checkout;
-// RSVP is the built-in name+email form submitted in place. All correctness (the visitor-public
-// tier read, the reservation payload, the redirect callbacks, rsvpV2) lives in the data layer —
-// this store orchestrates; the page owns how it looks.
+// TICKETING loads the tier picker (quantities per tier or per pricing option, a named price for
+// donation tiers, Wix's running totals) and checkout() reserves → redirects to Wix's hosted
+// checkout; RSVP renders the ORGANIZER'S form (event.rsvpForm) and submits it in place. All
+// correctness (the visitor-public tier read, the reservation payload, the redirect callbacks,
+// rsvpV2, the form body) lives in the data layer — this store orchestrates; the page owns how it
+// looks.
 //
 // One store per event surface: createRegistrationStore(event), not a singleton. A static site
 // passes `paths` so the hosted checkout returns to its files (`event-confirmation.html`).
 import { fetchTicketTiers, startTicketCheckout, submitRsvp, type CheckoutPaths } from "./registration";
-import type { EventDetail, RegistrationResult, TicketTier } from "./types";
+import {
+  canSubmitRsvp,
+  clampQuantity,
+  errorMessage,
+  guestPriceValid,
+  rsvpFormOf,
+  selectionKey,
+  selectionTotals,
+  ticketCount as countTickets,
+  type RsvpValues,
+} from "./registration-core";
+import type { EventDetail, RegistrationResult, RsvpForm, SelectionTotals, TicketSelection, TicketTier } from "./types";
 
-export type RsvpField = "firstName" | "lastName" | "email";
+export type { RsvpValues };
 
 export interface RegistrationStoreOptions {
   /** Where the hosted checkout returns to; defaults are the Astro routes. */
@@ -21,14 +34,27 @@ export interface RegistrationStoreOptions {
 export interface RegistrationState {
   /** TICKETING: tiers for the picker — null while loading (skeletons), [] honest empty. Other types: []. */
   tiers: TicketTier[] | null;
-  /** Selected quantity per tier id (0 when untouched). */
+  /** Selected quantity per selection key — `tierId`, or `${tierId}:${optionId}` for a pricing option (0 when untouched). */
   quantities: Record<string, number>;
+  /** GUEST (donation) tiers: the amount the visitor typed, per tier id. */
+  guestPrices: Record<string, string>;
+  /** The current selection as line items (quantity > 0 only). */
+  selections: TicketSelection[];
   ticketCount: number;
-  /** True when ≥ 1 ticket is selected — gate the checkout CTA on this. */
+  /** The event's cap on one order — the picker refuses more (`+` disabled at the cap). */
+  ticketLimitPerOrder: number;
+  /** Wix's running totals for the selection (formatted); null with nothing selected. The hosted checkout is authoritative. */
+  totals: SelectionTotals | null;
+  /** True when ≥ 1 ticket is selected, within the order cap, and every donation tier has a valid amount — gate the checkout CTA on this. */
   canCheckout: boolean;
-  /** RSVP form state — the built-in fields, exactly these. */
-  rsvpValues: { firstName: string; lastName: string; email: string };
-  /** True when every RSVP field is filled — gate the RSVP CTA on this. */
+  /** RSVP: the form to render — the organizer's (event.rsvpForm) or the built-in name + email. */
+  rsvpForm: RsvpForm;
+  /** RSVP answers keyed by input name (CHECKBOX answers are arrays). */
+  rsvpValues: RsvpValues;
+  /** RSVP: additional guests (only meaningful when rsvpForm.guestControl is set). */
+  guestCount: number;
+  guestNames: string[];
+  /** True when the built-in identity and every mandatory input are filled — gate the RSVP CTA on this. */
   canRsvp: boolean;
   submitting: boolean;
   /** Set after an RSVP completes (kind "rsvpConfirmed"; status may be "WAITLIST"). */
@@ -43,9 +69,15 @@ export interface RegistrationStore {
   start(): void;
   /** Stop reacting; drop a late response. */
   stop(): void;
-  /** Clamped to 0..limitPerCheckout; ignored for tiers not on sale (saleStatus gate). */
-  setQuantity(tierId: string, quantity: number): void;
-  setRsvpValue(field: RsvpField, value: string): void;
+  /** Clamped to 0..limitPerCheckout (0 = sold out); ignored for tiers not on sale. `optionId` for an OPTIONS tier. Clears `error`. */
+  setQuantity(tierId: string, quantity: number, optionId?: string): void;
+  /** GUEST tiers: the amount the visitor pays (a decimal string). Clears `error`. */
+  setGuestPrice(tierId: string, value: string): void;
+  /** Answer one RSVP input by name (an array for CHECKBOX inputs). */
+  setRsvpValue(inputName: string, value: string | string[]): void;
+  /** RSVP: how many additional guests (0..guestControl.maxGuests) and their names. */
+  setGuestCount(count: number): void;
+  setGuestName(index: number, name: string): void;
   /** Reserves + redirects to the Wix-hosted checkout. On "redirect" the browser is navigating. Throws (and sets .error) on refusal. */
   checkout(): Promise<RegistrationResult>;
   /** attending=false only when event.rsvpResponseType is "YES_AND_NO". Throws (and sets .error) on refusal. */
@@ -54,9 +86,13 @@ export interface RegistrationStore {
 
 export function createRegistrationStore(event: EventDetail, { paths }: RegistrationStoreOptions = {}): RegistrationStore {
   const ticketed = event.registrationType === "TICKETING";
+  const rsvpForm = rsvpFormOf(event);
   let tiers: TicketTier[] | null = ticketed ? null : [];
   let quantities: Record<string, number> = {};
-  let rsvpValues = { firstName: "", lastName: "", email: "" };
+  let guestPrices: Record<string, string> = {};
+  let rsvpValues: RsvpValues = {};
+  let guestCount = 0;
+  let guestNames: string[] = [];
   let submitting = false;
   let confirmed: RegistrationResult | null = null;
   let error: string | null = null;
@@ -68,16 +104,43 @@ export function createRegistrationStore(event: EventDetail, { paths }: Registrat
     for (const fn of listeners) fn();
   };
 
+  function currentSelections(): TicketSelection[] {
+    return Object.entries(quantities)
+      .filter(([, q]) => q > 0)
+      .map(([key, quantity]) => {
+        const [tierId, optionId] = key.split(":");
+        const tier = (tiers ?? []).find((t) => t.id === tierId);
+        return {
+          tierId,
+          quantity,
+          ...(optionId ? { optionId } : {}),
+          ...(tier?.pricingType === "GUEST" ? { guestPrice: guestPrices[tierId] ?? "" } : {}),
+        };
+      });
+  }
+
   function getState(): RegistrationState {
     if (snapshot) return snapshot;
-    const ticketCount = Object.values(quantities).reduce((sum, q) => sum + q, 0);
+    const selections = currentSelections();
+    const ticketCount = countTickets(selections);
+    const guestPricesValid = selections.every((s) => {
+      const tier = (tiers ?? []).find((t) => t.id === s.tierId);
+      return !tier || guestPriceValid(tier, s.guestPrice);
+    });
     snapshot = {
       tiers,
       quantities,
+      guestPrices,
+      selections,
       ticketCount,
-      canCheckout: ticketCount > 0,
+      ticketLimitPerOrder: event.ticketLimitPerOrder,
+      totals: selectionTotals(tiers ?? [], selections, event.taxSettings),
+      canCheckout: ticketCount > 0 && ticketCount <= event.ticketLimitPerOrder && guestPricesValid,
+      rsvpForm,
       rsvpValues,
-      canRsvp: (["firstName", "lastName", "email"] as const).every((f) => rsvpValues[f].trim().length > 0),
+      guestCount,
+      guestNames,
+      canRsvp: canSubmitRsvp(rsvpForm, rsvpValues, guestCount, true),
       submitting,
       confirmed,
       error,
@@ -98,7 +161,7 @@ export function createRegistrationStore(event: EventDetail, { paths }: Registrat
       }
       return result;
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = errorMessage(e);
       throw e;
     } finally {
       submitting = false;
@@ -116,7 +179,7 @@ export function createRegistrationStore(event: EventDetail, { paths }: Registrat
       if (started) return;
       started = true;
       if (!ticketed) return;
-      fetchTicketTiers(event.id)
+      fetchTicketTiers(event)
         .then((t) => {
           if (!started) return;
           tiers = t;
@@ -125,32 +188,50 @@ export function createRegistrationStore(event: EventDetail, { paths }: Registrat
         .catch((e) => {
           if (!started) return;
           tiers = [];
-          error = e instanceof Error ? e.message : String(e);
+          error = errorMessage(e);
           emit();
         });
     },
     stop() {
       started = false;
     },
-    setQuantity(tierId, quantity) {
+    setQuantity(tierId, quantity, optionId) {
       const tier = (tiers ?? []).find((t) => t.id === tierId);
-      if (!tier || tier.saleStatus !== "SALE_STARTED") return;
-      const clamped = Math.max(0, Math.min(quantity, tier.limitPerCheckout || 20));
-      quantities = { ...quantities, [tierId]: clamped };
+      if (!tier || !tier.available) return;
+      if (optionId && !tier.options.some((o) => o.id === optionId)) return;
+      const key = selectionKey(tierId, optionId);
+      const clamped = clampQuantity(tier, quantity);
+      // The event caps one order: never let the total pass it (Wix's reservation would refuse with an opaque error).
+      const others = Object.entries(quantities).reduce((sum, [k, q]) => (k === key ? sum : sum + q), 0);
+      const capped = Math.max(0, Math.min(clamped, event.ticketLimitPerOrder - others));
+      quantities = { ...quantities, [key]: capped };
+      error = capped < clamped ? `Up to ${event.ticketLimitPerOrder} tickets per order.` : null; // a stale error never outlives a selection change
       emit();
     },
-    setRsvpValue(field, value) {
-      rsvpValues = { ...rsvpValues, [field]: value };
+    setGuestPrice(tierId, value) {
+      guestPrices = { ...guestPrices, [tierId]: value };
+      error = null;
       emit();
     },
-    checkout: () =>
-      run(() =>
-        startTicketCheckout(
-          event,
-          Object.entries(quantities).map(([tierId, quantity]) => ({ tierId, quantity })),
-          paths,
-        ),
-      ),
-    rsvp: (attending = true) => run(() => submitRsvp(event.id, rsvpValues, attending ? "YES" : "NO")),
+    setRsvpValue(inputName, value) {
+      rsvpValues = { ...rsvpValues, [inputName]: value };
+      emit();
+    },
+    setGuestCount(count) {
+      const max = rsvpForm.guestControl?.maxGuests ?? 0;
+      guestCount = Math.max(0, Math.min(Math.trunc(count) || 0, max));
+      guestNames = guestNames.slice(0, guestCount);
+      emit();
+    },
+    setGuestName(index, name) {
+      if (index < 0 || index >= guestCount) return;
+      const next = guestNames.slice();
+      while (next.length < guestCount) next.push("");
+      next[index] = name;
+      guestNames = next;
+      emit();
+    },
+    checkout: () => run(() => startTicketCheckout(event, currentSelections(), paths, tiers ?? [])),
+    rsvp: (attending = true) => run(() => submitRsvp(event, rsvpValues, attending ? "YES" : "NO", { guestCount, guestNames })),
   };
 }
