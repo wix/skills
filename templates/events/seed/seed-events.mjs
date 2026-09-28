@@ -84,26 +84,18 @@ function buildRegistration(ev) {
   };
 }
 
-// {guests: N} on an RSVP event -> a GUEST_CONTROL on the registration form: a count input (options
-// "0".."N") and a names list capped at N. The site's form reader (events-core toRsvpForm) reads the
-// max from either; the RSVP itself carries the answer as additionalGuestDetails, not as input values.
-function buildForm(ev) {
-  const n = Number(ev.guests);
-  if (ev.type === "TICKETING" || !Number.isInteger(n) || n < 1) return undefined;
-  return {
-    controls: [
-      {
-        type: "GUEST_CONTROL",
-        name: "guests",
-        label: "Additional guests",
-        orderIndex: 100,
-        inputs: [
-          { name: "additionalGuests", type: "NUMBER", label: "Additional guests", mandatory: false, options: Array.from({ length: n + 1 }, (_, i) => String(i)) },
-          { name: "guestNames", type: "TEXT_ARRAY", array: true, label: "Guest names", mandatory: false, maxSize: n },
-        ],
-      },
-    ],
-  };
+// {guests: N} on an RSVP event -> the registration form's guest control, added through the Events
+// Forms API AFTER the event exists (Create Event ignores form.controls; probed live 2026-09-28). The
+// control lands as a count input (options "0".."N") plus a names list capped at N — the shape the
+// site's form reader (events-core toRsvpForm) reads its max from — and takes effect at once.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/forms/add-control.md
+export async function addGuestControl(ctx, eventId, guests) {
+  const n = Number(guests);
+  if (!Number.isInteger(n) || n < 1) return false;
+  await req(ctx, `/events/v1/events/${eventId}/form/control`, { body: {
+    additionalGuests: { maxGuests: n, namesMandatory: false, labels: { single: "Bringing a guest?", multiple: "How many guests?" } },
+  } });
+  return true;
 }
 
 // ---- operations ----------------------------------------------------------------------------------
@@ -153,22 +145,11 @@ export async function createEvent(ctx, ev) {
         showTimeZone: ev.showTimeZone ?? true,
       },
       registration: buildRegistration(ev),
-      ...(buildForm(ev) ? { form: buildForm(ev) } : {}),
     },
-    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS", "FORM"],
+    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
   };
-  let r;
-  try {
-    r = await req(ctx, "/events/v3/events", { body });
-  } catch (e) {
-    // The guest control's create shape is not in a public reference: when Wix rejects the form, the
-    // event is created without it and the result says so (the owner adds guests in the dashboard).
-    if (!body.event.form) throw e;
-    delete body.event.form;
-    r = await req(ctx, "/events/v3/events", { body });
-    return { id: r.event?.id, slug: r.event?.slug, formRejected: String(e.message).slice(0, 200) };
-  }
-  return { id: r.event?.id, slug: r.event?.slug, guestControl: !!r.event?.form?.controls?.some((c) => c.type === "GUEST_CONTROL") };
+  const r = await req(ctx, "/events/v3/events", { body });
+  return { id: r.event?.id, slug: r.event?.slug };
 }
 
 /**
@@ -275,8 +256,15 @@ export async function setupEvents(ctx, { events = [], currency } = {}) {
     const tiers = ev.type === "TICKETING" && ev.ticketTiers?.length
       ? await createTicketTiers(ctx, e.id, ev.ticketTiers.map((t) => ({ ...t, currency: t.currency ?? siteCurrency })))
       : [];
+    // The guest control goes on the draft's form before publish; a refusal leaves the event without it
+    // (the owner adds it in the dashboard) and the result says so.
+    let guestControl = false;
+    if (ev.type !== "TICKETING" && ev.guests) {
+      try { guestControl = await addGuestControl(ctx, e.id, ev.guests); }
+      catch (err) { console.error(`guest control skipped for "${ev.title}": ${err.message}`); }
+    }
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length, feeTypes: tiers.map((t) => t.feeType) });
+    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length, feeTypes: tiers.map((t) => t.feeType), ...(ev.guests ? { guestControl } : {}) });
   }
 
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];

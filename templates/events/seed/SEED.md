@@ -84,10 +84,10 @@ seed; a failed image leaves that event text-only.
 - `registrationOpensAt` — RSVP only: a future ISO-8601 UTC instant. The event publishes with
   registration SCHEDULED and the page says when it opens — for a brief like "RSVP opens next week".
   The API pairs it with a closing instant: `registrationClosesAt` (default: the event's `startDate`).
-- `guests` — RSVP only: how many additional guests one RSVP may bring (a GUEST_CONTROL on the
-  registration form: a count and the guests' names). The result's per-event `guestControl` says
-  whether Wix accepted it; when it did not (`formRejected`), the event exists without it and the
-  owner adds the guest control in the dashboard — say so in the closing message.
+- `guests` — RSVP only: how many additional guests one RSVP may bring. Added to the registration
+  form through the Events Forms API after the event is created (a count 0..N and the guests' names);
+  the result's per-event `guestControl` is `true` when it landed. When it did not, the event exists
+  without it and the owner adds the guest control in the dashboard — say so in the closing message.
 
 The result JSON carries a `notes` array — when any event is ticketed it reminds that
 **completing a paid purchase needs a premium plan + a configured payment method** in the

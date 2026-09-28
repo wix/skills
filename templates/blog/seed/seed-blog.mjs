@@ -267,7 +267,58 @@ export async function setupBlog(ctx, { posts = [], categories = [], tags = [] } 
     .filter(Boolean);
   const coversAttached = covers.length ? await attachPostCovers(ctx, covers) : 0;
 
-  return { posts: created, categories: cats, tags: tgs, coversAttached };
+  // Pass 3 — a fresh Blog install can wipe categories (and tags) created in its first minute AFTER
+  // the query has confirmed them (run 151: three categories confirmed by the seed, gone by release,
+  // the posts left pointing at dead ids). So they are read back BY ID here, at the end; a missing one
+  // is created again and every post that named it is re-linked (PATCH the draft, publish).
+  const relinked = await ensureLabelsPersisted(ctx, { cats, tgs, created, posts, catId, tagId });
+
+  return { posts: created, categories: relinked.categories, tags: relinked.tags, coversAttached, relinkedPosts: relinked.posts };
+}
+
+// GET /blog/v3/categories/{id} · GET /blog/v3/tags/{id} — 404 when the fresh-install wipe took it.
+async function labelExists(ctx, kind, id) {
+  try {
+    await req(ctx, `/blog/v3/${kind}/${id}`, { method: "GET" });
+    return true;
+  } catch (e) {
+    if (String(e.message).includes("-> 404")) return false;
+    throw e;
+  }
+}
+
+async function ensureLabelsPersisted(ctx, { cats, tgs, created, posts, catId, tagId }) {
+  const remapCat = new Map();
+  const remapTag = new Map();
+  const missingCats = [];
+  const missingTags = [];
+  for (const c of cats) if (c.id && !(await labelExists(ctx, "categories", c.id))) missingCats.push(c);
+  for (const t of tgs) if (t.id && !(await labelExists(ctx, "tags", t.id))) missingTags.push(t);
+  if (!missingCats.length && !missingTags.length) return { categories: cats, tags: tgs, posts: 0 };
+  const freshCats = missingCats.length ? await createCategories(ctx, missingCats.map((c) => c.name)) : [];
+  const freshTags = missingTags.length ? await createTags(ctx, missingTags.map((t) => t.name)) : [];
+  for (const [i, c] of missingCats.entries()) if (freshCats[i]?.id) { remapCat.set(c.id, freshCats[i].id); catId.set(c.name, freshCats[i].id); }
+  for (const [i, t] of missingTags.entries()) if (freshTags[i]?.id) { remapTag.set(t.id, freshTags[i].id); tagId.set(t.name, freshTags[i].id); }
+  let relinked = 0;
+  for (const [i, c] of created.entries()) {
+    if (!c?.id || !c?.success) continue;
+    const cn = [].concat(posts[i]?.category ?? [], posts[i]?.categories ?? []);
+    const tn = [].concat(posts[i]?.tags ?? []);
+    const wantsCats = cn.map((n) => catId.get(n)).filter(Boolean);
+    const wantsTags = tn.map((n) => tagId.get(n)).filter(Boolean);
+    const touched = cn.some((n) => [...remapCat.values()].includes(catId.get(n))) || tn.some((n) => [...remapTag.values()].includes(tagId.get(n)));
+    if (!touched) continue;
+    try {
+      await req(ctx, `/blog/v3/draft-posts/${c.id}`, { method: "PATCH", body: { draftPost: { ...(cn.length ? { categoryIds: wantsCats } : {}), ...(tn.length ? { tagIds: wantsTags } : {}) } } });
+      await req(ctx, `/blog/v3/draft-posts/${c.id}/publish`, { method: "POST" });
+      relinked++;
+    } catch (e) {
+      console.error(`relink skipped for post ${c.id}: ${e.message}`);
+    }
+  }
+  const categories = cats.map((c) => ({ ...c, id: remapCat.get(c.id) ?? c.id, recreated: remapCat.has(c.id) || undefined }));
+  const tags = tgs.map((t) => ({ ...t, id: remapTag.get(t.id) ?? t.id, recreated: remapTag.has(t.id) || undefined }));
+  return { categories, tags, posts: relinked };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------
