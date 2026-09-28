@@ -5,8 +5,11 @@
 import type { Cart } from "./types";
 import {
   addToCart as apiAdd,
+  applyCoupon as apiApplyCoupon,
   fetchCart,
+  removeCoupon as apiRemoveCoupon,
   removeLine as apiRemove,
+  setNote as apiSetNote,
   updateQuantity as apiUpdate,
   checkoutUrl,
   type AddToCartExtras,
@@ -88,6 +91,22 @@ export async function updateLineQuantity(lineItemId: string, quantity: number): 
 
 export async function removeCartLine(lineItemId: string): Promise<void> {
   await run(() => apiRemove(lineItemId));
+}
+
+/** Apply a coupon code; rejects (and sets .error with buyer copy) when the code is unknown, expired, or doesn't apply. */
+export async function applyCartCoupon(code: string): Promise<void> {
+  if (!code.trim()) return;
+  await run(() => apiApplyCoupon(code));
+}
+
+export async function removeCartCoupon(): Promise<void> {
+  await run(() => apiRemoveCoupon());
+}
+
+/** Save the buyer's note to the merchant (commit on blur, not on every keystroke). */
+export async function setCartNote(note: string): Promise<void> {
+  if ((state.cart?.note ?? "") === note.trim()) return;
+  await run(() => apiSetNote(note));
 }
 
 /** Navigate to the Wix-hosted checkout. Never hand-build a checkout URL. */

@@ -13,9 +13,15 @@
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
 //                                   "choices": ["S","M"] | [{ "name", "colorCode" }] }],
+//                    "variantPrices"?: { "<choice name>": price },
+//                    "ribbon"?, "modifiers"?: [{ "name", "type"?: "choices"|"text", "mandatory"?,
+//                                              "choices"?: ["Gift wrap"], "maxChars"?, "minChars"? }],
+//                    "infoSections"?: [{ "title", "description" }],
+//                    "preorder"?: { "message"?, "limit"? },
 //                    "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"?,
 //                    "digitalFileUrl"? | "digitalFilePath"?, "digitalFileName"? }],
-//     "categories"?: { "<category name>": ["<product name>", ...] } }
+//     "categories"?: { "<category name>": ["<product name>", ...] },
+//     "categoryDetails"?: { "<category name>": { "description"?, "imageUrl"? | "imagePath"? | "imagePrompt"? } } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
 // If a call fails with an unexpected shape, read the live API reference (every call below
@@ -162,20 +168,77 @@ function buildOptions(options = []) {
   });
 }
 
+// Modifiers collect buyer input WITHOUT creating variants (gift wrap, engraving) — defined inline
+// like options, each becomes a customization. `type: "text"` → FREE_TEXT with the merchant's
+// character limits; anything else → TEXT_CHOICES. `mandatory` defaults to TRUE, which is how the
+// storefront reads an omitted flag.
+function buildModifiers(modifiers = []) {
+  return modifiers.map((m) => {
+    const text = m.type === "text";
+    return {
+      name: m.name,
+      mandatory: m.mandatory !== false,
+      ...(text
+        ? {
+            modifierRenderType: "FREE_TEXT",
+            freeTextSettings: {
+              title: m.title ?? m.name,
+              ...(m.maxChars ? { maxCharCount: m.maxChars } : {}),
+              ...(m.minChars ? { minCharCount: m.minChars } : {}),
+            },
+          }
+        : {
+            modifierRenderType: "TEXT_CHOICES",
+            choicesSettings: {
+              choices: (m.choices ?? []).map((c) => ({
+                choiceType: "CHOICE_TEXT",
+                name: typeof c === "string" ? c : c.name,
+                ...(typeof c === "object" && c.addedPrice != null ? { addedPrice: String(c.addedPrice) } : {}),
+              })),
+            },
+          }),
+    };
+  });
+}
+
+// Info sections (materials, shipping, care) — inline definitions; the same title on two products
+// shares one section (uniqueName is derived from the title).
+function buildInfoSections(sections = [], i) {
+  return sections.map((s, n) => ({
+    uniqueName: String(s.title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || `section-${n}`,
+    title: s.title,
+    description: mkDesc(s.description, `info-${i}-${n}`),
+  }));
+}
+
+// Pre-order needs counted stock: `preorderInfo` on the inventory item, enabled with the merchant's
+// message and the number of units buyers may pre-order once stock hits zero.
+function preorderInfo(preorder) {
+  if (!preorder) return { enabled: false };
+  return {
+    enabled: true,
+    ...(preorder.message ? { message: preorder.message } : {}),
+    ...(Number.isInteger(preorder.limit) ? { limit: preorder.limit } : {}),
+  };
+}
+
 // Full Cartesian product, each variant priced/stocked from the product; visible:true baked in.
-function expandVariants(options = [], { price, compareAtPrice, quantity, inStock }, digitalFileId) {
+// `variantPrices` prices a variant by one of its choice names ("Large": 32) — the first choice
+// with a price wins; the product's compareAtPrice is kept only when it stays above that price.
+function expandVariants(options = [], { price, compareAtPrice, quantity, inStock, preorder, variantPrices = {} }, digitalFileId) {
+  const priceOf = (amount) => ({
+    actualPrice: { amount: String(amount) },
+    ...(compareAtPrice && Number(compareAtPrice) > Number(amount) ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
+  });
   const base = {
-    price: {
-      actualPrice: { amount: String(price) },
-      ...(compareAtPrice ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
-    },
+    price: priceOf(price),
     visible: true,
     ...(digitalFileId
       ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
       // inStock:true == untracked stock — always buyable, no count. Otherwise track a quantity.
       : { physicalProperties: {}, inventoryItem: inStock === true
           ? { inStock: true }
-          : { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
+          : { quantity: quantity ?? 0, preorderInfo: preorderInfo(preorder) } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -185,7 +248,10 @@ function expandVariants(options = [], { price, compareAtPrice, quantity, inStock
     combos = combos.flatMap((combo) =>
       names.map((choiceName) => [...combo, { optionChoiceNames: { optionName: o.name, choiceName, renderType: rt } }]));
   }
-  return combos.map((choices) => ({ ...base, choices }));
+  return combos.map((choices) => {
+    const override = choices.map((c) => variantPrices[c.optionChoiceNames.choiceName]).find((v) => v != null);
+    return { ...base, choices, ...(override != null ? { price: priceOf(override) } : {}) };
+  });
 }
 
 // ---- operations ---------------------------------------------------------------------------------
@@ -268,6 +334,10 @@ export async function bulkCreateProducts(ctx, products) {
       visible: true,
       description: mkDesc(p.description, i),
       options: buildOptions(p.options),
+      // ribbons, modifiers and info sections are created inline by name, like options
+      ...(p.ribbon ? { ribbon: { name: p.ribbon } } : {}),
+      ...(p.modifiers?.length ? { modifiers: buildModifiers(p.modifiers) } : {}),
+      ...(p.infoSections?.length ? { infoSections: buildInfoSections(p.infoSections, i) } : {}),
       variantsInfo: { variants: expandVariants(p.options, p, fileIds[i]) },
     })),
   };
@@ -296,6 +366,7 @@ export async function bulkCreateProducts(ctx, products) {
       isDigital: !!fileIds[i],
       quantity: src?.quantity ?? 0,
       inStock: src?.inStock,
+      preorder: src?.preorder,
     });
   }
   await stockOptionlessProducts(ctx, created);
@@ -319,13 +390,13 @@ async function stockOptionlessProducts(ctx, created) {
     need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
   }
   // inStock:true == untracked stock (always buyable, no count). Only send a quantity when the
-  // product actually tracks one, or Wix rejects the pair.
+  // product actually tracks one, or Wix rejects the pair; pre-order rides on the counted item.
   const inventoryItems = need
     .filter((p) => p.variantId)
     .map((p) => ({
       productId: p.id,
       variantId: p.variantId,
-      ...(p.inStock === true ? { inStock: true } : { quantity: p.quantity }),
+      ...(p.inStock === true ? { inStock: true } : { quantity: p.quantity, ...(p.preorder ? { preorderInfo: preorderInfo(p.preorder) } : {}) }),
     }));
   if (inventoryItems.length) {
     await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
@@ -350,9 +421,11 @@ export async function queryCategoriesByNames(ctx, names) {
 }
 
 // Categories share the @wix/stores tree revision — concurrent creates 409, so: sequential.
-// Idempotent by name: a name that already exists is reused, never duplicated.
+// Idempotent by name: a name that already exists is reused, never duplicated (its description
+// and image are left as they are). `details[name]` = { description?, imageUrl? } — the image is a
+// Wix-hosted URL (resolveItemImages) passed at create time; the API re-hosts a full URL itself.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
-export async function createCategories(ctx, names) {
+export async function createCategories(ctx, names, details = {}) {
   const existing = await queryCategoriesByNames(ctx, names);
   const out = [];
   for (const name of names) {
@@ -360,8 +433,17 @@ export async function createCategories(ctx, names) {
       out.push({ id: existing.get(name), name });
       continue;
     }
+    const d = details[name] ?? {};
     const r = await req(ctx, "/categories/v1/categories", {
-      body: { category: { name, visible: true }, treeReference: { appNamespace: "@wix/stores", treeKey: null } },
+      body: {
+        category: {
+          name,
+          visible: true,
+          ...(d.description ? { description: String(d.description).slice(0, 600) } : {}),
+          ...(d.imageUrl ? { image: d.imageUrl } : {}),
+        },
+        treeReference: { appNamespace: "@wix/stores", treeKey: null },
+      },
     });
     out.push({ id: r.category?.id, name });
   }
@@ -439,6 +521,22 @@ export function validateProducts(products) {
     if (p.quantity != null && (!Number.isInteger(p.quantity) || p.quantity < 0)) {
       problems.push(`${where}: quantity must be a non-negative integer (got ${p.quantity}) — omit it and set inStock:true for untracked stock`);
     }
+    if (p.preorder && (p.inStock === true || p.digitalFilePath || p.digitalFileUrl)) {
+      problems.push(`${where}: preorder needs counted stock (a quantity) on a physical product`);
+    }
+    if (p.preorder?.limit != null && (!Number.isInteger(p.preorder.limit) || p.preorder.limit < 1)) {
+      problems.push(`${where}: preorder.limit must be a positive integer`);
+    }
+    for (const m of p.modifiers ?? []) {
+      if (!m?.name) problems.push(`${where}: every modifier needs a name`);
+      else if (m.type !== "text" && !(m.choices?.length > 0)) problems.push(`${where}: modifier "${m.name}" needs choices (or type: "text")`);
+    }
+    for (const s of p.infoSections ?? []) if (!s?.title) problems.push(`${where}: every info section needs a title`);
+    const choiceNames = new Set((p.options ?? []).flatMap((o) => (o.choices ?? []).map((c) => (typeof c === "string" ? c : c?.name))));
+    for (const [choice, amount] of Object.entries(p.variantPrices ?? {})) {
+      if (!choiceNames.has(choice)) problems.push(`${where}: variantPrices names "${choice}", which is not a choice of its options`);
+      if (!(Number(amount) >= 0)) problems.push(`${where}: variantPrices["${choice}"] must be a non-negative number`);
+    }
     for (const opt of p.options ?? []) {
       const seen = new Set();
       for (const c of opt.choices ?? []) {
@@ -463,7 +561,7 @@ export function validateProducts(products) {
  * threaded in memory. This is the default path — call it once instead of the individual
  * functions.
  */
-export async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
+export async function setupStore(ctx, { products = [], categories = {}, categoryDetails = {}, currency } = {}) {
   validateProducts(products);
   await installStoresApp(ctx);
   // Before any product exists: a product's price is stored in the site currency at create time,
@@ -485,8 +583,22 @@ export async function setupStore(ctx, { products = [], categories = {}, currency
   });
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
 
+  // Category images resolve before the categories exist (the create call takes the image URL);
+  // a failed image leaves the category text-only, like a product.
   const names = Object.keys(categories);
-  const cats = names.length ? await createCategories(ctx, names) : [];
+  const details = {};
+  if (names.length) {
+    const catFiles = await resolveItemImages(ctx, names.map((n) => ({
+      url: categoryDetails[n]?.imageUrl,
+      path: categoryDetails[n]?.imagePath,
+      prompt: categoryDetails[n]?.imagePrompt,
+      displayName: `${n.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`,
+    })));
+    names.forEach((n, i) => {
+      details[n] = { description: categoryDetails[n]?.description, imageUrl: catFiles[i]?.url };
+    });
+  }
+  const cats = names.length ? await createCategories(ctx, names, details) : [];
   if (cats.length) {
     const mapping = {};
     for (const c of cats) {
