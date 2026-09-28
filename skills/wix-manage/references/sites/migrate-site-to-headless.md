@@ -1,6 +1,6 @@
 ---
 name: "Migrate a Wix Site to Headless"
-description: Takes an existing Wix site built with Wix Editor, Wix Studio or Wix Harmony headless through the Headless Migration flow in the site's dashboard. The merchant builds a new frontend for the same site with their own AI coding tool, on the site's existing products, orders, contacts and other business data, and the live site stays as it is until they switch. Covers where the flow starts, what changes and what doesn't, and which sites can start it. Use when the user wants to move, convert, or migrate their Wix site to headless, or to code their own frontend for a site they already have while keeping its business data. Not for creating a new, separate headless site (use Create Headless Site), and not for moving a site from another platform into Wix (use Site Import).
+description: Takes an existing Wix site built with Wix Editor, Wix Studio or Wix Harmony headless through the Headless Migration flow in the site's dashboard, so the merchant can replace its frontend with one they code themselves while keeping the site's products, orders, contacts and other business data. Covers where the flow starts, what changes and what doesn't, and which sites can start it. Use when the user wants to move, convert, or migrate their Wix site to headless, or to replace their Wix site's frontend with their own code while keeping its business data. Not for creating a new, separate headless site (use Create Headless Site), and not for moving a site from another platform into Wix (use Site Import).
 ---
 
 # Migrate a Wix Site to Headless
@@ -12,7 +12,7 @@ The merchant starts the flow from the dashboard. It has no public API, so this r
 ## When to use
 
 - The user wants to move, convert, or migrate an existing Wix site (built with Wix Editor, Wix Studio or Wix Harmony) to headless.
-- The user wants to code their own frontend for a site they already have, and keep its products, orders, contacts and other business data.
+- The user wants to replace their Wix site's frontend with one they code themselves, and keep its products, orders, contacts and other business data.
 
 For a brand-new, separate headless site, use [Create Headless Site](create-headless-site.md). To bring a site from another platform (Shopify, WooCommerce, any URL) into Wix, use [Site Import](site-import.md).
 
@@ -29,8 +29,6 @@ For a brand-new, separate headless site, use [Create Headless Site](create-headl
 ### 1. Resolve the site's metaSiteId
 
 If the conversation is already scoped to the site, use its ID. Otherwise resolve it with [Query Sites](query-sites.md) (see "Find a site by name") or [Read Account or Site Context](read-site-context.md). If the account has more than one site and the user hasn't said which one, ask which site they mean, and give the rest of the answer anyway with `{metaSiteId}` in the link.
-
-If you fetched the site record to get its ID and its `namespace` is `HEADLESS`, the site is already headless and there is nothing to migrate. Its frontends connect through OAuth apps, see [Manage OAuth Apps](manage-oauth-apps.md). Don't fetch the record only to check this.
 
 ### 2. Send the merchant to the Headless settings page
 
@@ -59,9 +57,9 @@ A site can start the flow when it:
 - was built with Wix Editor, Wix Studio or Wix Harmony, and
 - has a premium domain connected.
 
-Don't make calls to check these yourself. The page decides, so give the merchant the requirements and let the page confirm them.
+Don't make calls to check these yourself. The page decides, so give the merchant the requirements and let the page confirm them. A site that is already headless has nothing to migrate. Its frontend connects through an OAuth app, see [Manage OAuth Apps](manage-oauth-apps.md).
 
-The flow is rolling out site by site and isn't available everywhere yet. If the Headless Migration section isn't on the page, the flow isn't available for that site yet. If the section is there but offers no way to start, the site doesn't meet the requirements above. Tell the merchant which case they're in and stop there. Do not offer Create Headless Site, a new site, or Site Import in its place.
+The flow is rolling out site by site and isn't available everywhere yet. You can't see the page, so tell the merchant both cases. If the Headless Migration section isn't on the page, the flow isn't available for their site yet. If the section is there but offers no way to start, the site doesn't meet the requirements above. Stop there. Do not offer Create Headless Site, a new site, or Site Import in its place.
 
 ## Example reply
 

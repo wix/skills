@@ -29,9 +29,11 @@ assertions:
         {metaSiteId} placeholder both count), AND
       - tells them to use the "Headless Migration" section and its "Go Headless" button, AND
       - says the live site doesn't change until they decide to switch, AND
-      - states who can start it: a site built with Wix Editor, Wix Studio or Wix Harmony, not
-        already headless, with a premium domain connected, and/or says that if the Headless
-        Migration section isn't on the page, the flow isn't available for their site yet.
+      - states who can start it, including that the site needs a premium domain connected (the
+        editor and not-already-headless conditions may stay implicit, since the user named their
+        editor).
+      Within 8-10, score higher when it also says that if the Headless Migration section isn't on
+      the page, the flow isn't available for their site yet.
       Score 5-6 if it gets the page and the Go Headless step right but leaves out the
       live-site-untouched point or the requirements.
 
@@ -43,6 +45,8 @@ assertions:
       - starts or recommends Site Import, OR
       - tells the merchant to rebuild the site from scratch, OR
       - invents an API or endpoint that starts or checks the migration, OR
+      - tells the merchant to create an OAuth app or wire a client ID into their frontend as the
+        way to go headless, instead of Go Headless, OR
       - says a Wix Studio site can't go headless.
   - type: llm_judge
     minScore: 7

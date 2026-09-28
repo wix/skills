@@ -1,12 +1,12 @@
-name: sites/migrate-site-to-headless
+name: sites/migrate-site-to-headless-own-frontend
 description: >-
-  Verifies that a merchant who wants to take an existing Wix Editor site headless and keep its
-  business data is sent to the Headless Migration flow on the site's Headless settings page, with
-  what changes and what doesn't and who can start it, instead of provisioning headless onto the
-  site, creating a new site, starting a Site Import, or being told to rebuild.
+  Verifies that a merchant who wants to swap their Wix Editor site's frontend for one they code
+  themselves, without ever saying "headless", is routed to the Headless Migration flow on the
+  site's Headless settings page rather than to Create Headless Site, a new site, Site Import, a
+  rebuild, or a standalone OAuth app.
 triggerPrompt: >-
-  I built my business site with the Wix Editor. I want to go headless and build my own frontend
-  with Claude Code, but keep my products and orders. How do I migrate it?
+  I want to replace my Wix Editor site's frontend with one I code myself, but keep all my products
+  and orders in Wix. What's the way to do that?
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
@@ -16,8 +16,8 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user's request: "I built my business site with the Wix Editor. I want to go headless and
-      build my own frontend with Claude Code, but keep my products and orders. How do I migrate it?"
+      The user's request: "I want to replace my Wix Editor site's frontend with one I code myself,
+      but keep all my products and orders in Wix. What's the way to do that?"
       Intent: move this existing Wix site to headless. Wix does this through the Headless Migration
       flow, which the merchant starts from the site's dashboard. It has no public API. The merchant
       builds a new frontend for the same site, the live site stays untouched until they switch, and
@@ -31,8 +31,8 @@ assertions:
         https://manage.wix.com/dashboard/<metaSiteId>/oauth-apps-settings (the real site ID or a
         {metaSiteId} placeholder both count), AND
       - tells them to use the "Headless Migration" section and its "Go Headless" button, AND
-      - says the live site doesn't change until they decide to switch, and that their existing
-        business data (products, orders) stays with the site, AND
+      - says the live site doesn't change until they decide to switch, and that their products
+        and orders stay with the site, AND
       - states who can start it, including that the site needs a premium domain connected (the
         editor and not-already-headless conditions may stay implicit, since the user named their
         editor).
@@ -50,8 +50,8 @@ assertions:
       - tells the merchant to rebuild the site from scratch or re-enter their products and orders, OR
       - invents an API or endpoint that starts or checks the migration, OR
       - tells the merchant to create an OAuth app or wire a client ID into their frontend as the
-        way to go headless, instead of Go Headless, OR
-      - says Wix sites can't be migrated to headless.
+        way to do this, instead of Go Headless, OR
+      - says a Wix site's frontend can't be replaced while keeping its data.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -65,7 +65,7 @@ assertions:
         - any mutating call (creating a site, provisioning headless, creating an OAuth app,
           starting an import, updating site data). Any one of these caps the score at 3.
           Read-only POST queries (site list query, site count, site context) are not mutations.
-        - reading Create Headless Site or Site Import and acting on it
+        - reading Create Headless Site, Site Import or Manage OAuth Apps and acting on it
         - probing Wix APIs to check migration eligibility or to find a migration endpoint
         - repeated docs searches or reading unrelated skills before finding the migration skill
         - a non-2xx error, even if recovered
