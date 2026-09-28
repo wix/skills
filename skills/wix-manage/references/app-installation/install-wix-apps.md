@@ -140,11 +140,9 @@ async function() {
 ```
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
-Installing an app and immediately calling one of that app's own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's own install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded. This race is intermittent: it will not reproduce on every run, so do not skip retry protection just because a first call succeeded in testing or seems likely to succeed.
+Installing an app and then immediately calling one of its own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can hit a short delay while the install propagates, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
 
-Route every call you make in the chain right after an install — not just the one you expect to be app-gated — through a retry helper like the one below: it tries immediately, so a call that was always going to succeed pays no extra delay, and only backs off if that first attempt actually fails. Don't try to work out case-by-case which specific call in the chain is the one that's actually gated on the app being installed and only protect that one — you don't reliably know, it costs nothing extra to protect a call that didn't need it, and getting the categorization wrong (or being wrong about which failure mode applies to which docs-described method) leaves a real gap. Wrap the call itself in the helper; don't substitute a single fixed delay before an unguarded request (e.g. `await sleep(1000)` then one bare call) — that doesn't retry anything and still fails outright on the first bad attempt. Retry up to 3 times with backoff before reporting a failure to the user — do not surface the error or ask the user to try again later on the first attempt.
-
-Write the install call, the helper, and every retried dependent call as one script in a single tool call, rather than splitting them across separate tool calls. A round-trip back to you costs a full extra turn per call; a retry loop inside the same script costs only the wait, and only when a retry actually happens.
+What to do: route every call in the chain right after an install through a retry helper that tries immediately and backs off only if that attempt fails, up to 3 retries — instead of surfacing the error or telling the user to try again later. Write the install call, the helper, and the retried calls as one script in a single tool call.
 
 **Example** (install Wix Multilingual, then enable multilingual mode, retrying past the propagation delay — all in one script):
 ```javascript
@@ -185,7 +183,7 @@ async function() {
   });
 }
 ```
-Chain any further calls inside this same function through the same `requestWithRetry` helper, after the first one succeeds — don't split them into a separate tool call either, and don't drop back to a bare `wix.request` for any of them just because they don't look like the call most likely to race.
+Chain any further calls inside this same function through the same `requestWithRetry` helper, after the first one succeeds.
 
 ---
 
