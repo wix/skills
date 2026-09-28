@@ -295,6 +295,12 @@ close.
 
 ## Verticals
 
+The shortlist. Match the brief against the first column; when it names a Wix product or a
+feature not here, when two rows could fit, or when the request sounds like something this skill
+does not ship (rentals, meetings, gift cards, loyalty, groups), read
+`<SKILL_ROOT>/guides/capabilities.md`: every Wix product, what it covers, which vertical here
+ships it and what is not shipped.
+
 | The user wants…                                                                              | Vertical          | Playbook                                   |
 | -------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------ |
 | Online store: products, categories, variants, cart, checkout                                 | **storefront**    | `templates/storefront/INSTRUCTIONS.md`    |
@@ -315,5 +321,6 @@ accounts) names them all in the setup call (`--vertical restaurants,blog`), so o
 them; each vertical's seed runs with its own plan. On a project already built,
 `node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root adds one, then one
 `npm install`, then its seed. A request that matches no shipped vertical has no shipped
-code: it is built from the Wix API reference through `wix-docs` (search, then the method page),
-with the same rule as every other call, on the same project and stack.
+code: say so in one line, then build it from the Wix API reference through `wix-docs` (search,
+then the method page), with the same rule as every other call, on the same project and stack,
+starting from the closest shipped vertical when one exists (`guides/capabilities.md` says which).
