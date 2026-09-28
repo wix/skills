@@ -89,10 +89,11 @@ size, or a `modifierGroups` entry) when the restaurant takes orders, so the dish
   `lastNameRequired`, `emailRequired`, `customFieldDefinitions`, or `onlineReservations.approval`)
   is a partial PATCH. The final **enable-online-reservations toggle is premium-only**: on a free
   site the result carries `reservations.premiumRequired: true` — expected, tell the owner, don't retry.
-- Fresh Menus installs ship a sample "Dinner Menu"; when THIS run installs the app the seed
-  removes that sample (`sampleMenuRemoved: true`). On a site that already had the app,
-  **seeding is strictly additive — never delete or overwrite existing content**; ask first
-  if a cleanup seems needed.
+- **Seeding is strictly additive — the seed never deletes or overwrites anything on the site,
+  and neither do you.** A fresh Menus install ships a sample "Dinner Menu" (about 4 sections and 21
+  items) that the live menu page lists next to the seeded menus; the result's `preexistingMenus[]`
+  names every menu the plan did not create (`{ id, name, sections, items }`) with `dashboardMenusUrl`,
+  and the closing message says so, so the owner removes it there if they want to.
 
 ## Supplied content
 
@@ -105,7 +106,7 @@ becomes a `modifierGroups` entry. The restaurant's address, hours and party size
 
 ## Escape hatch — individual functions
 `setupRestaurants` composes exported steps — `installMenusApp`, `installOrdersApp`,
-`installTableReservationsApp`, `removeSampleMenu`, `createModifiers`, `createModifierGroups`,
+`installTableReservationsApp`, `readPreexistingMenus`, `createModifiers`, `createModifierGroups`,
 `createVariants`, `itemBody`, `createMenu`, `importImage`, `attachItemImages`,
 `setBusinessLocation`, `listOperationsWithRetry`, `enableOperation`,
 `queryMenuOrderingSettings`, `updateMenuOrderingSettings`, `listReservationLocationsWithRetry`,

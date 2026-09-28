@@ -672,8 +672,7 @@ brief wants them, a ribbon, a modifier (choices or free text), an info section, 
 per-variant prices, a category description/image: all plain plan fields (see `seed/SEED.md`).
 
 A fresh Stores install carries Wix's sample catalog (a dozen products such as "Baseball Cap" and
-"Ceramic Flower Vase"), and the shop lists them next to the seeded ones: for a new site whose brief
-lists the whole catalog, put `"removeWixSamples": true` in the plan so the seed removes them first;
-otherwise the result's `preexisting[]` names what the shop still lists, and the closing message says
-so with the Manage products link — never release a store that sells "Baseball Cap" without telling
-the owner.
+"Ceramic Flower Vase"), and the shop lists them next to the seeded ones. Never delete them, or
+anything else on the site: the result's `preexisting[]` names what the shop lists, and the closing
+message says so with the Manage products link so the owner removes them there — never release a store
+that sells "Baseball Cap" without telling the owner.

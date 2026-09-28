@@ -218,30 +218,18 @@ export async function createQuestion(ctx, { question, categoryId, sortOrder, lab
  * ONE-CALL seed: install → read existing → categories (idempotent by title) → questions (idempotent
  * by category + question text, one at a time, in plan order) → verify by re-query. The default path.
  */
-export async function setupFaq(ctx, { categories = [], removeWixSamples = false } = {}) {
+export async function setupFaq(ctx, { categories = [] } = {}) {
   if (!categories.length) throw new Error("plan.categories is empty — nothing to seed");
   await installFaqApp(ctx);
   await sleep(3000); // let a fresh FAQ install settle so the first writes stick (ensureCategories verifies anyway)
 
   // What the site held BEFORE this seed and the plan does not name: on a fresh install that is Wix's
-  // sample content ("General", "Setting up FAQs", …), which the live page would show above the owner's
-  // questions. Reported always; removed only when the plan says `removeWixSamples: true` (an opt-in
-  // the agent sets for a NEW site whose brief lists the whole FAQ — never for a site with real content).
+  // sample content ("General", "Setting up FAQs", …), which the live page shows above the owner's
+  // questions. Reported, never touched: this seed deletes nothing on a site, ever. The owner removes
+  // what they do not want in the dashboard; the closing message tells them it is there and where.
   const planTitles = new Set(categories.map((c) => norm(c.title)));
   const preexisting = (await readCategories(ctx)).filter((c) => !planTitles.has(norm(c.title)));
   const preexistingQuestions = preexisting.length ? (await readQuestions(ctx)).filter((q) => preexisting.some((c) => c.id === q.categoryId)) : [];
-  const removed = { categories: [], questions: 0 };
-  if (removeWixSamples && preexisting.length) {
-    // docs: `${D}/question-entry-v2/delete-question-entry`, `${D}/category-v2/delete-category`
-    for (const q of preexistingQuestions) {
-      await req(ctx, `/faq/v2/question-entries/${encodeURIComponent(q.id)}`, { method: "DELETE" });
-      removed.questions++;
-    }
-    for (const c of preexisting) {
-      await req(ctx, `/faq/v2/categories/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-      removed.categories.push(c.title);
-    }
-  }
 
   const cats = await ensureCategories(ctx, categories.map((c) => c.title));
   const catId = new Map(cats.map((c) => [norm(c.title), c.id]));
@@ -288,9 +276,8 @@ export async function setupFaq(ctx, { categories = [], removeWixSamples = false 
     failed,
     questionsOnSite: after.length,
     // Content the plan did not name (Wix's install samples on a fresh site, or the owner's own on an
-    // existing one): the closing message names what is still on the page and where to remove it.
-    preexisting: removeWixSamples ? [] : preexisting.map((c) => ({ id: c.id, title: c.title, questions: preexistingQuestions.filter((q) => q.categoryId === c.id).length })),
-    removedWixSamples: removed,
+    // existing one): the closing message names what is on the page and where the owner removes it.
+    preexisting: preexisting.map((c) => ({ id: c.id, title: c.title, questions: preexistingQuestions.filter((q) => q.categoryId === c.id).length })),
     dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/app/${FAQ_APP_ID}`,
     docs: [`${D}/category-v2/create-category`, `${D}/question-entry-v2/create-question-entry`, `${D}/question-entry-v2/query-question-entries`],
   };

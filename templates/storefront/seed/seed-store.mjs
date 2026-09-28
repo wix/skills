@@ -300,21 +300,6 @@ export async function queryProductsByNames(ctx, names, all) {
   return out;
 }
 
-/**
- * Products the plan does not name — on a fresh site, the Stores install's own sample catalog
- * ("Baseball Cap", "Ceramic Flower Vase", ... a dozen of them), which the live shop lists next to the
- * owner's products. Reported always; deleted only when the plan says `removeWixSamples: true`.
- * docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/delete-product.md
- */
-export async function removeProducts(ctx, products) {
-  const removed = [];
-  for (const p of products) {
-    await req(ctx, `/stores/v3/products/${encodeURIComponent(p.id)}`, { method: "DELETE" });
-    removed.push(p.name);
-  }
-  return removed;
-}
-
 // A digital variant is SELLABLE only with BOTH a file and stock: without the file the cart rejects
 // it as ITEM_NOT_FOUND_IN_CATALOG, without stock as "exceeds available inventory" — and either way
 // the product reads back visible and in the catalog, so nothing surfaces until a buyer tries to buy.
@@ -589,7 +574,7 @@ export function validateProducts(products) {
  * threaded in memory. This is the default path — call it once instead of the individual
  * functions.
  */
-export async function setupStore(ctx, { products = [], categories = {}, categoryDetails = {}, currency, removeWixSamples = false } = {}) {
+export async function setupStore(ctx, { products = [], categories = {}, categoryDetails = {}, currency } = {}) {
   validateProducts(products);
   await installStoresApp(ctx);
   // Before any product exists: a product's price is stored in the site currency at create time,
@@ -597,18 +582,14 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   if (currency) await setSiteCurrency(ctx, currency);
 
   // What the catalog held BEFORE this seed and the plan does not name: on a fresh install that is
-  // Wix's sample catalog, which the live shop lists next to the owner's products. Reported always
-  // (`preexisting`); removed only when the plan says `removeWixSamples: true` — an opt-in the agent
-  // sets for a NEW site whose brief lists the whole catalog, never for a site with real products.
+  // Wix's sample catalog ("Baseball Cap", "Ceramic Flower Vase", a dozen of them), which the live shop
+  // lists next to the owner's products. Reported (`preexisting`), never touched: this seed deletes
+  // nothing on a site, ever. The owner removes what they do not want in the dashboard; the closing
+  // message tells them it is there and where.
   const planNames = new Set(products.map((p) => p.name));
   let all = [];
   try { all = await readAllProducts(ctx); } catch (e) { console.error(`catalog read failed (skipping the pre-existing check): ${String(e.message).slice(0, 120)}`); }
   const preexisting = all.filter((p) => !planNames.has(p.name));
-  let removedWixSamples = [];
-  if (removeWixSamples && preexisting.length) {
-    removedWixSamples = await removeProducts(ctx, preexisting);
-    all = all.filter((p) => planNames.has(p.name));
-  }
 
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
@@ -689,9 +670,8 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     imageFailures,
     failures,
     // Products the plan did not name (Wix's install samples on a fresh site, or the owner's own on an
-    // existing one): the closing message names what the shop still lists and where to remove it.
-    preexisting: removeWixSamples ? [] : preexisting.map((p) => ({ id: p.id, name: p.name, slug: p.slug })),
-    removedWixSamples,
+    // existing one): the closing message names what the shop lists and where the owner removes it.
+    preexisting: preexisting.map((p) => ({ id: p.id, name: p.name, slug: p.slug })),
     dashboardProductsUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/store/products`,
   };
 }

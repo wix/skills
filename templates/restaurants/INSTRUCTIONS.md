@@ -451,3 +451,8 @@ Per `seed/SEED.md` — plain-data `plan.json` into `seed-restaurants.mjs` from t
 root. Seed a menu that exercises the UI (a few sections, an image per dish, at least one dish
 with a size or a modifier group when the restaurant takes orders) and turn on the ordering +
 reservations add-ons when the restaurant takes orders/bookings.
+
+A fresh Menus install carries Wix's sample "Dinner Menu", and the menu page lists it next to the
+seeded menus. Never delete it, or anything else on the site: the result's `preexistingMenus[]` names
+what is there, and the closing message says so with the menus dashboard link so the owner removes it
+there — never release a restaurant that serves the sample "Dinner Menu" without telling the owner.

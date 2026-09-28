@@ -122,16 +122,13 @@ wrap", "engraving", "add a message" become `modifiers`; a "ships in N weeks" ite
 `preorder`; a materials/shipping/care paragraph becomes an `infoSections` entry. If a product has
 no price, ask; never invent one. SKU codes are not seeded — say so.
 
-**Seeding is additive — never delete or overwrite existing content**; ask first if a cleanup seems
-needed. The Stores install adds its own sample catalog to a new site (a dozen products: "Baseball
-Cap", "Ceramic Flower Vase", "Crew T-Shirt", ...), and the live shop lists them next to the owner's,
-so they are never silent: the result's `preexisting[]` names every product the plan did not name
-(`{ id, name, slug }`), and the closing message says so with the Manage products link
-(`dashboardProductsUrl` in the result). On a NEW site whose brief lists the whole catalog, set
-`"removeWixSamples": true` at the top of the plan: the seed then deletes exactly those pre-existing
-products before creating the plan's (`removedWixSamples[]` in the result, by name). Never set it for
-a site that already has real products — the flag removes whatever the plan does not name.
-Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
+**Seeding is additive — the seed never deletes or overwrites anything on the site, and neither do
+you.** There is no cleanup flag and no cleanup step. The Stores install adds its own sample catalog to
+a new site (a dozen products: "Baseball Cap", "Ceramic Flower Vase", "Crew T-Shirt", ...), and the
+live shop lists them next to the owner's, so they are never silent: the result's `preexisting[]` names
+every product the plan did not name (`{ id, name, slug }`), and the closing message says so with the
+Manage products link (`dashboardProductsUrl` in the result) so the owner removes them there if they
+want to. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
 
 **Images are confirmed, not assumed.** `imagesAttached` counts the attaches the API reported as
 successful; `imageFailures: [{ name, error }]` names the products left without an image and why
@@ -152,7 +149,7 @@ storefront renders them when the merchant adds them).
 ## Escape hatch — individual functions
 
 `setupStore` is built from exported steps; import them only for a partial re-seed or custom
-ordering: `installStoresApp`, `readAllProducts`, `removeProducts(ctx, products)`, `bulkCreateProducts`,
+ordering: `installStoresApp`, `readAllProducts`, `bulkCreateProducts`,
 `createCategories(ctx, names, details?)`, `addProductsToCategories`, `attachProductImages` — plus
 `makeCtx()` for the auth context.
 
