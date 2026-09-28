@@ -1,0 +1,66 @@
+name: sites/migrate-site-to-headless-studio
+description: >-
+  Verifies that a short "can I turn my Wix Studio site headless?" question is routed to the
+  Headless Migration flow on the site's Headless settings page, with the conditions for starting
+  it, rather than to Create Headless Site, a new site, Site Import, or a rebuild.
+triggerPrompt: Can I turn my Wix Studio site into a headless site?
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/migrate-a-wix-site-to-headless
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "Can I turn my Wix Studio site into a headless site?"
+      Intent: take this existing Wix Studio site headless. Wix does this through the Headless
+      Migration flow, which the merchant starts from the site's dashboard. It has no public API.
+      The merchant builds a new frontend for the same site, and the live site stays untouched
+      until they switch.
+
+      The flow is gated per site and the test site is probably not eligible, so do NOT require the
+      agent to confirm eligibility through an API. Giving the link and the conditions is enough.
+
+      Pass (8-10) if the response does all of:
+      - answers that yes, a Wix Studio site can go headless through Headless Migration, AND
+      - sends the merchant to the site's Headless settings page,
+        https://manage.wix.com/dashboard/<metaSiteId>/oauth-apps-settings (the real site ID or a
+        {metaSiteId} placeholder both count), AND
+      - tells them to use the "Headless Migration" section and its "Go Headless" button, AND
+      - says the live site doesn't change until they decide to switch, AND
+      - states who can start it: a site built with Wix Editor, Wix Studio or Wix Harmony, not
+        already headless, with a premium domain connected, and/or says that if the Headless
+        Migration section isn't on the page, the flow isn't available for their site yet.
+      Score 5-6 if it gets the page and the Go Headless step right but leaves out the
+      live-site-untouched point or the requirements.
+
+      Score 0-3 if the response does any of:
+      - calls or recommends the Headless Business Setup provision API
+        (headless-business-setup/v1/headless-business/provision), with newMetasite or
+        existingMetasite, OR
+      - creates a new site, or tells the merchant to create a new headless site, OR
+      - starts or recommends Site Import, OR
+      - tells the merchant to rebuild the site from scratch, OR
+      - invents an API or endpoint that starts or checks the migration, OR
+      - says a Wix Studio site can't go headless.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Examine the tool-call trace. The question needs no changes to the site: at most a read to
+      resolve the site's ID, then reading the migration skill and answering. Score 0-10 for how
+      directly the agent got there. 10 = found and read the migration skill, at most a read-only
+      lookup of the site (a site query or site-context read), then answered.
+
+      Penalize and LIST any of:
+        - any mutating call (creating a site, provisioning headless, creating an OAuth app,
+          starting an import, updating site data). Any one of these caps the score at 3.
+          Read-only POST queries (site list query, site count, site context) are not mutations.
+        - reading Create Headless Site or Site Import and acting on it
+        - probing Wix APIs to check migration eligibility or to find a migration endpoint
+        - repeated docs searches or reading unrelated skills before finding the migration skill
+        - a non-2xx error, even if recovered
+      For each, name the likely skill, docs or MCP gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}
