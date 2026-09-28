@@ -31,8 +31,10 @@ discussed earlier in the conversation. To finish it or read its results:
    UUIDs. If the ID is missing and the user reports an existing flow stuck at
    `KEYWORD_RESEARCH` (not a plan you are generating now), make no API call.
    Tell the user:
-   - `KEYWORD_RESEARCH` means keyword research is running or done; the status
-     does not change when it finishes.
+   - `KEYWORD_RESEARCH` means keyword research is running or done. The flow
+     usually moves to `CONTENT_PLAN` on its own when it finishes; if it stays
+     at `KEYWORD_RESEARCH`, the status alone does not show whether the
+     research is ready.
    - With the flow ID, first check the research
      (`GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items`)
      for items with the flow's `keywordResearchId`.
@@ -206,8 +208,10 @@ It takes no parameters and returns the site's most recent research. Keep only
 | Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
 | Any other error | Report it and stop. |
 
-If the flow is still at `KEYWORD_RESEARCH` after 60 checks, report the flow ID
-as incomplete.
+At the 60th status check, check the research one last time; if it is still
+not ready, report the flow ID as incomplete. These counts come from observed
+runs: research took 14 to 76 seconds, and 20 checks one at a time take about
+one to two minutes.
 Calling Create Content Plan before the research is ready moves the flow to
 `FAIL`; that flow cannot be resumed.
 See [List Keyword Research Items](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-keyword-research-v1/list-keyword-research-items).
