@@ -1,7 +1,7 @@
 // Set up the project in the current folder — one deterministic call from "the folder and the
 // brief" to "brand layer can start", for a folder that is NOT yet a Wix project:
 //
-//   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…> \
+//   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…>[,<vertical>…] \
 //        [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] \
 //        [--subfolder [--folder-name <npm-safe-name>]]
 //
@@ -51,7 +51,12 @@ const flag = (name) => {
 };
 const businessName = flag("business-name");
 const planPath = flag("plan");
-const vertical = flag("vertical");
+// Every vertical the brief needs, comma-separated. The first one's composed template scaffolds the
+// project and its seed runs from --plan; the others deploy in the same call so the ONE install covers
+// them (adding a vertical after the install has started costs a second install). Their seeds run
+// afterwards, each with its own plan, when the brief gives them content.
+const verticals = (flag("vertical") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+const vertical = verticals[0] ?? null;
 const stackFlag = flag("stack");
 // Opt-in: keep a CREATE's project in a subfolder instead of the current directory.
 const subfolder = argv.includes("--subfolder");
@@ -59,11 +64,11 @@ const subfolder = argv.includes("--subfolder");
 let TEMPLATES;
 try { TEMPLATES = templatesDir(); } catch (e) { fail("templates", e.message); }
 const knownVerticals = listVerticals(TEMPLATES);
-const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}> [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
+const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong seed.
 if (!vertical) fail("args", usage);
-if (!knownVerticals.includes(vertical)) {
-  fail("args", `unknown vertical "${vertical}" — shipped verticals: ${knownVerticals.join(", ")}`);
+for (const v of verticals) {
+  if (!knownVerticals.includes(v)) fail("args", `unknown vertical "${v}" — shipped verticals: ${knownVerticals.join(", ")}`);
 }
 if (stackFlag && !["astro", "react", "lib", "static"].includes(stackFlag)) {
   fail("args", `unknown --stack "${stackFlag}" — astro, react, lib or static`);
@@ -182,7 +187,7 @@ emit(mode === "create" ? "scaffolded" : mode === "migrate" ? "migration_preview"
 // reports the project; a CONNECT gets the code and its dependencies here.
 const deploy = spawnSync(
   "node",
-  [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
+  [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
 if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
@@ -264,7 +269,7 @@ if (planPath && mode !== "migrate") {
   );
   seedChild.unref();
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
-  emit("seeding_started", { vertical, ...seed });
+  emit("seeding_started", { vertical, ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${vertical}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 }
 
 // ---- done ----------------------------------------------------------------------------------------
@@ -276,9 +281,11 @@ const release = {
 }[stack];
 // On a migration preview the links and `siteId` are the PARENT's — the site whose content the pages
 // show and whose dashboard manages it; `deploySiteId` is where `wix release` goes.
+const others = verticals.slice(1);
 emit("ready_for_brand_layer", {
   mode,
   stack,
+  verticals,
   projectDir,
   siteId: ctx ? ctx.content.siteId : siteId,
   ...(ctx ? { deploySiteId: ctx.deploy.siteId, migration: { parentSiteId: ctx.migration.parentSiteId } } : {}),
@@ -293,6 +300,9 @@ emit("ready_for_brand_layer", {
       : planPath
       ? "theme + write the home page; "
       : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ") +
+    (others.length && mode !== "migrate"
+      ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `
+      : "") +
     (install || seed ? "then wait for the done markers" + (seed ? ", verify .seed-exit is 0 (else read seed.log and re-run the seed module)" : "") + "; " : "") +
     `then ${release}` +
     (mode === "migrate" ? "; the release is the PREVIEW on the deploy site — close with its URL and the parent's dashboard, say the original site is unchanged and that completing the migration is the user's next step in the Wix CLI once they approve" : ""),

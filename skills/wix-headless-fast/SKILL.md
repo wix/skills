@@ -165,8 +165,15 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    and for a project already on disk; **the folder decides** what it does:
 
    ```bash
-   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
+   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"]
    ```
+
+   Name every vertical the brief needs in this one call (a store with member accounts is
+   `storefront,members`): the first one's template scaffolds the project and its seed runs from
+   `--plan`; the others deploy in the same call, so the one install covers them all. A vertical
+   added after the install has started costs a second install. The other verticals' seeds run
+   afterwards, each with its own plan, when the brief gives them content (the members seed installs
+   the Members Area app and takes no plan).
 
    - **Empty** (or only loose files: a CSV, a brief) → **create**: `wix create` with the
      vertical's composed template, here; `--business-name` names the site.
