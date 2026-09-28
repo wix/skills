@@ -1,0 +1,97 @@
+---
+// Category page — the feed filtered to one category, with the category's header.
+//
+// This is a Wix ITEM PAGE too: the wixMetadata export + <SEO.Tags> (BLOG_CATEGORY) let the site
+// owner edit its title/description in the dashboard and register the route in the sitemap. Keep
+// the SEO pieces and this frontmatter; restyle the template. The first page is fetched
+// SERVER-SIDE with the category filter and seeded into the island together with the filter id, so
+// the island trusts it and fetches nothing on load. An unknown slug is a real 404 (Wix's own router
+// answers 200 with an empty feed; on a headless site a page that exists for no category is a 404).
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import BlogFeedView from "../../../components/blog/BlogFeedView";
+import { categoryPath, fetchPosts } from "../../../wix/blog/posts";
+import { fetchBlogCategories, fetchBlogTags, fetchCategoryBySlug } from "../../../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag, PostPage } from "../../../wix/blog/types";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.blogs.id,
+  pageIdentifier: WIX_APPS.blogs.categoryPageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.blogs.categoryPageMetadata.identifiers.slug,
+  },
+};
+
+const slug = Astro.params.slug;
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+// Behind Wix's proxy the request URL is internal — the real public page URL arrives on
+// x-wix-forwarded-url; the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let category: BlogCategory | null = null;
+let page: PostPage | undefined;
+let categories: BlogCategory[] = [];
+let tags: BlogTag[] = [];
+let seoTagsServiceConfig = null;
+try {
+  [category, categories, tags, seoTagsServiceConfig] = await Promise.all([
+    fetchCategoryBySlug(slug),
+    fetchBlogCategories(),
+    fetchBlogTags(),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.BLOG_CATEGORY,
+      itemData: { slug },
+    }).catch(() => null),
+  ]);
+  if (category) page = await fetchPosts({ categoryId: category.id });
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream. With no seed the island
+  // fetches the filtered page client-side and shows its own error state.
+}
+
+if (!category) {
+  return new Response(null, { status: 404 });
+}
+
+// One source of head tags: the SEO service when it resolved; else the category's own SEO title
+// (the dashboard's title tag) → its label, and its description.
+const head = seoTagsServiceConfig ? {} : { title: category.title || category.label, description: category.description || undefined };
+---
+
+<SiteLayout {...head}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+
+  <header class="mb-10">
+    {
+      category.coverUrl && (
+        <div class="mb-6 aspect-[16/9] max-h-[40vh] overflow-hidden rounded-xl bg-secondary">
+          <img src={category.coverUrl} alt={category.label} class="h-full w-full object-cover" />
+        </div>
+      )
+    }
+    <p class="eyebrow">Category</p>
+    <h1 class="mt-2 text-2xl font-semibold tracking-tight">{category.label}</h1>
+    {category.description && <p class="mt-3 max-w-2xl text-muted-foreground">{category.description}</p>}
+  </header>
+
+  <BlogFeedView
+    client:load
+    initialPage={page}
+    initialCategoryId={category.id}
+    initialCategories={categories}
+    initialTags={tags}
+    categoryHref={categoryPath}
+    emptyMessage="No posts in this category yet."
+  />
+</SiteLayout>
