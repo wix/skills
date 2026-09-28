@@ -124,6 +124,17 @@ against the wrong overload and fails. Import the entity type the package exports
 type Row = <namespace>.<Entity>;   // e.g. extendedBookings.ExtendedBooking — not ReturnType<typeof …>
 ```
 
+This applies to every SDK type, request types included. Types are accessed through the namespace
+you already import, as `<namespace>.<TypeName>`, using any type name shown in the docs. Don't import
+types by name from the `@wix/<pkg>` root.
+
+```ts
+import { orders } from '@wix/ecom';
+
+const rows: orders.Order[] = [];              // ✅
+// import type { Order } from '@wix/ecom';    // ❌ has no exported member 'Order'
+```
+
 **4. Paging metadata carries no `hasNext`.** `PagingMetadataV2` is `count`, `offset`, `total`,
 `tooManyToCount`, `cursors` — nothing else, in every generated package. Whether another page exists
 is knowable only from `pagingMetadata.cursors.next`. What the collection wants you to *return* is a
