@@ -103,9 +103,11 @@ the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 and prints the update commands; it changes nothing.
 
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
-run hits real friction (a confusing error, a doc gap, a seed that had to be re-run, a shipped file
-that did not cover the brief, a workaround you had to invent, a platform gate), offer to relay it to
-Wix per `<SKILL_ROOT>/guides/feedback.md`. Default to offering rather than waiting to be asked; send
+run hits friction of any kind: anything that cost more turns than it should have, whether or not
+it ended in an error (a confusing error, a doc gap, a seed that had to be re-run, a shipped file
+that did not cover the brief, a playbook line you had to read the source to understand, a call you
+had to work out by trial, a workaround you had to invent, a slow or flaky step, a platform gate),
+offer to relay it to Wix per `<SKILL_ROOT>/guides/feedback.md`. Default to offering rather than waiting to be asked; send
 only after an explicit yes, never automatically. Step 5 ends with the same self-check.
 
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names

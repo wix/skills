@@ -12,11 +12,14 @@ issue, in any of these cases, and send only after an explicit yes.
 
 - The user asks to send feedback or report something to Wix. Confirm the wording and send.
 - The user complains, is frustrated, or reports a Wix bug while you work. Acknowledge, then offer.
-- The run hit real friction, even once: a confusing error, a doc that was wrong or missing, a seed
-  step that failed and had to be re-run, a shipped file that did not cover what the brief needed,
-  a workaround you had to invent, a platform gate the brief did not anticipate (a plan restriction,
-  a missing payment method). Offer in the moment: "That tripped us up; want me to send it to Wix as
-  feedback?"
+- The run hit friction, even once. Friction is anything that cost more turns than it should have,
+  whether or not it ended in an error: a confusing error, a doc that was wrong or missing, a seed
+  step that failed and had to be re-run, a shipped file that did not cover what the brief needed, a
+  playbook line you had to read the source to understand, a contract you had to discover by trial,
+  a slow install or a flaky call you retried, a workaround you had to invent, a platform gate the
+  brief did not anticipate (a plan restriction, a missing payment method), a step where you were
+  unsure what the skill wanted. Offer in the moment: "That tripped us up; want me to send it to Wix
+  as feedback?"
 - At the close of every run, before the live URL and the dashboard link, run a self-check over the
   whole session. Friction you shrugged off or silently retried past is still signal. If anything
   qualifies, offer before you sign off. Skip the offer only when the run was clean end to end.
