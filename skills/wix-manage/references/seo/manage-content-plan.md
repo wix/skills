@@ -178,7 +178,7 @@ Check every few seconds using separate calls. Completion time varies.
 Keep checking the flow status (the step 2 request), one request at a time:
 wait for each reply before the next check, and wait 15 seconds between checks
 if your client can. Requests sent together count as one check. Research
-usually takes 15 to 80 seconds; when it finishes, generation usually starts
+usually takes 14 to 76 seconds; when it finishes, generation usually starts
 on its own:
 
 - `CONTENT_PLAN`: skip Create Content Plan; continue with step 5.
