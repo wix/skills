@@ -40,7 +40,16 @@ Content-Type: application/json
 {"ribbonName":"Bestseller"}
 ```
 
-Read the returned `ribbon.id`. If the user requested only the ribbon definition, report that result and stop. If they also requested assignment to a product, follow [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) using the resolved ribbon and product IDs and the current product revision. Preserve unrelated product fields. For Catalog V1, follow that catalog version's product-ribbon contract instead of using the V3 endpoint.
+Read the returned `ribbon.id`. If the user requested only the ribbon definition, report that result and stop. If they also requested assignment to a product, send only the ribbon with the product's current `revision` through [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product); fields you omit are left unchanged:
+
+```http
+PATCH https://www.wixapis.com/stores/v3/products/{productId}
+Content-Type: application/json
+
+{"product":{"id":"<PRODUCT_ID>","revision":"<CURRENT_REVISION>","ribbon":{"id":"<RIBBON_ID>"}}}
+```
+
+This path covers Catalog V3.
 
 Do not create a coupon, discount rule, or price change just because a ribbon says "Sale". Those require a separate discount request. An explicit ribbon creation or assignment request authorizes that operation; otherwise confirm the intended change first. Merchant context needed for promotion recommendations is not a prerequisite to creating a named visual ribbon.
 
