@@ -6,7 +6,6 @@
 import { useState, type FormEvent } from "react";
 import { useComments } from "../../hooks/blog/useComments";
 import type { BlogComment } from "../../wix/blog/types";
-import RichContent from "./RichContent";
 
 export interface CommentsViewProps {
   /** `PostDetail.referenceId`. */
@@ -63,7 +62,11 @@ function CommentBody({ comment }: { comment: BlogComment }) {
   if (comment.status === "DELETED") return <p className="text-sm italic text-muted-foreground">This comment was deleted.</p>;
   return (
     <div className="text-sm">
-      <RichContent content={comment.content} fallbackParagraphs={comment.text ? comment.text.split("\n") : []} />
+      {/* Plain text, one <p> per line — never the Ricos viewer here: this island is client:load (SSR'd), and the
+          viewer breaks under SSR and drags 2 MB into the server bundle (the post body renders it client:only). */}
+      {comment.text.split("\n").filter(Boolean).map((line, i) => (
+        <p key={i} className="whitespace-pre-wrap">{line}</p>
+      ))}
     </div>
   );
 }
