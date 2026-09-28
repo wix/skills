@@ -28,8 +28,9 @@ discussed earlier in the conversation. To finish it or read its results:
 
 1. Find its actual `contentPlanFlowId` in the conversation or a previous
    trigger/status response. A site ID is not a flow ID, even though both are
-   UUIDs. If the ID is missing and the user reports a flow stuck at
-   `KEYWORD_RESEARCH`, make no API call. Tell the user:
+   UUIDs. If the ID is missing and the user reports an existing flow stuck at
+   `KEYWORD_RESEARCH` (not a plan you are generating now), make no API call.
+   Tell the user:
    - `KEYWORD_RESEARCH` means keyword research is running or done; the status
      does not change when it finishes.
    - With the flow ID, first check the research
@@ -181,7 +182,8 @@ on its own:
 - `CONTENT_PLAN`: skip Create Content Plan; continue with step 5.
 - `SUCCESS`: go to step 6.
 - Still `KEYWORD_RESEARCH` after 20 checks in a row, or the user says it has
-  been there for two minutes or more: check the research once:
+  been there for two minutes or more: check the research once. Never check it
+  sooner; before that it is usually not ready:
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
@@ -362,6 +364,8 @@ durable across generations.
   Create Content Plan (step 4).
 - Call Create Content Plan as soon as the status is `KEYWORD_RESEARCH`, before
   the flow's keyword research items exist.
+- Check the keyword research items during generation before 20 status checks
+  in a row at `KEYWORD_RESEARCH`.
 - Read candidates before `SUCCESS`.
 - Retry after `PENDING_REQUIREMENTS`.
 - Ask for a site ID.
