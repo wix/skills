@@ -14,7 +14,7 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 The order, what each library owns, and how to look a name up are stated once: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
 
-**Theme:** the page's iframe inherits none of the Business Manager redesign. Wrap the entry file in the app's `BusinessManagerTheme`, import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — [BUSINESS_MANAGER_THEME.md](dashboard-page/BUSINESS_MANAGER_THEME.md).
+**Theme:** the page's iframe inherits none of the Business Manager redesign. Wrap the entry file in the app's `BusinessManagerTheme`, import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — [BUSINESS_MANAGER_THEME.md](BUSINESS_MANAGER_THEME.md).
 
 ## Scaffold
 

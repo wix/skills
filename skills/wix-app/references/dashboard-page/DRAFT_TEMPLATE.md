@@ -73,7 +73,7 @@ const Page: FC = () => (
 export default withDashboard(Page);
 ```
 
-`BusinessManagerTheme` is the app's own wrapper around the design-system providers, the `odeditor` theme stylesheet and the Business Manager default props — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app) has the file to write once per app. **Business Manager passes none of the redesign through the extension's iframe**, so a bare `WixDesignSystemProvider` here renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass. `WixPatternsProvider` nests inside it, never above.
+`BusinessManagerTheme` is the app's own wrapper around the design-system providers, the `odeditor` theme stylesheet and the Business Manager default props — [BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app) has the file to write once per app. **Business Manager passes none of the redesign through the extension's iframe**, so a bare `WixDesignSystemProvider` here renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass. `WixPatternsProvider` nests inside it, never above.
 
 Cases A, B and D differ — they need `location` supplied manually for `PatternsReactRouter`. See [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) rather than adding that plumbing here; it's dead code without a router underneath it.
 

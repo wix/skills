@@ -28,6 +28,40 @@ wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<title>","fol
 
 The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
 
+## Theme
+
+A modal opens as **its own iframe, separate from the page that opened it** — so theming the page does nothing for it. A themed page opening an unthemed modal is a common and very visible split: the dialog arrives in the pre-redesign look on top of a redesigned page.
+
+Wrap the generated `<modal>.tsx` in the app's `BusinessManagerTheme`, at the root, above `CustomModalLayout`:
+
+```tsx
+import { CustomModalLayout } from '@wix/design-system';
+import { Confirm } from '@wix/wix-ui-icons-common/lazy/system';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme';
+import modalConfig from './<modal>.config';
+
+const Modal: FC = () => (
+  <BusinessManagerTheme>
+    <CustomModalLayout title={modalConfig.title} /* … */ />
+  </BusinessManagerTheme>
+);
+```
+
+The wrapper file is written once per app and reused by every extension — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app). Icons come from `@wix/wix-ui-icons-common/lazy`, and anything you style yourself uses `--wds-*` tokens or a `skin`/`size` prop.
+
+**The redesign changes modal chrome specifically**, and these are per-call-site decisions the wrapper cannot make for you:
+
+| Part | Redesign |
+| --- | --- |
+| Header | Updated close button; `tiny` size for a question-mark/help icon |
+| Header and footer dividers | **Removed.** Don't add them back |
+| Footer secondary action | A `TextButton` at M size, not a secondary `Button` |
+| Footer skin | The light footer skin |
+
+So a confirm dialog's footer is a primary `Button` plus a `TextButton` for cancel — and because the cancel sits beside a primary button, it takes the **Dark** skin rather than the wrapper's standard default.
+
+`tsc`, `wix build` and `wix preview` all pass on an unthemed modal — only opening it catches the split.
+
 ## Quick Reference
 
 | Task | Method | Example |

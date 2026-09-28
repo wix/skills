@@ -1,0 +1,40 @@
+name: dashboard-plugin/business-manager-theme
+description: A dashboard plugin request that never mentions theming — proves the generated slot widget ships the Business Manager (Harmony/odeditor) wrapper, lazy icon imports and --wds-* tokens by default. A plugin renders inside a redesigned first-party Wix page, so an unthemed one is framed by the exact styling it is missing, and every build and preview check still passes
+triggerPrompt: |-
+  Add a widget to the Wix Blog posts page in my dashboard. It should sit on that page and show the author a short summary of the post the page is about — the post title, whether it's published or still a draft, and a button to copy its public link. Use an icon on the copy button.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-plugin, business-manager-theme]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PLUGIN.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BUSINESS_MANAGER_THEME.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the generated dashboard plugin is wired for the Business Manager (Harmony) theme. The user never asked for theming, so this tests the default output, not instruction-following. A plugin is its own iframe and inherits nothing from the host page — including when that host is a redesigned first-party Wix page — so the plugin component needs the theme at its own root. Locate wherever the design-system providers are declared: normally a `BusinessManagerTheme.tsx` wrapper the plugin component wraps its content in. A shared wrapper and an inline stack are both acceptable shapes; judge the contents. Check: (1) BOTH `@wix/design-system/styles.global.css` AND `@wix/design-system/themes/odeditor.global.css` are imported. Only `styles.global.css`, or neither, scores no higher than 3 — a plugin with no stylesheet import at all is the worse version of the same defect. (2) All four providers are present, nested outermost-first: `WixDesignSystemProvider` → `WixDesignSystemIconThemeProvider` → `IconThemeProvider theme="odeditor"` (from `@wix/wix-ui-icons-common/core`) → `WixDesignSystemDefaultPropsProvider`. Missing the icon providers or the defaults provider scores no higher than 4. (3) The defaults are equivalent to `Button: { size: 'small', skin: 'dark' }`, `IconButton: { size: 'small', skin: 'dark', priority: 'tertiary' }`, `TextButton: { size: 'small', skin: 'standard' }`, `Input: { size: 'small' }`. (4) `features={{ newColorsBranding: true }}` does NOT appear anywhere — it predates the theme and is not a substitute, and it is what the old reference example used, so its presence means the agent copied a stale pattern. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the plugin's own styling uses design tokens rather than hardcoded values — the half-migrated failure mode, which is most visible on a plugin because redesigned first-party UI frames it on all sides. Check every file the agent wrote: (1) The copy-link button's icon is imported from `@wix/wix-ui-icons-common/lazy` or `@wix/wix-ui-icons-common/lazy/system`, NOT from the package root `@wix/wix-ui-icons-common` or `@wix/wix-ui-icons-common/system`. A root import renders the classic icon set regardless of the providers, so any root icon import scores no higher than 4. An `iconKey` string in a builder or extension config file is not an import and is exempt. (2) The published/draft indicator uses a WDS component's own `skin` prop (for example a `Badge` with `standard`/`success`/`warning`) rather than hand-picked colours. Distinguishing the two states with hex or `rgb()` literals scores no higher than 3. (3) There are no hardcoded colour literals (hex, `rgb(`, `hsl(`) in any `.tsx`, `.css`, `.scss` or `.st.css` file the agent wrote. (4) There are no `style={{ ... }}` overrides carrying colour, font-family or font-size on WDS components. (5) No hardcoded font families or pixel font sizes. (6) The plugin does not re-specify `skin="standard"` on a nested icon button, overriding the Dark/Tertiary default the theme supplies. (7) Spacing is exempt: the 6px base unit and `SP*` tokens on `gap`/`padding`/`margin` are unchanged by the redesign — do not penalise `SP*` usage or treat pixel spacing values as colour/typography violations. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the plugin itself is correctly built, so a themed-but-broken plugin cannot pass this scenario. Check: (1) The extension is a DASHBOARD_PLUGIN, scaffolded via `wix generate --params`, and is registered in `src/extensions.ts`. (2) Its `extendsSlotId` is a real slot ID for the Wix Blog posts page, taken from the skill's slots reference rather than invented — a fabricated or placeholder GUID is an automatic low score, since the plugin then renders nowhere while everything still builds. (3) The plugin reads the host page's data through `dashboard.observeState()` from `@wix/dashboard`, rather than fetching the post independently or assuming props it was never passed. (4) The post title and published/draft state come from that observed slot data. (5) The UI is built from `@wix/design-system` components (for example `Card`, `Text`, `Button`/`IconButton`), not hand-written HTML replacing what the library provides. (6) The plugin does not assume a fixed width or height — it takes the full width of its slot and sizes its height to content. Score 0-10.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

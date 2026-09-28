@@ -1,0 +1,40 @@
+name: dashboard-modal/business-manager-theme
+description: A settings page with a destructive confirmation dialog, never mentioning theming — proves the generated dashboard modal ships the Business Manager (Harmony/odeditor) wrapper and the redesign's modal chrome by default. A modal is a separate iframe from the page that opened it, so a themed page opening an unthemed modal is a visible split that every build and preview check passes
+triggerPrompt: |-
+  Build a dashboard page where the site owner configures my app's notification settings — a toggle for email alerts, a toggle for SMS, and a daily digest send time. Add a "Reset to defaults" button that asks them to confirm before it wipes their settings, since that can't be undone.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-modal, business-manager-theme, dashboard-page]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_MODAL.md]
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/BUSINESS_MANAGER_THEME.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the generated dashboard modal is wired for the Business Manager (Harmony) theme. The user never asked for theming, so this tests the default output, not instruction-following. A modal opens as its own iframe, separate from the page that opened it, so theming the page does nothing for the modal — the modal extension needs the theme at its own root. Check the modal's own `.tsx`: (1) Its root wraps the layout in the theme — normally a `BusinessManagerTheme.tsx` wrapper, nested ABOVE `CustomModalLayout`. A shared wrapper and an inline provider stack are both acceptable shapes; judge the contents. (2) BOTH `@wix/design-system/styles.global.css` AND `@wix/design-system/themes/odeditor.global.css` are in effect for the modal. A modal that imports only `styles.global.css`, or relies on the page's imports and declares none of its own, scores no higher than 3 — that is exactly the themed-page/unthemed-dialog split this scenario exists to catch. (3) All four providers are present, nested outermost-first: `WixDesignSystemProvider` → `WixDesignSystemIconThemeProvider` → `IconThemeProvider theme="odeditor"` (from `@wix/wix-ui-icons-common/core`) → `WixDesignSystemDefaultPropsProvider`. Missing the icon providers or the defaults provider scores no higher than 4. (4) If the app has both a page and a modal, BOTH are wrapped — a themed page next to an unthemed modal scores no higher than 4 even when the page is perfect. (5) `features={{ newColorsBranding: true }}` does not appear anywhere. (6) Any icon in the modal comes from `@wix/wix-ui-icons-common/lazy` or `/lazy/system`, not the package root. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the confirmation dialog follows the redesign's modal chrome and uses tokens rather than hardcoded values. These are per-call-site decisions the theme wrapper cannot make automatically, so they are the ones an agent most easily misses. Check: (1) The footer's secondary action (cancel/dismiss) is a `TextButton`, NOT a secondary `Button`. (2) Because that cancel sits beside a primary action, it uses the Dark skin rather than the standard blue. (3) There is no divider on the modal header or footer — the redesign removes them, so an explicitly added `Divider` in either place is a defect. (4) The destructive confirm action is expressed with the component's own destructive `skin` (for example `skin="destructive"` on the confirm `Button`), never a hardcoded red such as `#DF3336` or `rgb(223,51,54)`. A hand-coloured destructive button scores no higher than 3. (5) There are no hardcoded colour literals, font families or pixel font sizes anywhere in the modal, and no `style={{ ... }}` overrides carrying colour or typography on WDS components. (6) Spacing is exempt: `SP*` tokens and the 6px base unit are unchanged by the redesign — do not penalise them. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the confirmation was built as the right kind of thing, so a themed-but-wrong dialog cannot pass. Check: (1) The confirmation is a separate DASHBOARD_MODAL extension, scaffolded via `wix generate --params` and registered in `src/extensions.ts` — NOT the `@wix/design-system` `<Modal />` component and NOT a hand-rolled React overlay rendered inside the page. A dashboard page cannot use `<Modal />`, so either of those is an automatic low score. (2) The page opens it with `dashboard.openModal({ modalId })` using the modal's own generated builder-file id, not an `extensionId`. (3) The modal reads any passed data with `dashboard.observeState()` and closes with `dashboard.closeModal()`, passing the confirm/cancel outcome back so the opener can act on it. (4) The opener awaits that outcome (for example via the `modalClosed` promise) and only resets the settings when the user confirmed. (5) The settings page itself is a legitimate use of a modal because it enumerates no records — confirm the agent did NOT build a `@wix/patterns` `CollectionPage`/`EntityPage` here, which would be over-building for a settings screen. (6) All three settings (email toggle, SMS toggle, digest time) are present as WDS form fields, and saving gives the user feedback. Score 0-10.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

@@ -37,7 +37,7 @@ const Page: FC = () => {
 export default Page;
 ```
 
-`BusinessManagerTheme` belongs here, not in `{Feature}App.tsx` — its default props must apply above `WixPatternsProvider`. Write it once per app: [BUSINESS_MANAGER_THEME.md](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+`BusinessManagerTheme` belongs here, not in `{Feature}App.tsx` — its default props must apply above `WixPatternsProvider`. Write it once per app: [BUSINESS_MANAGER_THEME.md](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
 
 **Skipping either the theme or `location` is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." Only a browser catches a missing `location` or an unthemed page, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional.
 

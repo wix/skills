@@ -29,13 +29,28 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
 - **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
 
+## Theme
+
+A plugin is its own iframe, so **it inherits nothing from the host page it sits in** — not even though that page is a redesigned first-party Wix app. This makes a plugin the least forgiving dashboard surface: an unthemed one renders classic icons and pre-redesign buttons directly beside the redesigned Stores/Bookings/Blog UI framing it.
+
+Wrap the plugin component in the app's `BusinessManagerTheme` (the example below does), import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — never a hardcoded colour or an inline `style` override. The wrapper file itself is written once per app: [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+
+Two things to get right in a slot specifically:
+
+- **Match the host's density, don't fight it.** The wrapper's defaults (`Button` small/dark, `IconButton` small/dark/tertiary) are what the surrounding page uses. Overriding them per call site is how a plugin starts looking like a different product.
+- **A nested icon button inside your own card or list row is Dark / Tertiary.** The wrapper's `IconButton` default already gives you this — don't re-specify `skin="standard"` on it.
+
+`tsc`, `wix build` and `wix preview` all pass on an unthemed plugin. Only opening the host page catches it.
+
 ## Interacting with Dashboard Data
 
 Use `observeState()` from the Dashboard SDK to receive data from the host dashboard page:
 
-```typescript
+```tsx
 import { dashboard } from "@wix/dashboard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FC } from "react";
+import { Card, Text } from "@wix/design-system";
+import { BusinessManagerTheme } from "../../BusinessManagerTheme";
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
@@ -47,13 +62,13 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
+    <BusinessManagerTheme>
       <Card>
         <Card.Content size="medium">
           <Text>Received data: {JSON.stringify(params)}</Text>
         </Card.Content>
       </Card>
-    </WixDesignSystemProvider>
+    </BusinessManagerTheme>
   );
 };
 ```

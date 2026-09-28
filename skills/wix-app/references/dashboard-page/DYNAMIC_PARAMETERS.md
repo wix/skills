@@ -142,7 +142,7 @@ When dynamic parameters are present, generate all of these — the two wrapper f
 
 | File | Role |
 | --- | --- |
-| `dashboard/BusinessManagerTheme.tsx` | Theme wrapper — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app) |
+| `dashboard/BusinessManagerTheme.tsx` | Theme wrapper — [BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app) |
 | `dashboard/withProviders.tsx` | Provider wrapper (below) |
 | `dashboard/pages/page.tsx` | The page, exported wrapped in `withProviders` |
 | `dashboard/types.ts` | Parameter type definitions |

@@ -5,7 +5,7 @@ triggerPrompt: |-
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, data-collection, wix-patterns-docs]
+tags: [dashboard-page, business-manager-theme, data-collection, wix-patterns-docs]
 assertions:
   - type: skill_was_called
     negate: false
@@ -16,14 +16,14 @@ assertions:
     negate: false
     skillNames: [wix-app]
     referenceFiles:
-      wix-app: [references/dashboard-page/BUSINESS_MANAGER_THEME.md]
+      wix-app: [references/BUSINESS_MANAGER_THEME.md]
   - type: build_passed
     command: npm run build
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
-      Evaluate whether the generated dashboard page is wired for the Business Manager (Harmony) theme. The user never asked for theming, so this tests the default output, not instruction-following. Read the extension's entry file — the single file that renders the design-system provider (`{feature}.tsx`, or `withProviders.tsx` if the page uses dynamic parameters) — and check: (1) It imports BOTH `@wix/design-system/styles.global.css` AND `@wix/design-system/themes/odeditor.global.css`. A page with only `styles.global.css` fails this check outright, scoring no higher than 3, because that is exactly the pre-redesign setup that renders the old look while passing every build and preview check. (2) All four providers are present and nested outermost-first in this order: `WixDesignSystemProvider` → `WixDesignSystemIconThemeProvider` → `IconThemeProvider theme="odeditor"` (imported from `@wix/wix-ui-icons-common/core`) → `WixDesignSystemDefaultPropsProvider`. A stack missing the icon providers, or missing the defaults provider, scores no higher than 4 — each one omitted leaves a visibly unmigrated surface. (3) `WixDesignSystemDefaultPropsProvider` receives defaults equivalent to `Button: { size: 'small', skin: 'dark' }`, `IconButton: { size: 'small', skin: 'dark', priority: 'tertiary' }`, `TextButton: { size: 'small', skin: 'standard' }`, `Input: { size: 'small' }`. (4) `WixPatternsProvider` is nested INSIDE `WixDesignSystemDefaultPropsProvider`, not above it — a patterns shell outside the defaults provider gets no defaults for the WDS leaf UI it contains. (5) The theme stack appears in the entry file only, not duplicated into child, tab or page components. (6) `features={{ newColorsBranding: true }}` does NOT appear anywhere; it predates the theme and is not a substitute for it. Score 0-10.
+      Evaluate whether the generated dashboard page is wired for the Business Manager (Harmony) theme. The user never asked for theming, so this tests the default output, not instruction-following. Locate wherever the design-system providers are declared — normally a `BusinessManagerTheme.tsx` wrapper component that the entry file (`{feature}.tsx`, or `withProviders.tsx` for a dynamic-parameters page) wraps its content in. A single wrapper reused by the entry file and an inline stack in the entry file are BOTH acceptable shapes; judge the contents, not the shape. Check: (1) BOTH `@wix/design-system/styles.global.css` AND `@wix/design-system/themes/odeditor.global.css` are imported. Only `styles.global.css` fails outright, scoring no higher than 3 — that is precisely the pre-redesign setup that renders the old look while passing every build and preview check. (2) All four providers are present and nested outermost-first in this order: `WixDesignSystemProvider` → `WixDesignSystemIconThemeProvider` → `IconThemeProvider theme="odeditor"` (imported from `@wix/wix-ui-icons-common/core`) → `WixDesignSystemDefaultPropsProvider`. Missing the icon providers, or the defaults provider, scores no higher than 4 — each omission leaves a visibly unmigrated surface. (3) `WixDesignSystemDefaultPropsProvider` receives defaults equivalent to `Button: { size: 'small', skin: 'dark' }`, `IconButton: { size: 'small', skin: 'dark', priority: 'tertiary' }`, `TextButton: { size: 'small', skin: 'standard' }`, `Input: { size: 'small' }`. (4) `WixPatternsProvider` is nested INSIDE `WixDesignSystemDefaultPropsProvider`, not above it — a patterns shell outside the defaults provider gets no defaults for the WDS leaf UI it contains. (5) The providers are declared in one place and applied at the extension root, not re-declared in child, tab or page components. (6) `features={{ newColorsBranding: true }}` does NOT appear anywhere; it predates the theme and is not a substitute for it. Score 0-10.
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
