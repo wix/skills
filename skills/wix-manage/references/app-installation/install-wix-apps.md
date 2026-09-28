@@ -140,11 +140,9 @@ async function() {
 ```
 
 ### App-Dependent Call Fails Right After Install (Propagation Delay)
-Installing an app and then immediately calling one of its own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can hit a short delay while the install propagates, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
+Installing an app and then immediately calling one of its own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
 
-What to do: route every call in the chain right after an install through a retry helper that tries immediately and backs off only if that attempt fails, up to 3 retries — instead of surfacing the error or telling the user to try again later. Write the install call, the helper, and the retried calls as one script in a single tool call.
-
-**Example** (install Wix Multilingual, then enable multilingual mode, retrying past the propagation delay — all in one script):
+**Example** (retry with backoff past the propagation delay instead of surfacing the error, all in one script):
 ```javascript
 async function() {
   const siteId = "<SITE_ID>";
