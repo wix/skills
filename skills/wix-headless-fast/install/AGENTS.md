@@ -29,6 +29,9 @@ Installed at `.agents/skills/`. If missing, restore with:
   site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
   `node .agents/skills/{{SKILL}}/install/check.mjs` says whether the skill or its templates have a newer
   version and prints the update commands; an update touches the skill folder or `templates/`, never `src/`.
+  When Wix gets in the way of a change here (a confusing error, a doc gap, a workaround you had to
+  invent), offer to relay it to Wix per `.agents/skills/{{SKILL}}/guides/feedback.md`; send only after
+  an explicit yes.
 - `wix-docs` — how to discover the Wix APIs and their docs: search first, then read only the page
   you need. Every endpoint, body, field and enum you did not get from the deployed code or a recipe
   is confirmed there before you write it.

@@ -102,6 +102,14 @@ the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
 and prints the update commands; it changes nothing.
 
+Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
+run hits friction of any kind: anything that cost more turns than it should have, whether or not
+it ended in an error (a confusing error, a doc gap, a seed that had to be re-run, a shipped file
+that did not cover the brief, a playbook line you had to read the source to understand, a call you
+had to work out by trial, a workaround you had to invent, a slow or flaky step, a platform gate),
+offer to relay it to Wix per `<SKILL_ROOT>/guides/feedback.md`. Default to offering rather than waiting to be asked; send
+only after an explicit yes, never automatically. Step 5 ends with the same self-check.
+
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names
    another framework or the directory already holds one. Then, by what the shipped code can run
    there:
@@ -262,7 +270,10 @@ and prints the update commands; it changes nothing.
    preview's, the original site is unchanged, and completing the migration is the user's next
    step in the Wix CLI once they approve — say all three). **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
-   a 404).
+   a 404). Before you sign off, run the feedback self-check over the whole session
+   (`guides/feedback.md`): anything that cost more turns than it should have, including what you
+   recovered from silently, is signal; if anything qualifies, offer to relay it as you deliver the
+   links, and send only after an explicit yes.
 
 ## Reference mode — a static site, or a server-rendered app in another language
 
