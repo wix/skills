@@ -22,7 +22,7 @@ assertions:
       3. Keep checking the same flow while the research runs. If it moves to
          CONTENT_PLAN or SUCCESS on its own, steps 3 and 4 are satisfied
          without a release.
-      4. Only if the flow stays at KEYWORD_RESEARCH for 10 checks in a row: GET
+      4. Only if the flow stays at KEYWORD_RESEARCH for 20 sequential checks: GET
          /content-plan-keyword-research-items, and POST /create-content-plan
          once only after it returns items with the flow's keywordResearchId.
          A 404 "No Keyword research" reply there means not ready yet. A 428
@@ -51,8 +51,9 @@ assertions:
       completion without reading candidates.
       Penalize: one API execution that loops, sleeps, or waits for a status
       inside the call instead of separate checks; guessed shapes; repeated
-      triggers; non-2xx errors; checking the keyword research items before
-      10 status checks in a row at KEYWORD_RESEARCH; more than one 404 reply
+      triggers; non-2xx errors; several status checks sent together instead
+      of one at a time; checking the keyword research items before 20
+      sequential status checks at KEYWORD_RESEARCH; more than one 404 reply
       from that check; and documentation lookups after an expected 404.
       Identify likely skill, MCP, API, or provisioning causes for each friction.
       Return ONLY {"score":<0-10>,"reason":"<frictions and causes, or clean path>"}.

@@ -162,13 +162,15 @@ Check every few seconds using separate calls. Completion time varies.
 
 ### 3. Wait for the keyword research
 
-Keep checking the flow status (the step 2 request). Wait 15 seconds between
-checks if your client can wait; count the checks either way. When the
-research finishes, generation usually starts on its own:
+Keep checking the flow status (the step 2 request), one request at a time:
+wait for each reply before the next check, and wait 15 seconds between checks
+if your client can. Requests sent together count as one check. Research
+usually takes 15 to 80 seconds; when it finishes, generation usually starts
+on its own:
 
 - `CONTENT_PLAN`: skip Create Content Plan; continue with step 5.
 - `SUCCESS`: go to step 6.
-- Still `KEYWORD_RESEARCH` after 10 checks in a row, or the user says it has
+- Still `KEYWORD_RESEARCH` after 20 checks in a row, or the user says it has
   been there for two minutes or more: check the research once:
 
 ```
@@ -187,12 +189,12 @@ It takes no parameters and returns the site's most recent research. Keep only
 
 | Response | Next action |
 | --- | --- |
-| `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Make 5 more flow status checks before you check the research again. |
-| Other `keywordResearchId` than the flow's | Earlier research. Make 5 more flow status checks before you check the research again. |
+| `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Make 10 more flow status checks before you check the research again. |
+| Other `keywordResearchId` than the flow's | Earlier research. Make 10 more flow status checks before you check the research again. |
 | Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
 | Any other error | Report it and stop. |
 
-If the flow is still at `KEYWORD_RESEARCH` after 40 checks, report the flow ID
+If the flow is still at `KEYWORD_RESEARCH` after 60 checks, report the flow ID
 as incomplete.
 Calling Create Content Plan before the research is ready moves the flow to
 `FAIL`; that flow cannot be resumed.
@@ -232,6 +234,9 @@ HTTP `428` with `FLOW_NOT_READY_FOR_CONTENT_PLAN` means the flow is no longer
 at `KEYWORD_RESEARCH`, for example because generation already started. Do not
 call Create Content Plan again; check the same flow's status and follow the
 status table (`CONTENT_PLAN`: continue with step 5; `SUCCESS`: go to step 6).
+This differs from calling too early: a call while the flow is still at
+`KEYWORD_RESEARCH` but its research is not ready is accepted, then the flow
+moves to `FAIL` and cannot be resumed.
 
 On success, retain the returned `contentPlanFlowId` for the next status check
 and candidate read. This response is not the list of briefs: continue to steps
