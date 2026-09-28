@@ -8,11 +8,28 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-data-items.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/get-data-item.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
 import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { DEFAULT_LIMIT, patchModifications, queryBody, restHasNext, restWriteData, toItem, toPage, type Raw } from "./items-core.js";
+import { imgRatio, imgSrc } from "./media.js";
+import {
+  DEFAULT_LIMIT,
+  DISTINCT_LIMIT,
+  countBody,
+  distinctBody,
+  patchModifications,
+  queryBody,
+  referencesBody,
+  restHasNext,
+  restWriteData,
+  toItem,
+  toPage,
+  toValues,
+  type Media,
+  type Raw,
+} from "./items-core.js";
 import type { CmsFilter, CmsItem, CmsPage, CmsQuery } from "./types.js";
 
+const media: Media = { imgSrc, imgRatio };
 const notFound = (e: unknown): boolean => e instanceof WixApiError && e.status === 404;
 
 /**
@@ -25,11 +42,13 @@ export async function queryItems(collectionId: string, query: CmsQuery = {}): Pr
   const { limit = DEFAULT_LIMIT, skip = 0 } = query;
   const res = await wixRequest<Raw>("/wix-data/v2/items/query", { body: queryBody(collectionId, query) });
   const items = ((res?.dataItems ?? []) as Raw[]).map((d) => d.data ?? {});
-  return toPage(items, restHasNext(res?.pagingMetadata, skip, limit), res?.pagingMetadata?.total, imgSrc);
+  return toPage(items, restHasNext(res?.pagingMetadata, skip, limit), res?.pagingMetadata?.total, media);
 }
 
 /**
- * Fetch one item by `_id`. Null when not found (404 WDE0073).
+ * Fetch one item by `_id`. Null when not found (404 WDE0073). `includeReferences.field` is the
+ * request's key per the installed typings — confirm once on a live site that get honours it; if the
+ * referenced fields come back as ids, route through getItemBy("_id", …).
  * GET /wix-data/v2/items/{id}?dataCollectionId=…&includeReferences.field=…  → { dataItem: { data } }
  */
 export async function getItemById(
@@ -42,7 +61,7 @@ export async function getItemById(
       method: "GET",
       query: { dataCollectionId: collectionId, ...(include.length ? { "includeReferences.field": include } : {}) },
     });
-    return res?.dataItem?.data ? toItem(res.dataItem.data, imgSrc) : null;
+    return res?.dataItem?.data ? toItem(res.dataItem.data, media) : null;
   } catch (e) {
     if (notFound(e)) return null;
     throw e;
@@ -63,21 +82,46 @@ export async function getItemBy(
   return page.items[0] ?? null;
 }
 
-/** Count items matching the filters — empty-state logic and result counts (returnTotalCount). */
+/**
+ * Count items matching the filters — no items transferred.
+ * POST /wix-data/v2/items/count  { dataCollectionId, filter }  → { totalCount }
+ */
 export async function countItems(collectionId: string, filters: CmsFilter[] = []): Promise<number> {
-  const page = await queryItems(collectionId, { filters, limit: 1, withTotal: true });
-  return page.total ?? page.items.length;
+  const res = await wixRequest<Raw>("/wix-data/v2/items/count", { body: countBody(collectionId, filters) });
+  return typeof res?.totalCount === "number" ? res.totalCount : 0;
+}
+
+/**
+ * The distinct values a field holds across the collection (optionally within `filters`) — filter
+ * chips and selects from live data. Values normalized like item values; a reference field yields ids.
+ * POST /wix-data/v2/items/query-distinct-values  { dataCollectionId, fieldName, filter, paging: { limit, offset } }  → { distinctValues: [...] }
+ */
+export async function distinctValues(
+  collectionId: string,
+  field: string,
+  { filters = [], limit = DISTINCT_LIMIT }: { filters?: CmsFilter[]; limit?: number } = {},
+): Promise<unknown[]> {
+  const res = await wixRequest<Raw>("/wix-data/v2/items/query-distinct-values", { body: distinctBody(collectionId, field, filters, limit) });
+  return toValues((res?.distinctValues ?? []) as unknown[], media);
 }
 
 /**
  * Insert an item (visitor form / member submission). Never set `_owner` — Wix stamps it from the
  * caller's identity. Date fields must be Date objects (the core spells them `{ $date }` on the wire;
- * an ISO string is stored as text and breaks date queries).
+ * an ISO string is stored as text and breaks date queries). A MULTI_REFERENCE value inside `data` is
+ * DROPPED by the endpoint (200, no error) — pass those as `link: { field: [referencedIds] }` and they
+ * are linked right after the insert. The returned item predates the links.
  * POST /wix-data/v2/items  { dataCollectionId, dataItem: { data } }  → { dataItem: { data } }
  */
-export async function insertItem(collectionId: string, data: Record<string, unknown>): Promise<CmsItem> {
+export async function insertItem(
+  collectionId: string,
+  data: Record<string, unknown>,
+  { link = {} }: { link?: Record<string, string[]> } = {},
+): Promise<CmsItem> {
   const res = await wixRequest<Raw>("/wix-data/v2/items", { body: { dataCollectionId: collectionId, dataItem: { data: restWriteData(data) } } });
-  return toItem(res?.dataItem?.data ?? {}, imgSrc);
+  const item = toItem(res?.dataItem?.data ?? {}, media);
+  for (const [field, refIds] of Object.entries(link)) await linkItems(collectionId, field, item._id, refIds);
+  return item;
 }
 
 /**
@@ -91,7 +135,7 @@ export async function updateItem(collectionId: string, item: CmsItem): Promise<C
     method: "PUT",
     body: { dataCollectionId: collectionId, dataItem: { id: item._id, data: restWriteData(item) } },
   });
-  return toItem(res?.dataItem?.data ?? {}, imgSrc);
+  return toItem(res?.dataItem?.data ?? {}, media);
 }
 
 /**
@@ -107,7 +151,7 @@ export async function patchItemFields(
     method: "PATCH",
     body: { dataCollectionId: collectionId, patch: { dataItemId: itemId, fieldModifications: patchModifications(fields) } },
   });
-  return toItem(res?.dataItem?.data ?? {}, imgSrc);
+  return toItem(res?.dataItem?.data ?? {}, media);
 }
 
 /**
@@ -117,9 +161,29 @@ export async function patchItemFields(
 export async function removeItem(collectionId: string, itemId: string): Promise<CmsItem | null> {
   try {
     const res = await wixRequest<Raw>(`/wix-data/v2/items/${encodeURIComponent(itemId)}`, { method: "DELETE", query: { dataCollectionId: collectionId } });
-    return res?.dataItem?.data ? toItem(res.dataItem.data, imgSrc) : null;
+    return res?.dataItem?.data ? toItem(res.dataItem.data, media) : null;
   } catch (e) {
     if (notFound(e)) return null;
     throw e;
   }
+}
+
+/**
+ * Add references to a MULTI_REFERENCE field of `itemId` — the only way a multi-reference is set
+ * (insert/update drop the value silently). Existing references stay; needs the collection's update
+ * permission. A no-op for an empty list.
+ * POST /wix-data/v2/bulk/items/insert-references  { dataCollectionId, dataItemReferences: [{ referringItemFieldName, referringItemId, referencedItemId }] }
+ */
+export async function linkItems(collectionId: string, field: string, itemId: string, refIds: string[]): Promise<void> {
+  if (!refIds.length) return;
+  await wixRequest<Raw>("/wix-data/v2/bulk/items/insert-references", { body: referencesBody(collectionId, field, itemId, refIds) });
+}
+
+/**
+ * Remove references from a MULTI_REFERENCE field of `itemId`. Other references stay. A no-op for an empty list.
+ * POST /wix-data/v2/bulk/items/remove-references  { dataCollectionId, dataItemReferences: [...] }  (same body as the insert)
+ */
+export async function unlinkItems(collectionId: string, field: string, itemId: string, refIds: string[]): Promise<void> {
+  if (!refIds.length) return;
+  await wixRequest<Raw>("/wix-data/v2/bulk/items/remove-references", { body: referencesBody(collectionId, field, itemId, refIds) });
 }

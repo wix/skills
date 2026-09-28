@@ -54,6 +54,24 @@ export function imgAttrs(value: unknown, sizes: string, ratio = 1): Record<strin
   return { src, srcset: imgSrcSet(value, undefined, ratio), sizes, loading: "lazy", decoding: "async" };
 }
 
+/**
+ * Height/width of a Wix image when the value carries its size: a raw
+ * `wix:image://…#originWidth=W&originHeight=H` id (the natural size) or a resolved `/v1/fill/w_W,h_H/`
+ * URL (the size it was scaled to). null when neither is present. Pass it as `ratio` to keep a
+ * srcset at the image's own aspect instead of the square default:
+ *   imgAttrs(item.photo, "33vw", imgRatio(item.photo) ?? 1)
+ */
+export function imgRatio(value: unknown): number | null {
+  const v = rawOf(value);
+  if (!v) return null;
+  const size = v.startsWith("wix:image://")
+    ? [v.match(/[#&]originWidth=(\d+)/)?.[1], v.match(/[#&]originHeight=(\d+)/)?.[1]]
+    : (v.match(/\/v1\/fill\/w_(\d+),h_(\d+)/)?.slice(1) ?? []);
+  const w = Number(size[0]);
+  const h = Number(size[1]);
+  return w > 0 && h > 0 ? h / w : null;
+}
+
 /** The media identity before scaling — de-duplicate galleries on this, never on a resolved URL. */
 export function mediaKey(value: unknown): string {
   const v = rawOf(value);

@@ -55,8 +55,9 @@ every content item an image on an IMAGE field (a content site without images loo
 - `id` — the collection id the frontend binds to, verbatim (no namespace; Wix doesn't rename
   it). Item keys must match the field `key`s exactly — the script fails loud on a key the
   schema doesn't have (the API would silently drop it).
-- Field `type` — `TEXT`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `URL`, `EMAIL`, `IMAGE`,
-  `RICH_TEXT` (an HTML string, stored verbatim), `REFERENCE`, `MULTI_REFERENCE`.
+- Field `type` — `TEXT`, `NUMBER`, `BOOLEAN`, `DATE`, `DATETIME`, `TIME` (a `"hh:mm:ss.SSS"`
+  string, stored as text), `URL`, `EMAIL`, `IMAGE`, `RICH_TEXT` (an HTML string, stored verbatim),
+  `ARRAY_STRING` (tags: an array of strings), `REFERENCE`, `MULTI_REFERENCE`.
 - `IMAGE` values — the default is `{ "prompt": "..." }` (AI-generated, ~1 Wix AI credit per
   image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
   always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use
@@ -64,11 +65,14 @@ every content item an image on an IMAGE field (a content site without images loo
   (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or guessed URL. Images
   resolve in parallel and never block the seed; a failed image leaves that field unset (the
   item stays text-only).
-- `DATE`/`DATETIME` values are ISO strings — the script wraps them as `{ "$date": iso }`.
+- `DATE`/`DATETIME` values are ISO strings — the script wraps both as `{ "$date": iso }` (the
+  form the app's reads and date filters are proven against; a `"YYYY-MM-DD"` string would be
+  stored as text). A `TIME` value stays a string.
 - References: **order collections so targets come first.** A `REFERENCE` value is the target
   item's index in its collection's `items` array; `MULTI_REFERENCE` is an array of indices
   (set at insert it would be silently dropped — the script wires these via
-  `POST /wix-data/v2/bulk/items/insert-references`).
+  `POST /wix-data/v2/bulk/items/insert-references`; at runtime the app does the same through
+  `linkItems` / `unlinkItems` in `wix/cms/items.ts`).
 - `permissions` — omit for the **public-read** default
   (`read: ANYONE`, writes `ADMIN`). Other shapes (per action: `ANYONE` › `SITE_MEMBER` ›
   `SITE_MEMBER_AUTHOR` › `ADMIN`):

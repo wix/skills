@@ -21,12 +21,13 @@ below): the listing and item pages with their islands, plus your home page.
 | file | what it is |
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
-| `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(item.photo, "33vw")} alt={item.title} />`; `{}` for an absent image — render your placeholder then |
-| `wix/cms/types.ts` | the DTOs (`CmsItem`, `CmsFilter`, `CmsSort`, `CmsQuery`, `CmsPage`) — contracts below |
-| `wix/cms/items.ts` | `queryItems`, `getItemById`, `getItemBy`, `countItems`, `insertItem`, `updateItem`, `patchItemFields`, `removeItem` — the transport; the rules and DTO mappers are in `items-core.ts` beside it (shared with the REST layer) |
+| `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes, ratio)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy). The DTO URL carries the image's natural aspect and `imgRatio(url)` reads it back: `<img {...imgAttrs(item.photo, "33vw", imgRatio(item.photo) ?? 1)} alt={item.title} />` keeps the srcset at that aspect; pass a number instead (`0.75` for 4:3) to crop every card alike. `{}` for an absent image — render your placeholder then |
+| `wix/cms/types.ts` | the DTOs (`CmsItem`, `CmsFilter`, `CmsSort`, `CmsQuery`, `CmsPage`, `CmsCollectionSchema`) — contracts below |
+| `wix/cms/items.ts` | `queryItems`, `getItemById`, `getItemBy`, `countItems`, `distinctValues`, `insertItem`, `updateItem`, `patchItemFields`, `removeItem`, `linkItems`, `unlinkItems` — the transport; the rules and DTO mappers are in `items-core.ts` beside it (shared with the REST layer) |
 | `wix/cms/items-core.ts` | the normalization rules, the filter guard, the wire spelling of a query, and `formatDate(iso)` — a DATE field as copy ("" for absent/invalid, never "Invalid Date") |
+| `wix/cms/collections.ts` | `getCollectionSchema(collectionId)` — field types, reference targets, permissions at runtime; `collections-core.ts` beside it holds the mapper and `fieldsOfType(schema, type)` |
 | `wix/cms/collection-store.ts` · `item-store.ts` | the list and item state machines, framework-free (`createCollectionStore()`, `createItemStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
-| `hooks/cms/useCollection.ts` | React binding of `collection-store.ts`: list state + skip paging — contract below |
+| `hooks/cms/useCollection.ts` | React binding of `collection-store.ts`: list state, append or page-N paging, refetch behind the items on screen — contract below |
 | `hooks/cms/useItem.ts` | React binding of `item-store.ts`: one item by `_id` or slug field — contract below |
 | `styles/global.css` | the design system: Tailwind v4 + the `@theme` token block (shared across verticals) |
 
@@ -67,7 +68,9 @@ and dates) and design for this content, not for a stereotype of the business.
   under truthful headings; not a repeat of a listing page.
 - **Listing:** a real card — image, title, a secondary field — in the first screen; each item a
   link to its item page (`/<collection>/<slug>`); loading, empty, and error states that look
-  different; "load more" when `hasNext`.
+  different; "load more" when `hasNext` (or a numbered pager when the brief asks for pages). A
+  filter or sort change keeps the cards on screen and dims them (`fetching`) — skeletons only
+  before the first answer.
 - **Item page:** title, image, the date formatted, the body as HTML, related items only when a
   reference field carries them; a slug that resolves to nothing shows only the not-found state.
 - **Copy:** nothing the owner didn't supply — no invented fields, counts, or authors; no Wix IDs or
@@ -81,32 +84,49 @@ brief wants more.
 ```ts
 // CmsItem — display-ready, fields FLAT on the item (never item.data.*):
 // { _id, _createdDate?, _updatedDate?, _owner?, ...fields }
-//   TEXT/URL/EMAIL → string · NUMBER → number · BOOLEAN → boolean
+//   TEXT/URL/EMAIL → string · NUMBER → number · BOOLEAN → boolean · ARRAY_STRING (tags) → string[]
 //   DATE/DATETIME → ISO string (render: formatDate(item.publishDate) from wix/cms/items-core)
-//   IMAGE → resolved https URL (<img {...imgAttrs(item.photo, "33vw")} />; {} when absent → your placeholder)
+//   TIME → "hh:mm:ss.SSS" string (text on the wire — write it as a string too)
+//   IMAGE → resolved https URL at the image's own aspect
+//     (<img {...imgAttrs(item.photo, "33vw", imgRatio(item.photo) ?? 1)} />; {} when absent → your placeholder)
 //   RICH_TEXT → the stored HTML string (render via set:html on a wrapper you control)
 //   REFERENCE/MULTI_REFERENCE → id(s); full CmsItem(s) when queried with include
+//   (RICH_CONTENT, VIDEO, DOCUMENT pass through unresolved — seed RICH_TEXT and IMAGE instead)
 
 // queryItems(collectionId, { filters?, sort?, limit?, skip?, include?, withTotal? })
 //   → { items: CmsItem[], hasNext, total }        // filters: [{ field, op, value }]
-//     ops: eq ne gt ge lt le contains startsWith hasSome hasAll isEmpty isNotEmpty
+//     ops: eq ne gt ge lt le contains startsWith endsWith in hasSome hasAll between isEmpty isNotEmpty
+//     in: value is an array (equal to any) · between: value is [start, end], end EXCLUSIVE
 //     DATE comparands must be Date objects (an ISO string matches nothing)
-// getItemBy(collectionId, field, value) → CmsItem | null      // slug routing
-// getItemById(collectionId, id) → CmsItem | null
+// getItemBy(collectionId, field, value, { include? }) → CmsItem | null      // slug routing
+// getItemById(collectionId, id, { include? }) → CmsItem | null
 // countItems(collectionId, filters?) → number
+// distinctValues(collectionId, field, { filters?, limit? }) → unknown[]   // filter chips from live data, not from the page in hand
+// getCollectionSchema(collectionId)                // from wix/cms/collections — when plan.json isn't at hand
+//   → { id, displayName, fields: [{ key, displayName, type, systemField, required, referencedCollectionId? }],
+//       permissions: { read, insert, update, remove } } | null   // null = missing or unreadable by the caller
 
-// useCollection(collectionId, { filters?, sort?, limit?, include?, initialItems?, initialHasNext? })
-// → { items: CmsItem[]|null /* null = loading → skeletons */,
-//     hasNext, loadMore(), loadingMore, error }   // changing filters/sort refetches
+// useCollection(collectionId, { filters?, sort?, limit?, include?, withTotal?, initialItems?, initialHasNext?, initialTotal? })
+// → { items: CmsItem[]|null /* null ONLY before the first answer → skeletons */,
+//     fetching /* a new query, page, or refresh runs behind the items on screen → dim them, keep them */,
+//     hasNext, loadMore(), loadingMore,           // append the next page, or
+//     hasPrev, page, goToPage(n),                 // replace it with page n (0-based)
+//     total, pageCount /* withTotal only */,
+//     refresh() /* re-read what is on screen — after a write */,
+//     error }                                     // changing filters/sort refetches page 0
 
-// useItem(collectionId, { id } | { by: { field, value } }, { initialItem? })
+// useItem(collectionId, { id } | { by: { field, value } }, { initialItem?, include? })
 // → { item: CmsItem|null, notFound, error }       // notFound → your 404/miss state
 
 // Writes (only when the collection's permissions allow the caller):
-// insertItem(collectionId, data)                  // dates as Date objects; never set _owner
+// insertItem(collectionId, data, { link? })       // dates as Date objects; never set _owner
+//   a MULTI_REFERENCE is never set through `data` (the endpoint drops it, 200) — create, then link:
+//   insertItem("recipes", data, { link: { categories: [categoryId] } })   // or linkItems() afterwards
+// linkItems(collectionId, field, itemId, ids) · unlinkItems(collectionId, field, itemId, ids)
 // patchItemFields(collectionId, id, fields)       // the safe partial change
 // updateItem(collectionId, item)                  // REPLACES the whole item — see hard rules
 // removeItem(collectionId, id)
+// After any write the listing on screen is stale — call its refresh() (no skeletons, same page).
 ```
 
 ### The pages and islands you create — skeletons
@@ -151,7 +171,7 @@ try {
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { getItemBy } from "../../wix/cms/items";
 import { formatDate } from "../../wix/cms/items-core";
-import { imgAttrs } from "../../wix/media";
+import { imgAttrs, imgRatio } from "../../wix/media";
 let item = null;
 try {
   item = await getItemBy("recipes", "slug", Astro.params.slug!, { include: ["categories"] });
@@ -162,9 +182,10 @@ try {
 if (!item) return new Response(null, { status: 404 });
 ---
 <SiteLayout title={String(item.title)} description={String(item.summary ?? "")}>
-  <!-- your detail layout: title; the image through imgAttrs (a placeholder when it returns {});
-       formatDate(item.publishDate); the RICH_TEXT body with set:html on a wrapper you control;
-       included reference items by name — never an id as content -->
+  <!-- your detail layout: title; the image at its own aspect —
+       <img {...imgAttrs(item.photo, "(min-width: 1024px) 60vw, 100vw", imgRatio(item.photo) ?? 1)} alt={String(item.title)} />
+       (a placeholder when imgAttrs returns {}); formatDate(item.publishDate); the RICH_TEXT body
+       with set:html on a wrapper you control; included reference items by name — never an id as content -->
 </SiteLayout>
 ```
 
@@ -188,11 +209,15 @@ export default function CollectionView(props: {
   // …you implement the render:
   //   • error → a short inline message
   //   • items === null → skeleton cards; [] → your honest empty state (no mock items)
-  //   • else YOUR grid of YOUR cards: image via <img {...imgAttrs(item.photo, "(min-width: 768px) 33vw, 100vw")} alt={String(item.title)} />
-  //     — src, srcSet, sizes and lazy loading in one spread; {} when the field is absent → your
-  //     placeholder; title WRAPS (`min-w-0`, `break-words`), no `truncate`; the date as
-  //     formatDate(item.publishDate); the card links to `/${collectionId}/${item.slug}`
-  //   • hasNext → your "load more" control calling loadMore() (disabled while loadingMore)
+  //   • fetching → the SAME cards, dimmed (`opacity-60`, `aria-busy`) — never skeletons again
+  //   • else YOUR grid of YOUR cards: image via <img {...imgAttrs(item.photo, "(min-width: 768px) 33vw, 100vw", 0.75)} alt={String(item.title)} />
+  //     — src, srcSet, sizes and lazy loading in one spread; a fixed ratio (4:3 here) crops every
+  //     card alike, `imgRatio(item.photo) ?? 1` keeps each photo's own aspect; {} when the field is
+  //     absent → your placeholder; title WRAPS (`min-w-0`, `break-words`), no `truncate`; the date
+  //     as formatDate(item.publishDate); the card links to `/${collectionId}/${item.slug}`
+  //   • hasNext → your "load more" control calling loadMore() (disabled while loadingMore) — or a
+  //     numbered pager: hasPrev/hasNext → goToPage(page - 1) / goToPage(page + 1), "page + 1 of
+  //     pageCount" when the hook was given withTotal (a filter change goes back to page 0)
 }
 ```
 
@@ -226,10 +251,10 @@ components in your framework to the contracts on this page:
 
 - bind the stores with your framework's external-store primitive (Vue: `shallowRef` updated in
   `subscribe`; Svelte: `readable(store.getState(), (set) => store.subscribe(() => set(store.getState())))`;
-  Solid: a signal set in `subscribe`). `createCollectionStore({ collectionId, filters?, sort?, limit?, include?, initialItems? })`
+  Solid: a signal set in `subscribe`). `createCollectionStore({ collectionId, filters?, sort?, limit?, include?, withTotal?, initialItems? })`
   per listing (`start()` when mounted, `stop()` when unmounted, `setQuery()` when filters change,
-  `loadMore()`), `createItemStore({ collectionId, ref: { id } | { by }, initialItem? })` per item
-  surface. State in, actions out — exactly the hooks' contracts above.
+  `loadMore()` or `goToPage(n)`, `refresh()` after a write), `createItemStore({ collectionId, ref: { id } | { by }, initialItem? })`
+  per item surface. State in, actions out — exactly the hooks' contracts above.
 
 Routes `/<collection>`, `/<collection>/:slug` (via `getItemBy`, null → your 404); dev server on
 4321; a static build goes through `npx @wix/cli@latest release` with `site.outputDirectory`
@@ -242,11 +267,13 @@ pointing at the build folder, an SSR build is hosted by you. Page tags from the 
 styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
 (config, plan, seed output) is never the upload. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `queryItems`, `getItemBy`, `getItemById`,
-`countItems` (and the writes) from `./js/wix/items.js`; `formatDate` from `./js/wix/items-core.js`;
-`imgAttrs` from `./js/wix/media.js`. The state machines ship too: `createCollectionStore` from
-`./js/wix/collection-store.js` (the listing — `start()` once the page is up, `loadMore()`,
-`setQuery()`), `createItemStore` from `./js/wix/item-store.js` (the item page — `notFound` is your
-404 state). No components ship — you write the rendering in plain JS: one render function per
+`countItems`, `distinctValues` (and the writes, `linkItems`/`unlinkItems` included) from
+`./js/wix/items.js`; `getCollectionSchema` from `./js/wix/collections.js`; `formatDate` from
+`./js/wix/items-core.js`; `imgAttrs` and `imgRatio` from `./js/wix/media.js`. The state machines
+ship too: `createCollectionStore` from `./js/wix/collection-store.js` (the listing — `start()` once
+the page is up, `loadMore()` or `goToPage(n)`, `setQuery()`, `refresh()` after a write; `fetching`
+dims the cards on screen), `createItemStore` from `./js/wix/item-store.js` (the item page —
+`notFound` is your 404 state). No components ship — you write the rendering in plain JS: one render function per
 surface that reads `getState()`, called from `subscribe`, with the surface's controls calling the
 store's actions. Pages are `<collection>.html` and `item.html?collection=…&slug=…` (Wix static
 hosting serves files, not directories — name the file and link to it). Set `document.title` and
@@ -261,7 +288,8 @@ Run `deploy.mjs cms --stack static` in the project folder anyway: `js/wix/` is b
 browser-side code and the readable spec. Then split by where the call runs. **Reads on the
 server:** port `js/wix/items.ts` and `items-core.ts` to your language — `queryItems`, `getItemBy`,
 `getItemById`, `countItems` returning the same DTO shapes as dicts (the core's `toValue` rules:
-`{ "$date": iso }` → ISO string, `wix:image://` → the https URL form in `media.ts`), one anonymous
+`{ "$date": iso }` → ISO string, `wix:image://` → the https URL form in `media.ts`, 1200 wide at
+the aspect the id's `#originWidth/#originHeight` fragment gives), one anonymous
 visitor token per process for these public reads (mint and refresh per `client.ts`) — and render
 the listing and item pages in your templates to the contracts above, so titles are in the HTML;
 page tags from the item's fields. **Visitor writes in the browser** (a collection the seed opened
@@ -322,13 +350,29 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 - **RICH_TEXT is HTML, not plain text** — render it with `set:html` (Astro) /
   `dangerouslySetInnerHTML` (React) on a wrapper; never interpolate it as text.
 - **Dates through `formatDate`**, images through `imgAttrs` — the DTO's ISO string and https URL
-  are data, not copy.
+  are data, not copy. The URL is at the photo's own aspect; `imgAttrs` defaults to a square
+  srcset, so pass `imgRatio(url) ?? 1` (natural) or a fixed ratio (uniform cards) — never leave a
+  4:3 photo to be cropped square by default.
 - Reference fields hold ids unless the query passed `include` — don't render an id as
-  content.
+  content. `getItemById`'s `include` rides the get request's `includeReferences` key (the
+  installed typings' spelling); confirm once on a live site that it comes back with full items —
+  if it returns ids, use `getItemBy(collectionId, "_id", id, { include })`, the query path Wix's
+  own components use for that reason.
+- **A MULTI_REFERENCE is never written through `data`** — insert and update drop the value
+  silently (200, no error). Create the item, then `linkItems` (or `insertItem(…, { link })`);
+  `unlinkItems` removes. A single REFERENCE is set at insert as the target item's `_id`.
+- **After a write, `refresh()` the listing** — the store can't know, and Wix Data is eventually
+  consistent (a read right after a write may not show it yet); `refresh()` re-reads what is on
+  screen without skeletons. Never splice the written item into the list by hand.
 - Guard absent IMAGE fields — `imgAttrs` returns `{}`; render a fallback, never an empty/broken `<img>`.
-- **Page at the source, not on a loaded list.** `hasNext`/`loadMore()` fetch the next page from
-  Wix; never raise the page limit instead of paging, never filter or sort client-side a page you
-  already hold — pass `filters`/`sort` and let Wix apply them across the collection.
+- **Page at the source, not on a loaded list.** `hasNext`/`loadMore()` append the next page from
+  Wix, `goToPage(n)` replaces it; never raise the page limit instead of paging, never filter or
+  sort client-side a page you already hold — pass `filters`/`sort` and let Wix apply them across
+  the collection; filter chips come from `distinctValues`, not from the page in hand. `between` is
+  `[start, end)` — a date range's end is the first excluded day.
+- **CMS as a product catalog is the storefront's job** — selling CMS items through a checkout
+  needs the ecom path the storefront vertical owns; deploy storefront for that, don't rebuild it
+  on a collection.
 - **Call every hook before any conditional return.** An island that returns early for
   `notFound`/loading above its hooks changes hook order between renders and React throws.
 - Where the shipped code deploys with Tailwind (Astro, React): theme via the `@theme` tokens, your
