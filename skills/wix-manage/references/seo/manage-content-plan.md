@@ -1,6 +1,6 @@
 ---
 name: "Generate and Read a Wix Site's Content Plan"
-description: "Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow stuck at KEYWORD_RESEARCH while polling GetContentPlanFlow. Use this recipe for both generation and stalled-flow questions: it explains the intentional pause, the Create Content Plan release request, missing flow IDs, and the exact public API paths and response fields."
+description: "Generate an SEO content plan and read its blog post topics, or troubleshoot an existing content plan flow that stays at KEYWORD_RESEARCH. Use this recipe for both generation and stalled-flow questions: it explains what KEYWORD_RESEARCH means, how to wait for the keyword research, when the Create Content Plan release request is needed, missing flow IDs, and the exact public API paths and response fields."
 ---
 
 # Generate and Read a Wix Site's Content Plan
@@ -28,9 +28,11 @@ discussed earlier in the conversation. To finish it or read its results:
 
 1. Find its actual `contentPlanFlowId` in the conversation or a previous
    trigger/status response. A site ID is not a flow ID, even though both are
-   UUIDs. If the ID is missing, explain the intentional pause when the user
-   reports `KEYWORD_RESEARCH`, ask for the flow ID, and end the turn without an
-   API call. Never submit a placeholder. Do not offer a new flow or a different
+   UUIDs. If the ID is missing and the user reports `KEYWORD_RESEARCH`,
+   explain that it means keyword research is running or done, that the flow
+   usually continues on its own, and that it needs a release only if it stays
+   there after the research is ready. Ask for the flow ID and end the turn
+   without an API call. Never submit a placeholder. Do not offer a new flow or a different
    site as an alternative to recovering the ID.
 2. Read that flow with
    `GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
@@ -41,7 +43,7 @@ discussed earlier in the conversation. To finish it or read its results:
    [Wait for the keyword research](#3-wait-for-the-keyword-research) with this
    flow ID; it says when to call [Create Content Plan](#4-release-the-flow).
    For an earlier in-progress status, continue checking this same flow until
-   it reaches the pause. If already at `CONTENT_PLAN`, continue to
+   it reaches `KEYWORD_RESEARCH`. If already at `CONTENT_PLAN`, continue to
    [Check until SUCCESS](#5-check-the-status-until-success) without calling Create Content
    Plan. For a terminal or unmet-requirement
    status, follow the status table and stop.

@@ -37,9 +37,11 @@ assertions:
       contentPlanFlowId before running any check or release, and must not
       invent, guess, or use a placeholder ID.
 
-      Score 7+ if the agent:
+      Score 7+ only if the agent did ALL of these:
       - asked the user for the actual contentPlanFlowId,
-      - said KEYWORD_RESEARCH is an intentional pause, not a bug or stall,
+      - said KEYWORD_RESEARCH is not a bug: it means keyword research is
+        running or done, and the flow needs a release only if it stays there
+        after the research is ready,
       - told the user to confirm the keyword research items exist for the
         flow's keywordResearchId before releasing,
       - told the user to call Create Content Plan once to release the flow,
@@ -50,6 +52,8 @@ assertions:
       Plan is on a different service than the one being polled.
 
       Fail (score below 5) if the agent:
+      - called KEYWORD_RESEARCH just an intentional pause and said to
+        release it, without the keyword research readiness check,
       - invented, guessed, or used a placeholder flow ID, or ran the check
         or release without the user's actual flow ID,
       - did not ask for the flow ID,
