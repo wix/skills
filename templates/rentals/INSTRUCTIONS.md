@@ -11,8 +11,9 @@ rental logic; you never skip designing.
 
 Wix Rentals has no API of its own: a rental is a Wix Bookings service with five field values (the
 Rentals app id, a resource type and its resources, the Rentals form, a duration range). The shipped
-code knows this so you don't have to; the bookings vertical is NOT needed alongside this one, and a
-site that runs both keeps them apart by the app id.
+code knows this so you don't have to; the bookings vertical is NOT needed alongside this one (the
+seed installs the Wix Bookings app itself, as the availability engine), and a site that runs both
+keeps them apart by the app id.
 
 ## The file map (deployed into `src/`)
 

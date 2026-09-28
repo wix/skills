@@ -370,7 +370,8 @@ export function bookingRequest(rental: Pick<RentalDetail, "id" | "paymentOption"
         startDate: start.startLocal,
         endDate: endLocal,
         timezone: timeZone,
-        resource: { [idKey]: start.resource.id, name: start.resource.name },
+        // availableResources carries ids only (no names, verified live) — send the name only when known
+        resource: { [idKey]: start.resource.id, ...(start.resource.name ? { name: start.resource.name } : {}) },
         location: start.location
           ? { ...(start.location.id ? { [idKey]: start.location.id } : {}), name: start.location.name, locationType: bookingLocationType(start.location.type) }
           : { locationType: "OWNER_BUSINESS" },
