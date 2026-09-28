@@ -10,8 +10,7 @@
 //                         only the deploy target.
 export const WIX_CLIENT_ID: string | null = null;
 
-// The Members vertical uses an explicit OAuthStrategy client only to drive the
-// custom credential form. In managed Astro it writes the resulting member
-// tokens into Astro's wixSession cookie, so subsequent ambient SDK calls use
-// that same member identity.
+// Kept for projects deployed before the Members vertical moved onto the shared seam; the shipped
+// members code no longer reads it (ambient Astro uses the built-in /api/auth routes, manual mode
+// uses the shared client above). deploy.mjs still fills it so older code keeps compiling.
 export const WIX_MEMBERS_CLIENT_ID: string | null = null;
