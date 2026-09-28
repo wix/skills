@@ -191,10 +191,7 @@ Decide from each response:
 | Same `keywordResearchId`, at least one item | Ready. Check the flow status once more (step 2 request). |
 | Any other error | Report it and stop; do not keep waiting. |
 
-If a status check while you wait shows `CONTENT_PLAN`, continue with step 5; if
-it shows `SUCCESS`, go to step 6.
-
-Decide from that status check:
+Only after the Ready row, check the flow status once and decide:
 
 - `KEYWORD_RESEARCH`: call Create Content Plan once
   (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan` with
@@ -325,11 +322,12 @@ would help assess or refine them, without modifying the site's settings.
 
 ## Editing keywords (optional)
 
-After [the keyword research is ready](#3-wait-for-the-keyword-research), before
-or after step 4, read the keywords. Before the research finishes, this request
-returns a not found error or an earlier research's `keywordResearchId`; handle
-those responses as in step 3 and edit only items from the flow's
-`keywordResearchId`:
+Wait until [the keyword research is ready](#3-wait-for-the-keyword-research),
+then, before or after step 4, read the keywords. Edit only items from the
+flow's `keywordResearchId`.
+
+A read before the research finishes returns a not found error or an earlier
+research's `keywordResearchId`; handle it as in step 3.
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
