@@ -1,4 +1,4 @@
-// REFERENCE detail surface: price/billing block + perks + terms + the shipped SubscribeButton, on
+// REFERENCE detail surface: price/billing/duration block + fees + perks + terms + the shipped SubscribeButton, on
 // the @theme tokens. Correct and complete; per the skill's model you design and build your own
 // (the plan itself arrives as an SSR-fetched DTO prop; the purchase control is SubscribeButton).
 import SubscribeButton from "./SubscribeButton";
@@ -10,7 +10,14 @@ export default function PlanDetailView({ plan }: { plan: PlanDetail }) {
       <p>
         <span className="text-4xl font-bold tracking-tight text-foreground">{plan.price}</span>
         {plan.billing && <span className="ml-2 text-muted-foreground">{plan.billing}</span>}
+        {plan.duration && <span className="text-muted-foreground"> · valid {plan.duration}</span>}
       </p>
+      {/* Fees are part of the price — under it, before the CTA, never hidden. */}
+      {plan.fees.map((fee) => (
+        <p key={fee.name + fee.amount} className="mt-1 text-sm text-muted-foreground">
+          + {fee.amount} {fee.name}
+        </p>
+      ))}
       {plan.freeTrialDays !== null && (
         <p className="mt-1 text-sm text-muted-foreground">{plan.freeTrialDays}-day free trial</p>
       )}

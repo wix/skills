@@ -11,9 +11,9 @@ node <SKILL_ROOT>/templates/pricing-plans/seed/seed-pricing-plans.mjs plan.json
 ```
 
 `plan.json` is plain data — write it from the brief. **Default to 3 plans** — a tier ladder
-the grid can render (e.g. free / monthly / yearly), each with 3–4 perks; together they
-exercise every price shape the UI handles. Plans have no seedable images (the owner adds one
-per plan in the dashboard).
+the grid can render (e.g. free / monthly with a trial / yearly with a setup fee), each with 3–4
+perks; together they exercise every price shape the UI handles (free, cadence, trial badge, fee
+line). Plans have no seedable images (the owner adds one per plan in the dashboard).
 
 ```json
 {
@@ -23,10 +23,12 @@ per plan in the dashboard).
       "perks": ["Member-only newsletter", "Community events access"] },
     { "name": "Studio Membership", "price": "29.00",
       "type": "recurring", "billingCycle": { "period": "MONTH", "count": 1 },
+      "freeTrialDays": 14,
       "description": "The full experience, month to month.",
       "perks": ["Unlimited group classes", "10% off workshops", "Priority booking"] },
     { "name": "Annual Pass", "price": "290.00",
       "type": "recurring", "billingCycle": { "period": "YEAR", "count": 1 },
+      "setupFee": { "name": "Registration fee", "amount": "25.00" },
       "description": "Two months free, billed yearly.",
       "perks": ["Everything in Studio Membership", "2 guest passes", "Annual member gift"] }
   ]
@@ -43,6 +45,11 @@ per plan in the dashboard).
   infer it from a language, a country, or an address. The seed sets the site to it before creating
   anything, because prices are stored in the site currency at create time; a new site starts in the
   currency of the account that created it, not the business's.
+- `freeTrialDays` — days before the first charge (a number, up to 999), on a paid plan; the card
+  shows "14-day free trial". Omit for none.
+- `setupFee` — `{ "name", "amount" }`: one additional fee charged with the first payment, shown
+  with the price ("+ €25.00 Registration fee"). `fees` is the array form (up to 5). Amounts are
+  decimal strings in the site currency, like `price`. Only when the brief names a fee — never invent one.
 - `perks` — display-only bullets on the plan card; they grant nothing by themselves.
 - `termsAndConditions` (plain text), `visibility` (`"PUBLIC"`), `buyable` (`true`) — optional
   overrides. A `buyable: false` plan renders without a subscribe CTA (merchant-assigned).
@@ -72,7 +79,9 @@ The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For pricing pla
 user lists is one entry. Its name becomes `name`; a price with a billing period becomes `price`
 with `type: "recurring"` and the matching `billingCycle`; a price paid once becomes
 `type: "one-time"`; no price means `type: "free"`; a list of features or benefits becomes `perks`;
-the description becomes `description`. A price with no period is a question for the user.
+the description becomes `description`; a trial ("first two weeks free") becomes `freeTrialDays`; a
+one-off joining/registration/setup charge becomes `setupFee`. A price with no period is a question
+for the user.
 
 ## Escape hatch — individual functions
 `setupPricingPlans` composes exported steps — `installPricingPlansApp`, `createPlans`,
