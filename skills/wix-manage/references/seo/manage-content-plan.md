@@ -28,12 +28,20 @@ discussed earlier in the conversation. To finish it or read its results:
 
 1. Find its actual `contentPlanFlowId` in the conversation or a previous
    trigger/status response. A site ID is not a flow ID, even though both are
-   UUIDs. If the ID is missing and the user reports `KEYWORD_RESEARCH`,
-   explain that it means keyword research is running or done, that the flow
-   usually continues on its own, and that it needs a release only if it stays
-   there after the research is ready. Ask for the flow ID and end the turn
-   without an API call. Never submit a placeholder. Do not offer a new flow or a different
-   site as an alternative to recovering the ID.
+   UUIDs. If the ID is missing and the user reports a flow stuck at
+   `KEYWORD_RESEARCH`, make no API call. Tell the user:
+   - `KEYWORD_RESEARCH` means keyword research is running or done; the status
+     does not change when it finishes.
+   - With the flow ID, first check the research
+     (`GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items`)
+     for items with the flow's `keywordResearchId`.
+   - Only if they exist, release the flow once with Create Content Plan
+     (`POST https://www.wixapis.com/promote/seo/v1/create-content-plan`).
+     Releasing earlier fails the flow.
+
+   Then ask for the flow ID and end the turn. Never submit a placeholder. Do
+   not offer a new flow or a different site as an alternative to recovering
+   the ID.
 2. Read that flow with
    `GET https://www.wixapis.com/promote/seo/v1/content-plan-flows/{contentPlanFlowId}`.
    Read `contentPlanFlow.status`; see the response and status table in
@@ -192,7 +200,7 @@ It takes no parameters and returns the site's most recent research. Keep only
 | Response | Next action |
 | --- | --- |
 | `404` `NOT_FOUND: No Keyword research for given content plan` | Not ready yet. The request is correct; do not change it or look up docs. Make 10 more flow status checks before you check the research again. |
-| Other `keywordResearchId` than the flow's | Earlier research. Make 10 more flow status checks before you check the research again. |
+| Other `keywordResearchId` than the flow's | Earlier research. Make 10 more flow status checks before you check the research again; the 60-check limit below still applies. |
 | Flow's `keywordResearchId`, at least one item | Ready. Call Create Content Plan once (step 4). |
 | Any other error | Report it and stop. |
 
