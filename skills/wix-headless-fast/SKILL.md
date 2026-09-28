@@ -311,8 +311,9 @@ close.
 | Donations: campaign pages, goal progress, one-time and recurring giving via hosted checkout   | **donations**     | `templates/donations/INSTRUCTIONS.md`     |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
-accounts) deploys them together — setup takes one vertical; deploy the rest with
-`node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
-starts, and run each vertical's seed. A request that matches no shipped vertical has no shipped
+accounts) names them all in the setup call (`--vertical restaurants,blog`), so one install covers
+them; each vertical's seed runs with its own plan. On a project already built,
+`node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root adds one, then one
+`npm install`, then its seed. A request that matches no shipped vertical has no shipped
 code: it is built from the Wix API reference through `wix-docs` (search, then the method page),
 with the same rule as every other call, on the same project and stack.
