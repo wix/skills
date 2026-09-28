@@ -1,12 +1,18 @@
 ---
 name: "Configure Default Business Hours"
-description: Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
+description: Configures Wix Bookings default availability with Calendar WORKING_HOURS events. For general site opening hours, use the Site Properties business schedule instead; choose the intended surface before querying or installing Bookings.
 ---
 # Technical Step-by-Step Instructions: Setting Up Wix Bookings Default Business Hours (Real-World, API-First)
 
 ## Description
 
 Below are the recommended steps to successfully configure default business hours for Wix Bookings, which control the base availability shown in the "Set default hours" dashboard. This recipe covers the correct API usage, common pitfalls, and cleanup procedures for managing business schedule events.
+
+## Choose which hours to change
+
+- **Default booking availability** or the Bookings **Set default hours** dashboard: continue with the Calendar workflow below.
+- **General site opening/business hours**, without a request to change booking availability: follow [Set Site Business Hours](../site-properties/set-site-business-hours.md) and stop. Do not query Calendar schedules or install Bookings for this task.
+- If the request could mean either surface and the context does not resolve it, ask which hours the user wants changed before mutating either schedule.
 
 ---
 
@@ -39,10 +45,10 @@ Wix Bookings default business hours define the base availability for your bookin
 
 ### CRITICAL API DISCOVERY
 
-**❌ WRONG API**: Site Properties API (`/site-properties/v4/properties/business-schedule`)
+**Wrong for Bookings availability**: Site Properties API (`/site-properties/v4/properties/business-schedule`)
 - This sets general site business schedule, NOT Bookings default hours
 
-**✅ CORRECT API**: Calendar Events V3 API (`/calendar/v3/events`)
+**Correct for Bookings availability**: Calendar Events V3 API (`/calendar/v3/events`)
 - Creates `WORKING_HOURS` events on the business schedule
 - Each `MASTER` event creates one time slot in the dashboard
 - Uses fixed business resource ID: `4e0579a5-491e-4e70-a872-d097eed6e520`
