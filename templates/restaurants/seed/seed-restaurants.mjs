@@ -18,9 +18,9 @@
 //     "ordering"?: true | { "address"? },        // menu-first add-on; address is STEP 0
 //     "reservations"?: true | { "partySize"? { "min","max" }, "address"? } }
 //
-// Seeding is ADDITIVE — with ONE recipe-sanctioned exception: when THIS run installs the
-// Menus app onto a site that didn't have it, the install's own sample "Dinner Menu" is
-// removed (it's provably not owner content). Nothing else is ever deleted. Unexpected
+// Seeding is ADDITIVE — nothing on the site is ever deleted, the Menus install's own sample
+// "Dinner Menu" included: it is reported (`preexistingMenus`) and the owner removes it in the
+// dashboard if they want to. Unexpected
 // shapes → read the live API reference; every call below
 // carries a docs: line with its reference page.
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
@@ -97,18 +97,15 @@ export async function menusAppPresent(ctx) {
 // protobuf wrappers: plain values ("visible": true), never {"value": …}.
 
 /**
- * Recipe STEP 0 — a FRESH Menus-app install ships a populated sample "Dinner Menu"
- * (~4 sections, ~21 items) that would render next to the seeded menu. Call ONLY when this
- * run installed the app onto a site that didn't have it (menusAppPresent was false) — then
- * everything present is provably the install's own sample. Polls briefly (the sample
- * provisions async), then deletes children before parents. No-op when nothing appears.
- * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
+ * What the Menus app already holds before this seed writes anything. A FRESH install ships a
+ * populated sample "Dinner Menu" (~4 sections, ~21 items) that renders next to the seeded menus;
+ * on an existing site these are the owner's menus. Reported, never touched: this seed deletes
+ * nothing on a site, ever. Polls briefly on a fresh install (the sample provisions async).
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/list-menus.md
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/list-sections.md
- * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-delete-items.md
- * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-delete-sections.md
- * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/delete-menu.md
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
  */
-export async function removeSampleMenu(ctx, { tries = 8, delayMs = 2000 } = {}) {
+export async function readPreexistingMenus(ctx, { tries = 1, delayMs = 2000 } = {}) {
   let menus = [];
   for (let i = 0; i < tries; i++) {
     const r = await req(ctx, "/restaurants/menus/v1/menus", { method: "GET" });
@@ -116,22 +113,15 @@ export async function removeSampleMenu(ctx, { tries = 8, delayMs = 2000 } = {}) 
     if (menus.length) break;
     if (i < tries - 1) await sleep(delayMs);
   }
-  if (!menus.length) return { removed: false };
-
+  if (!menus.length) return [];
   const itemsRes = await req(ctx, "/restaurants/menus/v1/items", { method: "GET" });
   const sectionsRes = await req(ctx, "/restaurants/menus/v1/sections", { method: "GET" });
-  const itemIds = (itemsRes.items ?? []).map((it) => it.id).filter(Boolean);
-  const sectionIds = (sectionsRes.sections ?? []).map((s) => s.id).filter(Boolean);
-  if (itemIds.length) {
-    await req(ctx, "/restaurants/menus/v1/bulk/items/delete", { method: "DELETE", body: { ids: itemIds } });
-  }
-  if (sectionIds.length) {
-    await req(ctx, "/restaurants/menus/v1/bulk/sections/delete", { method: "DELETE", body: { ids: sectionIds } });
-  }
-  for (const m of menus) {
-    await req(ctx, `/restaurants/menus/v1/menus/${m.id}`, { method: "DELETE" }); // no bulk delete for menus
-  }
-  return { removed: true, menus: menus.map((m) => m.name) };
+  return menus.map((m) => ({
+    id: m.id,
+    name: m.name,
+    sections: (sectionsRes.sections ?? []).filter((sec) => (m.sectionIds ?? []).includes(sec.id)).length,
+    items: (itemsRes.items ?? []).length,
+  }));
 }
 
 // A bulk create's created entities, in input order (results[].item; the per-entry flag is results[].itemMetadata.success).
@@ -447,7 +437,7 @@ export async function enableOnlineReservations(ctx, reservationLocationId, revis
 }
 
 /**
- * ONE-CALL seed: Menus install (+ sample cleanup when fresh) → menus bottom-up → images →
+ * ONE-CALL seed: Menus install (+ a report of what the app already holds) → menus bottom-up → images →
  * ordering add-on → reservations add-on, ids threaded in memory. The default path.
  */
 export async function setupRestaurants(ctx, plan) {
@@ -456,11 +446,10 @@ export async function setupRestaurants(ctx, plan) {
   const menusPlan = plan.menus ?? [];
   const wasPresent = await menusAppPresent(ctx);
   await installMenusApp(ctx);
-  let sampleMenuRemoved = false;
-  if (!wasPresent) {
-    const r = await removeSampleMenu(ctx).catch(() => ({ removed: false }));
-    sampleMenuRemoved = r.removed === true;
-  }
+  // Menus the plan did not create: the install's sample "Dinner Menu" on a fresh site (polled, it
+  // provisions async), the owner's menus on an existing one. Reported for the closing message,
+  // never deleted.
+  const preexistingMenus = await readPreexistingMenus(ctx, { tries: wasPresent ? 1 : 8 }).catch(() => []);
 
   const createdMenus = [];
   for (const m of menusPlan) createdMenus.push(await createMenu(ctx, m));
@@ -564,7 +553,8 @@ export async function setupRestaurants(ctx, plan) {
     menus: createdMenus.map(({ items, ...m }) => m),
     imagesAttached,
     imageFailures,
-    sampleMenuRemoved,
+    preexistingMenus,
+    dashboardMenusUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/restaurants/menus`,
     ordering,
     reservations,
   };
