@@ -1,4 +1,4 @@
-// REFERENCE listing surface: category filter + events grid on the @theme tokens.
+// REFERENCE listing surface: category filter + events grid + "load more" on the @theme tokens.
 // Correct and complete; per the skill's model you design and build your own on useEvents.
 import type { ComponentType, ReactNode } from "react";
 import { useEvents } from "../../hooks/events/useEvents";
@@ -25,7 +25,7 @@ export interface EventCardProps {
 
 export function EventCard({
   event,
-  eventHref = (slug) => `/events/${slug}`,
+  eventHref = (slug) => `/events/${encodeURIComponent(slug)}`,
   LinkComponent = PlainLink,
 }: EventCardProps) {
   return (
@@ -56,6 +56,8 @@ export function EventCard({
 
 export interface EventsViewProps {
   initialEvents?: EventSummary[];
+  /** From fetchEventsPage — lets the list know there is more to load. */
+  initialTotal?: number;
   emptyMessage?: string;
   eventHref?: EventCardProps["eventHref"];
   LinkComponent?: ComponentType<LinkLikeProps>;
@@ -71,13 +73,15 @@ const pill = (active: boolean) =>
 
 export default function EventsView({
   initialEvents,
+  initialTotal,
   emptyMessage = "No upcoming events — check back soon.",
   eventHref,
   LinkComponent,
   CardComponent = EventCard,
 }: EventsViewProps) {
-  const { events, categories, activeCategoryId, setActiveCategoryId, error } = useEvents({
+  const { events, categories, activeCategoryId, setActiveCategoryId, hasMore, loadingMore, loadMore, error } = useEvents({
     initialEvents,
+    initialTotal,
   });
 
   return (
@@ -105,12 +109,24 @@ export default function EventsView({
           ))}
         </div>
       ) : events.length === 0 ? (
-        <p className="py-16 text-center text-muted-foreground">{emptyMessage}</p>
+        <p className="py-16 text-center text-muted-foreground">{loadingMore ? "Loading…" : emptyMessage}</p>
       ) : (
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((e) => (
             <CardComponent key={e.id} event={e} eventHref={eventHref} LinkComponent={LinkComponent} />
           ))}
+        </div>
+      )}
+      {hasMore && (
+        <div className="mt-10 text-center">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void loadMore()}
+            className="rounded-full border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
         </div>
       )}
     </div>

@@ -13,7 +13,7 @@
 //   { "events": [{ "title", "shortDescription"?, "type": "TICKETING"|"RSVP",
 //                  "startDate", "endDate" (future ISO-8601 UTC), "timeZoneId",
 //                  "location" ({name,type:"VENUE",address} | {name,type:"ONLINE"} | {locationTbd:true,name}),
-//                  "ticketTiers"?: [{ "name" (≤30 chars), "price" (decimal STRING), "description"?, "initialLimit"? }],
+//                  "ticketTiers"?: [{ "name" (≤30 chars), "price" (decimal STRING), "description"?, "initialLimit"?, "feeType"? }],
 //                  "category"? (name), "imageUrl"? | "imagePrompt"?, "rsvpResponseType"? }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
@@ -132,33 +132,38 @@ export async function createEvent(ctx, ev) {
  * STEP 2 — ticket tiers for a TICKETING event (skip for RSVP). Must run BEFORE publish —
  * publishing a ticketed event with no tiers ships an event with nothing to buy, and there is
  * no un-publish. price is a decimal STRING ("65.00", never a number); name ≤ 30 chars; omit
- * initialLimit for unlimited. Tiers are independent — fired as one parallel batch.
+ * initialLimit for unlimited. `feeType` is FEE_INCLUDED (the Wix fee comes out of the price),
+ * FEE_ADDED_AT_CHECKOUT (the buyer pays it on top) or NO_FEE (free tickets and sites that don't
+ * require a fee). Tiers are independent — fired as one parallel batch.
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/create-ticket-definition.md
  */
 export async function createTicketTiers(ctx, eventId, tiers) {
   return Promise.all(tiers.map(async (t) => {
-    const body = {
+    const body = (feeType) => ({
       ticketDefinition: {
         eventId,
         name: t.name,
         description: t.description,
         ...(t.initialLimit != null ? { initialLimit: t.initialLimit } : {}),
         pricingMethod: { fixedPrice: { value: String(t.price), currency: t.currency ?? "USD" } },
-        feeType: t.feeType ?? "FEE_INCLUDED",
+        feeType,
       },
       fields: ["SALES_DETAILS"],
-    };
-    // Right after the Events app is installed, the site's fee settings can lag behind: the first
-    // tier then fails with INVALID_FEE_TYPE ("feeType=FEE_INCLUDED feeRequired=false") and the
-    // same request succeeds seconds later (seen on a fresh site, 2026-09-27). Two more tries,
-    // five seconds apart; anything else, or a third failure, throws as before.
+    });
+    // INVALID_FEE_TYPE ("feeType=FEE_INCLUDED feeRequired=false") means this site doesn't take a
+    // fee on this tier — right after the Events app is installed the fee settings can also lag a
+    // few seconds (seen on a fresh site, 2026-09-27). So the retries change the fee type instead
+    // of re-sending the same one: the plan's (default FEE_INCLUDED), then NO_FEE, then
+    // FEE_ADDED_AT_CHECKOUT after a five-second pause for the install race. Anything else, or a
+    // third failure, throws as before.
+    const feeTypes = [t.feeType ?? "FEE_INCLUDED", "NO_FEE", "FEE_ADDED_AT_CHECKOUT"];
     for (let attempt = 0; ; attempt++) {
       try {
-        const r = await req(ctx, "/events/v3/ticket-definitions", { body });
-        return { id: r.ticketDefinition?.id };
+        const r = await req(ctx, "/events/v3/ticket-definitions", { body: body(feeTypes[attempt]) });
+        return { id: r.ticketDefinition?.id, feeType: feeTypes[attempt] };
       } catch (e) {
         if (!/INVALID_FEE_TYPE/.test(e.message) || attempt >= 2) throw e;
-        await new Promise((res) => setTimeout(res, 5000));
+        if (attempt === 1) await new Promise((res) => setTimeout(res, 5000));
       }
     }
   }));
@@ -228,7 +233,7 @@ export async function setupEvents(ctx, { events = [], currency } = {}) {
       ? await createTicketTiers(ctx, e.id, ev.ticketTiers.map((t) => ({ ...t, currency: t.currency ?? siteCurrency })))
       : [];
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length });
+    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length, feeTypes: tiers.map((t) => t.feeType) });
   }
 
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
@@ -259,7 +264,7 @@ export async function setupEvents(ctx, { events = [], currency } = {}) {
   }
 
   return {
-    events: created.map((e) => ({ id: e.id, slug: e.slug, ticketCount: e.ticketCount, category: e.category ?? null })),
+    events: created.map((e) => ({ id: e.id, slug: e.slug, ticketCount: e.ticketCount, feeTypes: e.feeTypes, category: e.category ?? null })),
     categories,
     imagesAttached,
     // Completing a PAID purchase needs a premium plan + a configured payment method in the

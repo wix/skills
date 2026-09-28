@@ -55,14 +55,20 @@ seed; a failed image leaves that event text-only.
 ```
 
 - `type` — `TICKETING` (paid tiers; buyers pay on Wix's hosted checkout) or `RSVP` (free;
-  the built-in name+email form — seed NO form fields). **Immutable after create** — decide
-  from the brief, never plan to convert.
+  Wix creates the name+email form — the seed adds no fields; the owner extends it in the
+  dashboard and the site renders whatever the form holds). **Immutable after create** —
+  decide from the brief, never plan to convert.
 - **Dates are future ISO-8601 UTC** (`…Z`), `endDate` after `startDate`, `timeZoneId` an
   IANA tz. A past event isn't registerable and won't show in the live listing; no date in
   the brief → default ~60–90 days out and say so.
 - `ticketTiers` — TICKETING only, created before publish. `price` is a **decimal STRING**
   (`"45.00"`, never a number), `name` ≤ 30 chars, omit `initialLimit` for unlimited. Tier
   currency is the site currency, fixed at creation: a wrong one means deleting the event.
+  `feeType` (optional) says who pays the Wix ticket service fee: `FEE_INCLUDED` (default — out of
+  the price), `FEE_ADDED_AT_CHECKOUT` (the buyer pays 2.5% on top; the event page shows the line),
+  or `NO_FEE` (free tickets; sites that don't require a fee). When Wix answers `INVALID_FEE_TYPE`
+  the seed retries the same tier with `NO_FEE`, then `FEE_ADDED_AT_CHECKOUT`, and reports the one
+  that took in the result's per-event `feeTypes`.
 - `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
   sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
   infer it from a language, a country, or an address. The seed sets the site to it before creating
