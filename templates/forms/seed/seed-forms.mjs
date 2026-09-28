@@ -443,7 +443,25 @@ export async function setupForms(ctx, plan) {
     }
 
     const body = buildForm(planForm);
-    const { form } = await req(ctx, "/form-schema-service/v4/forms", { body: { form: body } });
+    let form;
+    try {
+      ({ form } = await req(ctx, "/form-schema-service/v4/forms", { body: { form: body } }));
+    } catch (e) {
+      // Verified live: a `file` field on a site whose plan does not include file uploads fails the
+      // whole create with this code — nothing is created. There is no API switch for it; the owner
+      // upgrades the site's plan, or the form drops the `file` kind (see SEED.md, "Kinds").
+      if (String(e.message).includes("FILE_UPLOAD_RESTRICTIONS_ERROR")) {
+        const names = planForm.fields.filter((f) => f.kind === "file").map((f) => `"${f.label}"`).join(", ");
+        throw new Error(
+          `form "${planForm.name}": this site's plan does not allow file-upload fields (${names}) — ` +
+          `FILE_UPLOAD_RESTRICTIONS_ERROR; Wix Forms gates the file field behind a paid site plan and nothing was created. ` +
+          `Either the owner upgrades the site in the dashboard, or replace the field with a "url" kind and let the site ` +
+          `upload the file itself through the shared mediaUpload capability (plan.capabilities.mediaUpload, Astro only), ` +
+          `submitting the uploaded file's URL. Tell the owner which one you did.`,
+        );
+      }
+      throw e;
+    }
     const formId = form?.id ?? form?._id;
     if (!formId) throw new Error(`form "${planForm.name}": created but no id returned`);
 

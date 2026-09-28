@@ -670,3 +670,10 @@ root. Independent of the frontend work; seed a catalog that exercises the UI (�
 a color option, ≥1 on sale, an image per product) unless the brief says otherwise — and, when the
 brief wants them, a ribbon, a modifier (choices or free text), an info section, a pre-order item,
 per-variant prices, a category description/image: all plain plan fields (see `seed/SEED.md`).
+
+A fresh Stores install carries Wix's sample catalog (a dozen products such as "Baseball Cap" and
+"Ceramic Flower Vase"), and the shop lists them next to the seeded ones: for a new site whose brief
+lists the whole catalog, put `"removeWixSamples": true` in the plan so the seed removes them first;
+otherwise the result's `preexisting[]` names what the shop still lists, and the closing message says
+so with the Manage products link — never release a store that sells "Baseball Cap" without telling
+the owner.

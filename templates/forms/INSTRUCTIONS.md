@@ -408,3 +408,10 @@ the plan; the seed writes the form ids your pages import.
 
 **Build the UI only after the seed has run** — the form id comes from it, and the field set
 you are rendering is the one it created.
+
+**File uploads are plan-gated.** A `file` field is created only on a paid site plan; on a free site
+the seed stops with `FILE_UPLOAD_RESTRICTIONS_ERROR` and names the field. Two ways out, the owner's
+choice unless the brief already decided: they upgrade the site and the same plan re-runs, or the field
+becomes a `url` kind plus a `capabilities.mediaUpload` policy (Astro only) — the site uploads the file
+through the shared endpoint (`wix/media-upload/client.ts`) and submits the file's URL as that field's
+value. The closing message says which one shipped.

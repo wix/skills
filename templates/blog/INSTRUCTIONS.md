@@ -345,11 +345,12 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
   metrics read (else the card's) plus this viewer's change.
 - **View counting is not shipped**: `@wix/blog` in this template (1.0.645) has no `viewPost`; the
   installed SDK has to expose it before a page can count a view. Views still display from METRICS.
-- **Comments** address the thread by `referenceId` (the REFERENCE_ID fieldset) as both contextId and
-  resourceId, with the Blog app id — the public-SDK shape Wix's own headless blog uses. Wix's classic
-  Blog widget addresses it by post id through an internal client instead; **verify on a live site
-  with existing comments that the dashboard's threads come back** before relying on it, and if they
-  don't, read `comments-core.ts` (`listCommentsParams`) — the change is one line.
+- **Comments** address the thread by `referenceId` as both contextId and resourceId, with the Blog
+  app id — the public-SDK shape Wix's own headless blog uses. Verified live: the REFERENCE_ID
+  fieldset returns the post without that field, the INTERNAL_ID fieldset carries it, and it equalled
+  the post id on every post read — so the detail read asks for both and `posts-core.ts` falls back
+  to the post id (what Wix's classic Blog widget addresses the thread by). A post page that shows no
+  comments section therefore means `commentingEnabled` is off, not a missing id.
 - Who may comment (members only, or guests too) is the dashboard's "Who can comment" setting,
   decided by the server: submit as the current session; a refusal sets `needsSignIn`. Comments may
   come back PENDING when the owner moderates — show "awaiting approval", never drop them.
