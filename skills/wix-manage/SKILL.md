@@ -126,7 +126,7 @@ Creates resource types and individual resources using Resources API. Enables ser
 ## Calendar
 
 ### [Configure Default Business Hours](references/calendar/configure-default-business-hours.md)
-Configures Wix Bookings default availability with Calendar WORKING_HOURS events. For general site opening hours, use the Site Properties business schedule instead; choose the intended surface before querying or installing Bookings.
+Uses Calendar Events API to create WORKING_HOURS events on the business schedule. Covers the critical distinction between Calendar Events API (correct) vs Site Properties API (incorrect) for setting base availability.
 
 > Dashboard links for calendar surfaces (availability, default business hours) are in [Bookings Dashboard Navigation](references/bookings/bookings-dashboard-navigation.md).
 
@@ -398,9 +398,6 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 
 ### [RECIPE: Change a Site's Regional Properties (Currency, Time Zone, Language) via Site Properties API](references/site-properties/change-payment-currency-site-properties.md)
 "Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language through the same call, whose field mask names top-level properties."
-
-### [Set Site Business Hours](references/site-properties/set-site-business-hours.md)
-"Reads, updates, and verifies a site's general opening hours in the Site Properties business schedule, preserving special-hour exceptions. Use for website or business opening hours; for Wix Bookings default availability, use Configure Default Business Hours."
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
