@@ -30,7 +30,7 @@ For a brand-new, separate headless site, use [Create Headless Site](create-headl
 
 If the conversation is already scoped to the site, use its ID. Otherwise resolve it with [Query Sites](query-sites.md) (see "Find a site by name") or [Read Account or Site Context](read-site-context.md). If the account has more than one site and the user hasn't said which one, ask which site they mean, and give the rest of the answer anyway with `{metaSiteId}` in the link.
 
-If the site record's `namespace` is `HEADLESS`, the site is already headless and there is nothing to migrate. Its frontends connect through OAuth apps, see [Manage OAuth Apps](manage-oauth-apps.md).
+If you fetched the site record to get its ID and its `namespace` is `HEADLESS`, the site is already headless and there is nothing to migrate. Its frontends connect through OAuth apps, see [Manage OAuth Apps](manage-oauth-apps.md). Don't fetch the record only to check this.
 
 ### 2. Send the merchant to the Headless settings page
 
@@ -58,6 +58,8 @@ A site can start the flow when it:
 - is a regular Wix site, not already headless,
 - was built with Wix Editor, Wix Studio or Wix Harmony, and
 - has a premium domain connected.
+
+Don't make calls to check these yourself. The page decides, so give the merchant the requirements and let the page confirm them.
 
 The flow is rolling out site by site and isn't available everywhere yet. If the Headless Migration section isn't on the page, the flow isn't available for that site yet. If the section is there but offers no way to start, the site doesn't meet the requirements above. Tell the merchant which case they're in and stop there. Do not offer Create Headless Site, a new site, or Site Import in its place.
 
