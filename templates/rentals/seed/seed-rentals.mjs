@@ -189,6 +189,15 @@ export async function createRental(ctx, service) {
   };
 }
 
+// Every rental the site holds (the Rentals app's services), for the pre-existing report: a fresh
+// Rentals install adds its own sample ("Conference room", $45/hour), and the live listing shows it
+// next to the owner's rentals. Reported, never touched: this seed deletes nothing on a site, ever.
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services.md
+export async function readRentals(ctx) {
+  const r = await req(ctx, "/bookings/v2/services/query", { body: { query: { filter: { appId: RENTALS_APP_ID }, paging: { limit: 100 } } } });
+  return (r.services ?? []).map((s) => ({ id: s.id, name: s.name, slug: s.mainSlug?.name ?? slugify(s.name) }));
+}
+
 // The range is a newer field; a silently dropped one yields a service that books as a fixed slot.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/get-service.md
 export async function confirmDurationRange(ctx, serviceId) {
@@ -246,6 +255,17 @@ export async function setupRentals(ctx, { resourceTypes = [], rentals = [], curr
   const first = created.find(Boolean);
   const durationRangeConfirmed = first ? await confirmDurationRange(ctx, first.id) : null;
 
+  // What the site lists that this run did not create and the plan does not name (the install's own
+  // sample, an earlier seed, the owner's work). The closing message names it with the dashboard link.
+  const createdIds = new Set(created.filter(Boolean).map((c) => c.id));
+  const planNames = new Set(rentals.map((r) => r.name));
+  let preexisting = [];
+  try {
+    preexisting = (await readRentals(ctx)).filter((s) => !createdIds.has(s.id) && !planNames.has(s.name));
+  } catch (e) {
+    console.error(`rentals read failed (skipping the pre-existing check): ${String(e.message).slice(0, 120)}`);
+  }
+
   // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then attach.
   // Failures leave the rental text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => ({
@@ -269,6 +289,7 @@ export async function setupRentals(ctx, { resourceTypes = [], rentals = [], curr
     rentals: created.filter(Boolean),
     resourceTypes: types.map((t) => ({ ...t, resources: resourcesByType.get(t.name) ?? [] })),
     durationRangeConfirmed,
+    preexisting,
     errors,
     imagesAttached,
     dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/rentals`,
