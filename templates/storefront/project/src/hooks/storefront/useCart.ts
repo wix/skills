@@ -3,10 +3,13 @@
 import { useSyncExternalStore } from "react";
 import {
   addLine,
+  applyCartCoupon,
   getCartState,
   goToCheckout,
   refreshCart,
+  removeCartCoupon,
   removeCartLine,
+  setCartNote,
   setCartOpen,
   subscribeCart,
   updateLineQuantity,
@@ -26,6 +29,11 @@ export interface UseCart extends CartState {
   ) => Promise<void>;
   updateQuantity: (lineItemId: string, quantity: number) => Promise<void>;
   removeLine: (lineItemId: string) => Promise<void>;
+  /** Apply a coupon code — rejects with buyer copy (and sets .error) when it can't be applied. */
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => Promise<void>;
+  /** Save the buyer's note to the merchant (call on blur). */
+  setNote: (note: string) => Promise<void>;
   checkout: () => Promise<void>;
   openCart: () => void;
   closeCart: () => void;
@@ -40,6 +48,9 @@ export function useCart(): UseCart {
     addToCart: addLine,
     updateQuantity: updateLineQuantity,
     removeLine: removeCartLine,
+    applyCoupon: applyCartCoupon,
+    removeCoupon: removeCartCoupon,
+    setNote: setCartNote,
     checkout: goToCheckout,
     openCart: () => setCartOpen(true),
     closeCart: () => setCartOpen(false),

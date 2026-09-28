@@ -6,11 +6,12 @@
 //
 // Renders: a toolbar (result count, sort, and under `md` a Filters button); active-filter chips;
 // then on `md`+ a two-column layout — a 16rem sidebar of collapsible groups (Price as a two-handle
-// slider with numeric fields, Availability, one group per option facet with swatches or pills) beside
-// your results, so expanded facets never push the products below the fold. Under `md` the same
-// groups live in a bottom sheet: changes are staged and commit on Apply; dismissing keeps the
-// current results. Sidebar changes commit immediately (a price pair on release/blur, valid only).
-// Styled from the @theme tokens.
+// slider with numeric fields, Availability, one group per facet — an option or a choice modifier —
+// with swatches or pills) beside your results, so expanded facets never push the products below
+// the fold. Under `md` the same groups live in a bottom sheet: changes are staged and commit on
+// Apply; dismissing keeps the current results. Sidebar changes commit immediately (a price pair on
+// release/blur, valid only). Picks inside one facet OR together, facets AND together — the store
+// owns that. Styled from the @theme tokens.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SORTS, type ShopFilters, type UseShop } from "../../hooks/storefront/useShop";
 import type { CatalogSort } from "../../wix/storefront/catalog";
@@ -174,7 +175,7 @@ function Groups({ shop, draft, onChange, immediate = false }: { shop: UseShop; d
         </label>
       </Group>
       {shop.facets.map((facet) => (
-        <Group key={facet.name} title={facet.name} count={facet.choices.filter((c) => draft.choiceIds.includes(c.id)).length}>
+        <Group key={facet.id} title={facet.name} count={facet.choices.filter((c) => draft.choiceIds.includes(c.id)).length}>
           <div className="flex flex-wrap gap-1.5">
             {facet.choices.map((c) => {
               const on = draft.choiceIds.includes(c.id);
