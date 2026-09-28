@@ -2,9 +2,11 @@
 
 The account machinery ships as files — the custom credential login (sign in, sign up, email
 verification, owner approval, logout), the session store, the current-member read, typed
-end-to-end. Members sign up and sign in **on your site**, never on a Wix-hosted login page: the
-shipped client exchanges a credential login into member tokens, and on managed Astro writes them
-into the `wixSession` cookie so the next server render and every island run as that member.
+end-to-end. Members sign up and sign in **on your site's own form**, never on a Wix-hosted login
+page. On managed Astro the form posts to the integration's built-in auth routes (`/api/auth/login`,
+`/signup`, `/verify-email`, `/logout`), which finish through `/api/auth/callback` and write the member
+session cookie server-side, so the next server render and every island run as that member; on every
+other stack the shipped code exchanges the credentials into member tokens in the browser.
 **The presentation doesn't ship — you build it** on the shipped hook/DTOs: the login page around
 the shipped form, the account page, the header control, and whatever the brief gates behind a
 login. You never write auth code; you never skip designing the surfaces.
@@ -23,11 +25,11 @@ surface if the reference one doesn't fit the brand.
 
 | file | what it is |
 |---|---|
-| `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it, `WIX_MEMBERS_CLIENT_ID` included — nothing to set by hand) |
+| `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand); members run on the same seam |
 | `wix/media.ts` | `imgAttrs(url, sizes)` / `imgSrc()` — the member photo is already an https URL in the DTO |
 | `wix/members/types.ts` | the DTO (`CurrentMember`) — contract inlined below |
-| `wix/members/client.ts` | the one explicit `OAuthStrategy` client the credential flow needs; on Astro it stores member tokens in the `wixSession` cookie so ambient SDK calls run as the member |
-| `wix/members/auth.ts` | `loginMember`, `registerMember`, `verifyMemberEmail`, `logoutMember`, `loggedInHint` — the transport; what a response means (the four states, the error-code names) is in `auth-core.ts` beside it (shared with the REST layer) |
+| `wix/members/client.ts` | the members seam over `wix/sdk.ts`: `membersApi` (the module under the app's auth), `membersAuth` (the shared client's strategy in manual mode, `null` on managed Astro), `AMBIENT_AUTH` |
+| `wix/members/auth.ts` | `loginMember`, `registerMember`, `verifyMemberEmail`, `logoutMember`, `loggedInHint`, `PROFILE_ON_SIGNUP` — the transport, two behind one export list: the built-in `/api/auth` routes on managed Astro, the SDK strategy elsewhere; what a response means (the four states, the error-code names, the route answers) is in `auth-core.ts` beside it (shared with the REST layer) |
 | `wix/members/members.ts` | `fetchCurrentMember` — the transport; the DTO mapper is in `members-core.ts` beside it (shared with the REST layer) |
 | `wix/members/member-store.ts` | the session state machine, framework-free: one per visitor (a module singleton — it spans Astro islands, which a React context can't); `getMemberState`/`subscribeMember`, `login`, `register`, `verifyEmail`, `logout`, `refreshMember`, `hydrateMember`; the hook below binds it to React, every other stack uses it directly |
 | `hooks/members/useMember.ts` | React binding of `member-store.ts`: session state + the credential actions — contract below |
@@ -93,16 +95,21 @@ else. Then, by default:
 // useMember({ initialMember? /* SSR-resolved member or null; omit to resolve client-side */ }) →
 // { member: CurrentMember|null, loggedIn, loading /* true until the first session read settles — skeletons, not the logged-out state */,
 //   error /* last failed operation's message; a new operation clears it */,
-//   login(email, password), register(email, password, { firstName?, lastName? }?), verifyEmail(code),
-//   logout(returnTo?) /* navigates away */, refresh() }
+//   login(email, password, { returnTo? }?), register(email, password, { firstName?, lastName? }?, { returnTo? }?),
+//   verifyEmail(code), logout(returnTo?) /* navigates away */, refresh() }
 // loggedIn can be true with member === null: the caller is a member but the site has no Members Area app (profile layer).
 // Several islands on one page share one session — the store is a module singleton.
 
 // login / register / verifyEmail resolve to LoginResult:
 // { state: "SUCCESS" | "EMAIL_VERIFICATION_REQUIRED" | "OWNER_APPROVAL_REQUIRED" | "FAILURE",
 //   errorCode? /* invalidPassword | invalidEmail | emailAlreadyExists | resetPassword | missingCaptchaToken | invalidCaptchaToken */,
-//   error? /* Wix's message — render it */ }
-// SUCCESS has already refreshed the session: member and loggedIn are set when the promise resolves.
+//   error? /* Wix's message — render it */,
+//   redirectUrl? /* managed Astro only: the store has already sent the browser there */ }
+// SUCCESS on managed Astro: the page is navigating — through Wix's authorization step and back to
+// `returnTo` via /api/auth/callback, which writes the session; render nothing more. SUCCESS elsewhere
+// has already refreshed the session: member and loggedIn are set when the promise resolves.
+// `PROFILE_ON_SIGNUP` (from wix/members/auth) is false on managed Astro: the built-in signup takes
+// credentials only, so the shipped form hides the name fields there (names live on the account page).
 // EMAIL_VERIFICATION_REQUIRED → show a code field and call verifyEmail(code); the state token is kept for you.
 // OWNER_APPROVAL_REQUIRED → a pending notice; the member logs in once the owner approves (dashboard).
 // Which of the three a sign-up ends in is the site's signup policy (dashboard), not your code.
@@ -180,10 +187,16 @@ All under `templates/members/app/`.
 
 1. Set the `@theme` tokens (one edit); brand `SiteLayout.astro` (one pass), keeping one
    `<MemberMenu client:only="react" />` in the header.
-2. Keep `/login` and `/account` as shipped — the only login surface is `/login`; never link to
-   `/api/auth/login`, build an OAuth callback page, or redirect to a Wix login page. Brand the
-   chrome around the mounts; replace `AccountView` with your own surface on `useMember` when the
-   brief wants more.
+2. Keep `/login` and `/account` as shipped — the only login surface is `/login`, and the shipped
+   form already posts to the integration's built-in routes. Never build a callback page, a login
+   API route, or a redirect to a Wix login page: `@wix/astro` (2.75 or later) ships them
+   (`/api/auth/login`, `/signup`, `/verify-email`, `/reset-password`, `/logout`, `/callback`), on by
+   default. Brand the chrome around the mounts; replace `AccountView` with your own surface on
+   `useMember` when the brief wants more.
+   - Social login when the brief asks: a plain link `<a href="/api/auth/login?idp=google&returnToUrl=/account">`
+     (also `facebook`) — the provider must be enabled in the dashboard's login settings.
+   - Forgot password when the brief asks: a plain `<form method="post" action="/api/auth/reset-password">`
+     with `email` and `failureUrl`; Wix hosts the reset itself and the member signs in again after.
 3. Gated content: `RequireAuth` around it, `client:only="react"`.
 4. Write `pages/index.astro` (home) on `SiteLayout`.
 
@@ -192,8 +205,8 @@ All under `templates/members/app/`.
 Read the reference files listed above before writing any surface.
 
 `deploy.mjs members --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`,
-`config.ts` (deploy wrote the public client id into both `WIX_CLIENT_ID` and
-`WIX_MEMBERS_CLIENT_ID`), `media.ts`, and `wix/members/` — `client.ts`, `auth.ts`, `members.ts`,
+`config.ts` (deploy wrote the public client id into `WIX_CLIENT_ID`), `media.ts`, and
+`wix/members/` — `client.ts`, `auth.ts`, `members.ts`,
 `types.ts`, the `*-core.ts` rules, and `member-store.ts`. None of it is React. The hook and the
 components don't ship on this stack; the store replaces the hook, and you write the components in
 your framework to the contracts on this page:
@@ -268,21 +281,23 @@ plugins — deploy already added the dep). Write route wrappers in the project's
 a page mounting `LoginForm` (pass `onSuccess` to navigate with your router, or let it use
 `?returnTo=`); `/account` → `RequireAuth` around your account surface; gated routes → the same.
 Mount `MemberMenu` in the header (pass `LinkComponent` for router links). Deploy wrote the public
-client id into `wix/config.ts` (`WIX_CLIENT_ID` and `WIX_MEMBERS_CLIENT_ID`); nothing else to
-configure.
+client id into `wix/config.ts` (`WIX_CLIENT_ID`); nothing else to configure. Here the login runs in
+the browser on the shared client, and a SUCCESS is a session at once (no round trip).
 
 Routes on Wix hosting: the host serves files only, so a clean route answers 404 when loaded directly — hash routes, or one HTML file per route, decided before the first route is written; any URL handed to Wix as a return target must be one the host serves (SKILL.md step 1).
 
 ## Hard rules
 
-- **No Wix-hosted login flow** — no `/api/auth/login`, no OAuth callback page, no callback URI for
-  credential login. Password-reset emails and logout are the only redirect surfaces, and both
-  return to a URL you pass.
+- **No Wix-hosted login page, and no auth code of your own.** The member types credentials into
+  your form on your site. On managed Astro the shipped transport posts them to the built-in
+  `/api/auth` routes and the round trip through `/api/auth/callback` is the integration's, never a
+  page you write; elsewhere the shipped SDK exchange runs. Password reset and logout return to a
+  URL you pass.
 - **Auth only through the shipped exports** — `useMember` / the store's actions; never call the
   IAM API or the OAuth client yourself, never rewrite the exchange. Extend by adding a function in
   `wix/members/` for what they don't cover (API contracts: the `wix-docs` skill).
-- **One explicit members client** (`wix/members/client.ts`) — never instantiate another, never one
-  per component.
+- **One auth seam** (`wix/sdk.ts`, reused by `wix/members/client.ts`) — never instantiate another
+  client, never one per component, never read or write the session cookie yourself.
 - **Session state only through the store** — no React context, no copy of `loggedIn` in component
   state, no identity inferred from local UI state.
 - **Every state is rendered**: a failed login shows `error` next to the form; verification and
@@ -294,8 +309,8 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 - Don't use `auth.elevate()` for a member reading their own records — the member token is the
   right identity.
 - **Live data or an honest empty state** — never mock a member, a name, or a member count.
-- **The token is the session** — it persists on its own (cookie on Astro, `localStorage`
-  elsewhere); never mint per page, never store credentials.
+- **The session persists on its own** (an HttpOnly cookie the integration writes on Astro, the
+  shared client's `localStorage` tokens elsewhere); never mint per page, never store credentials.
 - Where the shipped components deploy (Astro, React): theme via the `@theme` tokens, and your
   markup uses Tailwind utilities on the same tokens — one design system across shipped and written
   code. Where they don't (`lib`, `static`, a port): style with whatever your stack does well, on one

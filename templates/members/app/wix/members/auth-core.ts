@@ -1,8 +1,8 @@
-// Authentication rules — transport-agnostic, imported by BOTH transports: ./auth.ts (the SDK's
-// OAuthStrategy) and the REST twin in templates/members/rest/auth.ts (the IAM authentication API
-// over fetch). What a login/registration response MEANS — the four states, when a session token is
-// expected, which Wix error code is which failure — lives HERE, once. No imports: a strip to JS
-// emits a plain module.
+// Authentication rules — transport-agnostic, imported by EVERY transport: ./auth.ts (the SDK's
+// OAuthStrategy, or the managed-Astro built-in auth routes) and the REST twin in
+// templates/members/rest/auth.ts (the IAM authentication API over fetch). What a login/registration
+// response MEANS — the four states, when a session token is expected, which Wix error code is which
+// failure — lives HERE, once. No imports: a strip to JS emits a plain module.
 
 /** The four outcomes every credential operation resolves to; the shipped LoginForm renders each. */
 export type LoginState = "SUCCESS" | "EMAIL_VERIFICATION_REQUIRED" | "OWNER_APPROVAL_REQUIRED" | "FAILURE";
@@ -15,6 +15,11 @@ export interface LoginResult {
   errorCode?: string;
   /** Wix's message for a FAILURE — render it. */
   error?: string;
+  /**
+   * Managed Astro only: a SUCCESS is not a session yet — the browser must navigate here (the Wix
+   * authorization step), which returns through /api/auth/callback and lands on the requested page.
+   */
+  redirectUrl?: string;
 }
 
 /** A raw login/register/verify response as either transport returns it. */
@@ -59,6 +64,56 @@ export function failure(error: string, errorCode?: string): LoginResult {
 
 /** A SUCCESS without a session token — the exchange can't run; surfaced as a FAILURE with this text. */
 export const NO_SESSION_ERROR = "Wix did not return a member session.";
+
+// The built-in auth routes' request-level error codes (body `{ error }`), in the words a form can show.
+const AUTH_ROUTE_ERRORS: Record<string, string> = {
+  ALREADY_LOGGED_IN: "You are already signed in.",
+  AUTH_SERVICE_ERROR: "Wix could not process the sign-in right now. Try again.",
+  VERIFICATION_FAILED: "That code did not match. Check the email and try again.",
+  VERIFICATION_STATE_EXPIRED: "The verification code expired. Sign in again to get a new one.",
+  INVALID_REQUEST: "The form sent something Wix did not accept.",
+  FORBIDDEN: "This request was refused.",
+};
+
+/**
+ * A managed-Astro auth route answer → LoginResult. Success: `{ loginState: "SUCCESS", redirectUrl }`
+ * (200). Challenges: `{ loginState }` with 403 — verification and owner approval pass through; a
+ * CAPTCHA challenge (the site owner turned reCAPTCHA on) is a FAILURE the form cannot clear without
+ * a widget. Failure: `{ loginState: "FAILURE", errorCode }` (422, or 403 for resetPassword). Request
+ * errors: `{ error: CODE }` without a loginState.
+ */
+export function fromAuthRoute(status: number, body: RawAuth | null): LoginResult {
+  const loginState: string | undefined = body?.loginState;
+  switch (loginState) {
+    case "SUCCESS":
+      return body?.redirectUrl ? { state: "SUCCESS", redirectUrl: body.redirectUrl } : failure(NO_SESSION_ERROR);
+    case "EMAIL_VERIFICATION_REQUIRED":
+    case "OWNER_APPROVAL_REQUIRED":
+      return { state: loginState };
+    case "SILENT_CAPTCHA_REQUIRED":
+    case "USER_CAPTCHA_REQUIRED":
+      return failure("This site requires a CAPTCHA to sign up; the form has no CAPTCHA widget yet.", "captchaRequired");
+    case "FAILURE":
+      return failure(body?.error ?? FAILURE_TEXT[body?.errorCode ?? ""] ?? "Could not sign in.", body?.errorCode ?? "unknown");
+    default: {
+      // No route at all: the project's @wix/astro predates the built-in credential routes (2.75).
+      if (status === 404 || status === 405) return failure("This site's @wix/astro has no /api/auth credential routes; update it to 2.75 or later.", "authRoutesMissing");
+      const code: string | undefined = body?.error;
+      return failure(AUTH_ROUTE_ERRORS[code ?? ""] ?? `Sign-in request failed (${status}).`, code);
+    }
+  }
+}
+
+/** Default wording per errorCode when the route sends none (the SDK sends none either). */
+const FAILURE_TEXT: Record<string, string> = {
+  invalidCredentials: "Wrong email or password.",
+  invalidEmail: "That email is not valid here.",
+  invalidPassword: "Wrong password.",
+  emailAlreadyExists: "An account with this email already exists. Sign in instead.",
+  resetPassword: "You need to reset your password before signing in.",
+  missingCaptchaToken: "This site requires a CAPTCHA to sign up.",
+  invalidCaptchaToken: "The CAPTCHA check failed. Try again.",
+};
 
 // Wix IAM application-error codes, named as the SDK names them.
 export const AUTH_ERROR_CODES = {
