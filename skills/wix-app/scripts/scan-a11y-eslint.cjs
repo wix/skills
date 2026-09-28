@@ -40,7 +40,9 @@ const RULE_CONFIG = {
   'jsx-a11y/no-noninteractive-element-to-interactive-role': 'error',
   // A tabpanel with no focusable content takes tabIndex=0 (ARIA Authoring Practices).
   'jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['tabpanel'] }],
-  'jsx-a11y/no-redundant-roles': 'error',
+  // Safari drops <ul> list semantics with list-style: none; role="list" restores
+  // them (WebKit bug 170179). Keep all other redundant roles flagged.
+  'jsx-a11y/no-redundant-roles': ['error', { ul: ['list'] }],
   'jsx-a11y/no-static-element-interactions': 'error',
   'jsx-a11y/prefer-tag-over-role': 'error',
   'jsx-a11y/role-has-required-aria-props': 'error',
@@ -74,6 +76,22 @@ function forwardsOnlySdkHandlers(tag) {
   );
 }
 
+const PASSIVE_AUTOPLAY_HANDLERS = new Set([
+  'onMouseEnter',
+  'onMouseLeave',
+  'onFocus',
+  'onBlur',
+  'onFocusCapture',
+  'onBlurCapture',
+]);
+
+/** Carousel roots observe hover/focus to pause autoplay; these handlers do not activate the region. */
+function pausesAutoplayOnly(tag) {
+  if (!isSdkRoot(tag) || !tag.includes('data-pause-button-visibility=')) return false;
+  const handlers = [...tag.matchAll(/\b(on[A-Z]\w*)=\{[^}]*\}/g)];
+  return handlers.length > 0 && handlers.every(([, name]) => PASSIVE_AUTOPLAY_HANDLERS.has(name));
+}
+
 /** Roles whose native element cannot express a styled component. */
 const ROLES_WITHOUT_NATIVE_TAG = new Set(['img', 'presentation', 'none', 'group', 'status']);
 
@@ -93,6 +111,12 @@ function roleHasNoNativeTag(tag) {
  * `rules` is skipped when the opening tag of the reported element matches `tag`.
  */
 const EXEMPTIONS = [
+  {
+    // ANIMATED-COMPONENTS.md requires the noninteractive carousel root to
+    // observe hover and focus so autoplay stops while a visitor is using it.
+    rules: new Set(['jsx-a11y/no-noninteractive-element-interactions']),
+    tag: pausesAutoplayOnly,
+  },
   {
     // SDK handlers (`onClick`, `onMouseIn`, ...) are forwarded on the root
     // element, which carries `id={id}`; the root itself is not the control.

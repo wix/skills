@@ -28,8 +28,14 @@ using CSS Modules `@value`, then consume with `var()`.
 - Do not use `var(--wst-*)` directly; import the `@value` alias first.
 - Do not pass a fallback as `var()`'s second argument
 - Do not use `@import`; CSS Modules resolves theme aliases through `@value`.
-- Do not use `wst-base-1-color` for text. Prefer heading/paragraph color tokens,
-  or `wst-base-2-color` when a base contrast color is required.
+- Do not use `wst-base-1-color` for text on a light surface. Prefer
+  heading/paragraph color tokens for body text.
+- Use matching control tokens: pair `wst-button-primary-background-color` with
+  `wst-button-primary-color` for a primary CTA (or the secondary pair for a
+  secondary CTA). Do not mix `wst-links-and-actions-color` with
+  `wst-base-2-color` as button background and text: they are unrelated tokens
+  and may fail contrast. Check the rendered contrast of every state, and choose
+  a different token pair or design if it fails.
 
 ## Checklist
 

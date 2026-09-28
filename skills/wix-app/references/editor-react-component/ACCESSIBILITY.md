@@ -1,7 +1,6 @@
 # Accessibility Implementation and Review
 
-Use this reference while authoring Editor React Component props and JSX, then
-run the review command once the JSX is complete.
+Use while authoring; run the review after JSX is complete.
 
 ## Contents
 
@@ -41,7 +40,9 @@ function Toggle({ elementProps }: ToggleProps) {
 
   return (
     <button {...toggleProps} aria-label={toggleA11y?.ariaLabel ?? ARIA_LABELS.toggle}>
-      <ChevronIcon aria-hidden="true" />
+      <svg aria-hidden="true" viewBox="0 0 16 16">
+        <path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" />
+      </svg>
     </button>
   );
 }
