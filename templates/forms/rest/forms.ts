@@ -7,28 +7,31 @@
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms.md
 import { wixRequest } from "./client.js";
-import { FORMS_NAMESPACE, toForm, type Raw } from "./forms-core.js";
+import { imgSrc } from "./media.js";
+import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "./forms-core.js";
 import type { FormDto } from "./types.js";
 
-export { FORMS_NAMESPACE };
+export { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue };
 
 /**
  * One form by id. Throws (a WixApiError, 404 FORM_NOT_FOUND) when the id is wrong or the form was
- * deleted — a form that cannot load is a setup problem; never render a hand-built fallback.
+ * deleted — a form that cannot load is a setup problem; never render a hand-built fallback. A form
+ * the owner switched OFF still loads, with `enabled: false` and the owner's `disabledMessage`.
  * GET /form-schema-service/v4/forms/{formId}  → { form }
  */
 export async function getForm(formId: string): Promise<FormDto> {
   const res = await wixRequest<Raw>(`/form-schema-service/v4/forms/${encodeURIComponent(formId)}`, { method: "GET" });
   if (!res?.form) throw new Error(`forms: form "${formId}" not found.`);
-  return toForm(res.form);
+  return toForm(res.form, imgSrc);
 }
 
 /**
- * Every ENABLED form in the Wix Forms namespace (a disabled form vanishes from the listing rather
- * than erroring). `namespace` is required — without it the call is a 400.
+ * Every ENABLED form in the Wix Forms namespace (the list's `enabled` filter defaults to true, so
+ * a disabled form vanishes from the listing rather than erroring). `namespace` is required —
+ * without it the call is a 400.
  * GET /form-schema-service/v4/forms?namespace=wix.form_app.form  → { forms, pagingMetadata }
  */
 export async function listForms(): Promise<FormDto[]> {
   const res = await wixRequest<Raw>("/form-schema-service/v4/forms", { method: "GET", query: { namespace: FORMS_NAMESPACE } });
-  return ((res?.forms ?? []) as Raw[]).map(toForm);
+  return ((res?.forms ?? []) as Raw[]).map((raw) => toForm(raw, imgSrc));
 }

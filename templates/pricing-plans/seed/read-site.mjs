@@ -14,7 +14,8 @@ await runReader({
       planCount: r.pagingMetadata?.total ?? (r.plans ?? []).length,
       plans: (r.plans ?? []).map((p) => {
         const v = p.pricingVariants?.[0]; const s = v?.pricingStrategies?.[0];
-        return { name: p.name, slug: p.slug ?? null, visibility: p.visibility, price: s?.flatRate?.amount ?? null, currency: p.currency ?? null, billing: v?.billingTerms?.billingCycle ? `${v.billingTerms.billingCycle.count} ${v.billingTerms.billingCycle.period}` : (v?.billingTerms?.startType ?? null), perks: (p.perks?.values ?? []).length };
+        // perks is an ARRAY of { id, description } (not { values }); fees[].fixedAmountOptions.amount is the setup-fee surface.
+        return { name: p.name, slug: p.slug ?? null, visibility: p.visibility, price: s?.flatRate?.amount ?? null, currency: p.currency ?? null, billing: v?.billingTerms?.billingCycle ? `${v.billingTerms.billingCycle.count} ${v.billingTerms.billingCycle.period}` : (v?.billingTerms?.startType ?? null), freeTrialDays: v?.freeTrialDays || null, fees: (v?.fees ?? []).map((f) => ({ name: f.name, amount: f.fixedAmountOptions?.amount ?? null })), perks: (p.perks ?? []).length };
       }),
     };
   },

@@ -4,13 +4,17 @@
 //   node <SKILL_ROOT>/templates/restaurants/seed/seed-restaurants.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Restaurants Menus app (plus
-// Orders / Table Reservations when the plan asks), builds each menu BOTTOM-UP (bulk items →
-// bulk sections → menu — every child exists before its parent, visible:true at every level),
-// imports+attaches item images, and configures the add-ons. Prints a JSON result to stdout.
+// Orders / Table Reservations when the plan asks), builds each menu BOTTOM-UP (bulk modifiers →
+// bulk modifier groups → bulk variants → bulk items → bulk sections → menu — every child exists
+// before its parent, visible:true at every level), imports+attaches item images, and configures
+// the add-ons. Prints a JSON result to stdout.
 //
 // Plan shape (see SEED.md):
 //   { "menus": [{ "name", "description"?, "sections": [{ "name", "description"?,
-//                 "items": [{ "name", "description"?, "price", "imageUrl"? | "imagePrompt"? }] }] }],
+//                 "items": [{ "name", "description"?, "price"? | "variants"?: [{ "name", "price" }],
+//                             "modifierGroups"?: [{ "name", "required"?, "min"?, "max"?,
+//                               "modifiers": [{ "name", "price"?, "preSelected"?, "inStock"? }] }],
+//                             "acceptSpecialRequests"?, "imageUrl"? | "imagePath"? | "imagePrompt"? }] }] }],
 //     "ordering"?: true | { "address"? },        // menu-first add-on; address is STEP 0
 //     "reservations"?: true | { "partySize"? { "min","max" }, "address"? } }
 //
@@ -57,6 +61,7 @@ async function req(ctx, path, { method = "POST", body } = {}) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const money = (n) => String(n ?? 0);
 
 // ---- app installs --------------------------------------------------------------------------------
 
@@ -128,40 +133,127 @@ export async function removeSampleMenu(ctx, { tries = 8, delayMs = 2000 } = {}) 
   return { removed: true, menus: menus.map((m) => m.name) };
 }
 
+// A bulk create's created entities, in input order (results[].item; the per-entry flag is results[].itemMetadata.success).
+const bulkEntities = (res) => (res.results ?? []).map((r) => r.item ?? r.variant ?? r.modifier ?? r.modifierGroup ?? null);
+
 /**
- * Build ONE menu BOTTOM-UP (items → sections → menu) in three bulk phases.
- * price -> priceInfo.price as a decimal STRING; currency is the site's (send none).
- * visible:true is baked in at every level — required to render on the live site.
- * Returns { menuId, name, sectionIds, itemIds, items: [{ id, revision, price }] } — the
- * per-item revision/price feed the image pass (Update Item is a full replace).
+ * Bulk-create the modifiers of the plan's groups (the reusable "Extra cheese" entities; the
+ * up-charge and pre-selection live on the group's reference, not here). Returns ids in input order.
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifiers/bulk-create-modifiers.md
+ */
+export async function createModifiers(ctx, modifiers) {
+  if (!modifiers.length) return [];
+  const r = await req(ctx, "/restaurants/menus/v1/bulk/modifiers/create", {
+    body: { modifiers: modifiers.map((m) => ({ name: m.name, inStock: m.inStock !== false })), returnEntity: true },
+  });
+  return bulkEntities(r).map((m) => m?.id);
+}
+
+/**
+ * Bulk-create modifier groups: each carries its modifier references (id, preSelected, the
+ * up-charge as additionalChargeInfo.additionalCharge — a decimal string in the site currency) and
+ * its rule { required, minSelections, maxSelections }. Returns ids in input order.
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifier-groups/bulk-create-modifier-groups.md
+ */
+export async function createModifierGroups(ctx, groups) {
+  if (!groups.length) return [];
+  const r = await req(ctx, "/restaurants/menus/v1/bulk/modifier-groups/create", {
+    body: {
+      modifierGroups: groups.map((g) => ({
+        name: g.name,
+        modifiers: g.modifiers.map((m) => ({
+          id: m.id,
+          preSelected: m.preSelected === true,
+          additionalChargeInfo: { additionalCharge: money(m.price) },
+        })),
+        rule: {
+          required: g.required === true,
+          minSelections: g.min ?? (g.required ? 1 : 0),
+          ...(g.max != null ? { maxSelections: g.max } : {}),
+        },
+      })),
+      returnEntity: true,
+    },
+  });
+  return bulkEntities(r).map((g) => g?.id);
+}
+
+/**
+ * Bulk-create price variants (the reusable "Glass" / "Bottle" names; the price per item lives on
+ * the item's priceVariants reference). Returns ids in input order.
+ * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-variants/bulk-create-variants.md
+ */
+export async function createVariants(ctx, variants) {
+  if (!variants.length) return [];
+  const r = await req(ctx, "/restaurants/menus/v1/bulk/variants/create", {
+    body: { variants: variants.map((v) => ({ name: v.name })), returnEntity: true },
+  });
+  return bulkEntities(r).map((v) => v?.id);
+}
+
+/**
+ * The writable fields of one item from its plan entry and the ids of its created variants/groups:
+ * flat `priceInfo` OR `priceVariants` (never both), the group references, and the order settings.
+ * Used by the create AND echoed by the image pass (Update Item is a full replace).
+ */
+export function itemBody(it, { variantIds = [], groupIds = [] } = {}) {
+  const pricing = it.variants?.length
+    ? { priceVariants: { variants: it.variants.map((v, i) => ({ variantId: variantIds[i], priceInfo: { price: money(v.price) } })).filter((v) => v.variantId) } }
+    : { priceInfo: { price: money(it.price) } };
+  return {
+    name: it.name,
+    ...(it.description ? { description: it.description } : {}),
+    ...pricing,
+    ...(groupIds.length ? { modifierGroups: groupIds.filter(Boolean).map((id) => ({ id })) } : {}),
+    orderSettings: { inStock: it.inStock !== false, acceptSpecialRequests: it.acceptSpecialRequests === true },
+    visible: true,
+  };
+}
+
+/**
+ * Build ONE menu BOTTOM-UP in bulk phases: modifiers → modifier groups → variants → items →
+ * sections → menu. Prices are decimal STRINGS in the site currency (send none). visible:true is
+ * baked in at every level — required to render on the live site.
+ * Returns { menuId, name, sectionIds, itemIds, items: [{ id, revision, body }] } — the per-item
+ * revision and body feed the image pass (Update Item is a full replace).
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-create-items.md
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/bulk-create-sections.md
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu.md
  */
 export async function createMenu(ctx, menu) {
-  // STEP 1 — bulk-create every item across all sections in ONE request.
   const flat = [];
   menu.sections.forEach((sec, si) => (sec.items || []).forEach((it) => flat.push({ ...it, _section: si })));
-  const itemRes = await req(ctx, "/restaurants/menus/v1/bulk/items/create", {
-    body: {
-      items: flat.map((it) => ({
-        name: it.name,
-        ...(it.description ? { description: it.description } : {}),
-        priceInfo: { price: String(it.price) },
-        visible: true,
-      })),
-      returnEntity: true,
-    },
-  });
-  // created items are under results[].item (results[].itemMetadata.success is the per-item flag)
-  const createdItems = (itemRes.results ?? []).map((r) => r.item);
+
+  // STEP 1 — every modifier of every group of every item, ONE bulk call; then the groups.
+  const modifierPlan = [];
+  const groupPlan = [];
+  flat.forEach((it, ii) => (it.modifierGroups || []).forEach((g, gi) => {
+    groupPlan.push({ ...g, _item: ii, _group: gi, _modifierIdx: (g.modifiers || []).map((m) => modifierPlan.push(m) - 1) });
+  }));
+  const modifierIds = await createModifiers(ctx, modifierPlan);
+  const groupIds = await createModifierGroups(ctx, groupPlan.map((g) => ({
+    ...g,
+    modifiers: g._modifierIdx.map((mi) => ({ ...modifierPlan[mi], id: modifierIds[mi] })).filter((m) => m.id),
+  })));
+  const groupIdsByItem = flat.map(() => []);
+  groupPlan.forEach((g, i) => groupIdsByItem[g._item].push(groupIds[i]));
+
+  // STEP 2 — every variant of every variant-priced item, ONE bulk call.
+  const variantPlan = [];
+  const variantIdxByItem = flat.map((it) => (it.variants || []).map((v) => variantPlan.push(v) - 1));
+  const variantIds = await createVariants(ctx, variantPlan);
+
+  // STEP 3 — bulk-create every item across all sections in ONE request.
+  const bodies = flat.map((it, i) => itemBody(it, { variantIds: variantIdxByItem[i].map((vi) => variantIds[vi]), groupIds: groupIdsByItem[i] }));
+  const itemRes = await req(ctx, "/restaurants/menus/v1/bulk/items/create", { body: { items: bodies, returnEntity: true } });
+  const createdItems = bulkEntities(itemRes);
   const itemIdsBySection = menu.sections.map(() => []);
   flat.forEach((it, i) => {
     const id = createdItems[i]?.id;
     if (id) itemIdsBySection[it._section].push(id);
   });
 
-  // STEP 2 — bulk-create sections, each carrying the itemIds of its items in display order.
+  // STEP 4 — bulk-create sections, each carrying the itemIds of its items in display order.
   const secRes = await req(ctx, "/restaurants/menus/v1/bulk/sections/create", {
     body: {
       sections: menu.sections.map((sec, si) => ({
@@ -173,9 +265,9 @@ export async function createMenu(ctx, menu) {
       returnEntity: true,
     },
   });
-  const sectionIds = (secRes.results ?? []).map((r) => r.item?.id);
+  const sectionIds = bulkEntities(secRes).map((s) => s?.id);
 
-  // STEP 3 — create the menu (single create wraps in `menu`), carrying its sectionIds.
+  // STEP 5 — create the menu (single create wraps in `menu`), carrying its sectionIds.
   // businessLocationId omitted -> binds to the site's default (main) location.
   const menuRes = await req(ctx, "/restaurants/menus/v1/menus", {
     body: {
@@ -192,7 +284,7 @@ export async function createMenu(ctx, menu) {
     name: menu.name,
     sectionIds,
     itemIds: createdItems.map((it) => it?.id),
-    items: createdItems.map((it, i) => ({ id: it?.id, revision: it?.revision, price: flat[i]?.price })),
+    items: createdItems.map((it, i) => ({ id: it?.id, revision: it?.revision, body: bodies[i] })),
   };
 }
 
@@ -202,10 +294,11 @@ export async function createMenu(ctx, menu) {
 export { importImage } from "../../shared/seed/images.mjs";
 
 // Image pass. Update Item is a FULL-ENTITY REPLACE with NO field mask — each entry MUST echo
-// the item's current `revision` AND `priceInfo`, or it fails 428 MISSING_ITEM_PRICING and the
-// image does NOT apply. `image` is an OBJECT { id, url, height, width } (never a bare string);
-// the binding field is the Wix Media file `id`.
-// items: [{ id, revision, price, image: { id, url, height, width } }]
+// the item's current `revision` AND every field it was created with (its `body`: pricing, modifier
+// groups, order settings), or the pricing fails 428 MISSING_ITEM_PRICING / the groups are wiped.
+// `image` is an OBJECT { id, url, height, width } (never a bare string); the binding field is the
+// Wix Media file `id`.
+// items: [{ id, revision, body, image: { id, url, height, width } }]
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-update-item.md
 // The bulk update returns 200 on PARTIAL failure: each item's outcome is in
 // results[].itemMetadata (success, error, originalIndex). Returns { attached: [id], failures: [{ id, error }] }.
@@ -213,12 +306,7 @@ export async function attachItemImages(ctx, items) {
   const r = await req(ctx, "/restaurants/menus/v1/bulk/items/update", {
     body: {
       items: items.map((it) => ({
-        item: {
-          id: it.id,
-          revision: it.revision,
-          priceInfo: { price: String(it.price) },
-          image: it.image,
-        },
+        item: { ...(it.body ?? { priceInfo: { price: money(it.price) } }), id: it.id, revision: it.revision, image: it.image },
       })),
     },
   });
@@ -378,15 +466,15 @@ export async function setupRestaurants(ctx, plan) {
 
   // image pass — resolve each item's image (import by url / generate by prompt) in ONE
   // parallel wave (restaurants binds by file id), then bulk full-replace with revision +
-  // priceInfo echoed. Never block on image failure.
+  // the item's created body echoed. Never block on image failure.
   let imagesAttached = 0;
   const imageItems = [];
   menusPlan.forEach((m, mi) => {
     const flat = m.sections.flatMap((s) => s.items || []);
     flat.forEach((it, i) => {
       const created = createdMenus[mi]?.items?.[i];
-      if ((it.imageUrl || it.imagePrompt) && created?.id) {
-        imageItems.push({ ...created, imageUrl: it.imageUrl, imagePrompt: it.imagePrompt, name: it.name });
+      if ((it.imageUrl || it.imagePath || it.imagePrompt) && created?.id) {
+        imageItems.push({ ...created, imageUrl: it.imageUrl, imagePath: it.imagePath, imagePrompt: it.imagePrompt, name: it.name });
       }
     });
   });
@@ -398,7 +486,7 @@ export async function setupRestaurants(ctx, plan) {
   })));
   const toAttach = imageItems
     .map((it, i) => (files[i]
-      ? { id: it.id, revision: it.revision ?? "1", price: it.price,
+      ? { id: it.id, revision: it.revision ?? "1", body: it.body,
           image: { id: files[i].id, url: files[i].url, width: 1024, height: 1024 } }
       : null))
     .filter(Boolean);

@@ -12,9 +12,9 @@
 // client fetch happens; a SPA passes nothing and the hook loads it.
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { createFormStore, type FormStore, type FormSubmitEvent } from "../../wix/forms/form-store";
-import type { FormDto, FormErrors, FormValues } from "../../wix/forms/types";
+import type { FormDto, FormErrors, FormValues, SubmitOutcome } from "../../wix/forms/types";
 
-export { FORM_ERROR, validateValue } from "../../wix/forms/form-store";
+export { FORM_ERROR, otherText, otherValue, validateValue } from "../../wix/forms/form-store";
 
 export interface UseWixFormOptions {
   /** Server-fetched form (Astro frontmatter) — skips the client fetch entirely. */
@@ -22,7 +22,10 @@ export interface UseWixFormOptions {
 }
 
 export interface UseWixForm {
-  /** null while the schema is loading — render a skeleton, not an empty form. */
+  /**
+   * null while the schema is loading — render a skeleton, not an empty form. Loaded: the owner's
+   * rules are applied to the current values, so `form.fields` is exactly what to render now.
+   */
   form: FormDto | null;
   /** `target` → current value. Arrays for multi-choice and files, objects for an address. */
   values: FormValues;
@@ -36,13 +39,25 @@ export interface UseWixForm {
     "aria-describedby": string;
     "aria-invalid": true | undefined;
   };
-  /** `onSubmit`. Resolves TRUE when the submission was created — that IS the success signal. */
-  submit: (event?: FormSubmitEvent) => Promise<boolean>;
+  /** `onSubmit`. Resolves the outcome when the submission was created — that IS the success signal; false when it did not send. */
+  submit: (event?: FormSubmitEvent) => Promise<SubmitOutcome | false>;
   /** One field, one address subfield, or the whole form when called with nothing. */
   validate: (target?: string) => boolean;
   errors: FormErrors;
   /** Loading the schema, or submitting. */
   loading: boolean;
+  /** Multi-step: the index into `form.steps` being shown, and the moves. `next` validates the current step first. */
+  step: number;
+  next: (event?: FormSubmitEvent) => boolean;
+  previous: () => void;
+  goToStep: (index: number) => void;
+  /** The form is switched off or past its deadline: render `form.disabledMessage` instead of the fields. */
+  closed: boolean;
+  /** The last successful submit (render the thank-you / navigate to `url`), until `reset()` or the owner's auto-hide. */
+  outcome: SubmitOutcome | null;
+  reset: () => void;
+  /** Hand a captcha widget's token to the next submit. */
+  setCaptchaToken: (token: string | null) => void;
 }
 
 export function useWixForm(formId: string, options: UseWixFormOptions = {}): UseWixForm {
@@ -81,5 +96,13 @@ export function useWixForm(formId: string, options: UseWixFormOptions = {}): Use
     validate: store.validate,
     errors,
     loading: state.loading,
+    step: state.step,
+    next: store.next,
+    previous: store.previous,
+    goToStep: store.goToStep,
+    closed: state.closed,
+    outcome: state.outcome,
+    reset: store.reset,
+    setCaptchaToken: store.setCaptchaToken,
   };
 }

@@ -1,43 +1,71 @@
 // One form as a framework-free store — the logic behind useWixForm, usable from React (useWixForm
 // wraps it with useSyncExternalStore), from a static page or Vue/Svelte (subscribe and render), or
 // as the specification for a port. Schema in, validated submission out, minus the markup: load the
-// form, hold the visitor's values, validate them against the schema's own rules in our wording,
-// upload attachments, create the submission, and map a rejection back onto the controls.
+// form, hold the visitor's values, apply the owner's rules on every change, validate against the
+// schema's own rules in Wix's wording, move between steps, upload attachments, create the
+// submission, hand a paid form to checkout, and map a rejection back onto the controls.
 //
 // It imports the data layer by names the REST twin exports identically (getForm, uploadFiles,
-// createSubmission, submissionErrors, toSubmissionValues), so the same file runs over the SDK in
-// Astro/React and over REST on a static page.
+// createSubmission, checkoutUrl, submissionErrors, formLevelError, toSubmissionValues), so the same
+// file runs over the SDK in Astro/React and over REST on a static page.
 //
 // SSR-friendly: pass a server-fetched FormDto as `initialForm` and no client fetch happens;
 // `start()` then does nothing. Without it `start()` loads the schema. One store per mounted form:
 // createFormStore(), not a singleton — a page can hold two forms.
-import { getForm } from "./forms";
+import { applyRules, getForm, isClosed, otherText, otherValue } from "./forms";
 import {
+  EMAIL_PATTERN,
+  PHONE_PATTERN,
+  addressPartMessage,
+  dateRangeMessage,
+  itemsMessage,
+  lengthMessage,
+  multipleOfMessage,
+  rangeMessage,
+  requiredMessage,
+  withSeconds,
+} from "./submissions-core";
+import {
+  checkoutUrl,
   createSubmission,
+  formLevelError,
   normalizePhone,
+  normalizeUrl,
   submissionErrors,
   toSubmissionValues,
   uploadFiles,
 } from "./submissions";
-import type { FormDto, FormErrors, FormFieldDto, FormValues } from "./types";
+import type { FormDto, FormErrors, FormFieldDto, FormStep, FormValues, SubmitOutcome } from "./types";
+
+export { otherText, otherValue };
 
 /**
  * The key in `errors` for a message that belongs to the FORM rather than one field — a schema
- * that failed to load, or a rejection with no per-field violations. `@` cannot appear in a
- * form `target`, so this never collides with a field's own error.
+ * that failed to load, a closed form, or a rejection with no per-field violations. `@` cannot
+ * appear in a form `target`, so this never collides with a field's own error.
  */
 export const FORM_ERROR = "@form";
 
-/** The empty form: every field at a value of the shape its control binds to. */
+/** The empty value of a field's SHAPE — what a control binds to before anyone typed. */
+export function emptyValue(field: FormFieldDto): FormValues[string] {
+  return field.control === "address" ? {} :
+    field.inputType === "ARRAY" || field.inputType === "WIX_FILE" ? [] :
+    field.inputType === "BOOLEAN" ? false : "";
+}
+
+/** The empty form: every field at its prefill, or the empty value of its shape. */
 export function defaultValues(fields: FormFieldDto[]): FormValues {
   const values: FormValues = {};
   for (const f of fields) values[f.target] = Array.isArray(f.defaultValue) ? [...f.defaultValue] : f.defaultValue;
   return values;
 }
 
+const isBlank = (v: unknown): boolean => v === undefined || v === null || String(v).trim() === "";
+
 /**
  * Check one field's value against its own schema. A plain function — usable outside the store,
- * and the place to look when a message needs rewording.
+ * and the place to look when a message needs rewording. Messages are Wix's own copy for the
+ * common cases, so the inline check and a server rejection read alike.
  *
  * Every rule comes from the schema, never from a field's NAME. (The classic mistake is keying
  * the email check on `target === "email"`; deriving it from `format` means an owner-added
@@ -50,74 +78,98 @@ export function validateValue(field: FormFieldDto, value: unknown): string {
   const v = String(value ?? "").trim();
   const rules = field.validation;
 
-  if (field.required && !v) return `${field.label} is required.`;
+  // A read-only field submits its prefill; Wix leaves it out of the required set.
+  if (field.required && !field.readOnly && !v) return requiredMessage(field);
   if (!v) return ""; // optional and empty → fine
 
   if (field.control === "number" || field.control === "rating") {
     // The control hands back a string, so parse before comparing: "9" > 10 is false but
     // "9" > "10" is true.
     const n = Number(v);
-    if (!Number.isFinite(n)) return `${field.label} must be a number.`;
-    if (rules.minimum != null && n < rules.minimum) return `${field.label} must be ${rules.minimum} or more.`;
-    if (rules.maximum != null && n > rules.maximum) return `${field.label} must be ${rules.maximum} or less.`;
+    if (!Number.isFinite(n)) return "Enter a number.";
+    // A rating is one of 1..5 (form-viewer isRating); 0 means empty.
+    if (field.control === "rating" && !(Number.isInteger(n) && n >= 1 && n <= 5)) return "Choose a star rating.";
+    if ((rules.minimum != null && n < rules.minimum) || (rules.maximum != null && n > rules.maximum)) return rangeMessage(rules.minimum, rules.maximum);
+    if (rules.multipleOf && Math.abs(n / rules.multipleOf - Math.round(n / rules.multipleOf)) > 1e-9) return multipleOfMessage(rules.multipleOf);
     return "";
   }
 
-  if (rules.minLength && v.length < rules.minLength)
-    return `${field.label} must be at least ${rules.minLength} characters.`;
-  if (rules.maxLength && v.length > rules.maxLength)
-    return `${field.label} must be at most ${rules.maxLength} characters.`;
-  if (rules.format === "EMAIL" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
-    return "Please enter a valid email address.";
-  if (rules.format === "URL" && !/^https?:\/\/.+/.test(v)) return "Please enter a valid URL.";
+  if (field.control === "date" || field.control === "time" || field.control === "datetime") {
+    // Values in the field's own ISO spelling compare as strings once seconds are normalized.
+    const x = withSeconds(v);
+    if ((rules.minDate && x < withSeconds(rules.minDate)) || (rules.maxDate && x > withSeconds(rules.maxDate))) {
+      return field.identifier === "CONTACTS_BIRTHDATE" ? "Enter a date from January 1, 1900 to today." : dateRangeMessage(rules.minDate, rules.maxDate);
+    }
+    return "";
+  }
+
+  if (field.control === "select" || field.control === "radio") {
+    // After a rule narrowed the choices, a stale value is no longer allowed. A free-text
+    // "Other" entry is anything outside the list.
+    if (field.choices.length && !field.otherOption && !field.choices.some((c) => c.value === v)) return "The chosen value is not allowed.";
+    return "";
+  }
+
+  if ((rules.minLength && v.length < rules.minLength) || (rules.maxLength && v.length > rules.maxLength))
+    return lengthMessage(rules.minLength, rules.maxLength);
+  if (rules.format === "EMAIL" && !EMAIL_PATTERN.test(v)) return "Enter an email address like example@mysite.com.";
+  if (rules.format === "URL" && !/^https?:\/\/[^\s/?#]+[^\s]*$/i.test(normalizeUrl(v))) return "Enter a web URL like https://www.example.com.";
   // PHONE is E.164 server-side: leading +, country code, digits. Strip formatting first —
   // visitors add spaces, dashes and parens, and rejecting those is a UX bug, not validation.
-  if (rules.format === "PHONE" && !/^\+[1-9]\d{6,14}$/.test(normalizePhone(v)))
-    return "Use international format, starting with + and the country code.";
-  if (rules.pattern && !new RegExp(rules.pattern).test(v))
-    return `${field.label} is not in the expected format.`;
+  if (rules.format === "PHONE" && !PHONE_PATTERN.test(normalizePhone(v))) return "Enter a valid phone number.";
+  if (rules.pattern) {
+    try {
+      if (!new RegExp(rules.pattern).test(v)) return rules.patternMessage ?? "Enter a valid answer.";
+    } catch { /* an owner's pattern the engine cannot compile: the server decides */ }
+  }
   return "";
 }
 
 /**
  * One field's error entries, keyed the way the controls are named. A plain field yields at most
- * one (`target`); an ADDRESS yields one per failing subfield (`target/sub`).
+ * one (`target`); an ADDRESS yields one per failing subfield (`target/sub`). A hidden field
+ * yields none — Wix drops hidden fields from the required set and clears their values.
  *
- * An address subfield gets the `required` check only — `country` and `subdivision` are
- * country-dependent enums the schema does not enumerate, so their content is the server's call.
+ * An address subfield gets the `required` check only — `subdivision` is a country-dependent
+ * enum the schema does not enumerate, so its content is the server's call.
  */
 export function errorsForField(field: FormFieldDto, values: FormValues): FormErrors {
   const errors: FormErrors = {};
+  if (field.hidden) return errors;
+  const required = field.required && !field.readOnly;
 
   if (field.control === "address") {
     const parts = (values[field.target] ?? {}) as Record<string, unknown>;
-    for (const { sub, label, required } of field.addressParts) {
-      if (required && !String(parts[sub] ?? "").trim()) errors[`${field.target}/${sub}`] = `${label} is required.`;
+    for (const { sub, required: subRequired } of field.addressParts) {
+      if (subRequired && isBlank(parts[sub])) errors[`${field.target}/${sub}`] = addressPartMessage(sub);
     }
     return errors;
   }
 
   if (field.control === "file" || field.control === "signature") {
-    // Files are File objects, which no string rule can judge — check the count instead.
+    // Files are File objects, which no string rule can judge — check the count instead. Wix
+    // caps every upload field at 30 files.
     const picked = ([] as unknown[]).concat(values[field.target] ?? []).filter(Boolean);
-    const limit = field.validation.fileLimit;
-    if (field.required && !picked.length) errors[field.target] = `${field.label} is required.`;
-    else if (limit && picked.length > limit)
-      errors[field.target] = `Attach at most ${limit} file${limit === 1 ? "" : "s"}.`;
+    const limit = Math.min(field.validation.fileLimit ?? 30, 30);
+    if (required && !picked.length) errors[field.target] = requiredMessage(field);
+    else if (picked.length > limit) errors[field.target] = `There is an upload limit of ${limit} file${limit === 1 ? "" : "s"}.`;
     return errors;
   }
 
   if (field.inputType === "ARRAY") {
-    const picked = (Array.isArray(values[field.target]) ? (values[field.target] as unknown[]) : []).filter(Boolean);
+    const picked = (Array.isArray(values[field.target]) ? (values[field.target] as unknown[]) : []).filter((x) => !isBlank(x));
     const { minItems, maxItems } = field.validation;
-    if (field.required && !picked.length) errors[field.target] = `${field.label} is required.`;
-    else if (minItems && picked.length < minItems) errors[field.target] = `Choose at least ${minItems}.`;
-    else if (maxItems && picked.length > maxItems) errors[field.target] = `Choose at most ${maxItems}.`;
+    if (required && !picked.length) errors[field.target] = requiredMessage(field);
+    else if ((minItems && picked.length < minItems) || (maxItems && picked.length > maxItems)) errors[field.target] = itemsMessage(minItems, maxItems);
+    else if (field.choices.length && !field.otherOption && picked.some((x) => !field.choices.some((c) => c.value === x)))
+      errors[field.target] = "The chosen value is not allowed.";
     return errors;
   }
 
   if (field.control === "checkbox") {
-    if (field.required && values[field.target] !== true) errors[field.target] = `${field.label} is required.`;
+    // `required` on a boolean only checks presence server-side; "must be ticked" is the enum
+    // [true] (`mustBeTrue`). Either way the visitor has to tick it before we send.
+    if ((required || field.validation.mustBeTrue) && values[field.target] !== true) errors[field.target] = "Check the box to continue.";
     return errors;
   }
 
@@ -156,7 +208,12 @@ export interface FormStoreOptions {
 
 /** Everything a form surface renders from. Read it with getState() or through a subscription. */
 export interface FormState {
-  /** null while the schema is loading — render a skeleton, not an empty form. */
+  /**
+   * null while the schema is loading — render a skeleton, not an empty form. Once loaded, the
+   * owner's rules are already applied to the CURRENT values: `form.fields` holds only the fields
+   * to render right now (hidden ones removed), each with its effective `required` and `choices`,
+   * and `form.steps[].targets` lists the visible targets of each step.
+   */
   form: FormDto | null;
   /** `target` → current value. Arrays for multi-choice and files, objects for an address. */
   values: FormValues;
@@ -164,6 +221,12 @@ export interface FormState {
   errors: FormErrors;
   /** Loading the schema, or submitting. */
   loading: boolean;
+  /** Index into `form.steps` of the page being shown. 0 on a single-step form. */
+  step: number;
+  /** The form is not accepting submissions (switched off, or past its deadline): show `form.disabledMessage`. */
+  closed: boolean;
+  /** The last successful submit, until `reset()` (or the owner's auto-hide) clears it. null before. */
+  outcome: SubmitOutcome | null;
 }
 
 /** A submit event as the store needs it — a React SyntheticEvent or a native Event both fit. */
@@ -177,50 +240,133 @@ export interface FormStore {
   /** Stop reacting; drop a late schema response. */
   stop(): void;
   setValues(next: FormValues | ((prev: FormValues) => FormValues)): void;
-  /** One field's value — what a control's change handler calls. */
+  /** One field's value — what a control's change handler calls. Rules re-run; a field a rule just hid is cleared. */
   setValue(target: string, value: unknown): void;
-  /** One field, one address subfield (`target/sub`), or the whole form when called with nothing. */
+  /** One field, one address subfield (`target/sub`), or the whole form when called with nothing. A URL field is https-prefixed here when it reads like a bare domain. */
   validate(target?: string): boolean;
+  /** Multi-step: validate the current step; on success show the next one. Returns whether it moved. */
+  next(event?: FormSubmitEvent): boolean;
+  /** Multi-step: show the previous step (nothing to validate). */
+  previous(): void;
+  goToStep(index: number): void;
+  /** A captcha widget's token, sent with the next submit. The server asks for one with INVALID_CAPTCHA. */
+  setCaptchaToken(token: string | null): void;
+  /** Clear `outcome` (dismiss the thank-you and show the empty form again). */
+  reset(): void;
   /**
-   * The `onSubmit` handler. Client validation in our wording first (focus lands on the first
-   * invalid control), then uploads, then the create. Resolves TRUE when the submission was
-   * created — that IS the success signal; the values are back at the schema's defaults.
+   * The `onSubmit` handler. Client validation in Wix's wording first (focus lands on the first
+   * invalid control, switching step if needed), then uploads, then the create, then the owner's
+   * submit settings. Resolves the outcome when the submission was created — that IS the success
+   * signal; the values are back at the schema's defaults. Resolves FALSE when it did not send.
    */
-  submit(event?: FormSubmitEvent): Promise<boolean>;
+  submit(event?: FormSubmitEvent): Promise<SubmitOutcome | false>;
 }
 
 export function createFormStore({ formId, initialForm }: FormStoreOptions): FormStore {
-  let form: FormDto | null = initialForm ?? null;
+  // `base` is the schema as loaded; `form` (in state) is `base` with the rules applied to `values`.
+  let base: FormDto | null = initialForm ?? null;
+  let applied: FormFieldDto[] = base ? applyRules(base, defaultValues(base.fields)) : [];
   // The empty form to reset to after a successful submit — the schema's own defaults.
-  let empty: FormValues = defaultValues(form?.fields ?? []);
+  let empty: FormValues = defaultValues(base?.fields ?? []);
   let values: FormValues = empty;
   let errors: FormErrors = {};
   let loading = !initialForm;
+  let step = 0;
+  let outcome: SubmitOutcome | null = null;
+  let captchaToken: string | null = null;
   let started = false;
   let generation = 0;
+  let hideTimer: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
   let snapshot: FormState | null = null;
   const emit = () => { snapshot = null; for (const fn of listeners) fn(); };
-  const fields = (): FormFieldDto[] => form?.fields ?? [];
+
+  /** `base` narrowed to what is visible right now. */
+  function visibleForm(): FormDto | null {
+    if (!base) return null;
+    const fields = applied.filter((f) => !f.hidden);
+    const shown = new Set(fields.map((f) => f.target));
+    const steps: FormStep[] = base.steps.map((s) => ({ ...s, targets: s.targets.filter((t) => shown.has(t)) }));
+    return { ...base, fields, steps };
+  }
 
   function getState(): FormState {
     if (snapshot) return snapshot;
-    snapshot = { form, values, errors, loading };
+    snapshot = { form: visibleForm(), values, errors, loading, step, closed: base ? isClosed(base) : false, outcome };
     return snapshot;
   }
 
+  const visibleFields = (): FormFieldDto[] => applied.filter((f) => !f.hidden);
+  const stepFields = (i: number): FormFieldDto[] => {
+    const s = base?.steps[i];
+    return s ? visibleFields().filter((f) => f.stepId === s.id) : visibleFields();
+  };
+
+  /**
+   * Adopt new values: re-run the rules, and clear the value and errors of every field a rule
+   * just hid, repeating until nothing else hides (clear-fields.ts does the same fixed point —
+   * clearing one field can satisfy another rule's condition).
+   */
+  function adoptValues(next: FormValues): void {
+    if (!base) { values = next; return; }
+    let hiddenBefore = new Set(applied.filter((f) => f.hidden).map((f) => f.target));
+    const cleared: string[] = [];
+    for (let i = 0; i <= base.fields.length; i++) {
+      applied = applyRules(base, next);
+      const toClear = applied.filter((f) => f.hidden && !hiddenBefore.has(f.target));
+      if (!toClear.length) break;
+      next = { ...next };
+      for (const f of toClear) { next[f.target] = emptyValue(f); cleared.push(f.target); }
+      hiddenBefore = new Set(applied.filter((f) => f.hidden).map((f) => f.target));
+    }
+    values = next;
+    if (cleared.length) {
+      const kept: FormErrors = {};
+      for (const [k, msg] of Object.entries(errors)) if (!cleared.includes(k.split("/")[0])) kept[k] = msg;
+      errors = kept;
+    }
+  }
+
   function adopt(loaded: FormDto): void {
-    form = loaded;
+    base = loaded;
     // Seed the controls once the schema is in: every control is controlled from the first
     // render, so each target holds a value of the right shape before any of them mount.
     empty = defaultValues(loaded.fields);
+    applied = applyRules(loaded, empty);
     values = empty;
     errors = {};
+    step = 0;
     loading = false;
     emit();
   }
 
   function setErrors(next: FormErrors): void { errors = next; emit(); }
+
+  /** Show the step that holds a control, then focus it. */
+  function focusError(formEl: HTMLFormElement | null, key: string): void {
+    const target = key.split("/")[0];
+    const field = applied.find((f) => f.target === target);
+    const at = base?.steps.findIndex((s) => s.id === field?.stepId) ?? -1;
+    if (at >= 0 && at !== step) { step = at; emit(); }
+    focusControl(formEl, key);
+  }
+
+  /** The keys a `validate(target)` call owns, so a re-check CLEARS what it fixed as well as flagging what it did not. */
+  function ownedKeys(key: string, field: FormFieldDto): string[] {
+    return key.includes("/") ? [key] : field.control === "address" ? field.addressParts.map(({ sub }) => `${field.target}/${sub}`) : [field.target];
+  }
+
+  function validateFields(fields: FormFieldDto[], formEl: HTMLFormElement | null): boolean {
+    const found = errorsForForm(fields, values);
+    const owned = new Set(fields.flatMap((f) => ownedKeys(f.target, f)));
+    const next: FormErrors = {};
+    for (const [k, msg] of Object.entries(errors)) if (!owned.has(k) && k !== FORM_ERROR) next[k] = msg;
+    Object.assign(next, found);
+    setErrors(next);
+    const first = fields.flatMap((f) => ownedKeys(f.target, f)).find((k) => found[k]);
+    if (first) focusError(formEl, first);
+    return !first;
+  }
 
   return {
     getState,
@@ -228,7 +374,7 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
     start() {
       if (started) return;
       started = true;
-      if (form) return; // the SSR pass already answered this
+      if (base) return; // the SSR pass already answered this
       if (!formId) {
         loading = false;
         errors = { [FORM_ERROR]: "No formId — pass one from the seed's forms map." };
@@ -249,33 +395,27 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
           emit();
         });
     },
-    stop() { started = false; generation++; },
+    stop() { started = false; generation++; if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } },
     setValues(next) {
-      values = typeof next === "function" ? next(values) : next;
+      adoptValues(typeof next === "function" ? next(values) : next);
       emit();
     },
     setValue(target, value) {
-      values = { ...values, [target]: value };
+      adoptValues({ ...values, [target]: value });
       emit();
     },
     validate(target) {
-      if (!target) {
-        const all = errorsForForm(fields(), values);
-        setErrors(all);
-        return Object.keys(all).length === 0;
-      }
+      if (!target) return validateFields(visibleFields(), null);
       const key = String(target);
-      const field = fields().find((f) => f.target === key.split("/")[0]);
+      const field = visibleFields().find((f) => f.target === key.split("/")[0]);
       if (!field) return true;
-
-      // The keys this call owns, so a re-check CLEARS what it fixed as well as flagging what it
-      // did not: one key for a plain field, or every subfield when an address itself is named.
-      const owned = key.includes("/")
-        ? [key]
-        : field.control === "address"
-          ? field.addressParts.map(({ sub }) => `${field.target}/${sub}`)
-          : [field.target];
-
+      // Wix's URL field completes a bare domain on blur; do it before checking, so the visitor
+      // sees the value that will be sent.
+      if (field.control === "url" && typeof values[field.target] === "string") {
+        const fixed = normalizeUrl(values[field.target]);
+        if (fixed !== values[field.target]) { values = { ...values, [field.target]: fixed }; }
+      }
+      const owned = ownedKeys(key, field);
       const found = errorsForField(field, values);
       const next = { ...errors };
       for (const k of owned) {
@@ -285,42 +425,90 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
       setErrors(next);
       return owned.every((k) => !found[k]);
     },
+    next(event) {
+      event?.preventDefault?.();
+      const formEl = (event?.currentTarget ?? null) as HTMLFormElement | null;
+      if (!base || step >= base.steps.length - 1) return false;
+      // Only the current step's fields (use-validation.ts validateStep): a later step's
+      // required field must not block moving forward.
+      if (!validateFields(stepFields(step), formEl)) return false;
+      step += 1;
+      emit();
+      return true;
+    },
+    previous() {
+      if (step > 0) { step -= 1; emit(); }
+    },
+    goToStep(index) {
+      if (base && index >= 0 && index < base.steps.length && index !== step) { step = index; emit(); }
+    },
+    setCaptchaToken(token) { captchaToken = token; },
+    reset() {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      outcome = null;
+      step = 0;
+      emit();
+    },
     async submit(event) {
       event?.preventDefault?.();
       // Capture the <form> NOW: React clears currentTarget once the handler returns, so reading
       // it after the await below (to focus a server-rejected control) comes back null.
       const formEl = (event?.currentTarget ?? null) as HTMLFormElement | null;
-      if (!form) return false;
-      const current = form;
-      const currentFields = current.fields;
-
-      // Client pass first, so the visitor gets inline feedback in OUR wording before a round trip.
-      const clientErrors = errorsForForm(currentFields, values);
-      if (Object.keys(clientErrors).length) {
-        setErrors(clientErrors);
-        focusControl(formEl, Object.keys(clientErrors)[0]);
+      if (!base) return false;
+      const current = base;
+      if (isClosed(current)) {
+        setErrors({ [FORM_ERROR]: current.disabledMessage || "This form is no longer accepting submissions." });
         return false;
       }
+      const currentFields = visibleFields();
+
+      // Client pass first, so the visitor gets inline feedback before a round trip.
+      if (!validateFields(currentFields, formEl)) return false;
 
       loading = true;
       emit();
       try {
         // Attachments go up FIRST — a File is not something the submission API takes, and its
-        // value is the upload URL this hands back. No file fields → nothing happens here.
+        // value is the file entry this hands back. No file fields → nothing happens here.
         const uploaded = await uploadFiles(current.id, currentFields, values);
-        values = uploaded; // keep the URLs, so a rejection on another field never re-uploads
+        values = uploaded; // keep the uploaded entries, so a rejection on another field never re-uploads
         emit();
-        await createSubmission(current.id, toSubmissionValues(currentFields, uploaded));
+        const submission = await createSubmission(current.id, toSubmissionValues(currentFields, uploaded), captchaToken ? { captchaToken } : {});
         errors = {};
-        values = empty; // back to the schema's defaults, ready for another
-        return true;
+        captchaToken = null; // a token is single-use
+        // What happens next is the owner's call (use-submit.ts): a paid form goes to checkout,
+        // else the submit settings — thank-you text, a redirect, or nothing.
+        if (submission.checkoutId) {
+          outcome = { submission, action: "CHECKOUT" };
+          try {
+            outcome.url = await checkoutUrl(submission.checkoutId);
+          } catch (e) {
+            errors = { [FORM_ERROR]: e instanceof Error ? e.message : "Checkout could not start." };
+          }
+        } else {
+          const s = current.success;
+          outcome = {
+            submission,
+            action: s.action,
+            ...(s.message ? { message: s.message } : {}),
+            ...(s.durationSeconds ? { durationSeconds: s.durationSeconds } : {}),
+            ...(s.redirectUrl ? { url: s.redirectUrl, newTab: s.newTab === true } : {}),
+          };
+          if (s.durationSeconds && typeof setTimeout !== "undefined") {
+            if (hideTimer) clearTimeout(hideTimer);
+            hideTimer = setTimeout(() => { hideTimer = null; outcome = null; emit(); }, s.durationSeconds * 1000);
+          }
+        }
+        adoptValues(empty); // back to the schema's defaults, ready for another
+        step = 0;
+        return outcome;
       } catch (e) {
         const mapped = submissionErrors(e, currentFields);
         if (Object.keys(mapped).length) {
           errors = mapped;
-          focusControl(formEl, Object.keys(mapped)[0]);
+          focusError(formEl, Object.keys(mapped)[0]);
         } else {
-          errors = { [FORM_ERROR]: e instanceof Error ? e.message : "Could not send the form. Please try again." };
+          errors = { [FORM_ERROR]: formLevelError(e, current) ?? (e instanceof Error ? e.message : "Could not send the form. Please try again.") };
         }
         return false;
       } finally {

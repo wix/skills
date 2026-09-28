@@ -1,9 +1,10 @@
 # Pricing Plans — playbook
 
-The plans machinery ships as files — plan reads (grid + by-slug), the hosted purchase redirect,
-the purchase control, typed end-to-end. **The presentation is yours**: you design and implement
-the plan card, the pricing grid, and the plan detail surface on the shipped hooks/DTOs, plus the
-home page and the brand. You never write purchase logic; you never skip designing.
+The plans machinery ships as files — plan reads (grid, by slug, by id), the hosted purchase
+redirect, the purchase control, the plan-holders-only gate, typed end-to-end. **The presentation
+is yours**: you design and implement the plan card, the pricing grid, and the plan detail surface
+on the shipped hooks/DTOs, plus the home page and the brand. You never write purchase or access
+logic; you never skip designing.
 
 ## The file map (deployed into `src/`)
 
@@ -20,13 +21,16 @@ writing their equivalents. Files you edit: `SiteLayout.astro` and `styles/global
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
 | `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(plan.imageUrl, "50vw")} alt={plan.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath |
-| `wix/pricing-plans/types.ts` | the DTOs (`PlanSummary`, `PlanDetail`) — contracts inlined below |
-| `wix/pricing-plans/plans.ts` | `fetchPlans`, `fetchPlanBySlug` — the transport; the rules and DTO mappers are in `plans-core.ts` beside it (shared with the REST layer) |
+| `wix/pricing-plans/types.ts` | the DTOs (`PlanSummary`, `PlanDetail`, `PlanFee`) — contracts inlined below |
+| `wix/pricing-plans/plans.ts` | `fetchPlans`, `fetchPlanBySlug`, `fetchPlansByIds`, `fetchPlanById` — the transport; the rules and DTO mappers are in `plans-core.ts` beside it (shared with the REST layer). A plan without a numeric price is malformed and never returned |
 | `wix/pricing-plans/purchase.ts` | `purchasePlan` — the hosted-checkout redirect session; its body lives in `purchase-core.ts` (shared with the REST layer) |
-| `wix/pricing-plans/plans-store.ts` · `plan-purchase-store.ts` | the listing and purchase state machines, framework-free (`createPlansStore()`, `createPlanPurchaseStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
+| `wix/pricing-plans/plan-access.ts` | `hasActiveOrderFor(planIds, call?)` — does the CURRENT MEMBER hold an ACTIVE order for one of the plans (Member List Orders, member-only); the rule is in `plan-access-core.ts` beside it (shared with the REST layer). Needs the `members` vertical's session — see "Gated content" |
+| `wix/pricing-plans/plans-store.ts` · `plan-purchase-store.ts` · `plan-access-store.ts` | the listing, purchase, and access state machines, framework-free (`createPlansStore()`, `createPlanPurchaseStore()`, `createPlanAccessStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/pricing-plans/usePlans.ts` | React binding of `plans-store.ts`: the plans listing — contract below |
 | `hooks/pricing-plans/usePlanPurchase.ts` | React binding of `plan-purchase-store.ts`: the purchase action — contract below |
+| `hooks/pricing-plans/usePlanAccess.ts` | React binding of `plan-access-store.ts`: `{ hasAccess, loading, error }` for a set of plans, fed the members session — contract below |
 | `components/pricing-plans/SubscribeButton.tsx` | the purchase control for one plan — rendered only when `buyable`, label from the DTO ("Get this plan" free / "Subscribe"), "Redirecting…" in flight, the failure inline — **wire as-is** on every card, the detail page, a home strip (`<SubscribeButton plan={p} />`) |
+| `components/pricing-plans/RequirePlan.tsx` | the gate for plan-holders-only content — neutral while unsettled, the way in for a visitor (login with `returnTo`), the way to `/plans` for a member without the plan, the content only on an ACTIVE order — **wire as-is** around gated content, with the members session as a prop (`client:only="react"` on Astro) |
 | `components/pricing-plans/PlansView.tsx` (+ `PlanCard`) · `PlanDetailView.tsx` | **REFERENCE implementations** — correct, plain; build your own instead of shipping them (skeletons below) |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — shared across verticals). Everything, shipped and yours, styles from these tokens |
 
@@ -57,11 +61,14 @@ Defaults for a brief that says nothing about them; the prompt wins where it diff
 plans before designing (how many tiers, free/recurring/one-time mix, trials, perks, images).
 
 - **Pricing page:** every public plan as a card in the first screen on desktop — name, price with
-  its cadence, perks, the CTA; a free plan reads "Free" with no cadence; a recommended tier may be
-  highlighted, never invented; loading (`plans === null`), empty, and error states look different.
-- **Plan page:** name, price, cadence, the CTA in the first screen at 390px wide too; perks and
-  terms after the CTA, never between the price and the action; a plan without an image renders no
-  empty image box.
+  its cadence and validity (`duration`, when set), every fee right under the price, perks, the CTA;
+  a free plan reads "Free" with no cadence; a recommended tier may be highlighted, never invented;
+  loading (`plans === null`), empty, and error states look different.
+- **Plan page:** name, price, cadence, fees, the CTA in the first screen at 390px wide too; fees
+  sit between the price and the CTA (they are part of what checkout charges) and are never hidden;
+  perks and terms after the CTA, never between the price and the action; a plan without an image
+  renders no empty image box; the image is 16:9 — `imgAttrs(plan.imageUrl, sizes, PLAN_IMAGE_RATIO)`
+  in a 16:9 band, never a square crop.
 - **CTA:** the shipped `SubscribeButton` on every purchase surface — it disappears for a plan that
   isn't buyable (`assignedText` or nothing), and a free plan's label is not "Subscribe".
 - **Copy:** nothing the merchant didn't supply — no invented savings, guarantees, or member counts;
@@ -71,10 +78,21 @@ plans before designing (how many tiers, free/recurring/one-time mix, trials, per
 
 ```ts
 // PlanSummary (cards) — display-ready:
-// { id, slug, name, description, price /* "€29.00" | "Free" */, free,
-//   billing /* "per month" | "every 3 months" | "one-time" | "per month × 6" | "" (free) */,
-//   freeTrialDays: number|null, perks: string[], buyable, imageUrl /* "" when none */ }
+// { id, slug, name, description, pricingVariantId,
+//   price /* "€29.00" | "Free" */, free,
+//   billing /* the cadence only: "per month" | "every 3 months" | "one-time" | "" (free) */,
+//   duration /* how long the plan stays valid: "6 months" | "1 year" | null = until canceled */,
+//   fees /* [{ name: "Setup fee", amount: "€25.00" }] — charged with the first payment; [] when none */,
+//   freeTrialDays: number|null, perks: string[], buyable, imageUrl /* 16:9; "" when none */ }
 // PlanDetail adds: termsAndConditions (plain text; "" when not set).
+// billing and duration are independent: "per month" + "6 months" (a 6-cycle plan), "one-time" +
+// "1 month" (paid once, valid a month), "per month" + null (until canceled).
+// A plan the API returns without a numeric price is malformed: it is dropped from every list
+// (one console.warn) and null by slug/id — never rendered as "Free" with a live CTA.
+
+// fetchPlans({ limit?, locale? }), fetchPlansByIds(ids, { locale? }), fetchPlanBySlug(slug, { locale? }),
+// fetchPlanById(id, { locale? }) — `locale` (BCP 47) pins the money strings when the brief names a
+// market; default = the runtime's locale (the server's under Astro SSR).
 
 // usePlans({ initialPlans? }) →
 // { plans: PlanSummary[]|null /* null = loading → skeletons; [] after a failed load, with error */, error }
@@ -87,6 +105,14 @@ plans before designing (how many tiers, free/recurring/one-time mix, trials, per
 //   error }
 // <SubscribeButton plan={p} options? children? className? assignedText? /> wraps it: you only
 // place it; it decides whether to render, what to say, and shows its own error.
+
+// usePlanAccess(planIds, session /* the members vertical's useMember(): { loggedIn, loading } */,
+//               { initialAccess?, call? }?) →
+// { hasAccess /* an ACTIVE order for one of planIds; false until proven */,
+//   loading /* session or read unsettled — neutral state, never the fallback */, error }
+// <RequirePlan planIds={[…]} session={useMember()} loginHref? plansHref? fallback? initialAccess? call?>
+//   …gated content… </RequirePlan> wraps it: neutral while loading, login prompt for a visitor,
+//   "See plans" for a member without the plan, the error inline, children only with access.
 ```
 
 ### The islands you create — skeletons
@@ -110,8 +136,9 @@ export default function PricingGrid(props: { initialPlans?: PlanSummary[] /* SSR
   //   • error → a short inline message
   //   • plans === null → skeleton cards; [] → your honest empty state
   //   • else YOUR grid of YOUR cards (PlanSummary contract above): name, price on its own line
-  //     with billing beside it (nothing beside "Free"), `${freeTrialDays}-day free trial` when not
-  //     null, every perk, a link to `/plans/${p.slug}`, and <SubscribeButton plan={p} assignedText={null} />
+  //     with billing beside it (nothing beside "Free") and `valid ${duration}` when not null, one
+  //     line per fee right under the price (`+ ${fee.amount} ${fee.name}`), `${freeTrialDays}-day
+  //     free trial` when not null, every perk, a link to `/plans/${p.slug}`, and <SubscribeButton plan={p} assignedText={null} />
   //     as the card's LAST ROW — the card root a flex column, the control pinned to the bottom
   //     (mt-auto) so CTAs share one baseline across the row; never a button inside the card's <a>.
   //   • the name WRAPS (`min-w-0`, `break-words`) — no truncation.
@@ -125,11 +152,30 @@ import SubscribeButton from "./SubscribeButton";
 import type { PlanDetail } from "../../wix/pricing-plans/types";
 
 export default function PlanPitch({ plan }: { plan: PlanDetail }) {
-  // …you implement the render, laid out for the brand: price + billing, the trial line, the
-  // perks, <SubscribeButton plan={plan} /> right under the price (its label for a paid plan may
-  // carry the price: `Subscribe · ${plan.price}` as children), then termsAndConditions pre-wrap.
-  // Image via <img {...imgAttrs(plan.imageUrl, "(min-width: 768px) 50vw, 100vw")} /> only when
-  // plan.imageUrl is non-empty — a bounded band on phones (`max-h-[40vh]`), not a full-screen hero.
+  // …you implement the render, laid out for the brand: price + billing (+ `valid ${duration}`),
+  // one line per fee, the trial line, the perks, <SubscribeButton plan={plan} /> right under the
+  // price block (its label for a paid plan may carry the price: `Subscribe · ${plan.price}` as
+  // children), then termsAndConditions pre-wrap. Image via
+  // <img {...imgAttrs(plan.imageUrl, "(min-width: 768px) 50vw, 100vw", PLAN_IMAGE_RATIO)} /> only when
+  // plan.imageUrl is non-empty (PLAN_IMAGE_RATIO from wix/pricing-plans/plans-core — the DTO image
+  // is 16:9) — a bounded band on phones (`max-h-[40vh]`), not a full-screen hero, not a square.
+}
+```
+
+```tsx
+// src/components/pricing-plans/MembersOnly.tsx — YOU build it, only when the brief gates content
+// behind a plan AND the `members` vertical is deployed beside this one (it owns the session).
+// Mount it client:only="react" (the session is a browser cookie) around the gated content.
+import RequirePlan from "./RequirePlan";
+import { useMember } from "../../hooks/members/useMember"; // the members vertical
+import type { ReactNode } from "react";
+
+export default function MembersOnly({ planIds, children }: { planIds: string[]; children: ReactNode }) {
+  const session = useMember(); // hooks first — RequirePlan takes the session as a prop
+  return <RequirePlan planIds={planIds} session={session}>{children}</RequirePlan>;
+  // planIds: the ids of the plans that unlock this content — from the seed output or a
+  // fetchPlans() in frontmatter (slug → id); never a guess. A React SPA over a manual client also
+  // passes `call` (plan-access.ts explains) — the shared seam holds a visitor token there.
 }
 ```
 
@@ -144,6 +190,8 @@ the rendering — grid, card, plan page, the CTA — and for that read first:
 1. `components/pricing-plans/SubscribeButton.tsx` — the purchase control as working code: the
    `buyable` gate and what shows instead, the free/paid label, the in-flight label, the inline
    error; the reference views place it as the last row of a card and under the price on the page.
+2. `components/pricing-plans/RequirePlan.tsx` — the gate as working code (only when the brief gates
+   content): the four states and what each shows, and how the members session feeds the store.
 
 Under `templates/pricing-plans/app/`.
 
@@ -163,8 +211,9 @@ Read the reference file listed above before writing any surface.
 
 `deploy.mjs pricing-plans --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts`
 (the visitor client, configured with the public client id), `media.ts`, `money.ts`, and
-`wix/pricing-plans/` — `plans.ts`, `purchase.ts`, `types.ts`, the `*-core.ts` rules, and the two
-stores `plans-store.ts`, `plan-purchase-store.ts`. None of it is React. The hooks and components
+`wix/pricing-plans/` — `plans.ts`, `purchase.ts`, `plan-access.ts`, `types.ts`, the `*-core.ts`
+rules, and the stores `plans-store.ts`, `plan-purchase-store.ts`, `plan-access-store.ts`. None of
+it is React. The hooks and components
 don't ship on this stack; the stores replace the hooks, and you write the components in your
 framework to the contracts on this page:
 
@@ -175,7 +224,11 @@ framework to the contracts on this page:
   (`purchase(planId, options?)` navigates the document itself). State in, actions out — exactly
   the hooks' contracts above;
 - your CTA to the `SubscribeButton.tsx` contract: rendered only when `buyable`, the DTO's label,
-  disabled with "Redirecting…" while `purchasingId === plan.id`, `error` inline.
+  disabled with "Redirecting…" while `purchasingId === plan.id`, `error` inline;
+- gated content (members deployed too): `createPlanAccessStore({ planIds, call })` per gated
+  surface, `check(session)` with the members store's `{ loggedIn, loading }` whenever it changes,
+  render the four states of `RequirePlan.tsx`. `call` binds Member List Orders to the member's
+  client (the shared client is a visitor here — plan-access.ts explains).
 
 Routes `/plans`, `/plans/:slug` (via `fetchPlanBySlug`, null → your 404); dev server on 4321; a
 static build goes through `npx @wix/cli@latest release` with `site.outputDirectory` pointing at the
@@ -190,12 +243,16 @@ Read the reference file listed above before writing any surface.
 ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
 pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
 root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchPlans`, `fetchPlanBySlug` from
-`./js/wix/plans.js`; `purchasePlan` from `./js/wix/purchase.js`. The state machines ship too:
-`createPlansStore` from `./js/wix/plans-store.js` (the grid — `start()` once the page is up,
-render from `getState()` in `subscribe`) and `createPlanPurchaseStore` from
+above, so the contracts on this page hold unchanged: `fetchPlans`, `fetchPlanBySlug`,
+`fetchPlansByIds`, `fetchPlanById` from `./js/wix/plans.js`; `purchasePlan` from
+`./js/wix/purchase.js`; `hasActiveOrderFor` from `./js/wix/plan-access.js`. The state machines ship
+too: `createPlansStore` from `./js/wix/plans-store.js` (the grid — `start()` once the page is up,
+render from `getState()` in `subscribe`), `createPlanPurchaseStore` from
 `./js/wix/plan-purchase-store.js` (one per surface; its `purchase(planId)` sets `purchasingId`,
-then navigates the document to the hosted checkout, or records `error`). No components ship — you
+then navigates the document to the hosted checkout, or records `error`), and `createPlanAccessStore`
+from `./js/wix/plan-access-store.js` (gated content, members deployed too: `check({ loggedIn:
+loggedInHint(), loading: false })` with `loggedInHint` from `./js/wix/auth.js` — the token
+`client.js` holds is the member's after its login, so `plan-access.js` needs no `call`). No components ship — you
 write the rendering in plain JS: one render function per surface that reads `getState()`, called
 from `subscribe`, with the CTA calling `purchase`. Pages are `plans.html` and `plan.html?slug=…`
 (Wix static hosting serves files, not directories — name the file and link to it); the plan page
@@ -253,8 +310,12 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
   hit on abandon too. Success arrives only at a `thankYouPageUrl` you pass, as
   `?planOrderId=<GUID>`; if you build a thank-you page, read that param — never fake a
   confirmation off the mere return.
-- **Prices are display-only.** `price`/`billing` come pre-formatted; never compute a charge,
-  discount, or proration — Wix settles price, tax, and schedule at the hosted checkout.
+- **Prices are display-only.** `price`/`billing`/`duration`/`fees` come pre-formatted; never
+  compute a charge, a total with fees, a discount, or proration — Wix settles price, fees, tax, and
+  schedule at the hosted checkout. Fees are shown with the price, never summed into it, never hidden.
+- **Access is the shipped gate.** `RequirePlan` / `usePlanAccess` / `hasActiveOrderFor` decide
+  access — an ACTIVE order for one of the plans, read for the logged-in member only. Never infer it
+  from `loggedIn` alone, from a return URL, or from anything stored client-side.
 - **The CTA is the shipped `SubscribeButton`** — it alone decides to render (`buyable`) and what
   to say; a card never rebuilds that decision.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.
@@ -265,13 +326,29 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 - Live data or an honest empty state — never mock plans, prices, or perks.
 - **Call every hook before any conditional return.** Hooks first, branches after.
 
-## Out of scope (don't improvise these)
+## Why the purchase is `paidPlansCheckout`, not an eCom checkout
 
-Member-gated surfaces — a "my plans" page, the member's orders (`orders.memberListOrders`),
-cancel/pause flows, and booking a covered bookings service with a membership — require a
-logged-in member session this skill doesn't ship yet. Subscribers manage their plan through
-Wix's emails and hosted member flows. If the user asks for a member area, deploy the
-`members` vertical beside this one rather than shipping code that returns nothing for visitors.
+The shipped purchase creates a Pricing-Plans-native redirect session (`paidPlansCheckout: { planId }`):
+one call, the plan's own hosted checkout (member login/signup, order form, payment), a success-only
+`thankYouPageUrl` carrying `?planOrderId`, no eCom dependency. Wix's headless components take the
+other road — an eCom checkout with one PLAN line item (`catalogItemId: plan.id`, `planOptions:
+{ pricingVariantId }`) redirected through `ecomCheckout` — which is the right path only when a plan
+must share one checkout with products (a cart holding a membership and a T-shirt). Both end on a
+Wix-hosted checkout with coupons, notes, and login handled there. The DTO carries
+`pricingVariantId` so the eCom path is reachable without touching the DTO if a brief needs it;
+building it means `@wix/ecom` `checkout.createCheckout` plus a redirect session with
+`ecomCheckout: { checkoutId }` — a new function beside `purchase.ts`, not a change to it.
+
+## Gated content — requires the `members` vertical
+
+A plan-holders-only surface (an article, a video, a members' schedule) is `RequirePlan` around the
+content, with the session from the `members` vertical deployed beside this one: its custom login
+writes the member tokens where the shared SDK seam reads them (the `wixSession` cookie on managed
+Astro), so `hasActiveOrderFor` runs as the member with no extra wiring there. Without `members`
+there is no session and nothing to gate on — don't ship a gate that returns nothing for everyone.
+The plans that unlock content are ids (`planIds`), from the seed output or a slug lookup. Beyond the
+gate stays out of scope: a "my plans" page, cancel/pause flows, booking a covered bookings service
+with a membership — subscribers manage their plan through Wix's emails and hosted member flows.
 Anything elevated (creating or editing plans) runs server-side per `templates/shared/CUSTOM_OPERATIONS.md`.
 
 ## Point the user to their dashboard
@@ -292,5 +369,5 @@ connected payment method — mention it.
 ## Seeding
 
 Per `seed/SEED.md` — plain-data `plan.json` into `seed-pricing-plans.mjs` from the project
-root. Seed a tier ladder that exercises the UI (a free tier, a monthly, a yearly or
-one-time; 3–4 perks each).
+root. Seed a tier ladder that exercises the UI (a free tier, a monthly with `freeTrialDays`, a
+yearly or one-time — with a `setupFee` when the brief names one; 3–4 perks each).

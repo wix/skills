@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast
-description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout), bookings (services, appointment/class time slots, staff, booking form, checkout-or-place), blog (posts, categories/tags, rich content), cms (structured content collections), forms (schema-driven visitor forms: render, validate, submit), events (listing, RSVP, ticket sales), members (login, gated pages, account), portfolio (project collections, media galleries), pricing-plans (plan grid, hosted purchase), restaurants (menus, online ordering, table reservations). Triggers: build me a store/blog/booking/event/restaurant/portfolio site fast, take appointments fast, sell tickets or membership plans headless, wix headless fast, connect a Wix business app with ready-made SDK code."
+description: "Build a Wix Headless site fast by wiring SHIPPED, verified @wix/sdk code instead of authoring the integration from recipes. Each Wix business vertical ships a typed, framework-agnostic React core (data layer returning plain DTOs, hooks, headless components) plus an Astro overlay (SSR pages with owner-editable SEO pre-wired) and a build-time REST seed script — the agent scaffolds via the Wix CLI, deploys the shipped code, seeds the backend, designs the presentation layer itself on the shipped hooks (product card/grid, PDP, home, theme), and releases to Wix hosting. Works on Wix-managed Astro (ambient auth, the default) and on any React-based project (Vite, non-Astro) over the public OAuth client id. Verticals: stores/storefront (products, categories, variants, cart, hosted checkout), bookings (services, appointment/class time slots, staff, booking form, checkout-or-place), blog (posts, categories/tags, rich content), cms (structured content collections), forms (schema-driven visitor forms: render, validate, submit), events (listing, RSVP, ticket sales), members (login, gated pages, account), portfolio (project collections, media galleries), pricing-plans (plan grid, hosted purchase), restaurants (menus, online ordering, table reservations), faq (categorized questions and answers, search, a link per question), donations (campaign pages, goal progress, one-time and recurring donations via hosted checkout). Triggers: build me a store/blog/booking/event/restaurant/portfolio/FAQ/donation site fast, take appointments fast, sell tickets or membership plans headless, collect donations headless, wix headless fast, connect a Wix business app with ready-made SDK code."
 ---
 
 # Wix Headless Fast
@@ -74,7 +74,13 @@ doesn't express — or once the site exists and the work turns to managing or ex
   `capabilities.mediaUpload.policies` entry to the plan; Fast ships its client helper, Astro
   endpoint, dependencies, and generated policy module once. Read
   `templates/shared/CUSTOM_OPERATIONS.md` before choosing it. The agent wires the helper to
-  the product UI; it never authors or widens the endpoint.
+  the product UI; it never authors or widens the endpoint. For a site-wide search (a header box
+  with suggestions, a `/search?q=` page over the deployed verticals' products, services, posts
+  and events), add a `capabilities.siteSearch` entry; Fast ships its data layer, stores, hooks,
+  components and search page once. Enabling it means the Wix Site Search app is installed on the
+  site by the seed step (`install: true`; the capability's `seed/install.mjs`, run after the
+  content seed) — the index fills within about half a minute of the install. Playbook:
+  `templates/shared/capabilities/site-search/INSTRUCTIONS.md`.
 
 ## The run
 
@@ -266,6 +272,8 @@ close.
 | Portfolio/showcase: collections of projects, project pages with media galleries              | **portfolio**     | `templates/portfolio/INSTRUCTIONS.md`     |
 | Membership/subscription plans: pricing page, plan detail, hosted purchase                    | **pricing-plans** | `templates/pricing-plans/INSTRUCTIONS.md` |
 | Restaurant: menu with photos, online ordering, table reservations                            | **restaurants**   | `templates/restaurants/INSTRUCTIONS.md`   |
+| FAQ: questions grouped by category, search, expandable answers, a link per question         | **faq**           | `templates/faq/INSTRUCTIONS.md`           |
+| Donations: campaign pages, goal progress, one-time and recurring giving via hosted checkout   | **donations**     | `templates/donations/INSTRUCTIONS.md`     |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
 accounts) deploys them together — setup takes one vertical; deploy the rest with

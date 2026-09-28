@@ -1,7 +1,8 @@
-// The card's purchase control — the three gallery purchase paths, decided from the product:
+// The card's purchase control — the gallery purchase paths, decided from the product:
 //   • no options            → Direct Add: one click, the cheapest variant, quantity 1
 //   • options / choice mods → Quick Add: a picker on the card (bottom sheet on small screens)
 //   • free-text modifier    → the product page (the gallery can't collect the text)
+//   • subscription plans    → the product page (the plan is chosen there, as on Wix's own storefront)
 // Mount as the LAST ROW of the tile's text block (under name and price), as a direct child of the
 // tile root that carries `relative flex flex-col` — the picker anchors to that root and takes its
 // width, and the control pins itself to the tile's bottom (mt-auto) so the action row lines up
@@ -31,13 +32,23 @@ export default function QuickAdd({ product }: { product: ProductSummary }) {
   );
 }
 
+const control = "w-full rounded-full border border-foreground py-2 text-center text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50";
+
 function QuickAddControl({ product }: { product: ProductSummary }) {
   const { addToCart, busy } = useCart();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (product.availability === "OUT_OF_STOCK" && !product.preorder) {
-    return <span className="mt-auto block pt-3 text-sm text-muted-foreground">Out of stock</span>;
+    // the PDP offers "notify me" when the merchant collects requests; a tile only says so
+    return <a href={`/products/${encodeURIComponent(product.slug)}`} className="mt-auto block pt-3 text-sm text-muted-foreground">Out of stock</a>;
+  }
+  if (product.hasSubscriptions) {
+    return (
+      <div className="mt-auto pt-3">
+        <a href={`/products/${encodeURIComponent(product.slug)}`} className={`block ${control}`}>Choose a plan</a>
+      </div>
+    );
   }
   if (product.quickAddable) {
     return (
@@ -48,7 +59,7 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
           onClick={() =>
             addToCart(product.id, product.minPriceVariantId, 1).catch((e) => setError(e instanceof Error ? e.message : String(e)))
           }
-          className="w-full rounded-full border border-foreground py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
+          className={control}
         >
           {product.preorder ? "Pre-order" : "Add to cart"}
         </button>
@@ -60,11 +71,7 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
   // the picker resolves it through useProductDetail, exactly as the PDP would.
   return (
     <div className="mt-auto pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full rounded-full border border-foreground py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background"
-      >
+      <button type="button" onClick={() => setOpen(true)} className={control}>
         {product.optionsSummary ? "Choose options" : product.preorder ? "Pre-order" : "Add to cart"}
       </button>
       {open && <QuickAddPicker product={product} onClose={() => setOpen(false)} />}
@@ -94,7 +101,8 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
     };
   }, [onClose]);
 
-  const needsPdp = (d.product?.modifiers ?? []).some((m) => m.type === "text");
+  // Free text and plans belong on the product page.
+  const needsPdp = (d.product?.modifiers ?? []).some((m) => m.type === "text") || (d.product?.subscriptions.length ?? 0) > 0;
 
   return (
     <>
@@ -115,6 +123,7 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
             <p className="text-sm">
               {d.price}
               {d.compareAtPrice && <span className="ml-2 text-muted-foreground line-through">{d.compareAtPrice}</span>}
+              {d.pricePerUnit && <span className="ml-2 text-xs text-muted-foreground">{d.pricePerUnit}</span>}
             </p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="text-xl leading-none text-muted-foreground">×</button>
@@ -124,7 +133,7 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
         {d.notFound && <p className="text-sm text-muted-foreground">This product isn't available anymore.</p>}
 
         {d.product && needsPdp && (
-          <a href={`/products/${product.slug}`} className="block rounded-full bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground">
+          <a href={`/products/${encodeURIComponent(product.slug)}`} className="block rounded-full bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground">
             Customize on the product page
           </a>
         )}

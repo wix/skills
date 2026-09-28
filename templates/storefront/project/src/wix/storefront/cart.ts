@@ -4,8 +4,9 @@
 // these exports, never by editing them. The request shapes are exact (catalogItems wrapper,
 // options.variantId, the redirect-session body) and rewriting them is how carts break.
 //
-// Failures are loud: these throw on out-of-stock lines, an empty cart at checkout, and a
-// missing required selection — surface the message to the buyer, don't swallow it.
+// Failures are loud: these throw on out-of-stock lines, an empty cart at checkout, a missing
+// required selection, a bad coupon — with buyer copy (cartErrorMessage) — surface the message to
+// the buyer, don't swallow it.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/get-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items.md
@@ -15,7 +16,7 @@ import { redirects as redirectsModule } from "@wix/redirects";
 import { productsV3 } from "@wix/stores";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
-import { WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, rawId, summaryTotals, toCart } from "./cart-core";
+import { EMPTY_TOTALS, WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, cartErrorMessage, rawId, summaryTotals, toCart } from "./cart-core";
 import type { Raw } from "./catalog-core";
 import type { Cart } from "./types";
 
@@ -24,14 +25,26 @@ const redirects = wixModule(redirectsModule);
 const productsApi = wixModule(productsV3);
 
 export interface AddToCartExtras {
-  /** TEXT_CHOICES modifier selections: modifier key -> choice key (options.options — MODIFIERS only, never Size/Color). */
+  /** The resolved variant's option selections: option key -> choice key (what Wix's own storefront sends beside variantId). */
+  optionChoices?: Record<string, string>;
+  /** TEXT_CHOICES modifier selections: modifier key -> choice key. */
   modifierChoices?: Record<string, string>;
-  /** FREE_TEXT modifier inputs: freeTextSettings key -> the buyer's text. */
+  /** FREE_TEXT modifier inputs: the modifier's free-text key -> the buyer's text. */
   customTextFields?: Record<string, string>;
   /** The variant is out of stock but pre-orderable — sends preOrderRequested. */
   preorder?: boolean;
-  /** A chosen recurring plan (subscriptionPricesInfo); omit for a one-time purchase. */
+  /** A chosen recurring plan (SubscriptionPlan.id); omit for a one-time purchase. */
   subscriptionOptionId?: string;
+}
+
+// Every cart call fails with buyer copy: Wix's error codes (ITEM_NOT_FOUND_IN_CATALOG, coupon
+// codes…) mapped, anything else with its own message.
+async function loud<T>(op: () => Promise<T>): Promise<T> {
+  try {
+    return await op();
+  } catch (e) {
+    throw new Error(cartErrorMessage(e));
+  }
 }
 
 // The V2 cart does NOT return line-item images (attributes.image is typed but comes back
@@ -64,19 +77,20 @@ async function fillLineImages(cart: Cart, raws: Raw[]): Promise<void> {
   }
 }
 
-async function readCartWithSubtotal(raw: Raw | null): Promise<Cart> {
+async function readCart(raw: Raw | null): Promise<Cart> {
   // Only estimate a cart WITH lines — on an absent/empty cart the endpoint returns 404.
-  if (!raw?.lineItems?.length) return toCart(raw, "", "", imgSrc);
-  // The authoritative after-discount subtotal and the CART-level discount come from the cart
-  // estimate, never from hand-summing lines. Its delivery/tax/fees read "0" when nothing was
-  // calculated — never render those as "Free"; shipping and tax resolve at checkout.
-  let totals = { subtotal: "", discount: "" };
+  if (!raw?.lineItems?.length) return toCart(raw, EMPTY_TOTALS, imgSrc);
+  // The authoritative totals come from the cart estimate, never from hand-summing lines: the
+  // after-discount subtotal, every named discount, additional fees and taxes (calculated when
+  // asked), and the total before delivery. Delivery resolves at checkout — never render it as
+  // "Free" here.
+  let totals = EMPTY_TOTALS;
   try {
-    totals = summaryTotals(await cartApi.estimateCurrentCart(), raw);
+    totals = summaryTotals(await cartApi.estimateCurrentCart({ calculateTax: true, calculateAdditionalFees: true }), raw);
   } catch {
     /* estimate is a display nicety — the cart itself is still valid */
   }
-  const cart = toCart(raw, totals.subtotal, totals.discount, imgSrc);
+  const cart = toCart(raw, totals, imgSrc);
   await fillLineImages(cart, raw.lineItems as Raw[]);
   return cart;
 }
@@ -85,9 +99,9 @@ async function readCartWithSubtotal(raw: Raw | null): Promise<Cart> {
 export async function fetchCart(): Promise<Cart> {
   try {
     const { cart } = await cartApi.getCurrentCart();
-    return readCartWithSubtotal(cart as Raw);
+    return readCart(cart as Raw);
   } catch {
-    return toCart(null, "", "", imgSrc);
+    return toCart(null, EMPTY_TOTALS, imgSrc);
   }
 }
 
@@ -97,29 +111,64 @@ export async function fetchCart(): Promise<Cart> {
  * A refused add still returns 200, so the returned line is checked.
  */
 export async function addToCart(productId: string, variantId?: string | null, quantity = 1, extras: AddToCartExtras = {}): Promise<Cart> {
-  const options = addOptions({ variantId, ...extras });
-  const { cart } = await cartApi.addLineItemsToCurrentCart({
-    catalogItems: [{ quantity, catalogReference: { catalogItemId: productId, appId: WIX_STORES_APP_ID, ...(Object.keys(options).length ? { options } : {}) } }],
+  return loud(async () => {
+    const options = addOptions({ variantId, ...extras });
+    const { cart } = await cartApi.addLineItemsToCurrentCart({
+      catalogItems: [{ quantity, catalogReference: { catalogItemId: productId, appId: WIX_STORES_APP_ID, ...(Object.keys(options).length ? { options } : {}) } }],
+    });
+    assertAdded(cart as Raw, productId, variantId);
+    return readCart(cart as Raw);
   });
-  assertAdded(cart as Raw, productId, variantId);
-  return readCartWithSubtotal(cart as Raw);
 }
 
 /** Change a line's quantity. `lineItemId` is CartLine.lineItemId, never the product id. */
 export async function updateQuantity(lineItemId: string, quantity: number): Promise<Cart> {
-  const { cart } = await cartApi.updateLineItemsInCurrentCart({ lineItems: [{ lineItemId, quantity: { newQuantity: quantity } }] });
-  return readCartWithSubtotal(cart as Raw);
+  return loud(async () => {
+    const { cart } = await cartApi.updateLineItemsInCurrentCart({ lineItems: [{ lineItemId, quantity: { newQuantity: quantity } }] });
+    return readCart(cart as Raw);
+  });
 }
 
 /** Remove a line from the cart by CartLine.lineItemId. */
 export async function removeLine(lineItemId: string): Promise<Cart> {
-  const { cart } = await cartApi.removeLineItemsFromCurrentCart([lineItemId]);
-  return readCartWithSubtotal(cart as Raw);
+  return loud(async () => {
+    const { cart } = await cartApi.removeLineItemsFromCurrentCart([lineItemId]);
+    return readCart(cart as Raw);
+  });
+}
+
+/** Apply a coupon code (one per cart). Throws buyer copy for an unknown, expired, or inapplicable code. */
+export async function applyCoupon(code: string): Promise<Cart> {
+  return loud(async () => {
+    const { cart } = await cartApi.addCouponToCurrentCart({ code: code.trim() });
+    return readCart(cart as Raw);
+  });
+}
+
+/** Remove the applied coupon (a no-op when none is applied). */
+export async function removeCoupon(): Promise<Cart> {
+  return loud(async () => {
+    const current = (await cartApi.getCurrentCart()).cart as Raw;
+    const couponId = rawId((current?.coupons ?? [])[0]);
+    if (!couponId) return readCart(current);
+    const { cart } = await cartApi.removeCouponFromCurrentCart(couponId);
+    return readCart(cart as Raw);
+  });
+}
+
+/** Save the buyer's note to the merchant on the cart (it travels to checkout and the order). */
+export async function setNote(note: string): Promise<Cart> {
+  return loud(async () => {
+    const { cart } = await cartApi.updateCurrentCart({ note: note.trim() || null });
+    return readCart(cart as Raw);
+  });
 }
 
 /**
  * Start the Wix-hosted checkout for the current cart and return the URL to navigate to.
- * The cart's id IS the checkout id — no separate checkout-creation call.
+ * The cart's id IS the checkout id — no separate checkout-creation call (Wix's own storefront
+ * does the same; `createCheckoutFromCurrentCart` is the alternative when a checkout must exist
+ * before redirecting).
  * Call from the browser: the return origin must be the site's real https origin
  * (window.location.origin), never a server-derived request origin.
  */

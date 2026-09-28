@@ -9,14 +9,20 @@
 // degraded to a plain text box). Prints a JSON result to stdout.
 //
 // Plan shape (see SEED.md):
-//   { "forms": [{ "name", "submitText"?, "fields": [
-//       { "label", "kind", "required"?, "placeholder"?, "choices"?, "min"?, "max"? } ] }] }
+//   { "forms": [{ "name", "submitText"?, "nextText"?, "previousText"?, "steps"?, "rules"?,
+//                 "thankYou"?, "thankYouSeconds"?, "redirect"?, "deadline"?, "maxSubmissions"?,
+//                 "perVisitor"?, "requiredIndicator"?,
+//                 "fields": [{ "label", "kind", "required"?, "placeholder"?, "description"?, "default"?,
+//                              "choices"?, "other"?, "min"?, "max"?, "step"?, "minLength"?, "maxLength"?,
+//                              "pattern"?, "patternMessage"?, "fileLimit"?, "formats"?, "countries"?,
+//                              "country"?, "buttonText"?, "hidden"? }] }] }
 //
 // The plan is PLAIN DATA — labels and kinds. Everything the API demands and the docs bury is
 // derived here: per-field UUIDs, the two-level options nesting, the validation block that must
 // exist even when empty, the choice enum that must agree with the component's options, the
-// snake_case+suffix target, and a `steps` layout referencing every field including the submit
-// button (a field missing from `steps` never appears in the owner's dashboard).
+// per-component prefill key, the snake_case+suffix target, a `steps` layout referencing every
+// field including the submit button (a field missing from `steps` never appears in the owner's
+// dashboard), and rules keyed by field id.
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing forms.
 import { execFileSync } from "node:child_process";
@@ -84,12 +90,15 @@ const KINDS = {
   firstName: { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_FIRST_NAME", contact: { contactField: "FIRST_NAME" } },
   lastName:  { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_LAST_NAME", contact: { contactField: "LAST_NAME" } },
   company:   { inputType: "STRING", componentType: "TEXT_INPUT",     identifier: "CONTACTS_COMPANY", contact: { contactField: "COMPANY" } },
-  date:      { inputType: "STRING", componentType: "DATE_PICKER",    identifier: "DATE_PICKER", format: "DATE" },
+  date:      { inputType: "STRING", componentType: "DATE_PICKER",    identifier: "DATE_PICKER", format: "DATE", dateBlock: "dateOptions" },
+  time:      { inputType: "STRING", componentType: "TIME_INPUT",     identifier: "TIME_INPUT", format: "TIME", dateBlock: "timeOptions" },
+  datetime:  { inputType: "STRING", componentType: "DATE_TIME",      identifier: "DATE_TIME_INPUT", format: "DATE_TIME", dateBlock: "dateTimeOptions" },
   number:    { inputType: "NUMBER", componentType: "NUMBER_INPUT",   identifier: "NUMBER_INPUT" },
   rating:    { inputType: "NUMBER", componentType: "RATING_INPUT",   identifier: "RATING_INPUT" },
   select:    { inputType: "STRING", componentType: "DROPDOWN",       identifier: "DROPDOWN" },
   radio:     { inputType: "STRING", componentType: "RADIO_GROUP",    identifier: "RADIO_GROUP" },
   multi:     { inputType: "ARRAY",  componentType: "CHECKBOX_GROUP", identifier: "CHECKBOX_GROUP" },
+  tags:      { inputType: "ARRAY",  componentType: "TAGS",           identifier: "TAGS" },
   checkbox:  { inputType: "BOOLEAN", componentType: "CHECKBOX",      identifier: "CHECKBOX" },
   file:      { inputType: "WIX_FILE", componentType: "FILE_UPLOAD",  identifier: "FILE_UPLOAD" },
   address:   { inputType: "ADDRESS", componentType: "MULTILINE_ADDRESS", identifier: "MULTILINE_ADDRESS" },
@@ -101,11 +110,31 @@ const INPUT_BLOCK = {
 };
 const COMPONENT_BLOCK = {
   TEXT_INPUT: "textInputOptions", PHONE_INPUT: "phoneInputOptions", NUMBER_INPUT: "numberInputOptions",
-  RATING_INPUT: "ratingInputOptions", DATE_PICKER: "datePickerOptions",
-  CHECKBOX: "checkboxOptions", CHECKBOX_GROUP: "checkboxGroupOptions",
-  RADIO_GROUP: "radioGroupOptions", DROPDOWN: "dropdownOptions",
+  RATING_INPUT: "ratingInputOptions", DATE_PICKER: "datePickerOptions", TIME_INPUT: "timeInputOptions",
+  DATE_TIME: "dateTimeOptions", CHECKBOX: "checkboxOptions", CHECKBOX_GROUP: "checkboxGroupOptions",
+  TAGS: "tagsOptions", RADIO_GROUP: "radioGroupOptions", DROPDOWN: "dropdownOptions",
   MULTILINE_ADDRESS: "multilineAddressOptions", FILE_UPLOAD: "fileUploadOptions",
 };
+
+// The address subfields the owner can require. `country` is always shown by the runtime; the
+// others follow the country template. `validation.fields` only carries required-ness.
+const ADDRESS_PARTS = ["country", "addressLine", "addressLine2", "city", "subdivision", "postalCode"];
+const ADDRESS_REQUIRED_WHEN_REQUIRED = ["country", "addressLine", "city", "postalCode"];
+
+/** One paragraph of Ricos rich content — the shape of a checkbox label, a thank-you message. */
+function richText(text) {
+  return {
+    nodes: [
+      {
+        type: "PARAGRAPH",
+        id: randomUUID().slice(0, 8),
+        nodes: [{ type: "TEXT", id: "", nodes: [], textData: { text: String(text), decorations: [] } }],
+        paragraphData: {},
+      },
+    ],
+    metadata: { version: 1 },
+  };
+}
 
 /**
  * `target` is the IMMUTABLE submission key: starts with a letter, letters/digits/underscore
@@ -136,46 +165,97 @@ function buildField(spec, taken) {
       `field "${spec.label}": unknown kind "${spec.kind}" — one of ${Object.keys(KINDS).join(", ")}`,
     );
   }
+  const isChoice = ["select", "radio", "multi", "tags"].includes(spec.kind);
   const choices = spec.choices ?? [];
-  if ((spec.kind === "select" || spec.kind === "radio" || spec.kind === "multi") && !choices.length) {
+  if (isChoice && !choices.length) {
     throw new Error(`field "${spec.label}": kind "${spec.kind}" needs a non-empty choices array`);
   }
 
   const target = targetFor(spec.label, taken);
+  const defaults = [].concat(spec.default ?? []).map(String);
   const options = choices.map((c) => {
     const value = typeof c === "string" ? c : c.value;
-    return { id: randomUUID(), label: typeof c === "string" ? c : (c.label ?? c.value), value };
+    return {
+      id: randomUUID(),
+      label: typeof c === "string" ? c : (c.label ?? c.value),
+      value,
+      // A preselected choice is marked on the OPTION (`options[].default`), not on the component.
+      ...(defaults.includes(String(value)) ? { default: true } : {}),
+    };
   });
   const values = options.map((o) => o.value);
+  const other = spec.other
+    ? { label: typeof spec.other === "string" ? spec.other : "Other", ...(spec.otherPlaceholder ? { placeholder: spec.otherPlaceholder } : {}) }
+    : null;
 
   // A choice field declares its options TWICE — here and in the validation enum — and the two
   // must agree. Disagree and the create still returns 200: the field is created as a plain
   // text box, losing its choices. Both are derived from the same list, so they cannot drift.
+  // A free-text "Other" entry is anything outside the list, so no enum is written with it (the
+  // validator ignores the enum when a customOption is defined).
   const validation = {};
   if (kind.format) validation.format = kind.format;
-  if (spec.min != null) validation.minimum = spec.min;
-  if (spec.max != null) validation.maximum = spec.max;
+  if (kind.dateBlock) {
+    // Date bounds live under the format's options block; `$now`, `$now+2d`, `$now-1M` are accepted.
+    const bounds = { ...(spec.min != null ? { minimum: String(spec.min) } : {}), ...(spec.max != null ? { maximum: String(spec.max) } : {}) };
+    if (Object.keys(bounds).length) validation[kind.dateBlock] = bounds;
+  } else {
+    if (spec.min != null) validation.minimum = spec.min;
+    if (spec.max != null) validation.maximum = spec.max;
+  }
+  if (spec.step != null) validation.multipleOf = spec.step;
+  if (spec.minLength != null) validation.minLength = spec.minLength;
   if (spec.maxLength != null) validation.maxLength = spec.maxLength;
+  if (spec.pattern) validation.pattern = spec.pattern;
+  if (spec.patternMessage) validation.validationMessages = { pattern: spec.patternMessage };
+  if (spec.minItems != null) validation.minItems = spec.minItems;
+  if (spec.maxItems != null) validation.maxItems = spec.maxItems;
   if (values.length) {
     if (kind.inputType === "ARRAY") {
       validation.itemType = "STRING";
-      validation.items = { stringOptions: { enum: values } };
-    } else {
+      validation.items = { stringOptions: other ? {} : { enum: values } };
+    } else if (!other) {
       validation.enum = values;
     }
   }
-  if (spec.kind === "file") validation.fileLimit = spec.fileLimit ?? 1;
+  if (spec.kind === "phone" && spec.countries?.length) validation.phoneOptions = { allowedCountryCodes: spec.countries };
+  if (spec.kind === "file") {
+    validation.fileLimit = spec.fileLimit ?? 1;
+    if (spec.formats?.length) validation.uploadFileFormats = spec.formats;
+  }
+  // "Must be ticked" is the boolean enum [true]; `required` alone only checks that a value is present.
+  if (spec.kind === "checkbox" && spec.required) validation.enum = [true];
+  if (spec.kind === "address") {
+    if (spec.countries?.length) validation.allowedCountries = spec.countries;
+    validation.fields = Object.fromEntries(
+      ADDRESS_PARTS.map((sub) => [sub, { required: spec.parts?.[sub] ?? (Boolean(spec.required) && ADDRESS_REQUIRED_WHEN_REQUIRED.includes(sub)) }]),
+    );
+  }
 
-  const component = { label: spec.label, showLabel: true };
+  // A checkbox labels itself with rich content (its label may carry a link to the terms).
+  const component = { label: spec.kind === "checkbox" ? richText(spec.label) : spec.label, showLabel: true };
   if (spec.placeholder) component.placeholder = spec.placeholder;
+  if (spec.description) component.description = richText(spec.description);
   if (options.length) component.options = options;
-  if (spec.kind === "textarea") component.numberOfLines = spec.lines ?? 4;
-  if (spec.default != null) component.default = spec.default;
+  if (other) component.customOption = other;
+  // The prefill key differs per component: a checkbox has `checked`, a rating `defaultValue`,
+  // a choice field marks its option (above), everything else `default`.
+  if (spec.default != null && !isChoice) {
+    if (spec.kind === "checkbox") component.checked = Boolean(spec.default);
+    else if (spec.kind === "rating") component.defaultValue = Number(spec.default);
+    else if (spec.kind === "number") component.default = Number(spec.default);
+    else component.default = String(spec.default);
+  }
+  if (spec.kind === "phone" && spec.country) component.defaultCountryCode = spec.country;
+  if (spec.kind === "file" && spec.buttonText) component.buttonText = spec.buttonText;
+  if (spec.kind === "address" && spec.parts && "addressLine2" in spec.parts) component.fieldSettings = { addressLine2: { show: spec.parts.addressLine2 !== false } };
 
   return {
     id: randomUUID(),
     identifier: kind.identifier,
     fieldType: "INPUT",
+    // A field a rule shows starts hidden.
+    hidden: Boolean(spec.hidden),
     inputOptions: {
       target,
       inputType: kind.inputType,
@@ -196,10 +276,46 @@ function buildField(spec, taken) {
   };
 }
 
+// Plan rule → v4 `formRules[]` entry. The condition names a field by LABEL; the override names
+// the fields it shows / hides / requires. `show` marks those fields hidden in the base schema
+// and un-hides them while the condition holds — how the dashboard's own "show X when" works.
+const RULE_OPERATORS = { is: "EQUAL", isNot: "NOT_EQUAL", in: "IN", includes: "CONTAINS", checked: "CHECKED", isEmpty: "EMPTY", isNotEmpty: "NOT_EMPTY" };
+function buildRule(rule, fieldByLabel, formName) {
+  const byLabel = (label) => {
+    const f = fieldByLabel.get(label);
+    if (!f) throw new Error(`form "${formName}": rule refers to a field labelled "${label}" that is not in the plan`);
+    return f;
+  };
+  const when = rule.when ?? {};
+  const opKey = Object.keys(RULE_OPERATORS).find((k) => k in when);
+  if (!when.field || !opKey) throw new Error(`form "${formName}": a rule needs "when": { "field", and one of ${Object.keys(RULE_OPERATORS).join("/")} }`);
+  const source = byLabel(when.field);
+  const operator = RULE_OPERATORS[opKey];
+  const value = ["checked", "isEmpty", "isNotEmpty"].includes(opKey) ? undefined : when[opKey];
+  const override = (label, propertyType, options) => ({
+    entityType: "FIELD",
+    fieldOptions: { fieldId: byLabel(label).id, propertyType, ...options },
+  });
+  const overrides = [
+    ...(rule.show ?? []).map((l) => override(l, "HIDDEN", { hiddenOptions: { hidden: false } })),
+    ...(rule.hide ?? []).map((l) => override(l, "HIDDEN", { hiddenOptions: { hidden: true } })),
+    ...(rule.require ?? []).map((l) => override(l, "REQUIRED", { requiredOptions: { required: true } })),
+  ];
+  if (!overrides.length) throw new Error(`form "${formName}": a rule needs at least one of show / hide / require`);
+  for (const l of rule.show ?? []) byLabel(l).hidden = true;
+  return {
+    id: randomUUID(),
+    name: rule.name ?? `${when.field} ${opKey} ${JSON.stringify(value ?? "")}`.slice(0, 100),
+    expression: { condition: { target: source.inputOptions.target, operator, ...(value !== undefined ? { value } : {}) } },
+    overrides,
+  };
+}
+
 function buildForm(planForm) {
   const taken = new Set();
   const fields = (planForm.fields ?? []).map((f) => buildField(f, taken));
   if (!fields.length) throw new Error(`form "${planForm.name}": no fields`);
+  const fieldByLabel = new Map(fields.map((f, i) => [planForm.fields[i].label, f]));
 
   const submit = {
     id: randomUUID(),
@@ -207,36 +323,76 @@ function buildForm(planForm) {
     fieldType: "DISPLAY",
     displayOptions: {
       // The button's identifier is SUBMIT_BUTTON; its display type is PAGE_NAVIGATION (the enum
-      // has no SUBMIT_BUTTON value — the create is a 400 with anything else).
+      // has no SUBMIT_BUTTON value — the create is a 400 with anything else). One button drives
+      // both the page moves and the final submit, so all three wordings sit on it.
       displayFieldType: "PAGE_NAVIGATION",
-      pageNavigationOptions: { submitText: planForm.submitText ?? "Submit" },
+      pageNavigationOptions: {
+        submitText: planForm.submitText ?? "Submit",
+        ...(planForm.nextText ? { nextPageText: planForm.nextText } : {}),
+        ...(planForm.previousText ? { previousPageText: planForm.previousText } : {}),
+      },
     },
   };
 
   // `steps` must reference EVERY field, the submit button included — a field missing from the
   // layout never appears in the owner's dashboard, so they cannot edit what the site renders.
-  const items = [...fields, submit].map((f, i) => ({
-    fieldId: f.id,
-    row: i,
-    column: 0,
-    width: 12,
-  }));
+  // A plan without steps is one page; with steps, a field not named on any step lands on the
+  // last one, and the button always does.
+  const planSteps = planForm.steps?.length ? planForm.steps : [{ name: "", fields: planForm.fields.map((f) => f.label) }];
+  const placed = new Set();
+  const stepFields = planSteps.map((s) =>
+    (s.fields ?? []).map((label) => {
+      const f = fieldByLabel.get(label);
+      if (!f) throw new Error(`form "${planForm.name}": step "${s.name ?? ""}" names a field labelled "${label}" that is not in the plan`);
+      placed.add(f.id);
+      return f;
+    }),
+  );
+  const unplaced = fields.filter((f) => !placed.has(f.id));
+  stepFields[stepFields.length - 1].push(...unplaced, submit);
+  const layoutOf = (list) => {
+    const items = list.map((f, i) => ({ fieldId: f.id, row: i, column: 0, width: 12 }));
+    return { large: { items }, medium: { items }, small: { items } };
+  };
+  const steps = planSteps.map((s, i) => ({ id: randomUUID(), ...(s.name ? { name: s.name } : {}), layout: layoutOf(stepFields[i]) }));
+
+  const formRules = (planForm.rules ?? []).map((r) => buildRule(r, fieldByLabel, planForm.name));
+
+  // What happens after a successful submit is the owner's setting, so it lives on the form:
+  // the thank-you text (optionally auto-hidden) or a redirect. Absent, the page writes its own.
+  const submitSettings = planForm.redirect
+    ? { submitSuccessAction: "REDIRECT", redirectOptions: { redirectUrl: planForm.redirect, target: "SELF" } }
+    : planForm.thankYou
+      ? { submitSuccessAction: "THANK_YOU_MESSAGE", thankYouMessageOptions: { richContent: richText(planForm.thankYou), ...(planForm.thankYouSeconds ? { durationInSeconds: planForm.thankYouSeconds } : {}) } }
+      : null;
+  const limitationRule = {
+    ...(planForm.deadline ? { dateTimeDeadline: new Date(planForm.deadline).toISOString() } : {}),
+    ...(planForm.maxSubmissions != null ? { maxAllowedSubmissions: planForm.maxSubmissions } : {}),
+    ...(planForm.perVisitor != null ? { submissionLimitPerUser: planForm.perVisitor } : {}),
+  };
 
   return {
     name: planForm.name,
     namespace: NAMESPACE,
     formFields: [...fields, submit],
-    steps: [{ id: randomUUID(), layout: { large: { items }, medium: { items }, small: { items } } }],
+    steps,
+    ...(formRules.length ? { formRules } : {}),
+    ...(submitSettings ? { submitSettings } : {}),
+    ...(Object.keys(limitationRule).length ? { limitationRule } : {}),
+    ...(planForm.requiredIndicator
+      ? { requiredIndicatorProperties: { requiredIndicator: planForm.requiredIndicator, requiredIndicatorPlacement: "AFTER_FIELD_TITLE" } }
+      : {}),
   };
 }
 
 // ---- operations ------------------------------------------------------------------------------
 
 /**
- * Read the form back and confirm each field kept its componentType. A create returns 200 even
- * when a choice field degraded to a plain text box, so this is the only check that catches it.
+ * Read the form back and confirm each field kept its componentType, and that the steps and rules
+ * arrived. A create returns 200 even when a choice field degraded to a plain text box, so this is
+ * the only check that catches it.
  */
-async function verifyForm(ctx, formId, expected) {
+async function verifyForm(ctx, formId, expected, body) {
   const { form } = await req(ctx, `/form-schema-service/v4/forms/${formId}`, { method: "GET" });
   const live = new Map(
     (form?.formFields ?? [])
@@ -249,7 +405,11 @@ async function verifyForm(ctx, formId, expected) {
   const degraded = expected
     .filter((e) => live.get(e.target) !== e.componentType)
     .map((e) => `${e.target}: expected ${e.componentType}, got ${live.get(e.target) ?? "MISSING"}`);
-  return { fieldsLive: live.size, degraded };
+  const stepsLive = (form?.steps ?? []).length;
+  const rulesLive = (form?.formRules ?? []).length;
+  if (stepsLive !== body.steps.length) degraded.push(`steps: expected ${body.steps.length}, got ${stepsLive}`);
+  if (rulesLive !== (body.formRules ?? []).length) degraded.push(`rules: expected ${(body.formRules ?? []).length}, got ${rulesLive}`);
+  return { fieldsLive: live.size, steps: stepsLive, rules: rulesLive, degraded };
 }
 
 /**
@@ -292,7 +452,7 @@ export async function setupForms(ctx, plan) {
         target: f.inputOptions.target,
         componentType: f.inputOptions[INPUT_BLOCK[f.inputOptions.inputType]].componentType,
       }));
-    const check = await verifyForm(ctx, formId, expected);
+    const check = await verifyForm(ctx, formId, expected, body);
 
     out.push({
       name: planForm.name,

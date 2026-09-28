@@ -64,9 +64,14 @@ if (!service) {
       <h1 class="mt-5 text-2xl font-semibold tracking-tight">{service.name}</h1>
       {service.tagLine && <p class="mt-1 text-muted-foreground">{service.tagLine}</p>}
       <p class="mt-2 text-sm text-muted-foreground">
-        {service.durationMinutes ? `${service.durationMinutes} min · ` : ""}
-        <span class="text-foreground">{service.price}</span>
+        {service.durationLabel ? `${service.durationLabel} · ` : ""}
+        {service.price && <span class="text-foreground">{service.priceFrom ? "From " : ""}{service.price}</span>}
+        {service.basePrice && <s class="ml-1">{service.basePrice}</s>}
+        {service.discountName && <span class="ml-1 text-xs">{service.discountName}</span>}
       </p>
+      {service.locations.some((l) => l.name) && (
+        <p class="mt-1 text-sm text-muted-foreground">{service.locations.map((l) => l.name).filter(Boolean).join(" · ")}</p>
+      )}
       {service.description && <p class="mt-4 text-sm leading-relaxed text-muted-foreground">{service.description}</p>}
     </div>
     <div>

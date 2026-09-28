@@ -12,6 +12,7 @@
 //   { "plans": [{ "name", "description"?, "price"? (decimal string; a number is stringified),
 //                 "type"?: "recurring"|"one-time"|"free",
 //                 "billingCycle"?: { "period": "DAY"|"WEEK"|"MONTH"|"YEAR", "count" } | null,
+//                 "freeTrialDays"?: 14, "setupFee"?: { "name", "amount" } | "fees"?: [{ "name", "amount" }],
 //                 "perks"?: ["..."], "termsAndConditions"?, "visibility"?, "buyable"?,
 //                 "coveredServiceIds"?: ["<bookings service id>"],
 //                 "bookingsCoverage"?: { "serviceIds"?, "creditAmount"? } }] }
@@ -86,17 +87,38 @@ function buildBillingTerms(plan) {
   return { billingCycle: cycle, startType: "ON_PURCHASE", endType: "UNTIL_CANCELLED" };
 }
 
+// Additional fees on the variant (up to 5): each { name (1–40 chars), priceType FIXED_AMOUNT,
+// fixedAmountOptions: { amount } (decimal string, > 0), appliedAt FIRST_PAYMENT — the only value:
+// a fee is added to the first payment }. `setupFee` is the one-fee shorthand of `fees`. The
+// frontend reads them back as fees[].fixedAmountOptions.amount and shows them with the price.
+// The id is a client-supplied GUID like the variant's and the perks'.
+function buildFees(plan) {
+  const fees = [...(plan.setupFee ? [plan.setupFee] : []), ...(plan.fees ?? [])];
+  return fees.map((f) => ({
+    id: randomUUID(),
+    name: f.name || "Setup fee",
+    priceType: "FIXED_AMOUNT",
+    fixedAmountOptions: { amount: String(f.amount) },
+    appliedAt: "FIRST_PAYMENT",
+  }));
+}
+
 // One pricingVariant with one pricingStrategy (schema allows ≤20 but is "currently limited
 // to 1"). Amounts are decimal STRINGS ("20.00"); the variant id is a REQUIRED
-// client-supplied GUID — omitting it returns 400.
+// client-supplied GUID — omitting it returns 400. freeTrialDays (a number, ≤ 999) is the trial
+// before the first charge — a paid plan's field (nothing to trial on a free plan); fees ride on
+// the variant too.
 function buildPricingVariant(plan) {
   const free = (plan.type || "recurring") === "free";
   const amount = free ? "0" : String(plan.price);
+  const fees = free ? [] : buildFees(plan);
   return {
     id: randomUUID(),
     name: plan.variantName || "Standard",
     billingTerms: buildBillingTerms(plan),
     pricingStrategies: [{ flatRate: { amount } }],
+    ...(!free && plan.freeTrialDays ? { freeTrialDays: Number(plan.freeTrialDays) } : {}),
+    ...(fees.length ? { fees } : {}),
   };
 }
 

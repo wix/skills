@@ -5,7 +5,13 @@
 //
 // Category, sort, price/stock/search filters, option facets, and cursor paging are all applied
 // by Wix across the whole catalog (searchCatalog), never to a page already in hand. A changed
-// selection starts a fresh cursor chain; a late response from a superseded query is dropped.
+// selection starts a fresh cursor chain; a late response from a superseded query is dropped. The
+// previous page stays on screen (with `loading: true`) while the new one loads — skeletons only
+// when there is nothing to show yet.
+//
+// Facet picks are kept PER FACET: choices inside one facet OR together, facets AND together
+// ("Red or Blue, and Large"), exactly as Wix's own storefront filters; a linked choice's children
+// ride along with it.
 //
 // SSR-friendly: seed with `initialProducts`/`initialCategories` and they render at once; `start()`
 // then revalidates the first page to open the cursor chain, replacing the seed without a
@@ -17,7 +23,8 @@
 //
 // One store per mounted listing (a page can hold a shop and a featured rail): createShopStore(),
 // not a singleton. The cart store is a singleton because the cart is one per visitor.
-import { CATALOG_SORTS, fetchCategories, fetchFacetData, searchCatalog, type CatalogSort } from "./catalog";
+import { CATALOG_SORTS, fetchCategories, fetchFacetData, searchCatalog, type CatalogSort, type FacetSelection } from "./catalog";
+import { expandFacetChoiceIds } from "./catalog-core";
 import type { Category, Facet, PriceRange, ProductSummary } from "./types";
 
 export const SORTS = CATALOG_SORTS;
@@ -42,7 +49,10 @@ export interface ShopStoreOptions {
 
 /** Everything a listing surface renders from. Read it with getState() or through a subscription. */
 export interface ShopState {
-  /** null while the first load is in flight — render skeletons, not an empty state. */
+  /**
+   * null while the FIRST load is in flight — render skeletons. During a later selection change the
+   * previous page stays here with `loading: true` (dim it, don't blank it).
+   */
   products: ProductSummary[] | null;
   /** Matching products across the whole catalog for the current selection; null until known. */
   total: number | null;
@@ -51,14 +61,15 @@ export interface ShopState {
   activeCategoryId: string | null;
   sort: CatalogSort;
   filters: ShopFilters;
-  /** The filterable options of the current scope (Color, Size…), from the catalog itself. */
+  /** The filterable customizations of the current scope (Color, Size, a choice modifier…), from the catalog itself. */
   facets: Facet[];
   /** Lowest and highest product price in the scope — the price slider's bounds; null until known or when equal. */
   priceRange: PriceRange | null;
-  /** Selected facet choice ids — products carrying ANY of them match. */
+  /** Selected facet choice ids (every facet together) — what the chips and the panel's pressed state read. */
   selectedChoiceIds: string[];
   /** True when any filter or facet is active. */
   hasActiveFilters: boolean;
+  /** A query is in flight for the current selection (the products shown may be the previous page's). */
   loading: boolean;
   error: string | null;
   hasMore: boolean;
@@ -75,6 +86,7 @@ export interface ShopStore {
   setActiveCategoryId(id: string | null): void;
   setSort(sort: CatalogSort): void;
   setFilters(filters: ShopFilters): void;
+  /** Select / deselect a facet choice (the facet is found from the loaded facets). */
   toggleChoice(choiceId: string): void;
   /** Clears price/stock/search filters and facet selections (keeps category and sort). */
   clearFilters(): void;
@@ -82,9 +94,25 @@ export interface ShopStore {
   loadMore(): Promise<void>;
 }
 
+/** A pick remembers its facet so the query can group it before the facets are loaded (a shared link). */
+interface SelectedChoice {
+  kind: Facet["kind"];
+  facetId: string;
+  choiceId: string;
+}
+
 const URL_KEYS = { sort: "sort", min: "min", max: "max", stock: "stock", q: "q", choice: "choice", category: "category" } as const;
 
-function readUrlState(): { sort?: CatalogSort; filters: ShopFilters; choiceIds: string[]; categoryId?: string | null } | null {
+// choice=<kind>:<facetId>:<choiceId>; a bare choice id (an older link) counts as an option pick.
+const encodeChoice = (s: SelectedChoice): string => `${s.kind}:${s.facetId}:${s.choiceId}`;
+function decodeChoice(token: string): SelectedChoice | null {
+  const parts = token.split(":");
+  if (parts.length === 3 && (parts[0] === "option" || parts[0] === "modifier") && parts[2]) return { kind: parts[0], facetId: parts[1], choiceId: parts[2] };
+  if (parts.length === 1 && parts[0]) return { kind: "option", facetId: "", choiceId: parts[0] };
+  return null;
+}
+
+function readUrlState(): { sort?: CatalogSort; filters: ShopFilters; selected: SelectedChoice[]; categoryId?: string | null } | null {
   if (typeof window === "undefined") return null;
   const p = new URLSearchParams(window.location.search);
   const sort = p.get(URL_KEYS.sort);
@@ -96,12 +124,12 @@ function readUrlState(): { sort?: CatalogSort; filters: ShopFilters; choiceIds: 
   return {
     sort: sort && sort in CATALOG_SORTS ? (sort as CatalogSort) : undefined,
     filters,
-    choiceIds: p.getAll(URL_KEYS.choice),
+    selected: p.getAll(URL_KEYS.choice).map(decodeChoice).filter((s): s is SelectedChoice => s !== null),
     categoryId: p.has(URL_KEYS.category) ? p.get(URL_KEYS.category) : undefined,
   };
 }
 
-function writeUrlState(s: { sort: CatalogSort; filters: ShopFilters; selectedChoiceIds: string[]; activeCategoryId: string | null }, initialCategoryId: string | null): void {
+function writeUrlState(s: { sort: CatalogSort; filters: ShopFilters; selected: SelectedChoice[]; activeCategoryId: string | null }, initialCategoryId: string | null): void {
   if (typeof window === "undefined") return;
   const p = new URLSearchParams(window.location.search);
   for (const k of Object.values(URL_KEYS)) p.delete(k);
@@ -110,7 +138,7 @@ function writeUrlState(s: { sort: CatalogSort; filters: ShopFilters; selectedCho
   if (s.filters.maxPrice != null && s.filters.maxPrice !== "") p.set(URL_KEYS.max, String(s.filters.maxPrice));
   if (s.filters.inStockOnly) p.set(URL_KEYS.stock, "1");
   if (s.filters.search?.trim()) p.set(URL_KEYS.q, s.filters.search.trim());
-  for (const id of s.selectedChoiceIds) p.append(URL_KEYS.choice, id);
+  for (const c of s.selected) p.append(URL_KEYS.choice, encodeChoice(c));
   if (s.activeCategoryId !== initialCategoryId) p.set(URL_KEYS.category, s.activeCategoryId ?? "");
   const qs = p.toString();
   const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
@@ -122,7 +150,7 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
   let activeCategoryId: string | null = initialCategoryId;
   let sort: CatalogSort = "featured";
   let filters: ShopFilters = {};
-  let selectedChoiceIds: string[] = [];
+  let selected: SelectedChoice[] = [];
   let attempt = 0;
   // data
   let categories: Category[] = initialCategories ?? [];
@@ -133,6 +161,7 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
   let products: ProductSummary[] | null = initialProducts ?? null;
   let total: number | null = null;
   let cursor: string | null = null;
+  let hasMore = false;
   let error: string | null = null;
   let loadingMore = false;
   // control
@@ -141,8 +170,23 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
   let pendingMore: object | null = null;
   const listeners = new Set<() => void>();
 
+  // The picks grouped per facet, each with its linked children (known once the facets loaded),
+  // in a stable order — the query and its key are built from this.
+  function facetSelections(): FacetSelection[] {
+    const groups = new Map<string, FacetSelection>();
+    for (const s of selected) {
+      const key = `${s.kind}:${s.facetId}`;
+      const g = groups.get(key) ?? { id: s.facetId, kind: s.kind, choiceIds: [] };
+      for (const cid of expandFacetChoiceIds(facets.find((f) => f.id === s.facetId), [s.choiceId])) if (!g.choiceIds.includes(cid)) g.choiceIds.push(cid);
+      groups.set(key, g);
+    }
+    return [...groups.values()]
+      .map((g) => ({ ...g, choiceIds: [...g.choiceIds].sort() }))
+      .sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`));
+  }
+
   const selectionKey = () =>
-    JSON.stringify([pageSize, activeCategoryId, sort, filters.minPrice ?? null, filters.maxPrice ?? null, !!filters.inStockOnly, filters.search ?? "", [...selectedChoiceIds].sort(), attempt]);
+    JSON.stringify([pageSize, activeCategoryId, sort, filters.minPrice ?? null, filters.maxPrice ?? null, !!filters.inStockOnly, filters.search ?? "", facetSelections(), attempt]);
 
   let snapshot: ShopState | null = null;
   const emit = () => {
@@ -154,15 +198,15 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
     if (snapshot) return snapshot;
     const key = selectionKey();
     const current = pageKey === key;
-    const seeded = pageKey === null && products !== null; // SSR seed, first query in flight
     const hasActiveFilters =
-      selectedChoiceIds.length > 0 ||
+      selected.length > 0 ||
       !!filters.inStockOnly ||
       (filters.minPrice != null && filters.minPrice !== "") ||
       (filters.maxPrice != null && filters.maxPrice !== "") ||
       !!(filters.search && filters.search.trim());
     snapshot = {
-      products: current || seeded ? products : null,
+      // the seed or the previous page stays visible while a query runs; null only before anything loaded
+      products,
       total: current ? total : null,
       categories,
       activeCategoryId,
@@ -170,12 +214,12 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
       filters,
       facets,
       priceRange,
-      selectedChoiceIds,
+      selectedChoiceIds: selected.map((s) => s.choiceId),
       hasActiveFilters,
-      // Seeded content on screen is not "loading" — skeletons are only for a genuinely empty wait.
-      loading: (!current && !seeded) || (current && products === null),
+      // Content on screen is not "loading" in the skeleton sense — the flag says a query is in flight.
+      loading: !current || products === null,
       error: current ? error : null,
-      hasMore: current && !!cursor,
+      hasMore: current && hasMore && !!cursor,
       loadingMore: current && loadingMore,
     };
     return snapshot;
@@ -191,37 +235,38 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
       if (!started || scope !== activeCategoryId) return;
       facets = d.facets;
       priceRange = d.priceRange;
-      emit();
+      // A pick from the URL may have gained linked children now that its facet is known.
+      if (selectionKey() !== pageKey) query();
+      else emit();
     });
   }
 
   // Run the query for the current selection. Keeps the seed (or the previous page) on screen while
-  // it runs; only a selection change with no seed shows skeletons.
+  // it runs; skeletons only when there is nothing yet.
   function query(): void {
     if (!started) return;
     const key = selectionKey();
     const id = ++generation;
     pendingMore = null;
-    if (pageKey !== null) products = null;
-    pageKey = key; total = null; cursor = null; error = null; loadingMore = false;
+    pageKey = key; total = null; cursor = null; hasMore = false; error = null; loadingMore = false;
     emit();
-    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search, choiceIds] = JSON.parse(key);
-    searchCatalog({ limit, categoryId, sort: selectedSort, minPrice, maxPrice, inStockOnly, search, choiceIds })
+    const [limit, categoryId, selectedSort, minPrice, maxPrice, inStockOnly, search, selections] = JSON.parse(key);
+    searchCatalog({ limit, categoryId, sort: selectedSort, minPrice, maxPrice, inStockOnly, search, facetSelections: selections })
       .then((res) => {
         if (generation !== id || selectionKey() !== key) return; // superseded — drop it
-        products = res.products; total = res.total; cursor = res.nextCursor; error = null;
+        products = res.products; total = res.total; cursor = res.nextCursor; hasMore = res.hasMore; error = null;
         emit();
       })
       .catch((e) => {
         if (generation !== id || selectionKey() !== key) return;
-        products = []; total = null; cursor = null;
+        products = []; total = null; cursor = null; hasMore = false;
         error = e instanceof Error ? e.message : "Couldn't load products.";
         emit();
       });
   }
 
   function changed(): void {
-    if (syncUrl) writeUrlState({ sort, filters, selectedChoiceIds, activeCategoryId }, initialCategoryId);
+    if (syncUrl) writeUrlState({ sort, filters, selected, activeCategoryId }, initialCategoryId);
     loadFacets();
     // A new filters object with the same values keeps the page (same selection, same query).
     if (selectionKey() === pageKey) emit();
@@ -242,7 +287,7 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
       if (u) {
         if (u.sort) sort = u.sort;
         if (Object.keys(u.filters).length) filters = u.filters;
-        if (u.choiceIds.length) selectedChoiceIds = u.choiceIds;
+        if (u.selected.length) selected = u.selected;
         if (u.categoryId !== undefined && u.categoryId !== initialCategoryId) activeCategoryId = u.categoryId || null;
       }
       if (!initialCategories) {
@@ -259,14 +304,20 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
     setSort(next) { if (next === sort) return; sort = next; changed(); },
     setFilters(next) { filters = next; changed(); },
     toggleChoice(choiceId) {
-      selectedChoiceIds = selectedChoiceIds.includes(choiceId) ? selectedChoiceIds.filter((x) => x !== choiceId) : [...selectedChoiceIds, choiceId];
+      const existing = selected.find((s) => s.choiceId === choiceId);
+      if (existing) selected = selected.filter((s) => s !== existing);
+      else {
+        const facet = facets.find((f) => f.choices.some((c) => c.id === choiceId));
+        if (!facet) return; // not a choice of this scope's facets
+        selected = [...selected, { kind: facet.kind, facetId: facet.id, choiceId }];
+      }
       changed();
     },
-    clearFilters() { filters = {}; selectedChoiceIds = []; changed(); },
+    clearFilters() { filters = {}; selected = []; changed(); },
     retry() { attempt++; changed(); },
     async loadMore() {
       const key = selectionKey();
-      if (pageKey !== key || !cursor || pendingMore) return;
+      if (pageKey !== key || !cursor || !hasMore || pendingMore) return;
       const request = { generation, key };
       pendingMore = request; // blocks repeated clicks before a re-render
       const isCurrent = () => generation === request.generation && selectionKey() === key;
@@ -277,6 +328,7 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
           const seen = new Set((products ?? []).map((p) => p.id));
           products = [...(products ?? []), ...res.products.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))];
           cursor = res.nextCursor;
+          hasMore = res.hasMore;
         }
       } catch (e) {
         if (isCurrent()) error = e instanceof Error ? e.message : "Couldn't load more products.";

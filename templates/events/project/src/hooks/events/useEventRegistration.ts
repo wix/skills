@@ -1,9 +1,11 @@
 // React binding of the registration store (wix/events/registration-store.ts) — the whole
 // registration state machine for one event lives there, framework-free, branched on
-// event.registrationType: TICKETING loads the tier picker and checkout() reserves → redirects to
-// Wix's hosted checkout; RSVP is the built-in name+email form submitted in place. All correctness
-// (the visitor-public tier read, the reservation payload, the redirect callbacks, rsvpV2) lives
-// in the data layer; you own how it looks. One store per event — a new event id gets a fresh one.
+// event.registrationType: TICKETING loads the tier picker (per-tier or per-option quantities, a
+// named price on donation tiers, Wix's running totals) and checkout() reserves → redirects to
+// Wix's hosted checkout; RSVP renders the organizer's form and submits it in place. All
+// correctness (the visitor-public tier read, the reservation payload, the redirect callbacks,
+// rsvpV2, the form body) lives in the data layer; you own how it looks. One store per event — a
+// new event id gets a fresh one.
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   createRegistrationStore,
@@ -13,7 +15,7 @@ import {
 import type { EventDetail } from "../../wix/events/types";
 
 export type UseEventRegistration = RegistrationState &
-  Pick<RegistrationStore, "setQuantity" | "setRsvpValue" | "checkout" | "rsvp">;
+  Pick<RegistrationStore, "setQuantity" | "setGuestPrice" | "setRsvpValue" | "setGuestCount" | "setGuestName" | "checkout" | "rsvp">;
 
 export function useEventRegistration(event: EventDetail): UseEventRegistration {
   const key = `${event.id}:${event.registrationType}`;
@@ -28,7 +30,10 @@ export function useEventRegistration(event: EventDetail): UseEventRegistration {
   return {
     ...state,
     setQuantity: store.setQuantity,
+    setGuestPrice: store.setGuestPrice,
     setRsvpValue: store.setRsvpValue,
+    setGuestCount: store.setGuestCount,
+    setGuestName: store.setGuestName,
     checkout: store.checkout,
     rsvp: store.rsvp,
   };

@@ -1,8 +1,9 @@
 # Bookings — playbook
 
-The booking machinery ships as files — services reads, availability (appointment AND class),
-the schema-driven booking form, and the exact `createBooking → cart → checkout-or-place`
-sequence, typed end-to-end. **The presentation is yours**: you design and implement the
+The booking machinery ships as files — services reads (paged, filtered by category and location),
+availability (appointment AND class, with a course's seats and a class's sessions), the site's
+display time zone, add-ons, the schema-driven booking form, and the exact `createBooking → cart →
+checkout-or-place` sequence, typed end-to-end. **The presentation is yours**: you design and implement the
 service card, the listing surface, and the booking surface on the shipped hooks/DTOs, plus
 the home page and the brand. You never write booking logic; you never skip designing.
 
@@ -21,11 +22,11 @@ pages' island imports. Files you **create**: your listing and booking components
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
 | `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(s.imageUrl, "33vw")} alt={s.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath |
-| `wix/bookings/types.ts` | the DTOs (`ServiceSummary`, `ServiceDetail`, `BookingCategory`, `Slot`, `BookingFormField`, `BookingResult`) — contracts below |
-| `wix/bookings/services.ts` | `fetchServices`, `fetchServiceBySlug`, `fetchBookingCategories` — the transport; the rules and DTO mappers are in `services-core.ts` beside it (shared with the REST layer) |
-| `wix/bookings/booking.ts` | `fetchSlots`, `fetchBookingForm`, `bookService` — the transport; the request bodies, the slot and form mappers, and the checkout-or-place rule are in `booking-core.ts` beside it (shared with the REST layer) |
+| `wix/bookings/types.ts` | the DTOs (`ServiceSummary`, `ServiceDetail`, `BookingCategory`, `LocationOption`, `Slot`, `Session`, `CourseAvailability`, `AddOnGroup`, `BookingFormField`, `BookingResult`) — contracts below |
+| `wix/bookings/services.ts` | `fetchServices` (one page, filtered), `fetchServiceBySlug`, `fetchBookingCategories`, `fetchLocations` — the transport; the rules and DTO mappers (price by rate type, deposits, CTA state, locations) are in `services-core.ts` beside it (shared with the REST layer) |
+| `wix/bookings/booking.ts` | `fetchSlots`, `fetchNextAvailableSlots`, `fetchBookingsSettings`, `fetchSessions`, `fetchOfferedDays`, `fetchCourseAvailability`, `fetchAddOnGroups`, `fetchBookingForm`, `bookService` — the transport; the request bodies, the slot/session/add-on mappers, and the checkout-or-place rule are in `booking-core.ts` beside it (shared with the REST layer) |
 | `wix/bookings/services-store.ts` · `booking-flow-store.ts` | the listing and booking state machines, framework-free (`createServicesStore()`, `createBookingFlowStore(service)` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
-| `hooks/bookings/useServices.ts` | React binding of `services-store.ts`: listing + category filter — contract below |
+| `hooks/bookings/useServices.ts` | React binding of `services-store.ts`: listing + category/location filters + paging — contract below |
 | `hooks/bookings/useBookingFlow.ts` | React binding of `booking-flow-store.ts`: the whole booking state machine — contract below |
 | `components/bookings/ServicesView.tsx` (+ `ServiceCard`) · `ServiceBookingView.tsx` | **REFERENCE implementations** — correct, plain; build your own instead of shipping them |
 | `styles/global.css` | the design system: Tailwind v4 + the `@theme` token block (shared across verticals) |
@@ -43,9 +44,11 @@ Astro stack additionally gets:
 1. **The service card + listing surface** — your tile (image, type badge, duration/price
    presentation) and rhythm, with skeletons while loading and an honest empty state — on
    `useServices`.
-2. **The booking surface** — day-grouped slot picking, week paging, staff filter (only when
-   >1 staff), the schema-driven form, the book CTA (label free vs priced), and the confirmed
-   state — on `useBookingFlow`, which owns ALL booking logic; you own how it looks.
+2. **The booking surface** — day-grouped slot picking (full sessions disabled), week paging with
+   "next available", the time-zone line, staff filter (only when >1 staff), participants, deposit
+   choice, add-ons, the schema-driven form, the CTA labelled from `ctaState`, and the confirmed
+   state — or, for a course, its dates, seats, and one CTA — on `useBookingFlow`, which owns ALL
+   booking logic; you own how it looks.
 3. **The home page** — hero, featured services (fetch in frontmatter → your components),
    brand story.
 
@@ -60,16 +63,36 @@ for this business, not a stereotype of its category. Then, by default:
 
 - **Home:** what the business offers and one booking action in the first screen; real services
   under truthful headings; not a repeat of the listing.
-- **Listing:** a real service card — image, name, duration and price, link — in the first screen;
-  category pills only when there is more than one category; `services === null` → skeleton tiles,
-  `[]` → your honest empty state.
-- **Service page:** name, price, and the first bookable day's times in the first screen **at 390px
-  wide too** — the image is a bounded band on a phone, not a full-screen hero; week paging beside
-  the times; the staff filter only when `service.staff.length > 1`; the form under the times, the
-  CTA under the form with its label from `service.free` / `service.price`; a week with no times says
-  so and points to the next one.
+- **Listing:** a real service card — image, name, type badge (Appointment / Class / Course; "Online"
+  when `conferencing`), `durationLabel` and the price line, link — in the first screen; the price
+  line is `price` with "From " before it when `priceFrom`, `basePrice` struck through beside a
+  discounted price, `discountName` when present, nothing when `price` is ""; classes/courses show
+  `offeredDays` ("Mon, Wed") once loaded; category pills only when `categories.length > 1`, a
+  location filter only when there is more than one option (`locations` + "Other locations" when
+  `hasOtherLocations`); a "Load more" affordance while `hasMore`; `services === null` → skeleton
+  tiles, `[]` → your honest empty state. A filter is a link: `/services?category=<id>`,
+  `/services?location=<id>` (the store reads and writes them).
+- **Service page (appointment / class):** name, price, and the first bookable day's times in the
+  first screen **at 390px wide too** — the image is a bounded band on a phone, not a full-screen
+  hero; week paging beside the times; "Times in {timeZoneLabel}" once known, with a switch only when
+  `customerCanChangeTimeZone`; the staff filter only when `service.staff.length > 1` (photos when
+  `imageUrl`); a slot chip keyed by `slot.key`, disabled with "Full" when `!bookable` ("Full, waitlist"
+  when `waitlistCapacity`), "N left" when `remainingCapacity` is small; a week with no times says so
+  and offers `nextAvailable[0]` through `jumpTo(dayKey)` (`nextAvailable === null` → still looking,
+  `[]` → none); a participants control only when `maxParticipants > 1`; the deposit / pay-in-full
+  choice only when `service.deposit?.fullUpfrontAllowed`; add-on groups when `addOnGroups.length`,
+  with their `addOnsTotal`; upcoming `sessions` for a class as a list (informational — booking is
+  the slot); the form under the times, the CTA under the form.
+- **Service page (course):** the same header, then `service.course` dates, the flow's `offeredDays`,
+  `course.spotsLeft` ("Full" when `course.full`), the sessions list while it runs, the form, one CTA
+  — there is no slot picker (`days` is `[]`); `ctaState === "viewCourse"` (full or ended) disables it.
+- **CTA label:** from `ctaState` — "Book" / "Request to book" / disabled — then the money: "· deposit
+  {deposit.amount}" when `payDeposit` and an amount is known, "— free" when `service.free`, else
+  "· {price}" ("· from {price}" when `priceFrom`); nothing when `price` is "".
 - **Confirmed state:** rendered only from `confirmed`; a visitor returning from the hosted checkout
-  is not a success signal.
+  is not a success signal. Its copy follows `ctaState`: "You're booked" + "a confirmation email is
+  on its way" for `book` (the booking sends email + SMS); "Request sent" + "you'll hear back once it's
+  approved" for `requestToBook` — never promise a confirmed seat for a request.
 - **A slug that resolves to nothing** shows only the not-found state — no heading or empty picker
   rendered around it.
 - **Copy:** nothing the owner didn't supply — no invented reviews, availability pressure, or
@@ -80,28 +103,57 @@ for this business, not a stereotype of its category. Then, by default:
 Everything you need to build on the shipped code; read the source only when something is off.
 
 ```ts
-// ServiceSummary (tiles) — display-ready:
-// { id, slug, name, tagLine, type: "APPOINTMENT"|"CLASS", price /* "€75.00" | "Free" */,
-//   free, durationMinutes|null, imageUrl /* https or "" */, categoryId|null, staff: [{id,name}] }
-// ServiceDetail adds: description, formId, paymentOption, cancellationFeeEnabled.
-// BookingCategory = { id, name }.
+// ServiceSummary (tiles) — display-ready, every money value already a string ("" = unknown, omit it):
+// { id, slug, name, tagLine, type: "APPOINTMENT"|"CLASS"|"COURSE",
+//   rateType: "FIXED"|"VARIED"|"CUSTOM"|"NO_FEE"|"SUBSCRIPTION",
+//   price /* "€75" | "From"-able "€30" | "Ask for a quote" | "Free" | "" */, priceFrom /* prefix "From " */,
+//   basePrice /* struck-through pre-discount price or "" */, discountName, calculatedAtCheckout, hasPricingPlans,
+//   free, durationMinutes|null, durationLabel /* "1 hr 30 min" | "" */, imageUrl /* https or "" */,
+//   categoryId|null, categoryName, scheduleId|null,
+//   staff: [{ id, name, imageUrl }], locations: [{ id|null, name, type: "BUSINESS"|"CUSTOM"|"CUSTOMER" }],
+//   conferencing, hasAddOns, requiresManualApproval, onlineBookingEnabled, tooLateToBook,
+//   ctaState: "book"|"requestToBook"|"viewCourse" /* from policy; the flow adds a course's fullness */,
+//   defaultCapacity|null, maxParticipantsPerBooking|null,
+//   deposit: { amount /* "€20" | "" (percentage) */, fullUpfrontAllowed } | null,
+//   offeredDays: Weekday[] /* "MONDAY"… — classes/courses, filled by the listing store */ }
+// ServiceDetail adds: description, formId, paymentOption, cancellationFeeEnabled,
+//   course: { startDate|null, endDate|null, ended } | null   /* ISO instants; COURSE only */.
+// BookingCategory = { id, name }.  LocationOption = { id, name }.
 
-// useServices({ initialServices?, initialCategories? }) →
-// { services: ServiceSummary[]|null /* null = loading → skeletons */,
-//   categories: BookingCategory[], activeCategoryId, setActiveCategoryId(id|null), error }
-// Category filtering is client-side (a bookings catalog is small and fully fetched).
+// useServices({ initialServices?, initialHasMore?, initialCategories?, initialLocations?,
+//               initialCategoryId?, initialLocationId?, pageSize? = 20, syncUrl? = true }) →
+// { services: ServiceSummary[]|null /* null = loading → skeletons */, hasMore, loadingMore, loadMore(),
+//   categories, activeCategoryId, setActiveCategoryId(id|null),
+//   locations: LocationOption[], hasOtherLocations, activeLocationId, setActiveLocationId(id|null),  // id | OTHER_LOCATIONS_ID | null
+//   error }
+// Filters are applied by Wix (a fresh first page per selection; services goes null meanwhile) and
+// mirrored to ?category= / ?location=; the store reads them on start.
 
 // useBookingFlow(service: ServiceDetail) →
-// { days: [{ dayKey, dayLabel, slots: Slot[] }] | null,   // day-grouped; null = loading
-//   windowStart, nextWeek(), prevWeek(),                  // 7-day paging (prev clamps to today)
-//   staffId, setStaffId(id|undefined),                    // show a picker only when service.staff.length > 1
-//   selectedSlot, setSelectedSlot(slot|null),             // Slot = { startLocal, endLocal, dayKey, label, scheduleId|null, eventId|null, staff }
+// { days: [{ dayKey, dayLabel, slots: Slot[] }] | null,   // day-grouped; null = loading; [] for a COURSE
+//   windowStart, nextWeek(), prevWeek(), jumpTo(dayKey),  // 7-day paging on day boundaries (prev clamps to today)
+//   nextAvailable: Slot[] | null,                         // next bookable times beyond the window; null = loading, [] = none / not applicable
+//   staffId, setStaffId(id|undefined),                    // picker only when service.staff.length > 1; seeded from ?resource=
+//   selectedSlot, setSelectedSlot(slot|null),             // ignores a !bookable slot
+//   // Slot = { key, startLocal, endLocal, dayKey, label, bookable, totalCapacity|null, remainingCapacity|null,
+//   //          waitlistCapacity|null, scheduleId|null, eventId|null, eventTitle, location|null, staff: [{id,name}] }
+//   timeZone|null, timeZoneLabel /* "Eastern Time (EDT)" | "" */,
+//   displayTimeZone: "BUSINESS"|"CUSTOMER", customerCanChangeTimeZone, setDisplayTimeZone(zone),
+//   course: { totalCapacity|null, spotsLeft|null, full } | null,   // COURSE seats; null while loading / ended
+//   offeredDays: Weekday[],                               // a class/course's weekdays ("MONDAY"…); [] for appointments
+//   sessions: Session[] | null, hasMoreSessions, loadMoreSessions(),  // class (and running course) sessions, 7 a page
+//   // Session = { id, title, startLocal, endLocal, dayKey, dayLabel, label, durationMinutes, staff, totalCapacity|null, spotsLeft|null, isFullyBooked, isCancelled }
+//   participants, maxParticipants, setParticipants(n),    // seats in this booking; control only when maxParticipants > 1
+//   payDeposit, setPayDeposit(bool),                      // only when service.deposit?.fullUpfrontAllowed
+//   addOnGroups: [{ id, name, prompt, maxSelectable|null, addOns: [{ id, name, price, durationMinutes|null, maxQuantity|null }] }],
+//   addOns /* { [addOnId]: quantity } */, toggleAddOn(id), setAddOnQuantity(id, n), canSelectMore(groupId),
+//   addOnsTotal /* formatted or "" */, addOnsMinutes,     // shown, NOT yet sent with the booking (see hard rules)
 //   formFields: [{ target, label, type, options?, required }], // never empty (contact-basics fallback); only required ones gate canBook
 //   values, setValue(target, value),                      // inputs write here, keyed by target
-//   canBook,                                              // gate the CTA on this
+//   ctaState, canBook,                                    // label the CTA from ctaState; gate it on canBook
 //   book(): Promise<BookingResult>,                       // paid → the browser navigates to the Wix checkout;
 //   booking, confirmed, error }                           // free/offline → confirmed is set (REAL success)
-// A window or staff change clears selectedSlot and sets days to null while the new week loads.
+// A window, staff, or zone change clears selectedSlot and sets days to null while the new week loads.
 // book() rejects on refusal (slot taken, invalid form) AND records .error — render it beside the CTA.
 ```
 
@@ -114,14 +166,17 @@ actions. Their `ServicesState` / `BookingFlowState` interfaces are the render co
 What you write is the rendering — tiles, the slot picker, the form, the CTA — and for that read
 these first; they are tested code for exactly that behaviour:
 
-1. `components/bookings/ServiceBookingView.tsx` — the booking surface as working code: day
-   groups with slot chips, week paging controls, the staff filter only when there is more than one
-   staff member, one input per `formFields` entry typed from its `type` (a `<select>` when it has
-   `options`), the CTA disabled until `canBook`, labelled free vs priced, `error` inline, and the
-   confirmed state rendered only from `confirmed`.
-2. `components/bookings/ServicesView.tsx` — category pills only when `categories.length > 1`,
-   skeleton tiles while `services === null`, the honest empty state, and `ServiceCard`: image with
-   the type badge, name, tagLine, "duration · price".
+1. `components/bookings/ServiceBookingView.tsx` — the booking surface as working code: the course
+   panel (dates, seats), the time-zone line, the staff filter only when there is more than one staff
+   member, day groups with slot chips (disabled "Full"), the empty week pointing at `nextAvailable`,
+   the sessions list, participants, deposit choice, add-ons, one input per `formFields` entry typed
+   from its `type` (a `<select>` when it has `options`), the CTA disabled until `canBook` and labelled
+   from `ctaState` + the money, `error` inline, and the confirmed state rendered only from
+   `confirmed` with copy by `ctaState`.
+2. `components/bookings/ServicesView.tsx` — category pills only when `categories.length > 1`, the
+   location filter only when there is more than one option, skeleton tiles while `services === null`,
+   the honest empty state, "Load more" while `hasMore`, and `ServiceCard`: image with the type (and
+   "Online") badge, name, tagLine, "duration · price line", offered days, locations.
 
 All under `templates/bookings/app/`.
 
@@ -170,12 +225,15 @@ ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads live
 pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
 root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchServices`, `fetchServiceBySlug`,
-`fetchBookingCategories` from `./js/wix/services.js`; `fetchSlots`, `fetchBookingForm`,
-`bookService` from `./js/wix/booking.js`. The state machines ship too: `createServicesStore` from
-`./js/wix/services-store.js` (the listing — `start()` once the page is up, `setActiveCategoryId`)
-and `createBookingFlowStore(service)` from `./js/wix/booking-flow-store.js` (the booking surface —
-`fetchServiceBySlug(slug)` first, then the store: days, week paging, staff filter, `formFields`,
-`setValue`, `canBook`, `book()`). No components ship — you write the rendering in plain JS: one
+`fetchBookingCategories`, `fetchLocations` from `./js/wix/services.js`; `fetchSlots`,
+`fetchNextAvailableSlots`, `fetchBookingsSettings`, `fetchSessions`, `fetchOfferedDays`,
+`fetchCourseAvailability`, `fetchAddOnGroups`, `fetchBookingForm`, `bookService` from
+`./js/wix/booking.js`. The state machines ship too: `createServicesStore` from
+`./js/wix/services-store.js` (the listing — `start()` once the page is up, `setActiveCategoryId`,
+`setActiveLocationId`, `loadMore`) and `createBookingFlowStore(service)` from
+`./js/wix/booking-flow-store.js` (the booking surface — `fetchServiceBySlug(slug)` first, then the
+store: days, week paging, `nextAvailable`, staff filter, course seats, sessions, participants,
+deposit, add-ons, `formFields`, `setValue`, `ctaState`, `canBook`, `book()`). No components ship — you write the rendering in plain JS: one
 render function per surface that reads `getState()`, called from `subscribe`, with the surface's
 controls calling the store's actions. `book()` navigates the full document to the hosted checkout
 for a paid service on its own (`window.location.origin` must be on the OAuth app's allowed domains
@@ -191,9 +249,9 @@ Read the reference files listed above before writing any surface.
 
 Run `deploy.mjs bookings --stack static` in the project folder anyway: `js/wix/` is both the
 browser-side code and the readable spec. Then split by where the call runs. **Reads on the
-server:** port `js/wix/services.ts` and `services-core.ts` to your language — the same three
-functions returning the same DTO shapes as dicts, one anonymous visitor token per process for these
-public reads (mint and refresh per `client.ts`) — and render the listing and the service page in
+server:** port `js/wix/services.ts` and `services-core.ts` to your language — the same four
+functions (a page of services with its filters, one service, categories, locations) returning the
+same DTO shapes as dicts, one anonymous visitor token per process for these public reads (mint and refresh per `client.ts`) — and render the listing and the service page in
 your templates to the contracts above, so service names and prices are in the HTML; page tags from
 the `ServiceDetail`. **Booking in the browser:** the booking surface on
 `./js/wix/booking-flow-store.js` with the rendered `ServiceDetail` (a JSON script tag, or
@@ -204,7 +262,7 @@ Add your public https origin to the OAuth app's allowed domains before checkout 
 
 **Pre-rendered (Frozen-Flask, Pelican, any static-site generator) → Wix-hosted.** Same port for
 the reads, run at build time with one anonymous token; the generator must emit a page for every
-slug `fetchServices()` returns. Run `deploy.mjs bookings --stack static --out <build dir>` so
+slug `fetchServices()` returns — follow `hasMore` across its pages. Run `deploy.mjs bookings --stack static --out <build dir>` so
 `js/wix/` is inside the output the pages import from, point `site.outputDirectory` at that folder,
 `wix release`. Pages sit at different depths (`/`, `/services/…`): give the templates one base path
 to `js/wix/` (a template variable, or root-relative `/js/wix/…`), never a relative `./js/wix/` — it
@@ -228,9 +286,19 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 ## Hard rules
 
 - **Booking logic only through the shipped exports** — `useBookingFlow`/`bookService` own the
-  sequence (createBooking → cart holds the seat → checkout-or-place), the payment-option
-  derivation, ANY_RESOURCE, and the formSubmission shape. Never re-derive any of it, never
-  call `confirmBooking`, never hand-build a checkout URL.
+  sequence (createBooking → cart holds the seat, carries the contact and location → checkout-or-place
+  decided from the calculated cart), the payment-option derivation, ANY_RESOURCE, the slot's
+  location, a course's schedule booking, participants, the deposit flag, the notifications, and the
+  formSubmission shape. Never re-derive any of it, never call `confirmBooking`, never hand-build a
+  checkout URL.
+- **The CTA and the confirmed copy follow `ctaState`** — "Request to book" / "Request sent" for
+  `requestToBook`, no booking CTA for `viewCourse`. A request is not a confirmed seat.
+- **Add-ons are shown and selectable, not yet booked** — `addOnGroups`/`addOns`/`addOnsTotal` render
+  the owner's extras and their price, but `book()` does not send them (the Create Booking field for
+  chosen add-ons is not yet verified); tell the visitor they are added at the venue, or leave add-ons
+  out of the surface. Never invent a payload field for them.
+- **Money strings are final** — render `price`, `basePrice`, `deposit.amount`, `addOnsTotal` as given;
+  "" means unknown, so omit it. Never format amounts yourself or assume a currency.
 - **The form is schema-driven** — render `formFields` as given (values keyed by `target`);
   never hardcode field names beyond what the fallback already guarantees.
 - **Gate the CTA on `canBook`** and surface `error` — `book()` can reject (slot taken,
@@ -273,5 +341,7 @@ it, don't treat it as a code failure.
 ## Seeding
 
 Per `seed/SEED.md` — plain-data `plan.json` into `seed-bookings.mjs` from the project root.
-Seed services that exercise the UI (an APPOINTMENT with duration+price, a free one, a CLASS
-with future sessions when it fits the business; an image per service).
+Seed services that exercise the UI (an APPOINTMENT with duration+price, a free one, a CLASS with
+recurring `weekly` sessions, a COURSE when it fits the business; a "From" price, a quote, a deposit,
+a manual-approval service, a waitlist, a second staff member or location where the brief allows; an
+image per service).
