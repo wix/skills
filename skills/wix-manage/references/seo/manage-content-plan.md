@@ -209,9 +209,10 @@ It takes no parameters and returns the site's most recent research. Keep only
 | Any other error | Report it and stop. |
 
 At the 60th status check, check the research one last time; if it is still
-not ready, report the flow ID as incomplete. These counts come from observed
-runs: research took 14 to 76 seconds, and 20 checks one at a time take about
-one to two minutes.
+not ready, report the flow ID as incomplete. These counts are heuristics from
+flows observed in September 2026 (research took 14 to 76 seconds; 20 checks
+one at a time take about one to two minutes); retune them if that timing
+changes.
 Calling Create Content Plan before the research is ready moves the flow to
 `FAIL`; that flow cannot be resumed.
 See [List Keyword Research Items](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-keyword-research-v1/list-keyword-research-items).
@@ -344,7 +345,10 @@ then, before or after step 4, read the keywords. Edit only items from the
 flow's `keywordResearchId`.
 
 A read before the research finishes returns a not found error or an earlier
-research's `keywordResearchId`; handle it as in step 3.
+research's `keywordResearchId`. A user request to see or edit keywords is not
+a reason to check sooner: during generation, wait as step 3 says. Outside
+generation, read once; on a not found error, tell the user the research is not
+ready yet instead of retrying.
 
 ```
 GET https://www.wixapis.com/promote/seo/v1/content-plan-keyword-research-items
