@@ -7,7 +7,7 @@ install provisions the owner asynchronously), and creates everything in the righ
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/references/bookings/seed/seed-bookings.mjs plan.json
+node <SKILL_ROOT>/templates/bookings/seed/seed-bookings.mjs plan.json
 ```
 
 `plan.json` is plain data — write it from the brief. **Default to 3 services** (the seed
@@ -42,7 +42,12 @@ image leaves that service text-only.
   (fixed `sessions` you schedule here — **future local wall-clock** `YYYY-MM-DDThh:mm:ss`, no Z;
   a CLASS without sessions shows no bookable times).
 - `price` — a number; omit or `free: true` → a no-fee, pay-in-person service (books without
-  checkout). The site currency wins over `currency`.
+  checkout). The site currency wins over a per-service `currency`.
+- `currency` — 3-letter ISO code at the top of the plan, set **only when the brief names one**: a
+  sentence about currency, or a price written with its unit ("9 dollars", "$9", "€20"). Do **not**
+  infer it from a language, a country, or an address. The seed sets the site to it before creating
+  anything, because prices are stored in the site currency at create time; a new site starts in the
+  currency of the account that created it, not the business's.
 - `category` — a name; created idempotently. Every service gets one (required for live-site
   visibility) — uncategorized services fall into a default "Services" category.
 - Staff: appointments are auto-assigned to the site's default staff resource; the flow books
@@ -53,7 +58,7 @@ seems needed.
 
 ## Supplied content
 
-The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For bookings, each service the
+The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For bookings, each service the
 user lists is one entry. Its name becomes `name` and its length in minutes becomes `duration`. Its
 price becomes `price`; a service marked free, or with no price, gets `"free": true`. A group activity
 with a capacity or fixed times becomes a `CLASS` with `capacity` and one `sessions` entry per listed
@@ -67,5 +72,5 @@ opening hours are not seeded — say so; the owner sets them in the dashboard.
 `attachServiceImage`, plus `makeCtx()` — import them only for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-bookings.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.

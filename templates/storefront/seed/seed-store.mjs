@@ -1,7 +1,7 @@
 // Storefront seed — a BUILD-TIME script, never shipped in the app. Run it from the project
 // root (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
+//   node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
 //
 // It mints its own site token via the Wix CLI (the token never leaves this process), installs
 // the Wix Stores app if needed, waits for the V3 catalog, bulk-creates products (variants
@@ -18,8 +18,9 @@
 //     "categories"?: { "<category name>": ["<product name>", ...] } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
-// If a call fails with an unexpected shape, read the live API reference (the authoritative
-// source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
+// If a call fails with an unexpected shape, read the live API reference (every call below
+// carries a docs: line with its reference page) — never guess.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
@@ -455,17 +456,6 @@ export function validateProducts(products) {
     }
   });
   if (problems.length) throw new Error(`invalid seed plan:\n  - ${problems.join("\n  - ")}`);
-}
-
-// Site currency, set BEFORE any product exists (see setupStore). Existing product reads can
-// keep reporting the old currency for a short while after this returns — that lag is expected
-// and self-resolves, so don't re-verify or retry on it.
-// docs: https://dev.wix.com/docs/rest/business-management/site-properties/properties/update-site-properties
-async function setSiteCurrency(ctx, currency) {
-  await req(ctx, "/site-properties/v4/properties", {
-    method: "PATCH",
-    body: { properties: { paymentCurrency: currency }, fields: ["paymentCurrency"] },
-  });
 }
 
 /**

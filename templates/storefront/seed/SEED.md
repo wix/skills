@@ -12,7 +12,7 @@ not a store product.
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
+node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
 ```
 
 Run this way, the result is the process itself: exit code `0` and the JSON on stdout (redirect it
@@ -66,8 +66,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
   both is rejected.
-- `currency` — 3-letter ISO code. Set it **only when the brief names one** ("prices in euros",
-  "a German store charging EUR"). Do **not** infer it from a language, a country, or an address
+- `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
+  currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before
   creating anything, because a product's price is stored in the site currency at create time.
   For a few seconds afterwards product reads can still report the old currency; that lag is
@@ -80,7 +80,7 @@ business (a ceramics studio has glaze colors; a bakery doesn't).
 
 ## Supplied content
 
-The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
+The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For a store, each product the user
 lists is one entry, whatever form the list arrives in. Its name, description and price become
 `name`, `description` and `price`. A "was", "regular" or "compare at" price becomes `compareAtPrice`
 when it is higher than the price. A stock count becomes `quantity`; "unlimited" or "made to order"
@@ -121,8 +121,8 @@ ordering: `installStoresApp`, `bulkCreateProducts`, `createCategories`,
 ## Reference
 
 If a call returns an unexpected shape or you need an operation this module doesn't cover, read
-the live Wix API reference — never guess. The authoritative source recipe is
-`wix-headless/references/inline-recipes/setup-online-store.md`. Key pages:
+the live Wix API reference — never guess. Every call in the script carries a `docs:` line
+with its reference page. Key pages:
 
 - Bulk Create Products With Inventory: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md
 - Create Category: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md

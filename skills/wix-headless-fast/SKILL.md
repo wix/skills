@@ -21,7 +21,12 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The model
 
-- **Shipped code is the implementation.** Every vertical ships under `references/<vertical>/`:
+- **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
+  the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
+  fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
+  script below fetches it itself when the folder is missing. The folder stays with the project
+  (only the composed `project/` scaffolds are left out of its repository), so a later session
+  reads the version the project was built from. Each vertical holds:
   - `app/` — the framework-agnostic core (TypeScript): a data layer that returns **plain,
     serializable DTOs** (images resolved to https URLs, prices pre-formatted), React hooks, and
     routing-free headless components. Works in Astro islands, Vite SPAs, and Next.
@@ -30,6 +35,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
   - `seed/` — a build-time REST seed script (plain-data plan in, created content out) plus its
     `SEED.md` contract.
   - `INSTRUCTIONS.md` — the vertical's playbook: file map, what you build, hard rules.
+  - `project/` — the vertical composed into the Wix CLI's blank Astro scaffold, with its
+    lockfile: what `wix create` copies for a new site, so the first vertical installs without
+    resolving.
 - **One auth seam.** All shipped code calls Wix through `src/wix/sdk.ts`: on Wix-managed Astro
   auth is ambient (no client, no id); on any other React setup the same file runs a manual
   visitor client off the public client id in `src/wix/config.ts`. The deploy step configures
@@ -40,7 +48,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
   owns it and confirm the contract with `wix-docs`; never infer one from generated SDK types,
   package files, or `node_modules`. A normal caller-permitted operation belongs in a new
   data-layer function. A privileged operation belongs in a validated server endpoint — see
-  `references/shared/CUSTOM_OPERATIONS.md`. The presentation **doesn't ship**: the vertical's
+  `templates/shared/CUSTOM_OPERATIONS.md`. The presentation **doesn't ship**: the vertical's
   INSTRUCTIONS names the surfaces you design and implement yourself on the shipped hooks,
   with a skeleton carrying each surface's contract (for storefront: the shop and PDP pages
   with their islands, and home).
@@ -65,10 +73,19 @@ doesn't express — or once the site exists and the work turns to managing or ex
   capability without copying sensitive code. For a normal file upload, add a named
   `capabilities.mediaUpload.policies` entry to the plan; Fast ships its client helper, Astro
   endpoint, dependencies, and generated policy module once. Read
-  `references/shared/CUSTOM_OPERATIONS.md` before choosing it. The agent wires the helper to
+  `templates/shared/CUSTOM_OPERATIONS.md` before choosing it. The agent wires the helper to
   the product UI; it never authors or widens the endpoint.
 
 ## The run
+
+Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
+`npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
+read tokens into context), and the two companion skills beside this one, `wix-docs` and
+`wix-manage` (if `.agents/skills/` lacks them:
+`CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
+page, `cold-start/cold-start.md`, gets a machine with none of this to that point. Then fetch the shipped
+code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
+the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 
 1. **Resolve the stack.** Default is **Wix-managed Astro** — take it unless the user names
    another framework or the directory already holds one. Then, by what the shipped code can run
@@ -84,8 +101,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
      don't apply: `--stack lib`. The agent binds the stores and writes its framework's components
      against the same contracts.
    - **No bundler, or another language** — a static site (plain HTML/CSS/JS), a server-rendered
-     app (Flask, Laravel, Rails, …): **reference mode** (below). Nothing from `app/` deploys; the
-     REST layer deploys for the browser side, and the server side ports it for its reads.
+     app (Flask, Laravel, Rails, …): **reference mode** (its section below, and
+     `<SKILL_ROOT>/guides/reference-mode.md`). Nothing from `app/` deploys; the REST layer
+     deploys for the browser side, and the server side ports it for its reads.
 
    **What Wix hosting takes, and what each stack needs to be released there.** `wix release`
    uploads the folder named in `wix.config.json` (`site.outputDirectory`) and serves it as
@@ -109,19 +127,17 @@ doesn't express — or once the site exists and the work turns to managing or ex
      `outputDirectory: { client, server }`; otherwise it is self-hosted, with its domain added to
      the OAuth app's allowed domains before checkout can return to it.
    - **Static** (no build): `outputDirectory` points at the folder the pages live in; a route is a
-     page plus a query-string slug (reference mode, below).
+     page plus a query-string slug (reference mode).
 2. **The seed plan.** When the brief supplies the content in any form — a CSV, JSON or
    spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a
    link to their current catalog, anything else that names the content — that IS the plan: map
-   it into `plan.json` per `references/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md`
+   it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md`
    ("Supplied content"), every entry, names and prices verbatim, their images and no others.
    Draft a plan from the brief only when nothing was supplied (read only the vertical's
    `SEED.md` for this — it depends only on the brief; save the vertical's `INSTRUCTIONS.md` for
    step 4, where it's needed). **An existing site has no plan**: when the brief names a site by
    its id, the site holds the content already — nothing is seeded, and the frontend reads what
-   is there (step 3's attach path). Requires from here on: Node ≥ 20.11 and a logged-in Wix CLI
-   (`npx @wix/cli@latest whoami`; login via the device-code flow — surface the URL+code, never
-   read tokens into context).
+   is there (step 3's attach path).
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
    and for a project already on disk; **the folder decides** what it does:
 
@@ -129,13 +145,15 @@ doesn't express — or once the site exists and the work turns to managing or ex
    node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> [--plan plan.json] [--business-name "<Brand>"]
    ```
 
-   - **Empty** (or only loose files: a CSV, a brief) → **create**: scaffolds the Wix CLI's
-     Astro project here; `--business-name` names the site.
+   - **Empty** (or only loose files: a CSV, a brief) → **create**: `wix create` with the
+     vertical's composed template, here; `--business-name` names the site.
    - **A project without `wix.config.json`** (a `package.json`, or an `index.html` at the root:
      someone's Astro, Vite, Next, plain HTML) → **connect**: `init` in place links the folder
      to a new site (the site is named after the folder), then the shipped code deploys into
      the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
      project what that stack needs on Wix hosting (step 1) before or right after the call.
+     With `--stack static` setup also makes `site/` the folder `wix release` uploads and deploys
+     the REST layer into `site/js/wix/`; you move the pages, styles and assets in (`guides/reference-mode.md`).
    - **`wix.config.json` and a project** → refuses: the folder is already a Wix project with a
      frontend, whether the CLI made it, a hand wrote it, or this skill built it. Three commands
      from the project root do everything setup would: `deploy.mjs <vertical…> --stack <stack>`
@@ -146,11 +164,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
    - **`wix.config.json` and no project** (what `init` leaves in an empty folder) → the site
      exists and has no frontend yet: `attach.mjs` (below), which takes the site from the config,
      reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
-   - The brief names a site by id → the existing-site path below, not this call. In a folder
-     that already holds a project, attach writes the config into it and deploys for `--stack`
-     instead of scaffolding. A frontend that will be hosted elsewhere (Vercel, your own server)
-     runs attach with `--hosting self --origin <url>[,<url>]`: no Wix hosting is created, and the
-     origins go on the OAuth app's allow-list so checkout can return to them.
+   - The brief names a site by id → not this call: read `<SKILL_ROOT>/guides/existing-site.md`
+     and follow it (read the site, then `attach.mjs`, which does what setup does against the
+     site given; self-hosting and a project already on disk are in there too).
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs — use
    the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
@@ -169,78 +185,14 @@ doesn't express — or once the site exists and the work turns to managing or ex
    write. `--subfolder` creates it in a new folder named after the business instead, for a current
    folder that must stay as it is; the skills then sit one level above the project.
 
-   It emits one JSON event per line and returns in **~35s**: **scaffolds** the project,
-   **deploys** the shipped code (patching `package.json` with every dependency the code
-   imports, and placing the pre-resolved lockfile), then **starts two detached background
-   jobs** — the dependency install (`npm ci --ignore-scripts || npm install --ignore-scripts`)
+   It emits one JSON event per line and returns in **~35s**: **scaffolds** the project from the
+   vertical's composed template (`wix create` copies it: the code and its lockfile arrive with
+   the scaffold), **deploys** whatever the folder still lacks (patching `package.json` with every
+   dependency the code imports), then **starts two detached background jobs** — the dependency install (`npm ci --ignore-scripts || npm install --ignore-scripts`)
    and the **seed** — whose logs and completion markers are in the events. The final
    `ready_for_brand_layer` event carries the project dir, siteId, ready-made dashboard links,
    and both markers. Relay notable events. On an `error` event, recover just that step via the
    manual path below, then continue.
-
-   **Existing-site runs (the brief names a Wix site by its id — a new frontend for a site that
-   already has its content): read the site, then run attach.** First, one call tells you what
-   the site is — its name, currency, and the Wix apps installed on it:
-
-   ```bash
-   curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
-     -H "Authorization: $(npx -y @wix/cli@latest token)" -H 'Content-Type: application/json' \
-     -d '{"siteId": "<siteId>"}'
-   ```
-
-   The installed apps name the verticals (Wix Stores → storefront, Wix Bookings → bookings, and
-   so on per the Verticals table); the brief picks among them. Then one deterministic call, same
-   shape as setup:
-
-   ```bash
-   node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>]
-   ```
-
-   `init`/`wix create` always create a site, so they are not used here. attach does what they do
-   after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
-   given, scaffolds the CLI's Astro template, deploys the shipped code, and starts the install
-   detached. No seed runs and nothing on the site changes: the content is the site's own, read
-   live through the deployed data layer. `attached` also says whether a frontend is already
-   serving at the site's address (`frontend.serving`, with the release date). When it is, a
-   `wix release` from this project replaces it — the old deployment keeps its own address and
-   production can be pointed back, but the user's site changes. Tell the user before you release,
-   with the address and the date; if the brief did not ask for a new frontend, ask first and
-   wait. Say it again when you close.
-
-   **Get the measure of the site before you design.** Enough to know what you are building
-   for: what the chosen verticals will render, roughly how much of it, and what it is like —
-   six items in three groups design differently from six hundred. Run the vertical's reader:
-
-   ```bash
-   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
-   ```
-
-   It prints one JSON: whether the vertical's app is installed, counts, one page of each entity
-   with the fields the pages render, and `calls`, the requests it made with their documentation
-   URLs. The lists are one page; the counts are the site.
-
-   When the brief needs a read the script does not make, it is a build-time call with the
-   **site's** token, sent raw as the `Authorization` header (the account token from the call
-   above does not scope to a site), minted inline in each command —
-   `-H "Authorization: $(npx -y @wix/cli@latest token --site <siteId>)"` — and never written to
-   a file, not in the project and not in `/tmp`.
-   **The rule above applies in full: not one of these calls comes from memory.** Read the
-   request where it is written, then call. Where to read, in this order:
-   - **The reader**, `references/<vertical>/seed/read-site.mjs` — the reads the pages make, as
-     literal calls with their documentation URLs.
-   - **`wix-manage`**, at `.agents/skills/wix-manage/` — REST recipes for managing a site's
-     business solutions: exact endpoint, method and payload per operation, curl included. Its
-     SKILL.md is the index, by solution; open the recipe for the vertical's solution.
-   - **`wix-docs`**, at `.agents/skills/wix-docs/` — the Wix API reference, reached by
-     **search, not by browsing files**: the skill folder holds the how-to, not the pages. Open
-     its SKILL.md; it gives one `curl` to semantic search (`POST
-     /mcp-docs-search/v1/docs/search/markdown`, natural-language `search_term`) that returns
-     condensed method docs — endpoint, request example, response shape — and the rule that any
-     `dev.wix.com/docs/…` URL plus `.md` is the full page. Progressive: search first, read the
-     full document only when the hit lacks what you need.
-   If what you opened does not have the call, go to the next; do not try a variant, and do not
-   build one from a call you did find: the path and body you send are copied from the output
-   you read or they are not sent.
 
    **Recovering one step, or adding a solution later:** the pieces run on their own from the
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
@@ -257,14 +209,14 @@ doesn't express — or once the site exists and the work turns to managing or ex
    tokens, brand the chrome, and implement the vertical's creative surfaces yourself on the
    shipped hooks (for storefront: your product card + grid, shop surface, PDP surface, and the
    home page) — designed to fit the brief, not copied from the reference components. Read the
-   INSTRUCTIONS and the shared floors — `references/shared/DESIGN.md` +
-   `references/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
+   INSTRUCTIONS and the shared floors — `templates/shared/DESIGN.md` +
+   `templates/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
    step on); the hook/DTO
    contracts are inlined there, so don't open the shipped files themselves. **Author your
    surfaces in as few messages as possible** — batch multiple Write calls in one message
    (components are independent files); don't pay a round-trip per file.
    If the brief needs a core operation that shipped code does not cover, read
-   `references/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
+   `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
 5. **When both background jobs have completed** — the install's marker
    (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
@@ -289,147 +241,33 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## Reference mode — a static site, or a server-rendered app in another language
 
-The data layer ships a second time as a **REST layer**: `references/shared/rest/` (the auth seam
-`client.ts`, `media.ts`, `config.ts`) and `references/<vertical>/rest/` (the same exports as the
-vertical's `app/wix/<vertical>/` data layer, over `fetch`), typed against the same `types.ts` and
-importing the same `*-core.ts` rule files as the SDK layer — one implementation of the rules, two
-transports. The vertical's `INSTRUCTIONS.md` names its modules and what each surface does with
-them; this section is the mechanics, the same for every vertical.
-
-- **Static site (no bundler).** `npm create @wix/new@latest init` in the project folder (site,
-  OAuth app, `wix.config.json`). The site lives in a **subfolder** — `site/` — holding only the
-  pages, styles, and `js/`; set `site.outputDirectory` in the config to `"./site"`. `wix release`
-  uploads that directory whole, so the project root (config, `plan.json`, seed output, anything
-  else) must not be it. Then `node <SKILL_ROOT>/install/deploy.mjs <vertical> --stack static --out
-  site` composes the REST layer and the vertical's framework-free stores flat into `site/js/wix/`
-  and strips them to browser ESM (comments kept, the `.ts` kept beside the `.js` to read). Pages
-  import the vertical's modules from `./js/wix/` in a `<script type="module">`: the stores hold
-  the state machines (subscribe, render from `getState()`, call actions), the page holds the
-  rendering. The visitor token lives in `localStorage` and is the
-  visitor's identity across Wix — never mint one per page. A route is a page plus a query-string
-  slug (`item.html?slug=…`). Wix static hosting serves files, not directories: `/shop` does not
-  resolve to `shop/index.html`, and there is no routes configuration — name the file and link
-  to it. Seed per the vertical's `SEED.md` (Node + the CLI token, no project dependencies).
-  Release with `npx @wix/cli@latest release` — no build. Item-page tags come from the entity's
-  `seoData`, set after the fetch (`document.title`, the meta description).
-- **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
-  Astro — pages rendered on the server, the interactive surfaces in the browser — with hosting and
-  SEO plumbing theirs. `init` still runs in the project folder; run `deploy.mjs <vertical> --stack
-  static` there too: it only needs `wix.config.json` and writes `js/wix/`. Split by where the call
-  runs:
-  - **Reads render on the server.** Port the vertical's `rest/` read module and its `*-core.ts` to
-    the server language: each function is one HTTP call with a literal URL and JSON body, and the
-    core carries the rules. That code is tested and proven against live sites — carry its bodies
-    over as they are, `fields` arrays and filter keys included (they are not guessable, and a
-    near-miss returns empty or unformatted data with no error), and render what Wix returns
-    (`formattedAmount`, never a number you format yourself). The shipped JS runs: when in doubt,
-    run the module with Node against the same site and compare one entity with your port. Public
-    reads need no visitor identity — one anonymous visitor token per server process, refreshed per
-    `client.ts`, is enough for them.
-  - **Visitor-specific state runs in the browser.** Whatever the vertical does on the visitor's
-    behalf (a store's cart and checkout, a booking, an RSVP, a form submit) loads the vertical's
-    `js/wix/` module in the templates and talks to Wix from the page, exactly as a static site
-    does: the browser owns the visitor token in `localStorage`, so the server handles no
-    per-visitor tokens. If that state must run server-side anyway, `client.ts`'s header applies:
-    one token set per visitor in the visitor's session, never one process-wide token (that is one
-    identity shared by everyone).
-  - **A Wix-hosted flow returns to the origin that started it, and only to one it knows.**
-    Checkout, a booking payment, a plan purchase all open on Wix and come back to your server;
-    the return works only for an origin on the site's OAuth app allow-list. Add the server's
-    origin — the dev one while verifying (`http://localhost:<port>`), the public https one when it
-    goes live — before the first checkout test: wix-manage's *Manage OAuth Apps* recipe, "Update an
-    OAuth App", field `allowedRedirectDomains`, on the app whose id is `appId` in
-    `wix.config.json`. Without it the Wix page opens and cannot return. Do it; do not only say it.
-  - **Pre-rendered → Wix-hosted.** If the project builds to static HTML (Frozen-Flask, Pelican,
-    Hugo, Eleventy, any static-site generator), Wix can host the output: run `deploy.mjs
-    <vertical> --stack static --out <build dir>` so `js/wix/` lands inside the build output (or
-    copy it there after each build), make the generator emit a page for **every** entity slug the
-    vertical's list read returns (walk it by cursor, never only the first page), point
-    `site.outputDirectory` at the build folder, `wix release`. The build's own reads use one
-    anonymous visitor token for the duration of the build. What Wix hosts is exactly the contents
-    of that folder after your last build, served as files: every asset a page references must be
-    in there and current — if the pipeline has more than one build step (templates, then a CSS or
-    asset bundle), they all run, in order, on every rebuild, or the release carries a stale piece.
-    a clean path does not resolve to a folder's `index.html`; name the file and link to it. Generated pages
-    sit at different depths, so reference `js/wix/` through one base path (a template variable,
-    or root-relative `/js/wix/…`), never `./js/wix/` — a relative path breaks one level down. **The generated page
-    is the first paint, not the whole surface**: the vertical's interactive behaviour (a store's
-    sort, filters, and cart; a blog's search; a booking flow) still runs client-side on top of it
-    from the same `js/wix/` modules, so the vertical's surface contracts in `INSTRUCTIONS.md`
-    apply unchanged. Close with the rebuild + release command and one line for the owner: content
-    edits made in the dashboard reach the site when that command runs; the browser-side flows are
-    live regardless. A running server (live reads on every request) stays theirs to host.
-  Then read the vertical's `INSTRUCTIONS.md` for the surfaces and hard rules, and the shared
-  `DESIGN.md`/`CONTENT.md`. **Before writing any surface, read the vertical's shipped hooks and
-  components** — its `INSTRUCTIONS.md` lists which files and what to take from each. They don't
-  deploy on this stack, and they are working, tested code for exactly the behaviour you are about
-  to write in your own; rewriting them from prose is where the bugs come from (the runs that
-  skipped them shipped a broken quick-add, the run that read them didn't). Both were written for
-  the stacks that receive the code, so they speak that stack's dialect: the Tailwind classes in the
-  skeletons and the components are one spelling of layout and behaviour rules that hold everywhere
-  (a bounded image band on phones, name and price on separate lines, the buy control pinned to the
-  tile's bottom, an overlay that locks scroll and returns focus). Take the rules; write them in the
-  CSS your stack uses, on a token set you define — nothing here asks you to add Tailwind. Close with run (or
-  rebuild) instructions, the live URL when Wix hosts the output, the dashboard link, and — when
-  hosting is theirs — which origins are on the OAuth app's allow-list and that the public one
-  must be added when the server moves (the step above).
-- Both: the calls in `rest/` are the ones a **visitor token** may make from a page — public reads
-  and the visitor's own actions. Anything elevated (writes to content, other people's data) runs
-  server-side per `references/shared/CUSTOM_OPERATIONS.md`; the seed's CLI token never belongs in
-  a page. A static site has no SSR; neither case has owner-editable item-page SEO through
-  `@wix/seo` (tags come from the entity's `seoData`) — say so in the closing message; managed
-  Astro stays the recommendation for a public site.
+The shipped data layer exists a second time as a **REST layer** over `fetch`, for the stacks that
+cannot run `app/`: a static site with no bundler, or a server-rendered app in another language
+(Flask, Laravel, Rails). The REST layer deploys for the browser side; the server side ports its
+reads. When step 1 resolves to one of these stacks, read `<SKILL_ROOT>/guides/reference-mode.md`
+before step 3: it holds the mechanics (the `site/` layout and setup's part in it, what runs in the
+browser versus the server, the OAuth allow-list for a self-hosted origin, pre-rendered output) and
+how to close such a run. A public site is still better served by managed Astro; say so when you
+close.
 
 ## Verticals
 
 | The user wants…                                                                              | Vertical          | Playbook                                   |
 | -------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------ |
-| Online store: products, categories, variants, cart, checkout                                 | **storefront**    | `references/storefront/INSTRUCTIONS.md`    |
-| Appointments/classes: services, time slots, staff, booking, checkout                         | **bookings**      | `references/bookings/INSTRUCTIONS.md`      |
-| Blog: post feed, categories/tags, rich-content post pages                                    | **blog**          | `references/blog/INSTRUCTIONS.md`          |
-| Structured content collections (directory, recipes, listings) with pages designed per schema | **cms**           | `references/cms/INSTRUCTIONS.md`           |
-| Any visitor-fillable form: contact/enquiry, signup, application, survey — rendered from the live schema | **forms**         | `references/forms/INSTRUCTIONS.md`         |
-| Events: listing, event pages, free RSVP, ticket sales via hosted checkout                    | **events**        | `references/events/INSTRUCTIONS.md`        |
-| Member accounts: custom in-app login/sign-up, gated pages, account page                      | **members**       | `references/members/INSTRUCTIONS.md`       |
-| Portfolio/showcase: collections of projects, project pages with media galleries              | **portfolio**     | `references/portfolio/INSTRUCTIONS.md`     |
-| Membership/subscription plans: pricing page, plan detail, hosted purchase                    | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` |
-| Restaurant: menu with photos, online ordering, table reservations                            | **restaurants**   | `references/restaurants/INSTRUCTIONS.md`   |
+| Online store: products, categories, variants, cart, checkout                                 | **storefront**    | `templates/storefront/INSTRUCTIONS.md`    |
+| Appointments/classes: services, time slots, staff, booking, checkout                         | **bookings**      | `templates/bookings/INSTRUCTIONS.md`      |
+| Blog: post feed, categories/tags, rich-content post pages                                    | **blog**          | `templates/blog/INSTRUCTIONS.md`          |
+| Structured content collections (directory, recipes, listings) with pages designed per schema | **cms**           | `templates/cms/INSTRUCTIONS.md`           |
+| Any visitor-fillable form: contact/enquiry, signup, application, survey — rendered from the live schema | **forms**         | `templates/forms/INSTRUCTIONS.md`         |
+| Events: listing, event pages, free RSVP, ticket sales via hosted checkout                    | **events**        | `templates/events/INSTRUCTIONS.md`        |
+| Member accounts: custom in-app login/sign-up, gated pages, account page                      | **members**       | `templates/members/INSTRUCTIONS.md`       |
+| Portfolio/showcase: collections of projects, project pages with media galleries              | **portfolio**     | `templates/portfolio/INSTRUCTIONS.md`     |
+| Membership/subscription plans: pricing page, plan detail, hosted purchase                    | **pricing-plans** | `templates/pricing-plans/INSTRUCTIONS.md` |
+| Restaurant: menu with photos, online ordering, table reservations                            | **restaurants**   | `templates/restaurants/INSTRUCTIONS.md`   |
 
 Verticals compose: a brief that spans several (a restaurant with a blog, a store with member
 accounts) deploys them together — setup takes one vertical; deploy the rest with
 `node <SKILL_ROOT>/install/deploy.mjs <vertical…>` from the project root before the install
-starts, and run each vertical's seed. A request that doesn't match any shipped vertical isn't
-this skill's shipped code — route it to `wix-headless` rather than improvising an unshipped
-vertical here.
-
-## Adding a vertical (structure contract)
-
-New verticals follow the same layout — the deploy script discovers them automatically (any
-`references/<name>/app/` directory is a vertical):
-
-```
-references/<vertical>/
-  INSTRUCTIONS.md      # playbook: file map, wiring per stack, what you build, hard rules
-  app/                 # framework-agnostic core — disjoint paths so verticals never collide:
-    wix/<vertical>/    #   types.ts (DTOs) + data layer (calls via ../sdk, images via ../media)
-                       #   + *-store.ts: the state machines, framework-free (ship on every stack)
-    hooks/<vertical>/  #   React hooks — thin bindings of the stores (SSR-friendly: accept initial data)
-    components/<vertical>/  # routing-free components (plain <a> default + LinkComponent prop)
-    styles/global.css  # Tailwind v4 + the @theme design tokens (shared token family)
-  app-astro/           # Astro overlay importing ONLY from the core:
-    pages/…            #   SSR fetch → DTO props → client:load islands; item pages carry
-                       #   wixMetadata + <SEO.Tags>; chrome islands are client:only
-                       #   (storefront ships no pages — its INSTRUCTIONS carries their skeletons)
-    layouts/…          #   (reuse SiteLayout when it fits)
-  seed/                # seed-<vertical>.mjs (REST, mints its own CLI token) + SEED.md
-  rest/                # the REST twin of app/wix/<vertical>/: same exports over fetch, importing
-                       #   the same *-core.ts (rules + DTO mappers, type-only imports) and types.ts;
-                       #   flat ./x.js imports — deploy --stack static composes and strips it
-```
-
-Core rules the structure encodes: a rule or mapper lives once, in `app/wix/<vertical>/*-core.ts`,
-imported by both transports (a call added to `app/` gets its `rest/` twin in the same PR; `tsc`
-over both is the parity check); raw API entities never leave the data layer (DTOs only);
-client-shared state uses a module-scope store (never React context — it can't span Astro
-islands); every image URL is resolved through `src/wix/media.ts`; every money value is a
-formatted string by the time a component sees it.
+starts, and run each vertical's seed. A request that matches no shipped vertical has no shipped
+code: it is built from the Wix API reference through `wix-docs` (search, then the method page),
+with the same rule as every other call, on the same project and stack.

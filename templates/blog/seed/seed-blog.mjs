@@ -1,7 +1,7 @@
 // Blog seed — a BUILD-TIME script, never shipped in the app. Run from the project root
 // (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/blog/seed/seed-blog.mjs plan.json
+//   node <SKILL_ROOT>/templates/blog/seed/seed-blog.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Blog app if needed, resolves
 // a real author memberId (every post create requires one), creates categories/tags (idempotent
@@ -17,8 +17,8 @@
 //     | { type:"quote", text } | { type:"bulleted"|"ordered", items:[text,…] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
-// read the live API reference; authoritative source recipe:
-// wix-headless/references/inline-recipes/setup-blog.md.
+// read the live API reference; every call below
+// carries a docs: line with its reference page.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";

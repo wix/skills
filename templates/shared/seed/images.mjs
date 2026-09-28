@@ -10,7 +10,6 @@
 //     a precondition for an entity.
 //
 // Generation costs 1 Wix AI credit per image, billed to the account behind the site.
-// Authoritative reference: wix-headless/references/IMAGE_GENERATION.md.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
@@ -44,7 +43,7 @@ async function req(ctx, path, body, timeoutMs = 45_000) {
  * Generate one image; returns its short-lived URL (import it immediately). Tries each model
  * once — a per-model failure (bad params, 5xx, credit exhaustion, timeout) falls through to
  * the next; throws only after all models failed.
- * docs: no public reference for /runwareschemaless/v1/request — see wix-headless/references/IMAGE_GENERATION.md
+ * docs: no public reference page for /runwareschemaless/v1/request; the request shape is the one below, verified live
  */
 export async function generateImage(ctx, prompt, { width = 1024, height = 1024 } = {}) {
   let lastErr;

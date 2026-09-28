@@ -1,0 +1,21 @@
+---
+// Collections gallery — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR gallery component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import CollectionsView from "../components/portfolio/CollectionsView";
+import { fetchCollections } from "../wix/portfolio/portfolio";
+import type { CollectionSummary } from "../wix/portfolio/types";
+
+let collections: CollectionSummary[] = [];
+try {
+  collections = await fetchCollections();
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Portfolio">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Portfolio</h1>
+  <CollectionsView client:load initialCollections={collections} />
+</SiteLayout>

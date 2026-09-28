@@ -1,0 +1,80 @@
+name: contacts/label-named-contacts
+description: >
+  A site owner asks to put a label on two contacts they identify by name. Verifies the agent loads
+  the Bulk Label and Unlabel Contacts recipe, resolves the label key and both contact IDs without
+  browsing the reference, filters the bulk job by those IDs, and confirms the job completed.
+triggerPrompt: >
+  Add the Newsletter label to my contacts Jordan Lee and Priya Shah.
+tags: [contacts]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/bulk-label-and-unlabel-contacts
+  - type: llm_judge          # correctness — the user's outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Add the Newsletter label to my contacts Jordan Lee and Priya
+      Shah." Both contacts already exist on the site, along with other contacts.
+
+      Score 9-10: a Newsletter label exists (created or reused, not duplicated), and both Jordan Lee
+      and Priya Shah carry its key, set by successful (2xx) Contacts API calls, and the agent
+      confirmed the labeling completed rather than only that a job was started.
+
+      Score 7-8: the same end state, but the confirmation is vague or does not say whether the job
+      finished.
+
+      Score 1-3: either named contact is missing the label; OR a contact other than those two was
+      labeled; OR a new contact was created; OR the final call errored (non-2xx); OR the agent only
+      described how to do it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the tool-call path
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace,
+      including request bodies and any error bodies.
+
+      Score 9-10: a direct path — the label key came from one Find or Create Label or label query
+      call, both contacts were resolved by name with the contacts search, labels were added with a
+      bulk job filtered by contact `id` (or per-contact label calls), and the job status was read
+      back. No non-2xx responses and no documentation reads after the recipe.
+
+      Score 7-8: the same path with every API call succeeding on its first attempt, preceded by a
+      short set of documentation or API-spec lookups for calls the recipe already gives.
+
+      Score 4-6: the outcome was reached only after a call was rejected and the agent recovered —
+      for example a contacts query filtered by name rejected with `is not declared as filterable`,
+      or a bulk label call rejected with `400` and replaced by per-contact calls.
+
+      Score 1-3: the bulk job filter could match contacts other than the two named ones, or two or
+      more calls were rejected.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: seed contact Jordan Lee
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name: { first: Jordan, last: Lee }
+            email: { email: jordan.lee@example.com }
+      - label: seed contact Priya Shah
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name: { first: Priya, last: Shah }
+            email: { email: priya.shah@example.com }
+      - label: seed contact Jordan Leeds
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name: { first: Jordan, last: Leeds }
+            email: { email: jordan.leeds@example.com }

@@ -1,0 +1,80 @@
+---
+// Event detail + registration page.
+//
+// This is a Wix ITEM PAGE: the wixMetadata export + <SEO.Tags> below let the site owner edit
+// this page's title/description/OG in the dashboard and register the route in the sitemap.
+// Keep all three SEO pieces and this frontmatter; swap the island import to YOUR registration
+// component. The registration island is client:only — it runs visitor-session calls and
+// redirects.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import EventRegistrationView from "../../components/events/EventRegistrationView";
+import { fetchEventBySlug } from "../../wix/events/events";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.events.id,
+  pageIdentifier: WIX_APPS.events.eventPageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.events.eventPageMetadata.identifiers.slug,
+  },
+};
+
+const slug = Astro.params.slug!;
+
+// Behind Wix's proxy the request URL is internal — the real public page URL arrives on
+// x-wix-forwarded-url; the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let event = null;
+let seoTagsServiceConfig = null;
+try {
+  [event, seoTagsServiceConfig] = await Promise.all([
+    fetchEventBySlug(slug),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.EVENTS_PAGE,
+      itemData: { slug },
+    }).catch(() => null),
+  ]);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!event) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={event.title}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+
+  <div class="grid gap-10 md:grid-cols-2">
+    <div>
+      {event.imageUrl && (
+        <div class="aspect-[3/2] overflow-hidden rounded-xl bg-secondary">
+          <img src={event.imageUrl} alt={event.title} class="h-full w-full object-cover" />
+        </div>
+      )}
+      {event.dateLabel && <p class="eyebrow mt-5">{event.dateLabel}</p>}
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight">{event.title}</h1>
+      <p class="mt-1 text-sm text-muted-foreground">
+        {event.locationType === "ONLINE" ? "Online event" : event.locationName}
+        {event.priceLabel ? ` · ${event.priceLabel}` : ""}
+      </p>
+      {event.shortDescription && <p class="mt-4 text-sm leading-relaxed text-muted-foreground">{event.shortDescription}</p>}
+      {event.aboutParagraphs.map((p) => (
+        <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{p}</p>
+      ))}
+    </div>
+    <div>
+      <EventRegistrationView client:only="react" event={event} />
+    </div>
+  </div>
+</SiteLayout>

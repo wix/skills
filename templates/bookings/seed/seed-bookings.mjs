@@ -1,7 +1,7 @@
 // Bookings seed — a BUILD-TIME script, never shipped in the app. Run from the project root
 // (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/bookings/seed/seed-bookings.mjs plan.json
+//   node <SKILL_ROOT>/templates/bookings/seed/seed-bookings.mjs plan.json
 //
 // It mints its own site token via the Wix CLI, installs the Wix Bookings app if needed,
 // resolves a staff resource (polling — a fresh install provisions the owner async), creates
@@ -15,8 +15,9 @@
 //                    "sessions"?: [{ "start", "end", "capacity"? }] }] }   // CLASS only; local "YYYY-MM-DDThh:mm:ss"
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
-// read the live API reference; authoritative source recipe:
-// wix-headless/references/inline-recipes/setup-bookings.md.
+// read the live API reference; every call below
+// carries a docs: line with its reference page.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
@@ -210,7 +211,9 @@ export async function attachServiceImage(ctx, it) {
  * ONE-CALL seed: install → resolve staff (poll) → categories → services → CLASS sessions →
  * images, ids threaded in memory. The default path.
  */
-export async function setupBookings(ctx, { services = [], staffResourceId } = {}) {
+export async function setupBookings(ctx, { services = [], staffResourceId, currency } = {}) {
+  // Before any service exists: a service's price is stored in the site currency.
+  if (currency) await setSiteCurrency(ctx, currency);
   await installBookingsApp(ctx);
 
   let resourceId = staffResourceId;

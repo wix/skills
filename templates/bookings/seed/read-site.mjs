@@ -1,5 +1,5 @@
 // What the booking business holds: services, staff, categories.
-//   node <SKILL_ROOT>/references/bookings/seed/read-site.mjs [--site <siteId>] [--limit <n>]
+//   node <SKILL_ROOT>/templates/bookings/seed/read-site.mjs [--site <siteId>] [--limit <n>]
 import { runReader } from "../../shared/seed/read-site.mjs";
 
 const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";

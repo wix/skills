@@ -159,7 +159,7 @@ exactly that behaviour:
    `post.paragraphs` (one `<p>` per entry), and headings, lists, quotes, and inline images flatten
    to text — say so in the closing message. A blog whose posts carry structure stays on Astro.
 
-All under `references/blog/app/`.
+All under `templates/blog/app/`.
 
 ### Wiring — Astro (default)
 
