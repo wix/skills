@@ -83,6 +83,7 @@ seed; a failed image leaves that event text-only.
   taken (the page then offers "Join the waitlist").
 - `registrationOpensAt` — RSVP only: a future ISO-8601 UTC instant. The event publishes with
   registration SCHEDULED and the page says when it opens — for a brief like "RSVP opens next week".
+  The API pairs it with a closing instant: `registrationClosesAt` (default: the event's `startDate`).
 - `guests` — RSVP only: how many additional guests one RSVP may bring (a GUEST_CONTROL on the
   registration form: a count and the guests' names). The result's per-event `guestControl` says
   whether Wix accepted it; when it did not (`formRejected`), the event exists without it and the

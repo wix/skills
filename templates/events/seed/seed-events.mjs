@@ -76,8 +76,10 @@ function buildRegistration(ev) {
       ...(Number.isInteger(ev.rsvpLimit) && ev.rsvpLimit > 0 ? { limit: ev.rsvpLimit } : {}),
       ...(ev.waitlist === true ? { waitlistEnabled: true } : {}),
       // A future start date schedules the opening: the event publishes with status SCHEDULED_RSVP and
-      // the page says when registration opens; before it, an RSVP is refused.
-      ...(ev.registrationOpensAt ? { startDate: ev.registrationOpensAt } : {}),
+      // the page says when registration opens; before it, an RSVP is refused. The API requires the
+      // window's END with its start (run 152: "both start and end dates"); it defaults to the event's
+      // start, the moment registration stops making sense.
+      ...(ev.registrationOpensAt ? { startDate: ev.registrationOpensAt, endDate: ev.registrationClosesAt ?? ev.startDate } : {}),
     },
   };
 }

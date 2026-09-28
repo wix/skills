@@ -150,7 +150,10 @@ export async function readQuestions(ctx) {
   let cursor = null;
   do {
     const query = cursor ? { cursorPaging: { limit: PAGE_LIMIT, cursor } } : { cursorPaging: { limit: PAGE_LIMIT } };
-    const r = await reqRetryOnce(ctx, "/faq/v2/question-entries/query", { body: { query, contentFormat: "PLAIN_TEXT" } });
+    // No contentFormat: the default read. Asking for PLAIN_TEXT made entries stored as rich content
+    // drop out of the page while the platform converted them, so a re-run did not see them and created
+    // them again (run 153). Only `question`, `categoryId` and `sortOrder` are read here.
+    const r = await reqRetryOnce(ctx, "/faq/v2/question-entries/query", { body: { query } });
     for (const q of r.questionEntries ?? []) out.push({ id: rawId(q), question: q.question ?? "", categoryId: q.categoryId ?? "", sortOrder: q.sortOrder ?? null });
     cursor = r.pagingMetadata?.hasNext ? (r.pagingMetadata?.cursors?.next ?? null) : null;
   } while (cursor);
@@ -174,7 +177,8 @@ export async function ensureCategories(ctx, titles) {
     const missing = titles.filter((t) => !map.has(norm(t)));
     if (!missing.length) break;
     if (attempt) await sleep(1500); // backoff only between retries — the happy path pays nothing
-    const base = Math.max(-SORT_STEP, ...existing.map((c) => c.sortOrder ?? -SORT_STEP));
+    // Never 0: a zero sortOrder is dropped on the wire (the proto default) and the category then sorts as unnumbered.
+    const base = Math.max(0, ...existing.map((c) => c.sortOrder ?? 0));
     for (const [i, title] of missing.entries()) {
       try {
         await req(ctx, "/faq/v2/categories", { body: { category: { title, sortOrder: base + SORT_STEP * (i + 1) } } });
@@ -245,7 +249,7 @@ export async function setupFaq(ctx, { categories = [], removeWixSamples = false 
   const existing = await readQuestions(ctx);
   const seen = new Set(existing.map((q) => `${q.categoryId}\n${norm(q.question)}`));
   const maxSort = new Map();
-  for (const q of existing) if (typeof q.sortOrder === "number") maxSort.set(q.categoryId, Math.max(maxSort.get(q.categoryId) ?? -SORT_STEP, q.sortOrder));
+  for (const q of existing) if (typeof q.sortOrder === "number") maxSort.set(q.categoryId, Math.max(maxSort.get(q.categoryId) ?? 0, q.sortOrder));
 
   const created = [];
   const skipped = [];
@@ -253,7 +257,7 @@ export async function setupFaq(ctx, { categories = [], removeWixSamples = false 
   let idx = 0;
   for (const c of categories) {
     const categoryId = catId.get(norm(c.title));
-    let next = (maxSort.get(categoryId) ?? -SORT_STEP) + SORT_STEP;
+    let next = Math.max(0, maxSort.get(categoryId) ?? 0) + SORT_STEP; // never 0 (dropped on the wire)
     for (const q of c.questions ?? []) {
       idx++;
       const key = `${categoryId}\n${norm(q.question)}`;
