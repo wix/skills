@@ -210,9 +210,9 @@ It takes no parameters and returns the site's most recent research. Keep only
 
 At the 60th status check, check the research one last time; if it is still
 not ready, report the flow ID as incomplete. These counts are heuristics from
-flows observed in September 2026 (research took 14 to 76 seconds; 20 checks
-one at a time take about one to two minutes); retune them if that timing
-changes.
+flows observed in September 2026: research took 14 to 76 seconds, and 20
+checks took one to two minutes when sent back to back (about five minutes at
+15-second spacing, which also covers it). Retune them if that timing changes.
 Calling Create Content Plan before the research is ready moves the flow to
 `FAIL`; that flow cannot be resumed.
 See [List Keyword Research Items](https://dev.wix.com/docs/api-reference/business-management/seo/content-plan-keyword-research-v1/list-keyword-research-items).
