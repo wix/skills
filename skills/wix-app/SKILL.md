@@ -226,6 +226,14 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 
 Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
+**SDK types:** access them through the namespace you import, as `<namespace>.<TypeName>`, using any type name shown in the docs — never import a type by name from the `@wix/<pkg>` root.
+
+```ts
+import { orders } from '@wix/ecom';
+const rows: orders.Order[] = [];              // ✅
+// import type { Order } from '@wix/ecom';    // ❌ has no exported member 'Order'
+```
+
 ---
 
 ## Data Collection Inference
