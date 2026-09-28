@@ -1,0 +1,95 @@
+---
+import astroLogo from "../assets/astro.svg";
+import wixLogo from "../assets/wix.svg";
+import background from "../assets/background.svg";
+---
+
+<div id="container">
+	<img id="background" src={background.src} alt="" fetchpriority="high" />
+	<main>
+		<section id="hero">
+			<div id="logos">
+				<a href="https://dev.wix.com"
+					><img
+						src={wixLogo.src}
+						width="70"
+						alt="Wix Documentation"
+					/></a
+				>
+				<a href="https://astro.build"
+					><img
+						src={astroLogo.src}
+						width="115"
+						alt="Astro Homepage"
+					/></a
+				>
+			</div>
+			<h1>
+				To get started, open the <code><pre>src/pages</pre></code> directory in your
+				project.
+			</h1>
+		</section>
+	</main>
+</div>
+
+<style>
+	#background {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: -1;
+		filter: blur(100px);
+	}
+
+	#container {
+		font-family:
+			Inter, Roboto, "Helvetica Neue", "Arial Nova", "Nimbus Sans", Arial,
+			sans-serif;
+		height: 100%;
+	}
+
+	#logos {
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+	}
+
+	main {
+		height: 100%;
+		display: flex;
+		justify-content: center;
+	}
+
+	#hero {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: 16px;
+	}
+
+	h1 {
+		font-size: 22px;
+		margin-top: 0.25em;
+	}
+
+	pre {
+		font-weight: normal;
+		background: linear-gradient(14deg, #d83333 0%, #f041ff 100%);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+		margin: 0;
+	}
+
+	code {
+		display: inline-block;
+		background:
+			linear-gradient(66.77deg, #f3cddd 0%, #f5cee7 100%) padding-box,
+			linear-gradient(155deg, #d83333 0%, #f041ff 18%, #f5cee7 45%) border-box;
+		border-radius: 8px;
+		border: 1px solid transparent;
+		padding: 6px 8px;
+	}
+</style>
