@@ -24,6 +24,14 @@ import {
 
 export type { LoginResult, LoginState };
 
+/** Same shape as the SDK transport's; on REST a SUCCESS is a session at once, so `returnTo` is the caller's to navigate. */
+export interface LoginOptions {
+  returnTo?: string;
+}
+
+/** register() carries first/last name on this transport. */
+export const PROFILE_ON_SIGNUP = true;
+
 const REDIRECT_SESSION = "/headless/v1/redirect-session";
 /** The stateToken of a login/registration that stopped at email verification — verifyMemberEmail continues it. */
 let pendingStateToken: string | null = null;
@@ -54,7 +62,7 @@ const message = (e: unknown): string => (e instanceof Error ? e.message : String
  * invalidPassword / invalidEmail, Wix's message in `error`), never a throw.
  * POST /_api/iam/authentication/v2/login  { loginId: { email }, password }  → { state, sessionToken?, stateToken? }
  */
-export async function loginMember(email: string, password: string): Promise<LoginResult> {
+export async function loginMember(email: string, password: string, _options: LoginOptions = {}): Promise<LoginResult> {
   let raw: RawAuth;
   try {
     raw = await wixRequest<RawAuth>("/_api/iam/authentication/v2/login", { body: { loginId: { email }, password } });
@@ -74,6 +82,7 @@ export async function registerMember(
   email: string,
   password: string,
   profile?: { firstName?: string; lastName?: string },
+  _options: LoginOptions = {},
 ): Promise<LoginResult> {
   let raw: RawAuth;
   try {

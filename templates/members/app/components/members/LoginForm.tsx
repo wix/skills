@@ -1,7 +1,9 @@
-// Shipped custom login form. The member stays on this site: credential calls exchange
-// directly into member tokens; only logout leaves the app.
+// Shipped custom login form — the member signs in on THIS site's page, never on a Wix login page.
+// On managed Astro a SUCCESS navigates through Wix's authorization step and returns to `returnTo`
+// (the store does that); elsewhere the tokens land in place and this form navigates itself.
 import { type FormEvent, useState } from "react";
 import { useMember } from "../../hooks/members/useMember";
+import { PROFILE_ON_SIGNUP } from "../../wix/members/auth";
 
 export interface LoginFormProps {
   onSuccess?: () => void;
@@ -19,22 +21,29 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Where a SUCCESS lands: ?returnTo when it is a same-site path, else /account. With onSuccess the
+  // form stays put on manual auth; on managed Astro the round trip returns to this very page.
+  function returnTo(): string {
+    const wanted = new URLSearchParams(window.location.search).get("returnTo");
+    if (wanted?.startsWith("/") && !wanted.startsWith("//")) return wanted;
+    return onSuccess ? window.location.pathname + window.location.search : "/account";
+  }
+
   function done() {
     if (onSuccess) return onSuccess();
-    const returnTo = new URLSearchParams(window.location.search).get(
-      "returnTo",
-    );
-    window.location.assign(returnTo?.startsWith("/") ? returnTo : "/account");
+    window.location.assign(returnTo());
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     try {
+      const options = { returnTo: returnTo() };
       const result =
         mode === "login"
-          ? await login(email, password)
-          : await register(email, password, { firstName, lastName });
+          ? await login(email, password, options)
+          : await register(email, password, PROFILE_ON_SIGNUP ? { firstName, lastName } : undefined, options);
+      if (result.state === "SUCCESS" && result.redirectUrl) return; // navigating to Wix and back
       if (result.state === "SUCCESS") done();
       if (result.state === "EMAIL_VERIFICATION_REQUIRED") setVerification(true);
       if (result.state === "OWNER_APPROVAL_REQUIRED") setPending(true);
@@ -48,6 +57,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setBusy(true);
     try {
       const result = await verifyEmail(code);
+      if (result.state === "SUCCESS" && result.redirectUrl) return; // navigating to Wix and back
       if (result.state === "SUCCESS") done();
       if (result.state === "OWNER_APPROVAL_REQUIRED") setPending(true);
     } finally {
@@ -101,7 +111,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           Sign up
         </button>
       </div>
-      {mode === "register" && (
+      {mode === "register" && PROFILE_ON_SIGNUP && (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             First name

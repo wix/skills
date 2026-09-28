@@ -9,6 +9,7 @@ import {
   logoutMember,
   registerMember,
   verifyMemberEmail,
+  type LoginOptions,
   type LoginResult,
 } from "./auth";
 import type { CurrentMember } from "./types";
@@ -79,6 +80,12 @@ async function runLogin(
 ): Promise<LoginResult> {
   try {
     const result = await action();
+    // Managed Astro: the session is written by the callback the browser is about to visit; navigate
+    // and do nothing else here (the page unloads). Manual: the tokens are already in place — re-read.
+    if (result.state === "SUCCESS" && result.redirectUrl) {
+      window.location.assign(result.redirectUrl);
+      return result;
+    }
     if (result.state === "SUCCESS") await refreshMember();
     if (result.state === "FAILURE")
       setState({
@@ -91,18 +98,22 @@ async function runLogin(
   }
 }
 
-/** Submit the branded in-app sign-in form. No Wix-hosted login redirect is used. */
-export function login(email: string, password: string): Promise<LoginResult> {
-  return runLogin(() => loginMember(email, password));
+/**
+ * Submit the branded in-app sign-in form. `returnTo` is where a SUCCESS lands (managed Astro: the
+ * callback's destination; the caller navigates itself otherwise).
+ */
+export function login(email: string, password: string, options?: LoginOptions): Promise<LoginResult> {
+  return runLogin(() => loginMember(email, password, options));
 }
 
-/** Submit the branded in-app sign-up form. */
+/** Submit the branded in-app sign-up form (names only where PROFILE_ON_SIGNUP is true). */
 export function register(
   email: string,
   password: string,
   profile?: { firstName?: string; lastName?: string },
+  options?: LoginOptions,
 ): Promise<LoginResult> {
-  return runLogin(() => registerMember(email, password, profile));
+  return runLogin(() => registerMember(email, password, profile, options));
 }
 
 /** Finish an email-verification branch from the same in-app form. */

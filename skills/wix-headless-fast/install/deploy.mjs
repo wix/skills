@@ -506,8 +506,9 @@ if (!requested.length) {
 }
 
 // ---- client ids ---------------------------------------------------------------------------------
-// The shared data client is ambient on managed Astro. Members are different: their shipped
-// custom credential flow always needs an explicit public OAuth client, including on Astro.
+// The shared data client is ambient on managed Astro, and so is the members flow there (the
+// integration's built-in /api/auth routes). WIX_MEMBERS_CLIENT_ID is still filled for projects whose
+// members code predates the shared seam; the shipped code reads WIX_CLIENT_ID only.
 // --client-id, else the CONTENT app: .env.local's WIX_CLIENT_ID (what `wix env pull` writes — on a
 // migration preview the parent site's app, the one the Astro integration itself runs as), else the
 // config's appId. Never the config first: on a preview that is the deploy-only child app.

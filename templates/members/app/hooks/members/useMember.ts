@@ -13,7 +13,7 @@ import {
   verifyEmail,
   type MemberState,
 } from "../../wix/members/member-store";
-import type { LoginResult } from "../../wix/members/auth";
+import type { LoginOptions, LoginResult } from "../../wix/members/auth";
 import type { CurrentMember } from "../../wix/members/types";
 
 export interface UseMemberOptions {
@@ -22,12 +22,13 @@ export interface UseMemberOptions {
 }
 
 export interface UseMember extends MemberState {
-  /** Submit the shipped in-app credential form. */
-  login: (email: string, password: string) => Promise<LoginResult>;
+  /** Submit the shipped in-app credential form; `returnTo` is where a SUCCESS lands. */
+  login: (email: string, password: string, options?: LoginOptions) => Promise<LoginResult>;
   register: (
     email: string,
     password: string,
     profile?: { firstName?: string; lastName?: string },
+    options?: LoginOptions,
   ) => Promise<LoginResult>;
   verifyEmail: (code: string) => Promise<LoginResult>;
   /** Log out through the Wix logout flow; navigates away. */
