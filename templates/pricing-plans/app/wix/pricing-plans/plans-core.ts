@@ -60,10 +60,12 @@ export function formatAmount(value: string | number | undefined, currency: strin
   if (value == null || value === "") return "";
   const n = Number(value);
   if (!Number.isFinite(n)) return "";
+  // No currency → a bare number, never an assumed "$": the plan's currency is site-derived and always sent.
+  if (!currency) return new Intl.NumberFormat(locale).format(n);
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: currency || "USD" }).format(n);
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(n);
   } catch {
-    return `${value} ${currency ?? ""}`.trim();
+    return `${value} ${currency}`;
   }
 }
 
