@@ -17,10 +17,10 @@ about tooling, not evidence about the collection.
 
 ## Reading the collection from a dashboard page
 
-A page over a CMS collection uses the **schema-driven** template, not the hand-wired one — the CMS
-already owns the field list, so `useCmsSchemaSource` supplies fetch, filters, columns and the
-entity form from it. See
-[DRAFT_TEMPLATE_CMS_COLLECTION.md](../dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md). Wiring
+A page over a CMS collection uses the package's **CMS Collection and Entity Template**, not the
+hand-wired one — the CMS already owns the field list, so `useCmsSchemaSource` supplies fetch,
+filters, columns and the entity form from it. See
+[DRAFT_TEMPLATE.md](../dashboard-page/DRAFT_TEMPLATE.md). Wiring
 `items.query()` and hand-written columns by hand still compiles, and quietly gives up everything the
 schema would have provided.
 
