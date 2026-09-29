@@ -37,7 +37,7 @@ layers, so Wix can triage without chasing you.
 
 ```
 Agent / model: <Claude Code / Opus, Cursor, Codex, ...>
-Skill: wix-headless-fast <version from .agents/skills/wix-headless-fast/SKILL.md or skills-lock.json> · run kind: <create | connect | attach | iterate | reference mode | migration preview>
+Skill: wix-headless-kit <version from .agents/skills/wix-headless-kit/SKILL.md or skills-lock.json> · run kind: <create | connect | attach | iterate | reference mode | migration preview>
 Stack: <astro | react | lib | static | port> · verticals: <storefront, blog, ...> · capabilities: <media-upload, site-search, none>
 Wix tooling used: <Wix CLI, wix-manage recipes, wix-docs, REST via curl>
 Wix products: <Stores, Bookings, Events, Blog, Forms, ...>

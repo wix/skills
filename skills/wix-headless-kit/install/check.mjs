@@ -24,7 +24,7 @@ const { repo } = installSource();
 const out = { skill: {}, templates: {}, update: {} };
 
 // ---- the repository: one clone of its history without file contents (small), read for both layers
-const tmp = mkdtempSync(join(tmpdir(), "wix-headless-fast-check-"));
+const tmp = mkdtempSync(join(tmpdir(), "wix-headless-kit-check-"));
 const clone = git(["clone", "--quiet", "--filter=blob:none", "--no-checkout", "--single-branch", repo, tmp]);
 if (clone.status !== 0) {
   rmSync(tmp, { recursive: true, force: true });
