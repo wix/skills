@@ -382,6 +382,8 @@ Count items in a collection, optionally with filters.
 }
 ```
 
+Count returns only `totalCount`. When the user needs to know *which* items match, run Query Data Items with the same filter instead of, or after, counting.
+
 ## Bulk Save (Upsert)
 
 Insert new items or update existing items in a single operation. This is useful for syncing data.
@@ -478,6 +480,12 @@ Perform calculations on collection data using a pipeline of sequential stages. T
 Reference fields link items across collections. A single `REFERENCE` field holds one item ID and is set like any other value in insert, update, or patch. A `MULTI_REFERENCE` field holds many links, and only two kinds of write create them: a `SET_FIELD` patch on the field (single or bulk), or the reference endpoints below, which add, replace, or remove links without touching the rest of the item. To add a reference field to a collection, see [Add a Reference Field](cms-schema-management.md#add-a-reference-field).
 
 > **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and its behaviour here is unverified; treat it the same way. Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
+
+Linking flow, every time:
+
+1. Resolve the referring item ID and the referenced item IDs (query by a field value; never guess IDs).
+2. Write the links with the reference endpoints below, or with a `SET_FIELD` patch on the reference field.
+3. **Read the referring item back** with Query Data Items and `includeReferencedItems: ["<field>"]`, and confirm the linked items are present. The write's 200 is not proof; only the read-back is.
 
 ### Insert Multi-Reference Links
 
