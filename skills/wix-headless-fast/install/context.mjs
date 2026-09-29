@@ -88,45 +88,54 @@ export function pullEnv(cwd) {
 }
 
 /**
- * What the folder IS, from file markers alone — the one classification every script and SKILL.md
- * step 3 share. `migrationActive` comes from siteContext (it needs `.env.local`).
+ * Whether a frontend exists in this folder: a `package.json` (a bundled project), an `index.html` at
+ * the root (plain pages), or an `index.html` inside the folder the config's `site.outputDirectory`
+ * names (a static site laid out for release, pages under site/). Nothing else counts — not this
+ * skill's code, not the skills folder, not AGENTS.md: those say who ran here, not what is here.
+ */
+export function frontendPresent(cwd = process.cwd()) {
+  const has = (p) => existsSync(join(cwd, p));
+  const outDir = (readWixConfig(cwd)?.site?.outputDirectory ?? "").replace(/^\.\//, "").replace(/\/$/, "");
+  return {
+    packageJson: has("package.json"),
+    rootIndex: has("index.html"),
+    outputIndex: !!outDir && outDir !== "." && has(join(outDir, "index.html")),
+    outputDirectory: outDir || null,
+  };
+}
+
+/**
+ * What the folder IS, from five file facts — the one classification every script and SKILL.md
+ * step 3 share: wix.config.json, its site.outputDirectory, the migration variables in .env.local,
+ * package.json, index.html. `migrationActive` comes from siteContext (it needs `.env.local`).
  *
- *   empty                  nothing that reads as a project → setup CREATE
- *   project                a package.json or an index.html, no wix.config.json → setup CONNECT (init here)
- *   config-only            wix.config.json and no project → attach.mjs on the config's site
- *   migration              config-only whose .env.local declares a migration preview → setup MIGRATE
- *   built-here             config + this skill's deployed code (src/wix/sdk.ts or site/js/wix/client.js;
- *                          the skills folder is not a tell) → iterate: deploy.mjs for a new solution, file edits, release
- *   wix-project            config + a package.json, none of this skill's code (a hand-made or CLI
- *                          project) → deploy.mjs in place, ONE install, the seed if there is content
- *   published-static-site  config + index.html at the root, no package.json (a site published through
- *                          the drop flow and downloaded) → setup CONNECT on the static stack, no init
+ *   empty             nothing that reads as a project → setup CREATE: the run makes the site, seeds the plan
+ *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new site; nothing seeded
+ *   config-only       a config, no frontend → attach.mjs on the config's site; nothing seeded
+ *   migration         config-only whose .env.local declares a migration preview → setup MIGRATE; nothing seeded
+ *   wix-project       a config AND a frontend (package.json, or index.html in the output folder) → iterate:
+ *                     never scaffold, init or reseed; deploy.mjs adds a solution, edits, release
+ *   published-static  a config, index.html at the ROOT, no package.json, no laid-out output folder (a site
+ *                     published through the drop flow and downloaded) → setup makes site/ the upload and
+ *                     deploys the REST layer; the config's site, no init, nothing seeded
  */
 export function folderShape(cwd = process.cwd(), { migrationActive = false } = {}) {
-  const has = (p) => existsSync(join(cwd, p));
-  const config = has("wix.config.json");
-  const pkg = has("package.json");
-  const html = has("index.html");
-  // This skill's DEPLOYED code, never the skills folder: the cold start installs .agents/skills/ into
-  // any folder before setup runs, so its presence says nothing about what was built here (run 165
-  // read a fresh drop-flow download as built-here on that tell and setup refused).
-  const skillCode = has("src/wix/sdk.ts") || has("site/js/wix/client.js");
+  const config = existsSync(join(cwd, "wix.config.json"));
+  const f = frontendPresent(cwd);
   const next = {
-    empty: "setup.mjs creates the project here (CREATE)",
-    project: "setup.mjs --stack <stack> links the folder to a new site and deploys (CONNECT)",
-    "config-only": "attach.mjs: the site exists and has no frontend yet",
-    migration: "setup.mjs (MIGRATE): the composed template around the config, nothing installed or seeded on the site being migrated — guides/migration.md",
-    "built-here": "iterate: deploy.mjs <vertical> for a new solution (then ONE npm install and its seed), file edits for a change, then release; never scaffold, init or reseed",
-    "wix-project": "deploy.mjs <vertical…> --stack <stack> in place, then ONE npm install, then the vertical's seed if there is content to create",
-    "published-static-site": "setup.mjs --vertical <vertical> (CONNECT on the static stack, the config's site, no init): site/ becomes the upload, the REST layer lands in site/js/wix/, the seed runs with --plan; move the pages, styles and assets into site/, then release — same URL",
+    empty: "setup.mjs --vertical <v> --business-name <brand> [--plan]: creates the site here and seeds the plan (CREATE)",
+    project: "setup.mjs --vertical <v> --stack <stack>: init links the folder to a new, empty site and deploys (ADOPT); then the vertical's seed module with a plan when the brief gives content",
+    "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded",
+    migration: "setup.mjs (MIGRATE): the composed template around the config; the site being migrated owns its content — guides/migration.md",
+    "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then ONE npm install; file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
+    "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
   };
   let shape;
-  if (!config) shape = pkg || html ? "project" : "empty";
-  else if (!pkg && !html) shape = migrationActive ? "migration" : "config-only";
-  else if (skillCode) shape = "built-here";
-  else if (pkg) shape = "wix-project";
-  else shape = "published-static-site";
-  return { shape, next: next[shape], tells: { config, packageJson: pkg, indexHtml: html, skillCode } };
+  if (!config) shape = f.packageJson || f.rootIndex ? "project" : "empty";
+  else if (f.packageJson || f.outputIndex) shape = "wix-project";
+  else if (f.rootIndex) shape = "published-static";
+  else shape = migrationActive ? "migration" : "config-only";
+  return { shape, next: next[shape], facts: { config, ...f } };
 }
 
 /**

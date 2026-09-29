@@ -162,63 +162,44 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    its id, the site holds the content already — nothing is seeded, and the frontend reads what
    is there (step 3's attach path).
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
-   and for a project already on disk; **the folder decides** what it does (`context.mjs` prints the
-   shape it read), and **the brief is the instruction**: what it asks to switch on is installed and
-   seeded on the site the folder names, without asking again. Ask only when acting would create a
-   second site for a folder that already has one, or when a cleanup seems needed.
+   and for a project already on disk; **the folder decides** what it does, from five file facts:
+   `wix.config.json`, its `site.outputDirectory`, the migration variables in `.env.local`,
+   `package.json`, `index.html`. `node <SKILL_ROOT>/install/context.mjs` prints the shape it reads
+   and the `next` for it. **The brief is the instruction**: what it asks to switch on is installed
+   on the site the folder names, without asking again. Ask only when acting would create a second
+   site for a folder that already has one, or when a cleanup seems needed.
 
    ```bash
-   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"]
+   node <SKILL_ROOT>/install/setup.mjs --vertical <vertical>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"] [--stack <stack>]
    ```
 
    Name every vertical the brief needs in this one call (a store with member accounts is
-   `storefront,members`): the first one's template scaffolds the project and its seed runs from
-   `--plan`; the others deploy in the same call, so the one install covers them all. A vertical
-   added after the install has started costs a second install. The other verticals' seeds run
-   afterwards, each with its own plan, when the brief gives them content (the members seed installs
-   the Members Area app and takes no plan).
+   `storefront,members`): the first one's template scaffolds the project; the others deploy in the
+   same call, so the one install covers them all. A vertical added after the install has started
+   costs a second install.
 
-   - **Empty** (or only loose files: a CSV, a brief) → **create**: `wix create` with the
-     vertical's composed template, here; `--business-name` names the site.
-   - **A project without `wix.config.json`** (a `package.json`, or an `index.html` at the root:
-     someone's Astro, Vite, Next, plain HTML) → **connect**: `init` in place links the folder
-     to a new site (the site is named after the folder), then the shipped code deploys into
-     the project as it is. Pass `--stack` for the stack you resolved in step 1, and make the
-     project what that stack needs on Wix hosting (step 1) before or right after the call.
-     With `--stack static` setup also makes `site/` the folder `wix release` uploads and deploys
-     the REST layer into `site/js/wix/`; you move the pages, styles and assets in (`guides/reference-mode.md`).
-   - **`wix.config.json` and a project** — three shapes, the folder's files tell them apart:
-     - **built here** (this skill's deployed code is present: `src/wix/` or `site/js/wix/`; the
-       skills folder is not a tell) → setup refuses; never scaffold, `init` or reseed. A new
-       solution is `deploy.mjs <vertical…> --stack <stack>` from the project root (the client id
-       comes from `.env.local`, the config as the fallback), then ONE `npm install`, then its seed
-       if there is content; a change to what is built is file edits and a release.
-     - **a Wix project without this skill** (a `package.json`, none of that code: the CLI's or a
-       hand-made scaffold) → setup refuses; the same three commands add the code in place.
-     - **a published static site** (`index.html` beside the config, no `package.json`: a site
-       published through the drop flow and downloaded) → **connect on the static stack**, the
-       config's site, no `init`: setup points the upload at `site/`, deploys the REST layer into
-       `site/js/wix/`, runs the seed with `--plan`, and its `next` says to move the pages, styles
-       and assets into `site/`; the site keeps its URL.
-   - **`wix.config.json` and no project, and `.env.local` declares a migration** (a project
-     downloaded from Wix for a site being moved to headless; the config names a site that only
-     hosts the deployment, the env the site being migrated) → **migrate**: setup copies the
-     vertical's composed template in around the config, deploys with the migrated site's app as
-     the client, starts the install, seeds nothing. `ready_for_brand_layer` says `mode: "migrate"`,
-     the parent as `siteId` and the child as `deploySiteId`. `guides/migration.md` has the rules.
-   - **`wix.config.json` and no project**, no migration (what `init` leaves in an empty folder) →
-     the site exists and has no frontend yet: `attach.mjs` (below), which takes the site from the
-     config, reuses its hosting, scaffolds and deploys. No seed: the site owns its content.
+   | the folder holds | shape | what setup does | seeded by setup |
+   |---|---|---|---|
+   | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site | **yes**, from `--plan` |
+   | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | no |
+   | a config, no frontend, `.env.local` declares a migration | **migration** → migrate | the composed template around the config, deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
+   | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys | no |
+   | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
+   | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
+
+   **Setup seeds only a site it created.** A site that existed before the run holds content the
+   run did not make: read it first with the vertical's `seed/read-site.mjs`, then, when the brief
+   supplies content, run the vertical's seed module yourself with a plan (from the project root:
+   `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`). Seeds are
+   additive and idempotent by name; nothing on a site is ever deleted or overwritten.
+
    - The brief names a site by id → not this call: read `<SKILL_ROOT>/guides/existing-site.md`
      and follow it (read the site, then `attach.mjs`, which does what setup does against the
      site given; self-hosting and a project already on disk are in there too).
 
-   `--vertical` is required and picks which shipped code deploys AND which seed runs — use
-   the vertical you resolved from the Verticals table. **`--plan` decides whether anything is
-   seeded**: pass the plan from step 2 when there is one; a site that already holds its content
-   gets none. Seeding is **additive**: it never deletes or overwrites what the site holds; if a
-   cleanup seems needed, ask. The `ready_for_brand_layer` event says `mode` (create or
-   connect), the stack, and the `next` for that stack, including how it releases.
+   `--vertical` is required and picks which shipped code deploys AND which seed runs. The
+   `ready_for_brand_layer` event says `mode` (`create`, `adopt`, `migrate`, `published-static`),
+   `shape`, the stack, and the `next` for that stack, including how it releases.
 
    setup scaffolds with `--skip-git`: it composes its own steps and leaves version control to
    you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
@@ -269,7 +250,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    your summary — if non-zero, read `seed.log` and re-run the seed module manually). Those two
    seed files exist **only when setup started the seed** (attach runs none: only the install
    marker is waited on). When you ran `seed-store.mjs`
-   yourself (connect/iterate runs, reference mode), there is no marker to wait for: the process's
+   yourself (adopt, iterate and published-static runs, reference mode), there is no marker to wait for: the process's
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
    or `wait` on its pid), not on a file. Then
    **build & release once** (managed), as the `next` of the `ready_for_brand_layer` event says

@@ -45,7 +45,7 @@ import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } 
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
-import { siteContext } from "./context.mjs";
+import { frontendPresent, siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,7 +76,10 @@ const subfolder = argv.includes("--subfolder");
 const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
 const cwdConfig = has("wix.config.json") ? JSON.parse(readFileSync(join(cwd, "wix.config.json"), "utf8")) : null;
-const hasProject = has("package.json") || has("index.html");
+// A frontend here: a package.json, an index.html at the root, or an index.html in the folder the
+// config's site.outputDirectory names (a static site laid out for release) — install/context.mjs.
+const fp = frontendPresent(cwd);
+const hasProject = fp.packageJson || fp.rootIndex || fp.outputIndex;
 // A migration preview (wix.config.json names a deploy-only site, .env.local names the site being
 // migrated) is already provisioned: its app, hosting and credentials came with the folder. Nothing
 // here applies — setup.mjs takes it (SKILL.md step 3).
