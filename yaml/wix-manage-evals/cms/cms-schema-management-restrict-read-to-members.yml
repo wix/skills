@@ -64,8 +64,12 @@ assertions:
       - The agent resolved the collection to TeamMembers (by id or by listing collections), not to
         a guessed id.
       - After the run the collection's read permission is SITE_MEMBER and insert, update and remove
-        are still ADMIN. A GET of the collection after the write, or the write's own response, must
-        show this.
+        are unchanged. Two APIs report this and both are valid evidence: the collections API
+        (read SITE_MEMBER; insert/update/remove ADMIN) or the Data Permissions API at
+        /wix-data/v1/permissions (itemRead SITE_MEMBER; itemInsert/itemUpdate/itemRemove
+        CMS_EDITOR — that API reports the collections API's ADMIN as CMS_EDITOR, so CMS_EDITOR
+        there means unchanged). The evidence is the write's own response, a read after the write,
+        or the final message quoting values a tool call returned.
       - The collection kept its id, both fields (name, role), and both items. No delete-collection
         or truncate call was made.
       - The agent told the user the change was made.
@@ -73,7 +77,8 @@ assertions:
       Fail if the agent:
       - deleted and recreated the collection to change permissions, OR
       - lost a field or an item, OR
-      - set a different permission level (for example ADMIN or a role that does not exist), OR
+      - set read to a different level (for example ADMIN or a role that does not exist), or
+        changed insert, update or remove, OR
       - only explained how to do it without executing, OR
       - reported success without any evidence from a tool call that the permission changed.
   - type: llm_judge
@@ -81,6 +86,9 @@ assertions:
     maxTokens: 2048
     prompt: >
       Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Two paths are correct and cost nothing: the Data Permissions API (GET then POST
+      /wix-data/v1/permissions with itemRead SITE_MEMBER, other item* values kept), or the
+      collections full-replace update carrying the current revision and fields.
       Subtract 3 for each of these mistakes, which the skill exists to prevent: deleting the
       collection or recreating it; a full-replace update sent without the current revision or
       without the existing fields, then repaired; an invented endpoint; a non-2xx error other
@@ -89,7 +97,7 @@ assertions:
       permissions that failed before switching to the full-replace update; a second read of the
       same collection; a docs or search call beyond the first skill read; an extra verification
       read beyond one.
-      Reading the skill once, one GET of the collection (for revision and fields), one update
-      call, and one verification read are the expected path and cost nothing.
+      Reading the skill once, one read to resolve the collection (list, GET collection, or GET
+      permissions), one write, and one verification read are the expected path and cost nothing.
       LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
       Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.
