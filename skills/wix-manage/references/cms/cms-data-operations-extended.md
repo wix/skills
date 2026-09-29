@@ -20,7 +20,7 @@ This recipe covers additional CMS data operations not included in the basic CRUD
 
 Count items in a collection, optionally with filters.
 
-**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/count`
+**Endpoint**: `POST /wix-data/v2/items/count`
 
 **Count All Items**:
 ```bash
@@ -71,7 +71,7 @@ curl -X POST \
 
 Insert new items or update existing items in a single operation. This is useful for syncing data.
 
-**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/save`
+**Endpoint**: `POST /wix-data/v2/bulk/items/save`
 
 **Request Body**:
 ```json
@@ -165,7 +165,7 @@ curl -X POST \
 
 If you only want to update specific fields without replacing the entire item, use Bulk Patch:
 
-**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/patch`
+**Endpoint**: `POST /wix-data/v2/bulk/items/patch`
 
 > **Important**: This endpoint uses `patches` array with `fieldModifications`, NOT `dataItems`. Do not confuse with bulk update.
 
@@ -199,7 +199,7 @@ curl -X POST \
 
 Remove all items from a collection (dangerous operation).
 
-**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/truncate`
+**Endpoint**: `POST /wix-data/v2/items/truncate`
 
 ```bash
 curl -X POST \
@@ -217,7 +217,7 @@ curl -X POST \
 
 Perform calculations on collection data using a pipeline of sequential stages.
 
-**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/aggregate-pipeline`
+**Endpoint**: `POST /wix-data/v2/items/aggregate-pipeline`
 
 **Count by Category**:
 ```bash
