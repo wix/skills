@@ -2,7 +2,7 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge; "review" runs the AI content review of a PR'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "merge-tag-sweep" re-runs tag-matched scenarios after a wix-manage merge; "pr-sweep" reports a PR head as unswept, and on a re-run (via /sweep) runs the same sweep against the PR''s MCP version; "review" runs the AI content review of a PR'
     required: false
     default: 'eval'
   github-token:
@@ -19,13 +19,21 @@ inputs:
     description: 'EvalForge agent ID for eval runs (required for eval, run-all, and merge-tag-sweep modes)'
     required: false
   evalforge-mcp-id:
-    description: 'EvalForge MCP capability ID for per-PR MCP versions (required for eval, promote, cleanup modes)'
+    description: 'EvalForge MCP capability ID for per-PR MCP versions (required for eval, promote, cleanup and pr-sweep modes)'
     required: false
     default: ''
   evalforge-prod-mcp-id:
-    description: 'EvalForge MCP capability ID for the production MCP (required for merge-tag-sweep mode)'
+    description: 'EvalForge MCP capability ID for the production MCP (required for merge-tag-sweep mode; pr-sweep pins the per-PR version instead)'
     required: false
     default: ''
+  required:
+    description: 'Fail the check on a head commit that has not been swept yet (pr-sweep mode only). Independent of `blocking`, which fails the check on what a sweep found'
+    required: false
+    default: 'false'
+  remind:
+    description: 'Post a "not swept" comment explaining /sweep on a head commit the sweep covers but nobody has swept (pr-sweep mode only). Off: nothing is posted until someone comments /sweep'
+    required: false
+    default: 'false'
   evalforge-app-id:
     description: 'EvalForge app ID for authentication'
     required: true
@@ -37,7 +45,7 @@ inputs:
     required: false
     default: ''
   blocking:
-    description: 'Fail the check on gate errors or scenario failures (set to true to block merges)'
+    description: 'Fail the check on gate errors or scenario failures (set to true to block merges; eval and pr-sweep modes)'
     required: false
     default: 'false'
   eval-pipeline-url:
@@ -65,7 +73,7 @@ inputs:
     required: false
     default: 'scheduled-run'
   changed-files:
-    description: 'Raw `git diff --name-status` output for this push (required for merge-tag-sweep mode)'
+    description: 'Raw `git diff --name-status` output for this push or PR (required for merge-tag-sweep and pr-sweep modes)'
     required: false
     default: ''
   anthropic-api-key:

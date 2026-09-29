@@ -28,8 +28,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
     - [ ] **Every filter reaches the query**: declared in the collection hook's `filters` and read inside `fetchData`. Filter UI that never narrows the rows is a defect that looks like a feature.
 
     A filtered table with no drill-in and no working filters is what gets built when nobody states the requirement — the most common way a generated dashboard disappoints. The aggregate is the judgment call; the drill-in and the filters are not.
-  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, **and which data path** — hand-wired ([DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)) for a vertical SDK, schema-driven ([DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md)) for a CMS collection — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there.
-  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md), then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
+  - [ ] **🛑 Template-First Gate (MANDATORY, dashboard UI only, comes before writing any shell/provider/router):** Identified which case in [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md#which-case-matches-the-request) — A (collection only), B (collection + entity), C (settings only), or D (all three) — matches what Step 2's workflow analysis above just established, **and which data path** — hand-wired ([DRAFT_TEMPLATE_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)) for a vertical SDK, schema-driven ([DRAFT_TEMPLATE_CMS_COLLECTION.md](references/dashboard-page/DRAFT_TEMPLATE_CMS_COLLECTION.md)) for a CMS collection — then copied and adapted that case's files. Composing the page shell, provider nesting, or router wiring from scratch when a case already shows it is the failure mode this gate exists to prevent — the Patterns/Component Docs gates below are for what the matching case's files don't cover, not a replacement for starting there. The reverse holds too: a case replaces composing the shell, never the discovery chain, so every symbol the case doesn't show still goes through the next gate.
+  - [ ] **🛑 Patterns Docs Gate (MANDATORY for any dashboard page UI):** Read [WIX_PATTERNS_DOCS.md](references/WIX_PATTERNS_DOCS.md) **before the first command that touches `node_modules/@wix/patterns`** — its discovery chain (`pkg-root.cjs`, the index, `Composition and Providers.md` once, `Collection Toolkit.md` for which component serves a need) lives only in that file, and this line is a summary of its step 1, not a substitute for opening it. Then **probe** `dist/docs/index.json` with `grep`/`python3` — never a whole-file `Read`, which truncates it silently. It is the one file that says, per symbol, where to import it from (`importPath`), whether its props live in the doc or in a `.d.ts` (`bundle`), and which worked examples exist (`examples`). Upgrade `@wix/patterns` if that file is missing. Patterns API facts come only from the published `dist/docs/` (pages), `dist/examples/` (worked calls) and `dist/dts-bundle/` (types) trees — never from `src/`, `dist/esm/`, or any other path inside the package, with one named exception: `dist/types/` when a bundle has stubbed the prop you need (WIX_PATTERNS_DOCS.md step 5).
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the index** which single artifact answers the question you actually have — `importPath`, `examples`, or `bundle` — and read only that one, per [Component Selection Order](#component-selection-order)'s "the short version". State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an `importPath` the index already gave you, is the failure this gate exists to prevent.
 
     For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent.
@@ -229,6 +229,14 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 **CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
 
 Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
+
+**SDK types:** access them through the namespace you import, as `<namespace>.<TypeName>`, using any type name shown in the docs — never import a type by name from the `@wix/<pkg>` root.
+
+```ts
+import { orders } from '@wix/ecom';
+const rows: orders.Order[] = [];              // ✅
+// import type { Order } from '@wix/ecom';    // ❌ has no exported member 'Order'
+```
 
 ---
 
@@ -444,7 +452,7 @@ Only after validation passes, provide a **concise summary section** at the top o
 - ✅ Dependencies: [Installed / status message]
 - ✅ TypeScript: [No compilation errors / status]
 - ✅ Build: [Completed successfully / status]
-- ✅/⚠️ Preview: [Running at URL / Failed - reason]
+- ✅/⚠️ Preview: [Created — Dashboard URL / Failed - reason]
 
 **⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
 ```
@@ -484,7 +492,7 @@ Execute these steps sequentially after all implementation is complete. See [APP_
 1. **Package Installation** — Detect package manager, run install
 2. **TypeScript Compilation** — `npx tsc --noEmit -p .`
 3. **Build** — `npx wix build`
-4. **Preview** — `npx wix preview`
+4. **Preview** — `npx wix preview`, in the foreground: it uploads, prints the preview URLs and exits on its own, so no `timeout`, backgrounding or `sleep`
 
 Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 

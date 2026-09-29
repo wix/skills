@@ -5,7 +5,7 @@ triggerPrompt: |-
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, data-collection, wix-patterns-docs]
+tags: [dashboard-page, data-collection, wix-patterns-docs, app-validation]
 assertions:
   - type: skill_was_called
     negate: false
@@ -44,6 +44,11 @@ assertions:
     minScore: 7
     prompt: |-
       The prompt requires adding new shifts, so this build has a create route as well as an edit one. The rows come from a scoped data collection, so the page is the schema-driven one (`useCmsSchemaSource` + `@wix/patterns/schema`), whose entity API is `useEntityPage(source, { entityId, form, parentPath })` — it takes no `fetch`, no `onSave` and no `isNewEntity`, because reads and writes go through the source's own backend. Evaluate only how the create route is wired. Check: (1) The create route is registered as its own `PatternsReactRoute` with `type="createEntity"` — not the edit route reused with the id left out, and not a dashboard modal. (2) The navigation to it calls `navigateToEntityPage({ path })` with **no** `entity` argument. Inventing a blank/placeholder record to pass as `entity` is a defect: it becomes `state.entity` until the source resolves. (3) One component serves both `/new` and `/:id`, and what distinguishes them is `entityId` being `undefined` on the create route — read from `useParams`, passed straight through. A second component duplicated for create, or a hardcoded flag standing in for it, is a defect. (4) The hand-wired entity API is NOT used against a schema source: `fetch`, `onSave` or `isNewEntity` passed to `useEntityPage` means the agent took DRAFT_TEMPLATE_ROUTER.md's §3 instead of the CMS template's §3, and the save then bypasses the source. Treat any of those three options as no higher than 4. (5) `form` comes from `useForm()` (`@wix/patterns/form`) and is passed in, since the fields card writes through it. Score 0-10.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate only how the agent ran the preview step of validation. `npx wix preview` uploads a preview build, prints the preview URLs and exits on its own. Check: (1) It ran `npx wix preview` once, in the foreground, and read the URLs off that call's own output. (2) It did not wrap it in `timeout`, background it (`&`, `nohup`), wait on it with `sleep` or a polling loop over a log file, or `kill`/`pkill` it afterwards. (3) Its final report gives a preview URL taken from that output. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
     maxDurationMs: 900000
   - type: cost

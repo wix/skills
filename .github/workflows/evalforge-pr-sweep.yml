@@ -1,0 +1,89 @@
+name: EvalForge PR Sweep
+
+# Runs the merge-tag sweep against an open PR on request, so a regression in another area can be
+# found before merge rather than after. `evalforge-merge-tag-sweep.yml` runs the same sweep on every
+# push to `main`; this one runs it against the PR's own MCP version and reports in a PR comment
+# instead of Slack.
+#
+# Manual, like the skill review: a push does not spend. Every head commit gets a run that only
+# records whether the commit is unswept, and `/sweep` re-runs that run via the COMMANDS map in
+# evalforge-re-eval.yml. It has to be shaped this way because a required status check must be
+# reported on the PR head, and only a `pull_request` run is — a comment-triggered run is attached to
+# the default branch commit.
+#
+# Three repo variables, all off by default and independent: PR_SWEEP_REQUIRED makes an unswept
+# commit red, PR_SWEEP_BLOCK_MERGE makes a sweep that found a regression red, and PR_SWEEP_REMIND
+# posts a "not swept" comment explaining `/sweep`. With all three off, nothing is posted on a PR
+# until someone comments `/sweep`.
+#
+# The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
+# the tests covering this wiring.
+
+on:
+  pull_request:
+    branches: [main]
+    # No `paths:` filter, for the reason ci.yml gives at length: a required check whose workflow is
+    # path-scoped is never reported on PRs outside those paths, and GitHub leaves it "Expected —
+    # waiting for status to be reported" forever. The action decides scope from the diff, and a PR
+    # that touches nothing eval-relevant resolves to "nothing to run" and passes.
+    #
+    # `synchronize` is here even though a push must not spend: the check has to be reported on every
+    # head commit, and `/sweep` re-runs the run for the current head, so there has to be one.
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Only the newest head's verdict matters, so supersede in-flight runs. A cancelled sweep leaves its
+# EvalForge run executing server-side; the PR's MCP version is swept by the cleanup job on close.
+concurrency:
+  group: evalforge-pr-sweep-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-sweep:
+    # The job name *is* the required-status-check name.
+    name: pr-sweep
+    runs-on: ubuntu-latest
+    # Three sequential eval runs are possible (initial + two retries) and each may poll for up
+    # to 30 minutes, so a 60-minute budget could kill the job mid-retry.
+    timeout-minutes: 105
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    # Kill switch first: set PR_SWEEP_ENABLED to 'false' to stop the sweep without a code change.
+    # A skipped job satisfies a required check, so turning it off never blocks a merge.
+    if: >-
+      ${{ vars.PR_SWEEP_ENABLED != 'false'
+          && !github.event.pull_request.draft
+          && github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Default `refs/pull/N/merge` — the tree as it will land. Its first parent is the base, so
+      # `HEAD^1 HEAD` is this PR's diff. fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      - name: Diff the PR against its base
+        id: diff
+        run: |
+          {
+            echo 'files<<EOF'
+            git -c core.quotePath=false diff --name-status HEAD^1 HEAD
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/evalforge-yaml-gate
+        id: sweep
+        with:
+          mode: pr-sweep
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          changed-files: ${{ steps.diff.outputs.files }}
+          required: ${{ vars.PR_SWEEP_REQUIRED || 'false' }}
+          blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}
+          remind: ${{ vars.PR_SWEEP_REMIND || 'false' }}

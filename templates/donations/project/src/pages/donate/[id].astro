@@ -1,0 +1,28 @@
+---
+// Campaign page, keyed by the campaign id (the entity has no slug).
+//
+// Donations has no owner-editable SEO item type in @wix/seo, so this page carries plain
+// <title>/<meta>/og:image from the DTO — no wixMetadata, no <SEO.Tags>; campaign pages don't
+// appear in the Wix SEO panel or sitemap. A missing or archived campaign is a real 404.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import CampaignPage from "../../components/donations/CampaignPage.astro";
+import { fetchCampaign } from "../../wix/donations/campaigns";
+import type { CampaignDetail } from "../../wix/donations/types";
+
+const id = Astro.params.id!;
+
+let campaign: CampaignDetail | null = null;
+try {
+  campaign = await fetchCampaign(id);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!campaign) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={campaign.name} image={campaign.imageUrl || undefined}>
+  <CampaignPage campaign={campaign} />
+</SiteLayout>

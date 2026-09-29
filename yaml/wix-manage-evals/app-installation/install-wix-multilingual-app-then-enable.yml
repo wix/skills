@@ -1,0 +1,92 @@
+name: app-installation/install-wix-multilingual-app-then-enable
+description: >-
+  Verifies the agent reads the install-wix-apps skill once, then installs
+  Wix Multilingual, enables multilingual mode, and creates every requested
+  locale, retrying a right-after-install 404 on a dependent API (in a single
+  script alongside the install and its wait) instead of giving up on the
+  first attempt.
+triggerPrompt: >-
+  My site currently only has Turkish. Please add German, English, French,
+  and Spanish as site languages.
+tags: [app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to add German, English, French, and Spanish as site
+      languages, starting from a site that only has Turkish. They did not
+      ask to install any app by name.
+      Intent: the site ends up multilingual with all four languages added.
+      Getting there requires installing Wix Multilingual first (a site with
+      only Turkish has no multilingual app yet), then enabling multilingual
+      mode and creating the four locales — the agent must recognize and do
+      this itself, not ask the user which app to install.
+
+      Pass if the response:
+      - installs Wix Multilingual without needing to be told to, AND
+      - confirms multilingual mode was enabled and all four languages were
+        added as locales, AND
+      - does not stop and tell the user the setup failed or to try again later.
+
+      Fail if the response:
+      - asks the user whether/which app to install instead of just doing it, OR
+      - reports the install succeeded but enabling multilingual mode or adding
+        locales failed, without having retried, OR
+      - never completes adding all four locales.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Installing Wix Multilingual and immediately calling one of its own APIs
+      (Locale Settings or Locales) can race the platform's own install
+      propagation: the dependent call returns a 404 Entity not found whose
+      notFound.entityId is the placeholder GUID
+      00000000-0000-0000-0000-000000000000, not a real entity ID, even though
+      the install itself already succeeded.
+
+      Pass if, when that exact shape occurs right after the agent's own
+      install call succeeded:
+      - the agent waits briefly and retries the dependent call itself
+        (bounded, with backoff) before doing anything else, AND
+      - the user is not shown a raw 404 or told to try again later on the
+        first attempt.
+
+      Fail if the agent surfaces the 404 to the user, asks the user to retry
+      later, or treats it as proof Wix Multilingual is not installed, without
+      first retrying the call itself.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent executed the chain. Examine the tool-call
+      trace. Score 0-10 (10 = direct).
+
+      The install-wix-apps skill covers ONLY the install step (endpoint,
+      request body, appDefId table) — it does not document the Locale
+      Settings or Locales APIs needed to enable multilingual mode or create
+      locales. A first-time lookup of those two APIs (e.g. via a REST/API
+      doc search or method-schema read) is REQUIRED and must NOT be
+      penalized — the skill never claimed to cover them.
+
+      Penalize and LIST only:
+      - reading the install-wix-apps skill/docs article itself more than once
+      - re-looking-up the install endpoint, request body, or appDefId table
+        via a separate doc/API search when the skill already gave them
+      - a call to check whether Wix Multilingual is already installed before
+        installing it
+      - splitting the install call, its wait, or its retry across separate
+        execution tool calls when a single script could have done it
+
+      For each, name the likely skill-guidance gap. Do not count necessary,
+      non-redundant lookups of the Locale Settings/Locales API shape as
+      friction.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or
+      'clean path' if none>"}.

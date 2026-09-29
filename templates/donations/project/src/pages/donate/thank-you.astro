@@ -1,0 +1,13 @@
+---
+// Post-checkout thank-you page — the Wix-hosted checkout redirects here with ?orderId= after a
+// completed donation. KEEP THIS ROUTE: the data layer's redirect callbacks point at
+// /donate/thank-you. No SSR fetch: the order read runs as the visitor in the browser, so the island
+// is client:only. Swap its import to YOUR thank-you component if you design one — keep its rules
+// (no order facts without the order; never "paid" unless the order says so).
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import DonationReceipt from "../../components/donations/DonationReceipt";
+---
+
+<SiteLayout title="Thank you">
+  <DonationReceipt client:only="react" />
+</SiteLayout>

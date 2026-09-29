@@ -1,11 +1,28 @@
 ---
 name: "Bulk Label and Unlabel Contacts"
-description: Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
+description: Creates contact label definitions or adds/removes labels from matching contacts. Use Find or Create Label for label creation alone; use bulk labeling only when the user requests contact assignments.
 ---
 # Bulk Label And Unlabel Contacts
 
 ## Description
 Adds and removes labels from multiple contacts using the Wix Contacts REST API.
+
+## Create labels or assign labels?
+
+If the user asks to **create a label** (for example, "Create VIP, Wholesale, and Newsletter labels"), use [Find or Create Label](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/labels/find-or-create-label) directly. Creating a label definition does not require finding contacts or starting a bulk labeling job.
+
+```http
+POST https://www.wixapis.com/contacts/v4/labels
+Content-Type: application/json
+
+{"displayName":"VIP"}
+```
+
+Use the returned `label` and its `key`; `newLabel` distinguishes a newly created label from an existing one. For several names, make one call per name and check each result. Stop here when the request is only to create labels: do not assign them to contacts.
+
+If the user asks to **label or unlabel contacts**, resolve the requested label keys first, then follow the bulk assignment flow below. Create a missing label only when that is part of the authorized request. An explicit request to create labels or apply them to a specified set of contacts authorizes that operation; otherwise confirm the target and intended change before mutating.
+
+## Bulk assignment flow
 
 Labels are added to and removed from all contacts that meet the specified `filter` and `search` criteria.
 The request should specify a `filter` value, a `search` value, or both.
@@ -16,6 +33,22 @@ The job might not complete right away, depending on its size.
 The job's status can be retrieved with [Get Bulk Job](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job).
 
 **IMPORTANT NOTE:** When specific contacts are to be labeled, they should be filtered by id.
+
+### Steps
+
+1. **Resolve label keys.** When adding, Find or Create Label (above) returns the `key`. To remove a label, or to
+   use only a label that already exists, look it up by name instead of creating it:
+   `POST https://www.wixapis.com/contacts/v4/labels/query` with
+   `{"query":{"filter":{"displayName":{"$eq":"Newsletter"}}}}`, and take each returned label's `key`.
+2. **Resolve named contacts to IDs** with Search Contacts, as in
+   [Update a Contact](update-a-contact.md) — Query Contacts cannot filter on a name:
+   `POST https://www.wixapis.com/contacts/v5/contacts/search` with `{"search":{"search":{"expression":"Leo Marsh"}}}`.
+   Each result in `contacts` has an `id` and `name.first` / `name.last`; keep only exact name matches. If none or
+   more than one contact matches, stop and ask the user.
+3. **Start the job** with the endpoint below, filtering by the resolved IDs:
+   `{"filter":{"id":{"$in":["<CONTACT_ID>"]}},"labelKeysToAdd":["<LABEL_KEY>"]}` (or `labelKeysToRemove`).
+4. **Confirm the job finished** with `GET https://www.wixapis.com/contacts/v4/bulk/jobs/{jobId}`; repeat until
+   `job.status` is `COMPLETED`, then report `job.successTotal` and `job.failedTotal`.
 
 ## API Endpoint
 `POST https://www.wixapis.com/contacts/v4/bulk/contacts/add-remove-labels`
@@ -29,10 +62,10 @@ curl -X POST \
   -H 'Content-Type: application/json' \
   -d '{
     "filter": {
-      "info.name.first": "John"
+      "id": { "$in": ["<CONTACT_ID_1>", "<CONTACT_ID_2>"] }
     },
-    "labelKeysToAdd": ["custom.name-john", "custom.name-starts-with-J"],
-    "labelKeysToRemove": ["custom.last-name-smith"]
+    "labelKeysToAdd": ["custom.newsletter"],
+    "labelKeysToRemove": ["custom.prospect"]
   }'
 ```
 

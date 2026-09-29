@@ -1,69 +1,81 @@
 name: sites/upload-static-site-api
 description: >-
-  Verifies the agent reads the upload-static-site skill and, for files it authored itself in the
-  conversation, publishes them through the Headless instant-site API — create, multipart upload,
-  release — returning the live URL and the save link, instead of telling the user to go re-upload
-  files the agent already has. Also verifies it does not invent endpoints or reach for the
-  template/headless provisioning APIs.
+  Verifies that, handed the finished HTML in the conversation, the agent publishes it the way its
+  environment allows and says so honestly: Path B of the upload-static-site skill (create,
+  multipart upload, release through the Headless instant-site API, returning the live URL and the
+  save link) when it has a shell that can send files, or Path A (the drop page with the
+  attribution parameter) when it reaches Wix only through API-call tools. Guards against invented
+  endpoints, JSON or hand-rolled multipart uploads, the template/headless provisioning APIs, and
+  claiming a site is live without a URL. The Wix MCP routes ready-made site files to the drop page
+  before any docs read, so the scenario asserts on the outcome and on what was not called rather
+  than on a ReadFullDocsArticle call.
 triggerPrompt: >-
-  That landing page you just wrote for me is exactly right. Can you put it online for me? I don't
-  have a Wix site yet and I'd rather not fiddle with uploading files myself.
+  The landing page is done and it's exactly right — here it is. Can you put it online for me? I
+  don't have a Wix site yet and I'd rather not fiddle with uploading files myself. index.html:
+  <!doctype html><html><head><title>Northwind Studio</title><style>body{font-family:sans-serif;
+  margin:0;padding:4rem;background:#fafafa}h1{font-size:2.5rem}</style></head><body><h1>Northwind
+  Studio</h1><p>Brand and web design for small teams.</p><p>hello@northwind.studio</p></body></html>
 tags: [sites]
 assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+  - tool: CreateSiteFromTemplate
+    negate: true
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The agent authored the site's HTML earlier in the conversation, so it holds the file bytes.
-      The user asked it to publish them and said they would rather not upload files themselves.
-      Intent: take Path B of the skill — publish the files through the Headless instant-site API
-      and hand back the live URL — rather than redirecting the user to the drop page.
+      The user pasted the finished landing page (a single index.html) and asked the agent to put
+      it online; they have no Wix site and would rather not upload files themselves.
 
-      Pass if the response:
-      - publishes (or lays out, ready to run, when the environment blocks outbound HTTP) the
-        three-call sequence in order against
+      The skill has two paths. Path B — publish through the Headless instant-site API — applies
+      only when the agent can read the file bytes AND can send multipart/form-data from a shell
+      (curl or a real HTTP client). An agent that reaches Wix only through API-call/execute tools
+      cannot upload a file, and the skill tells it to take Path A — hand over the drop page.
+      Either outcome is correct; judge whether the agent took the path its environment allows and
+      described the result honestly.
+
+      Pass if the response does ONE of these:
+      - Path B: runs (or lays out, ready to run in a shell) the three calls in order against
         https://www.wixapis.com/headless-business-setup: POST
         /v1/headless-business/anonymous/{anonymousId} → POST
         /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/upload as
         multipart/form-data with `files` part(s) → POST
-        /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"}, AND
-      - reports the live siteUrl from the release response, AND
-      - tells the user the site is anonymous/temporary and gives them the save link
-        https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId} (or otherwise
-        explains how to keep it), AND
-      - if it could not make the calls at all, says so plainly and falls back to the drop URL
-        https://www.wix.com/headless/drop?utm_campaign=mcp (optionally adding
-        &agent=<its own agent id>) rather than claiming an upload it did not perform.
+        /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"};
+        reports the live siteUrl from the release response; and tells the user the site is
+        anonymous/temporary with the save link
+        https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId} (or
+        otherwise explains how to keep it). If it holds the user's identity it claims the site
+        into their account and returns the final URL instead of stopping at a temporary site.
+      - Path A: gives the drop URL https://www.wix.com/headless/drop keeping the utm_campaign=mcp
+        parameter, so the user uploads the page there and gets a live site. Saying why it did not
+        upload the file itself is a plus, not required; returning the HTML for the user to save is
+        fine.
 
       Fail if the response:
-      - sends the user to the drop page to upload files the agent already has, with no explanation
-        that it cannot reach them or cannot make the calls, OR
+      - claims the site is live, or that it uploaded the files, without a live URL returned by a
+        release call, OR
       - invents endpoints, paths, or field names that are not the ones above, OR
       - sends the files as a JSON body instead of multipart/form-data, OR
-      - performs the multipart upload through a Wix API-call/execute-API tool — e.g. hand-building a
-        multipart body as a string inside executed JavaScript — instead of a direct multipart file
-        client (curl -F / a real HTTP client reading the files off disk); that path can only carry
-        inlined text and drops binary assets, OR
-      - creates the site with the meta-site template API or the headless-business provisioning API,
-        OR
-      - claims the site is live without a URL, OR
-      - holds a user identity for the caller and still stops at a temporary anonymous site
-        instead of claiming it into their account and returning the final URL.
+      - hand-builds a multipart body as a string inside a Wix API-call/execute-API tool instead of
+        using a direct multipart file client (curl -F / a real HTTP client), OR
+      - creates the site with the meta-site template API or the headless-business provisioning
+        API, OR
+      - routes to Site Import, or tells the user to paste the HTML into an existing Wix site or a
+        site's media files, OR
+      - gives a drop URL without utm_campaign=mcp, or no URL at all.
       Mentioning the 1-hour window before the record expires, the 3 MB per file / 20 MB total
       limits, or the top-level-HTML requirement is a plus, not required.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Rate how directly the agent reached a published site. Examine the tool-call trace, not the
-      final answer. Score 0-10, where 10 means a direct path: the agent read the
-      upload-static-site skill article and then ran create → upload → release (or stated it could
-      not and fell back cleanly), with no exploratory or unrelated calls in between.
-      Calibration: a clean run is 9-10; one or two redundant docs reads land at 7-8; a probing
-      spiral or a wrong-API attempt scores lower.
+      Rate how directly the agent reached a published site or a clean hand-off. Examine the
+      tool-call trace, not the final answer. Score 0-10, where 10 means a direct path: either
+      create → upload → release with no exploratory or unrelated calls in between, or — with no
+      shell to upload from — the drop URL handed over directly, with no site-creation or upload
+      attempts. Reading the upload-static-site skill article first is fine; answering with no tool
+      calls at all is fine too.
+      Calibration: a clean run of either kind is 9-10; one or two redundant docs reads land at
+      7-8; a probing spiral or a wrong-API attempt scores lower.
 
       Penalize and LIST any of:
         - a call to any site-creation API (meta-site templates, headless-business provisioning)
