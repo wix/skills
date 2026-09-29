@@ -15,9 +15,12 @@ the user to type one. A connection is the prerequisite for Google-backed work in
 Business Profile Locations API — establish it before importing or managing
 locations.
 
-> **Bounded connect path — read first.** Read the connection once. For
-> `NEVER_CONNECTED`, request one connect URL and hand it to the owner; for
-> `VALID`, stop unless the user asked for other Google-backed work. A `403`,
+> **Bounded connect path — read first.** Read the connection once. If the user
+> asked to connect, then for `NEVER_CONNECTED` request one connect URL and hand
+> it to the owner. If they only asked about the connection or about posting,
+> report the status and offer to connect — don't request a connect URL until
+> they say yes. For `VALID`, stop unless the user asked for other Google-backed
+> work. A `403`,
 > `PERMISSION_DENIED`, or other terminal recovery-rule error ends the flow:
 > the **next action is the final response** explaining the blocker. Make no
 > further tool call: no API probe, documentation search, alternate request
@@ -50,7 +53,7 @@ Always start with **Get Connection** and branch on `status`:
 | `status` | Meaning | What to do |
 |---|---|---|
 | `VALID` | Wix holds a credential for this site | Proceed with Google-backed work |
-| `NEVER_CONNECTED` | The site has never been connected | Run the connect flow — this is a setup step, not an error |
+| `NEVER_CONNECTED` | The site has never been connected | Run the connect flow if the user asked to connect; otherwise report it and offer to — this is a setup step, not an error |
 | `NEEDS_RECONNECT` | The connection record exists but the stored credentials are gone | Warn the owner (see below), then run the connect flow |
 
 `VALID` is not a live health check: **Get Connection** deliberately does not
@@ -58,6 +61,25 @@ call Google, so a connection can report `VALID` and still be refused by
 Google — for example after the owner revoked Wix's access in their Google
 account settings. Treat a Google-side authorization failure on a Locations
 call as the authoritative signal and re-run the connect flow when one appears.
+
+**`VALID` does not mean Google Business Profile is connected for social
+posting.** This endpoint reports only the Google connection. Posting to a
+Business Profile through Social Media Marketing also needs a separate social
+channel connection: the owner chooses to add Google Business Profile as a
+channel on the social posts hub
+(`https://manage.wix.com/dashboard/{metaSiteId}/social-marketing-web`), and no
+API call can create it. It counts toward the plan's limit on connected social
+channels (a free plan allows one), so never assume the owner wants it. Its
+status is `GET https://www.wixapis.com/social-publisher/v1/GBP/long-lived-token-status`
+— only `VALID` there means posts can be delivered.
+
+So a `VALID` here alongside a non-`VALID` there is a consistent, expected
+state, not a contradiction. Answer "is my Google Business Profile connected?"
+or "can Social Marketing post to it?" from this section, per connection — for
+example: "Your site is connected to Google, but Google Business Profile isn't
+added as a social channel in Social Marketing yet." You need
+[Create and Publish a Social Media Post (with AI generation)](../marketing/create-and-publish-social-post.md)
+only if the user goes on to create or publish a post.
 
 ## Run the connect flow
 
