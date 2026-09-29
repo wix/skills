@@ -35,7 +35,9 @@ export default function QuickAdd({ product }: { product: ProductSummary }) {
 const control = "w-full rounded-full border border-foreground py-2 text-center text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50";
 
 function QuickAddControl({ product }: { product: ProductSummary }) {
-  const { addToCart, busy } = useCart();
+  const { addToCart, pendingProductId } = useCart();
+  // This card's add only: the cart's `busy` is the drawer's flag, and binding to it dims every card.
+  const adding = pendingProductId === product.id;
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,13 +57,14 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
       <div className="mt-auto pt-3">
         <button
           type="button"
-          disabled={busy}
+          disabled={adding}
+          aria-busy={adding}
           onClick={() =>
             addToCart(product.id, product.minPriceVariantId, 1).catch((e) => setError(e instanceof Error ? e.message : String(e)))
           }
           className={control}
         >
-          {product.preorder ? "Pre-order" : "Add to cart"}
+          {adding ? "Adding…" : product.preorder ? "Pre-order" : "Add to cart"}
         </button>
         {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
       </div>

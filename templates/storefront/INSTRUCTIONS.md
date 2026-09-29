@@ -188,7 +188,9 @@ contracts.
 // useCart() →
 // { cart: { lines, itemCount, subtotal, discount /* "" when none */, discounts: [{ name, amount }],
 //   fees: [{ name, amount }], taxes: [{ name, amount }], pricesIncludeTax, total /* before shipping */,
-//   coupon: { id, code }|null, note, currency }|null, busy, error, open,
+//   coupon: { id, code }|null, note, currency }|null,
+//   busy /* the DRAWER's flag: any cart operation in flight */, pendingProductId /* the product whose add
+//   is in flight, else null — a card's add control disables on THIS, never on busy */, error, open,
 //   // a line: { lineItemId, productName, quantity, unitPrice, linePrice, compareAtLinePrice|null,
 //   //           availableQuantity|null /* the stepper's cap */, imageUrl, productUrl, descriptionLines,
 //   //           status /* IN_STOCK | PARTIALLY_IN_STOCK | OUT_OF_STOCK | REMOVED_FROM_CATALOG */,
