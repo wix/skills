@@ -4,6 +4,8 @@ description: Configures delivery profiles and regions — creating profiles, add
 ---
 # Shipping Regions
 
+Shipping Options has no public API reference page, so a docs search will not find the shipping-option calls. Use the requests in this recipe as written. Delivery Profiles is documented in the [Delivery Profiles reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction).
+
 ## Creating Delivery Profiles
 
 - The first profile is auto-created when Stores is installed.
