@@ -23,7 +23,7 @@ So aim the coverage at what the skill exists to settle:
 
 - **Start from an intention, not a feature.** Write the `triggerPrompt` as the request a user would actually send — the outcome they want, in their words, with the details they would have to hand. Not the API name, not the steps, not the skill's own vocabulary.
 - **Provide meaningful coverage.** The eval scenarios must give confidence that the skill helps resolve the user requests it is meant to support and that important regressions would be caught. What sufficient coverage looks like depends on the skill.
-- **Make the skill the reason it passes.** Ask what a run without the skill would look like. If a capable agent would land in the same place anyway, the scenario is measuring the platform, not the skill. Point the assertions at what the skill is the only source of: the order, the wrapper, the precondition, the question it asks before mutating data.
+- **Make the skill the reason it passes.** Ask what a run without the skill would look like. If a capable agent would land in the same place anyway, the scenario is measuring the platform, not the skill. Point the assertions at what the skill is the only source of: the order, the wrapper, the precondition, the question it asks before mutating data. This is also what keeps the coverage assertion stable: when runs can succeed without reading the doc, that assertion fails good runs at random — re-aim the prompt at a decision only the skill settles.
 
 ### Test a real user conversation
 
@@ -32,6 +32,8 @@ A scenario is a single request with no conversation around it. The agent gets th
 Prefer prompts that need none of that. But a real request is sometimes one a user would only send *after* something the run cannot reproduce: an identifier they are holding, a choice they already made, a value from a system outside Wix. Where that is the case, put that context in the prompt the way the earlier turn would have delivered it — the least that makes the request answerable, phrased as the user would phrase it. The prompt must still read as something a user sent, not as a briefing written for the agent.
 
 **The agent has to read and write real data.** Either bootstrap it — [`siteSetup`](#site-provisioning-optional) stands up a fresh site and its `bootstrap` steps seed what the task operates on — or point the prompt at data already prepared on the test account. A reference nothing can resolve like an ID that names nothing on the site the run uses — gives the agent nothing to work against.
+
+Shared-site data is only safe for state the scenario needs to *exist* and never mutates. A scenario premised on state being *absent* — nothing connected or configured yet — or whose passing run writes state a later run would read, must provision a fresh site: shared state drifts and accumulates across runs, and the scenario's premise quietly stops being true.
 
 ### Assert correctness *and* quality
 
@@ -52,6 +54,12 @@ Assert three things: **coverage** (the agent reached the skill — the assertion
 Adapt the penalty list to the detours *your* task invites. This judge gates like any other, so a bumpy path fails the PR — deliberately. When it fails, the gap is usually in the skill, the docs, or the MCP: close that gap rather than lowering `minScore`.
 
 `minScore` is required on every numeric `llm_judge` and must be at least 7 — the schema rejects anything lower (judges with `scoringMode: boolean` pass/fail without a score and are exempt). A judge with a floor it can never fail (`minScore: 0`, or a "diagnostic, non-gating" framing) doesn't gate anything and gives false confidence that the path is checked. When a judge scores legitimate runs below the floor, calibrate the rubric's bands (what lands at 7–8 vs lower) rather than the floor.
+
+Write the judge prompt against the skill and the trace:
+
+- **Trace every criterion to the skill, in both directions.** A criterion the skill doesn't support fails skill-faithful runs; check what the judge demands against what the skill says. And give every hard stop or never-rule in the skill a criterion that fails a run violating it — otherwise the scenario passes runs that ignore the very line the skill exists to enforce.
+- **A plausible-but-wrong run must fail — and a correct-but-different run must pass.** Don't pin a single endpoint where the platform accepts several, one phrasing of a check, or one reading of an ambiguous prompt. When two readings are defensible, disambiguate the prompt rather than narrowing the judge.
+- **Judge evidence in the tool-call trace, never the agent's prose.** Point the correctness judge at the write response, or at a read-back where the skill prescribes one. Agents claim success they didn't achieve.
 
 ## Adding a Wix Manage Eval Scenario
 
@@ -101,36 +109,9 @@ Beyond these three, you can add other assertions (`api_call`, `cost`, `time_limi
 
 ### Example
 
-```yaml
-name: domains/domain-search-purchase-and-connect
-description: Verifies the agent reads the domain-search-purchase-and-connect docs when asked about purchasing a new domain or connecting a domain that the user already owns.
-triggerPrompt: I want to purchase a domain and connect it to the Wix site.
-tags: [domains]
-maxTokens: 25000
-assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-purchase-and-connect
-  - type: llm_judge
-    minScore: 7
-    maxTokens: 2048
-    prompt: |
-      The user's request: "I want to purchase a domain and connect it to the Wix site."
-      Intent: brainstorm a domain name, purchase it and / or connect a domain to the Wix site.
+See [`yaml/wix-manage-evals/seo/manage-url-redirects.yml`](../yaml/wix-manage-evals/seo/manage-url-redirects.yml) for a real scenario that hits the bar: a task-shaped `triggerPrompt`, a `siteSetup` that seeds the exact state that makes the request answerable, the coverage assertion on the skill's doc URL, a correctness judge pointed at evidence in the trace with explicit fail criteria, and a quality judge on the tool-call path.
 
-      Pass if the response:
-      - mentions the domain availability OR
-      - suggests domain list OR
-      - mentions user's sites list OR
-      - domain prices       
-
-      Fail if the response:
-      - is generic with no specific endpoints or method names, OR
-      - hallucinates endpoints not in the Wix Domains Management API, OR
-      - describes a different Wix feature (e.g. domain connection rather than purchase).
-```
-
-Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only.
+Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only. Only set a top-level budget from a measured baseline: run the scenario and give the observed total at least 2x headroom, because identical runs vary by that much. When in doubt, omit it — a budget set below what healthy runs cost fails every future run of the scenario.
 
 ### Site provisioning (optional)
 
