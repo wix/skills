@@ -7,11 +7,15 @@
 //
 //   - `wix.config.json` present → refuses. The folder is already a Wix project; deploy.mjs adds
 //     this skill's code or a solution to it, then one install, then the seed if there is content.
-//     One exception: a config and NO project whose `.env.local` (`wix env pull`, run here) declares a
-//     MIGRATION PREVIEW — the config names a site created only to host the deployment, the env names
-//     the site being migrated. Then → MIGRATE: the composed template is copied in around the config,
-//     the code deploys with the parent's app as its client, the install starts, and NO seed runs: the
-//     parent owns its content. Release still goes where the config says (install/context.mjs).
+//     Two exceptions, told apart by install/context.mjs's folder shape:
+//       · a config and NO project whose `.env.local` (`wix env pull`, run here) declares a
+//         MIGRATION PREVIEW — the config names a site created only to host the deployment, the env
+//         names the site being migrated. Then → MIGRATE: the composed template is copied in around
+//         the config, the code deploys with the parent's app as its client, the install starts, and
+//         NO seed runs: the parent owns its content. Release still goes where the config says.
+//       · a config beside an `index.html` and no package.json — a PUBLISHED STATIC SITE (the drop
+//         flow's download). Then → CONNECT on the static stack with no `init`: the config's site is
+//         the site, site/ becomes the upload, the REST layer deploys there, the seed runs with --plan.
 //   - a project but no `wix.config.json` (a package.json, or an index.html at the root) → CONNECT:
 //     `npm create @wix/new@latest init` in place creates the site and the config, then deploy.
 //   - otherwise (empty, or loose files such as a CSV or a brief) → CREATE: `wix create` with the
@@ -33,7 +37,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
-import { siteContext } from "./context.mjs";
+import { folderShape, siteContext } from "./context.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -80,21 +84,29 @@ const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
 const pkg = has("package.json") ? JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) : null;
 const hasProject = !!pkg || has("index.html");
-// A config here: refuse, unless it is a migration preview with no project yet (the site context
-// pulls .env.local when missing — that is where the migration is declared).
+// A config here: refuse, unless the folder's shape is one setup handles — a migration preview with
+// no project yet (the site context pulls .env.local when missing — that is where the migration is
+// declared), or a published static site (a config beside index.html, no package.json).
 let ctx = null;
+let shape = folderShape(cwd).shape;
 if (has("wix.config.json")) {
   ctx = siteContext({ cwd });
-  if (hasProject || !ctx.migration.active) {
-    fail("place", "this folder is already a Wix project (wix.config.json): nothing to set up. deploy.mjs <vertical> adds this skill's code or a solution to it; then ONE npm install; then the vertical's seed module if there is content to create. A config with no project is attach.mjs's case (SKILL.md step 3)" + (ctx.pullError ? ` — note: env pull failed here (${ctx.pullError.slice(0, 120)})` : ""));
+  shape = ctx.folder.shape;
+  if (shape !== "migration" && shape !== "published-static-site") {
+    fail("place", `this folder is already a Wix project (wix.config.json), shape "${shape}": nothing to set up. ${ctx.folder.next} (SKILL.md step 3)` + (ctx.pullError ? ` — note: env pull failed here (${ctx.pullError.slice(0, 120)})` : ""));
+  }
+  if (shape === "published-static-site" && stackFlag && stackFlag !== "static") {
+    fail("args", `a published static site (index.html beside wix.config.json, no package.json) is the static stack; --stack ${stackFlag} does not apply`);
   }
 }
-const mode = ctx ? "migrate" : hasProject ? "connect" : "create";
-if (mode === "connect" && !stackFlag) {
+const migrating = shape === "migration";
+const publishedStatic = shape === "published-static-site";
+const mode = migrating ? "migrate" : hasProject ? "connect" : "create";
+if (mode === "connect" && !stackFlag && !publishedStatic) {
   fail("args", "connecting a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
 }
-const stack = stackFlag ?? "astro";
-emit("folder", { mode, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null, ...(ctx ? { migration: ctx.migration, deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings } : {}) });
+const stack = publishedStatic ? "static" : (stackFlag ?? "astro");
+emit("folder", { mode, shape, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null, ...(ctx ? { deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings } : {}), ...(migrating ? { migration: ctx.migration } : {}) });
 
 let projectDir = cwd;
 let folderName = null;
@@ -155,6 +167,12 @@ if (mode === "create") {
   const gi = join(cwd, ".gitignore");
   const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
   if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
+} else if (publishedStatic) {
+  // ---- 1 · a published static site: the config came with the folder, the site exists -------------
+  // No init: `wix.config.json` already names the site the pages are published on (and its app). The
+  // pages stay where they are; the static handling below points the upload at site/ and the `next`
+  // says to move them in.
+  emit("connecting", { folder: cwd, siteId: ctx.deploy.siteId, from: "published static site" });
 } else {
   // ---- 1 · init in place --------------------------------------------------------------------------
   // The CLI's `init` links the folder to a NEW site: creates the site and its OAuth app, writes
@@ -179,7 +197,7 @@ if (stack === "static") {
 }
 emit(mode === "create" ? "scaffolded" : mode === "migrate" ? "migration_preview" : "connected", {
   folder: folderName ?? cwd, stack,
-  ...(ctx ? { deploySiteId: ctx.deploy.siteId, contentSiteId: ctx.content.siteId } : { siteId }),
+  ...(migrating ? { deploySiteId: ctx.deploy.siteId, contentSiteId: ctx.content.siteId } : { siteId }),
 });
 
 // ---- 2 · deploy shipped code + deps ---------------------------------------------------------------
@@ -228,7 +246,7 @@ if (mode === "create" && !subfolder && projectDir !== cwd) {
 // ---- 2d · the agent config files `wix create` would have written --------------------------------
 // Skipped by the CLI because of --skip-install. Fill-only: a project that has its own AGENTS.md
 // keeps it (the event says `kept`).
-emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack, ...(ctx ? { migration: { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId } } : {}) }));
+emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack, ...(migrating ? { migration: { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId } } : {}) }));
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 // ONE install, here, for any project with a package.json (deploy patched it). The static stack has
@@ -284,19 +302,23 @@ const release = {
 const others = verticals.slice(1);
 emit("ready_for_brand_layer", {
   mode,
+  shape,
   stack,
   verticals,
   projectDir,
-  siteId: ctx ? ctx.content.siteId : siteId,
-  ...(ctx ? { deploySiteId: ctx.deploy.siteId, migration: { parentSiteId: ctx.migration.parentSiteId } } : {}),
+  siteId: migrating ? ctx.content.siteId : siteId,
+  ...(migrating ? { deploySiteId: ctx.deploy.siteId, migration: { parentSiteId: ctx.migration.parentSiteId } } : {}),
   dashboardUrl: deployResult.dashboardUrl,
   productsUrl: deployResult.productsUrl,
   categoriesUrl: deployResult.categoriesUrl,
   install,
   seed,
   next:
+    (publishedStatic ? "a published static site: its pages are live on this site already and keep their URL; move index.html, the other pages, styles and assets into site/ (the root keeps the config, the plan, the seed output and the skills) and wire the solution into the page that needs it; " : "") +
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
+      : publishedStatic
+      ? (planPath ? "" : "no plan was given, so nothing was created on the site — seed the solution the brief asks for (a plan per step 2, the vertical's seed module) before wiring it; ")
       : planPath
       ? "theme + write the home page; "
       : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ") +

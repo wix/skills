@@ -88,8 +88,47 @@ export function pullEnv(cwd) {
 }
 
 /**
- * `{ deploy: { siteId, appId }, content: { siteId, clientId }, migration: { active, parentSiteId },
- *    env: { file, present, pulled }, pullError?, warnings: [] }`.
+ * What the folder IS, from file markers alone — the one classification every script and SKILL.md
+ * step 3 share. `migrationActive` comes from siteContext (it needs `.env.local`).
+ *
+ *   empty                  nothing that reads as a project → setup CREATE
+ *   project                a package.json or an index.html, no wix.config.json → setup CONNECT (init here)
+ *   config-only            wix.config.json and no project → attach.mjs on the config's site
+ *   migration              config-only whose .env.local declares a migration preview → setup MIGRATE
+ *   built-here             config + this skill's code (.agents/skills/wix-headless-fast, src/wix or
+ *                          site/js/wix) → iterate: deploy.mjs for a new solution, file edits, release
+ *   wix-project            config + a package.json, none of this skill's code (a hand-made or CLI
+ *                          project) → deploy.mjs in place, ONE install, the seed if there is content
+ *   published-static-site  config + index.html at the root, no package.json (a site published through
+ *                          the drop flow and downloaded) → setup CONNECT on the static stack, no init
+ */
+export function folderShape(cwd = process.cwd(), { migrationActive = false } = {}) {
+  const has = (p) => existsSync(join(cwd, p));
+  const config = has("wix.config.json");
+  const pkg = has("package.json");
+  const html = has("index.html");
+  const skillCode = has(".agents/skills/wix-headless-fast") || has("src/wix/sdk.ts") || has("site/js/wix/client.js");
+  const next = {
+    empty: "setup.mjs creates the project here (CREATE)",
+    project: "setup.mjs --stack <stack> links the folder to a new site and deploys (CONNECT)",
+    "config-only": "attach.mjs: the site exists and has no frontend yet",
+    migration: "setup.mjs (MIGRATE): the composed template around the config, nothing installed or seeded on the site being migrated — guides/migration.md",
+    "built-here": "iterate: deploy.mjs <vertical> for a new solution (then ONE npm install and its seed), file edits for a change, then release; never scaffold, init or reseed",
+    "wix-project": "deploy.mjs <vertical…> --stack <stack> in place, then ONE npm install, then the vertical's seed if there is content to create",
+    "published-static-site": "setup.mjs --vertical <vertical> (CONNECT on the static stack, the config's site, no init): site/ becomes the upload, the REST layer lands in site/js/wix/, the seed runs with --plan; move the pages, styles and assets into site/, then release — same URL",
+  };
+  let shape;
+  if (!config) shape = pkg || html ? "project" : "empty";
+  else if (!pkg && !html) shape = migrationActive ? "migration" : "config-only";
+  else if (skillCode) shape = "built-here";
+  else if (pkg) shape = "wix-project";
+  else shape = "published-static-site";
+  return { shape, next: next[shape], tells: { config, packageJson: pkg, indexHtml: html, skillCode } };
+}
+
+/**
+ * `{ folder: { shape, next, tells }, deploy: { siteId, appId }, content: { siteId, clientId },
+ *    migration: { active, parentSiteId }, env: { file, present, pulled }, pullError?, warnings: [] }`.
  * `pull`: "auto" (default) pulls when `.env.local` is missing; true always; false never.
  */
 export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
@@ -115,7 +154,7 @@ export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
   if (active && migration.parentSiteId === deploy.siteId) {
     warnings.push("the migration's parent site is the deploy site itself — nothing is being migrated");
   }
-  return { deploy, content, migration, env: { file: envFile, present: Object.keys(env).length > 0, pulled }, ...(pullError ? { pullError } : {}), warnings };
+  return { folder: folderShape(cwd, { migrationActive: active }), deploy, content, migration, env: { file: envFile, present: Object.keys(env).length > 0, pulled }, ...(pullError ? { pullError } : {}), warnings };
 }
 
 // ---- CLI ----------------------------------------------------------------------------------------
