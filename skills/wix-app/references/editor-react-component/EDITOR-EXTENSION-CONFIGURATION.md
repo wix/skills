@@ -53,6 +53,12 @@ should fit content, use `content`.
 
 Allow an axis only when dragging it produces a meaningful result.
 
+For each allowed axis, implement what happens when content no longer fits.
+Content height must grow after wrapping or changing items. A bounded height
+needs a fitting layout or a deliberate accessible scroll region. Installation
+defaults alone do not prevent overflow after resizing. Do not rely on native
+container overflow controls for a custom component's internal DOM.
+
 | Value | Use when |
 | --- | --- |
 | `horizontalAndVertical` | Content meaningfully fills both axes; default for framed visuals and most layouts |
