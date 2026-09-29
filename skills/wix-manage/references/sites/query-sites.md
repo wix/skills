@@ -6,7 +6,7 @@ description: List, count, and find the sites in a Wix account. Covers the namesp
 
 List, count, and find the sites in a Wix account.
 
-- **Auth**: account-level (a Wix user token, or an account-level API key). `wix token` prints one.
+- **Auth**: account-level (a Wix user token, or an account-level API key).
 - **Permission**: `SITE_LIST.READ` (scope `SCOPE.ACC-DC-OS.READ-SITE`).
 - **Endpoints**: list `POST https://www.wixapis.com/site-list/v2/sites/query` · count
   `POST https://www.wixapis.com/site-list/v2/sites/count`.
