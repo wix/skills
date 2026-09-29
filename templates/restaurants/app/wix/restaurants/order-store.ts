@@ -27,15 +27,21 @@ export interface OrderCartState {
   menuOrdering: Record<string, MenuOrderingInfo> | null;
   /** The operation's enabled pickup/delivery methods, for display; null while loading. */
   fulfillment: FulfillmentMethodInfo[] | null;
-  /** True while any cart operation is in flight. */
+  /**
+   * True while any cart operation is in flight — the DRAWER's flag (its steppers, remove and
+   * checkout controls), not a dish card's: a card disables its own add control on `pendingItemId`,
+   * or every dish in the grid dims for every add.
+   */
   busy: boolean;
+  /** The menu item whose add is in flight, null otherwise — what a dish card's add control binds to. */
+  pendingItemId: string | null;
   /** Last failed operation's message — render it; a new operation clears it. */
   error: string | null;
   /** Order drawer visibility (OrderCartButton opens it, OrderCartDrawer renders by it). */
   open: boolean;
 }
 
-const EMPTY: OrderCartState = { cart: null, ordering: null, orderingStatus: null, menuOrdering: null, fulfillment: null, busy: false, error: null, open: false };
+const EMPTY: OrderCartState = { cart: null, ordering: null, orderingStatus: null, menuOrdering: null, fulfillment: null, busy: false, pendingItemId: null, error: null, open: false };
 
 let state: OrderCartState = EMPTY;
 const listeners = new Set<() => void>();
@@ -101,7 +107,12 @@ export async function addOrderLine(
   quantity = 1,
   selection?: OrderSelection,
 ): Promise<void> {
-  await run(() => apiAdd(item, context, quantity, selection));
+  setState({ pendingItemId: item.id });
+  try {
+    await run(() => apiAdd(item, context, quantity, selection));
+  } finally {
+    setState({ pendingItemId: null });
+  }
   setState({ open: true });
 }
 

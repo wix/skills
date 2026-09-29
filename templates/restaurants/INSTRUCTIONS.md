@@ -148,7 +148,8 @@ else. Look at the seeded menu before designing (how many menus, sections, photos
 //                     pausedUntilIso, timeZone, fulfillmentIds, defaultFulfillmentType }|null,
 //   menuOrderable(menuId): boolean|null,    // false → this menu takes no online orders now (no add control); null = unknown, let the add try
 //   fulfillment: [{ id, type: "PICKUP"|"DELIVERY", name, fee, minOrderPrice }]|null,  // formatted; display only
-//   busy, error, open,
+//   busy /* the DRAWER's flag: any cart operation in flight */, pendingItemId /* the item whose add is in
+//   flight, else null — a dish card's add control disables on THIS, never on busy */, error, open,
 //   addToOrder(item, { menuId, sectionId }, quantity?, selection?),  // the DTO + ids from the render context — see hard rules
 //   updateQuantity(lineItemId, qty), removeLine(lineItemId),
 //   checkout(),                             // browser redirects to the Wix-hosted checkout
@@ -202,7 +203,7 @@ import type { MenuData, MenuItem, OrderSelection } from "../../wix/restaurants/t
 
 export default function YourMenu({ initialMenus }: { initialMenus?: MenuData[] }) {
   const { menus, activeMenuId, setActiveMenuId, activeMenu, error } = useMenus({ initialMenus });
-  const { addToOrder, ordering, orderingStatus, menuOrderable, busy } = useOrderCart();
+  const { addToOrder, ordering, orderingStatus, menuOrderable, pendingItemId } = useOrderCart();
   // …you implement the render:
   //   • menus === null → skeletons; [] → your empty state (error when set)
   //   • menu tabs when menus.length > 1 (setActiveMenuId); a section nav when activeMenu.sections.length > 1;
@@ -213,7 +214,9 @@ export default function YourMenu({ initialMenus }: { initialMenus?: MenuData[] }
   //     item.soldOut; the operation's reason when ordering === false; else "Add to order" — which, when
   //     needsSelection(item), opens YOUR sheet (below) and otherwise calls
   //     addToOrder(item, { menuId: activeMenu.id, sectionId: section.id }) — the ids of the menu and section
-  //     the card is rendered under, never looked up again; the rejection message rendered beside it
+  //     the card is rendered under, never looked up again; the rejection message rendered beside it;
+  //     disabled (and reading "Adding…") only while pendingItemId === item.id — never on the cart's busy,
+  //     which is the drawer's flag and would dim every dish in the grid for every add
   //   • YOUR sheet: const [sel, setSel] = useState<OrderSelection>(() => initialSelection(item)); variant radios
   //     (sel.variantId), per group a fieldset titled `${g.name} · ${ruleLabel(g)}` with radios when g.singleSelect
   //     else checkboxes, keyed by m.key, onChange → setSel(toggleModifier(item, sel, g.id, m.key)), disabled when
