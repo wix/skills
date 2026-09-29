@@ -91,12 +91,12 @@ read tokens into context), and the two companion skills beside this one, `wix-do
 `CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
 page, `cold-start/cold-start.md`, gets a machine with none of this to that point. In a folder that
 already holds a `wix.config.json`, `node <SKILL_ROOT>/install/context.mjs` first: it runs
-`wix env pull` when `.env.local` is missing and prints the two identities a project has — the
-deploy site (the config, where `wix release` goes) and the content site (the env, whose app the SDK
-client runs as and whose dashboard manages the business). They are one site, except on a
-**migration preview** (`guides/migration.md`), where the env names the site being migrated.
-Every script here reads that context; the site a call targets is never guessed from the config
-alone. Then fetch the shipped
+`wix env pull` when `.env.local` is missing and prints the folder's **shape** (`folder.shape`, the
+cases of step 3, with the `next` for each) and the two identities a project has — the deploy site
+(the config, where `wix release` goes) and the content site (the env, whose app the SDK client runs
+as and whose dashboard manages the business). They are one site, except on a **migration preview**
+(`guides/migration.md`), where the env names the site being migrated. Every script here reads that
+context; the site a call targets is never guessed from the config alone. Then fetch the shipped
 code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
 the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
@@ -162,7 +162,10 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    its id, the site holds the content already — nothing is seeded, and the frontend reads what
    is there (step 3's attach path).
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
-   and for a project already on disk; **the folder decides** what it does:
+   and for a project already on disk; **the folder decides** what it does (`context.mjs` prints the
+   shape it read), and **the brief is the instruction**: what it asks to switch on is installed and
+   seeded on the site the folder names, without asking again. Ask only when acting would create a
+   second site for a folder that already has one, or when a cleanup seems needed.
 
    ```bash
    node <SKILL_ROOT>/install/setup.mjs --vertical <vertical>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"]
@@ -184,14 +187,19 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      project what that stack needs on Wix hosting (step 1) before or right after the call.
      With `--stack static` setup also makes `site/` the folder `wix release` uploads and deploys
      the REST layer into `site/js/wix/`; you move the pages, styles and assets in (`guides/reference-mode.md`).
-   - **`wix.config.json` and a project** → refuses: the folder is already a Wix project with a
-     frontend, whether the CLI made it, a hand wrote it, or this skill built it. Three commands
-     from the project root do everything setup would: `deploy.mjs <vertical…> --stack <stack>`
-     adds this skill's code or a solution (the client id comes from `.env.local`, the config as
-     the fallback), then ONE
-     `npm install`, then the seed module if there is content to create. A project this skill
-     built needs only the first, for a new solution; a change to what is built is file edits
-     and a release.
+   - **`wix.config.json` and a project** — three shapes, the folder's files tell them apart:
+     - **built here** (this skill's code is present: `.agents/skills/wix-headless-fast`,
+       `src/wix/` or `site/js/wix/`) → setup refuses; never scaffold, `init` or reseed. A new
+       solution is `deploy.mjs <vertical…> --stack <stack>` from the project root (the client id
+       comes from `.env.local`, the config as the fallback), then ONE `npm install`, then its seed
+       if there is content; a change to what is built is file edits and a release.
+     - **a Wix project without this skill** (a `package.json`, none of that code: the CLI's or a
+       hand-made scaffold) → setup refuses; the same three commands add the code in place.
+     - **a published static site** (`index.html` beside the config, no `package.json`: a site
+       published through the drop flow and downloaded) → **connect on the static stack**, the
+       config's site, no `init`: setup points the upload at `site/`, deploys the REST layer into
+       `site/js/wix/`, runs the seed with `--plan`, and its `next` says to move the pages, styles
+       and assets into `site/`; the site keeps its URL.
    - **`wix.config.json` and no project, and `.env.local` declares a migration** (a project
      downloaded from Wix for a site being moved to headless; the config names a site that only
      hosts the deployment, the env the site being migrated) → **migrate**: setup copies the

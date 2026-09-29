@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
 ---
 
 # Wix Headless Fast — cold start
@@ -27,31 +27,22 @@ This page gets a cold environment to the point where the real skill can run, the
 2. **Hand off (agentic).** Install the skills, then open `wix-headless-fast/SKILL.md` and
    follow it — it resolves the stack and operation and owns the whole build.
 
-Four starting points come through here, all handled the same way — run the bootstrap, then
-hand off:
-
-- **new** — a prompt with no project (empty CWD)
-- **connect** — an existing frontend/design not yet on Wix (a project on disk without
-  `wix.config.json`, or a brought-in zip/URL)
-- **iterate** — a project already connected to Wix (`.wix/` or `wix.config.json` present)
-- **existing site** — the prompt names a Wix site that already exists (by its site id) and asks
-  for a new frontend for it; the site keeps its content, the frontend is built here
-
-The bootstrap only verifies the CLI and logs you in, so it's fine to run in every case (an
-existing session just reports `logged_in`).
+Every starting point comes through here the same way — run the bootstrap, then hand off. What
+the folder holds and what the brief hands over decide the rest, and SKILL.md step 3 owns that
+decision; this page does not interpret either. The bootstrap only verifies the CLI and logs you
+in, so it's fine to run in every case (an existing session just reports `logged_in`).
 
 ## Phase 0 — The project's folder, and Node
 
-**Work from the folder that holds the project, or that will.** For a **new** build: an empty folder
-is the project; if the current folder holds unrelated things, make one named for the business and
-`cd` into it. For **connect**, **iterate** and **existing site**: you are already in it — the
-project's root, where its `package.json` or `index.html` is. For a **project downloaded from Wix**
-(the brief gives a zip URL or path, typically a site being migrated to headless): download it and
-extract it into the working folder first, so that `wix.config.json` sits at the root, and work from
-there — the skill reads the folder and knows what it is; do not create a site, install apps or seed.
-Everything below — the
-bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
-finds all of it.
+**Work from the folder that holds the project, or that will.** An empty folder is the project for
+a new build; if the current folder holds unrelated things, make one named for the business and `cd`
+into it. A project already on disk is its own folder — its root, where the `package.json`,
+`index.html` or `wix.config.json` is. **Whatever the brief hands over as files goes into that folder
+first**, before Phase 1: a zip is extracted there, a URL is downloaded and extracted there, so that
+anything it carries — a `wix.config.json` included — sits at the root. Do not interpret what is
+there: the skill reads the folder and knows what it is. Everything below — the bootstrap, the
+skills, the scaffold — lands in this folder too, so a later session opened in the project finds all
+of it.
 
 The Wix CLI requires **Node ≥ 20.11**. Check `node -v`; if it errors or prints a lower
 version, install or upgrade Node first — do **not** work around it:
