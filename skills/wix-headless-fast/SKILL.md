@@ -188,8 +188,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      With `--stack static` setup also makes `site/` the folder `wix release` uploads and deploys
      the REST layer into `site/js/wix/`; you move the pages, styles and assets in (`guides/reference-mode.md`).
    - **`wix.config.json` and a project** — three shapes, the folder's files tell them apart:
-     - **built here** (this skill's code is present: `.agents/skills/wix-headless-fast`,
-       `src/wix/` or `site/js/wix/`) → setup refuses; never scaffold, `init` or reseed. A new
+     - **built here** (this skill's deployed code is present: `src/wix/` or `site/js/wix/`; the
+       skills folder is not a tell) → setup refuses; never scaffold, `init` or reseed. A new
        solution is `deploy.mjs <vertical…> --stack <stack>` from the project root (the client id
        comes from `.env.local`, the config as the fallback), then ONE `npm install`, then its seed
        if there is content; a change to what is built is file edits and a release.

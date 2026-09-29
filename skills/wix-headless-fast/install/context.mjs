@@ -95,8 +95,8 @@ export function pullEnv(cwd) {
  *   project                a package.json or an index.html, no wix.config.json → setup CONNECT (init here)
  *   config-only            wix.config.json and no project → attach.mjs on the config's site
  *   migration              config-only whose .env.local declares a migration preview → setup MIGRATE
- *   built-here             config + this skill's code (.agents/skills/wix-headless-fast, src/wix or
- *                          site/js/wix) → iterate: deploy.mjs for a new solution, file edits, release
+ *   built-here             config + this skill's deployed code (src/wix/sdk.ts or site/js/wix/client.js;
+ *                          the skills folder is not a tell) → iterate: deploy.mjs for a new solution, file edits, release
  *   wix-project            config + a package.json, none of this skill's code (a hand-made or CLI
  *                          project) → deploy.mjs in place, ONE install, the seed if there is content
  *   published-static-site  config + index.html at the root, no package.json (a site published through
@@ -107,7 +107,10 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
   const config = has("wix.config.json");
   const pkg = has("package.json");
   const html = has("index.html");
-  const skillCode = has(".agents/skills/wix-headless-fast") || has("src/wix/sdk.ts") || has("site/js/wix/client.js");
+  // This skill's DEPLOYED code, never the skills folder: the cold start installs .agents/skills/ into
+  // any folder before setup runs, so its presence says nothing about what was built here (run 165
+  // read a fresh drop-flow download as built-here on that tell and setup refused).
+  const skillCode = has("src/wix/sdk.ts") || has("site/js/wix/client.js");
   const next = {
     empty: "setup.mjs creates the project here (CREATE)",
     project: "setup.mjs --stack <stack> links the folder to a new site and deploys (CONNECT)",
