@@ -33,10 +33,15 @@ The CLI manages a shared aggregator file (`data-collections.extension.ts`) that 
 
 ## Collection File Shape
 
-The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per the [Context-Based Permission Rules](#context-based-permission-rules) before shipping.
+The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per [Permissions](data-collection/PERMISSIONS.md) before shipping.
+
+**Import `DataCollection` from the package this project actually uses.** A standalone
+`@wix/custom-extensions` project — what `wix generate` scaffolds today — emits
+`from '@wix/custom-extensions'`; only an Astro project uses `'@wix/astro/builders'`. The scaffolded
+file already has the right one: keep the import the CLI wrote and replace the body around it.
 
 ```typescript
-import type { DataCollection } from '@wix/astro/builders';
+import type { DataCollection } from '@wix/custom-extensions'; // or '@wix/astro/builders' in an Astro project
 
 export const collectionIdSuffix = '<CollectionName>';
 
@@ -51,227 +56,19 @@ export default {
 } satisfies DataCollection;
 ```
 
-## Field Types
+## The rest of this extension
 
-| Type              | Description                      | Use Case               |
-| ----------------- | -------------------------------- | ---------------------- |
-| `TEXT`            | Single-line text                 | Names, titles          |
-| `RICH_TEXT`       | Formatted HTML text              | Blog content           |
-| `RICH_CONTENT`    | Rich content with embedded media | Complex blog posts     |
-| `NUMBER`          | Decimal numbers                  | Prices, quantities     |
-| `BOOLEAN`         | True/false                       | Toggles, flags         |
-| `DATE`            | Date only                        | Birthdays              |
-| `DATETIME`        | Date with time                   | Timestamps             |
-| `TIME`            | Time only                        | Schedules              |
-| `IMAGE`           | Single image                     | Thumbnails             |
-| `DOCUMENT`        | File attachment                  | PDFs                   |
-| `VIDEO`           | Video file                       | Media                  |
-| `AUDIO`           | Audio file                       | Podcasts               |
-| `MEDIA_GALLERY`   | Multiple media                   | Galleries              |
-| `REFERENCE`       | Link to one item                 | Author → User          |
-| `MULTI_REFERENCE` | Link to many items               | Post → Tags            |
-| `ADDRESS`         | Structured address               | Locations              |
-| `URL`             | URL validation                   | Links                  |
-| `PAGE_LINK`       | Link to Wix page                 | Internal navigation    |
-| `LANGUAGE`        | Language code                    | Multi-language content |
-| `OBJECT`          | JSON object                      | Flexible data          |
-| `ARRAY`           | Array of values                  | Generic arrays         |
-| `ARRAY_STRING`    | Array of strings                 | Tags list              |
-| `ARRAY_DOCUMENT`  | Array of documents               | File collections       |
-| `ANY`             | Any type                         | Most flexible          |
-
-**CRITICAL: OBJECT fields require `objectOptions` with a `fields` array.** When using `type: "OBJECT"`, you MUST include `objectOptions: { fields: [] }` — the API will reject OBJECT fields without it. Use an empty `fields` array if you don't need a fixed schema (the object will still accept arbitrary JSON):
-
-```json
-{
-  "key": "settings",
-  "displayName": "Settings",
-  "type": "OBJECT",
-  "objectOptions": { "fields": [] }
-}
-```
-
-> ⚠️ `objectOptions: {}` (without the `fields` key) is **not valid** and will cause a runtime error. Always include `fields`, even as an empty array.
-
-For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
-
-```json
-{
-  "key": "triggerRules",
-  "displayName": "Trigger Rules",
-  "type": "OBJECT",
-  "objectOptions": {
-    "fields": [
-      { "key": "url", "displayName": "URL Condition", "type": "TEXT" },
-      {
-        "key": "scrollDepth",
-        "displayName": "Scroll Depth %",
-        "type": "NUMBER"
-      },
-      { "key": "dateStart", "displayName": "Start Date", "type": "DATE" }
-    ]
-  }
-}
-```
-
-## Field Properties
-
-```ts
-{
-  key: 'email',                         // required, lowerCamelCase ASCII
-  type: 'TEXT',                         // required, see Field Types above
-  displayName: 'Email Address',         // optional, CMS label
-  description: "User's primary email",  // optional, help text
-  encrypted: false,                     // optional, encrypt value at rest
-  // arrayOptions / objectOptions / referenceOptions / multiReferenceOptions
-  // only when type is ARRAY / OBJECT / REFERENCE / MULTI_REFERENCE
-}
-```
-
-| Property      | Required | Description                          |
-| ------------- | -------- | ------------------------------------ |
-| `key`         | yes      | Field identifier (lowerCamelCase)    |
-| `type`        | yes      | Field data type (see Field Types)    |
-| `displayName` | no       | Label shown in CMS                   |
-| `description` | no       | Help text                            |
-| `encrypted`   | no       | Encrypt value at rest                |
-
-**There is no field-level `required`, `defaultValue`, or `unique`.** The `DevCenterDataCollectionField` type does not accept them and TypeScript will reject the build. Use these alternatives instead:
-
-- **Required values:** Validate in the dashboard form and/or service-plugin handler before inserting. Do not rely on the collection schema to enforce presence.
-- **Defaults:** Set defaults in the insert path (dashboard handler, service plugin) or via the collection's `initialData` for seeded rows.
-- **Uniqueness:** Declare a unique index in the collection's `indexes` array (see [Indexes](#indexes)). Uniqueness is an index-level concern, not a field-level one.
-
-## Indexes
-
-The `indexes` array on the collection accepts entries shaped like:
-
-```ts
-indexes: [
-  {
-    fields: [{ path: 'email', order: 'ASC' }],  // order is optional: 'ASC' | 'DESC'
-    unique: true,                                // optional, enforces uniqueness across items
-  },
-  {
-    fields: [
-      { path: 'category' },
-      { path: '_createdDate', order: 'DESC' },
-    ],
-  },
-],
-```
-
-| Property        | Required | Description                                            |
-| --------------- | -------- | ------------------------------------------------------ |
-| `fields`        | yes      | One or more `{ path, order? }` entries (composite index when more than one) |
-| `fields[].path` | yes      | Field key to index                                     |
-| `fields[].order`| no       | `'ASC'` (default) or `'DESC'`                          |
-| `unique`        | no       | Enforce uniqueness on the indexed field(s)             |
-
-Leave `indexes: []` when no custom indexing is needed; the `_id` index is created automatically.
-
-## Naming Conventions
-
-- **Field keys:** `lowerCamelCase`, ASCII only (e.g., `productName`, `isActive`, `createdAt`)
-- **Collection IDs (`idSuffix`):** `lower-kebab-case` or `lower_underscore` (e.g., `product-categories`, `blog_posts`)
-- **Display names:** Human-readable, can contain spaces (e.g., `"Product Name"`, `"Is Active"`)
-
-## System Fields (Automatic)
-
-Every collection includes: `_id`, `_createdDate`, `_updatedDate`, `_owner`
+| Topic | File |
+| --- | --- |
+| Field types, field properties, indexes, naming, system fields, relationships | [data-collection/SCHEMA.md](data-collection/SCHEMA.md) |
+| Releasing, updating the site, the CMS prerequisite, item vs. management access | [data-collection/LIFECYCLE.md](data-collection/LIFECYCLE.md) |
+| Reading and writing items at runtime (Wix Data SDK) | [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md) |
 
 ## Permissions
 
-Access levels control who can read, create, update, and delete items in collections.
-
-| Level                | Description                                        |
-| -------------------- | -------------------------------------------------- |
-| `UNDEFINED`          | Not set (inherits defaults)                        |
-| `ANYONE`             | Public access (including visitors)                 |
-| `SITE_MEMBER`        | Any signed-in user (members and collaborators)     |
-| `SITE_MEMBER_AUTHOR` | Signed-in users, but members only access own items |
-| `CMS_EDITOR`         | Site collaborators with CMS Access permission      |
-| `PRIVILEGED`         | CMS administrators and privileged users            |
-
-**Common patterns:**
-
-- Public content (default, recommended): `read: ANYONE, write: PRIVILEGED`
-- User-generated content: `read: SITE_MEMBER, write: SITE_MEMBER_AUTHOR`
-- Editorial workflow: `read: ANYONE, write: CMS_EDITOR`
-- Private/admin: `read: PRIVILEGED, write: PRIVILEGED`
-
-**Permission hierarchy** (most to least restrictive): `PRIVILEGED` > `CMS_EDITOR` > `SITE_MEMBER_AUTHOR` > `SITE_MEMBER` > `ANYONE` > `UNDEFINED`
-
-### Context-Based Permission Rules
-
-**CRITICAL: Permissions must match where and how the data is accessed.** The consumer of the data determines the minimum permission level — setting permissions more restrictive than the access context will cause runtime failures (empty results or permission-denied errors).
-
-**Determine permissions by asking: "Who interacts with this data, and from where?"**
-
-| Access Context | Who Sees / Uses It | Implication |
-|---|---|---|
-| **Custom element widget** (`CUSTOM_ELEMENT_WIDGET`) | Any site visitor (public) | Reads must be `ANYONE`. If the widget accepts input (e.g., reviews, submissions), inserts must also be `ANYONE` or `SITE_MEMBER`. |
-| **Embedded Script** | Any site visitor (public) | Same as custom element widget — reads must be `ANYONE`. Writes depend on whether visitors can submit data. |
-| **Dashboard Page** (`DASHBOARD_PAGE`) | Site owner / collaborators only | Can use `CMS_EDITOR` or `PRIVILEGED` for all operations since only authorized users access the dashboard. |
-| **Backend code (site-side)** | Runs in visitor context | If called from page code or site-side modules, the caller has visitor-level permissions — data must be readable/writable at the appropriate public level. |
-| **Backend code (elevated)** | Runs with `auth.elevate()` from `@wix/essentials` | Can bypass permissions, but the collection still needs correct defaults for any non-elevated callers. |
-
-Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only modify their **own** items (e.g., a member can edit only their own reviews).
-
-**How to apply this:**
-
-1. **Identify every place the collection is read or written** — custom element widgets, dashboard pages, embedded scripts, backend APIs.
-2. **Use the least restrictive context as the floor.** If a custom element widget reads the data AND a dashboard page also reads it, `itemRead` must be `ANYONE` (because the widget is public).
-3. **Apply per-operation.** A collection can have `itemRead: ANYONE` (widget displays it) but `itemInsert: CMS_EDITOR` (only dashboard users add items). Each operation is independent.
-
-## Relationships
-
-**One-to-One / Many-to-One (REFERENCE):**
-
-```json
-{
-  "key": "category",
-  "displayName": "Category",
-  "type": "REFERENCE",
-  "referenceOptions": {
-    "referencedCollectionId": "categories"
-  }
-}
-```
-
-**Many-to-Many (MULTI_REFERENCE):**
-
-```json
-{
-  "key": "tags",
-  "displayName": "Tags",
-  "type": "MULTI_REFERENCE",
-  "multiReferenceOptions": {
-    "referencedCollectionId": "tags"
-  }
-}
-```
-
-**CRITICAL Constraints:**
-
-- REFERENCE/MULTI_REFERENCE fields can ONLY link to other custom CMS collections defined in your app
-- The `referencedCollectionId` MUST be the `idSuffix` of another collection in the same plan
-- **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
-- Use Wix SDK APIs to access Wix business entities instead
-
-## App Version Updates
-
-Changes to your data collections extension require releasing a new major version of your app. When a user updates to the new major version, their collections are updated as follows:
-
-- **Adding a new collection:** The new collection is created on the site.
-- **Removing a collection:** If the old app version defined a collection and the new version doesn't, the collection is removed from the site.
-- **Modifying a collection schema:** Field additions, removals, and type changes are applied to the collection. Existing data is preserved.
-
-**Important notes:**
-
-- Collection changes only affect users who update to the new major version. Users who don't update retain their current collections.
-- Collection changes take up to 5 minutes to propagate after an update.
-- **Initial data is only imported when a collection is first created.** If a collection already contains data, `initialData` is ignored during updates.
+The four contexts, what each admits, and the `SITE_MEMBER_AUTHOR` rule are in
+[data-collection/PERMISSIONS.md](data-collection/PERMISSIONS.md). The scaffolded `dataPermissions`
+are placeholders — `ANYONE` to read, `PRIVILEGED` to write — so set them before shipping.
 
 ## Wix CLI-Specific Constraints
 

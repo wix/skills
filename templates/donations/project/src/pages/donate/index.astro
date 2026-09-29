@@ -1,0 +1,51 @@
+---
+// Donate — the campaigns, fetched SERVER-SIDE and rendered as cards; a site with exactly one
+// campaign renders that campaign's page here directly (the Wix widget's default-campaign rule).
+// Keep this frontmatter; the card markup is yours to redesign (GoalProgress is the shipped part).
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import CampaignPage from "../../components/donations/CampaignPage.astro";
+import GoalProgress from "../../components/donations/GoalProgress";
+import { fetchCampaign, fetchCampaigns } from "../../wix/donations/campaigns";
+import type { CampaignDetail, CampaignSummary } from "../../wix/donations/types";
+
+let campaigns: CampaignSummary[] = [];
+let only: CampaignDetail | null = null;
+try {
+  campaigns = await fetchCampaigns();
+  if (campaigns.length === 1) only = await fetchCampaign(campaigns[0].id);
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the page renders its empty state instead.
+}
+---
+
+<SiteLayout title={only ? only.name : "Donate"} image={only?.imageUrl || undefined}>
+  {only ? (
+    <CampaignPage campaign={only} />
+  ) : (
+    <>
+      <h1 class="mb-8 text-2xl font-semibold tracking-tight">Donate</h1>
+      {campaigns.length === 0 ? (
+        <p class="py-16 text-center text-muted-foreground">No campaigns yet — check back soon.</p>
+      ) : (
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {campaigns.map((c) => (
+            <a href={`/donate/${c.id}`} class="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background no-underline transition-colors hover:bg-secondary">
+              {c.imageUrl && (
+                <div class="aspect-[16/9] bg-secondary">
+                  <img src={c.imageUrl} alt={c.name} loading="lazy" class="h-full w-full object-cover" />
+                </div>
+              )}
+              <div class="flex flex-1 flex-col gap-4 p-6">
+                <p class="text-base font-semibold text-foreground">{c.name}</p>
+                <GoalProgress goal={c.goal} compact />
+                <p class="mt-auto text-sm font-semibold text-foreground">
+                  {c.acceptsDonations ? "Donate" : c.status === "goalReached" ? "Goal reached" : "Ended"}
+                </p>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</SiteLayout>

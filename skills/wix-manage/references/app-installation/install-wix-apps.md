@@ -107,15 +107,81 @@ Some common apps:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
+- The endpoint, request body, and appDefId table above are complete and canonical for a listed Wix-built app — don't re-verify them with a separate REST/API doc search first; that's a redundant round-trip.
+- Don't spend a call checking whether the app is already installed before installing it. If the task or the error you're handling already tells you it isn't installed (e.g. a fresh site, or a `*_NOT_INSTALLED` error), just call install directly.
 
 ---
 
 ## Error Handling
 
 ### App Not Installed Error
-If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
+If you receive an error indicating a required app is not installed (e.g. a `428` or a `*_NOT_INSTALLED` error code), install the app it names using its appDefId, then retry the call that failed. If the user's own request already implies this app is needed — i.e. doing what they asked requires a feature only that app provides — just install it as part of doing that task; don't stop to ask permission or name the app first. Confirm first only when the app isn't implied by anything the user asked for.
 
-If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
+**Example** (install the missing app, then retry the call that surfaced the error — all in one script):
+```javascript
+async function() {
+  const siteId = "<SITE_ID>";
+
+  await wix.request({
+    method: "POST",
+    url: "https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    body: {
+      tenant: { tenantType: "SITE", id: siteId },
+      appInstance: { appDefId: "<APP_DEF_ID>" }
+    }
+  });
+
+  return await wix.request({
+    method: "<METHOD>",
+    url: "<ORIGINAL_URL_THAT_FAILED>",
+    body: { /* original request body */ }
+  });
+}
+```
+
+### App-Dependent Call Fails Right After Install (Propagation Delay)
+Installing an app and then immediately calling one of its own APIs — e.g. calling Set Multilingual Mode right after installing Wix Multilingual — can race the platform's install propagation, surfacing as a not-found error on the dependent call even though the install itself already succeeded.
+
+**Example** (retry with backoff past the propagation delay instead of surfacing the error, all in one script):
+```javascript
+async function() {
+  const siteId = "<SITE_ID>";
+
+  async function requestWithRetry(requestOptions, delaysMs = [1000, 2000, 4000]) {
+    let lastError;
+    try {
+      return await wix.request(requestOptions);
+    } catch (err) {
+      lastError = err;
+    }
+    for (const delayMs of delaysMs) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      try {
+        return await wix.request(requestOptions);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  await wix.request({
+    method: "POST",
+    url: "https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
+    body: {
+      tenant: { tenantType: "SITE", id: siteId },
+      appInstance: { appDefId: "14d84998-ae09-1abf-c6fc-3f3cace5bf19" }
+    }
+  });
+
+  return await requestWithRetry({
+    method: "POST",
+    url: "https://www.wixapis.com/locale-settings/v2/settings/mode",
+    body: { multilingualModeEnabled: true }
+  });
+}
+```
+Chain any further calls inside this same function through the same `requestWithRetry` helper, after the first one succeeds.
 
 ---
 

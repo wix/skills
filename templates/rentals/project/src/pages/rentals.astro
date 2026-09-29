@@ -1,0 +1,24 @@
+---
+// Rentals listing — the first page fetched SERVER-SIDE (SEO) and handed to the island as DTO
+// props. Keep this frontmatter; swap the island import to YOUR listing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import RentalsView from "../components/rentals/RentalsView";
+import { fetchRentals } from "../wix/rentals/rentals";
+import type { RentalSummary } from "../wix/rentals/types";
+
+let rentals: RentalSummary[] = [];
+let hasMore = false;
+try {
+  const page = await fetchRentals();
+  rentals = page.items;
+  hasMore = page.hasMore;
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Rentals">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Rentals</h1>
+  <RentalsView client:load initialRentals={rentals} initialHasMore={hasMore} />
+</SiteLayout>

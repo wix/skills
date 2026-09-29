@@ -3,9 +3,9 @@ description: >-
   Verifies the agent reads the install-wix-apps skill and gives the correct
   Wix Multilingual appDefId when Locale Settings APIs require the app.
 triggerPrompt: >-
-  I tried to enable multilingual mode with the Locale Settings API and got
-  428 MULTILINGUAL_NOT_INSTALLED. Which app should I install first, and what
-  appDefId and REST endpoint should I use?
+  I'm trying to turn on multilingual mode for a site through the Locale
+  Settings API, but I keep getting a 428 back with MULTILINGUAL_NOT_INSTALLED.
+  What do I need to install first, and how do I actually call that?
 tags: [app-installation]
 assertions:
   - tool: ReadFullDocsArticle

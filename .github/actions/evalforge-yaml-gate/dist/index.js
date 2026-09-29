@@ -66358,12 +66358,14 @@ const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
 const merge_tag_sweep_1 = __nccwpck_require__(3821);
 const review_1 = __nccwpck_require__(5253);
+const pr_sweep_1 = __nccwpck_require__(8230);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
     'merge-tag-sweep': merge_tag_sweep_1.runMergeTagSweep,
+    'pr-sweep': pr_sweep_1.runPrSweep,
     review: review_1.runReview,
 };
 const mode = core.getInput('mode') || 'eval';
@@ -66480,7 +66482,9 @@ function errMsg(e) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.COMMENT_MARKER = void 0;
+exports.PR_SWEEP_ACK_MARKER = exports.PR_SWEEP_PENDING_MARKER = exports.PR_SWEEP_MARKER = exports.COMMENT_MARKER = void 0;
+exports.formatPrSweepPending = formatPrSweepPending;
+exports.formatPrSweep = formatPrSweep;
 exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
@@ -66502,8 +66506,85 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
+/** Its own marker: the sweep comment sits beside the gate's, never in place of it.
+ * No marker may contain another: comments are matched by `includes`. */
+exports.PR_SWEEP_MARKER = '<!-- evalforge-pr-sweep-result -->';
+/** The "not swept yet" reminder, edited in place on every push and deleted once a sweep reports. */
+exports.PR_SWEEP_PENDING_MARKER = '<!-- evalforge-pr-sweep-pending -->';
+/** The `/sweep` acknowledgement the re-eval workflow posts; deleted once the sweep reports. */
+exports.PR_SWEEP_ACK_MARKER = '<!-- evalforge-pr-sweep-ack -->';
+const PR_SWEEP_HEADING = 'EvalForge PR Sweep';
+function formatPrSweepPending(headSha) {
+    return [
+        exports.PR_SWEEP_PENDING_MARKER,
+        `## ⏳ ${PR_SWEEP_HEADING}: Not Swept — commit \`${headSha.slice(0, 7)}\``,
+        '',
+        '**What this is.** The eval gate above runs only the scenarios that cover the docs you changed. A *sweep* goes wider: it re-runs every EvalForge scenario that shares a tag with your changes — including scenarios for other areas and ones that exist only in EvalForge — against this PR\'s version of the docs. It catches a change to one recipe breaking another one that the gate never looks at.',
+        '',
+        '**When to run it.** Worth doing once your change is close to final, or whenever you touch a recipe that other areas link to. It takes a few minutes for a handful of scenarios, longer if retries are needed.',
+        '',
+        '**How.** Comment `/sweep` on this PR (it must be the first word of the comment). The result replaces this comment: which tags matched, how many scenarios ran, and any confirmed failures with the assertion that failed. A new push brings this reminder back for the new commit.',
+    ].join('\n');
+}
 function render(icon, label, body) {
     return [exports.COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+function renderSweep(icon, label, body) {
+    return [exports.PR_SWEEP_MARKER, `## ${icon} ${PR_SWEEP_HEADING}: ${label}`, '', ...body].join('\n');
+}
+function sweepScopeLines(v, versionLabel) {
+    const sampled = v.sampled < v.total
+        ? ` — sampled: a tag matching more than ${v.sampled} scenarios runs a fixed subset`
+        : '';
+    return [
+        `**Tags:** ${v.tags.map(t => `\`${t}\``).join(', ')}`,
+        `**Scenarios:** ${v.sampled} / ${v.total} matched${sampled}`,
+        `**MCP version:** \`${versionLabel}\``,
+        `**Run:** ${v.runUrl}`,
+    ];
+}
+function recoveredLines(recovered) {
+    if (recovered.length === 0)
+        return [];
+    return ['', '**Recovered on retry (flaky):**', ...recovered.map(v => `- \`${v.scenarioName}\``)];
+}
+/**
+ * The PR-comment rendering of a sweep verdict. The merge sweep reports the same verdict to Slack;
+ * this is the on-demand PR sweep's report, so it names the PR's MCP version and stays a warning
+ * until the sweep is made blocking.
+ */
+function formatPrSweep(verdict, opts) {
+    switch (verdict.kind) {
+        case 'nothing-to-run':
+            return renderSweep('ℹ️', 'Nothing to Run', [verdict.reason]);
+        case 'infra-error':
+            return renderSweep(opts.blocking ? '❌' : '⚠️', 'Could Not Run', [
+                verdict.message,
+                ...(verdict.runUrl ? ['', `**Run:** ${verdict.runUrl}`] : []),
+            ]);
+        case 'passed':
+            return renderSweep('✅', 'Passed', [
+                'Every tag-matched scenario passed against this PR\'s docs.',
+                '',
+                ...sweepScopeLines(verdict, opts.versionLabel),
+                ...recoveredLines(verdict.recovered ?? []),
+            ]);
+        case 'failed': {
+            const { icon, label } = failIcon(opts.blocking);
+            const lines = [
+                `${verdict.confirmed.length} scenario(s) confirmed failed against this PR's docs.`,
+                '',
+                ...sweepScopeLines(verdict, opts.versionLabel),
+                '',
+                '**Confirmed failures:**',
+                ...verdict.confirmed.map(v => `- \`${v.scenarioName}\` (${v.reasons.join(', ')})`),
+                ...recoveredLines(verdict.recovered),
+            ];
+            if (verdict.skipNote)
+                lines.push('', `> ⚠️ ${verdict.skipNote}`);
+            return renderSweep(icon, label, lines);
+        }
+    }
 }
 function failIcon(blocking) {
     return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
@@ -66747,6 +66828,7 @@ exports.MAX_REVIEW_TIMEOUT_SECONDS = exports.DEFAULT_REVIEW_TIMEOUT_SECONDS = ex
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
 exports.getMergeSweepConfig = getMergeSweepConfig;
+exports.getPrSweepConfig = getPrSweepConfig;
 exports.getEvalConfig = getEvalConfig;
 exports.getReviewConfig = getReviewConfig;
 const core = __importStar(__nccwpck_require__(7484));
@@ -66784,18 +66866,42 @@ function getScheduleConfig() {
         runName: core.getInput('run-name') || 'scheduled-run',
     };
 }
-function getMergeSweepConfig() {
+function getSweepConfigBase(prodMcpRequired) {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         agentId: core.getInput('evalforge-agent-id', { required: true }),
-        prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: true }),
+        prodMcpId: core.getInput('evalforge-prod-mcp-id', { required: prodMcpRequired }),
         appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
         appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
         changedFilesRaw: core.getInput('changed-files'),
+    };
+}
+function getMergeSweepConfig() {
+    return getSweepConfigBase(true);
+}
+/** The PR sweep runs on `pull_request`, so the PR's number and head come from the event payload. */
+function getPrSweepConfig() {
+    const pull = github.context.payload.pull_request;
+    const headSha = pull?.head?.sha;
+    if (!headSha)
+        throw new Error('PR payload missing head.sha');
+    return {
+        ...getSweepConfigBase(false),
+        pr: {
+            number: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+            headSha,
+            mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+            mcpSkillsRepo: core.getInput('mcp-skills-repo')
+                || process.env.GITHUB_REPOSITORY
+                || `${github.context.repo.owner}/${github.context.repo.repo}`,
+            blocking: core.getInput('blocking') === 'true',
+            required: core.getInput('required') === 'true',
+            remind: core.getInput('remind') === 'true',
+        },
     };
 }
 function getEvalConfig() {
@@ -67834,7 +67940,9 @@ exports.classifyChanges = classifyChanges;
 exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
 exports.makeCommenter = makeCommenter;
+exports.makeSweepCommenter = makeSweepCommenter;
 exports.makeReviewPendingCommenter = makeReviewPendingCommenter;
+exports.makeSweepPendingCommenter = makeSweepPendingCommenter;
 exports.makeReviewCommenter = makeReviewCommenter;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -67907,13 +68015,24 @@ function makeCommenter(octokit, owner, repo, prNumber) {
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
 }
-/** Edited rather than re-posted: a new comment on every push notifies everyone watching the PR. */
-function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
-    const post = (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: review_comment_1.REVIEW_PENDING_MARKER }, {
+/** The PR sweep's comment, upserted under its own marker so it sits beside the gate's rather than replacing it. */
+function makeSweepCommenter(octokit, owner, repo, prNumber) {
+    return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: comment_1.PR_SWEEP_MARKER }, {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
-    async function deleteMarked(markers) {
+}
+/**
+ * A reminder edited in place rather than re-posted — a new comment on every push notifies everyone
+ * watching the PR — plus the ability to delete it, and the command acknowledgement, once a verdict
+ * replaces them. `label` names the feature in the warning when a delete fails.
+ */
+function makePendingCommenter(octokit, owner, repo, prNumber, markers, label) {
+    const post = (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: markers.pending }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+    async function deleteMarked(toDelete) {
         try {
             const stale = [];
             for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
@@ -67921,7 +68040,7 @@ function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
             })) {
                 for (const comment of page.data) {
                     const body = comment.body ?? '';
-                    if (markers.some(marker => body.includes(marker)))
+                    if (toDelete.some(marker => body.includes(marker)))
                         stale.push(comment.id);
                 }
             }
@@ -67930,14 +68049,20 @@ function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
             }
         }
         catch (error) {
-            core.warning(`Could not clear the skill review reminder: ${String(error)}`);
+            core.warning(`Could not clear the ${label} reminder: ${String(error)}`);
         }
     }
     return {
         post,
-        clear: () => deleteMarked([review_comment_1.REVIEW_PENDING_MARKER, review_comment_1.REVIEW_ACK_MARKER]),
-        clearAck: () => deleteMarked([review_comment_1.REVIEW_ACK_MARKER]),
+        clear: () => deleteMarked([markers.pending, markers.ack]),
+        clearAck: () => deleteMarked([markers.ack]),
     };
+}
+function makeReviewPendingCommenter(octokit, owner, repo, prNumber) {
+    return makePendingCommenter(octokit, owner, repo, prNumber, { pending: review_comment_1.REVIEW_PENDING_MARKER, ack: review_comment_1.REVIEW_ACK_MARKER }, 'skill review');
+}
+function makeSweepPendingCommenter(octokit, owner, repo, prNumber) {
+    return makePendingCommenter(octokit, owner, repo, prNumber, { pending: comment_1.PR_SWEEP_PENDING_MARKER, ack: comment_1.PR_SWEEP_ACK_MARKER }, 'PR sweep');
 }
 function makeReviewCommenter(octokit, owner, repo, prNumber) {
     return async function post(body) {
@@ -68020,7 +68145,10 @@ exports.tagsOfDirectlyAffected = tagsOfDirectlyAffected;
 exports.resolveSweepSet = resolveSweepSet;
 exports.rowsToOutcomes = rowsToOutcomes;
 exports.buildEvalRunInput = buildEvalRunInput;
+exports.prVersionLabel = prVersionLabel;
 exports.runMergeTagSweep = runMergeTagSweep;
+exports.resolveSweepTags = resolveSweepTags;
+exports.sweep = sweep;
 const evalforge_core_1 = __nccwpck_require__(7495);
 const gate_1 = __nccwpck_require__(2302);
 const core = __importStar(__nccwpck_require__(7484));
@@ -68034,6 +68162,7 @@ const github_1 = __nccwpck_require__(6246);
 const workspace_1 = __nccwpck_require__(9620);
 const confirm_1 = __nccwpck_require__(1505);
 const merged_by_1 = __nccwpck_require__(5795);
+const sweep_report_1 = __nccwpck_require__(6296);
 /** Above this many tag-matched scenarios, the sweep samples rather than running everything —
  * a broad tag would otherwise mean dozens of scenarios re-running on every merge that touches it. */
 exports.MAX_SWEEP_SCENARIOS = 20;
@@ -68083,111 +68212,162 @@ function rowsToOutcomes(rows) {
 /**
  * Builds one sweep attempt's eval run. `capabilityIds` is what attaches the MCP — it is not
  * inherited from the agent, so omitting it evaluates a tool-less agent and fails every docs
- * assertion. No version is pinned: the sweep checks `main` against the production MCP.
+ * assertion. A merge sweep pins no version: it checks `main` against the production MCP. A PR
+ * sweep pins the PR's own MCP version, so the docs under evaluation are the PR's, not `main`'s.
  */
-function buildEvalRunInput(config, name, description, scenarioIds) {
-    return {
-        name,
-        description,
-        projectId: config.projectId,
-        agentId: config.agentId,
-        scenarioIds,
-        capabilityIds: [config.prodMcpId],
-    };
+function buildEvalRunInput(config, name, description, scenarioIds, pinned) {
+    const shared = { name, description, projectId: config.projectId, agentId: config.agentId, scenarioIds };
+    if (pinned) {
+        return {
+            ...shared,
+            capabilityIds: [pinned.capabilityId],
+            capabilityVersions: { [pinned.capabilityId]: pinned.versionId },
+        };
+    }
+    return { ...shared, capabilityIds: [config.prodMcpId] };
+}
+/** The PR's MCP version label, shared with the gate so a sweep reuses the version the gate built. */
+function prVersionLabel(pr) {
+    return `pr-${pr.number}-${pr.headSha.slice(0, 7)}`;
 }
 /**
- * Wraps the sweep so that anything thrown before the run's own error handling — bad config, a
- * malformed workspace, an octokit constructor failure — still reaches the `infra-error` output.
- * Without this the job would only go red, and a red check on a `main` commit is not a signal
- * anyone is watching for; the Slack message is the whole point of this mode.
+ * The merge sweep. Wraps `sweep` so that anything thrown before the run's own error handling — bad
+ * config, a malformed workspace, an octokit constructor failure — still reaches the `infra-error`
+ * output. Without this the job would only go red, and a red check on a `main` commit is not a
+ * signal anyone is watching for; the Slack message is the whole point of this mode.
  */
 async function runMergeTagSweep() {
+    let config;
     try {
-        await sweep();
+        config = (0, config_1.getMergeSweepConfig)();
     }
     catch (e) {
-        const message = `Merge-tag sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`;
+        const message = `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`;
         core.setOutput('infra-error', message);
         core.setFailed(message);
-    }
-}
-async function sweep() {
-    const config = (0, config_1.getMergeSweepConfig)();
-    const workspace = (0, workspace_1.workspaceRoot)();
-    const octokit = github.getOctokit(config.githubToken);
-    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    if (config.changedFilesRaw.trim() === '') {
-        core.info('Merge-tag sweep: no changed files reported for this push (e.g. first push on this ref) — nothing to run');
         return;
     }
-    const changedFiles = (0, github_1.parseChangedFiles)(config.changedFilesRaw);
-    const classified = (0, github_1.classifyChanges)(changedFiles);
+    const octokit = github.getOctokit(config.githubToken);
+    let verdict;
+    try {
+        verdict = await sweep(config);
+    }
+    catch (e) {
+        verdict = {
+            kind: 'infra-error',
+            message: `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`,
+        };
+    }
+    await (0, sweep_report_1.reportMergeVerdict)(verdict, core, () => mergedByForPush(octokit, config));
+}
+async function mergedByForPush(octokit, config) {
+    const fallback = {
+        name: github.context.payload.head_commit?.author?.name ?? 'unknown',
+        url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
+    };
+    try {
+        return await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
+    }
+    catch (e) {
+        core.warning(`Could not resolve merging PR author, using commit author instead: ${e instanceof Error ? e.message : String(e)}`);
+        return fallback;
+    }
+}
+/**
+ * One sweep: resolve the tags this change touches, run the tag-matched scenarios, confirm any
+ * failures. With `config.pr` set it pins the PR's MCP version; otherwise it takes the production MCP.
+ * Returns the verdict and reports nothing — the caller decides between Slack outputs and a PR comment.
+ */
+/**
+ * The tags a sweep would run, from the diff and the checked-out scenario YAML alone — no EvalForge
+ * call, so it is cheap enough to decide scope before anything is spent. Returns a reason instead
+ * when there is nothing to sweep. Scenario load problems are passed to `warn` when given.
+ */
+function resolveSweepTags(changedFilesRaw, workspace, what, warn) {
+    if (changedFilesRaw.trim() === '') {
+        return { reason: `no changed files reported for ${what} (e.g. first push on this ref)` };
+    }
+    const classified = (0, github_1.classifyChanges)((0, github_1.parseChangedFiles)(changedFilesRaw));
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
-    for (const e of loadErrors)
-        core.warning(`Scenario load issue (${e.path}): ${e.message}`);
+    if (warn)
+        for (const e of loadErrors)
+            warn(`Scenario load issue (${e.path}): ${e.message}`);
     const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     const changedEvalPaths = new Set([
         ...classified.evalsAdded.map(f => f.filename),
         ...classified.evalsModified.map(f => f.filename),
     ]);
     const tags = tagsOfDirectlyAffected(headScenarios, changedEvalPaths, cov.coveredBy);
-    if (tags.size === 0) {
-        core.info('Merge-tag sweep: no eval-relevant tags in this push — nothing to run');
-        return;
-    }
-    const sortedTags = [...tags].sort();
+    if (tags.size === 0)
+        return { reason: `no eval-relevant tags in ${what}` };
+    return { tags: [...tags].sort() };
+}
+async function sweep(config) {
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const evalforge = new evalforge_core_2.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const what = config.pr ? `PR #${config.pr.number}` : 'this push';
+    const resolved = resolveSweepTags(config.changedFilesRaw, workspace, what, core.warning);
+    if ('reason' in resolved)
+        return { kind: 'nothing-to-run', reason: resolved.reason };
+    const sortedTags = resolved.tags;
+    const tags = new Set(sortedTags);
     core.setOutput('matched-tags', sortedTags.join(', '));
-    const runName = `merge-sweep-${github.context.sha.slice(0, 7)}`;
-    const runOnce = async (name, scenarioIds) => {
-        const created = await evalforge.createAndRunEvalRun(config.projectId, buildEvalRunInput(config, name, `Merge-tag sweep for tags: ${sortedTags.join(', ')}`, scenarioIds));
-        await evalforge.triggerEvalRun(config.projectId, created.id);
-        const status = await (0, evalforge_core_2.pollUntilDone)(evalforge, config.projectId, created.id, { log: core.info, warn: core.warning });
-        return { id: created.id, status };
-    };
+    const runName = config.pr
+        ? `pr-sweep-${config.pr.number}-${config.pr.headSha.slice(0, 7)}`
+        : `merge-sweep-${github.context.sha.slice(0, 7)}`;
+    const description = `${config.pr ? `PR sweep for #${config.pr.number}` : 'Merge-tag sweep'} for tags: ${sortedTags.join(', ')}`;
     // Everything from here on talks to EvalForge — wrapped so an infra failure (unreachable,
-    // 5xx, auth) surfaces as a distinct Slack message rather than a bare failed job nobody sees,
+    // 5xx, auth) surfaces as a distinct report rather than a bare failed job nobody sees,
     // same "no silent failure" rule the PR-time gate applies via PR comments.
     let initial;
+    let scope;
+    let runOnce;
     try {
+        // The PR's own MCP version — the gate creates it and this reuses it, so the sweep evaluates
+        // the PR's docs. A merge sweep has no version to pin and takes the production MCP.
+        const pinned = config.pr
+            ? {
+                capabilityId: config.pr.mcpId,
+                versionId: (await evalforge.ensureMcpVersion(config.pr.mcpId, config.projectId, prVersionLabel(config.pr), config.pr.number, config.pr.headSha, config.pr.mcpSkillsRepo)).id,
+            }
+            : undefined;
+        runOnce = async (name, scenarioIds) => {
+            const created = await evalforge.createAndRunEvalRun(config.projectId, buildEvalRunInput(config, name, description, scenarioIds, pinned));
+            await evalforge.triggerEvalRun(config.projectId, created.id);
+            const status = await (0, evalforge_core_2.pollUntilDone)(evalforge, config.projectId, created.id, { log: core.info, warn: core.warning });
+            return { id: created.id, status };
+        };
         const { selected, excludedCount, totalMatched } = await resolveSweepSet(evalforge, config.projectId, tags);
+        scope = { sampled: selected.length, total: totalMatched };
         core.setOutput('sweep-matched-total', String(totalMatched));
         core.setOutput('sweep-sampled-count', String(selected.length));
         if (excludedCount > 0) {
-            core.warning(`Merge-tag sweep: sampled ${selected.length} of ${totalMatched} tag-matched scenarios (${excludedCount} excluded by the cap)`);
+            core.warning(`Sweep: sampled ${selected.length} of ${totalMatched} tag-matched scenarios (${excludedCount} excluded by the cap)`);
         }
         if (selected.length === 0) {
-            core.info('Merge-tag sweep: tag match resolved to zero scenarios — nothing to run');
-            return;
+            return { kind: 'nothing-to-run', reason: 'the tag match resolved to zero scenarios' };
         }
         initial = await runOnce(runName, selected.map(s => s.id));
     }
     catch (e) {
         const message = e instanceof evalforge_core_2.EvalRunTimeoutError
-            ? `Merge-tag sweep timed out: ${e.message}`
-            : `Merge-tag sweep could not run: ${e instanceof Error ? e.message : String(e)}`;
-        core.setOutput('infra-error', message);
-        core.setFailed(message);
-        return;
+            ? `Sweep timed out: ${e.message}`
+            : `Sweep could not run: ${e instanceof Error ? e.message : String(e)}`;
+        return { kind: 'infra-error', message };
     }
-    // Set before the completeness check: a run that was created and then failed or was cancelled
-    // is exactly the case where the reader most wants the link.
-    core.setOutput('run-url', (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id));
+    // The link is part of every verdict from here: a run that was created and then failed or was
+    // cancelled is exactly the case where the reader most wants it.
+    const runUrl = (0, evalforge_core_2.evalRunUrl)(config.projectId, initial.id);
     if (initial.status.status !== 'completed' || initial.status.aggregateMetrics.totalAssertions === 0) {
         const reason = initial.status.status !== 'completed'
             ? `the eval run ${initial.status.status === 'cancelled' ? 'was cancelled' : `ended as "${initial.status.status}"`}`
             : 'the run produced no assertions, so nothing was verified';
-        const message = `Merge-tag sweep run did not complete reliably: ${reason}`;
-        core.setOutput('infra-error', message);
-        core.setFailed(message);
-        return;
+        return { kind: 'infra-error', message: `Sweep run did not complete reliably: ${reason}`, runUrl };
     }
     const initialOutcomes = rowsToOutcomes(initial.status.results);
     const initialFailures = initialOutcomes.filter(o => o.failed);
     if (initialFailures.length === 0) {
-        core.info('Merge-tag sweep: all sampled scenarios passed');
-        core.setOutput('confirmed-failed-count', '0');
-        core.setOutput('recovered-count', '0');
-        return;
+        return { kind: 'passed', tags: sortedTags, ...scope, runUrl };
     }
     let confirmResult;
     try {
@@ -68197,7 +68377,7 @@ async function sweep() {
         });
     }
     catch (e) {
-        core.error(`Merge-tag sweep retry failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.error(`Sweep retry failed: ${e instanceof Error ? e.message : String(e)}`);
         confirmResult = {
             verdicts: initialFailures.map(o => ({
                 scenarioId: o.scenarioId, scenarioName: o.scenarioName,
@@ -68207,8 +68387,6 @@ async function sweep() {
             skipReason: 'rerun-error',
         };
     }
-    const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
-    const recovered = confirmResult.verdicts.filter(v => !v.confirmed);
     // When retries were skipped, every verdict stands on a single attempt. Saying "confirmed"
     // without saying that would promise a majority-of-three vote the run never took.
     const skipNote = confirmResult.skipReason === 'broad-failure'
@@ -68216,29 +68394,13 @@ async function sweep() {
         : confirmResult.skipReason === 'rerun-error'
             ? 'no retries run — the retry itself failed, so the first attempt stands'
             : '';
-    core.setOutput('confirm-skip-reason', skipNote);
-    core.setOutput('confirmed-failed-count', String(confirmed.length));
-    core.setOutput('recovered-count', String(recovered.length));
-    core.setOutput('confirmed-failed-scenarios', confirmed.map(v => `${v.scenarioName} (${v.reasons.join(', ')})`).join('\n'));
-    if (skipNote)
-        core.warning(`Merge-tag sweep: ${skipNote}`);
-    if (confirmed.length > 0) {
-        const fallback = {
-            name: github.context.payload.head_commit?.author?.name ?? 'unknown',
-            url: `https://github.com/${config.owner}/${config.repo}/commit/${github.context.sha}`,
-        };
-        let mergedBy;
-        try {
-            mergedBy = await (0, merged_by_1.resolveMergedBy)(octokit, config.owner, config.repo, github.context.sha, fallback);
-        }
-        catch (e) {
-            core.warning(`Could not resolve merging PR author, using commit author instead: ${e instanceof Error ? e.message : String(e)}`);
-            mergedBy = fallback;
-        }
-        core.setOutput('merged-by-name', mergedBy.name);
-        core.setOutput('merged-by-url', mergedBy.url);
-        core.setFailed(`${confirmed.length} scenario(s) confirmed failed in merge-tag sweep (${confirmed.map(v => v.scenarioName).join(', ')})`);
+    const confirmed = confirmResult.verdicts.filter(v => v.confirmed);
+    const recovered = confirmResult.verdicts.filter(v => !v.confirmed);
+    if (confirmed.length === 0) {
+        // Every initial failure recovered on retry: the skip note cannot apply, since retries ran.
+        return { kind: 'passed', tags: sortedTags, ...scope, runUrl, recovered };
     }
+    return { kind: 'failed', tags: sortedTags, ...scope, runUrl, confirmed, recovered, skipNote };
 }
 
 
@@ -68293,6 +68455,123 @@ exports.EVALS_GLOB = 'yaml/wix-manage-evals/*/**/*.{yml,yaml}';
 exports.DOC_YAML_GLOB = 'yaml/wix-manage/*/documentation.yaml';
 // Subdirectory used by the trusted-action-source two-checkout workflow pattern.
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
+
+
+/***/ }),
+
+/***/ 8230:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.shouldSweep = shouldSweep;
+exports.runPrSweep = runPrSweep;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const config_1 = __nccwpck_require__(7799);
+const github_1 = __nccwpck_require__(6246);
+const comment_1 = __nccwpck_require__(3116);
+const merge_tag_sweep_1 = __nccwpck_require__(3821);
+const sweep_report_1 = __nccwpck_require__(6296);
+const workspace_1 = __nccwpck_require__(9620);
+/**
+ * A push must not spend, but it still has to produce a run: a required check has to be reported on
+ * every head commit, and `/sweep` re-runs the head's own run. A re-run replays the original payload,
+ * so the event cannot tell "someone asked" from "a commit was pushed" — the attempt number can.
+ */
+function shouldSweep(env) {
+    return Number(env.GITHUB_RUN_ATTEMPT ?? '1') > 1;
+}
+/**
+ * The on-demand sweep of an open PR, modelled on the skill review. On the first attempt it spends
+ * nothing: a PR the sweep does not cover passes silently; one it does cover is red only if
+ * `required`, and gets a reminder comment only if `remind`. On a re-run it sweeps the tag-matched
+ * scenarios against the PR's own MCP version and reports in a PR comment; that verdict is red only
+ * if `blocking`.
+ *
+ * Anything that throws — a missing repo variable, a malformed payload — is red only when `required`
+ * or `blocking` is on. With both off the check cannot block a merge, whatever goes wrong.
+ */
+async function runPrSweep() {
+    // Read before anything that can throw, so a failure can be judged against them.
+    const required = core.getInput('required') === 'true';
+    const blocking = core.getInput('blocking') === 'true';
+    try {
+        await prSweep();
+    }
+    catch (e) {
+        (0, github_1.fail)(`PR sweep could not run: ${e instanceof Error ? e.message : String(e)}`, required || blocking);
+    }
+}
+async function prSweep() {
+    const config = (0, config_1.getPrSweepConfig)();
+    const { pr } = config;
+    const octokit = github.getOctokit(config.githubToken);
+    const pending = (0, github_1.makeSweepPendingCommenter)(octokit, config.owner, config.repo, pr.number);
+    if (!shouldSweep(process.env)) {
+        // The workflow runs on every PR in the repo; one the sweep does not cover must look as if the
+        // workflow did not exist. The clear removes a reminder an earlier commit of this PR earned.
+        const scope = (0, merge_tag_sweep_1.resolveSweepTags)(config.changedFilesRaw, (0, workspace_1.workspaceRoot)(), `PR #${pr.number}`);
+        if ('reason' in scope) {
+            core.info(`PR sweep: ${scope.reason} — nothing to sweep`);
+            await pending.clear();
+            return;
+        }
+        core.info(`PR sweep: tags ${scope.tags.join(', ')} are unswept. Comment \`/sweep\` to sweep this commit.`);
+        if (pr.remind)
+            await pending.post((0, comment_1.formatPrSweepPending)(pr.headSha));
+        (0, github_1.fail)(`Commit ${pr.headSha.slice(0, 7)} has not been swept. Comment \`/sweep\` on the PR to sweep it.`, pr.required);
+        return;
+    }
+    let verdict;
+    try {
+        verdict = await (0, merge_tag_sweep_1.sweep)(config);
+    }
+    catch (e) {
+        verdict = {
+            kind: 'infra-error',
+            message: `Sweep failed before it could report a verdict: ${e instanceof Error ? e.message : String(e)}`,
+        };
+    }
+    const comment = (0, github_1.makeSweepCommenter)(octokit, config.owner, config.repo, pr.number);
+    await (0, sweep_report_1.reportPrVerdict)(verdict, core, comment, { blocking: pr.blocking, versionLabel: (0, merge_tag_sweep_1.prVersionLabel)(pr) });
+    // The verdict comment replaces the reminder and the `/sweep` acknowledgement.
+    await pending.clear();
+}
 
 
 /***/ }),
@@ -69169,6 +69448,101 @@ async function runSchedule() {
     core.setOutput('summary', `${pct}% pass rate — ${passed}/${totalAssertions} assertions passed, ${failed} failed`);
     if (result.status === 'failed' || failed > 0) {
         core.setFailed(`${failed} assertion(s) failed (${pct}% pass rate)`);
+    }
+}
+
+
+/***/ }),
+
+/***/ 6296:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.reportMergeVerdict = reportMergeVerdict;
+exports.reportPrVerdict = reportPrVerdict;
+const comment_1 = __nccwpck_require__(3116);
+function writeCounts(verdict, io) {
+    if (verdict.kind === 'passed') {
+        io.info('Sweep: all sampled scenarios passed');
+        io.setOutput('confirmed-failed-count', '0');
+        io.setOutput('recovered-count', String(verdict.recovered?.length ?? 0));
+        return;
+    }
+    io.setOutput('confirm-skip-reason', verdict.skipNote);
+    io.setOutput('confirmed-failed-count', String(verdict.confirmed.length));
+    io.setOutput('recovered-count', String(verdict.recovered.length));
+    io.setOutput('confirmed-failed-scenarios', verdict.confirmed.map(v => `${v.scenarioName} (${v.reasons.join(', ')})`).join('\n'));
+    if (verdict.skipNote)
+        io.warning(`Sweep: ${verdict.skipNote}`);
+}
+function confirmedFailureMessage(verdict, where) {
+    return `${verdict.confirmed.length} scenario(s) confirmed failed in ${where} (${verdict.confirmed.map(v => v.scenarioName).join(', ')})`;
+}
+/**
+ * The merge sweep's report: step outputs for the workflow's Slack steps, and a red job on any
+ * confirmed failure or infra error. The merging author is resolved only when there is a failure
+ * to attribute — it is a GitHub API call the passing case has no use for.
+ */
+async function reportMergeVerdict(verdict, io, resolveMergedBy) {
+    switch (verdict.kind) {
+        case 'nothing-to-run':
+            io.info(`Merge-tag sweep: ${verdict.reason} — nothing to run`);
+            return;
+        case 'infra-error':
+            if (verdict.runUrl)
+                io.setOutput('run-url', verdict.runUrl);
+            io.setOutput('infra-error', verdict.message);
+            io.setFailed(verdict.message);
+            return;
+        case 'passed':
+            io.setOutput('run-url', verdict.runUrl);
+            writeCounts(verdict, io);
+            return;
+        case 'failed': {
+            io.setOutput('run-url', verdict.runUrl);
+            writeCounts(verdict, io);
+            const mergedBy = await resolveMergedBy();
+            io.setOutput('merged-by-name', mergedBy.name);
+            io.setOutput('merged-by-url', mergedBy.url);
+            io.setFailed(confirmedFailureMessage(verdict, 'merge-tag sweep'));
+        }
+    }
+}
+/**
+ * The PR sweep's report: one upserted PR comment, and the job goes red only once the sweep is
+ * blocking. The count outputs are still written so a workflow can key steps off them, as the
+ * merge sweep's does.
+ */
+async function reportPrVerdict(verdict, io, comment, opts) {
+    await comment((0, comment_1.formatPrSweep)(verdict, opts));
+    switch (verdict.kind) {
+        case 'nothing-to-run':
+            io.info(`PR sweep: ${verdict.reason} — nothing to run`);
+            return;
+        case 'infra-error':
+            if (verdict.runUrl)
+                io.setOutput('run-url', verdict.runUrl);
+            io.setOutput('infra-error', verdict.message);
+            if (opts.blocking)
+                io.setFailed(verdict.message);
+            else
+                io.warning(verdict.message);
+            return;
+        case 'passed':
+            io.setOutput('run-url', verdict.runUrl);
+            writeCounts(verdict, io);
+            return;
+        case 'failed': {
+            io.setOutput('run-url', verdict.runUrl);
+            writeCounts(verdict, io);
+            const message = confirmedFailureMessage(verdict, 'PR sweep');
+            if (opts.blocking)
+                io.setFailed(message);
+            else
+                io.warning(message);
+        }
     }
 }
 

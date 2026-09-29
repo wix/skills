@@ -25,7 +25,7 @@
     "@wix/editor": "^1.508.0",
     "@wix/editor-react-types": "^1.0.21",
     "@wix/essentials": "^1.0.6",
-    "@wix/patterns": "^1.364.0",
+    "@wix/patterns": "^1.469.0",
     "@wix/payments": "*",
     "@wix/react-component-schema": "^1.6.0",
     "@wix/react-component-utils": "^1.9.0",
@@ -35,6 +35,7 @@
     "@wix/stores": "^1.0.779",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "react-router-dom": "^6.30.0",
     "typescript": "^5.8.3"
   }
 }
