@@ -10,27 +10,28 @@ the schema nothing to read, so [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COL
 right. A CMS collection wired by hand compiles, runs, and silently loses schema-driven columns,
 field management and the generated form.
 
-**Stop if the prompt names an exact column subset.** This path renders *every* schema field:
-`columns` adds extras and can replace a field's column by reusing its id, but removes no field; no
-`Field` has a hidden flag; and only the end user's `customColumns` picker drops one. A narrower stated column list is the one case a CMS collection is hand-wired —
-[DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path).
+**The prompt's fields are the collection's fields.** Every schema field is a column, so a prompt
+listing what a row holds is the field list for the collection you create — not a subset to pick
+([DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#then-which-data-path)).
 
 You write a `SchemaSource` and no field columns; `<EntityPageFieldsCard />` renders the whole form.
 The cost is one dependency — `@wix/patterns-cms`, plus `@wix/patterns` at the **exact** version it
 pins.
 
-## The docs index answers these names with the wrong version
+## Take the `@wix/patterns/schema` entry of each name
 
-`Table`, `useTableCollection`, `EntityPage` and `useEntityPage` are in
-`dist/dts-bundle/index.json` as `importPath: @wix/patterns` — the **root, hand-wired** versions. The
-lookup succeeds and returns the signature that cannot read a schema, which is worse than a miss:
-nothing says you're on the wrong path. `SchemaSource` is indexed under `/core`; `useSchemaSource` and
-`EntityPageFieldsCard` are absent, and `useCmsSchemaSource` is in another package.
+`Table`, `useTableCollection`, `EntityPage` and `useEntityPage` exist twice, and the key's own
+`importPath` is `@wix/patterns` — the **root, hand-wired** version, whose signature cannot read a
+schema. Taking it is worse than a miss: nothing says you're on the wrong path.
 
-Resolve every name here from **`dist/types/exports/schema.d.ts`**; the root
-`dist/types/index.d.ts` does not re-export them
-([WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong)). Cairo is adding a
-`variants` field listing both entry points per key; once it ships, pick by `importPath` instead.
+`dist/dts-bundle/index.txt` lists each of the four on two lines; use the one whose `importPath` is
+`@wix/patterns/schema`. In `index.json` that entry is the key's `variants` item, with its own
+`file`; in `dist/docs/index.json`, `useSchemaSource` carries `EntityPageFieldsCard` among its
+`symbols`. `useCmsSchemaSource` is in another package.
+
+**No `@wix/patterns/schema` line** means an older build than the variants: resolve these names
+from **`dist/types/exports/schema.d.ts`** instead — the root `dist/types/index.d.ts` does not
+re-export them ([WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong)).
 
 ## 1. The schema source
 

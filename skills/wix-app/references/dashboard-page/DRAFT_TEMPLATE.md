@@ -29,19 +29,12 @@ A CMS collection built the hand-wired way compiles and runs while silently losin
 columns, field management and the generated entity form. Decide this before writing the page, not
 after — converting means rewriting both the collection page and the entity page.
 
-**The one carve-out: a prompt that names an exact column subset.** The schema path renders *every*
-field the schema has. `SchemaTableProps.columns` adds extras, and reusing a field's id replaces that
-field's column — but neither removes a field; a `Field` carries no hidden/visible flag; and the
-initial selection is set internally to all columns (`ToolbarCollectionState`). The only way to drop
-one is `customColumns={<CustomColumns />}`, a picker the **end user** operates. So "the table shows
-name, tier and date — email and notes are not columns" is a requirement this path cannot express:
-you would ship all five and leave two for the reader to hide.
-
-When the prompt names the columns and the list is narrower than the collection, hand-wire the CMS
-collection and say why in a comment — `fetchData` calls `@wix/data` `items.query()`
-([WIX_DATA.md](../data-collection/WIX_DATA.md)), and free-text search becomes yours to build, so
-read [DRAFT_TEMPLATE_COLLECTION.md § Turning `query.search` into a query](DRAFT_TEMPLATE_COLLECTION.md#turning-querysearch-into-a-query)
-before writing the filter. Anything short of a stated column subset stays schema-driven.
+**On a CMS collection, the prompt's fields are the collection's fields.** The schema path shows
+every field as a column, so a prompt listing what each row holds is telling you what to create in
+the collection your Data Collection extension ships — exactly those fields, and no hand-written
+column for any of them. An existing site collection stays on this path too: all its fields show,
+and the user hides what they don't need in the table's column picker. A stated column list decides
+the columns only on the hand-wired path, where the rows come from an SDK or your own API.
 
 **Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). The collection and settings files are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
 
