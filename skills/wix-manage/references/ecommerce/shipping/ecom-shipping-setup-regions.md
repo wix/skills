@@ -18,7 +18,9 @@ Shipping Options has no public API reference page, so a docs search will not fin
 
 To add a country as a region and offer the store's existing shipping options there:
 
-1. Query delivery profiles and take the target profile's `id` and current `revision`.
+1. Query delivery profiles with `POST https://www.wixapis.com/ecom/v1/delivery-profiles/query` and body `{}`.
+   From `deliveryProfiles`, take the target profile's `id` and current `revision`; the site's default
+   profile has `default: true`.
 2. Add the region with Add Delivery Region:
    `POST https://www.wixapis.com/ecom/v1/delivery-profiles/{deliveryProfileId}/delivery-region`. The
    response is the updated profile, which carries the new region's `id`. `DESTINATIONS_COLLISION`
