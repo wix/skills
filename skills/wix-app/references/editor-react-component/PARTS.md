@@ -45,6 +45,12 @@ Apply this filter to every candidate:
   share the same semantic editor surface. Distinguish position with data or a
   module-only helper class, not separate part names.
 
+The manifest generator can silently omit a named part behind conditional JSX.
+Keep an editor-controlled part mounted in the render it inspects. Hide it with
+CSS driven by a data attribute, or disable it when it should remain visible.
+After generating the manifest, confirm that its `elements` include every
+intended named part.
+
 ## Sanity Check
 
 For each candidate, ask:
