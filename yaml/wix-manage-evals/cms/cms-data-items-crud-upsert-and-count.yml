@@ -94,11 +94,13 @@ assertions:
       `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a full-item
       replace that dropped fields and had to be repaired; an invented endpoint; a final count that
       is not backed by a count call or a filtered query made after the writes.
-      Subtract 1 for each of these inefficiencies, up to 3 points in total: a second read of the
+      Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3 points
+      however many there are: a second read of the
       collection schema; a docs or search call beyond the first skill read; listing the whole
       collection to find the SKUs instead of one filtered query; an extra verification query beyond
       one.
       Reading the skill once, reading the schema once, one lookup query, the write calls, and one
       count or filtered query are the expected path and cost nothing.
-      LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
+      LIST every deduction and apply the cap. A correct outcome reached with only inefficiencies
+      scores 7 or higher, never less.
       Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.

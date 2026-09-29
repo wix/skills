@@ -320,6 +320,27 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 }
 ```
 
+**Setting a `MULTI_REFERENCE` field** (verified live): the value is an **array of item IDs**, and `SET_FIELD` **replaces the whole link set**. To add links without dropping the existing ones, use [Insert Multi-Reference Links](#insert-multi-reference-links) instead. A plain string, or `APPEND_TO_ARRAY`, fails per item with `WDE0303` inside a 200 bulk response — check `results[].itemMetadata`.
+```json
+{
+  "dataCollectionId": "Projects",
+  "patches": [
+    {
+      "dataItemId": "project-item-id",
+      "fieldModifications": [
+        {
+          "fieldPath": "team",
+          "action": "SET_FIELD",
+          "setFieldOptions": {
+            "value": ["alice-item-id", "bob-item-id"]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
 **Available actions**: `SET_FIELD`, `REMOVE_FIELD`, `INCREMENT_FIELD`, `APPEND_TO_ARRAY`, `REMOVE_FROM_ARRAY`
 
 > **Common error**: If you get `WDE0080: patches must not be empty`, you sent `dataItems` instead of `patches`. Use the format above.
@@ -485,7 +506,7 @@ Linking flow, every time:
 
 1. Resolve the referring item ID and the referenced item IDs (query by a field value; never guess IDs).
 2. Write the links with the reference endpoints below, or with a `SET_FIELD` patch on the reference field.
-3. **Read the referring item back** with Query Data Items and `includeReferencedItems: ["<field>"]`, and confirm the linked items are present. The write's 200 is not proof; only the read-back is.
+3. **Read the referring item back** with Query Data Items and `includeReferencedItems: ["<field>"]` (or `includeReferences: [{ "field": "<field>" }]`), and confirm the linked items are present. The write's 200 is not proof; only the read-back is.
 
 ### Insert Multi-Reference Links
 
@@ -557,6 +578,8 @@ Linking flow, every time:
   "includeReferencedItems": ["category", "tags"]
 }
 ```
+
+The method article documents the same expansion as `"includeReferences": [{ "field": "category" }, { "field": "tags", "limit": 50 }]`; both forms work (verified live). Either way the expanded value is an **array of item objects** (with `_id`, `name`, …), not an array of IDs. Without one of these properties, the reference field is absent from the returned item.
 
 ### Reference Query Operators
 
@@ -674,6 +697,7 @@ confirmation before performing the install.
 | `PERMISSION_DENIED` | Insufficient access | Check API permissions |
 | `WDE0007` | Bulk update: wrong ID field name | Use `id` not `_id` at element level |
 | `WDE0080` | Validation failed (multiple causes) | Bulk update: don't include `_id` in `data`; Bulk patch: use `patches` array not `dataItems` |
+| `WDE0303` | Multi-reference field value is not an array of item IDs (a single ID string, or `APPEND_TO_ARRAY`); reported per item inside a 200 bulk response | Send `"value": ["id1", "id2"]` with `SET_FIELD`, or use the reference endpoints |
 | `WDE0110` | Wix CMS (Wix Data) application is not installed | Install application with appDefId: `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 
 ---
