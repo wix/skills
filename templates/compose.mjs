@@ -19,11 +19,11 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { listVerticals } from "../skills/wix-headless-fast/install/templates.mjs";
-import { syncLockRoot } from "../skills/wix-headless-fast/install/lock.mjs";
+import { listVerticals } from "../skills/wix-headless-kit/install/templates.mjs";
+import { syncLockRoot } from "../skills/wix-headless-kit/install/lock.mjs";
 
 const TEMPLATES = dirname(fileURLToPath(import.meta.url));
-const DEPLOY = resolve(TEMPLATES, "..", "skills", "wix-headless-fast", "install", "deploy.mjs");
+const DEPLOY = resolve(TEMPLATES, "..", "skills", "wix-headless-kit", "install", "deploy.mjs");
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(`--${n}`); return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : null; };
 const relock = argv.includes("--relock");
