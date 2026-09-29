@@ -12,7 +12,7 @@
 //   a frontend, no wix.config.json (a package.json, or an index.html at the root) → ADOPT: `init` in
 //     place gives the project a new, empty site, then deploy. `--stack` required.
 //   CREATE and ADOPT are the two cases that seed: the run made the site, it is empty by construction,
-//     and the plan's content goes in (only with --plan: a brief that names no content gets no seed).
+//     and the plan's content goes in (with --plan; without one the agent drafts a plan and seeds it, SKILL.md step 2).
 //   a config and no frontend, .env.local declaring a MIGRATION PREVIEW → MIGRATE: the composed template
 //     is copied in around the config, the code deploys with the parent's app as its client, the install
 //     starts. Nothing seeded: the parent owns its content.
@@ -319,7 +319,7 @@ emit("ready_for_brand_layer", {
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
       : madeTheSite
-      ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded: when the brief supplies or describes content, seed it now (a plan per step 2, the vertical's seed module); otherwise leave it empty and say so at the close, with where the owner adds content in the dashboard; theme + write the home page; ")
+      ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
       : `nothing was seeded (setup seeds only a site it created): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
     (others.length && mode !== "migrate"
       ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `

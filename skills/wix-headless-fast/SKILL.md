@@ -151,17 +151,17 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      the OAuth app's allowed domains before checkout can return to it.
    - **Static** (no build): `outputDirectory` points at the folder the pages live in; a route is a
      page plus a query-string slug (reference mode).
-2. **The seed plan.** The brief decides whether anything is seeded, never the shape of the folder:
+2. **The seed plan.** The brief decides what is seeded; a site this run makes always opens with content:
 
    | the brief | the plan |
    |---|---|
    | supplies the content in any form: a CSV, JSON or spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a link to their current catalog, anything that names the content | that IS the plan: map it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md` ("Supplied content"), every entry, names and prices verbatim, their images and no others |
    | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4) |
-   | says nothing about content ("build me a store") | no plan and no seed: the site stays empty, and the closing message says so and where the owner adds content in the dashboard. Never invent demo content the brief did not ask for |
+   | says nothing about content ("build me a store") | on a site this run makes (create, adopt) draft a plan per the vertical's `SEED.md` so the site opens with content, and say in the closing message that it is placeholder content and where to replace it; on a site that existed before the run (attach, iterate, published-static, migrate) no plan and no seed: the site holds what the owner put there |
 
-   **An existing site has no plan of its own**: when the brief names a site by its id, the site
-   holds the content already; the frontend reads what is there (step 3's attach path), and only
-   content the brief supplies is added to it.
+   **An existing site has no plan of its own**: when the brief names a site by its id, or the
+   folder's config does, the site holds the content already; the frontend reads what is there
+   (step 3's attach path), and only content the brief supplies or describes is added to it.
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
    and for a project already on disk; **the folder decides** what it does, from five file facts:
    `wix.config.json`, its `site.outputDirectory`, the migration variables in `.env.local`,
