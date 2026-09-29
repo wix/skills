@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Spelled once in install/context.mjs; keep the two in step.
-export const ENV = { clientId: "WIX_CLIENT_ID", parentSiteId: "WIX_MIGRATION_PARENT_SITE_ID", migration: "WIX_MIGRATION" };
+export const ENV = { clientId: "WIX_CLIENT_ID", parentSiteId: "EDITOR_MIGRATION_PARENT_SITE_ID", status: "EDITOR_MIGRATION_STATUS" };
 
 function readEnvFile(file) {
   if (!existsSync(file)) return null;
@@ -27,7 +27,6 @@ function readEnvFile(file) {
   return out;
 }
 
-const truthy = (v) => typeof v === "string" && /^(1|true|yes|on)$/i.test(v.trim());
 
 const runPull = (dir) => spawnSync("npx", ["-y", "@wix/cli@latest", "env", "pull"], { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
@@ -47,7 +46,8 @@ export function siteContext({ cwd = process.cwd() } = {}) {
   if (deploySiteId && !existsSync(envFile)) pullEnv(cwd);
   const env = readEnvFile(envFile) ?? {};
   const parentSiteId = env[ENV.parentSiteId] || null;
-  const active = !!parentSiteId && (truthy(env[ENV.migration]) || env[ENV.migration] === undefined);
+  const status = env[ENV.status];
+  const active = !!parentSiteId && (status === undefined || status.trim().toUpperCase() === "ACTIVE");
   return { deploySiteId, contentSiteId: active ? parentSiteId : deploySiteId, migration: { active, parentSiteId: active ? parentSiteId : null } };
 }
 

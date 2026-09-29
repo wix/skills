@@ -20,12 +20,16 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// The variables `wix env pull` writes for a migration preview. The names are the platform's and are
-// spelled once, here.
+// The variables the editor-to-headless migration writes into the child project's `prod`
+// environment (headless-bo, editorMigrations/environmentMetadata.ts), which `wix env pull` copies
+// into `.env.local` unchanged. The names are the platform's and are spelled once, here.
 export const ENV = {
   clientId: "WIX_CLIENT_ID",
-  parentSiteId: "WIX_MIGRATION_PARENT_SITE_ID",
-  migration: "WIX_MIGRATION",
+  parentSiteId: "EDITOR_MIGRATION_PARENT_SITE_ID",
+  /** ACTIVE while the migration is under way; COMPLETED once the parent serves the child's frontend. */
+  status: "EDITOR_MIGRATION_STATUS",
+  childSiteId: "EDITOR_MIGRATION_CHILD_SITE_ID",
+  childAppId: "EDITOR_MIGRATION_CHILD_APP_ID",
 };
 
 /** KEY=value lines of a dotenv file, quotes stripped; null when the file is absent. */
@@ -52,8 +56,6 @@ export function readWixConfig(cwd) {
   if (!existsSync(file)) return null;
   try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
 }
-
-const truthy = (v) => typeof v === "string" && /^(1|true|yes|on)$/i.test(v.trim());
 
 const ENV_PULL = ["-y", "@wix/cli@latest", "env", "pull"];
 const runPull = (dir) => spawnSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
@@ -96,7 +98,9 @@ export function frontendPresent(cwd = process.cwd()) {
  *   empty             nothing that reads as a project → setup CREATE: the run makes the site, seeds the plan
  *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new, empty site, seeds the plan
  *   config-only       a config, no frontend → attach.mjs on the config's site; nothing seeded
- *   migration         config-only whose .env.local declares a migration preview → setup MIGRATE; nothing seeded
+ *   migration         a config whose .env.local declares an ACTIVE editor migration, with or without the blank
+ *                     Astro starter the download carries → setup MIGRATE; nothing seeded. Decided before the
+ *                     frontend test: the starter's package.json must not read as a project to iterate on
  *   wix-project       a config AND a frontend (package.json, or index.html in the output folder) → iterate:
  *                     never scaffold, init or reseed; deploy.mjs adds a solution, edits, release
  *   published-static  a config, index.html at the ROOT, no package.json, no laid-out output folder (a site
@@ -110,15 +114,16 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
     empty: "setup.mjs --vertical <v> --business-name <brand> [--plan]: creates the site here and seeds the plan (CREATE)",
     project: "setup.mjs --vertical <v> --stack <stack> [--plan]: init links the folder to a new, empty site, seeds the plan and deploys (ADOPT)",
     "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded; the vertical's seed module with a plan only when the brief supplies or describes content",
-    migration: "setup.mjs (MIGRATE): the composed template around the config; the site being migrated owns its content — guides/migration.md",
+    migration: "setup.mjs (MIGRATE): the shipped code into the starter the download carries (or the composed template around a bare config); the site being migrated owns its content — guides/migration.md",
     "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then ONE npm install; file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
     "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
   };
   let shape;
   if (!config) shape = f.packageJson || f.rootIndex ? "project" : "empty";
+  else if (migrationActive) shape = "migration";
   else if (f.packageJson || f.outputIndex) shape = "wix-project";
   else if (f.rootIndex) shape = "published-static";
-  else shape = migrationActive ? "migration" : "config-only";
+  else shape = "config-only";
   return { shape, next: next[shape], facts: { config, ...f } };
 }
 
@@ -139,12 +144,15 @@ export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
   }
   const env = readEnvFile(envFile) ?? {};
   const parentSiteId = env[ENV.parentSiteId] || null;
-  const active = !!parentSiteId && (truthy(env[ENV.migration]) || env[ENV.migration] === undefined);
-  const migration = { active, parentSiteId: active ? parentSiteId : null };
+  const status = env[ENV.status];
+  // ACTIVE (or a parent id with no status yet) is a migration under way; COMPLETED means the parent
+  // already serves this frontend and the project is an ordinary one again.
+  const active = !!parentSiteId && (status === undefined || status.trim().toUpperCase() === "ACTIVE");
+  const migration = { active, parentSiteId: active ? parentSiteId : null, ...(status ? { status: status.trim().toUpperCase() } : {}) };
   const clientId = env[ENV.clientId] || deploy.appId;
   const content = { siteId: active ? parentSiteId : deploy.siteId, clientId };
   const warnings = [];
-  if (env[ENV.clientId] && deploy.appId && env[ENV.clientId] !== deploy.appId && !active) {
+  if (env[ENV.clientId] && deploy.appId && env[ENV.clientId] !== deploy.appId && !active && migration.status !== "COMPLETED") {
     warnings.push(`.env.local ${ENV.clientId} differs from wix.config.json appId and no migration is declared — the SDK client runs as the env's app, the release goes to the config's site`);
   }
   if (active && migration.parentSiteId === deploy.siteId) {
