@@ -1,0 +1,74 @@
+name: ecommerce/shipping/add-delivery-region
+description: >-
+  Verifies the Shipping API Reference states the shipping-options query page cap correctly. Making
+  every existing shipping option available in a new region requires listing the store's shipping
+  options, so the agent reaches `POST /ecom/v1/shipping-options/query`; with the cap stated it lists
+  them with a valid page size and finishes in one pass, rather than requesting 1,000 per page and
+  discovering by a 400 that `cursorPaging.limit` tops out at 100.
+triggerPrompt: Add Canada as a delivery region and make all of my existing shipping options available there.
+tags: [ecommerce]
+maxTokens: 600000
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions
+  - type: llm_judge          # correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Add Canada as a delivery region and make all of my existing
+      shipping options available there."
+      Intent: extend the store's existing shipping coverage to Canada, with every existing shipping
+      option offered there.
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if the agent located the site's existing shipping configuration (shipping options
+      and/or delivery profiles) with successful (2xx) read calls, then made a successful (2xx)
+      Delivery Profiles add-delivery-region (or update-delivery-region) call whose destinations
+      explicitly include Canada (`CA`); then listed the store's shipping options and attached every
+      one of them to that region with successful (2xx) calls; and confirmed the result to the user.
+      The site ships with existing shipping options, so at least one successful attach call is
+      required: a run that lists no shipping options, or attaches none, fails.
+
+      Fail if the agent described dashboard steps instead of doing it; OR reported success with no
+      successful call that puts `CA` in a delivery region's destinations; OR left any existing
+      shipping option unattached to the Canada region without saying why; OR concluded no change was
+      needed because an existing international or rest-of-world region already covers Canada; OR
+      created a whole new shipping profile when the site already had one to extend; OR did not call
+      any Wix REST API.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the path
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent got from the request to Canada being a delivery region.
+      Examine the tool-call trace, including request bodies and any error bodies. 10 = no wasted
+      calls and no errors.
+
+      Reading the shipping dispatcher, the recipe it routes to, and the Shipping API Reference is
+      expected and is never a wasted call.
+
+      Penalize and LIST any of the following, even where a later call succeeded:
+
+      - any non-2xx response, in particular a `400` from `POST /ecom/v1/shipping-options/query` or
+        another shipping query caused by a `cursorPaging.limit` above 100 — the Shipping API
+        Reference states the cap, so a larger page size is an avoidable wrong turn, not bad luck;
+      - a shipping API call made before any shipping recipe was read;
+      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent working out a shape
+        or a paging limit the recipes already give;
+      - a new shipping profile or option created when an existing one could have been extended.
+
+      A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is
+      an MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.
+
+      For each issue found, name the likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

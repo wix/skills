@@ -91,8 +91,9 @@ apiDoc:
 
     # ============================================================
     # Shipping category
-    # NOTE: the Shipping Options + Delivery Profiles APIs have NO public
-    # dev.wix.com docs page — ecom-shipping-api.md is the inline reference.
+    # NOTE: the Shipping Options API has NO public dev.wix.com docs page —
+    # ecom-shipping-api.md is the inline reference. Delivery Profiles is
+    # documented publicly under e-commerce/shipping-delivery/delivery-profiles.
     # ============================================================
 
     - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md

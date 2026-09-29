@@ -4,6 +4,8 @@ description: Configures delivery profiles and regions — creating profiles, add
 ---
 # Shipping Regions
 
+Shipping Options has no public API reference page, so a docs search will not find the shipping-option calls. Use the requests in this recipe as written. Delivery Profiles is documented in the [Delivery Profiles reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction).
+
 ## Creating Delivery Profiles
 
 - The first profile is auto-created when Stores is installed.
@@ -13,6 +15,22 @@ description: Configures delivery profiles and regions — creating profiles, add
 
 - Up to **100 regions** per profile.
 - Each region requires: `name`, `destinations` (array of country codes), `active` flag.
+
+To add a country as a region and offer the store's existing shipping options there:
+
+1. Query delivery profiles with `POST https://www.wixapis.com/ecom/v1/delivery-profiles/query` and body `{}`.
+   From `deliveryProfiles`, take the target profile's `id` and current `revision`; the site's default
+   profile has `default: true`.
+2. Add the region with Add Delivery Region:
+   `POST https://www.wixapis.com/ecom/v1/delivery-profiles/{deliveryProfileId}/delivery-region`. The
+   response is the updated profile, which carries the new region's `id`. `DESTINATIONS_COLLISION`
+   means the country is already listed in another region of that profile; use that region.
+3. Query shipping options (`cursorPaging.limit` at most 100) and attach each one to the region with
+   `POST https://www.wixapis.com/ecom/v1/shipping-options/{shippingOptionId}/add-delivery-region`,
+   passing the region `id` and that option's current `revision`.
+
+Request and response shapes for these calls are in the
+[Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference).
 
 ### Domestic Region
 

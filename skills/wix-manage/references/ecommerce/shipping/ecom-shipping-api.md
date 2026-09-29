@@ -11,13 +11,15 @@ Two services govern the shipping configuration of a Wix eCommerce store:
 
 **Base URL**: `https://www.wixapis.com/ecom`
 
+Shipping Options has no public API reference page, so a docs search will not find the shipping-option calls. Use the requests in this recipe as written. Delivery Profiles is documented in the [Delivery Profiles reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction).
+
 ---
 
 ## Shipping Options
 
 ### Query Shipping Options
 
-Retrieves all shipping options for the site. Up to 1,000 per request (cursor paging).
+Retrieves the site's shipping options with cursor paging. `cursorPaging.limit` is at most 100 — a larger value fails with `400`.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/shipping-options/query`
 
