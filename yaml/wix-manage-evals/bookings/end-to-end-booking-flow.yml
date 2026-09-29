@@ -25,12 +25,28 @@ assertions:
       - creates a booking with the appointment `slot` structure and notes the booking starts as `CREATED`, AND
       - for free/offline bookings confirms directly, and for online payments creates a cart via
         `POST /ecom/v2/carts` with `catalogItems` using the booking ID as `catalogItemId`, AND
-      - to place the order server-side, calculates the cart for a `priceVerificationToken` then calls
-        `POST /ecom/v2/carts/{cartId}/place-order`, AND
-      - notes the booking is auto-confirmed after online payment.
+      - has the customer pay by calling `POST /ecom/v2/carts/{cartId}/get-checkout-url` and sending
+        them to the returned `checkoutUrl`, AND
+      - notes the booking is auto-confirmed once the eCommerce order is paid.
+
+      A response may additionally mention the calculate + `POST /ecom/v2/carts/{cartId}/place-order`
+      path, but only as a server-side alternative for an operator settling the booking without a
+      payment page — not as the way a customer pays.
 
       Fail if the response:
       - uses Checkout V1 for the payment step (e.g. `/ecom/v1/checkouts`, a create-checkout call,
         `createOrder`, or `lineItems` instead of `catalogItems`), OR
       - uses the deprecated availability query instead of Time Slots V2, OR
-      - omits the create-booking or the online-payment cart step.
+      - presents `place-order` as how the customer pays, or tells the user to call Confirm Booking
+        before or instead of eCommerce checkout for an online-paid booking, OR
+      - omits the create-booking step, the create-cart step, or the checkout URL step.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent answer. Examine the tool-call trace.
+      Score 0-10 (10 = read the relevant doc(s) once and answered; no failed or wasted
+      calls). Penalize and LIST any of: a live mutation (creating a booking, cart or order)
+      for a question that asked for written instructions only; a non-2xx error even if
+      recovered; redundant doc reads or probing calls clearer docs would avoid. For each
+      friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
