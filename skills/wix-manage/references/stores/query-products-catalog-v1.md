@@ -58,6 +58,31 @@ curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
 
 ---
 
+## STEP 3: Paging past the 10,000-item offset cap
+
+**⚠️ Catalog V1 only supports `offset` paging, and `offset + limit` is capped at 10,000.** Once you hit that cap, you cannot page further by offset — there is no cursor-based alternative in V1. Do not report the capped result count as the exact product count; a search-backed total commonly stops at 10,000 even when the real catalog is larger.
+
+For a catalog larger than ~10k products, the workaround is **seek paging**: sort by a stable, unique field, keep `offset: 0`, and filter for values greater than the last one you received on each subsequent call. Use `id` — it's stable, unique, and supports both `$gt` filtering and sorting:
+
+```bash
+curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+  "query": {
+    "sort": "[{\"fieldName\":\"id\",\"order\":\"ASC\"}]",
+    "filter": "{\"id\":{\"$gt\":\"<lastIdFromPreviousPage>\"}}",
+    "paging": { "limit": 100, "offset": 0 }
+  }
+}'
+```
+
+Take `<lastIdFromPreviousPage>` from the `id` of the last product in the previous response, and stop once a page comes back with fewer products than `limit`.
+
+Narrowing the result set (by `visible`, date range, collection, etc.) still helps — it keeps each seek-paged slice smaller and reduces how many round trips the walk needs.
+
+---
+
 ## Key Differences from V3
 
 | Feature | Catalog V1 | Catalog V3 |
