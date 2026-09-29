@@ -161,6 +161,13 @@ jobs:
         if: ${{ needs.detect.outputs.wix_app_refs != '' }}
         run: node scripts/check-truncation.mjs --fail --files='${{ needs.detect.outputs.wix_app_refs }}'
 
+      # skill-creator's ~500-line ideal ceiling for a SKILL.md body: it's always
+      # loaded once the skill triggers, so it's the most expensive real estate in
+      # the whole skill. Only fires when this PR actually touches SKILL.md.
+      - name: wix-app — SKILL.md stays under the 500-line guideline
+        if: ${{ needs.detect.outputs.wix_app_refs != '' }}
+        run: node scripts/check-skill-md-size.mjs --fail --files='${{ needs.detect.outputs.wix_app_refs }}'
+
       # ── evalforge: typecheck the shared package and both actions ────────────────────
       # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.12.0 via
       # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
