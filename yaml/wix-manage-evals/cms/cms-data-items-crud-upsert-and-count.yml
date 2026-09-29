@@ -2,7 +2,7 @@ name: cms/cms-data-items-crud-upsert-and-count
 description: >-
   Verifies the agent syncs a small inventory into a CMS collection — updating existing items while
   keeping the fields it did not touch, inserting the new item once — and reports a zero-quantity
-  count backed by a count call or filtered query made after the writes, naming the items.
+  count backed by a count call or filtered query made after the writes.
 triggerPrompt: >-
   In my Inventory CMS collection, set the quantity of SKU-001 to 12 and SKU-002 to 0, and add a new
   item SKU-003 with quantity 7. Then tell me how many items in the collection now have quantity 0.
@@ -74,9 +74,10 @@ assertions:
         with the full item, bulk patch, or single-item calls.
       - SKU-003 exists exactly once with quantity 7.
       - SKU-004 and SKU-005 are unchanged and no other items were created or deleted.
-      - The final answer states that 2 items have quantity 0 (SKU-002 and SKU-004), and that number
-        comes from a tool call made after the writes (a count call or a filtered query), not from
-        arithmetic on the pre-run state.
+      - The final answer states that 2 items have quantity 0, and that number comes from a tool call
+        made after the writes (a count call or a filtered query), not from arithmetic on the pre-run
+        state. For your reference those items are SKU-002 and SKU-004; the user asked only how many,
+        so the agent is not required to name them.
 
       Fail if the agent:
       - lost the `location` of SKU-001 or SKU-002 (for example by replacing the item with only sku and

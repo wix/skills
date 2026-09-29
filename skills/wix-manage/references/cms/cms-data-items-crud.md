@@ -347,7 +347,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 
 > **Recommended**: Use bulk patch instead of bulk update when you only need to change specific fields.
 
-> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). `MULTI_REFERENCE` links are written only by a `SET_FIELD` patch (single or bulk) or by the reference endpoints in [Reference Fields](#reference-fields) below; insert, bulk insert, PUT and bulk update all return 200 but silently drop multi-reference values (verified live) — read the item back after any of them.
+> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). `MULTI_REFERENCE` links are written only by a `SET_FIELD` patch (single or bulk) or by the reference endpoints in [Reference Fields](#reference-fields) below; insert, bulk insert, bulk save, PUT and bulk update all return 200 but silently drop multi-reference values (verified live) — read the item back after any of them.
 
 ## Delete Data Item
 
@@ -502,12 +502,12 @@ Perform calculations on collection data using a pipeline of sequential stages. T
 
 Reference fields link items across collections. A single `REFERENCE` field holds one item ID and is set like any other value in insert, update, or patch. A `MULTI_REFERENCE` field holds many links, and only two kinds of write create them: a `SET_FIELD` patch on the field (single or bulk), or the reference endpoints below, which add, replace, or remove links without touching the rest of the item. To add a reference field to a collection, see [Add a Reference Field](cms-schema-management.md#add-a-reference-field).
 
-> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and does the same: `success: true`, value dropped (verified live). Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
+> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, bulk save, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and does the same: `success: true`, value dropped (verified live, bulk save on both its insert and update paths). Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
 
 Linking flow, every time:
 
 1. Resolve the referring item ID and the referenced item IDs (query by a field value; never guess IDs).
-2. Write the links with the reference endpoints below, or with a `SET_FIELD` patch on the reference field.
+2. Write the links with the reference endpoints below, or with a `SET_FIELD` patch on the reference field. If the field already has links, `insert-references` adds without dropping them; `replace-references` and `SET_FIELD` discard the rest — confirm with the user before replacing unless the request says to.
 3. **Read the referring item back** with Query Data Items and `includeReferencedItems: ["<field>"]` (or `includeReferences: [{ "field": "<field>" }]`), and confirm the linked items are present. The write's 200 is not proof; only the read-back is.
 
 ### Insert Multi-Reference Links
@@ -613,7 +613,7 @@ The method article documents the same expansion as `"includeReferences": [{ "fie
 | `ARRAY_STRING` | Array of strings | `["tag1", "tag2"]` |
 | `OBJECT` | JSON object | `{"key": "value"}` |
 | `REFERENCE` | Single reference | Item ID string |
-| `MULTI_REFERENCE` | Multiple references. Write with a `SET_FIELD` patch (array of item IDs, replaces the set) or the *reference* endpoints (add / replace / remove); expand in queries with `includeReferencedItems` or `includeReferences` | Array of item IDs; expands to item objects on read |
+| `MULTI_REFERENCE` | Multiple references. Write with a `SET_FIELD` patch (array of item IDs, replaces the set) or the *reference* endpoints (add / replace / remove); expand in queries with `includeReferencedItems` or `includeReferences` | Write: array of item IDs (`SET_FIELD`). Read: absent unless expanded with `includeReferencedItems` / `includeReferences`, then an array of item objects |
 
 ---
 

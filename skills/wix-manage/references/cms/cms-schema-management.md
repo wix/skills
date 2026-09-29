@@ -220,6 +220,7 @@ Don't delete and recreate a collection just to change its permissions — this f
 | Error | Cause | Solution |
 |-------|-------|----------|
 | `WDE0075` (`Metadata for Reference type field not provided`) | `create-field` with `type` REFERENCE or MULTI_REFERENCE but no `typeMetadata` | Send `typeMetadata.reference.referencedCollectionId` (or `typeMetadata.multiReference…`), see Add a Reference Field |
+| `WDE0075` (`Not recognized role provided in permissions`) | `PATCH /collections/{id}` with a `permissions` change | Use the full-replace `PUT /collections` (see Update Collection Settings) or the Data Permissions API |
 | `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
 
 ## Related Documentation
