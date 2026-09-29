@@ -28,7 +28,7 @@ This recipe covers linking CMS collections together using reference fields.
 
 ## Add a Single Reference Field
 
-**Endpoint**: `POST /wix-data/v2/collections/create-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
 
 ```bash
 curl -X POST \
@@ -52,7 +52,7 @@ curl -X POST \
 
 ## Add a Multi-Reference Field
 
-**Endpoint**: `POST /wix-data/v2/collections/create-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
 
 ```bash
 curl -X POST \
@@ -78,7 +78,7 @@ curl -X POST \
 
 ## Insert Multi-Reference Links
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/insert-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert-references`
 
 ```json
 {
@@ -101,7 +101,7 @@ curl -X POST \
 
 ## Replace All References
 
-**Endpoint**: `POST /wix-data/v2/items/replace-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/replace-references`
 
 ```json
 {
@@ -116,7 +116,7 @@ curl -X POST \
 
 ## Remove References (Bulk)
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/remove-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/remove-references`
 
 ```json
 {
@@ -133,7 +133,7 @@ curl -X POST \
 
 ## Query with Referenced Items Expanded
 
-**Endpoint**: `POST /wix-data/v2/items/query`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/query`
 
 ```json
 {
