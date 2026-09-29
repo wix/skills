@@ -1,12 +1,11 @@
 # Wix Editor React Component Builder
 
 Build Editor React Components for Harmony/Studio2 Wix CLI apps only. First
-determine **create vs edit**; for edits, inspect the existing component and
-never re-scaffold.
+determine **create vs edit**; for edits, inspect the existing component.
 
 ## File Contract
 
-Keep the Wix CLI scaffold and these file responsibilities:
+Keep the Wix CLI scaffold and file roles:
 
 | File | Ownership | Purpose |
 | --- | --- | --- |
@@ -15,7 +14,7 @@ Keep the Wix CLI scaffold and these file responsibilities:
 | `<component-name>.module.css` | Edit | Scoped component styles |
 | `component.tsx` | Keep generated | Wire component and `defaultProps` with `withDefaults` |
 | `component.preview.tsx` | Edit narrowly | Sync preview adapter, one crucial data field, root class |
-| `<component-name>.generated.ts` | NEVER edit | Generated manifest — do not edit |
+| `<component-name>.generated.ts` | NEVER edit | Generated manifest |
 | `<component-name>.extension.ts` | Edit narrowly | Supported partial manifest overrides |
 
 Supplementary files are allowed; keep scaffold roles intact.
@@ -26,10 +25,13 @@ Supplementary files are allowed; keep scaffold roles intact.
    Check the current directory, then this workspace; never search the OS:
 
    ```bash
-   npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description"}'
+   npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A meaningful description of component's intent and functionality"}'
    ```
 
    Never rerun the scaffold for an existing component.
+   Write a meaningful `description` in 1-2 plain sentences (max 300 chars): what
+   the user sees, when to use it, and capabilities that affect that choice.
+   Don't repeat the component name or add implementation details.
 
 2. **Run the dependency preflight.** Check required packages:
 
@@ -55,9 +57,8 @@ Supplementary files are allowed; keep scaffold roles intact.
    ```
 
 3. **Plan.** Identify props, root, parts, and states; read routed references.
-   Use the scaffold and references before inspecting package declarations.
-   Probe a specific API only when undocumented or a typecheck fails; do not
-   rediscover documented Wix types and layout values.
+   Use the scaffold and references before package declarations; probe an API
+   only when undocumented or a typecheck fails.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's configured formatter before
@@ -98,8 +99,8 @@ Supplementary files are allowed; keep scaffold roles intact.
 
 ## Reference Policy
 
-Read only matched references. Preserve unrelated behavior; never re-scaffold
-or edit a generated manifest. `SKILL.md` routes; references are leaves.
+Read only matched references. Preserve unrelated behavior. `SKILL.md` routes;
+references are leaves.
 
 ### Required References
 
