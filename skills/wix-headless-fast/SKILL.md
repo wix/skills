@@ -191,7 +191,11 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      the fallback), then ONE
      `npm install`, then the seed module if there is content to create. A project this skill
      built needs only the first, for a new solution; a change to what is built is file edits
-     and a release.
+     and a release. **A published static site downloaded from Wix** (`index.html` beside
+     `wix.config.json`, no `package.json`, no `.env.local`) is this case on the `static` stack:
+     move the pages, styles and assets into `site/`, set `site.outputDirectory` to `"./site"`,
+     `deploy.mjs <vertical> --stack static --out site`, the seed (no install), `release` — the
+     site keeps its URL.
    - **`wix.config.json` and no project, and `.env.local` declares a migration** (a project
      downloaded from Wix for a site being moved to headless; the config names a site that only
      hosts the deployment, the env the site being migrated) → **migrate**: setup copies the

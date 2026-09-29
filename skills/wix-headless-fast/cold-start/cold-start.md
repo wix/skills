@@ -1,6 +1,6 @@
 ---
 name: wix-headless-fast-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, blog, cms, events, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
 ---
 
 # Wix Headless Fast — cold start
@@ -46,9 +46,15 @@ existing session just reports `logged_in`).
 is the project; if the current folder holds unrelated things, make one named for the business and
 `cd` into it. For **connect**, **iterate** and **existing site**: you are already in it — the
 project's root, where its `package.json` or `index.html` is. For a **project downloaded from Wix**
-(the brief gives a zip URL or path, typically a site being migrated to headless): download it and
-extract it into the working folder first, so that `wix.config.json` sits at the root, and work from
-there — the skill reads the folder and knows what it is; do not create a site, install apps or seed.
+(the brief gives a zip URL or path): download it and extract it into the working folder first, so
+that `wix.config.json` sits at the root, and work from there — the skill reads the folder and knows
+what it is; never create another site. Two things arrive this way, and `install/context.mjs` tells
+them apart: a **migration** (`.env.local` names the site being moved; `migration.active: true`) keeps
+the original site's content, so nothing is installed or seeded there — `guides/migration.md`; a
+**published static site** (the drop flow's download: the pages beside `wix.config.json`, no
+`.env.local`, `migration.active: false`) is a connect on the `static` stack — the brief's "switch on
+the features it needs" is the instruction, so the solution it names is installed and seeded on that
+site without asking again, the pages move into `site/`, and it releases to the same URL.
 Everything below — the
 bootstrap, the skills, the scaffold — lands in this folder, so a later session opened in the project
 finds all of it.
