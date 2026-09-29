@@ -93,11 +93,12 @@ assertions:
       collection or recreating it; a full-replace update sent without the current revision or
       without the existing fields, then repaired; an invented endpoint; a non-2xx error other
       than a single PATCH attempt on permissions; a permission value that is not a valid role.
-      Subtract 1 for each of these inefficiencies, up to 3 points in total: one PATCH attempt on
-      permissions that failed before switching to the full-replace update; a second read of the
-      same collection; a docs or search call beyond the first skill read; an extra verification
-      read beyond one.
+      Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3
+      points however many there are: one PATCH attempt on permissions that failed before switching
+      to the full-replace update; a second read of the same collection; a docs or search call
+      beyond the first skill read; an extra verification read beyond one.
       Reading the skill once, one read to resolve the collection (list, GET collection, or GET
       permissions), one write, and one verification read are the expected path and cost nothing.
-      LIST every deduction. A correct outcome reached with only inefficiencies scores 7 or higher.
+      LIST every deduction and apply the cap. A correct outcome reached with only inefficiencies
+      scores 7 or higher, never less.
       Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.

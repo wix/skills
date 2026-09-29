@@ -13,7 +13,7 @@ assertions:
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
   - type: llm_judge
-    minScore: 7
+    scoringMode: boolean
     maxTokens: 2048
     prompt: |
       The user hit error WDE0110 while inserting a data item into a Wix CMS collection
