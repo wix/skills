@@ -429,27 +429,37 @@ async function installApp(appDefId, siteId, token) {
 }
 
 // The headless OAuth app: the visitor client id, and the redirect config every Wix-hosted
-// return needs. Idempotent by name — a site reached by the "connect an existing site" flow
+// return needs. Returns the clientId and the resulting lists only — the create response
+// carries the app's secret, and a returned value is persisted to conversation history.
+// Idempotent by name — a site reached by the "connect an existing site" flow
 // has none, and creating a second one for the same app strands the first app's returns.
 // Redirect lists are merged, never replaced: an app that already serves a custom domain
 // keeps it when a preview URL is added.
 async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains = [] }) {
   const { oAuthApps = [] } = await post(
     "https://www.wixapis.com/oauth-app/v1/oauth-apps/query", { query: {} }, token);
-  const existing = oAuthApps.find((a) => a.name === name);
   const merge = (a = [], b = []) => [...new Set([...a, ...b])];
+  // Match on the URLs, not on `name`: a later turn that re-derives a different display
+  // name would otherwise create a second app for the same Base44 app — and a second
+  // clientId strands the first one's returns. Any app already allowing one of these
+  // URIs or domains is this app's OAuth app, whatever it is called.
+  const wanted = new Set([...redirectUris, ...redirectDomains]);
+  const serves = (a) =>
+    [...(a.allowedRedirectUris || []), ...(a.allowedRedirectDomains || [])].some((u) => wanted.has(u));
+  const existing = oAuthApps.find(serves) || oAuthApps.find((a) => a.name === name);
   if (!existing) {
     const { oAuthApp } = await post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
       oAuthApp: { name, allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains },
     }, token);
-    return { clientId: oAuthApp.id, created: true, oAuthApp };
+    return { clientId: oAuthApp.id, created: true,
+      allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains };
   }
   const allowedRedirectUris = merge(existing.allowedRedirectUris, redirectUris);
   const allowedRedirectDomains = merge(existing.allowedRedirectDomains, redirectDomains);
   const unchanged =
     allowedRedirectUris.length === (existing.allowedRedirectUris || []).length &&
     allowedRedirectDomains.length === (existing.allowedRedirectDomains || []).length;
-  if (unchanged) return { clientId: existing.id, created: false, oAuthApp: existing };
+  if (unchanged) return { clientId: existing.id, created: false, allowedRedirectUris, allowedRedirectDomains };
   // The update docs disagree with themselves on the mask field (prose says `paths`, the
   // curl example says `path`); send both so the call does not silently no-op.
   const paths = ["allowedRedirectUris", "allowedRedirectDomains"];
@@ -457,7 +467,7 @@ async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains 
     `https://www.wixapis.com/oauth-app/v1/oauth-apps/${existing.id}`,
     { oAuthApp: { id: existing.id, allowedRedirectUris, allowedRedirectDomains },
       mask: { paths, path: paths.join(",") } }, token);
-  return { clientId: (oAuthApp || existing).id, created: false, oAuthApp: oAuthApp || existing };
+  return { clientId: (oAuthApp || existing).id, created: false, allowedRedirectUris, allowedRedirectDomains };
 }
 
 module.exports = { req, post, get, patch, put, del, clip, context, browse, search, page, bash, spec, mgmtRecipes, installApp, ensureOAuthApp };
