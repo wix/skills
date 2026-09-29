@@ -9,12 +9,17 @@ generation rewrites
 For a new component, complete the scaffolded installation and layout fields.
 For an existing component, change only the sizing, installation, or manifest
 behavior requested by the user; preserve every other extension field.
+Use the current scaffold's field shape and the values below. Inspect installed
+`@wix/astro` or schema types only if a related typecheck or build error requires it.
+Normal component setup needs no `ELEMENT_TYPE` or `DATA_TYPE` lookup: the
+generated `editorElement` and props manifest supply those details.
 
 ## Contents
 
 - [Preserve the Extension Shape](#preserve-the-extension-shape)
 - [Choose Initial Height](#choose-initial-height)
 - [Choose Resize Direction](#choose-resize-direction)
+- [Values](#values)
 - [Checklist](#checklist)
 
 ## Preserve the Extension Shape
@@ -53,6 +58,12 @@ should fit content, use `content`.
 
 Allow an axis only when dragging it produces a meaningful result.
 
+For each allowed axis, implement what happens when content no longer fits.
+Content height must grow after wrapping or changing items. A bounded height
+needs a fitting layout or a deliberate accessible scroll region. Installation
+defaults alone do not prevent overflow after resizing. Do not rely on native
+container overflow controls for a custom component's internal DOM.
+
 | Value | Use when |
 | --- | --- |
 | `horizontalAndVertical` | Content meaningfully fills both axes; default for framed visuals and most layouts |
@@ -61,11 +72,25 @@ Allow an axis only when dragging it produces a meaningful result.
 | `aspectRatio` | Distortion would break the component's identity |
 | `none` | A parent fully owns size; do not use for a top-level component |
 
+## Values
+
+Every value the scaffold uses comes from `LAYOUT` in
+`@wix/react-component-schema`; do not search `node_modules` for them.
+
+| Field | Values |
+| --- | --- |
+| `layout.resizeDirection` (`LAYOUT.RESIZE_DIRECTION`) | `horizontal`, `vertical`, `horizontalAndVertical`, `aspectRatio`, `none` |
+| `layout.contentResizeDirection` (`LAYOUT.CONTENT_RESIZE_DIRECTION`) | `horizontal`, `vertical`, `horizontalAndVertical`, `none`: the axes along which content growth resizes the component |
+| `initialSize.{width,height}.sizingType` (`LAYOUT.SIZING_TYPE`) | `content`, `pixels`, `stretched` |
+| `installation.staticContainer` | `'HOMEPAGE'`, `'GLOBAL_PAGE'` |
+
 Edit the scaffolded `layout`, `installation`, and `resources` fields in place;
 do not reconstruct the extension from an example. For a new component, add
 `staticContainer: 'HOMEPAGE'`. For an existing component, preserve its current
 `staticContainer` value unless the request explicitly changes installation
 behavior.
+The scaffold's `installation` object accepts `staticContainer` next to
+`initialSize`; add the literal above without searching `@wix/astro` types.
 
 ## Checklist
 
