@@ -28,8 +28,8 @@ Fetch the entity via REST, then link the matching dashboard page. All calls use 
 
 | Entity | Read API | Dashboard link |
 |---|---|---|
-| Collection (schema) | `GET /wix-data/v2/collections/{collectionId}` · `GET /wix-data/v2/collections` (list) | `wix-cms/data/{collectionId}` |
-| Data item | `POST /wix-data/v2/items/query` (body includes `dataCollectionId`) · `GET /wix-data/v2/items/{itemId}?dataCollectionId=...` | `wix-cms/data/{collectionId}` (the collection's items table) |
+| Collection (schema) | `GET https://www.wixapis.com/wix-data/v2/collections/{collectionId}` · `GET https://www.wixapis.com/wix-data/v2/collections` (list) | `wix-cms/data/{collectionId}` |
+| Data item | `POST https://www.wixapis.com/wix-data/v2/items/query` (body includes `dataCollectionId`) · `GET https://www.wixapis.com/wix-data/v2/items/{itemId}?dataCollectionId=...` | `wix-cms/data/{collectionId}` (the collection's items table) |
 
 Example — after creating a collection and inserting items:
 

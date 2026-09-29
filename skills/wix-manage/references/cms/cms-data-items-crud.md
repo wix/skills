@@ -25,8 +25,8 @@ This recipe covers Create, Read, Update, Delete (CRUD) operations for Wix CMS da
 Before inserting or updating items, you need to know the collection's field names and types. If you don't already know the schema:
 
 1. **Query existing items** - Fetch a few items to infer field names from the data
-2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions, **including `plugins`** — don't omit the `plugins` field when fetching or listing schemas
-3. **List collections** - Use `GET /collections?fields=displayName,plugins` to see what collections exist (see [Schema Management](cms-schema-management.md))
+2. **Get collection schema** - Use `GET https://www.wixapis.com/wix-data/v2/collections/{dataCollectionId}` for full field definitions, **including `plugins`** — don't omit the `plugins` field when fetching or listing schemas
+3. **List collections** - Use `GET https://www.wixapis.com/wix-data/v2/collections?fields=displayName,plugins` to see what collections exist (see [Schema Management](cms-schema-management.md))
 
 It may be, that user refers to schema by its `displayName` rather than `id`, if collection is not found list all collections to find the right `id` (`dataCollectionId`) to use.
 
@@ -36,7 +36,7 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 
 ## Insert Data Item
 
-**Endpoint**: `POST /wix-data/v2/items`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items`
 
 **Request Body**:
 ```json
@@ -73,7 +73,7 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 
 ## Bulk Insert Items
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/insert`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert`
 
 **Request Body**:
 ```json
@@ -108,7 +108,7 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 
 ## Query Data Items
 
-**Endpoint**: `POST /wix-data/v2/items/query`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/query`
 
 **Basic Query**:
 ```json
@@ -163,7 +163,7 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 
 ## Get Single Item
 
-**Endpoint**: `GET /wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
+**Endpoint**: `GET https://www.wixapis.com/wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
 
 ```bash
 curl -X GET \
@@ -173,7 +173,7 @@ curl -X GET \
 
 ## Update Data Item
 
-**Endpoint**: `PUT /wix-data/v2/items/{itemId}`
+**Endpoint**: `PUT https://www.wixapis.com/wix-data/v2/items/{itemId}`
 
 **Request Body**:
 ```json
@@ -192,7 +192,7 @@ curl -X GET \
 
 ## Patch Data Item (Partial Update - Single Item)
 
-**Endpoint**: `PATCH /wix-data/v2/items/{dataItemId}`
+**Endpoint**: `PATCH https://www.wixapis.com/wix-data/v2/items/{dataItemId}`
 
 Unlike Update, this only modifies the specified fields — all other fields remain unchanged.
 
@@ -229,7 +229,7 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 
 ## Bulk Update Items
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/update`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/update`
 
 > There is no update-by-filter endpoint. To update the items matching a filter, query them first (see [Query Data Items](#query-data-items)), then send their ids to bulk update or bulk patch.
 
@@ -261,7 +261,7 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 
 ## Bulk Patch Items (Partial Update)
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/patch`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/patch`
 
 Unlike bulk update, this only modifies the specified fields - other fields remain unchanged. **Use this for partial updates.**
 
@@ -330,7 +330,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 
 ## Delete Data Item
 
-**Endpoint**: `DELETE /wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
+**Endpoint**: `DELETE https://www.wixapis.com/wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
 
 ```bash
 curl -X DELETE \
@@ -340,7 +340,7 @@ curl -X DELETE \
 
 ## Bulk Delete Items
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/remove`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/remove`
 
 ```json
 {
@@ -353,7 +353,7 @@ curl -X DELETE \
 
 Count items in a collection, optionally with filters.
 
-**Endpoint**: `POST /wix-data/v2/items/count`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/count`
 
 **Count All Items**:
 ```json
@@ -386,7 +386,7 @@ Count items in a collection, optionally with filters.
 
 Insert new items or update existing items in a single operation. This is useful for syncing data.
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/save`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/save`
 
 ```json
 {
@@ -424,7 +424,7 @@ Insert new items or update existing items in a single operation. This is useful 
 
 Remove all items from a collection.
 
-**Endpoint**: `POST /wix-data/v2/items/truncate`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/truncate`
 
 ```json
 {
@@ -438,7 +438,7 @@ Remove all items from a collection.
 
 Perform calculations on collection data using a pipeline of sequential stages. The example shows one `group` stage; the full set of stages (`filter`, `group`, `sort`, `projection`, `unwindArray`, `skip`, `limit`) and accumulators is in the [Aggregate Pipeline Data Items reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/aggregate-pipeline-data-items).
 
-**Endpoint**: `POST /wix-data/v2/items/aggregate-pipeline`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/aggregate-pipeline`
 
 **Count by Category**:
 ```json
@@ -481,7 +481,7 @@ Reference fields link items across collections. A single `REFERENCE` field holds
 
 ### Insert Multi-Reference Links
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/insert-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert-references`
 
 ```json
 {
@@ -504,7 +504,7 @@ Reference fields link items across collections. A single `REFERENCE` field holds
 
 ### Replace All References
 
-**Endpoint**: `POST /wix-data/v2/items/replace-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/replace-references`
 
 ```json
 {
@@ -519,7 +519,7 @@ Reference fields link items across collections. A single `REFERENCE` field holds
 
 ### Remove References (Bulk)
 
-**Endpoint**: `POST /wix-data/v2/bulk/items/remove-references`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/bulk/items/remove-references`
 
 ```json
 {
@@ -536,7 +536,7 @@ Reference fields link items across collections. A single `REFERENCE` field holds
 
 ### Query with Referenced Items Expanded
 
-**Endpoint**: `POST /wix-data/v2/items/query`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/query`
 
 ```json
 {
@@ -653,7 +653,7 @@ POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
 }
 ```
 
-After the installation succeeds, retry the original `POST /wix-data/v2/items` request. If the
+After the installation succeeds, retry the original `POST https://www.wixapis.com/wix-data/v2/items` request. If the
 user only asks what the error means or how to fix it, explain this installation step and ask for
 confirmation before performing the install.
 
