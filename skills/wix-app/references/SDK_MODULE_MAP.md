@@ -41,4 +41,6 @@ Data owned by an existing Wix business app is read and written through that app'
 | locations / site properties | `@wix/business-tools` |
 | app instances | `@wix/app-management` |
 
+Types from these packages are accessed as `<namespace>.<TypeName>` — see [SDK types](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms).
+
 If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.

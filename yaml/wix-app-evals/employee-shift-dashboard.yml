@@ -5,7 +5,7 @@ triggerPrompt: |-
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, data-collection, wix-patterns-docs]
+tags: [dashboard-page, data-collection, wix-patterns-docs, app-validation]
 assertions:
   - type: skill_was_called
     negate: false
@@ -39,6 +39,11 @@ assertions:
     minScore: 7
     prompt: |-
       The prompt requires adding new shifts, so this build has a create route as well as an edit one. Evaluate only how that create route is wired. Check: (1) The create route is registered as its own `PatternsReactRoute` with `type="createEntity"` — not the edit route reused with the id left out, and not a dashboard modal. (2) The navigation to it calls `navigateToEntityPage({ path })` with **no** `entity` argument. Inventing a blank/placeholder record to pass as `entity` is a defect: it becomes `state.entity` until `fetch` resolves. (3) `fetch` is supplied on the create route and resolves `{ entity: undefined }` for it — not omitted, not throwing, not a fabricated empty record. (4) `isNewEntity` is passed, and is true on the create route. Omitting it is the silent failure this checks for: the save is then announced to the collection as an update, so the new shift never appears in the table. (5) If the agent had to work around an installed `@wix/patterns` older than 1.464.0, it says so explicitly rather than guessing at the signature. Score 0-10, and treat a missing `isNewEntity` or a placeholder `entity` as no higher than 4.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate only how the agent ran the preview step of validation. `npx wix preview` uploads a preview build, prints the preview URLs and exits on its own. Check: (1) It ran `npx wix preview` once, in the foreground, and read the URLs off that call's own output. (2) It did not wrap it in `timeout`, background it (`&`, `nohup`), wait on it with `sleep` or a polling loop over a log file, or `kill`/`pkill` it afterwards. (3) Its final report gives a preview URL taken from that output. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
   - type: time_limit
     maxDurationMs: 900000
   - type: cost

@@ -1,31 +1,42 @@
 // Set up the project in the current folder — one deterministic call from "the folder and the
-// brief" to "brand layer can start", for a folder that is NOT yet a Wix project:
+// brief" to "brand layer can start". The folder decides (install/context.mjs folderShape, five file
+// facts: wix.config.json, its site.outputDirectory, the migration variables in .env.local,
+// package.json, index.html):
 //
-//   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…> \
+//   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…>[,<vertical>…] \
 //        [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] \
 //        [--subfolder [--folder-name <npm-safe-name>]]
 //
-//   - `wix.config.json` present → refuses. The folder is already a Wix project; deploy.mjs adds
-//     this skill's code or a solution to it, then one install, then the seed if there is content.
-//   - a project but no `wix.config.json` (a package.json, or an index.html at the root) → CONNECT:
-//     `npm create @wix/new@latest init` in place creates the site and the config, then deploy.
-//   - otherwise (empty, or loose files such as a CSV or a brief) → CREATE: scaffold the Wix CLI's
-//     Astro template and place it in the current directory (`--business-name` required).
+//   empty (or loose files: a CSV, a brief) → CREATE: `wix create` with the vertical's composed template
+//     (templates/<vertical>/project), placed in the current directory (`--business-name` required). The
+//     ONLY case that seeds: the run made the site, so the plan's content goes in.
+//   a frontend, no wix.config.json (a package.json, or an index.html at the root) → ADOPT: `init` in
+//     place gives the project a new, empty site, then deploy. `--stack` required. Nothing seeded here:
+//     the vertical's seed module runs afterwards with a plan when the brief gives content.
+//   a config and no frontend, .env.local declaring a MIGRATION PREVIEW → MIGRATE: the composed template
+//     is copied in around the config, the code deploys with the parent's app as its client, the install
+//     starts. Nothing seeded: the parent owns its content.
+//   a config, index.html at the root, no package.json → PUBLISHED STATIC (a site published through the
+//     drop flow and downloaded): the config's site, no init; site/ becomes the upload, the REST layer
+//     deploys there, the pages move in (the agent's step). Nothing seeded.
+//   a config and a frontend (package.json, or index.html in the output folder) → refuses: iterate.
+//   a config and nothing else → refuses: attach.mjs's case.
 //
-// The script reads file markers only (wix.config.json, a package.json or index.html); everything
-// else is the agent's call: when connecting, `--stack` is required and comes from SKILL.md step 1,
-// and what the project needs for that stack on Wix hosting is prose there, not detection here. The
-// seed runs only when `--plan` is given: a brief that has not supplied any content gets no seed.
+// Seeding is CREATE-only. A site that existed before this run is never seeded by setup: the agent reads
+// what the site holds (the vertical's read-site.mjs) and runs the seed module deliberately when the
+// brief supplies content. Seeds are additive and idempotent by name.
 //
 // Composes pieces that also remain individually runnable (deploy.mjs, the vertical's seed module)
 // to recover one failed step. Emits ONE JSON event per line and exits in ~35s with the two long
 // steps — the dependency install and the seed — running detached in the background (logs and
 // completion markers in the final event), so the caller can build the brand layer while they finish.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
+import { listVerticals, templatesDir } from "./templates.mjs";
+import { folderShape, siteContext } from "./context.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -43,18 +54,24 @@ const flag = (name) => {
 };
 const businessName = flag("business-name");
 const planPath = flag("plan");
-const vertical = flag("vertical");
+// Every vertical the brief needs, comma-separated. The first one's composed template scaffolds the
+// project and its seed runs from --plan; the others deploy in the same call so the ONE install covers
+// them (adding a vertical after the install has started costs a second install). Their seeds run
+// afterwards, each with its own plan, when the brief gives them content.
+const verticals = (flag("vertical") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+const vertical = verticals[0] ?? null;
 const stackFlag = flag("stack");
 // Opt-in: keep a CREATE's project in a subfolder instead of the current directory.
 const subfolder = argv.includes("--subfolder");
-const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
-  .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
-  .map((d) => d.name);
-const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}> [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
+// The shipped code: the repository's templates/ (a checkout, the cache, or fetched now, in a second).
+let TEMPLATES;
+try { TEMPLATES = templatesDir(); } catch (e) { fail("templates", e.message); }
+const knownVerticals = listVerticals(TEMPLATES);
+const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong seed.
 if (!vertical) fail("args", usage);
-if (!knownVerticals.includes(vertical)) {
-  fail("args", `unknown vertical "${vertical}" — shipped verticals: ${knownVerticals.join(", ")}`);
+for (const v of verticals) {
+  if (!knownVerticals.includes(v)) fail("args", `unknown vertical "${v}" — shipped verticals: ${knownVerticals.join(", ")}`);
 }
 if (stackFlag && !["astro", "react", "lib", "static"].includes(stackFlag)) {
   fail("args", `unknown --stack "${stackFlag}" — astro, react, lib or static`);
@@ -64,17 +81,28 @@ if (planPath && !existsSync(planPath)) fail("args", `plan file not found: ${plan
 // ---- 0 · read the folder --------------------------------------------------------------------------
 const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
-if (has("wix.config.json")) {
-  fail("place", "this folder is already a Wix project (wix.config.json): nothing to set up. deploy.mjs <vertical> adds this skill's code or a solution to it; then ONE npm install; then the vertical's seed module if there is content to create");
-}
 const pkg = has("package.json") ? JSON.parse(readFileSync(join(cwd, "package.json"), "utf8")) : null;
-const hasProject = !!pkg || has("index.html");
-const mode = hasProject ? "connect" : "create";
-if (mode === "connect" && !stackFlag) {
-  fail("args", "connecting a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
+let ctx = null;
+let shape = folderShape(cwd).shape;
+if (has("wix.config.json")) {
+  ctx = siteContext({ cwd }); // pulls .env.local when missing — where a migration is declared
+  shape = ctx.folder.shape;
+  if (shape !== "migration" && shape !== "published-static") {
+    fail("place", `this folder is already a Wix project (wix.config.json), shape "${shape}": nothing to set up. ${ctx.folder.next} (SKILL.md step 3)` + (ctx.pullError ? ` — note: env pull failed here (${ctx.pullError.slice(0, 120)})` : ""));
+  }
+  if (shape === "published-static" && stackFlag && stackFlag !== "static") {
+    fail("args", `a published static site (index.html beside wix.config.json, no package.json) is the static stack; --stack ${stackFlag} does not apply`);
+  }
 }
-const stack = stackFlag ?? "astro";
-emit("folder", { mode, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null });
+const mode = { migration: "migrate", "published-static": "published-static", project: "adopt", empty: "create" }[shape];
+const migrating = mode === "migrate";
+const publishedStatic = mode === "published-static";
+const hasProject = shape === "project";
+if (mode === "adopt" && !stackFlag) {
+  fail("args", "adopting a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
+}
+const stack = publishedStatic ? "static" : (stackFlag ?? "astro");
+emit("folder", { mode, shape, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null, ...(ctx ? { deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings } : {}), ...(migrating ? { migration: ctx.migration } : {}) });
 
 let projectDir = cwd;
 let folderName = null;
@@ -92,7 +120,13 @@ if (mode === "create") {
   if (existsSync(join(projectDir, "wix.config.json"))) {
     emit("scaffold_skipped", { reason: "project already exists", folder: folderName });
   } else {
-    emit("scaffolding", { folder: folderName });
+    // The composed template: the CLI copies it in place of its blank one, creates the site and
+    // writes wix.config.json; the vertical's code and its lockfile arrive with it. Any other
+    // stack takes the CLI's blank Astro scaffold, as before, and deploy below adds the code.
+    // The composed project is the one part of the templates a project's repository does not keep;
+    // a committed copy fetches it here, at the commit the rest came from.
+    const template = stack === "astro" ? join(templatesDir({ need: `${vertical}/project` }), vertical, "project") : null;
+    emit("scaffolding", { folder: folderName, template });
     const scaffold = spawnSync(
       "npm",
       // --skip-git: this wrapper composes its own steps and leaves version control to
@@ -102,19 +136,44 @@ if (mode === "create") {
       // same reason: deps install in a detached step below.
       ["create", "@wix/new@latest", "--", "headless",
        "--folder-name", folderName, "--business-name", businessName,
-       "--site-template", "--skip-install", "--skip-git", "--no-publish"],
+       "--site-template", "blank", ...(template ? ["--template-path", template] : []),
+       "--skip-install", "--skip-git", "--no-publish"],
       { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
     );
     if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
       fail("scaffold", (scaffold.stderr || scaffold.stdout || "scaffold produced no wix.config.json — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").slice(-600));
     }
   }
+} else if (mode === "migrate") {
+  // ---- 1 · a migration preview: the config and credentials came with the folder -------------------
+  // No site is created and nothing is provisioned: `wix.config.json` already names the deploy site
+  // and its app, `.env.local` the parent's. Managed Astro gets the vertical's composed template copied
+  // in around them (what `wix create` would have copied; the config and env are never overwritten);
+  // any other stack is code-only and deploy below adds it.
+  if (stack === "astro") {
+    const template = join(templatesDir({ need: `${vertical}/project` }), vertical, "project");
+    emit("scaffolding", { folder: cwd, template, from: "migration preview" });
+    cpSync(template, cwd, { recursive: true, force: false, errorOnExist: false });
+    const pkgPath = join(cwd, "package.json");
+    const scaffolded = JSON.parse(readFileSync(pkgPath, "utf8"));
+    scaffolded.name = basename(cwd).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "site";
+    writeFileSync(pkgPath, JSON.stringify(scaffolded, null, 2) + "\n");
+  }
+  const gi = join(cwd, ".gitignore");
+  const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
+  if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
+} else if (publishedStatic) {
+  // ---- 1 · a published static site: the config came with the folder, the site exists -------------
+  // No init: `wix.config.json` already names the site the pages are published on (and its app). The
+  // pages stay where they are; the static handling below points the upload at site/ and the `next`
+  // says to move them in.
+  emit("preparing", { folder: cwd, siteId: ctx.deploy.siteId, from: "published static site" });
 } else {
   // ---- 1 · init in place --------------------------------------------------------------------------
   // The CLI's `init` links the folder to a NEW site: creates the site and its OAuth app, writes
   // wix.config.json and .env.local, touches nothing else. Non-interactive under CI=1; the site is
   // named after the folder (rename it in the dashboard).
-  emit("initializing", { folder: cwd });
+  emit("adopting", { folder: cwd });
   const init = spawnSync("npm", ["create", "@wix/new@latest", "--", "init"],
     { cwd, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 });
   if (init.status !== 0 || !has("wix.config.json")) {
@@ -123,12 +182,25 @@ if (mode === "create") {
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
 const siteId = wixConfig.siteId ?? wixConfig.projectId;
-emit(mode === "create" ? "scaffolded" : "connected", { folder: folderName ?? cwd, siteId, stack });
+// Static: `wix release` uploads the output folder whole, so the project root (config, plan, seed
+// output, the skills) must not be it. The site lives in site/: the config points there and the REST
+// layer deploys into it; the pages, styles and assets are the agent's to move (the `next` says so).
+const STATIC_OUT = "site";
+if (stack === "static") {
+  wixConfig.site = { ...(wixConfig.site ?? {}), outputDirectory: `./${STATIC_OUT}` };
+  writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify(wixConfig, null, 2) + "\n");
+}
+emit({ create: "scaffolded", migrate: "migration_preview", adopt: "adopted", "published-static": "prepared" }[mode], {
+  folder: folderName ?? cwd, stack,
+  ...(migrating ? { deploySiteId: ctx.deploy.siteId, contentSiteId: ctx.content.siteId } : { siteId }),
+});
 
-// ---- 2 · deploy shipped code + deps + lockfile ---------------------------------------------------
+// ---- 2 · deploy shipped code + deps ---------------------------------------------------------------
+// A CREATE from the composed template already holds the code and the lock: deploy adds nothing and
+// reports the project; an ADOPT gets the code and its dependencies here.
 const deploy = spawnSync(
   "node",
-  [join(SKILL_ROOT, "install", "deploy.mjs"), vertical, "--stack", stack, ...(planPath ? ["--plan", resolve(planPath)] : [])],
+  [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
 if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
@@ -169,7 +241,7 @@ if (mode === "create" && !subfolder && projectDir !== cwd) {
 // ---- 2d · the agent config files `wix create` would have written --------------------------------
 // Skipped by the CLI because of --skip-install. Fill-only: a project that has its own AGENTS.md
 // keeps it (the event says `kept`).
-emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
+emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack, ...(migrating ? { migration: { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId } } : {}) }));
 
 // ---- 3 · start the dependency install, detached --------------------------------------------------
 // ONE install, here, for any project with a package.json (deploy patched it). The static stack has
@@ -189,14 +261,19 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   emit("install_started", install);
 }
 
-// ---- 4 · start the seed, detached (only with a plan) ---------------------------------------------
+// ---- 4 · start the seed, detached (CREATE with a plan only) ----------------------------------------
 // The seed includes a Wix-side provisioning wait of unpredictable length (10-80s); running it in
 // the caller's foreground would idle the agent for exactly that long. Detach it like the install:
-// result JSON + exit-code marker land as files the caller syncs on before release. Seeding is
-// additive: it never deletes or overwrites what the site holds.
+// result JSON + exit-code marker land as files the caller syncs on before release. Only a site this
+// run created is seeded here; every other site existed before the run and is read first, then the
+// agent runs the seed module itself when the brief supplies content. Seeds are additive and
+// idempotent by name.
 let seed = null;
-if (planPath) {
-  const seedDir = join(SKILL_ROOT, "references", vertical, "seed");
+if (planPath && mode !== "create") {
+  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (templates/${vertical}/seed/read-site.mjs), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies content` });
+}
+if (planPath && mode === "create") {
+  const seedDir = join(TEMPLATES, vertical, "seed");
   const seedName = existsSync(seedDir)
     ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs"))
     : undefined;
@@ -210,7 +287,7 @@ if (planPath) {
   );
   seedChild.unref();
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
-  emit("seeding_started", { vertical, ...seed });
+  emit("seeding_started", { vertical, ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${vertical}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 }
 
 // ---- done ----------------------------------------------------------------------------------------
@@ -218,22 +295,35 @@ const release = {
   astro: "npx @wix/cli@latest build, then npx @wix/cli@latest release",
   react: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (what Wix hosting serves and how routes must be shaped: SKILL.md step 1)",
   lib: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (SKILL.md step 1)",
-  static: "npx @wix/cli@latest release — no build; wix.config.json site.outputDirectory points at the folder the pages live in",
+  static: `npx @wix/cli@latest release — no build; it uploads ${STATIC_OUT}/ whole (wix.config.json site.outputDirectory), so the pages, styles and assets move into ${STATIC_OUT}/ first and import the modules from ./js/wix/ there; the root keeps the config, the plan, the seed output and the skills`,
 }[stack];
+// On a migration preview the links and `siteId` are the PARENT's — the site whose content the pages
+// show and whose dashboard manages it; `deploySiteId` is where `wix release` goes.
+const others = verticals.slice(1);
 emit("ready_for_brand_layer", {
   mode,
+  shape,
   stack,
+  verticals,
   projectDir,
-  siteId,
+  siteId: migrating ? ctx.content.siteId : siteId,
+  ...(migrating ? { deploySiteId: ctx.deploy.siteId, migration: { parentSiteId: ctx.migration.parentSiteId } } : {}),
   dashboardUrl: deployResult.dashboardUrl,
   productsUrl: deployResult.productsUrl,
   categoriesUrl: deployResult.categoriesUrl,
   install,
   seed,
   next:
-    (planPath
-      ? "theme + write the home page; "
-      : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ") +
+    (publishedStatic ? "a published static site: its pages are live on this site already and keep their URL; move index.html, the other pages, styles and assets into site/ (the root keeps the config, the plan, the seed output and the skills) and wire the solution into the page that needs it; " : "") +
+    (mode === "migrate"
+      ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
+      : mode === "create"
+      ? (planPath ? "theme + write the home page; " : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ")
+      : `nothing was seeded (setup seeds only a site it creates): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies content${mode === "adopt" ? " (the site is new and empty)" : ""}; theme + write the home page; `) +
+    (others.length && mode !== "migrate"
+      ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `
+      : "") +
     (install || seed ? "then wait for the done markers" + (seed ? ", verify .seed-exit is 0 (else read seed.log and re-run the seed module)" : "") + "; " : "") +
-    `then ${release}`,
+    `then ${release}` +
+    (mode === "migrate" ? "; the release is the PREVIEW on the deploy site — close with its URL and the parent's dashboard, say the original site is unchanged and that completing the migration is the user's next step in the Wix CLI once they approve" : ""),
 });

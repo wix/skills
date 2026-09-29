@@ -12,9 +12,43 @@ Treat a broad request such as "How can I improve my Google Ads campaign?" as a C
 
 This differs from [Get AI Campaign Suggestions](get-campaign-suggestions.md), which generates keywords, budgets, locations, copy, images, and other inputs used while **building** a campaign. Do not route pre-campaign keyword, budget, creative, or targeting generation here.
 
+## Present every guide as an actionable plan
+
+Every response that presents a retrieved or supplied guide must use the actionable structure below. Do not wait for the user to ask for links, more detail, or a richer guide.
+
+1. On the first batch, start with the campaign name when known and link `campaignSuccessGuide.url` as the analyzed landing page when present. Do not repeat that context on later batches in the same conversation.
+2. Filter to `OPEN` suggestions and preserve their API priority order. Hide `COMPLETED` suggestions and tracking-status words unless the user explicitly asks what they completed.
+3. Show at most three not-yet-shown `OPEN` suggestions in a single-column numbered list under **Start here**, with a user-facing label and one concrete next step each.
+4. When at least one suggestion in the visible batch has supported agent work, add one **I can help** block that groups what the agent can perform after approval.
+5. When at least one suggestion in the visible batch has a navigation destination that should be shown now, finish with a **Next actions** block containing each destination exactly once. Use an absolute Markdown link when its exact URL is available. When an Editor URL cannot be resolved through the single attempt described below, write **Go to the Editor** once as plain guidance instead of omitting the destination or guessing a URL.
+6. If unshown `OPEN` suggestions remain, close by saying this batch contains the highest-priority remaining tasks and invite the user to see the next batch. A request for more is approval to show the next three; do not ask another confirmation question first.
+
+### Fast path when the guide is already supplied
+
+When the user supplies or paraphrases the guide recommendations, build the response from that information before doing any other discovery:
+
+1. Treat “still need to” and equivalent wording as `OPEN`, and anything the user says is marked complete as `COMPLETED`.
+2. Hide completed items, select the first three open items in the supplied order, and note only whether more open items remain. Do not name a later-batch item in the invitation.
+3. Do not resolve the campaign, list campaigns, retrieve or create the guide, query analytics, inspect action APIs, or read linked action recipes. Those calls cannot improve a guide the user already supplied. The only exception is the campaign identity resolution required by [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md) after the user explicitly chooses to manage Search Themes manually.
+4. Resolve only navigation needed by the visible batch, using existing site context or the single site-metadata attempt below, then return the actionable plan immediately.
+
+Track which suggestion types have been shown during the current conversation so later batches continue instead of repeating. When a refreshed guide contains a newly opened suggestion, place it among the unshown items by the API's current priority order. When a suggestion changes from `COMPLETED` back to `OPEN`, treat it as unshown so the reopened task appears again.
+
+Omit **I can help** or **Next actions** when that section would be empty.
+
+Use Markdown that reads top to bottom. Never use a table, grid, columns, or side-by-side layout for suggestions. Suggestion labels and next steps are content, not controls: do not turn them into links or conversational actions. A manual task stays plain text and points to the shared destination in **Next actions**.
+
+Keep navigation and delegated work distinct:
+
+- Navigation opens a destination and uses an absolute Markdown link such as `[Go to Editor](https://...)` when the exact URL is known. The plain **Go to the Editor** fallback is destination guidance, not a link or a suggested follow-up message.
+- Delegated work asks the agent to do something it actually supports. Group these offers in prose. If suggesting a conversational follow-up, include at most one for the highest-priority supported `OPEN` item and phrase it as an explicit request, such as **Draft FAQ content for me** or **Inspect my site speed**, never as the bare task label **Add an FAQ section**.
+- Only suggestions in the visible `OPEN` batch create navigation or offers. Do not offer work or add a destination for a hidden later-batch or `COMPLETED` suggestion.
+
+If there are no `OPEN` suggestions, say that nothing currently needs attention without listing completed items, and omit **I can help** and **Next actions**. If all open suggestions have already been shown in this conversation, say that every currently open task has been covered.
+
 ## Resolve the campaign
 
-The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign." Google Ads calls operate on the current Wix site from the call context; the site is not a request-body field. Use an already-selected site context without asking the user to repeat it. If there is no unambiguous current site, ask which site to use instead of probing several sites. Follow the rest of this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation.
+The guide endpoints require a campaign UUID, but users often provide only a campaign name or say "my campaign." Google Ads calls operate on the current Wix site from the call context; the site is not a request-body field. Use an already-selected site context without asking the user to repeat it. If there is no unambiguous current site, ask which site to use instead of probing several sites. Follow the rest of this resolution flow only when retrieving or updating a guide. If the conversation already contains the guide recommendations and the user only wants them presented, do not block the action plan on campaign identity; resolve only the site context needed for relevant navigation. When the user explicitly chooses manual Search Themes management, resolve its campaign-scoped destination through [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md), not this guide-retrieval flow.
 
 Site listing is for resolving navigation metadata only. Never use account-wide site listing to hunt for a campaign before retrieving or updating a guide. A current-site ID in the available context counts as an unambiguous selected site even when the user's prompt does not repeat its name. If no current-site ID is available, ask which site to use.
 
@@ -69,41 +103,49 @@ curl -X POST \
 
 The first call may analyze the landing page, campaign configuration, and relevant site connections and can take up to **120 seconds**. Later calls normally return the saved guide unless campaign changes require another analysis. Wait for the request; do not retry prematurely. If execution times out with an unknown outcome, report the uncertainty and retrieve the guide later instead of immediately triggering another analysis.
 
-Present only the suggestions the API returns and preserve their order; `suggestions` is already in priority order. An empty array means no currently detected items need attention, not an API failure. Show `campaignSuccessGuide.url` when it helps identify the analyzed landing page.
+Present only the suggestions the API returns. `suggestions` is already in priority order: preserve the relative order of the visible `OPEN` batch. An empty array means no currently detected items need attention, not an API failure.
 
 `OPEN` means pending action. `COMPLETED` means the user marked the item completed; it does **not** mean the API changed the site or campaign for them.
 
-## Present the guide as an actionable plan
+## Resolve supported work and navigation
 
-Do not return a bare list of task labels. Turn the returned suggestions into a compact action plan while preserving the API's order:
+The navigation block is part of each batch, including when the user supplied or paraphrased the recommendations. Before responding, resolve only the destinations required by the visible batch and appropriate at that point in the flow. Resolving navigation is read-only and does not require approval, including when the user says not to change anything yet.
 
-Use this output structure:
+Use the selected site's `id` and `editUrl` from available site context first. If the current-site ID is known but `editUrl` is absent and a read-only site-listing capability is available, make at most one lookup using [Query Sites](../sites/query-sites.md). Query that exact ID with the verified REST filter below:
 
-1. A numbered suggestion list with no navigation URLs or Markdown links inside the suggestion items.
-2. One grouped offer for the supported work the agent can perform after approval.
-3. A **Next actions** block after the complete suggestion list and offer, containing each relevant destination link exactly once.
+```bash
+curl -X POST 'https://www.wixapis.com/site-list/v2/sites/query' \
+  -H 'Authorization: <ACCOUNT_AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": {
+      "filter": {
+        "id": {
+          "$in": ["<metaSiteId>"]
+        }
+      },
+      "cursorPaging": {
+        "limit": 1
+      }
+    }
+  }'
+```
 
-This structure is mandatory even when only one suggestion uses a destination. Never put the Editor, Google Ads, or another shared navigation link inline with a suggestion.
+The `id` filter requires the Wix Query Language operator object shown above. Do not send primitive equality such as `"id": "<metaSiteId>"`; the endpoint rejects that shape as a malformed filter. Read `editUrl` and `editorType` only from the returned site whose `id` exactly matches the current-site ID. This is the only navigation lookup: do not count or paginate sites, search by name, inspect other sites for campaigns, read alternative navigation docs, or try another endpoint. If the lookup is unavailable, returns no exact site, or returns no usable Editor URL, continue with plain **Go to the Editor** guidance instead of doing more discovery.
 
-1. Name the campaign and link `campaignSuccessGuide.url` as the analyzed landing page when present.
-2. For every returned suggestion, show its user-facing label, tracking status (`Pending` for `OPEN`, `Marked complete` for `COMPLETED`), and one concrete next step. Do not show enum values unless they help resolve an ambiguity.
-3. For each `OPEN` item, distinguish work the agent can help perform from work the user must finish in Wix. Prefer an offer to do supported work over instructions that make the user do the same operation manually.
-4. Do not offer work for `COMPLETED` items unless the user asks to reopen them.
-5. Put each unique navigation link after the suggestions as a destination-specific CTA. Do not group every URL under a generic **Open in Wix** label or reuse that label for unrelated destinations. Name the actual page or action—for example, **Go to Editor**, **Go to Google Ads**, or **Connect Google Business Profile**. Deduplicate by destination: if two or ten tasks require the Editor, include the Editor CTA **once**, at the bottom, and never repeat it beside individual tasks. Apply the same deduplication to the Google Ads dashboard or any other shared destination.
-
-The navigation block is part of the guide, including when the user supplied or paraphrased the recommendations. Before responding, resolve the destinations required by the `OPEN` items. Resolving navigation is read-only and does not require approval, including when the user says not to change anything yet. Use the selected site's `id` and `editUrl` from available site context. If the current-site ID is known but `editUrl` is absent, look up the site's navigation metadata through an available site-listing capability once; select only the result whose `id` or `metaSiteId` exactly matches that current-site ID, then read its `displayName`, `editUrl`, and `editorType`. Do not inspect other sites for campaigns. When no current-site ID is known and the lookup returns exactly one site, use it for navigation. When several sites are available and none is selected, present the action plan immediately and ask which site's CTAs to add. If an item belongs in the Editor or Google Ads, include that destination once unless the destination is genuinely unavailable; do not omit navigation merely because no API call was needed to obtain the guide.
+When no current-site ID is known, present the tasks that do not require navigation immediately and ask which site's CTA to add. Do not enumerate an account to guess the site.
 
 ### Which action to offer
 
 | Suggestion types | Response behavior |
 | --- | --- |
-| `CLEAR_CTA_COPY`, `ABOVE_THE_FOLD_CTA`, `HEADER_MATCH`, `CONVERSION_POINT`, `GOOGLE_REVIEWS`, `TESTIMONIAL`, `CONTACT_AND_CREDIBILITY`, `FAQ_SECTION`, `MINIMIZE_FORM_FIELDS`, `SOCIAL_CHANNELS` | These change visible landing-page content. Briefly describe the edit and point to the single **Go to Editor** CTA after the suggestions. If the current environment has a site-editing capability that can safely make the specific change, offer to make it after the user approves; otherwise do not imply that marking the suggestion complete will edit the page. |
-| `MOBILE_OPTIMIZATION`, `SITE_SPEED` | Offer to inspect the problem and recommend a concrete fix first; these broad findings are not a safe one-click mutation. Include the single Editor link when the resulting work belongs there. Do not promise an improvement before identifying the actual cause. |
-| `GOOGLE_ADS_SEARCH_THEMES` | Offer to generate relevant search themes, show the proposed set, and apply the approved set to the existing campaign by following [Get AI Campaign Suggestions](get-campaign-suggestions.md) and [Manage Campaign Lifecycle](manage-campaign-lifecycle.md). Updating the campaign is a mutation, so do not apply themes merely because the guide returned this item. |
+| `CLEAR_CTA_COPY`, `ABOVE_THE_FOLD_CTA`, `HEADER_MATCH`, `CONVERSION_POINT`, `GOOGLE_REVIEWS`, `TESTIMONIAL`, `CONTACT_AND_CREDIBILITY`, `FAQ_SECTION`, `MINIMIZE_FORM_FIELDS`, `SOCIAL_CHANNELS` | These change visible landing-page content. Briefly describe the edit and point to the single **Go to Editor** CTA after the suggestions. When the agent can safely prepare useful material such as FAQ content, CTA copy, or a heading, offer to draft it after approval and explain that the user applies the final change in the Editor. Do not imply that marking the suggestion complete will edit the page. |
+| `MOBILE_OPTIMIZATION`, `SITE_SPEED` | Offer to inspect the problem and recommend a concrete fix first, then explain that the user applies the resulting site change. These broad findings are not safe one-click mutations. Include the single Editor destination when the resulting work belongs there. Do not promise an improvement before identifying the actual cause. |
+| `GOOGLE_ADS_SEARCH_THEMES` | Offer first to generate relevant search themes, show the proposed set, and apply the approved set to the existing campaign by following [Get AI Campaign Suggestions](get-campaign-suggestions.md) and [Manage Campaign Lifecycle](manage-campaign-lifecycle.md). Updating the campaign is a mutation, so wait for approval of the proposed set. Do not show a navigation link while this agent-performed offer is pending. If the user explicitly prefers to add the themes manually, provide the campaign-scoped **Add Search Themes** link described below instead. |
 | `GOOGLE_MERCHANT_CENTER_CONNECTION` | Offer to link the Merchant Center account using the account flow below. Reuse an already-linked Merchant Center account ID when present; otherwise ask the user for the ID. Get approval before the account update. Explain that the link begins as `PENDING` and its owner may still need to approve it in Google. |
 | `GOOGLE_BUSINESS_PROFILE_CONNECTION` | Offer to check the connection and start it by following [Connect a Wix Site to Google Business Profile](../google-business-profile/connect-google-business-profile.md). Be explicit that the agent can initiate the flow and provide its authorization URL, but the site owner must finish Google's consent in their browser. |
 
-After the tasks, make one closing offer that groups the supported actions you can take; do not append a separate approval question to every item.
+After the tasks, make one closing offer that groups the supported actions you can take; do not append a separate approval question to every item or turn every suggestion into a follow-up action.
 
 For a Merchant Center connection, first read the selected site's Google Ads account:
 
@@ -116,32 +158,36 @@ Read `account.id`, `account.merchantCenterAccountId`, and `account.merchantCente
 
 ### Build destination-specific CTAs
 
-- **Editor:** Include this only when at least one returned `OPEN` item requires landing-page or mobile editing. Use the exact `editUrl` from the selected site context or the single matching result from the site-navigation lookup described above; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, and do not substitute the public landing-page URL for an Editor link. If the site is `EDITORLESS` or has no `editUrl`, say that an Editor link is unavailable instead of inventing one. Label the CTA **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
-- **Google Ads:** When a returned item belongs in Google Ads, use the verified route from [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md): `https://manage.wix.com/dashboard/{metaSiteId}/google-ads`. Label the CTA **Go to Google Ads** or name the specific campaign action.
-- **Other destinations:** Name the destination or action in the CTA, such as **Open Forms dashboard**, **Review site speed**, or **Connect Google Business Profile**. Never make several unrelated links look like the same generic action.
-- Include only relevant destinations and list each URL once. Authorization URLs created by a later connection flow are task-specific; return one only after the user accepts that offer and the flow creates it.
+- **Editor:** Include this only when at least one suggestion in the visible batch requires landing-page or mobile editing. Use the exact `editUrl` from the selected site context or the single matching result from the site-navigation lookup described above; prefix a relative value with `https://manage.wix.com`. Never construct or guess an Editor URL, substitute the public landing-page URL, or attach a loosely related Help Center article. If the single lookup is unavailable, returns no exact match, or returns `EDITORLESS` or no `editUrl`, write **Go to the Editor** once as plain text in **Next actions**. Do not say that the link is unavailable, retry, or keep searching. Label a resolved link **Go to Editor** or name the more specific editing action; do not label it **Open in Wix**.
+- **Search Themes:** Do not add a Google Ads link merely because `GOOGLE_ADS_SEARCH_THEMES` is open. Offer the agent-performed update first. Only after the user explicitly chooses the manual path, follow [Google Ads Dashboard Navigation](google-ads-dashboard-navigation.md) to resolve and link the campaign's Keywords Manager. Reuse the campaign ID already established in the Success Guide conversation. Label the link **Add Search Themes**. If the user states that manual preference in the initial request, include the link in that batch; if they choose it later, return the link then.
+- **Other destinations:** Include a destination only when an `OPEN` item has a verified existing URL. Name the page or action precisely, such as **Open Forms dashboard** or **Review site speed**. Never make unrelated links look like the same generic action.
+- **Connection flows:** Google Business Profile and Merchant Center recommendations create an offer in **I can help**, not an initial navigation link. Return a task-specific authorization URL only after the user accepts the offer and the connection flow creates it.
+- Include only destinations appropriate for suggestions in the visible batch and list each URL once.
 
-Example when several tasks share the Editor:
+Example with several Editor tasks, supported connection work, and a completed campaign task:
 
 ```markdown
-## Campaign success guide
+## Campaign success guide — Request a Quote campaign
 Landing page: [Request a quote](https://www.example.com/request-a-quote)
 
-1. **Clarify the main call to action — Pending**
-   Make the button describe the conversion, such as “Request a quote.”
-2. **Move a call to action above the fold — Pending**
-   Place the primary button where visitors see it without scrolling.
-3. **Configure Google Ads search themes — Pending**
-   **I can help with this:** I can propose relevant themes and apply the set you approve.
+### Start here
+1. **Add contact details**
+   Show a phone number and email address where visitors can easily find them.
+2. **Add an FAQ section**
+   Answer the questions prospective customers ask before contacting you.
+3. **Connect Google Business Profile**
+   Link the profile so campaign and business signals stay connected.
 
-I can take care of the search-theme update after you review the proposed set.
+### I can help
+I can draft the FAQ content and check and start the Business Profile connection after you approve. You will need to finish Google's consent in your browser. I can start with the FAQ draft.
 
 ### Next actions
-- [Go to Editor]({editUrl})
-- [Go to Google Ads](https://manage.wix.com/dashboard/{metaSiteId}/google-ads)
+- [Go to Editor]({absoluteEditUrl})
+
+These are the highest-priority open tasks. Would you like to see the next batch?
 ```
 
-Each link has its own destination-specific CTA, and the Editor URL appears once even though the first two recommendations both use it.
+The Editor URL appears once even though several recommendations use it. If the exact URL cannot be resolved in one attempt, replace that linked line with plain **Go to the Editor** guidance. Merchant Center is deferred to the next batch, the completed Search Themes item is hidden, and the Business Profile recommendation creates an agent offer rather than an unverified navigation link.
 
 ## Translate suggestion types for the user
 
@@ -215,7 +261,7 @@ Reopen the same item by sending:
 }
 ```
 
-The response wraps the updated guide as `{ "campaignSuccessGuide": { ... } }`. Treat that returned guide as the new source of truth: report the changed tracking status and summarize remaining `OPEN` suggestions in priority order. Do not claim the underlying recommendation was implemented. Do not update multiple items unless the user's wording clearly identifies all of them.
+The response wraps the updated guide as `{ "campaignSuccessGuide": { ... } }`. Treat that returned guide as the new source of truth: confirm the changed tracking status in plain language, hide completed items from the task list, and present up to the next three not-yet-shown `OPEN` suggestions in priority order. Treat a reopened item as unshown so it can appear again. Do not claim the underlying recommendation was implemented. Do not update multiple items unless the user's wording clearly identifies all of them.
 
 If a mutation times out with an unknown outcome, do not retry automatically. Retrieve the guide later to determine the current status first.
 

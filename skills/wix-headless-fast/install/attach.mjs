@@ -21,8 +21,8 @@
 // --business-name  the site's name (names the folder, the hosting slug and the app project).
 // --vertical       which shipped code deploys (no seed runs — the site owns its content). Both are
 //                  the caller's decision, read off the site before calling this (SKILL.md step 3).
-// --stack          astro (default) in a folder without a project: scaffolds the CLI's blank Astro
-//                  template with the hosting adapter. react|static there: writes wix.config.json
+// --stack          astro (default) in a folder without a project: copies the first vertical's
+//                  composed template (templates/<vertical>/project). react|static there: writes wix.config.json
 //                  and stops — the caller scaffolds (Vite / plain HTML) per SKILL.md. In a folder
 //                  that holds a project, --stack is required and nothing is scaffolded.
 //
@@ -41,18 +41,20 @@
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@latest whoami`)
 // whose account owns or co-manages the site.
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
+import { frontendPresent, siteContext } from "./context.mjs";
+import { listVerticals, templatesDir } from "./templates.mjs";
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANAGE = "https://manage.wix.com";
 const API = "https://www.wixapis.com";
 const HEADLESS_PROJECT_TYPE_ID = "eb363dea-85a0-4159-9b05-949542be5079";
-const TEMPLATES_REPO = "https://github.com/wix/headless-templates.git";
-const TEMPLATE_PATH = "astro/blank";
+// The shipped code: the repository's templates/ (a checkout, the cache, or fetched now, in a second).
+let TEMPLATES;
+try { TEMPLATES = templatesDir(); } catch (e) { fail("templates", e.message); }
 
 const emit = (event, extra = {}) => console.log(JSON.stringify({ event, ...extra }));
 const fail = (step, detail) => {
@@ -74,12 +76,22 @@ const subfolder = argv.includes("--subfolder");
 const cwd = process.cwd();
 const has = (p) => existsSync(join(cwd, p));
 const cwdConfig = has("wix.config.json") ? JSON.parse(readFileSync(join(cwd, "wix.config.json"), "utf8")) : null;
-const hasProject = has("package.json") || has("index.html");
+// A frontend here: a package.json, an index.html at the root, or an index.html in the folder the
+// config's site.outputDirectory names (a static site laid out for release) — install/context.mjs.
+const fp = frontendPresent(cwd);
+const hasProject = fp.packageJson || fp.rootIndex || fp.outputIndex;
+// A migration preview (wix.config.json names a deploy-only site, .env.local names the site being
+// migrated) is already provisioned: its app, hosting and credentials came with the folder. Nothing
+// here applies — setup.mjs takes it (SKILL.md step 3).
+if (cwdConfig) {
+  const ctx = siteContext({ cwd });
+  if (ctx.migration.active) {
+    fail("place", `this folder deploys a migration preview of site ${ctx.migration.parentSiteId} (deploy site ${ctx.deploy.siteId}): the app and hosting are provisioned already — run setup.mjs --vertical <vertical> [--stack <stack>] here instead; nothing is attached or re-pointed`);
+  }
+}
 const siteId = flag("site") ?? cwdConfig?.siteId ?? cwdConfig?.projectId ?? null;
 const stack = stackFlag ?? "astro";
-const knownVerticals = readdirSync(join(SKILL_ROOT, "references"), { withFileTypes: true })
-  .filter((d) => d.isDirectory() && d.name !== "shared" && existsSync(join(SKILL_ROOT, "references", d.name, "app")))
-  .map((d) => d.name);
+const knownVerticals = listVerticals(TEMPLATES);
 const verticals = argv
   .flatMap((a, i) => (a === "--vertical" && argv[i + 1] ? argv[i + 1].split(",") : []))
   .map((v) => v.trim())
@@ -246,46 +258,15 @@ emit("attached", { siteId, appId, baseUrl, hosting, frontend, origins: hosting0 
 // ---- 2 · scaffold (only where there is no project) -------------------------------------------------
 mkdirSync(projectDir, { recursive: true });
 if (stack === "astro" && mode === "scaffold") {
-  // The CLI's own blank template (what `wix create` copies), then what its extender adds: the
-  // hosting adapter, React islands, the `wix` scripts. Pinned like a freshly created project.
-  const tmp = mkdtempSync(join(tmpdir(), "wix-template-"));
-  const clone = spawnSync("git", ["clone", "--quiet", "--depth", "1", "--filter=blob:none", "--sparse", TEMPLATES_REPO, tmp], { encoding: "utf8", timeout: 120_000 });
-  if (clone.status !== 0) fail("scaffold", clone.stderr || "git clone of the template repo failed");
-  const sparse = spawnSync("git", ["-C", tmp, "sparse-checkout", "set", TEMPLATE_PATH], { encoding: "utf8", timeout: 60_000 });
-  if (sparse.status !== 0 || !existsSync(join(tmp, TEMPLATE_PATH, "package.json"))) fail("scaffold", sparse.stderr || `template ${TEMPLATE_PATH} not found in ${TEMPLATES_REPO}`);
-  cpSync(join(tmp, TEMPLATE_PATH), projectDir, { recursive: true, force: false, errorOnExist: false });
-  rmSync(tmp, { recursive: true, force: true });
+  // The first vertical's composed template: the CLI's blank scaffold with the vertical deployed
+  // and its lockfile, the same folder `wix create --template-path` copies for a new site. Copied
+  // here because the CLI's create makes a new site and this folder gets an existing one. Further
+  // verticals are deployed below.
+  cpSync(join(templatesDir({ need: `${verticals[0]}/project` }), verticals[0], "project"), projectDir, { recursive: true, force: false, errorOnExist: false });
   const pkgPath = join(projectDir, "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   pkg.name = folderName;
-  pkg.scripts = { astro: "astro", dev: "wix dev", build: "wix build", wix: "wix", preview: "wix preview", release: "wix release", generate: "wix generate", env: "wix env", skills: "wix skills" };
-  pkg.devDependencies = {
-    ...(pkg.devDependencies ?? {}),
-    "@astrojs/react": "^4.3.0",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
-    "@wix/cli": "^1.1.92",
-    "@wix/astro-wix-hosting-adapter": "^2.0.0",
-    react: "18.3.1",
-    "react-dom": "18.3.1",
-  };
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-  writeFileSync(join(projectDir, "astro.config.mjs"), `// @ts-check
-import { defineConfig } from "astro/config";
-import wix from "@wix/astro";
-import wixPages from "@wix/astro-pages";
-import react from "@astrojs/react";
-import wixHostingAdapter from "@wix/astro-wix-hosting-adapter";
-
-// https://astro.build/config
-export default defineConfig({
-  integrations: [wix(), wixPages(), react()],
-  security: { checkOrigin: false },
-  adapter: wixHostingAdapter(),
-  image: { domains: ["static.wixstatic.com"] },
-  output: "server",
-});
-`);
   const gi = join(projectDir, ".gitignore");
   const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
   if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
@@ -302,7 +283,7 @@ writeFileSync(join(projectDir, ".env.local"), [
   `WIX_CLIENT_SECRET=${quote(secrets.appSecret)}`,
   "",
 ].join("\n"));
-emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaffolded", { folder: folderName, stack, template: mode === "scaffold" && stack === "astro" ? `${TEMPLATES_REPO}#${TEMPLATE_PATH}` : null });
+emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaffolded", { folder: folderName, stack, template: mode === "scaffold" && stack === "astro" ? join(TEMPLATES, verticals[0], "project") : null });
 // the agent config files `wix create` writes (attach never runs the CLI's scaffold at all); fill-only
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
 
@@ -313,7 +294,7 @@ if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
   process.exit(0);
 }
 
-// ---- 3 · deploy shipped code + deps + lockfile ---------------------------------------------------
+// ---- 3 · deploy shipped code + deps (adds nothing to a scaffold from the template) --------------
 let deployResult = {};
 {
   const deploy = spawnSync("node", [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack], { cwd: projectDir, encoding: "utf8", timeout: 60_000 });

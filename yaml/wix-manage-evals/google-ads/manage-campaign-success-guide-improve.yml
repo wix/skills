@@ -4,7 +4,7 @@ description: >-
   routed to its campaign success guide rather than pre-campaign suggestions or
   performance analytics.
 triggerPrompt: >-
-  What should I fix next in my existing Wix Google Ads campaign on my site
+  How can I improve my Google Ads campaign on my site
   (MSID: b342a30b-616e-40ce-ad26-52a83397e08e)?
 tags: [marketing]
 assertions:
@@ -16,14 +16,14 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response:
-      - routes the request to the campaign success guide for an existing Google
-        Ads campaign rather than to pre-campaign asset, keyword, budget, or
-        targeting suggestions;
+      - understands "improve my Google Ads campaign" as a request for the
+        existing campaign's Campaign Success Guide rather than for analytics or
+        pre-campaign asset, keyword, budget, or targeting suggestions;
       - uses site b342a30b-616e-40ce-ad26-52a83397e08e, lists that site's
         campaigns at most once with GET
         https://www.wixapis.com/_serverless/pa-google/v1/campaigns to identify
-        the campaign, retrieves or creates its campaign success guide, and
-        presents the returned suggestions as prioritized improvements;
+        the campaign, and retrieves or creates its Campaign Success Guide once
+        with platformType GOOGLE; and
       - does not require the campaign to leave LEARNING or have performance
         metrics before using the guide.
 
@@ -37,16 +37,18 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent handled the request. Examine the tool-call
-      trace. Score 0-10, where 10 is a direct path to the campaign success guide
-      documentation followed by successful target resolution and guide
-      retrieval on site b342a30b-616e-40ce-ad26-52a83397e08e: select that site,
-      list its campaigns at most once if needed, retrieve or create the guide
-      once, and present its actual suggestions.
+      trace only through the first successful Campaign Success Guide retrieval;
+      ignore presentation, navigation, and tool calls after that point in this
+      intent-routing scenario. Score 9-10 for a direct path on site
+      b342a30b-616e-40ce-ad26-52a83397e08e: select that site, list its campaigns
+      at most once if needed, and retrieve or create the guide once. Score 7-8
+      if extra documentation discovery is needed before retrieval but the agent
+      stays on this route and completes it without an erroneous API call.
 
-      Penalize querying analytics first, routing through pre-campaign
-      suggestions, using a different site, probing multiple sites, guessing
-      between campaigns, any non-2xx call even if recovered, repeated calls,
-      unrelated or repeated documentation, and internal service or tool names
-      in the user-facing answer. Name the likely recipe, MCP, or docs gap for
-      each detour. Return only
+      Score below 7 if, before the first successful guide retrieval, it detours
+      into analytics or pre-campaign suggestions, uses or probes another site,
+      guesses between campaigns, encounters a non-2xx call, or repeats campaign
+      or guide calls. Do not judge the guide's visual presentation or any
+      post-retrieval navigation in this scenario. Name the likely recipe, MCP,
+      or docs gap for each pre-retrieval detour. Return only
       {"score":<0-10>,"reason":"<terse findings or clean path>"}.

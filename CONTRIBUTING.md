@@ -92,6 +92,8 @@ A skill starts with orchestration: which APIs to call, in what order, what to de
 
 Orchestration on its own, though, still leaves the agent to go find the request body. That costs a round trip to the docs on every run, and it leaves room to guess wrong. So show the call too: the endpoint and HTTP method, a minimal request body for the common path, the response fields the next step reads, and any wrapper, enum value, or ID format that the field name alone doesn't reveal. An agent that can copy a working call finishes the task faster and more reliably than one that has to reconstruct it.
 
+Write the endpoint as the full URL, host included, never as a path relative to the API host. An example that shows the full URL, the HTTP method and the request body the method takes is one the agent can execute as written. A relative path is not, and it sends the agent back to the docs and schema tools to rebuild a call it already had.
+
 Keep examples minimal and current. Show the fields the task needs, not the whole schema: exhaustive field lists, every optional field, and full enum tables belong in the linked reference, which stays accurate as the API evolves. Link that page alongside the example so the agent can go deeper when a task falls outside the common path. Use placeholder IDs rather than values from a real site.
 
 The reverse is a defect too. If which endpoint to call, in what order, or which field is required is only reachable through the link, the skill has offloaded its job and the agent pays a round trip on every run. Everything the common path needs belongs in the skill; the link is for the depth beyond it.
