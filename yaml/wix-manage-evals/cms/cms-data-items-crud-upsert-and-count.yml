@@ -90,12 +90,14 @@ assertions:
     maxTokens: 2048
     prompt: >
       Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
-      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response
-      actually returned by a call, even if recovered (an error-handling branch in the agent's code that
-      never fired is not an error and is not a deduction); `_id` used where `id` was required (or the reverse) and then corrected;
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response actually returned by a Wix API call, even if recovered (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); `_id` used where `id` was required (or the reverse) and then corrected;
       `dataItems` sent to the patch endpoint or `patches` to the update endpoint; a full-item
       replace that dropped fields and had to be repaired; an invented endpoint; a final count that
-      is not backed by a count call or a filtered query made after the writes.
+      is not backed by any read made after the writes (a count call, a filtered query, or a full
+      query counted in code all qualify; only a number derived from pre-run state fails this).
       Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3 points
       however many there are: a second read of the
       collection schema; a docs or search call beyond the first skill read; listing the whole

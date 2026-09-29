@@ -119,9 +119,10 @@ assertions:
     maxTokens: 2048
     prompt: >
       Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
-      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response
-      actually returned by a call, even if recovered (an error-handling branch in the agent's code that
-      never fired is not an error and is not a deduction); a guessed request shape corrected afterwards (for example `dataItems` where
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response actually returned by a Wix API call, even if recovered (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); a guessed request shape corrected afterwards (for example `dataItems` where
       `dataItemReferences` or `patches` was needed); an invented endpoint; writing the member IDs
       into the `team` field through insert, bulk insert or PUT and reporting success without a
       read-back; a wrong or missing final read-back that expands the field (includeReferencedItems or

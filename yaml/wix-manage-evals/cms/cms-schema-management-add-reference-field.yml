@@ -87,9 +87,10 @@ assertions:
       (or the collections list) to confirm it exists, one create-field call with
       typeMetadata.reference.referencedCollectionId set, and one read of the collection to list
       the fields.
-      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response
-      actually returned by a call, even if recovered (an error-handling branch in the agent's code
-      that never fired is not an error and is not a deduction); a create-field call sent without
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response actually returned by a Wix API call, even if recovered (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); a create-field call sent without
       typeMetadata and then repaired (WDE0075); a full-replace or recreate of the collection to add
       one field; an invented endpoint; a MULTI_REFERENCE field where a single REFERENCE was asked for.
       Subtract 1 for each of these detours, and cap the total of these deductions at 3 points however
