@@ -103,6 +103,6 @@ interface Site {
 ## Next Steps
 
 Use a site's `id` for site-level API calls — derive a site token from the account token
-(`wix token --site <id>`, or the `oauth2/token` refresh-grant in wix-auth `device-flow`), then read
+(`wix token --site <id>`), then read
 its context via [Read Site Context](read-site-context.md) or create sites with
 [Create Site from Template](create-site-from-template.md).
