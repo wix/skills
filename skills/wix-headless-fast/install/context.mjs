@@ -118,7 +118,7 @@ export function frontendPresent(cwd = process.cwd()) {
  * package.json, index.html. `migrationActive` comes from siteContext (it needs `.env.local`).
  *
  *   empty             nothing that reads as a project → setup CREATE: the run makes the site, seeds the plan
- *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new site; nothing seeded
+ *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new, empty site, seeds the plan
  *   config-only       a config, no frontend → attach.mjs on the config's site; nothing seeded
  *   migration         config-only whose .env.local declares a migration preview → setup MIGRATE; nothing seeded
  *   wix-project       a config AND a frontend (package.json, or index.html in the output folder) → iterate:
@@ -132,8 +132,8 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
   const f = frontendPresent(cwd);
   const next = {
     empty: "setup.mjs --vertical <v> --business-name <brand> [--plan]: creates the site here and seeds the plan (CREATE)",
-    project: "setup.mjs --vertical <v> --stack <stack>: init links the folder to a new, empty site and deploys (ADOPT); then the vertical's seed module with a plan when the brief gives content",
-    "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded",
+    project: "setup.mjs --vertical <v> --stack <stack> [--plan]: init links the folder to a new, empty site, seeds the plan and deploys (ADOPT)",
+    "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded; the vertical's seed module with a plan only when the brief supplies or describes content",
     migration: "setup.mjs (MIGRATE): the composed template around the config; the site being migrated owns its content — guides/migration.md",
     "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then ONE npm install; file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
     "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
