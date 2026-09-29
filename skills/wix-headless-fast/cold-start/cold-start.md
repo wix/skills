@@ -3,7 +3,7 @@ name: wix-headless-fast-cold-start
 description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry."
 ---
 
-# Wix Headless Fast — cold start
+# Wix Headless Kit — cold start
 
 > This copy lives at the skill's former address (`skills/headless-fast/…`) so existing links keep
 > working. The skill is `wix-headless-kit`; everything below installs and follows that.
