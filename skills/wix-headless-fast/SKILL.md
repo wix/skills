@@ -151,16 +151,17 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      the OAuth app's allowed domains before checkout can return to it.
    - **Static** (no build): `outputDirectory` points at the folder the pages live in; a route is a
      page plus a query-string slug (reference mode).
-2. **The seed plan.** When the brief supplies the content in any form — a CSV, JSON or
-   spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a
-   link to their current catalog, anything else that names the content — that IS the plan: map
-   it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md`
-   ("Supplied content"), every entry, names and prices verbatim, their images and no others.
-   Draft a plan from the brief only when nothing was supplied (read only the vertical's
-   `SEED.md` for this — it depends only on the brief; save the vertical's `INSTRUCTIONS.md` for
-   step 4, where it's needed). **An existing site has no plan**: when the brief names a site by
-   its id, the site holds the content already — nothing is seeded, and the frontend reads what
-   is there (step 3's attach path).
+2. **The seed plan.** The brief decides what is seeded; a site this run makes always opens with content:
+
+   | the brief | the plan |
+   |---|---|
+   | supplies the content in any form: a CSV, JSON or spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a link to their current catalog, anything that names the content | that IS the plan: map it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md` ("Supplied content"), every entry, names and prices verbatim, their images and no others |
+   | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4) |
+   | says nothing about content ("build me a store") | on a site this run makes (create, adopt) draft a plan per the vertical's `SEED.md` so the site opens with content, and say in the closing message that it is placeholder content and where to replace it; on a site that existed before the run (attach, iterate, published-static, migrate) no plan and no seed: the site holds what the owner put there |
+
+   **An existing site has no plan of its own**: when the brief names a site by its id, or the
+   folder's config does, the site holds the content already; the frontend reads what is there
+   (step 3's attach path), and only content the brief supplies or describes is added to it.
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
    and for a project already on disk; **the folder decides** what it does, from five file facts:
    `wix.config.json`, its `site.outputDirectory`, the migration variables in `.env.local`,
@@ -181,15 +182,17 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | the folder holds | shape | what setup does | seeded by setup |
    |---|---|---|---|
    | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site | **yes**, from `--plan` |
-   | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | no |
+   | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | **yes**, from `--plan` |
    | a config, no frontend, `.env.local` declares a migration | **migration** → migrate | the composed template around the config, deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
    | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys | no |
    | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
    | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
 
-   **Setup seeds only a site it created.** A site that existed before the run holds content the
-   run did not make: read it first with the vertical's `seed/read-site.mjs`, then, when the brief
-   supplies content, run the vertical's seed module yourself with a plan (from the project root:
+   **Setup seeds only a site it created in this run** (create and adopt: the site is empty by
+   construction, so the plan from step 2 goes in with the one call). A site that existed before
+   the run holds content the run did not make: read it first with the vertical's
+   `seed/read-site.mjs`, then, when the brief supplies or describes content, run the vertical's
+   seed module yourself with a plan (from the project root:
    `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`). Seeds are
    additive and idempotent by name; nothing on a site is ever deleted or overwritten.
 

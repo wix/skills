@@ -8,11 +8,11 @@
 //        [--subfolder [--folder-name <npm-safe-name>]]
 //
 //   empty (or loose files: a CSV, a brief) → CREATE: `wix create` with the vertical's composed template
-//     (templates/<vertical>/project), placed in the current directory (`--business-name` required). The
-//     ONLY case that seeds: the run made the site, so the plan's content goes in.
+//     (templates/<vertical>/project), placed in the current directory (`--business-name` required).
 //   a frontend, no wix.config.json (a package.json, or an index.html at the root) → ADOPT: `init` in
-//     place gives the project a new, empty site, then deploy. `--stack` required. Nothing seeded here:
-//     the vertical's seed module runs afterwards with a plan when the brief gives content.
+//     place gives the project a new, empty site, then deploy. `--stack` required.
+//   CREATE and ADOPT are the two cases that seed: the run made the site, it is empty by construction,
+//     and the plan's content goes in (with --plan; without one the agent drafts a plan and seeds it, SKILL.md step 2).
 //   a config and no frontend, .env.local declaring a MIGRATION PREVIEW → MIGRATE: the composed template
 //     is copied in around the config, the code deploys with the parent's app as its client, the install
 //     starts. Nothing seeded: the parent owns its content.
@@ -22,9 +22,9 @@
 //   a config and a frontend (package.json, or index.html in the output folder) → refuses: iterate.
 //   a config and nothing else → refuses: attach.mjs's case.
 //
-// Seeding is CREATE-only. A site that existed before this run is never seeded by setup: the agent reads
-// what the site holds (the vertical's read-site.mjs) and runs the seed module deliberately when the
-// brief supplies content. Seeds are additive and idempotent by name.
+// Setup seeds only a site it created in this run. A site that existed before the run is never seeded
+// by setup: the agent reads what the site holds (the vertical's read-site.mjs) and runs the seed module
+// deliberately when the brief supplies or describes content. Seeds are additive and idempotent by name.
 //
 // Composes pieces that also remain individually runnable (deploy.mjs, the vertical's seed module)
 // to recover one failed step. Emits ONE JSON event per line and exits in ~35s with the two long
@@ -261,18 +261,19 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   emit("install_started", install);
 }
 
-// ---- 4 · start the seed, detached (CREATE with a plan only) ----------------------------------------
+// ---- 4 · start the seed, detached (a site this run created, with a plan) ---------------------------
 // The seed includes a Wix-side provisioning wait of unpredictable length (10-80s); running it in
 // the caller's foreground would idle the agent for exactly that long. Detach it like the install:
 // result JSON + exit-code marker land as files the caller syncs on before release. Only a site this
 // run created is seeded here; every other site existed before the run and is read first, then the
 // agent runs the seed module itself when the brief supplies content. Seeds are additive and
 // idempotent by name.
+const madeTheSite = mode === "create" || mode === "adopt";
 let seed = null;
-if (planPath && mode !== "create") {
-  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (templates/${vertical}/seed/read-site.mjs), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies content` });
+if (planPath && !madeTheSite) {
+  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (templates/${vertical}/seed/read-site.mjs), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
 }
-if (planPath && mode === "create") {
+if (planPath && madeTheSite) {
   const seedDir = join(TEMPLATES, vertical, "seed");
   const seedName = existsSync(seedDir)
     ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs"))
@@ -317,9 +318,9 @@ emit("ready_for_brand_layer", {
     (publishedStatic ? "a published static site: its pages are live on this site already and keep their URL; move index.html, the other pages, styles and assets into site/ (the root keeps the config, the plan, the seed output and the skills) and wire the solution into the page that needs it; " : "") +
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
-      : mode === "create"
-      ? (planPath ? "theme + write the home page; " : "the site is new and empty — seed it (a plan per step 2, the vertical's seed module) or say so; theme + write the home page; ")
-      : `nothing was seeded (setup seeds only a site it creates): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies content${mode === "adopt" ? " (the site is new and empty)" : ""}; theme + write the home page; `) +
+      : madeTheSite
+      ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
+      : `nothing was seeded (setup seeds only a site it created): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
     (others.length && mode !== "migrate"
       ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `
       : "") +
