@@ -67,8 +67,9 @@ assertions:
       Pass only if all of the following hold:
       - A field with key lead (or similar) was added to Projects with type REFERENCE (single, not
         MULTI_REFERENCE) whose typeMetadata.reference.referencedCollectionId is Team.
-      - The field list in the final answer comes from a read of the collection after the change and
-        includes title and the new reference field.
+      - The field list in the final answer comes from post-change data returned by a tool call: a
+        read of the collection after the change, or the create-field response itself (it returns the
+        updated collection). It includes title and the new reference field.
       - Nothing else was changed: no new collections, no other fields added or removed, no items written.
 
       Fail if the agent:

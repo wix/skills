@@ -299,7 +299,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 }
 ```
 
-**Setting a reference field** (works for a single `REFERENCE` and, with `SET_FIELD`, for `MULTI_REFERENCE` links too):
+**Setting a single `REFERENCE` field** (the value is one item ID; for `MULTI_REFERENCE` the value shape differs, see the next example):
 ```json
 {
   "dataCollectionId": "events",
@@ -347,9 +347,11 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 
 > **Recommended**: Use bulk patch instead of bulk update when you only need to change specific fields.
 
-> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). `MULTI_REFERENCE` links are written only by a `SET_FIELD` patch (single or bulk) or by the reference endpoints in [Reference Fields](#reference-fields) below; insert, bulk insert and PUT return 200 but silently drop multi-reference values, and bulk update (also a full-item replace) is unverified — read the item back after any of them.
+> **Reference fields**: a single `REFERENCE` field is set like any other value (`"venue": "venue-item-id"`, as above). `MULTI_REFERENCE` links are written only by a `SET_FIELD` patch (single or bulk) or by the reference endpoints in [Reference Fields](#reference-fields) below; insert, bulk insert, PUT and bulk update all return 200 but silently drop multi-reference values (verified live) — read the item back after any of them.
 
 ## Delete Data Item
+
+> Deletes are irreversible. Confirm with the user before calling either delete endpoint unless the request already names the items to remove.
 
 **Endpoint**: `DELETE https://www.wixapis.com/wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
 
@@ -500,7 +502,7 @@ Perform calculations on collection data using a pipeline of sequential stages. T
 
 Reference fields link items across collections. A single `REFERENCE` field holds one item ID and is set like any other value in insert, update, or patch. A `MULTI_REFERENCE` field holds many links, and only two kinds of write create them: a `SET_FIELD` patch on the field (single or bulk), or the reference endpoints below, which add, replace, or remove links without touching the rest of the item. To add a reference field to a collection, see [Add a Reference Field](cms-schema-management.md#add-a-reference-field).
 
-> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and its behaviour here is unverified; treat it the same way. Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
+> **Warning (verified live)**: writing IDs into a `MULTI_REFERENCE` field through insert, bulk insert, or PUT update returns **200 and silently drops that field's value** — no error is raised. Bulk update is a full-item replace like PUT and does the same: `success: true`, value dropped (verified live). Never trust the write response for reference links: read the item back with `includeReferencedItems` and confirm the linked items are there.
 
 Linking flow, every time:
 
@@ -579,7 +581,7 @@ Linking flow, every time:
 }
 ```
 
-The method article documents the same expansion as `"includeReferences": [{ "field": "category" }, { "field": "tags", "limit": 50 }]`; both forms work (verified live). Either way the expanded value is an **array of item objects** (with `_id`, `name`, …), not an array of IDs. Without one of these properties, the reference field is absent from the returned item.
+The method article documents the same expansion as `"includeReferences": [{ "field": "category" }, { "field": "tags", "limit": 50 }]`; both forms work (verified live). Either way the expanded value is an **array of item objects** (with `_id`, `name`, …), not an array of IDs. Without one of these properties a `MULTI_REFERENCE` field is absent from the returned item, and a single `REFERENCE` field is returned as the item ID string (it is stored on the item; verified live).
 
 ### Reference Query Operators
 

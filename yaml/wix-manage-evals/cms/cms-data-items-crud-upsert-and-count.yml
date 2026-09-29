@@ -1,8 +1,8 @@
 name: cms/cms-data-items-crud-upsert-and-count
 description: >-
-  Verifies the agent syncs a small inventory into a CMS collection — updating existing items and
-  inserting a new one — using the bulk write endpoints with the right id/wrapper rules, then answers
-  a count question with the count endpoint rather than by paging through items.
+  Verifies the agent syncs a small inventory into a CMS collection — updating existing items while
+  keeping the fields it did not touch, inserting the new item once — and reports a zero-quantity
+  count backed by a count call or filtered query made after the writes, naming the items.
 triggerPrompt: >-
   In my Inventory CMS collection, set the quantity of SKU-001 to 12 and SKU-002 to 0, and add a new
   item SKU-003 with quantity 7. Then tell me how many items in the collection now have quantity 0.

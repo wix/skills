@@ -141,7 +141,7 @@ Uses Calendar Events API to create WORKING_HOURS events on the business schedule
 The recommended way to sell existing CMS collection items (tickets, bookings, memberships) through Wix checkout. Add the CATALOG plugin to convert any CMS collection into purchasable products with cart and payment integration.
 
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
-Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields (including single- and multi-reference fields that link two collections), and updating collection settings.
 
 ### [CMS Draft & Publish Workflow (Draft Items plugin)](references/cms/cms-publishing-flow.md)
 "Interact with CMS collections that gate their items behind a draft/publish workflow via the Draft Items plugin. Covers detecting the plugin, locating the paired drafts collection, reading published vs draft items, authoring/editing drafts, and publishing, unpublishing, reverting, and deleting items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-draft-items-plugin, and the paired drafts collection referenced by draftItemsPluginOptions.draftsCollectionId."

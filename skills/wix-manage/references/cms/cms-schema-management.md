@@ -1,6 +1,6 @@
 ---
 name: "CMS Schema Management"
-description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields (including single- and multi-reference fields that link two collections), and updating collection settings.
 ---
 # CMS Schema Management
 
@@ -87,6 +87,8 @@ curl -X GET \
 ```
 
 ### Add a Reference Field
+
+Same endpoint as above: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`. The two bodies below differ only in `type` and `typeMetadata`; omitting `typeMetadata` fails with `WDE0075` (see Error Handling).
 
 | Type | Field Type | Relationship | Example |
 |------|------------|--------------|---------|
@@ -217,6 +219,7 @@ Don't delete and recreate a collection just to change its permissions — this f
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `WDE0075` (`Metadata for Reference type field not provided`) | `create-field` with `type` REFERENCE or MULTI_REFERENCE but no `typeMetadata` | Send `typeMetadata.reference.referencedCollectionId` (or `typeMetadata.multiReference…`), see Add a Reference Field |
 | `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
 
 ## Related Documentation
