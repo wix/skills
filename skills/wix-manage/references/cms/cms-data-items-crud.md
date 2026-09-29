@@ -611,7 +611,7 @@ The method article documents the same expansion as `"includeReferences": [{ "fie
 | `ARRAY_STRING` | Array of strings | `["tag1", "tag2"]` |
 | `OBJECT` | JSON object | `{"key": "value"}` |
 | `REFERENCE` | Single reference | Item ID string |
-| `MULTI_REFERENCE` | Multiple references, use the *reference* endpoints to manipulate, `includeReferencedItems` to expand in queries | Array of IDs |
+| `MULTI_REFERENCE` | Multiple references. Write with a `SET_FIELD` patch (array of item IDs, replaces the set) or the *reference* endpoints (add / replace / remove); expand in queries with `includeReferencedItems` or `includeReferences` | Array of item IDs; expands to item objects on read |
 
 ---
 
