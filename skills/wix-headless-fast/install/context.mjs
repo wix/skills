@@ -17,8 +17,7 @@
 // identity, and the Astro build refuses to run without it. Non-interactive (CI=1); a failure is
 // reported in `pullError` and the config's ids stand in, so a caller can still work offline.
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The variables `wix env pull` writes for a migration preview. The names are the platform's and are
@@ -60,38 +59,15 @@ const ENV_PULL = ["-y", "@wix/cli@latest", "env", "pull"];
 const runPull = (dir) => spawnSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
 /**
- * `wix env pull` into `cwd/.env.local`. The CLI chooses its command set from wix.config.json
- * (its src/cli-astro.ts): with `appId` and either `site.outputDirectory` or exactly one astro.config.*
- * file it mounts the site commands, but a config WITH `site.outputDirectory` gets the limited set,
- * `release` alone, and `env` is not in it. So every static project (a site published through the
- * drop flow and downloaded, `./dist`; this skill's static stack, `./site`) answers "unknown command
- * 'env'" in place, whatever is installed beside it, and so does a folder holding just a downloaded
- * config. Then the pull runs in a temp folder holding a copy of the config WITHOUT `site` plus an
- * empty astro.config.mjs — the shape that lands in the full command set — and the `.env.local` comes
- * back here. (Verified 2026-09-29 on CLI 1.1.252: the same folder flips from `release` to
- * `build dev env generate release` when `site.outputDirectory` is removed.) `.env.local` is
- * site-level data, the client id and the migration variables, so it means the same thing here.
+ * `wix env pull` into `cwd/.env.local`, in place. Every project shape gets the command since Wix CLI
+ * 1.1.253 (2026-09-29): before it, a config with `site.outputDirectory` (the static stack, a site
+ * published through the drop flow) landed in a limited command set without `env`, and this pulled
+ * through a temp copy of the config. Non-interactive; a failure comes back as `error`.
  */
 export function pullEnv(cwd) {
   const envFile = join(cwd, ".env.local");
-  let r = runPull(cwd);
+  const r = runPull(cwd);
   if (r.status === 0 && existsSync(envFile)) return { ok: true, via: "in place" };
-  const limitedCommandSet = /unknown command 'env'/.test(`${r.stderr}${r.stdout}`);
-  if (limitedCommandSet) {
-    const tmp = mkdtempSync(join(tmpdir(), "wix-env-pull-"));
-    try {
-      const { site: _site, ...config } = readWixConfig(cwd) ?? {};
-      writeFileSync(join(tmp, "wix.config.json"), JSON.stringify(config, null, 2) + "\n");
-      writeFileSync(join(tmp, "astro.config.mjs"), "");
-      r = runPull(tmp);
-      if (r.status === 0 && existsSync(join(tmp, ".env.local"))) {
-        copyFileSync(join(tmp, ".env.local"), envFile);
-        return { ok: true, via: "stub project" };
-      }
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  }
   return { ok: false, error: (r.stderr || r.stdout || "env pull produced no .env.local — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").trim().slice(-400) };
 }
 
