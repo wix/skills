@@ -60,20 +60,28 @@ const ENV_PULL = ["-y", "@wix/cli@latest", "env", "pull"];
 const runPull = (dir) => spawnSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
 /**
- * `wix env pull` into `cwd/.env.local`. The CLI mounts `env` only once the folder reads as an Astro
- * project (an astro.config.* file, or `site.outputDirectory` in the config); a folder that holds just
- * the downloaded `wix.config.json` gets "unknown command 'env'". Then the pull runs in a temp folder
- * holding a copy of the config and an empty astro.config.mjs, and the `.env.local` comes back here.
+ * `wix env pull` into `cwd/.env.local`. The CLI chooses its command set from wix.config.json
+ * (its src/cli-astro.ts): with `appId` and either `site.outputDirectory` or exactly one astro.config.*
+ * file it mounts the site commands, but a config WITH `site.outputDirectory` gets the limited set,
+ * `release` alone, and `env` is not in it. So every static project (a site published through the
+ * drop flow and downloaded, `./dist`; this skill's static stack, `./site`) answers "unknown command
+ * 'env'" in place, whatever is installed beside it, and so does a folder holding just a downloaded
+ * config. Then the pull runs in a temp folder holding a copy of the config WITHOUT `site` plus an
+ * empty astro.config.mjs — the shape that lands in the full command set — and the `.env.local` comes
+ * back here. (Verified 2026-09-29 on CLI 1.1.252: the same folder flips from `release` to
+ * `build dev env generate release` when `site.outputDirectory` is removed.) `.env.local` is
+ * site-level data, the client id and the migration variables, so it means the same thing here.
  */
 export function pullEnv(cwd) {
   const envFile = join(cwd, ".env.local");
   let r = runPull(cwd);
   if (r.status === 0 && existsSync(envFile)) return { ok: true, via: "in place" };
-  const notAProjectYet = /unknown command 'env'/.test(`${r.stderr}${r.stdout}`);
-  if (notAProjectYet) {
+  const limitedCommandSet = /unknown command 'env'/.test(`${r.stderr}${r.stdout}`);
+  if (limitedCommandSet) {
     const tmp = mkdtempSync(join(tmpdir(), "wix-env-pull-"));
     try {
-      copyFileSync(join(cwd, "wix.config.json"), join(tmp, "wix.config.json"));
+      const { site: _site, ...config } = readWixConfig(cwd) ?? {};
+      writeFileSync(join(tmp, "wix.config.json"), JSON.stringify(config, null, 2) + "\n");
       writeFileSync(join(tmp, "astro.config.mjs"), "");
       r = runPull(tmp);
       if (r.status === 0 && existsSync(join(tmp, ".env.local"))) {

@@ -63,10 +63,17 @@ machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify i
 The result carries `durationRangeConfirmed` (the first rental re-read; `"HOUR"`/`"DAY"` means the
 range landed, `null` means it was dropped and the rental would book as a fixed slot — stop and
 read the create-service reference), the created rentals with their slugs, the resource types with
-their resources, `errors` per rental, and `dashboardUrl`.
+their resources, `preexisting[]` (rentals the site already listed, see below), `errors` per rental,
+and `dashboardUrl`.
 
-**Seeding is additive — never delete or overwrite existing content**; report what is there and
-leave any cleanup to the owner.
+**Seeding is additive — the seed never deletes or overwrites anything on the site, and neither do
+you.** There is no cleanup flag and no cleanup step. The Rentals install adds its own sample rental
+to a new site ("Conference room", $45 an hour, 1 to 8 hours), and the live listing shows it next to
+the owner's rentals, so it is never silent: the result's `preexisting[]` names every rental the run
+did not create and the plan did not name (`{ id, name, slug }`), and the closing message says so
+with the Rentals dashboard link (`dashboardUrl` in the result) so the owner removes it there if they
+want to. Resource types and resources are idempotent by name — a re-run reuses "Kayaks" instead of
+creating a second one.
 
 ## Supplied content
 
@@ -79,7 +86,7 @@ A rental with no unit is a question for the user.
 
 ## Escape hatch — individual functions
 `setupRentals` composes exported steps — `installRentalsApp`, `createResourceTypes`,
-`createResources`, `buildRental`, `createRental`, `confirmDurationRange`, `importImage`,
+`createResources`, `buildRental`, `createRental`, `confirmDurationRange`, `readRentals`, `importImage`,
 `attachRentalImage`, plus `makeCtx()` — import them only for a partial re-seed.
 
 ## Reference

@@ -297,3 +297,9 @@ day) — say so.
 Per `seed/SEED.md` — plain-data `plan.json` into `seed-rentals.mjs` from the project root. Seed
 resource types with their units and 3–4 rentals that exercise the UI (an hourly one and a daily one
 where the business allows, a free or approval-gated one where it fits, an image per rental).
+
+A fresh Rentals install carries Wix's own sample rental ("Conference room", $45 an hour), and the
+listing shows it next to the seeded ones. Never delete it, or anything else on the site: the result's
+`preexisting[]` names what the listing shows, and the closing message says so with the Rentals
+dashboard link so the owner removes it there — never release a kayak shop that rents a conference
+room without telling the owner.

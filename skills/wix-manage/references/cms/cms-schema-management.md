@@ -37,7 +37,7 @@ curl -X GET \
 
 ## Get Collection Schema
 
-**Endpoint**: `GET /wix-data/v2/collections/{collectionId}`
+**Endpoint**: `GET https://www.wixapis.com/wix-data/v2/collections/{collectionId}`
 
 ```bash
 curl -X GET \
@@ -47,7 +47,7 @@ curl -X GET \
 
 ## Create a New Collection
 
-**Endpoint**: `POST /wix-data/v2/collections`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections`
 
 ```json
 {
@@ -72,7 +72,7 @@ curl -X GET \
 
 ## Add a Field to Existing Collection
 
-**Endpoint**: `POST /wix-data/v2/collections/create-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
 
 ```json
 {
@@ -90,7 +90,7 @@ curl -X GET \
 
 > **Warning**: This permanently deletes all data stored in this field across all items.
 
-**Endpoint**: `POST /wix-data/v2/collections/delete-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/delete-field`
 
 ```json
 {
@@ -101,7 +101,7 @@ curl -X GET \
 
 ## Update Collection Settings
 
-**Endpoint**: `PATCH /wix-data/v2/collections/{collectionId}`
+**Endpoint**: `PATCH https://www.wixapis.com/wix-data/v2/collections/{collectionId}`
 
 ```json
 {
@@ -116,7 +116,7 @@ This works for `displayName`/`displayField`. **Permission updates currently fail
 
 **To change permissions on an existing collection, use the full-replace endpoint instead** (`UpdateDataCollection`, not `PatchDataCollection`) — it requires the collection's current `revision` and full `fields` array (get both from a `GET` first), but it does work:
 
-**Endpoint**: `PUT /wix-data/v2/collections`
+**Endpoint**: `PUT https://www.wixapis.com/wix-data/v2/collections`
 
 ```json
 {
