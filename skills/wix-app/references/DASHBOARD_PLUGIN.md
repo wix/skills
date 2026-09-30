@@ -33,7 +33,7 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 
 A plugin is its own iframe, so **it inherits nothing from the host page it sits in** — not even though that page is a redesigned first-party Wix app. This makes a plugin the least forgiving dashboard surface: an unthemed one renders classic icons and pre-redesign buttons directly beside the redesigned Stores/Bookings/Blog UI framing it.
 
-Wrap the plugin component in the app's `BusinessManagerTheme` (the example below does), import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — never a hardcoded colour or an inline `style` override. The wrapper file itself is written once per app: [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+Wrap the plugin component in the app's `BusinessManagerTheme` (the example below does), import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — never a hardcoded colour or an inline `style` override ([BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md)). The wrapper file itself is written once per app: [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
 
 Two things to get right in a slot specifically:
 

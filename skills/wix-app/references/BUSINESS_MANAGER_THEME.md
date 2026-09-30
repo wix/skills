@@ -19,6 +19,7 @@ The redesigned styles and matching icon set ship as a pair — update them toget
 ```tsx
 // src/extensions/dashboard/BusinessManagerTheme.tsx
 import type { FC, ReactNode } from 'react';
+import { i18n } from '@wix/essentials';
 import {
   WixDesignSystemProvider,
   WixDesignSystemIconThemeProvider,
@@ -38,7 +39,7 @@ const BUSINESS_MANAGER_DEFAULTS: WixDesignSystemDefaultProps = {
 
 export const BusinessManagerTheme: FC<{ children: ReactNode; locale?: string }> = ({
   children,
-  locale,
+  locale = i18n.getLocale(),
 }) => (
   <WixDesignSystemProvider locale={locale}>
     <WixDesignSystemIconThemeProvider>
@@ -83,75 +84,25 @@ Each surface's own doc shows the wrapper already in place. Copy that file as-is 
 Icons imported from the package root render classic **regardless of the providers above them**. Only the lazy entry point resolves through `IconThemeProvider`:
 
 ```diff
-- import { Add } from '@wix/wix-ui-icons-common';
-- import { Confirm } from '@wix/wix-ui-icons-common/system';
-+ import { Add } from '@wix/wix-ui-icons-common/lazy';
-+ import { Confirm } from '@wix/wix-ui-icons-common/lazy/system';
+- import { Add, Confirm } from '@wix/wix-ui-icons-common';
++ import { Add, Confirm } from '@wix/wix-ui-icons-common/lazy';
 ```
 
 Use `lazy` for every icon on a dashboard surface. Outside Business Manager it keeps rendering the current set, so this is the default import, not a Business-Manager-only one. An `iconKey` in a builder file names an icon for the platform rather than importing one — leave those alone.
 
-## 5. Tokens, not hardcoded values
+Two things worth knowing before you convert everything:
 
-A hardcoded colour or font size keeps its old value while the themed components around it change — the most visible way a page looks half migrated. Use a `--wds-*` custom property, or the component's own `skin`/`size` prop.
+- **`/lazy/system` is not where app icons live.** The `system` entry holds WDS's own internal component decorations (`CheckboxChecked`, `DropDownArrow`, …) — about 80 glyphs. Ordinary icons like `Add` and `Confirm` are in `/lazy` itself, so importing them from `/lazy/system` fails `tsc` with "no exported member".
+- **A lazy icon is a network fetch.** `core/icon.js` fetches the glyph JSON from the CDN at render time and suspends, falling back to an empty state on failure. That is fine in the dashboard, but a unit test asserting icon markup synchronously will see the fallback. If you need the redesign glyphs statically inlined with no provider and no fetch, `@wix/wix-ui-icons-common/odeditor` is a real entry point — `lazy` is still the default here because one import keeps tracking the right set both inside and outside Business Manager.
 
-| Use case | Don't write | Token |
-| --- | --- | --- |
-| Primary action fill | `#2F5DFF` | `--wds-color-fill-standard-primary` |
-| Dark secondary fill | `#DEDEDE` | `--wds-color-fill-dark-secondary` |
-| Dark secondary, hover | `#E8E7E7` | `--wds-color-fill-dark-secondary-hover` |
-| Warning / success surface | yellow / green tones | `--wds-color-fill-warning-light`, `--wds-color-fill-success-light` |
-| Primary text | `#151414` | `--wds-color-text-standard-primary` |
-| Interactive / link | `#2F5DFF` | `--wds-color-text-primary` |
-| Destructive text | `#DF3336` | `--wds-color-text-destructive` |
-| Standard border | `#767574` | `--wds-color-border-dark-primary` |
-| Subtle border | `#DEDEDE` | `--wds-color-border-dark-secondary` |
-| Heading / body font | `"Wix Madefor Display"`, `"Arial"` | `--wds-font-family-heading`, `--wds-font-family-body` |
-| Heading 1 size / line height | `32px` / `32px` | `--wds-font-size-heading-1`, `--wds-font-line-height-heading-1` |
-| Heading 1 spacing / weight | `-0.5px` / `500` | `--wds-font-letter-spacing-heading-1`, `--wds-font-weight-heading-1` |
+## 5. Tokens and component adjustments
 
-For a token not in the table, derive it from the Figma name: prepend `--wds-`, lowercase, replace `/` and spaces with `-`. `Color/Fill/Standard/standard-primary` → `--wds-color-fill-standard-primary`.
+Everything you style yourself — which `--wds-*` token replaces a hardcoded value, which `skin`/`size` prop replaces an inline `style`, the spacing unit the theme rebases, and the per-component adjustments the wrapper can't make for you — is in [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md). Read it before styling anything by hand.
 
-**On a WDS component the prop is the target, not the token:**
-
-```tsx
-// ❌ unchanged by a theme switch
-<Button style={{ background: '#2F5DFF' }}>Save</Button>
-<Badge style={{ background: '#F4B8B9' }}>Error</Badge>
-<Text style={{ color: '#DF3336' }}>Invalid email</Text>
-<Box style={{ background: '#F7F8FA', borderColor: '#DEDEDE' }}>
-
-// ✅
-<Button skin="standard">Save</Button>
-<Badge skin="danger">Error</Badge>
-<Text skin="error">Invalid email</Text>
-<Box backgroundColor="A-10" border="1px solid" borderColor="D-10">
-```
-
-A container that genuinely isn't a WDS component takes the tokens in its own CSS: `background: var(--wds-color-fill-standard-tertiary);`.
-
-**Two traps.** Tokens are CSS custom properties, so a colour copied into a JavaScript object — a chart palette, a canvas value — does not follow the theme. And spacing is untouched by the redesign: keep the 6px base unit and `SP*` tokens for `gap`/`padding`/`margin` per [WDS_LAYOUT.md](dashboard-page/WDS_LAYOUT.md#base-unit).
-
-No matching token? Ship it with a `// TODO: migrate when <token> exists` comment rather than bare. If you can't say in one sentence why it can't be a token, it should be one.
-
-## 6. Adjustments the wrapper doesn't cover
-
-| Component | Adjustment |
-| --- | --- |
-| Accordion | Set the chevron manually |
-| Panel / modal headers | Update the close button; `tiny` question-mark icon |
-| Modal footers | Secondary → text button at M size; light footer skin; no divider |
-| Slider | Horizontal spacing 12px, not 8px |
-| Components with built-in buttons | Nested icon button → Dark / Tertiary |
-| Tabs | `size="small"`, divider off |
-| Angle input | Medium (38px height) |
-
-Three layout defaults are the author's job: a **standalone** text button uses the standard (blue) skin while one beside a primary or secondary button uses Dark; panels, cards and modals carry **no dividers** in headers and footers; empty states are **typography only**, no legacy illustrations (on a collection page the empty state comes from the patterns shell — [DRAFT_TEMPLATE_COLLECTION.md](dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)).
-
-## 7. Verify
+## 6. Verify
 
 - The entry file wraps the page in `BusinessManagerTheme`, and that file imports both stylesheets and nests all four providers in order.
-- Every icon comes from `@wix/wix-ui-icons-common/lazy` or `/lazy/system`.
+- Every icon comes from `@wix/wix-ui-icons-common/lazy` (not the package root, and not `/lazy/system`).
 - `grep -rn "style={{" src/` and `grep -rn "#[0-9A-Fa-f]\{3,6\}" src/` return nothing for the page's own files, or only lines carrying a justification comment.
 - In devtools, a component's colours resolve from `--wds-*` properties. A literal means that element is still custom-styled.
 - Hover, focus, disabled, selected, error, warning and success all render — a token gap usually surfaces in a state, not at rest.
