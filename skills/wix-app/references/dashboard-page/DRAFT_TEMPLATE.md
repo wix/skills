@@ -1,50 +1,34 @@
 # Draft Template — the starting point for every dashboard page
 
-**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file when the request needs something no case shows, and then go to [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md) first — before any lookup inside `node_modules/@wix/patterns`, `index.json` included. It routes you to the package's own `Collection Toolkit.md` guide, a component doc or an example; [TABLE_STATE.md](TABLE_STATE.md) and MCP lookups come after it.
+**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** The templates themselves ship inside the installed `@wix/patterns`: whole, working pages that the package type-checks against its own release, so they never drift from the version your code compiles against. This file says how to find one, where its files go in a Wix CLI app, and what this skill adds on top. Which template fits, and the wiring each one must keep, is the package's answer — read it there.
 
-Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts`, not from memory — confirm props against your own installed version before deviating.
+Go through [WIX_PATTERNS_DOCS.md § Prerequisites](../WIX_PATTERNS_DOCS.md#prerequisites) first for `<pkgRoot>`; every path below is relative to it.
 
-## Which case matches the request?
+## 1. Find the templates
 
-| The request needs… | Case | Router? |
-| --- | --- | --- |
-| A list/report whose rows are read-only — no create/edit form | **A — Collection + read-only detail** | Yes |
-| A list **and** create/edit for each record (no separate app-settings area) | **B — Collection + Entity** | Yes |
-| Only app-wide settings/config — no list at all | **C — Settings only** | No |
-| A list, create/edit, **and** an app-settings area, all in one extension | **D — Collection + Entity + Settings** | Yes |
+Templates are docs-index entries with `category: "Templates"`, and each lists every file of its page in `templateFiles` (relative to `dist/templates/`). One probe lists them all with the guide that chooses between them:
 
-Don't default to D because it's the most complete — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) doesn't ask for a settings or entity page unless the request needs one. If unsure between B and D, re-read the prompt for "settings," "configure," "preferences" — their absence means B.
-
-## Then: what `fetchData` calls
-
-Case tells you how many pages. This tells you only what `fetchData` calls — the page itself is
-[DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) either way:
-
-| The rows come from | `fetchData` calls |
-| --- | --- |
-| A vertical SDK (`@wix/bookings`, `@wix/ecom`, …) or any API you call yourself | that SDK's own query method — [DATA_SOURCES.md](DATA_SOURCES.md) |
-| A **CMS collection** — one your Data Collection extension ships, or an existing site collection | `@wix/data` `items.query()` — [WIX_DATA.md](../data-collection/WIX_DATA.md) |
-
-A CMS collection is not a different template, just a different call inside the same one: you write
-`fetchData`, the filters and the columns for both.
-
-**Cases B and D both need a router** — their entry file, app shell, and entity page are in [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md). The collection and settings files are shared by every case that uses them, B and D included; the router file links back rather than repeating them.
-
-## File layout
-
-```
-src/extensions/dashboard/pages/{feature}/
-  {feature}.extension.ts        # single wix generate scaffold — always exactly one route registered here
-  {feature}.tsx                 # entry — Case C: Section 1 below. Cases A/B/D: DRAFT_TEMPLATE_ROUTER.md
-  {Feature}App.tsx              # Case A/B/D only — see DRAFT_TEMPLATE_ROUTER.md
-  {Feature}CollectionPage.tsx   # Case A, B, D — see DRAFT_TEMPLATE_COLLECTION.md
-  {Feature}DetailPage.tsx       # Case A only — read-only detail route, DRAFT_TEMPLATE_ROUTER.md §4
-  {Feature}EntityPage.tsx       # Case B, D only — see DRAFT_TEMPLATE_ROUTER.md
-  {Feature}SettingsPage.tsx     # Case C, D only — see DRAFT_TEMPLATE_SETTINGS.md
-  {feature}-api.ts              # fetch/save calls — keep these out of the components
+```bash
+python3 -c "
+import json; i = json.load(open('<pkgRoot>/dist/docs/index.json'))
+for k, e in i.items():
+    if e.get('category') == 'Templates' or e.get('relatedTemplates'):
+        print(k, '|', e.get('templateFiles') or e.get('relatedTemplates'), '|', e.get('summary', '')[:200])
+"
 ```
 
-Scaffold with a single call regardless of case — this is always one extension:
+**No `Templates` entries means the install predates them — upgrade `@wix/patterns`.** Do not rebuild a page from memory or from an older copy of this skill instead: the templates exist so the shell, provider nesting and router wiring come from the package.
+
+## 2. Choose, then read the chosen template's page
+
+1. `Read <pkgRoot>/dist/docs/Page Templates.md` — which pages the request needs (read-only list, list with create/edit, settings only, or list with create/edit and settings) and where the rows come from (your own fetch, or a CMS collection).
+2. `Read` the chosen template's page (`dist/docs/<entry file>`) — its files, and the wiring to keep. Most of that wiring passes `tsc` and `wix build` when wrong and fails only in the browser, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional for a routed page.
+
+Take the smallest template that covers what the request names. A settings area or an edit form nobody asked for is not "more complete" — [Step 4c's checklist](../../SKILL.md#step-4c-ux-completeness-self-audit) does not ask for one.
+
+## 3. Copy it into the extension
+
+Scaffold once — every template is one extension, however many routes it has:
 
 ```bash
 wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
@@ -52,48 +36,60 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 `route` takes no leading slash — `support-tickets`, not `/support-tickets`. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
 
-## 1. Entry — Case C only (router-free, no location plumbing)
+Then copy **every** file in `templateFiles` into the generated folder (`src/extensions/dashboard/pages/<feature>/`). They import one another by relative path, so keep their names relative to each other; one file on its own does not compile.
 
-Case C has one page and no rows to open, so it needs no router and no manual `location` wiring. **Cases A, B and D all route** — a row opens a page of its own in every one of them — so their entry file is [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) §1:
+- The template's `page.tsx` is the entry file, and the CLI generated none by that name: put its contents into the component file the builder's `component` path points at (e.g. `employee-shifts.tsx`), and add no separate `page.tsx`, which nothing loads. Leave the builder file and the `src/extensions.ts` registration as the CLI wrote them.
+- Rename `Items` / `Item` to your feature and entity, in file names and identifiers alike.
+- Route paths stay page-relative (`/`, `/:id`, `/new`) — never prefix them with `<route>` ([DASHBOARD_PAGE.md](../DASHBOARD_PAGE.md)).
 
-```tsx
-// {feature}.tsx — Case C
-import type { FC } from 'react';
-import { withDashboard } from '@wix/patterns';
-import { WixPatternsProvider } from '@wix/patterns/provider';
-import { WixDesignSystemProvider } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
-import { {Feature}SettingsPage } from './{Feature}SettingsPage'; // DRAFT_TEMPLATE_SETTINGS.md
+- **Theme the entry file.** In it, replace the template's `WixDesignSystemProvider` and its `@wix/design-system/styles.global.css` import with the app's `BusinessManagerTheme` — written once per app ([BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app)), kept in the entry file so it sits above `WixPatternsProvider`. **Business Manager passes none of the redesign through the extension's iframe**, so the bare provider renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass.
 
-const Page: FC = () => (
-  <WixDesignSystemProvider>
-    <WixPatternsProvider>
-      <{Feature}SettingsPage />
-    </WixPatternsProvider>
-  </WixDesignSystemProvider>
-);
+## 4. Replace the data file
 
-export default withDashboard(Page);
+Each template's data file (`items-api.ts`, `settings-api.ts`) is an in-memory stand-in with the signatures the pages call. Replace the bodies, keep the signatures:
+
+- **Whose data it is decides the call.** Data an existing Wix app owns comes from that app's SDK, never a CMS collection ([SDK-First Rule](../../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)). The method and field names: [DATA_SOURCES.md](DATA_SOURCES.md). Filter paths, operators and cursor paging: [QUERY_AND_PAGING.md](QUERY_AND_PAGING.md).
+- **A CMS collection uses the CMS template, which has no data file** — its `collection.ts` takes the full scoped id, `<app-namespace>/<idSuffix>` for a collection your extension ships ([DATA_COLLECTION.md](../DATA_COLLECTION.md)). The collection does not exist until the app is released ([LIFECYCLE.md](../data-collection/LIFECYCLE.md#the-extension-does-not-create-the-collection)).
+- **On a CMS collection, the prompt's fields are the collection's fields** — every one a column, none hand-written. For a collection your extension ships, create exactly those fields; an existing site collection shows all its fields, and the user hides the rest in the column picker. A stated column list decides the columns only on the hand-wired path.
+
+### Installing the CMS pair
+
+`@wix/patterns-cms` pins one exact `@wix/patterns` version, and the template's page says why a second copy breaks the page silently.
+
+**Already in `package.json`** (some app templates ship both): don't install it again — go straight to the check. **Not there:** install it, then align `@wix/patterns` to its pin:
+
+```bash
+npm install @wix/patterns-cms
+npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
 ```
 
-Cases A, B and D differ — they need `location` supplied manually for `PatternsReactRouter`. See [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) rather than adding that plumbing here; it's dead code without a router underneath it.
+**Either way, confirm a single copy:**
 
-## 2. Collection page — Case A, B, D
+```bash
+npm dedupe
+find node_modules -path '*@wix/patterns/package.json' -not -path '*/dist/*'
+```
 
-In [DRAFT_TEMPLATE_COLLECTION.md](DRAFT_TEMPLATE_COLLECTION.md) — `useTableCollection`, a working
-filter, the four placeholder states, and a row that opens. Shared by Cases A, B and D. No
-`SummaryBar` unless the request asked for one, and the drill-in is always a route — never a side
-panel.
+More than one line is a bug that `tsc` and `wix build` both pass. Declared ranges produce it when `@wix/patterns` ships ahead of `@wix/patterns-cms`, or a lockfile holds an older one. Run the second `npm install` line above, then the check again.
 
-## 3. Settings page — Case C, D
+### Turning `query.search` into a query
 
-In [DRAFT_TEMPLATE_SETTINGS.md](DRAFT_TEMPLATE_SETTINGS.md) — `useSettingsPage` + `useForm`,
-with the same field-controller patterns as the entity page.
+On the hand-wired path the data file turns one search term into a filter over *several* fields — an OR. **This is where search ships broken**: it renders, it reaches the query, and still returns every row. (The CMS template's source does this itself.)
 
-## What to change vs. keep, per case
+There is no shared free-text operator; the shape differs per endpoint. Read its *Supported Filters* page ([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint)), then `$or` one clause per identity field it lists. Never route the term to a single field by its shape — a measured run shipped this, and one branch is always dead:
 
-| Change per request | Keep as shown |
-| --- | --- |
-| Feature/entity names, fields, columns, API calls in `{feature}-api.ts` | Which case (A/B/C/D) — don't over-build D for a request that only named a list |
-| Detail fields, form field types, columns | The drill-in being a route, and the absence of a `SummaryBar` the request never asked for |
-| Real data source (SDK-first per [SDK-First Rule](../../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)) vs CMS | B/D wiring (provider/router nesting, `parentPath`, `location`): [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) |
+```ts
+query = term.includes('@')
+  ? query.startsWith('loginEmail', term)
+  : query.startsWith('contact.firstName', term);  // a surname matches nothing, ever
+```
+
+`startsWith` is prefix-only too — "Smith" never finds "John Smith" — so prefer the containment operator when the endpoint declares one, and say which you used in `noResultsState`.
+
+**Whatever the shape, prove it narrows.** Run one term you expect to hit a known row and one you expect to hit nothing, and check the row count changes for both.
+
+## 5. What this skill adds to every template
+
+- **No `SummaryBar` unless the request asked for one** — a named total, count or "how many / how much" figure. The templates ship without one on purpose ([SKILL.md § Step 2](../../SKILL.md)).
+- **The state is MobX.** Deriving anything from the collection state in your own component — a header figure, a badge — goes through `useSelector` ([TABLE_STATE.md](TABLE_STATE.md#reading-state-outside-the-table-it-is-mobx)).
+- **Anything the template does not show** — another filter type, a column renderer, a component the request needs — goes through [The Discovery Chain](../WIX_PATTERNS_DOCS.md#the-discovery-chain). A template replaces composing the shell, never the lookup for a symbol it does not contain.
