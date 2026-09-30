@@ -104,15 +104,15 @@ export default function FilterPanel({ shop, children }: { shop: UseShop; childre
       {shop.hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Active filters">
           {shop.selectedChoiceIds.map((id) => (
-            <button key={id} type="button" onClick={() => shop.toggleChoice(id)} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-foreground">
+            <button key={id} type="button" onClick={() => shop.toggleChoice(id)} className="rounded-control bg-secondary px-2.5 py-1 text-xs text-foreground">
               {choiceName(id)} ×
             </button>
           ))}
           {shop.filters.inStockOnly && (
-            <button type="button" onClick={() => shop.setFilters({ ...shop.filters, inStockOnly: undefined })} className="rounded-full bg-secondary px-2.5 py-1 text-xs">In stock ×</button>
+            <button type="button" onClick={() => shop.setFilters({ ...shop.filters, inStockOnly: undefined })} className="rounded-control bg-secondary px-2.5 py-1 text-xs">In stock ×</button>
           )}
           {(shop.filters.minPrice || shop.filters.maxPrice) && (
-            <button type="button" onClick={() => shop.setFilters({ ...shop.filters, minPrice: undefined, maxPrice: undefined })} className="rounded-full bg-secondary px-2.5 py-1 text-xs">
+            <button type="button" onClick={() => shop.setFilters({ ...shop.filters, minPrice: undefined, maxPrice: undefined })} className="rounded-control bg-secondary px-2.5 py-1 text-xs">
               Price {shop.filters.minPrice ?? shop.priceRange?.min ?? "…"}–{shop.filters.maxPrice ?? shop.priceRange?.max ?? "…"} ×
             </button>
           )}
@@ -142,9 +142,9 @@ export default function FilterPanel({ shop, children }: { shop: UseShop; childre
             </div>
             <div className="flex gap-2 border-t border-border bg-background px-5 py-3">
               <button type="button" onClick={() => setStaged({ min: "", max: "", inStockOnly: false, choiceIds: [] })}
-                className="flex-1 rounded-full border border-border py-2.5 text-sm">Clear</button>
+                className="flex-1 rounded-control border border-border py-2.5 text-sm">Clear</button>
               <button type="button" onClick={() => { commit(staged); setSheetOpen(false); }}
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground">Apply</button>
+                className="flex-1 rounded-control bg-primary py-2.5 text-sm font-semibold text-primary-foreground">Apply</button>
             </div>
           </section>
         </div>
@@ -184,7 +184,7 @@ function Groups({ shop, draft, onChange, immediate = false }: { shop: UseShop; d
                   className={`h-7 w-7 rounded-full border-2 ${on ? "border-foreground" : "border-border"}`} style={{ backgroundColor: c.colorCode }} />
               ) : (
                 <button key={c.id} type="button" aria-pressed={on} onClick={() => toggle(c.id)}
-                  className={`rounded-full border px-3 py-1 text-sm ${on ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"}`}>
+                  className={`rounded-control border px-3 py-1 text-sm ${on ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"}`}>
                   {c.name}
                 </button>
               );

@@ -5,23 +5,9 @@ Use this reference when the component's primary content **auto-advances or plays
 
 Every such component must ship an on-stage **play/pause button**.
 
-## Contents
-
-- [Apply When](#apply-when)
-- [Required Contract](#required-contract)
-- [Announce Manually Selected Parallel Content](#announce-manually-selected-parallel-content)
-- [Define Props](#1-define-props)
-- [Manage Playback State](#2-manage-playback-state)
-- [Add the Play/Pause Button](#3-add-the-playpause-button)
-- [Suppress Autoplay in `component.preview.tsx`](#4-suppress-autoplay-in-componentpreviewtsx)
-- [Edit the generated `component.preview.tsx`](#edit-the-generated-componentpreviewtsx)
-- [Checklist](#checklist)
-
 ## Apply When
 
-Apply automatically — without being asked — whenever the component has an
-`autoPlay` prop **or** its primary content is a **startable / loopable**
-animation a visitor would reasonably want to start or stop:
+Apply whenever the component has `autoPlay` or startable/loopable primary content:
 
 - Slideshow, carousel, slider, or gallery that advances slides/cards
 - Lottie / JSON vector animations
@@ -94,8 +80,20 @@ export interface MyAnimationProps {
 }
 ```
 
-The example shows a looping animation. Omit `loop` when the component does not
-support repeat behavior; do not add it only to match the example.
+Omit `loop` when repeat is unsupported.
+
+### Lottie / JSON source
+
+For Lottie, `animationUrl?: string` is a JSON URL, not `VectorArt` (SVG).
+This and its renderer are exceptions to the generic media/dependency rules in
+`COMPONENT-CONTRACT.md`. Check `package.json`: use `lottie-web` if present,
+otherwise add it as a runtime dependency. Import `lottie` and
+`type AnimationItem` from it. In an effect, call
+`lottie.loadAnimation({ container, renderer: 'svg', path: animationUrl,
+loop, autoplay: false })`; keep the item in a ref, destroy it on cleanup,
+and use `play()` / `pause()` when `isPlaying` changes. Browser work belongs in
+effects. If no URL is supplied, bundle a valid local Lottie JSON asset and
+import it with `?url` as the component default; a placeholder URL renders blank.
 
 ## 2. Manage Playback State
 
@@ -109,20 +107,22 @@ const reducedMotion = useReducedMotion();
 
 const [isPlayOn, setIsPlayOn] = React.useState(() => (autoPlay ?? true) && !reducedMotion);
 
-const skipInitialAutoPlaySync = React.useRef(true);
+const previousAutoPlay = React.useRef(autoPlay);
 React.useEffect(() => {
-  if (skipInitialAutoPlaySync.current) {
-    skipInitialAutoPlaySync.current = false;
-    return;
+  if (previousAutoPlay.current !== autoPlay) {
+    setIsPlayOn((autoPlay ?? true) && !reducedMotion);
+  } else if (reducedMotion) {
+    setIsPlayOn(false);
   }
-  setIsPlayOn(autoPlay ?? true);
-}, [autoPlay]);
+  previousAutoPlay.current = autoPlay;
+}, [autoPlay, reducedMotion]);
 
 const handlePause = () => setIsPlayOn(false);
 const handleResume = () => setIsPlayOn(true);
 ```
 
-`reducedMotion` is a runtime signal, not a manifest/data prop.
+`reducedMotion` is runtime-only. Pause when the OS turns reduced motion on, but
+do not restart when it turns off. Resume can still override the preference.
 
 Derive runtime playback from `isPlayOn` plus only needed conditions. Without
 another condition, use `const isPlaying = isPlayOn`. A carousel, slideshow,
@@ -140,7 +140,10 @@ clears `isStoppedByFocus`.
 
 ## 3. Add the Play/Pause Button
 
-Create play/pause icons that visually match the component's style. Use simple recognizable shapes — a triangle for play, two rectangles for pause — implemented as inline SVG so there is no external icon dependency. Size and color of SVG should be controlled by CSS variables declared on the button level: --icon-size and --icon-color.
+Use inline SVG icons: a triangle for play and two bars for pause. Declare
+`--icon-size` and `--icon-color` on the button. Apply `var(--icon-size)` to the
+SVG's CSS `width` and `height` (or React `style`), not raw SVG attributes;
+set button `color: var(--icon-color)` and SVG `fill: currentColor`.
 
 Position the button absolutely so it overlays the content without pushing other elements out of place:
 

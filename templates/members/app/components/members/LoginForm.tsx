@@ -83,7 +83,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
             className="mt-1 w-full rounded border border-border bg-background p-2"
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <button
           disabled={busy}
           className="rounded bg-primary px-4 py-2 text-primary-foreground"
@@ -153,7 +153,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           className="mt-1 w-full rounded border border-border bg-background p-2"
         />
       </label>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <button
         disabled={busy}
         className="rounded bg-primary px-4 py-2 text-primary-foreground"

@@ -48,7 +48,7 @@ export default function RequirePlan({
 
   if (error) {
     return (
-      <p className="py-8 text-center text-sm text-red-600" role="alert">
+      <p className="py-8 text-center text-sm text-destructive" role="alert">
         {error}
       </p>
     );
@@ -61,7 +61,7 @@ export default function RequirePlan({
         <p className="text-sm text-muted-foreground">This content is for plan members. Log in to continue.</p>
         <a
           href={loginHref.replace("{returnTo}", encodeURIComponent(returnTo))}
-          className="mt-4 inline-block rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:opacity-90"
+          className="mt-4 inline-block rounded-control bg-primary px-5 py-2 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:opacity-90"
         >
           Log in / Sign up
         </a>
@@ -76,7 +76,7 @@ export default function RequirePlan({
           <p className="text-sm text-muted-foreground">This content is included with a plan you don't have yet.</p>
           <a
             href={plansHref}
-            className="mt-4 inline-block rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:opacity-90"
+            className="mt-4 inline-block rounded-control bg-primary px-5 py-2 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:opacity-90"
           >
             See plans
           </a>

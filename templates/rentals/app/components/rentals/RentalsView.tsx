@@ -28,7 +28,7 @@ export function RentalCard({ rental, rentalHref = (slug) => `/rentals/${slug}`, 
     <LinkComponent href={rentalHref(rental.slug)} className="group block no-underline">
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-secondary">
         {rental.imageUrl && <img src={rental.imageUrl} alt={rental.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />}
-        <span className="absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">{rental.unit === "DAY" ? "By the day" : "By the hour"}</span>
+        <span className="absolute left-3 top-3 rounded-control bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">{rental.unit === "DAY" ? "By the day" : "By the hour"}</span>
       </div>
       <p className="mt-3 text-sm font-medium text-foreground">{rental.name}</p>
       {rental.tagLine && <p className="mt-0.5 text-xs text-muted-foreground">{rental.tagLine}</p>}
@@ -56,7 +56,7 @@ export default function RentalsView({ initialRentals, initialHasMore, emptyMessa
 
   return (
     <div>
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {rentals === null ? (
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
           {Array.from({ length: 6 }, (_, i) => (
@@ -77,7 +77,7 @@ export default function RentalsView({ initialRentals, initialHasMore, emptyMessa
           </div>
           {hasMore && (
             <div className="mt-10 text-center">
-              <button type="button" disabled={loadingMore} onClick={() => void loadMore()} className="rounded-full border border-border px-6 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
+              <button type="button" disabled={loadingMore} onClick={() => void loadMore()} className="rounded-control border border-border px-6 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
                 {loadingMore ? "Loading…" : "Load more"}
               </button>
             </div>

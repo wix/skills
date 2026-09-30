@@ -17,15 +17,21 @@ import {
 
 export interface CartState {
   cart: Cart | null;
-  /** True while any cart operation is in flight. */
+  /**
+   * True while any cart operation is in flight — the DRAWER's flag (its steppers, remove, coupon
+   * and checkout controls), not a card's: a product card disables its own add control on
+   * `pendingProductId`, or every card in the grid dims for every add.
+   */
   busy: boolean;
+  /** The product whose add is in flight, null otherwise — what a card's add control binds to. */
+  pendingProductId: string | null;
   /** Last failed operation's message — render it; a new operation clears it. */
   error: string | null;
   /** Cart drawer visibility (CartButton opens it, CartDrawer renders by it). */
   open: boolean;
 }
 
-const EMPTY: CartState = { cart: null, busy: false, error: null, open: false };
+const EMPTY: CartState = { cart: null, busy: false, pendingProductId: null, error: null, open: false };
 
 let state: CartState = EMPTY;
 const listeners = new Set<() => void>();
@@ -75,9 +81,11 @@ export async function addLine(
   quantity = 1,
   extras?: AddToCartExtras,
 ): Promise<void> {
+  setState({ pendingProductId: productId });
   try {
     await run(() => apiAdd(productId, variantId, quantity, extras));
   } finally {
+    setState({ pendingProductId: null });
     // Open either way. On success this shows the new line; on refusal it's the only thing that
     // makes .error visible — the drawer renders it, and a drawer that stays shut on failure
     // turns a refused add (out of stock, a digital product with no file) into silence.

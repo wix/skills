@@ -86,7 +86,7 @@ export default function CollectionProjectsView({
           <p className="mt-2 max-w-2xl text-muted-foreground">{collection.description}</p>
         )}
       </header>
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {projects === null ? (
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
           {Array.from({ length: 6 }, (_, i) => (

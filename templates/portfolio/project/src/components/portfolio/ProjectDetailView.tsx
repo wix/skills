@@ -54,7 +54,7 @@ export default function ProjectDetailView({ slug, initialProject, initialItems }
           </dl>
         )}
       </header>
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {items === null ? (
         <div className="flex flex-col gap-6" aria-busy="true">
           <div className="aspect-[4/3] animate-pulse rounded-lg bg-secondary" />
