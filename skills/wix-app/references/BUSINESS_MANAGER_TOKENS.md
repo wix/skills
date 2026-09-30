@@ -77,5 +77,5 @@ Two rows from the design-side migration note have **no API to land on at 1.330.0
 
 **Several adjustments the providers already make for you** — don't redo them by hand: a nested icon button is Dark / Tertiary from the wrapper's `IconButton` default, and `WixDesignSystemIconThemeProvider` already supplies the Accordion caret. `Accordion`, `CloseButton`, `Tooltip`, `Popover`, `Thumbnail`, `SidePanel` and ~20 more are all legal keys of `WixDesignSystemDefaultProps`, so anything you find yourself repeating per call site probably belongs in `BUSINESS_MANAGER_DEFAULTS` instead.
 
-Two genuine author decisions remain: a **standalone** text button uses the standard (blue) skin while one beside a primary or secondary button uses Dark; and empty states are **typography only**, no legacy illustrations (on a collection page the empty state comes from the patterns shell — [DRAFT_TEMPLATE_COLLECTION.md](dashboard-page/DRAFT_TEMPLATE_COLLECTION.md)).
+Two genuine author decisions remain: a **standalone** text button uses the standard (blue) skin while one beside a primary or secondary button uses Dark; and empty states are **typography only**, no legacy illustrations (on a collection page the empty state comes from the patterns shell — the page template's, [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md)).
 
