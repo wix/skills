@@ -1,0 +1,29 @@
+---
+// Project detail page — project + media gallery, resolved by slug SERVER-SIDE.
+// Portfolio has no documented Wix SEO item type, so this page carries plain
+// <title>/<meta description> from the DTO (no wixMetadata / <SEO.Tags>). Keep the
+// frontmatter; swap the island import to YOUR detail component.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import ProjectDetailView from "../../components/portfolio/ProjectDetailView";
+import { fetchProjectBySlug, fetchProjectGallery } from "../../wix/portfolio/portfolio";
+import type { GalleryItem, ProjectDetail } from "../../wix/portfolio/types";
+
+const slug = Astro.params.slug!;
+
+let project: ProjectDetail | null = null;
+let items: GalleryItem[] = [];
+try {
+  project = await fetchProjectBySlug(slug);
+  if (project) items = await fetchProjectGallery(project.id);
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!project) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={project.title} description={project.description}>
+  <ProjectDetailView client:load slug={slug} initialProject={project} initialItems={items} />
+</SiteLayout>

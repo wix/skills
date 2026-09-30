@@ -68,7 +68,7 @@ Reads target a specific surface — there is no merged view:
 - **Published items**: query the published collection (`articles`).
 - **Drafts**: query the drafts collection resolved from `draftItemsPluginOptions.draftsCollectionId` (e.g. `articles__drafts`).
 
-**Endpoint**: `POST /wix-data/v2/items/query`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/query`
 
 ```json
 {
@@ -92,7 +92,7 @@ Reads target a specific surface — there is no merged view:
 
 Insert into the **drafts** collection. The item starts as **DRAFT**.
 
-**Endpoint**: `POST /wix-data/v2/items`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items`
 
 ```json
 {
@@ -117,7 +117,7 @@ Editing a live item does **not** overwrite the live copy — it stages a **pendi
 
 Replaces the published item's data with the draft's content; the draft is then deleted. Pass the **published** collection id.
 
-**Endpoint**: `POST /wix-data/v2/items/publish-draft`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/publish-draft`
 
 ```bash
 curl -X POST \
@@ -147,7 +147,7 @@ curl -X POST \
 
 Retracts a published item back to draft state. Pass the **published** collection id.
 
-**Endpoint**: `POST /wix-data/v2/items/unpublish`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/unpublish`
 
 ```bash
 curl -X POST \
@@ -198,7 +198,7 @@ curl -X DELETE 'https://www.wixapis.com/wix-data/v2/items/<id>?dataCollectionId=
 
 **Enable** — add the Draft Items plugin (requires collection-management permission). Use the dedicated endpoint; the Draft Items plugin cannot be added through the generic add-plugin call.
 
-**Endpoint**: `POST /wix-data/v2/collections/add-draft-items-plugin`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin`
 
 ```bash
 curl -X POST 'https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin' \
@@ -219,7 +219,7 @@ curl -X POST 'https://www.wixapis.com/wix-data/v2/collections/add-draft-items-pl
 
 **Disable** — remove the plugin:
 
-**Endpoint**: `POST /wix-data/v2/collections/delete-draft-items-plugin`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/delete-draft-items-plugin`
 
 ```bash
 curl -X POST 'https://www.wixapis.com/wix-data/v2/collections/delete-draft-items-plugin' \
@@ -252,17 +252,17 @@ At the REST level, every read/author/publish/unpublish call here goes through th
 | Collection state | Desired action | API call | Permission needed |
 |------------------|----------------|----------|-------------------|
 | Draft Items plugin absent | Any write | Normal insert/update — writes go live immediately | Write Data Items |
-| Draft Items enabled | Detect workflow | `GET /collections/{id}` → inspect plugins for the Draft Items plugin; read `draftItemsPluginOptions.draftsCollectionId` | (read) |
-| Draft Items enabled | Read published items | `POST /items/query` on the published id | read |
-| Draft Items enabled | Read drafts | `POST /items/query` on the drafts collection id | read |
+| Draft Items enabled | Detect workflow | `GET https://www.wixapis.com/wix-data/v2/collections/{id}` → inspect plugins for the Draft Items plugin; read `draftItemsPluginOptions.draftsCollectionId` | (read) |
+| Draft Items enabled | Read published items | `POST https://www.wixapis.com/wix-data/v2/items/query` on the published id | read |
+| Draft Items enabled | Read drafts | `POST https://www.wixapis.com/wix-data/v2/items/query` on the drafts collection id | read |
 | PUBLISHED | Edit into a pending draft (→ CHANGED) | Create the draft (`createDataItemDraft`), then edit it on the drafts collection | Write Data Items |
-| — | Create new draft (→ DRAFT) | `POST /items` on the drafts collection | Write Data Items |
-| DRAFT / CHANGED | Publish (→ PUBLISHED) | `POST /items/publish-draft` (published id) | Write Data Items |
-| PUBLISHED / CHANGED | Unpublish, keep as draft (→ DRAFT) | `POST /items/unpublish` `copyToDraft:true` | Write Data Items |
-| PUBLISHED / CHANGED | Unpublish, discard | `POST /items/unpublish` `copyToDraft:false` | Write Data Items |
-| CHANGED | Revert to live version (discard edit) | `DELETE /items/{id}?dataCollectionId=<drafts id>` | Write Data Items |
+| — | Create new draft (→ DRAFT) | `POST https://www.wixapis.com/wix-data/v2/items` on the drafts collection | Write Data Items |
+| DRAFT / CHANGED | Publish (→ PUBLISHED) | `POST https://www.wixapis.com/wix-data/v2/items/publish-draft` (published id) | Write Data Items |
+| PUBLISHED / CHANGED | Unpublish, keep as draft (→ DRAFT) | `POST https://www.wixapis.com/wix-data/v2/items/unpublish` `copyToDraft:true` | Write Data Items |
+| PUBLISHED / CHANGED | Unpublish, discard | `POST https://www.wixapis.com/wix-data/v2/items/unpublish` `copyToDraft:false` | Write Data Items |
+| CHANGED | Revert to live version (discard edit) | `DELETE https://www.wixapis.com/wix-data/v2/items/{id}?dataCollectionId=<drafts id>` | Write Data Items |
 | any | Delete entirely (both versions) | Delete on the published id (+ drafts id if a draft exists) | Write Data Items |
-| plain, no plugin | Enable workflow | `POST /collections/add-draft-items-plugin` | Manage Data Collections |
+| plain, no plugin | Enable workflow | `POST https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin` | Manage Data Collections |
 
 ---
 

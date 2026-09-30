@@ -1,16 +1,18 @@
 // The shared runner behind every vertical's `seed/read-site.mjs` — the build-time read of what a
 // site holds, so the agent sizes the content without composing a single Wix request.
 //
-//   node <SKILL_ROOT>/references/<vertical>/seed/read-site.mjs [--site <siteId>] [--limit <n>]
+//   node <SKILL_ROOT>/templates/<vertical>/seed/read-site.mjs [--site <siteId>] [--limit <n>]
 //
-// The site is `--site`, else the `siteId` in ./wix.config.json. The token is minted by the Wix CLI
+// The site is `--site`, else the project's content site (./wix.config.json, or the parent named in
+// .env.local on a migration preview). The token is minted by the Wix CLI
 // inside this process and never written anywhere. Output is ONE JSON object on stdout:
 //   { vertical, siteId, installed, ...what the vertical reads..., calls: [{ method, path, status, docs }] }
 // `calls` lists every request made, with the method's documentation URL — open one of those (the
 // URL plus `.md` is the full page) when the brief needs more than the summary shows. A failed call
 // is reported in `calls` with its status and message; the reader continues and marks the field null.
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { contentSiteId } from "./site-context.mjs";
 
 const API = "https://www.wixapis.com";
 const DOCS_INSTALLED_APPS = "https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps";
@@ -23,11 +25,8 @@ function flag(name) {
 export function siteIdFromArgsOrConfig() {
   const fromFlag = flag("site");
   if (fromFlag) return fromFlag;
-  if (existsSync("wix.config.json")) {
-    const c = JSON.parse(readFileSync("wix.config.json", "utf8"));
-    return c.siteId ?? c.projectId ?? null;
-  }
-  return null;
+  // The CONTENT site: the config's site, or the parent of a migration preview (site-context.mjs).
+  return existsSync("wix.config.json") ? contentSiteId() : null;
 }
 
 export function makeApi(siteId) {

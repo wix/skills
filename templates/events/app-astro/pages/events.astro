@@ -1,0 +1,23 @@
+---
+// Events listing — the first page fetched SERVER-SIDE (SEO) and handed to the island as DTO
+// props; the island loads further pages and the category pills itself. Keep this frontmatter;
+// swap the island import to YOUR listing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import EventsView from "../components/events/EventsView";
+import { fetchEventsPage } from "../wix/events/events";
+import type { EventSummary } from "../wix/events/types";
+
+let events: EventSummary[] = [];
+let total = 0;
+try {
+  ({ events, total } = await fetchEventsPage());
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Events">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Events</h1>
+  <EventsView client:load initialEvents={events} initialTotal={total} />
+</SiteLayout>

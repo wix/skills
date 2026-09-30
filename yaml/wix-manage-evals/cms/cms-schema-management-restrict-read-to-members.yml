@@ -1,0 +1,106 @@
+name: cms/cms-schema-management-restrict-read-to-members
+description: >-
+  Verifies the agent changes an existing collection's read permission in place — with the
+  full-replace update that carries the revision and fields — instead of deleting and recreating
+  the collection, and that the collection's fields and items survive the change.
+triggerPrompt: >-
+  Make my "Team Members" CMS collection readable by site members only. Go ahead and change it.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create TeamMembers, readable by anyone
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: TeamMembers
+            displayName: Team Members
+            fields:
+              - key: name
+                displayName: Name
+                type: TEXT
+              - key: role
+                displayName: Role
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Seed two members
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/bulk/items/insert
+        body:
+          dataCollectionId: TeamMembers
+          dataItems:
+            - data: { name: Alice, role: Designer }
+            - data: { name: Bob, role: Engineer }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to make the "Team Members" CMS collection (id TeamMembers) readable by site
+      members only. Before the run it had fields name and role, permissions insert/update/remove
+      ADMIN and read ANYONE, and two items (Alice, Bob). Evaluate the tool calls and the final
+      response.
+
+      Pass only if all of the following hold:
+      - The agent resolved the collection to TeamMembers (by id or by listing collections), not to
+        a guessed id.
+      - After the run the collection's read permission is SITE_MEMBER and insert, update and remove
+        are unchanged. Two APIs report this and both are valid evidence: the collections API
+        (read SITE_MEMBER; insert/update/remove ADMIN) or the Data Permissions API at
+        /wix-data/v1/permissions (itemRead SITE_MEMBER; itemInsert/itemUpdate/itemRemove
+        CMS_EDITOR — that API reports the collections API's ADMIN as CMS_EDITOR, so CMS_EDITOR
+        there means unchanged). The evidence is the write's own response, a read after the write,
+        or the final message quoting values a tool call returned.
+      - The collection kept its id, both fields (name, role), and both items. No delete-collection
+        or truncate call was made.
+      - The agent told the user the change was made.
+
+      Fail if the agent:
+      - deleted and recreated the collection to change permissions, OR
+      - lost a field or an item, OR
+      - set read to a different level (for example ADMIN or a role that does not exist), or
+        changed insert, update or remove, OR
+      - only explained how to do it without executing, OR
+      - reported success without any evidence from a tool call that the permission changed.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Two paths are correct and cost nothing: the Data Permissions API (GET then POST
+      /wix-data/v1/permissions with itemRead SITE_MEMBER, other item* values kept), or the
+      collections full-replace update carrying the current revision and fields.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: deleting the
+      collection or recreating it; a full-replace update sent without the current revision or
+      without the existing fields, then repaired; an invented endpoint; a non-2xx response actually returned by a Wix API call, even if recovered, other than a single PATCH attempt on permissions (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); a permission value that is not a valid role.
+      Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3
+      points however many there are: one PATCH attempt on permissions that failed before switching
+      to the full-replace update; a second read of the same collection; a docs or search call
+      beyond the first skill read; an extra verification read beyond one.
+      Reading the skill once, one read to resolve the collection (list, GET collection, or GET
+      permissions), one write, and one verification read are the expected path and cost nothing.
+      LIST every deduction and apply the cap. A correct outcome reached with only inefficiencies
+      scores 7 or higher, never less.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.

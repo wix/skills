@@ -1,0 +1,74 @@
+name: ecommerce/ribbon-assign-to-product
+description: >
+  A store owner asks to put a named ribbon on an existing Catalog V3 product. Verifies the agent
+  creates or reuses the ribbon by name, reads the product's current revision, and assigns the
+  ribbon with an Update Product PATCH that sends only the ribbon — without creating a discount or
+  rewriting the rest of the product.
+triggerPrompt: Put a Bestseller ribbon on my "Eval Gate Mug" product.
+tags:
+  - ecommerce
+  - stores
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: >-
+        https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-promotions
+  - type: llm_judge          # correctness — the user's outcome
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Put a Bestseller ribbon on my "Eval Gate Mug" product." The
+      product already exists on the site.
+
+      Examine the tool-call trace, including request bodies and any error bodies.
+
+      Pass only if a Catalog V3 ribbon named Bestseller was created or reused by a successful (2xx)
+      call, AND a successful (2xx) Update Product call set that ribbon's `id` on the existing Eval
+      Gate Mug product, AND the agent confirmed the result.
+
+      Fail if the ribbon ended up on a different product or on a new product; OR the product's name
+      or price changed; OR a coupon, discount rule or price change was created; OR the final update
+      errored; OR the agent only described how to do it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # quality — the tool-call path
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace,
+      including request bodies and any error bodies.
+
+      Score 9-10: a direct path — the ribbon came from one get-or-create call, the product was found
+      by name, its current `revision` was read with Get Product, and one Update Product PATCH sent
+      the product `id`, that `revision` and `ribbon.id` without the product's other fields. No
+      non-2xx responses and no documentation reads after the recipe.
+
+      Score 7-8: the same path with every call succeeding on its first attempt, preceded by a short
+      set of documentation or API-spec lookups for calls the recipe already gives.
+
+      Score 4-6: the outcome was reached only after a call was rejected and the agent recovered —
+      for example an Update Product PATCH rejected for a missing or stale `revision`, or a ribbon
+      sent in the wrong shape.
+
+      Score 1-3: the agent rewrote unrelated product fields, created a discount for the ribbon, or
+      two or more calls were rejected.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed mug product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "12.00" } }
+                  physicalProperties: {}
+                  visible: true

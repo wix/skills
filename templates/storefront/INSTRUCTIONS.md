@@ -22,17 +22,17 @@ components, plus your home page.
 |---|---|
 | `wix/config.ts` · `wix/sdk.ts` | shared auth seam (deploy configures it — nothing to set by hand) |
 | `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(p.imageUrl, "25vw")} alt={p.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath, already used by everything shipped |
-| `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`) — contracts inlined below |
-| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets`, `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
-| `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 + shared cart state (module store — spans Astro islands) |
+| `wix/storefront/types.ts` | the DTOs (`ProductSummary`, `ProductDetail`, `Cart`, `Category`, `Facet`, `SubscriptionPlan`) — contracts inlined below |
+| `wix/storefront/catalog.ts` | `searchCatalog` (sort/filter/facets/search + cursor paging + result count, all server-side), `fetchFacets` / `fetchFacetData` (from search aggregations — the whole catalog, not a sample), `fetchProducts`, `fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`, `fetchAllProductsCategoryId`, `fetchInventory` (stock left / pre-order per variant), `fetchBackInStockEnabled` + `requestBackInStock` (notify me), `resolveVariant`, `choiceAvailability` — the transport; the rules and DTO mappers are in `catalog-core.ts` / `cart-core.ts` beside it (shared with the REST layer) |
+| `wix/storefront/cart.ts` · `cart-store.ts` | Cart V2 (add / quantity / remove / coupon / note / checkout; totals from the cart estimate) + shared cart state (module store — spans Astro islands) |
 | `wix/storefront/shop-store.ts` · `product-detail-store.ts` | the listing and product-detail state machines, framework-free (`createShopStore()`, `createProductDetailStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/storefront/useCart.ts` | cart state + actions — contract below |
 | `hooks/storefront/useShop.ts` | React binding of `shop-store.ts`: category scope, sort, filters, option facets, result count, paging — contract below |
 | `hooks/storefront/useProductDetail.ts` | React binding of `product-detail-store.ts`: option selection → variant resolution → add-to-cart — contract below |
-| `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart — **wire as-is** (drawer once per page) |
-| `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per option facet with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
-| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
-| `components/storefront/OptionPicker.tsx` | the purchase controls for one product — option groups (swatches/pills, sold-out choices disabled), choice and text modifiers, an optional quantity stepper, the buy button gated by `useProductDetail` with its plain reason, "Pre-order" when pre-orderable — **wire as-is** in your PDP (`<OptionPicker detail={d} showQuantity />`); QuickAdd's picker is this same component |
+| `components/storefront/CartButton.tsx` · `CartDrawer.tsx` | header badge + slide-over cart (lines with struck discounted prices and stock caps, promo code, note to seller, the totals breakdown, checkout) — **wire as-is** (drawer once per page) |
+| `components/storefront/FilterPanel.tsx` | the gallery's filter LAYOUT — toolbar (result count, sort), active chips, then a 16rem sidebar of collapsible groups (price as a two-handle slider bounded by the catalog's real prices, availability, one group per facet — an option or a choice modifier — with swatches/pills) beside YOUR results; a bottom sheet under `md` — **wire as-is** in your `ShopView`, your grid as its children: `<FilterPanel shop={shop}>…grid…</FilterPanel>` |
+| `components/storefront/QuickAdd.tsx` | the tile's purchase control — one click for a product with no options, a picker anchored to the tile (bottom sheet on small screens) for one with options, the product page for free-text customization or a subscription plan — **wire as-is** as the last row of every tile's text block (`<QuickAdd product={p} />`) |
+| `components/storefront/OptionPicker.tsx` | the purchase controls for one product — option groups (swatches/pills, choices unavailable with the current picks disabled), choice and text modifiers (with the merchant's character limit), the plan picker of a subscription product, an optional quantity stepper capped at the stock left ("Only N left"), the buy button gated by `useProductDetail` with its plain reason, "Pre-order" with the merchant's note when pre-orderable, "notify me" when sold out and the merchant collects requests — **wire as-is** in your PDP (`<OptionPicker detail={d} showQuantity />`); QuickAdd's picker is this same component |
 | `components/storefront/ShopView.tsx` · `ProductDetailView.tsx` | **don't ship — YOU create them** (skeletons below): the client islands your shop, category, and PDP pages mount |
 | `styles/global.css` | **the design system**: Tailwind v4 + the `@theme` token block (colors, radii, fonts — same token family as the official Wix templates). Everything, shipped and yours, styles from these tokens |
 
@@ -92,7 +92,8 @@ of its category. Then, by default:
 - **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
   in the first screen **at 390px wide too** — on a phone the image is a bounded band
   (`max-h-[45vh]`), not a full-screen hero that pushes the price below the fold; every ribbon;
-  every image reachable in the gallery.
+  every image reachable in the gallery; breadcrumbs (Home › the category path › the product)
+  when the product has a main category.
 - **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
 - **Overlays you build** (quick-add, mobile nav, filters): mount at the document root (a fixed
   panel inside the `backdrop-blur` header gets clipped), lock background scroll, close on Escape,
@@ -105,39 +106,54 @@ of its category. Then, by default:
 - **Copy:** nothing the merchant didn't supply — no invented reviews, scarcity, or delivery
   promises; no Wix IDs or technical words in visible text.
 
-Pre-order ships (`isPreorder`). Subscriptions, product groups, promotions, and notify-me are built
-only when the catalog has them — never fabricated; `wix-docs` has their contracts.
+Pre-order (`isPreorder`, the merchant's note), subscription plans (the picker), stock left, and
+notify-me ship in the components and show only when the catalog has them. Product groups and
+promotions are built only when the catalog has them — never fabricated; `wix-docs` has their
+contracts.
 
 ### The contracts your components consume (everything you need — don't read the source)
 
 ```ts
 // ProductSummary (grid tiles) — all display-ready: prices formatted, images https URLs:
-// { id, slug, name, price, maxPrice, compareAtPrice|null, ribbon|null, ribbons: string[],
-//   minPriceVariantId|null, availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK",
-//   preorder: boolean, imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */,
+// { id, slug, name, price, maxPrice, fromPrice: boolean, compareAtPrice|null,
+//   discountNames: string[] /* automatic discount rule names — under the price */,
+//   pricePerUnit: string|null /* "€2.50 / 100 g" as Wix formats it */,
+//   ribbon|null, ribbons: string[], minPriceVariantId|null,
+//   availability: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK", preorder: boolean,
+//   hasSubscriptions: boolean, imageUrl, hoverImageUrl, optionsSummary /* "2 colors · 3 sizes" */,
 //   swatches: string[] /* hex colors of a color option's choices — dots on the tile, not a picker */,
 //   quickAddable: boolean }
+// fromPrice → render "From {price}" (the cheapest variant is discounted and variants differ in
+// price: the discounted top is only known on the PDP; maxPrice equals price then). Else
 // price !== maxPrice → the product is a RANGE: render "price – maxPrice" (compareAtPrice is null
 // then — never a struck price beside a range). Otherwise price is what the buyer pays (a discount
 // already applied) and compareAtPrice, when present, is the labelled "was".
 // ribbons = EVERY merchant ribbon, primary first — render all, one shared style; a ribbon is a
 // label, never proof of a discount. The tile's buy control is the shipped <QuickAdd product={p} />:
-// it reads quickAddable / minPriceVariantId / preorder itself and routes to a direct add, an
-// anchored option picker, or the product page — don't rebuild that decision in the tile.
+// it reads quickAddable / minPriceVariantId / preorder / hasSubscriptions itself and routes to a
+// direct add, an anchored option picker, or the product page — don't rebuild that decision in the tile.
 
 // useShop({ initialProducts?, initialCategories?, initialCategoryId?, pageSize? /* 24 */ }) →
-// { products: ProductSummary[]|null /* null = loading → skeletons */, total: number|null,
+// { products: ProductSummary[]|null /* null = first load → skeletons; during a later change the
+//   previous page stays here with loading: true — dim it, don't blank it */, total: number|null,
 //   categories: Category[], activeCategoryId: string|null, setActiveCategoryId(id|null),
 //   sort: keyof SORTS, setSort(sort), filters, setFilters({ minPrice?, maxPrice?, inStockOnly?, search? }),
-//   facets: Facet[], selectedChoiceIds, toggleChoice(choiceId), clearFilters(), hasActiveFilters,
-//   loading, error, retry(), hasMore, loadMore(), loadingMore }
-// Category = { id, slug, name, description }. Facet = { name, isColor, choices: [{ id, name, colorCode|null }] }.
+//   facets: Facet[], priceRange: { min, max }|null, selectedChoiceIds, toggleChoice(choiceId),
+//   clearFilters(), hasActiveFilters, loading, error, retry(), hasMore, loadMore(), loadingMore }
+// Category = { id, slug, name, description, imageUrl /* "" when none */, parentId: string|null,
+//   index /* order among siblings */, productCount: number|null, breadcrumbs: [{ id, name, slug }]
+//   /* ancestors — filled by fetchCategoryBySlug only */ }.
+// Facet = { id, name, kind: "option"|"modifier", isColor,
+//   choices: [{ id, name, colorCode|null, count /* products carrying it */, childIds: string[] }] }.
 // The shipped <FilterPanel shop={shop}>{…your grid…}</FilterPanel> renders total/sort/chips, the
 // filter sidebar (md+) or sheet, and lays your results out beside it — hand it the whole hook result
 // and put your grid + states inside it; don't build a second filter UI or a second sort control. Categories are LINKS (`/category/${c.slug}`) — a category page is a URL
 // a shopper can share and a search engine can index; setActiveCategoryId is for a live scope
 // switch on /shop, not a substitute for the links.
 // Sort/filter/facets/search/paging run on Wix across the WHOLE catalog (a change restarts the list).
+// Facet picks OR inside one facet and AND across facets ("Red or Blue, and Large") — the store
+// groups them; you only call toggleChoice(choiceId). The price bounds bracket the product's whole
+// range (its cheapest variant at least min, its dearest at most max).
 // The selection is mirrored into the query string (?sort=&min=&max=&stock=1&q=&choice=…) and read
 // back on load — a filtered gallery is a shareable link; nothing for you to wire.
 // SORTS (exported next to useShop) is Record<sortKey, { label: string }> — the value is an
@@ -147,28 +163,45 @@ only when the catalog has them — never fabricated; `wix-docs` has their contra
 
 // useProductDetail({ initial? /* SSR */, slug? /* SPA */ }) →
 // { product: ProductDetail|null, notFound,
-//   optionGroups: [{ id, name, isColor, choices: [{ choiceId, name, colorCode|null, inStock, selected }] }],
-//   selectOption(optionName, choiceName),
-//   modifierValues, setModifier(key, value),          // product.modifiers: pills or text input; "*" = mandatory
-//   price, compareAtPrice,                            // the RANGE until every option is picked, then the variant's price (+ labelled "was" when real)
-//   isPreorder,                                       // resolved variant is out of stock but pre-orderable → label the action "Pre-order"
-//   canAdd,                                           // gate the button; false until every option picked & in stock (or pre-orderable)
-//   blockedReason,                                    // "Choose Size" / "Out of stock" / "Add Engraving" — render beside the button as
-//                                                     //   neutral guidance (not error styling) while it's disabled; null when addable
-//   quantity, setQuantity, add(), adding, error }     // quantity resets to 1 when an option changes
+//   optionGroups: [{ id, key, name, isColor, choices: [{ choiceId, key, name, colorCode|null,
+//                    inStock /* buyable WITH the other picks */, exists /* some variant has this combination */, selected }] }],
+//   selectOption(optionId, choiceId),                 // by ids (option.id, choice.choiceId), never by name
+//   modifierValues, setModifier(key, value),          // product.modifiers: pills or a text input; "*" = mandatory;
+//                                                     //   a text modifier carries title, maxChars|null, minChars|null
+//   plans: [{ id, name, description, terms /* "every 2 months · 6 payments" */, price /* this variant's, "" until resolved */, selected }],
+//   subscriptionPlanId, selectPlan(planId | ONE_TIME_PLAN), // only for a product with plans; product.allowOneTimePurchase → offer ONE_TIME_PLAN too
+//   price, compareAtPrice, pricePerUnit,              // the RANGE ("From …" when fromPrice) until every option is picked, then the
+//                                                     //   variant's price (+ labelled "was" when real), or its price on the picked plan
+//   isPreorder, preorderMessage,                      // resolved variant is out of stock but pre-orderable → label the action "Pre-order", show the note
+//   remaining, maxQuantity,                           // units left when counted (null otherwise); the stepper's ceiling (99999 when uncounted)
+//   canAdd,                                           // gate the button; false until every option picked & in stock (or pre-orderable) & plan picked
+//   blockedReason,                                    // "Choose Size" / "Out of stock" / "Add Engraving" / "Choose a plan" — render beside the
+//                                                     //   button as neutral guidance (not error styling) while it's disabled; null when addable
+//   quantity, setQuantity /* clamped to [1, maxQuantity] */, add(), adding, error,   // quantity resets to 1 when an option changes
+//   canNotify, notify(email), notifying, notifyResult /* "created"|"already-subscribed"|null */, notifyError }
 // ProductDetail adds: descriptionHtml (render as HTML), infoSections: [{ title, html }] (sections
-// or accordions), gallery: string[] (urls, main first), options, modifiers, variants — but
-// selection ALWAYS goes through the hook above.
+// or accordions), gallery: string[] (urls, main first), breadcrumbs: [{ id, name, slug }] (the path
+// to the main category, top-level first), categoryIds, options, modifiers, variants (each with
+// choiceIds, sku, pricePerUnit, subscriptionPrices, quantity, preorderMessage), subscriptions:
+// SubscriptionPlan[], allowOneTimePurchase — but selection ALWAYS goes through the hook above.
 
 // useCart() →
-// { cart: { lines, itemCount, subtotal, discount /* "" when none */, currency }|null, busy, error, open,
-//   // a line: { lineItemId, productName, quantity, unitPrice, linePrice, imageUrl, descriptionLines,
-//   //           status, subscription /* "Monthly plan · every month · 12 payments" or "" */ }
+// { cart: { lines, itemCount, subtotal, discount /* "" when none */, discounts: [{ name, amount }],
+//   fees: [{ name, amount }], taxes: [{ name, amount }], pricesIncludeTax, total /* before shipping */,
+//   coupon: { id, code }|null, note, currency }|null,
+//   busy /* the DRAWER's flag: any cart operation in flight */, pendingProductId /* the product whose add
+//   is in flight, else null — a card's add control disables on THIS, never on busy */, error, open,
+//   // a line: { lineItemId, productName, quantity, unitPrice, linePrice, compareAtLinePrice|null,
+//   //           availableQuantity|null /* the stepper's cap */, imageUrl, productUrl, descriptionLines,
+//   //           status /* IN_STOCK | PARTIALLY_IN_STOCK | OUT_OF_STOCK | REMOVED_FROM_CATALOG */,
+//   //           subscription /* "Monthly plan · every month · 12 payments" or "" */ }
 //   addToCart(productId, variantId?, qty?, extras?), updateQuantity(lineItemId, qty),
-//   removeLine(lineItemId), checkout(), openCart(), closeCart(), refresh() }
+//   removeLine(lineItemId), applyCoupon(code), removeCoupon(), setNote(text) /* on blur */,
+//   checkout(), openCart(), closeCart(), refresh() }
 // addToCart rejects on refusal (out of stock, digital product with no file) AND records
 // .error, opening the drawer either way — so render .error in whatever surface you build for
-// the cart, and never chain checkout() onto an add without awaiting it successfully.
+// the cart, and never chain checkout() onto an add without awaiting it successfully. applyCoupon
+// rejects with buyer copy for an unknown / expired / inapplicable code (also in .error).
 ```
 
 ### The pages and islands you create — skeletons
@@ -243,12 +276,16 @@ let products: ProductSummary[] = [];
 let categories: Category[] = [];
 let seoTagsServiceConfig = null;
 try {
-  [category, categories, seoTagsServiceConfig] = await Promise.all([
-    fetchCategoryBySlug(slug),
-    fetchCategories(),
-    loadSEOTagsServiceConfig({ pageUrl, itemType: seoTags.ItemType.STORES_CATEGORY, itemData: { slug } }),
-  ]);
-  if (category) products = await fetchProductsByCategory(category.id, { limit: 24 });
+  category = await fetchCategoryBySlug(slug);
+  if (category) {
+    // A sub-category is its own SEO item type (the owner's settings differ per type).
+    const itemType = category.parentId ? seoTags.ItemType.STORES_SUB_CATEGORY : seoTags.ItemType.STORES_CATEGORY;
+    [products, categories, seoTagsServiceConfig] = await Promise.all([
+      fetchProductsByCategory(category.id, { limit: 24 }),
+      fetchCategories(),
+      loadSEOTagsServiceConfig({ pageUrl, itemType, itemData: { slug } }),
+    ]);
+  }
 } catch {
   // Guarded: an unhandled SSR throw truncates the response mid-stream.
 }
@@ -260,7 +297,9 @@ if (!category) {
 ---
 <SiteLayout title={category.name}>
   <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
-  <!-- your heading: category.name, category.description when present, then: -->
+  <!-- your heading: category.breadcrumbs as links (Home › each ancestor → `/category/${b.slug}`) when
+       it has any, category.name, category.description when present, category.imageUrl as a banner
+       when it fits the design, then: -->
   <ShopView client:load initialProducts={products} initialCategories={categories} initialCategoryId={category.id} />
 </SiteLayout>
 ```
@@ -338,21 +377,27 @@ export default function ShopView(props: {
   // …you implement the render:
   //   • a category row when categories.length > 1: LINKS to `/category/${c.slug}` (plus "All" →
   //     /shop), the active one marked by activeCategoryId — real URLs, not only pills that
-  //     swap state (setActiveCategoryId is fine for an additional live switch on /shop)
+  //     swap state (setActiveCategoryId is fine for an additional live switch on /shop).
+  //     Categories carry parentId / index: on /shop show the top-level ones (parentId === null);
+  //     on a category page show its children when it has any (plus "Shop all" = itself), else
+  //     its siblings — sorted by index, then name
   //   • <FilterPanel shop={shop}> … </FilterPanel> WRAPS your results — shipped: the toolbar
   //     (result count, sort), active chips, a filter sidebar on md+ (price slider, availability,
   //     the option facets, collapsible) beside your grid, a sheet under md. Your loading / empty /
   //     error states and your grid go inside it as children. Always mounted; it shows only the
   //     facets this catalog actually has. No sort control or filter UI of your own.
   //   • error → a short inline message (retry() re-runs the query)
-  //   • products === null (or loading) → skeleton tiles; [] → your honest empty state, and a
-  //     distinct "no products match these filters" with clearFilters() when hasActiveFilters
+  //   • products === null → skeleton tiles; loading with products present (a sort or filter
+  //     change) → keep the grid and dim it (opacity, aria-busy), never blank it; [] → your honest
+  //     empty state, and a distinct "no products match these filters" with clearFilters() when
+  //     hasActiveFilters
   //   • else YOUR grid of YOUR tiles (ProductSummary contract above): image via
   //     <img {...imgAttrs(p.imageUrl, "(min-width: 768px) 25vw, 50vw")} alt={p.name} /> — src,
   //     srcSet, sizes and lazy loading in one spread, so a tile never ships srcSet without src;
   //     an empty imageUrl gives {} — render your placeholder then; hoverImageUrl
-  //     on hover — name, price — a range when
-  //     price !== maxPrice, else price + labelled compareAtPrice — EVERY ribbon from ribbons,
+  //     on hover — name, price — "From {price}" when fromPrice, else a range when
+  //     price !== maxPrice, else price + labelled compareAtPrice; discountNames under the price
+  //     when present ("Summer sale"), pricePerUnit beside it when present — EVERY ribbon from ribbons,
   //     swatches as small color dots when present (else optionsSummary as text); tile links to
   //     `/products/${p.slug}`; and <QuickAdd product={p} /> as the LAST ROW of the tile's text
   //     block, under name and price, full width — the shipped buy control (direct add / option
@@ -406,13 +451,20 @@ export default function ProductDetailView(props: {
   //       A single-image gallery is just the one primary — no empty strip.
   //       When d.variant resolves and carries imageUrl, that image becomes the primary (it is
   //       one of the gallery urls) — a shopper who picks a color sees that color.
+  //     • breadcrumbs when d.product.breadcrumbs.length: a <nav aria-label="Breadcrumb"> of
+  //       Home › each crumb as a link to `/category/${crumb.slug}` › the product name (plain text)
   //     • name, EVERY ribbon (d.product.ribbons), live d.price (the range until every option
-  //       is picked) with d.compareAtPrice as a labelled "was" when present — never invent one;
+  //       is picked; the plan's price once a plan is picked) with d.compareAtPrice as a labelled
+  //       "was" when present — never invent one; d.pricePerUnit beside the price when present;
+  //       d.product.discountNames under it ("Summer sale") when present;
   //       descriptionHtml rendered as HTML, then d.product.infoSections as sections/accordions
   //     • <OptionPicker detail={d} showQuantity /> right under the price — the shipped option
-  //       groups (swatches for a color option, sold-out choices disabled), modifiers, quantity,
-  //       and the buy button gated by the hook with its plain reason, "Pre-order" when it applies,
-  //       the add error inline. Never resolve variants or gate the button yourself.
+  //       groups (swatches for a color option, choices unavailable with the current picks
+  //       disabled), modifiers, the plan picker when d.plans.length, quantity capped at the stock
+  //       left, "Only N left", the buy button gated by the hook with its plain reason, "Pre-order"
+  //       and the merchant's pre-order note when it applies, "notify me" when sold out and the
+  //       merchant collects requests, the add error inline. Never resolve variants or gate the
+  //       button yourself.
   //     • in the first screen at mobile AND desktop: the image, name, price, the first choice,
   //       and the button with its reason — a shopper decides without scrolling. On a phone that
   //       means the primary image is a bounded band, not a full-height hero: e.g. the gallery
@@ -438,14 +490,17 @@ prose above is where the bugs come from:
    successful add, or the scrim — there is NO outside-click handler (one that runs after a
    re-render sees the clicked swatch detached and closes on every pick).
 2. `components/storefront/OptionPicker.tsx` — the purchase controls as working code: swatches vs
-   pills, sold-out choices disabled, quantity, the gated button with its reason and the
-   "Pre-order" label; the PDP and the tile picker share it.
+   pills, choices unavailable with the current picks disabled, text modifiers with their limit,
+   the plan picker, quantity capped at the stock left, the gated button with its reason, the
+   "Pre-order" label and note, the notify-me form; the PDP and the tile picker share it.
 3. `components/storefront/CartDrawer.tsx` — the overlay contract as working code: root-level,
-   scrim, scroll lock, Escape, focus in and back.
+   scrim, scroll lock, Escape, focus in and back — plus the cart's contents: struck discounted
+   lines, per-status copy, the stock cap on "+", promo code, note to seller (saved on blur), the
+   totals breakdown (subtotal, discounts, fees, taxes unless prices include them, total).
 4. `components/storefront/FilterPanel.tsx` — inline commits at once, the sheet stages until Apply;
    the price pair commits only when valid.
 
-All under `references/storefront/app/`.
+All under `templates/storefront/app/`.
 
 ### Wiring — Astro (default)
 
@@ -490,13 +545,16 @@ ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads live
 pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
 root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
-`fetchCategories`, `fetchCategoryBySlug`, `resolveVariant` from `./js/wix/catalog.js`;
-`fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `checkoutUrl` from `./js/wix/cart.js`.
+`fetchCategories`, `fetchCategoryBySlug`, `fetchInventory`, `fetchBackInStockEnabled`,
+`requestBackInStock`, `resolveVariant`, `choiceAvailability` from `./js/wix/catalog.js`;
+`fetchCart`, `addToCart`, `updateQuantity`, `removeLine`, `applyCoupon`, `removeCoupon`, `setNote`,
+`checkoutUrl` from `./js/wix/cart.js`.
 The state machines ship too: `createShopStore` from `./js/wix/shop-store.js` (the listing —
 selection, facets, URL sync, cursor paging; `start()` once the page is up), `createProductDetailStore`
 from `./js/wix/product-detail-store.js` (the PDP and every quick-add picker — selections start
-empty, `resolveVariant`, `canAdd`/`blockedReason`, `add()`), and `./js/wix/cart-store.js` (the
-cart, `subscribeCart`/`getCartState`, `addLine`, `updateLineQuantity`, `removeCartLine`,
+empty, `resolveVariant`, `canAdd`/`blockedReason`, `selectPlan`, `maxQuantity`, `add()`,
+`notify()`), and `./js/wix/cart-store.js` (the cart, `subscribeCart`/`getCartState`, `addLine`,
+`updateLineQuantity`, `removeCartLine`, `applyCartCoupon`, `removeCartCoupon`, `setCartNote`,
 `goToCheckout`, `setCartOpen`). No components ship — you write the rendering in plain JS: one
 render function per surface that reads `getState()`, called from `subscribe`, with the
 surface's controls calling the store's actions. The drawer opens after every add on its own;
@@ -572,9 +630,11 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 - Checkout only through the shipped cart (`checkout()`) — never a hand-built checkout URL.
 - Live data or an honest empty state — never mock products, prices, reviews, or counts.
 - **Prices and ribbons come from the DTOs as-is** — no computed percent-off, no "Sale" badge
-  inferred from `compareAtPrice`, no struck price beside a range (the DTO already withholds it).
-- **Cart totals come from `cart`** — never summed or hardcoded in the client; shipping and tax say
-  "calculated at checkout" (the drawer already does).
+  inferred from `compareAtPrice`, no struck price beside a range (the DTO already withholds it);
+  a `fromPrice` summary reads "From {price}", never a made-up top of the range.
+- **Cart totals come from `cart`** (`subtotal`, `discounts`, `fees`, `taxes`, `total` — the
+  estimate's) — never summed or hardcoded in the client; shipping says "calculated at checkout",
+  tax too unless `cart.taxes` has rows or `cart.pricesIncludeTax` (the drawer already does).
 - Your PDP page carries the SEO pieces (`wixMetadata` + `loadSEOTagsServiceConfig` +
   `<SEO.Tags>`) exactly as the skeleton shows — owners edit those tags in their dashboard.
 - **Browsing, cart and checkout need no login.** They run on the Wix visitor session the
@@ -609,4 +669,12 @@ payments) — mention it, don't treat it as a code failure.
 
 Per `seed/SEED.md` — a plain-data `plan.json` into `seed-store.mjs`, run from the project
 root. Independent of the frontend work; seed a catalog that exercises the UI (≥1 product with
-a color option, ≥1 on sale, an image per product) unless the brief says otherwise.
+a color option, ≥1 on sale, an image per product) unless the brief says otherwise — and, when the
+brief wants them, a ribbon, a modifier (choices or free text), an info section, a pre-order item,
+per-variant prices, a category description/image: all plain plan fields (see `seed/SEED.md`).
+
+A fresh Stores install carries Wix's sample catalog (a dozen products such as "Baseball Cap" and
+"Ceramic Flower Vase"), and the shop lists them next to the seeded ones. Never delete them, or
+anything else on the site: the result's `preexisting[]` names what the shop lists, and the closing
+message says so with the Manage products link so the owner removes them there — never release a store
+that sells "Baseball Cap" without telling the owner.

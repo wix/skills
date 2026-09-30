@@ -1,6 +1,6 @@
 # Draft Template — the starting point for every dashboard page
 
-**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file for [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md), the package's own `Collection Toolkit.md` guide, [TABLE_STATE.md](TABLE_STATE.md), a component doc, or an MCP lookup when the request needs something no case shows.
+**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** Pick the case below, copy its files, rename, and adapt fields/API calls/data source. Only leave this file when the request needs something no case shows, and then go to [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md) first — before any lookup inside `node_modules/@wix/patterns`, `index.json` included. It routes you to the package's own `Collection Toolkit.md` guide, a component doc or an example; [TABLE_STATE.md](TABLE_STATE.md) and MCP lookups come after it.
 
 Every snippet below was copied from the installed `dist/docs/*.md` and `dist/dts-bundle/*.d.ts`, not from memory — confirm props against your own installed version before deviating.
 
@@ -59,20 +59,21 @@ Case C has one page and no rows to open, so it needs no router and no manual `lo
 import type { FC } from 'react';
 import { withDashboard } from '@wix/patterns';
 import { WixPatternsProvider } from '@wix/patterns/provider';
-import { WixDesignSystemProvider } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme'; // BUSINESS_MANAGER_THEME.md § 2
 import { {Feature}SettingsPage } from './{Feature}SettingsPage'; // DRAFT_TEMPLATE_SETTINGS.md
 
 const Page: FC = () => (
-  <WixDesignSystemProvider>
+  <BusinessManagerTheme>
     <WixPatternsProvider>
       <{Feature}SettingsPage />
     </WixPatternsProvider>
-  </WixDesignSystemProvider>
+  </BusinessManagerTheme>
 );
 
 export default withDashboard(Page);
 ```
+
+`BusinessManagerTheme` is the app's own wrapper around the design-system providers, the `odeditor` theme stylesheet and the Business Manager default props — [BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app) has the file to write once per app. **Business Manager passes none of the redesign through the extension's iframe**, so a bare `WixDesignSystemProvider` here renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass. `WixPatternsProvider` nests inside it, never above.
 
 Cases A, B and D differ — they need `location` supplied manually for `PatternsReactRouter`. See [DRAFT_TEMPLATE_ROUTER.md](DRAFT_TEMPLATE_ROUTER.md) rather than adding that plumbing here; it's dead code without a router underneath it.
 

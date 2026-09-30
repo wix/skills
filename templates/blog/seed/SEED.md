@@ -8,7 +8,7 @@ then **published** posts, then imported cover images (PATCH + re-publish).
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/references/blog/seed/seed-blog.mjs plan.json
+node <SKILL_ROOT>/templates/blog/seed/seed-blog.mjs plan.json
 ```
 
 `plan.json` is plain data — write it from the brief. **Default to 3 posts** (the seed shows
@@ -64,7 +64,7 @@ seems needed.
 
 ## Supplied content
 
-The general rules are in `references/shared/SUPPLIED-CONTENT.md`. For a blog, each post the user
+The general rules are in `templates/shared/SUPPLIED-CONTENT.md`. For a blog, each post the user
 hands over is one entry. Its title becomes `title`; its body becomes `content` blocks, one block per
 paragraph, heading or list, whether the body arrived as text, HTML or Markdown; a category becomes
 `category` (and joins the `categories` list); tags become `tags`; their cover image becomes
@@ -77,5 +77,5 @@ not seeded — say so.
 import them only for a partial re-seed.
 
 ## Reference
-Unexpected shape or an uncovered operation → read the live Wix API reference; the
-authoritative source recipe is `wix-headless/references/inline-recipes/setup-blog.md`.
+Unexpected shape or an uncovered operation → read the live Wix API reference; every call the script
+makes carries a `docs:` line with its reference page.

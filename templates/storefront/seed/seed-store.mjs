@@ -1,7 +1,7 @@
 // Storefront seed — a BUILD-TIME script, never shipped in the app. Run it from the project
 // root (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/references/storefront/seed/seed-store.mjs plan.json
+//   node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
 //
 // It mints its own site token via the Wix CLI (the token never leaves this process), installs
 // the Wix Stores app if needed, waits for the V3 catalog, bulk-creates products (variants
@@ -13,17 +13,25 @@
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
 //                                   "choices": ["S","M"] | [{ "name", "colorCode" }] }],
+//                    "variantPrices"?: { "<choice name>": price },
+//                    "ribbon"?, "modifiers"?: [{ "name", "type"?: "choices"|"text", "mandatory"?,
+//                                              "choices"?: ["Gift wrap"], "maxChars"?, "minChars"? }],
+//                    "infoSections"?: [{ "title", "description" }],
+//                    "preorder"?: { "message"?, "limit"? },
 //                    "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"?,
 //                    "digitalFileUrl"? | "digitalFilePath"?, "digitalFileName"? }],
-//     "categories"?: { "<category name>": ["<product name>", ...] } }
+//     "categories"?: { "<category name>": ["<product name>", ...] },
+//     "categoryDetails"?: { "<category name>": { "description"?, "imageUrl"? | "imagePath"? | "imagePrompt"? } } }
 //
 // Seeding is ADDITIVE — this script never deletes or overwrites existing content.
-// If a call fails with an unexpected shape, read the live API reference (the authoritative
-// source recipe is wix-headless/references/inline-recipes/setup-online-store.md) — never guess.
+// If a call fails with an unexpected shape, read the live API reference (every call below
+// carries a docs: line with its reference page) — never guess.
+import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
+import { seedSiteId } from "../../shared/seed/site-context.mjs";
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -31,9 +39,9 @@ const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 // ---- auth: siteId from wix.config.json, token minted by the Wix CLI ----------------------------
 
 export function makeCtx({ cwd = process.cwd() } = {}) {
-  const config = JSON.parse(readFileSync(`${cwd}/wix.config.json`, "utf8"));
-  const siteId = config.siteId ?? config.projectId;
-  if (!siteId) throw new Error("wix.config.json has no siteId — is this a Wix CLI project?");
+  // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
+  // a seed there unless --allow-parent is passed after the user confirmed).
+  const siteId = seedSiteId({ cwd, argv: process.argv });
   // The CLI returns a byte-identical token within a run — mint once, reuse.
   const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
     encoding: "utf8",
@@ -161,20 +169,77 @@ function buildOptions(options = []) {
   });
 }
 
+// Modifiers collect buyer input WITHOUT creating variants (gift wrap, engraving) — defined inline
+// like options, each becomes a customization. `type: "text"` → FREE_TEXT with the merchant's
+// character limits; anything else → TEXT_CHOICES. `mandatory` defaults to TRUE, which is how the
+// storefront reads an omitted flag.
+function buildModifiers(modifiers = []) {
+  return modifiers.map((m) => {
+    const text = m.type === "text";
+    return {
+      name: m.name,
+      mandatory: m.mandatory !== false,
+      ...(text
+        ? {
+            modifierRenderType: "FREE_TEXT",
+            freeTextSettings: {
+              title: m.title ?? m.name,
+              ...(m.maxChars ? { maxCharCount: m.maxChars } : {}),
+              ...(m.minChars ? { minCharCount: m.minChars } : {}),
+            },
+          }
+        : {
+            modifierRenderType: "TEXT_CHOICES",
+            choicesSettings: {
+              choices: (m.choices ?? []).map((c) => ({
+                choiceType: "CHOICE_TEXT",
+                name: typeof c === "string" ? c : c.name,
+                ...(typeof c === "object" && c.addedPrice != null ? { addedPrice: String(c.addedPrice) } : {}),
+              })),
+            },
+          }),
+    };
+  });
+}
+
+// Info sections (materials, shipping, care) — inline definitions; the same title on two products
+// shares one section (uniqueName is derived from the title).
+function buildInfoSections(sections = [], i) {
+  return sections.map((s, n) => ({
+    uniqueName: String(s.title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || `section-${n}`,
+    title: s.title,
+    description: mkDesc(s.description, `info-${i}-${n}`),
+  }));
+}
+
+// Pre-order needs counted stock: `preorderInfo` on the inventory item, enabled with the merchant's
+// message and the number of units buyers may pre-order once stock hits zero.
+function preorderInfo(preorder) {
+  if (!preorder) return { enabled: false };
+  return {
+    enabled: true,
+    ...(preorder.message ? { message: preorder.message } : {}),
+    ...(Number.isInteger(preorder.limit) ? { limit: preorder.limit } : {}),
+  };
+}
+
 // Full Cartesian product, each variant priced/stocked from the product; visible:true baked in.
-function expandVariants(options = [], { price, compareAtPrice, quantity, inStock }, digitalFileId) {
+// `variantPrices` prices a variant by one of its choice names ("Large": 32) — the first choice
+// with a price wins; the product's compareAtPrice is kept only when it stays above that price.
+function expandVariants(options = [], { price, compareAtPrice, quantity, inStock, preorder, variantPrices = {} }, digitalFileId) {
+  const priceOf = (amount) => ({
+    actualPrice: { amount: String(amount) },
+    ...(compareAtPrice && Number(compareAtPrice) > Number(amount) ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
+  });
   const base = {
-    price: {
-      actualPrice: { amount: String(price) },
-      ...(compareAtPrice ? { compareAtPrice: { amount: String(compareAtPrice) } } : {}),
-    },
+    price: priceOf(price),
     visible: true,
     ...(digitalFileId
       ? { digitalProperties: { digitalFile: { id: digitalFileId } }, inventoryItem: { inStock: true } }
       // inStock:true == untracked stock — always buyable, no count. Otherwise track a quantity.
       : { physicalProperties: {}, inventoryItem: inStock === true
           ? { inStock: true }
-          : { quantity: quantity ?? 0, preorderInfo: { enabled: false } } }),
+          : { quantity: quantity ?? 0, preorderInfo: preorderInfo(preorder) } }),
   };
   if (!options.length) return [base];
   let combos = [[]];
@@ -184,7 +249,10 @@ function expandVariants(options = [], { price, compareAtPrice, quantity, inStock
     combos = combos.flatMap((combo) =>
       names.map((choiceName) => [...combo, { optionChoiceNames: { optionName: o.name, choiceName, renderType: rt } }]));
   }
-  return combos.map((choices) => ({ ...base, choices }));
+  return combos.map((choices) => {
+    const override = choices.map((c) => variantPrices[c.optionChoiceNames.choiceName]).find((v) => v != null);
+    return { ...base, choices, ...(override != null ? { price: priceOf(override) } : {}) };
+  });
 }
 
 // ---- operations ---------------------------------------------------------------------------------
@@ -205,13 +273,25 @@ export async function installStoresApp(ctx) {
 // Existing products by exact name (for idempotent reruns). `name` is NOT filterable on the
 // V3 query — fetch a page and match client-side (seed catalogs are small). Empty map on any
 // failure — falling back to create-everything is the additive behavior we had before.
-export async function queryProductsByNames(ctx, names) {
+/** Every product in the catalog (id, name, slug, revision), cursor-paged. Throws on a failed read. */
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md
+export async function readAllProducts(ctx) {
+  const out = [];
+  let cursor;
+  do {
+    const r = await req(ctx, "/stores/v3/products/query", { body: { query: { cursorPaging: { limit: 100, ...(cursor ? { cursor } : {}) } } } });
+    for (const p of r.products ?? []) out.push({ id: p.id, name: p.name, slug: p.slug, revision: p.revision });
+    cursor = r.pagingMetadata?.cursors?.next || undefined;
+  } while (cursor);
+  return out;
+}
+
+export async function queryProductsByNames(ctx, names, all) {
   const out = new Map();
   if (!names.length) return out;
   try {
     const wanted = new Set(names);
-    const r = await req(ctx, "/stores/v3/products/query", { body: { query: { cursorPaging: { limit: 100 } } } });
-    for (const p of r.products ?? []) {
+    for (const p of all ?? (await readAllProducts(ctx))) {
       if (wanted.has(p.name) && !out.has(p.name)) out.set(p.name, { id: p.id, slug: p.slug, revision: p.revision });
     }
   } catch (e) {
@@ -267,6 +347,10 @@ export async function bulkCreateProducts(ctx, products) {
       visible: true,
       description: mkDesc(p.description, i),
       options: buildOptions(p.options),
+      // ribbons, modifiers and info sections are created inline by name, like options
+      ...(p.ribbon ? { ribbon: { name: p.ribbon } } : {}),
+      ...(p.modifiers?.length ? { modifiers: buildModifiers(p.modifiers) } : {}),
+      ...(p.infoSections?.length ? { infoSections: buildInfoSections(p.infoSections, i) } : {}),
       variantsInfo: { variants: expandVariants(p.options, p, fileIds[i]) },
     })),
   };
@@ -295,6 +379,7 @@ export async function bulkCreateProducts(ctx, products) {
       isDigital: !!fileIds[i],
       quantity: src?.quantity ?? 0,
       inStock: src?.inStock,
+      preorder: src?.preorder,
     });
   }
   await stockOptionlessProducts(ctx, created);
@@ -318,13 +403,13 @@ async function stockOptionlessProducts(ctx, created) {
     need.forEach((p) => { if (!p.variantId) p.variantId = vById.get(p.id); });
   }
   // inStock:true == untracked stock (always buyable, no count). Only send a quantity when the
-  // product actually tracks one, or Wix rejects the pair.
+  // product actually tracks one, or Wix rejects the pair; pre-order rides on the counted item.
   const inventoryItems = need
     .filter((p) => p.variantId)
     .map((p) => ({
       productId: p.id,
       variantId: p.variantId,
-      ...(p.inStock === true ? { inStock: true } : { quantity: p.quantity }),
+      ...(p.inStock === true ? { inStock: true } : { quantity: p.quantity, ...(p.preorder ? { preorderInfo: preorderInfo(p.preorder) } : {}) }),
     }));
   if (inventoryItems.length) {
     await req(ctx, "/stores/v3/bulk/inventory-items/create", { body: { inventoryItems } });
@@ -349,9 +434,11 @@ export async function queryCategoriesByNames(ctx, names) {
 }
 
 // Categories share the @wix/stores tree revision — concurrent creates 409, so: sequential.
-// Idempotent by name: a name that already exists is reused, never duplicated.
+// Idempotent by name: a name that already exists is reused, never duplicated (its description
+// and image are left as they are). `details[name]` = { description?, imageUrl? } — the image is a
+// Wix-hosted URL (resolveItemImages) passed at create time; the API re-hosts a full URL itself.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md
-export async function createCategories(ctx, names) {
+export async function createCategories(ctx, names, details = {}) {
   const existing = await queryCategoriesByNames(ctx, names);
   const out = [];
   for (const name of names) {
@@ -359,8 +446,17 @@ export async function createCategories(ctx, names) {
       out.push({ id: existing.get(name), name });
       continue;
     }
+    const d = details[name] ?? {};
     const r = await req(ctx, "/categories/v1/categories", {
-      body: { category: { name, visible: true }, treeReference: { appNamespace: "@wix/stores", treeKey: null } },
+      body: {
+        category: {
+          name,
+          visible: true,
+          ...(d.description ? { description: String(d.description).slice(0, 600) } : {}),
+          ...(d.imageUrl ? { image: { url: d.imageUrl } } : {}), // an Image OBJECT — a bare URL string is rejected
+        },
+        treeReference: { appNamespace: "@wix/stores", treeKey: null },
+      },
     });
     out.push({ id: r.category?.id, name });
   }
@@ -438,6 +534,22 @@ export function validateProducts(products) {
     if (p.quantity != null && (!Number.isInteger(p.quantity) || p.quantity < 0)) {
       problems.push(`${where}: quantity must be a non-negative integer (got ${p.quantity}) — omit it and set inStock:true for untracked stock`);
     }
+    if (p.preorder && (p.inStock === true || p.digitalFilePath || p.digitalFileUrl)) {
+      problems.push(`${where}: preorder needs counted stock (a quantity) on a physical product`);
+    }
+    if (p.preorder?.limit != null && (!Number.isInteger(p.preorder.limit) || p.preorder.limit < 1)) {
+      problems.push(`${where}: preorder.limit must be a positive integer`);
+    }
+    for (const m of p.modifiers ?? []) {
+      if (!m?.name) problems.push(`${where}: every modifier needs a name`);
+      else if (m.type !== "text" && !(m.choices?.length > 0)) problems.push(`${where}: modifier "${m.name}" needs choices (or type: "text")`);
+    }
+    for (const s of p.infoSections ?? []) if (!s?.title) problems.push(`${where}: every info section needs a title`);
+    const choiceNames = new Set((p.options ?? []).flatMap((o) => (o.choices ?? []).map((c) => (typeof c === "string" ? c : c?.name))));
+    for (const [choice, amount] of Object.entries(p.variantPrices ?? {})) {
+      if (!choiceNames.has(choice)) problems.push(`${where}: variantPrices names "${choice}", which is not a choice of its options`);
+      if (!(Number(amount) >= 0)) problems.push(`${where}: variantPrices["${choice}"] must be a non-negative number`);
+    }
     for (const opt of p.options ?? []) {
       const seen = new Set();
       for (const c of opt.choices ?? []) {
@@ -457,33 +569,32 @@ export function validateProducts(products) {
   if (problems.length) throw new Error(`invalid seed plan:\n  - ${problems.join("\n  - ")}`);
 }
 
-// Site currency, set BEFORE any product exists (see setupStore). Existing product reads can
-// keep reporting the old currency for a short while after this returns — that lag is expected
-// and self-resolves, so don't re-verify or retry on it.
-// docs: https://dev.wix.com/docs/rest/business-management/site-properties/properties/update-site-properties
-async function setSiteCurrency(ctx, currency) {
-  await req(ctx, "/site-properties/v4/properties", {
-    method: "PATCH",
-    body: { properties: { paymentCurrency: currency }, fields: ["paymentCurrency"] },
-  });
-}
-
 /**
  * ONE-CALL seed: install → currency → create products → categories → attach images, ids
  * threaded in memory. This is the default path — call it once instead of the individual
  * functions.
  */
-export async function setupStore(ctx, { products = [], categories = {}, currency } = {}) {
+export async function setupStore(ctx, { products = [], categories = {}, categoryDetails = {}, currency } = {}) {
   validateProducts(products);
   await installStoresApp(ctx);
   // Before any product exists: a product's price is stored in the site currency at create time,
   // so switching afterwards leaves the catalog priced in the old one.
   if (currency) await setSiteCurrency(ctx, currency);
 
+  // What the catalog held BEFORE this seed and the plan does not name: on a fresh install that is
+  // Wix's sample catalog ("Baseball Cap", "Ceramic Flower Vase", a dozen of them), which the live shop
+  // lists next to the owner's products. Reported (`preexisting`), never touched: this seed deletes
+  // nothing on a site, ever. The owner removes what they do not want in the dashboard; the closing
+  // message tells them it is there and where.
+  const planNames = new Set(products.map((p) => p.name));
+  let all = [];
+  try { all = await readAllProducts(ctx); } catch (e) { console.error(`catalog read failed (skipping the pre-existing check): ${String(e.message).slice(0, 120)}`); }
+  const preexisting = all.filter((p) => !planNames.has(p.name));
+
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
   // exist yet makes that rerun safe instead of a duplicator.
-  const existing = await queryProductsByNames(ctx, products.map((p) => p.name));
+  const existing = await queryProductsByNames(ctx, products.map((p) => p.name), all.length ? all : undefined);
   const toCreate = products.filter((p) => !existing.has(p.name));
   const { created, failures } = toCreate.length
     ? await bulkCreateProducts(ctx, toCreate)
@@ -495,8 +606,22 @@ export async function setupStore(ctx, { products = [], categories = {}, currency
   });
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
 
+  // Category images resolve before the categories exist (the create call takes the image URL);
+  // a failed image leaves the category text-only, like a product.
   const names = Object.keys(categories);
-  const cats = names.length ? await createCategories(ctx, names) : [];
+  const details = {};
+  if (names.length) {
+    const catFiles = await resolveItemImages(ctx, names.map((n) => ({
+      url: categoryDetails[n]?.imageUrl,
+      path: categoryDetails[n]?.imagePath,
+      prompt: categoryDetails[n]?.imagePrompt,
+      displayName: `${n.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`,
+    })));
+    names.forEach((n, i) => {
+      details[n] = { description: categoryDetails[n]?.description, imageUrl: catFiles[i]?.url };
+    });
+  }
+  const cats = names.length ? await createCategories(ctx, names, details) : [];
   if (cats.length) {
     const mapping = {};
     for (const c of cats) {
@@ -538,7 +663,17 @@ export async function setupStore(ctx, { products = [], categories = {}, currency
   // failures is part of the result, not an exception: a partial seed still leaves a usable
   // store, and the agent needs the names to report rather than silently shipping a short
   // catalog. Re-run the seed to retry them — existing names are skipped, not duplicated.
-  return { products: withNames, categories: cats, imagesAttached, imageFailures, failures };
+  return {
+    products: withNames,
+    categories: cats,
+    imagesAttached,
+    imageFailures,
+    failures,
+    // Products the plan did not name (Wix's install samples on a fresh site, or the owner's own on an
+    // existing one): the closing message names what the shop lists and where the owner removes it.
+    preexisting: preexisting.map((p) => ({ id: p.id, name: p.name, slug: p.slug })),
+    dashboardProductsUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/store/products`,
+  };
 }
 
 // ---- CLI entry ----------------------------------------------------------------------------------

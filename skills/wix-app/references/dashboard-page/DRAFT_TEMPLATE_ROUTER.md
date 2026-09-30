@@ -1,17 +1,18 @@
 # Draft Template — Cases A, B and D (router-wired)
 
-**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A's detail route is read-only (§4); B and D route to a full `EntityPage`. This file covers only what a router adds — the entry file, the app shell, and the detail/entity page; the collection and settings components are in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md).
+**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A's detail route is read-only (§4); B and D route to a full `EntityPage`. This file covers only what a router adds.
+
+Every snippet below is copied from the installed `dist/docs/*.md` this session read, not from memory.
 
 ## 1. Entry — `location` is manual in a Wix CLI app, and only because the router needs it
 
-`PatternsReactRouter` reads the page location through `container.usePageLocation()`, which only `withDashboard`'s `location` prop feeds — nothing supplies it automatically in a Wix CLI app the way Yoshi BM flow does:
+`PatternsReactRouter` reads the page location through `container.usePageLocation()`, which only `withDashboard`'s `location` prop feeds — nothing supplies it automatically in a Wix CLI app:
 
 ```tsx
 // {feature}.tsx — Case A, B or D
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
-import { WixDesignSystemProvider } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme';
 import { {Feature}App } from './{Feature}App';
 
 type PageLocation = Parameters<Parameters<typeof dashboard.observeState>[0]>[1]['pageLocation'];
@@ -27,16 +28,18 @@ const Page: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider>
+    <BusinessManagerTheme>
       {location ? <{Feature}App location={location} /> : null}
-    </WixDesignSystemProvider>
+    </BusinessManagerTheme>
   );
 };
 
 export default Page;
 ```
 
-**Skipping this is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." Only opening the page shows it, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional for Case B/D.
+`BusinessManagerTheme` belongs here, not in `{Feature}App.tsx` — its default props must apply above `WixPatternsProvider`. Write it once per app: [BUSINESS_MANAGER_THEME.md](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+
+**Skipping either the theme or `location` is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." Only a browser catches a missing `location` or an unthemed page, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional.
 
 ## 2. App shell — provider, router, routes
 
@@ -98,7 +101,7 @@ onRowClick={(item) => navigateToEntityPage({ path: `/${item.id}`, entity: item }
 
 ## 3. Entity page — one component for both `/new` and `/:id`
 
-Full call details — both generics, what `onSave` receives, the `UseEntityPageParams` pick list — are in `<pkgRoot>/dist/docs/useEntityPage.md`. What this router-based shape adds:
+Full call details — both generics, `onSave`'s argument, the `UseEntityPageParams` pick list — are in `<pkgRoot>/dist/docs/useEntityPage.md`. What this shape adds:
 
 ```tsx
 // {Feature}EntityPage.tsx — Case B or D
@@ -127,16 +130,16 @@ export const {Feature}EntityPage = () => {
     <EntityPage state={state}>
       <EntityPage.Header title={{ text: id ? 'Edit {Entity}' : 'New {Entity}' }} />
       <EntityPage.Content>
-        <EntityPage.MainContent>{/* one or more EntityPage.Card — dist/examples/EntityPage/basic.tsx */}</EntityPage.MainContent>
+        <EntityPage.MainContent>{/* one or more EntityPage.Card — see below */}</EntityPage.MainContent>
       </EntityPage.Content>
     </EntityPage>
   );
 };
 ```
 
-**`EntityPage.Content` takes only `MainContent` (first) and `AdditionalContent` (second).** A card, a wrapper `<div>` or a second `MainContent` *inside* `Content` throws while rendering; a `MainContent` placed *outside* `Content` is dropped in silence, leaving Save and Cancel over an empty page. Both checks live behind `NODE_ENV !== 'production'`, so the crash is a `wix dev` one; `children` is typed `ReactNode`, so neither mistake reaches `tsc`. Copy the nesting — only that; the example's own hook call is the non-router `parentPageId` shape — from `<pkgRoot>/dist/examples/EntityPage/basic.tsx`. `dist/docs/EntityPage.md` shows no tree at all.
+**`EntityPage.Content` takes only `MainContent` (first) and `AdditionalContent` (second).** A card, a `<div>` or a second `MainContent` inside it throws while rendering; a `MainContent` outside it is dropped in silence, leaving Save and Cancel over an empty page. Both checks sit behind `NODE_ENV !== 'production'` (a `wix dev` crash) and `children` is typed `ReactNode`, so neither reaches `tsc`. Copy only the nesting from `<pkgRoot>/dist/examples/EntityPage/basic.tsx` (its own hook call is the non-router `parentPageId` shape); `dist/docs/EntityPage.md` shows no tree.
 
-Both details above are `useEntityPage`'s own docs: `parentPath` "Must be passed if using Patterns Router", and `isNewEntity` should be "a getter when the route can change while the page stays mounted" — exactly this component, since a create navigates `/new` → `/:newId`.
+Both details above are `useEntityPage`'s own docs: `parentPath` "Must be passed if using Patterns Router", and `isNewEntity` "a getter when the route can change while the page stays mounted" — a create navigates `/new` → `/:newId`.
 
 **`UseEntityPageParams` is a `Pick<>`, so a param missing from it is a compile error, not an ignored prop.** `isNewEntity` is in that list at 1.470.0 and absent before ~1.46x. If it doesn't compile, read the pick list in your installed `dist/types/hooks/useEntityPage.d.ts` and upgrade — deleting the line makes a create route behave as an edit.
 
