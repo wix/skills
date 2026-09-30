@@ -86,10 +86,10 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
 `npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
-read tokens into context), and the two companion skills beside this one, `wix-docs` and
-`wix-manage` (if `.agents/skills/` lacks them:
-`CI=1 npx skills@latest add wix/skills --skill wix-docs --skill wix-manage --yes`). The cold-start
-page, `cold-start/cold-start.md`, gets a machine with none of this to that point. In a folder that
+read tokens into context), and the two companion skills installed beside this one, `wix-docs`
+and `wix-manage`. `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login
+when there is none; the cold-start page, `https://www.wix.com/skills/headless-cold-start/headless-kit.md`,
+gets a machine with none of this, the skills included, to that point. In a folder that
 already holds a `wix.config.json`, `node <SKILL_ROOT>/install/context.mjs` first: it runs
 `wix env pull` when `.env.local` is missing and prints the folder's **shape** (`folder.shape`, the
 cases of step 3, with the `next` for each) and the two identities a project has — the deploy site
