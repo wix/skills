@@ -51,7 +51,7 @@ export default function AccountView({ initialMember }: AccountViewProps) {
       <button
         type="button"
         onClick={() => void logout()}
-        className="mt-6 rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+        className="mt-6 rounded-control border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         Log out
       </button>

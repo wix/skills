@@ -39,7 +39,7 @@ export function EventCard({
           />
         )}
         {event.soldOut && (
-          <span className="absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
+          <span className="absolute left-3 top-3 rounded-control bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
             Sold out
           </span>
         )}
@@ -65,7 +65,7 @@ export interface EventsViewProps {
 }
 
 const pill = (active: boolean) =>
-  `rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm font-medium transition-colors ${
     active
       ? "border-primary bg-primary text-primary-foreground"
       : "border-border text-foreground hover:bg-secondary"
@@ -123,7 +123,7 @@ export default function EventsView({
             type="button"
             disabled={loadingMore}
             onClick={() => void loadMore()}
-            className="rounded-full border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            className="rounded-control border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
           >
             {loadingMore ? "Loading…" : "Load more"}
           </button>

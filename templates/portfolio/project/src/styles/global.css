@@ -27,6 +27,9 @@
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-sm: 6px;
+  /* Buttons, chips, labels, steppers and the progress bar: 9999px is the pill; 0 is square. Genuine
+     circles (swatches, avatars, dots) stay rounded-full and do not read this. */
+  --radius-control: 9999px;
 
   --font-sans: 'Wix Madefor Text', system-ui, sans-serif;
 }

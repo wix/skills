@@ -46,18 +46,18 @@ export default function EventConfirmationView({ eventsHref = "/events" }: { even
         {event?.address && <p className="mt-1 text-sm text-muted-foreground">{event.address}</p>}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           {order?.ticketsReady && order.ticketsPdfUrl && (
-            <a href={order.ticketsPdfUrl} target="_blank" rel="noreferrer" className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground no-underline transition-opacity hover:opacity-90">
+            <a href={order.ticketsPdfUrl} target="_blank" rel="noreferrer" className="rounded-control bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground no-underline transition-opacity hover:opacity-90">
               Download tickets
             </a>
           )}
           {order && !order.ticketsReady && polling && <span className="self-center text-sm text-muted-foreground">Preparing your tickets…</span>}
           {event?.addToCalendar.google && (
-            <a href={event.addToCalendar.google} target="_blank" rel="noreferrer" className="rounded-full border border-border px-6 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary">
+            <a href={event.addToCalendar.google} target="_blank" rel="noreferrer" className="rounded-control border border-border px-6 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary">
               Add to Google Calendar
             </a>
           )}
           {event?.addToCalendar.ics && (
-            <a href={event.addToCalendar.ics} className="rounded-full border border-border px-6 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary">
+            <a href={event.addToCalendar.ics} className="rounded-control border border-border px-6 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary">
               iCal
             </a>
           )}

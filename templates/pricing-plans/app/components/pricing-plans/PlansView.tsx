@@ -59,7 +59,7 @@ export function PlanCard({ plan, planHref = (slug) => `/plans/${slug}`, LinkComp
         <SubscribeButton plan={plan} assignedText={null} />
         <LinkComponent
           href={planHref(plan.slug)}
-          className="rounded-full border border-border px-6 py-2.5 text-center text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary"
+          className="rounded-control border border-border px-6 py-2.5 text-center text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary"
         >
           View details
         </LinkComponent>
