@@ -99,9 +99,3 @@ interface Site {
   parentChildRole: string;    // e.g. NONE
 }
 ```
-
-## Next Steps
-
-Use a site's `id` for site-level API calls, with a token scoped to that site, then read its
-context via [Read Site Context](read-site-context.md) or create sites with
-[Create Site from Template](create-site-from-template.md).
