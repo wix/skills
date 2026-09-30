@@ -23,6 +23,8 @@ assertions:
       agent to confirm eligibility through an API. Giving the link and the conditions is enough.
 
       Pass (8-10) if the response does all of:
+      - shares the Help Center article
+        https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend, AND
       - answers that yes, a Wix Studio site can go headless through Headless Migration, AND
       - sends the merchant to the site's Headless settings page,
         https://manage.wix.com/dashboard/<metaSiteId>/oauth-apps-settings (the real site ID or a
@@ -32,10 +34,10 @@ assertions:
       - states who can start it, including that the site needs a premium domain connected (the
         editor and not-already-headless conditions may stay implicit, since the user named their
         editor).
-      Within 8-10, score higher when it also says that if the Headless Migration section isn't on
-      the page, the flow isn't available for their site yet.
-      Score 5-6 if it gets the page and the Go Headless step right but leaves out the
-      live-site-untouched point or the requirements.
+      Within 8-10, score higher when it also says that switching is permanent, and that if the
+      Headless Migration section isn't on the page, the flow isn't available for their site yet.
+      Score 5-6 if it gets the page and the Go Headless step right but leaves out the Help Center
+      article, the live-site-untouched point, or the requirements.
 
       Score 0-3 if the response does any of:
       - calls or recommends the Headless Business Setup provision API

@@ -1,13 +1,13 @@
 ---
 name: "Migrate a Wix Site to Headless"
-description: Takes an existing Wix site built with Wix Editor, Wix Studio or Wix Harmony headless through the Headless Migration flow in the site's dashboard, so the merchant can replace its frontend with one they code themselves while keeping the site's products, orders, contacts and other business data. Covers where the flow starts, what changes and what doesn't, and which sites can start it. Use when the user wants to move, convert, or migrate their Wix site to headless, or to replace their Wix site's frontend with their own code while keeping its business data. Not for creating a new, separate headless site (use Create Headless Site), and not for moving a site from another platform into Wix (use Site Import).
+description: Takes an existing Wix site built with Wix Editor, Wix Studio or Wix Harmony headless through the Headless Migration flow in the site's dashboard, so the merchant can replace its frontend with one they code themselves while keeping the site's products, orders, contacts and other business data. Covers the Help Center article that explains the flow, where it starts, what changes and what doesn't, and which sites can start it. Use when the user wants to move, convert, or migrate their Wix site to headless, or to replace their Wix site's frontend with their own code while keeping its business data. Not for creating a new, separate headless site (use Create Headless Site), and not for moving a site from another platform into Wix (use Site Import).
 ---
 
 # Migrate a Wix Site to Headless
 
 A merchant with a regular Wix site can take it headless without starting over. The Headless Migration flow in the site's dashboard lets them build a new frontend for the same site, with their own AI coding tool, on top of the business data the site already has.
 
-The merchant starts and runs the flow themselves, from the dashboard. It has no public API, so the answer is informational: give the direct link, say what to click, and tell them what to expect. Do not run the migration or any part of it for them.
+The merchant runs the flow themselves, and a Wix Help Center article explains it end to end. Answer with that article: link it, add the few facts it leaves out (where to start, who can start, availability), and stop. Do not run the migration or any part of it for them.
 
 ## When to use
 
@@ -23,12 +23,21 @@ For a brand-new, separate headless site, use [Create Headless Site](create-headl
 - Do not start a [Site Import](site-import.md).
 - Do not tell the merchant to rebuild the site from scratch or re-enter their business data.
 - Do not call any API for this request, site lookups included. There is no API that starts the migration or checks whether a site can use it.
+- Do not repeat the older Help Center article "Developer Request: Migrating an Existing Wix Site to a Wix-Managed Headless Project", which says this can't be done. Point to the article below instead.
 
 ## Answer
 
-### 1. Send the merchant to the Headless settings page
+### 1. Share the Help Center article
 
-The page isn't in the dashboard sidebar, so always give the direct link:
+Always give this link. It is the merchant's guide to the whole flow:
+
+```
+https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend
+```
+
+### 2. Say where to start
+
+The article doesn't name the page, and the page isn't in the dashboard sidebar, so add the direct link:
 
 ```
 https://manage.wix.com/dashboard/{metaSiteId}/oauth-apps-settings
@@ -36,18 +45,17 @@ https://manage.wix.com/dashboard/{metaSiteId}/oauth-apps-settings
 
 If the conversation already carries the site's ID, put it in the link. Otherwise keep `{metaSiteId}` and tell the merchant it's the ID in the address bar when they open that site's dashboard. Don't look the site up.
 
-Tell them what to click. In the **Headless Migration** section, click **Go Headless**. That opens "Migrate to headless site", which takes them through the rest.
+Tell them what to click. In the **Headless Migration** section, click **Go Headless**.
 
-### 2. Tell them what changes and what doesn't
+### 3. Sum up what changes in a few lines
 
-- They build a new frontend for this same site with their own AI coding tool, connected to the site's existing business data.
-- Nothing changes on the live site until they decide to switch.
-- Both frontends share the same dashboard and business data (products, orders, contacts).
-- The site keeps its current plan while they build and preview.
-- SEO stays as it is until the switch. After the switch, SEO and analytics follow the new frontend.
-- They can start from a blank frontend or from a copy of the current design.
+- They build a new frontend for this same site with their own AI coding tool, connected to the site's existing products, orders, contacts and other business data. They can start from a blank frontend or from a copy of the current design.
+- Building and previewing don't change the live site, which keeps its current plan. SEO and analytics stay with it until the switch.
+- Switching is permanent. The new frontend becomes the live site, the old one is unpublished, and pages that only existed on it are hidden.
 
-### 3. State who can start it
+Leave the rest to the article.
+
+### 4. State who can start it
 
 A site can start the flow when it:
 
@@ -62,15 +70,16 @@ The flow is rolling out site by site and isn't available everywhere yet. You can
 ## Example reply
 
 ```
-You can take "Sunset Spa" headless without rebuilding it.
+You can take "Sunset Spa" headless without rebuilding it. Wix explains the whole process here:
+https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend
 
-1. Open your site's Headless settings: https://manage.wix.com/dashboard/{metaSiteId}/oauth-apps-settings
-2. In the Headless Migration section, click Go Headless.
+To start, open your site's Headless settings at
+https://manage.wix.com/dashboard/{metaSiteId}/oauth-apps-settings and click Go Headless in the
+Headless Migration section.
 
 You'll build a new frontend for this same site with your AI coding tool, connected to your
-existing products, orders and contacts. Your live site doesn't change until you decide to
-switch, it keeps its current plan while you build and preview, and SEO stays as it is until
-then. You can start from a blank frontend or from a copy of your current design.
+existing products, orders and contacts. Your live site doesn't change while you build and
+preview. When you switch, the new frontend becomes your live site, and that switch is permanent.
 
 The site needs to be built with Wix Editor, Wix Studio or Wix Harmony, not be headless
 already, and have a premium domain connected. The flow is still rolling out, so if you don't
