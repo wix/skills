@@ -32,7 +32,7 @@ export default function DonateForm({
   options,
   children,
   className = "grid gap-6",
-  buttonClassName = "w-full rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
+  buttonClassName = "w-full rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
 }: DonateFormProps) {
   const d = useDonation(campaign, options);
   const o = campaign.options;

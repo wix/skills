@@ -58,7 +58,7 @@ export default function ReservationView() {
         <button
           type="button"
           onClick={r.reset}
-          className="mt-6 rounded-full border border-border px-5 py-2 text-sm font-medium hover:bg-secondary"
+          className="mt-6 rounded-control border border-border px-5 py-2 text-sm font-medium hover:bg-secondary"
         >
           Make another reservation
         </button>
@@ -110,7 +110,7 @@ export default function ReservationView() {
         type="button"
         disabled={r.loading}
         onClick={() => void r.findSlots()}
-        className="mt-4 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="mt-4 w-full rounded-control bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {r.loading && r.slots === null ? "Finding times…" : "Find a table"}
       </button>
@@ -131,7 +131,7 @@ export default function ReservationView() {
               type="button"
               disabled={r.loading}
               onClick={() => void r.holdSlot(slot)}
-              className="rounded-full border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-40"
+              className="rounded-control border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-40"
             >
               {slot.label}
             </button>
@@ -201,7 +201,7 @@ export default function ReservationView() {
             type="button"
             disabled={!r.canConfirm}
             onClick={() => void r.confirm()}
-            className="mt-4 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-4 w-full rounded-control bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {r.loading ? "Sending…" : r.held ? "Complete reservation" : "Request reservation"}
           </button>

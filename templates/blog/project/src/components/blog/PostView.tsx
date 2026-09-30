@@ -33,7 +33,7 @@ const PlainLink = ({ href, className, children }: LinkLikeProps) => (
   </a>
 );
 
-const chipClass = "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline";
+const chipClass = "rounded-control border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline";
 
 export default function PostView({
   slug,

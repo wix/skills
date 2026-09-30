@@ -32,7 +32,7 @@ export default function QuickAdd({ product }: { product: ProductSummary }) {
   );
 }
 
-const control = "w-full rounded-full border border-foreground py-2 text-center text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50";
+const control = "w-full rounded-control border border-foreground py-2 text-center text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50";
 
 function QuickAddControl({ product }: { product: ProductSummary }) {
   const { addToCart, pendingProductId } = useCart();
@@ -136,7 +136,7 @@ function QuickAddPicker({ product, onClose }: { product: ProductSummary; onClose
         {d.notFound && <p className="text-sm text-muted-foreground">This product isn't available anymore.</p>}
 
         {d.product && needsPdp && (
-          <a href={`/products/${encodeURIComponent(product.slug)}`} className="block rounded-full bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground">
+          <a href={`/products/${encodeURIComponent(product.slug)}`} className="block rounded-control bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground">
             Customize on the product page
           </a>
         )}

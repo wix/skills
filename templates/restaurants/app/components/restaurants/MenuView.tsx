@@ -13,7 +13,7 @@ import { orderingUnavailableReason } from "../../wix/restaurants/ordering-core";
 import { zonedDateTimeLabel } from "../../wix/restaurants/time-core";
 import type { MenuData, MenuItem, OrderSelection, SiteMoney } from "../../wix/restaurants/types";
 
-const cta = "rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40";
+const cta = "rounded-control bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40";
 const field = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary";
 
 export interface MenuItemSheetProps {
@@ -90,7 +90,7 @@ export function MenuItemSheet({ item, money, busy, onAdd, onClose }: MenuItemShe
         </label>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center gap-3 rounded-full border border-border px-2 py-0.5">
+        <div className="inline-flex items-center gap-3 rounded-control border border-border px-2 py-0.5">
           <button type="button" aria-label="Decrease quantity" disabled={quantity <= 1} onClick={() => setQuantity(quantity - 1)} className="px-1 text-base disabled:opacity-40">−</button>
           <span className="text-sm tabular-nums">{quantity}</span>
           <button type="button" aria-label="Increase quantity" onClick={() => setQuantity(quantity + 1)} className="px-1 text-base">+</button>
@@ -191,7 +191,7 @@ export interface MenuViewProps {
 }
 
 const tab = (active: boolean) =>
-  `rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm font-medium transition-colors ${
     active
       ? "border-primary bg-primary text-primary-foreground"
       : "border-border text-foreground hover:bg-secondary"

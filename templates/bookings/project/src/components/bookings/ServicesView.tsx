@@ -57,8 +57,8 @@ export function ServiceCard({
           />
         )}
         <span className="absolute left-3 top-3 flex gap-1">
-          <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">{TYPE_LABEL[service.type]}</span>
-          {service.conferencing && <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">Online</span>}
+          <span className="rounded-control bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">{TYPE_LABEL[service.type]}</span>
+          {service.conferencing && <span className="rounded-control bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">Online</span>}
         </span>
       </div>
       <p className="mt-3 text-sm font-medium text-foreground">{service.name}</p>
@@ -89,7 +89,7 @@ export interface ServicesViewProps {
 }
 
 const pill = (active: boolean) =>
-  `rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm font-medium transition-colors ${
     active
       ? "border-primary bg-primary text-primary-foreground"
       : "border-border text-foreground hover:bg-secondary"
@@ -180,7 +180,7 @@ export default function ServicesView({
                 type="button"
                 disabled={loadingMore}
                 onClick={() => void loadMore()}
-                className="rounded-full border border-border px-6 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                className="rounded-control border border-border px-6 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
               >
                 {loadingMore ? "Loading…" : "Load more"}
               </button>

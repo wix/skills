@@ -24,7 +24,7 @@ export default function SubscribeButton({
   plan,
   options,
   children,
-  className = "rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
+  className = "rounded-control bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
   assignedText = "This plan is assigned by the site owner.",
 }: SubscribeButtonProps) {
   const { purchase, purchasingId, error } = usePlanPurchase();
