@@ -40,7 +40,7 @@ Two things to get right in a slot specifically:
 - **Match the host's density, don't fight it.** The wrapper's defaults (`Button` small/dark, `IconButton` small/dark/tertiary) are what the surrounding page uses. Overriding them per call site is how a plugin starts looking like a different product.
 - **A nested icon button inside your own card or list row is Dark / Tertiary.** The wrapper's `IconButton` default already gives you this — don't re-specify `skin="standard"` on it.
 
-`tsc`, `wix build` and `wix preview` all pass on an unthemed plugin. Only opening the host page catches it.
+A plugin has no page of its own, so looking at it means navigating to the host app's page that carries the slot — the Blog posts or Bookings staff screen itself.
 
 ## Interacting with Dashboard Data
 

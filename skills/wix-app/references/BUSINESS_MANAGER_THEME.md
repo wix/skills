@@ -2,7 +2,7 @@
 
 Business Manager (the Wix site dashboard) was redesigned with the Harmony theme. **A dashboard extension runs in its own iframe and inherits none of it.** `WixDesignSystemProvider` alone gives the pre-redesign look — classic icons, pre-redesign button sizes and skins — rendered inside redesigned platform chrome.
 
-**No automated check catches this.** `tsc`, `wix build` and `wix preview` all pass on an unthemed page — every import resolves and every component renders. The failure is purely visual, so wire it from the start.
+**No automated check catches this.** `tsc`, `wix build` and `wix preview` all pass on an unthemed surface — every import resolves and every component renders. The failure is purely visual, so wire it from the start.
 
 Verified against `@wix/design-system` 1.330.0 and `@wix/wix-ui-icons-common` 3.189.28 — both providers are root exports, `IconTheme` is typed `'default' | 'odeditor'`, and `themes/odeditor.global.css`, `lazy`, `lazy/system` and `core` all ship.
 
