@@ -1,6 +1,6 @@
 # Draft Template — Cases A, B and D (router-wired)
 
-**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A's detail route is read-only (§4); B and D route to a full `EntityPage`. The collection and settings components live in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md); this file covers only what a router adds — the entry file, the app shell, and the detail/entity page.
+**For [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** Each row opens a page via `PatternsReactRouter`, not a panel ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A has read-only details (§4); B/D use `EntityPage`. This file covers entry, shell and detail routes; collection and settings components are linked below.
 
 Every snippet below is copied from the installed `dist/docs/*.md` this session read, not from memory.
 
@@ -41,6 +41,8 @@ export default Page;
 **Skipping this is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." `tsc` and `wix build` will not catch a missing `location` — only opening the page in a browser will. This is exactly why [Step 5's Preview](../../SKILL.md#validation) is not optional for Case B/D.
 
 ## 2. App shell — provider, router, routes
+
+Internal paths below keep `/`; the extension's `routePath` must omit it. See [scaffold rules](../DASHBOARD_PAGE.md#scaffold).
 
 ```tsx
 // {Feature}App.tsx — Case A, B or D
