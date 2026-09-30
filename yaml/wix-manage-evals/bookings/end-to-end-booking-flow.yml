@@ -44,9 +44,11 @@ assertions:
     minScore: 7
     prompt: |
       Rate how smoothly the Wix MCP let the agent answer. Examine the tool-call trace.
-      Score 0-10 (10 = read the relevant doc(s) once and answered; no failed or wasted
-      calls). Penalize and LIST any of: a live mutation (creating a booking, cart or order)
-      for a question that asked for written instructions only; a non-2xx error even if
-      recovered; redundant doc reads or probing calls clearer docs would avoid. For each
+      Score 0-10 (10 = read the relevant doc(s) and answered; no failed or wasted calls).
+      This is an instructions-only question about a multi-step flow, so reading several
+      reference pages for the endpoints in that flow is expected and is NOT a friction.
+      Penalize and LIST only: a live mutation (creating a booking, cart, checkout or order)
+      for a question that asked for written instructions; a non-2xx error even if recovered;
+      the same article read or the same search repeated with the same arguments. For each
       friction, name the likely recipe/docs/MCP gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

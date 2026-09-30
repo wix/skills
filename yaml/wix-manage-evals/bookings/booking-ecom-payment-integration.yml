@@ -1,13 +1,16 @@
 name: bookings/booking-ecom-payment-integration
 description: >-
-  Verifies the agent reads the end-to-end booking flow reference and explains how a paid
-  booking is settled through Wix eCommerce: the booking becomes a Cart V2 catalog item, the
-  customer pays on the checkout URL, and the booking is confirmed by the paid order.
+  Verifies the agent reads the end-to-end booking flow reference and explains how a site
+  owner settles a paid booking server-side through Wix eCommerce: the booking is a Cart V2
+  catalog item, the operator places the order with a price-verification token instead of
+  sending anyone to a checkout page, and the order is what moves the booking from CREATED
+  to CONFIRMED. Complements end-to-end-booking-flow.yml, which covers the customer-pays path.
 triggerPrompt: >-
-  I created a paid appointment booking through the Wix Bookings API, but I don't see how
-  the customer actually pays. Why do bookings need the ecommerce APIs, and what is the
-  exact sequence of calls to take payment for a booking? Just written REST instructions,
-  no live API call.
+  I'm booking clients in from my own back-office tool using my site's API key. I've already
+  created the appointment booking for a paid service, and the client has given me their card
+  details over the phone, so nobody is going to visit a checkout page. Right now the booking
+  shows status CREATED and isn't on my calendar. What is the exact sequence of REST calls to
+  settle it so it ends up confirmed and paid? Written instructions only, no live API call.
 tags: [bookings]
 assertions:
   - tool: ReadFullDocsArticle
@@ -17,40 +20,45 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user has a paid booking and wants to know why ecommerce APIs are needed and the exact
-      call sequence to take payment. Evaluate both the final response and any Wix API/tool calls made.
-      Intent: explain that Wix Bookings reserves the slot while Wix eCommerce prices, checks out and
-      records the payment, and give the Cart V2 sequence that settles an online-paid booking.
+      A site owner has a `CREATED` booking for a paid service and wants to settle it from their
+      own backend, with no customer-facing payment page. Evaluate both the final response and
+      any Wix API/tool calls made.
+      Intent: give the operator-side Cart V2 sequence (cart -> calculate -> place-order) and
+      explain that the eCommerce order, not a manual confirm, is what confirms an online-paid
+      booking.
 
       Pass if the response:
-      - explains the booking is created with status `CREATED` and is not confirmed (or visible on the
-        calendar) until it is paid through eCommerce or confirmed directly, AND
-      - uses the booking ID as the ecom `catalogItemId` with the Wix Bookings appId
-        (`13d21c63-b5ec-5912-8397-c3a5ddb27a97`) in the `catalogReference`, AND
-      - creates a cart via `POST /ecom/v2/carts` with `catalogItems`, AND
-      - has the customer pay by calling `POST /ecom/v2/carts/{cartId}/get-checkout-url` and sending
-        them to the returned `checkoutUrl`, AND
-      - states that the booking is confirmed automatically once the eCommerce order is paid.
-
-      A response may additionally mention the calculate + `POST /ecom/v2/carts/{cartId}/place-order`
-      path, but only as a server-side alternative for an operator settling the booking without a
-      payment page — not as the way a customer pays.
+      - explains that `CREATED` means the booking is not confirmed and not on the calendar until
+        it is settled, AND
+      - creates a cart via `POST /ecom/v2/carts` with `catalogItems`, using the booking ID as
+        `catalogItemId` and the Wix Bookings appId (`13d21c63-b5ec-5912-8397-c3a5ddb27a97`) in the
+        `catalogReference`, AND
+      - calculates the cart (`POST /ecom/v2/carts/{cartId}/calculate`) to obtain
+        `priceVerificationToken`, then calls `POST /ecom/v2/carts/{cartId}/place-order` with that
+        token, AND
+      - states that the booking becomes `CONFIRMED` as a result of the order (the operator does
+        not call Confirm Booking for this path), AND
+      - draws the boundary: `place-order` is for the owner settling server-side; a customer who
+        pays themselves is sent to `get-checkout-url` instead, and a free or offline booking is
+        settled with Confirm Booking directly.
 
       Fail if the response:
-      - uses Checkout V1 (e.g. `/ecom/v1/checkouts`, a create-checkout step, `createOrder`, or `lineItems`
-        instead of `catalogItems`), OR
-      - claims the Bookings API processes the payment itself, OR
-      - tells the user to call Confirm Booking before or instead of eCommerce checkout for an
-        online-paid booking, or says the booking is `CONFIRMED` regardless of payment, OR
-      - presents `place-order` as how the customer pays, OR
-      - omits the create-cart step or the checkout URL step.
+      - uses Checkout V1 (e.g. `/ecom/v1/checkouts`, a create-checkout step, `createOrder`, or
+        `lineItems` instead of `catalogItems`), OR
+      - tells the operator the only option is to send the customer a checkout URL, OR
+      - tells the operator to call Confirm Booking for the online-paid booking before or instead
+        of placing the order, or says the booking is `CONFIRMED` regardless of payment, OR
+      - omits the calculate/`priceVerificationToken` step or the `place-order` call, OR
+      - claims the Bookings API charges the card itself.
   - type: llm_judge
     minScore: 7
     prompt: |
       Rate how smoothly the Wix MCP let the agent answer. Examine the tool-call trace.
-      Score 0-10 (10 = read the relevant doc(s) once and answered; no failed or wasted
-      calls). Penalize and LIST any of: a live mutation (creating a booking, cart or order)
-      for a question that asked for written instructions only; a non-2xx error even if
-      recovered; redundant doc reads or probing calls clearer docs would avoid. For each
+      Score 0-10 (10 = read the relevant doc(s) and answered; no failed or wasted calls).
+      This is an instructions-only question about a multi-step flow, so reading several
+      reference pages for the endpoints in that flow is expected and is NOT a friction.
+      Penalize and LIST only: a live mutation (creating a booking, cart, checkout or order)
+      for a question that asked for written instructions; a non-2xx error even if recovered;
+      the same article read or the same search repeated with the same arguments. For each
       friction, name the likely recipe/docs/MCP gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
