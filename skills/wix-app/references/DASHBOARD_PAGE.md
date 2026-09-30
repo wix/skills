@@ -31,7 +31,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, the page's component file (`<page>.tsx`, the builder's `component`), the builder file, the UUID and the `src/extensions.ts` registration.
 
-**Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
+**After scaffolding, check `routePath`:** use `support-tickets`, not `/support-tickets`; a leading slash fails registration even if the build passes. Internal router paths stay `/`, `/:id`, `/new`, never prefixed with `<route>` — see `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
 **Before writing that UI:** copy in the installed `@wix/patterns` page template that matches, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — don't compose the shell from scratch.
 
