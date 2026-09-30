@@ -1,6 +1,6 @@
 ---
 name: "RECIPE: Change a Site's Regional Properties (Currency, Time Zone, Language) via Site Properties API"
-description: "Changes a site's regional properties through the Site Properties API: the site-level payment currency (store billing currency), the time zone, and the primary language."
+description: "Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language; field masks name top-level properties."
 ---
 
 # RECIPE: Change a Site's Regional Properties via Site Properties API
