@@ -38,7 +38,7 @@ export function EngagementRow({
         onClick={toggleLike}
         disabled={liking}
         aria-pressed={isLiked}
-        className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors disabled:opacity-50 ${
+        className={`ml-auto inline-flex items-center gap-1.5 rounded-control border px-3 py-1 transition-colors disabled:opacity-50 ${
           isLiked ? "border-primary text-primary" : "border-border text-foreground hover:bg-secondary"
         }`}
       >

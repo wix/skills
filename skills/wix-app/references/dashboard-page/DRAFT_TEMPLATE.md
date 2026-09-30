@@ -40,6 +40,8 @@ Then copy **every** file in `templateFiles` into the generated folder (`src/exte
 - Rename `Items` / `Item` to your feature and entity, in file names and identifiers alike.
 - Route paths stay page-relative (`/`, `/:id`, `/new`) — never prefix them with `<route>` ([DASHBOARD_PAGE.md](../DASHBOARD_PAGE.md)).
 
+- **Theme the entry file.** In it, replace the template's `WixDesignSystemProvider` and its `@wix/design-system/styles.global.css` import with the app's `BusinessManagerTheme` — written once per app ([BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app)), kept in the entry file so it sits above `WixPatternsProvider`. **Business Manager passes none of the redesign through the extension's iframe**, so the bare provider renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass.
+
 ## 4. Replace the data file
 
 Each template's data file (`items-api.ts`, `settings-api.ts`) is an in-memory stand-in with the signatures the pages call. Replace the bodies, keep the signatures:

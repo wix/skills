@@ -6,12 +6,11 @@
 // and readers are admin calls about content, so they target the content site: the config's site
 // normally, the parent on a migration. `env pull` runs when `.env.local` is missing.
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Spelled once in install/context.mjs; keep the two in step.
-export const ENV = { clientId: "WIX_CLIENT_ID", parentSiteId: "WIX_MIGRATION_PARENT_SITE_ID", migration: "WIX_MIGRATION" };
+export const ENV = { clientId: "WIX_CLIENT_ID", parentSiteId: "EDITOR_MIGRATION_PARENT_SITE_ID", status: "EDITOR_MIGRATION_STATUS" };
 
 function readEnvFile(file) {
   if (!existsSync(file)) return null;
@@ -28,28 +27,14 @@ function readEnvFile(file) {
   return out;
 }
 
-const truthy = (v) => typeof v === "string" && /^(1|true|yes|on)$/i.test(v.trim());
 
 const runPull = (dir) => spawnSync("npx", ["-y", "@wix/cli@latest", "env", "pull"], { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
-// `wix env pull` into cwd/.env.local. The CLI mounts `env` only once the folder reads as an Astro
-// project; a folder holding just the config gets "unknown command 'env'" and is pulled through a temp
-// folder with a copy of the config and an empty astro.config.mjs (same as install/context.mjs).
+// `wix env pull` into cwd/.env.local, in place (every project shape has the command since Wix CLI
+// 1.1.253; same as install/context.mjs).
 function pullEnv(cwd) {
-  const envFile = join(cwd, ".env.local");
-  let r = runPull(cwd);
-  if (r.status === 0 && existsSync(envFile)) return true;
-  if (!/unknown command 'env'/.test(`${r.stderr}${r.stdout}`)) return false;
-  const tmp = mkdtempSync(join(tmpdir(), "wix-env-pull-"));
-  try {
-    copyFileSync(join(cwd, "wix.config.json"), join(tmp, "wix.config.json"));
-    writeFileSync(join(tmp, "astro.config.mjs"), "");
-    r = runPull(tmp);
-    if (r.status === 0 && existsSync(join(tmp, ".env.local"))) { copyFileSync(join(tmp, ".env.local"), envFile); return true; }
-    return false;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  const r = runPull(cwd);
+  return r.status === 0 && existsSync(join(cwd, ".env.local"));
 }
 
 /** `{ deploySiteId, contentSiteId, migration: { active, parentSiteId } }` for the folder. */
@@ -61,7 +46,8 @@ export function siteContext({ cwd = process.cwd() } = {}) {
   if (deploySiteId && !existsSync(envFile)) pullEnv(cwd);
   const env = readEnvFile(envFile) ?? {};
   const parentSiteId = env[ENV.parentSiteId] || null;
-  const active = !!parentSiteId && (truthy(env[ENV.migration]) || env[ENV.migration] === undefined);
+  const status = env[ENV.status];
+  const active = !!parentSiteId && (status === undefined || status.trim().toUpperCase() === "ACTIVE");
   return { deploySiteId, contentSiteId: active ? parentSiteId : deploySiteId, migration: { active, parentSiteId: active ? parentSiteId : null } };
 }
 

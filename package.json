@@ -1,6 +1,6 @@
 {
   "name": "@wix/agent-skills",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "description": "Wix Skills for AI coding agents — versioned npm distribution of the wix/skills content.",
   "license": "MIT",
   "repository": {
@@ -16,6 +16,7 @@
   },
   "files": [
     "skills/**",
+    "!skills/wix-headless-cold-start/**",
     "README.md",
     "LICENSE"
   ],

@@ -118,7 +118,7 @@ const head = seoTagsServiceConfig ? {} : { title: post.seoTitle, description: po
       postTags.length > 0 && (
         <div class="mt-6 flex flex-wrap gap-2">
           {postTags.map((t) => (
-            <a href={tagPath(t.slug)} class="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline">
+            <a href={tagPath(t.slug)} class="rounded-control border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline">
               {t.label}
             </a>
           ))}

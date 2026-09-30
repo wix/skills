@@ -11,7 +11,7 @@ import { useRentalFlow } from "../../hooks/rentals/useRentalFlow";
 import type { RentalDetail, StartOption } from "../../wix/rentals/types";
 
 const chip = (selected: boolean, disabled = false) =>
-  `rounded-full border px-4 py-1.5 text-sm transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm transition-colors ${
     disabled ? "cursor-not-allowed border-border text-muted-foreground line-through opacity-60" : selected ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-secondary"
   }`;
 const dayTile = (selected: boolean, disabled = false) =>
@@ -186,8 +186,8 @@ export default function RentalBookingView({ rental }: { rental: RentalDetail }) 
         ))}
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <button type="button" disabled={!canRent || renting} onClick={() => rent().catch(() => {})} className="mt-5 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      <button type="button" disabled={!canRent || renting} onClick={() => rent().catch(() => {})} className="mt-5 rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
         {renting ? "Reserving…" : rental.free ? `${verb} — free` : quote?.total ? `${verb} · ${quote.total}` : rental.rateLabel ? `${verb} · ${rental.rateLabel}` : verb}
       </button>
     </div>

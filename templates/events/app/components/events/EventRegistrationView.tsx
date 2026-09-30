@@ -15,9 +15,9 @@ const input =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:ring-2 focus:ring-primary";
 const labelText = "mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground";
 const cta =
-  "mt-5 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50";
-const stepper = "h-8 w-8 rounded-full border border-border text-foreground transition-colors hover:bg-secondary disabled:opacity-40";
-const badge = "rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground";
+  "mt-5 rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50";
+const stepper = "h-8 w-8 rounded-control border border-border text-foreground transition-colors hover:bg-secondary disabled:opacity-40";
+const badge = "rounded-control bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground";
 
 function Stepper({ label, qty, max, disabled, onChange }: { label: string; qty: number; max: number; disabled: boolean; onChange: (q: number) => void }) {
   return (
@@ -307,7 +307,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
           </dl>
         )}
         {ticketCount >= ticketLimitPerOrder && <p className="mt-2 text-xs text-muted-foreground">Up to {ticketLimitPerOrder} tickets per order.</p>}
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         <button type="button" disabled={!canCheckout || submitting} onClick={() => checkout().catch(() => {})} className={cta}>
           {submitting ? "Reserving…" : ticketCount > 0 ? `Get ${ticketCount} ticket${ticketCount > 1 ? "s" : ""}` : "Get tickets"}
         </button>
@@ -351,7 +351,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
             </>
           )}
         </div>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         <div className="flex items-center gap-3">
           <button type="button" disabled={!canRsvp || submitting} onClick={() => rsvp(true).catch(() => {})} className={cta}>
             {submitting ? "Sending…" : event.waitlistOnly ? "Join the waitlist" : "Count me in"}
@@ -361,7 +361,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
               type="button"
               disabled={!canRsvp || submitting}
               onClick={() => rsvp(false).catch(() => {})}
-              className="mt-5 rounded-full border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+              className="mt-5 rounded-control border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
             >
               Can't make it
             </button>

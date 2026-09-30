@@ -46,7 +46,7 @@ export default function OptionPicker({
               ) : (
                 <button key={c.choiceId} type="button" aria-pressed={c.selected} disabled={unavailable}
                   onClick={() => d.selectOption(g.id, c.choiceId)}
-                  className={`rounded-full border px-3 py-1 text-sm disabled:line-through disabled:opacity-40 ${c.selected ? "border-foreground bg-foreground text-background" : "border-border"}`}>
+                  className={`rounded-control border px-3 py-1 text-sm disabled:line-through disabled:opacity-40 ${c.selected ? "border-foreground bg-foreground text-background" : "border-border"}`}>
                   {c.name}
                 </button>
               );
@@ -66,7 +66,7 @@ export default function OptionPicker({
                 <button key={c.key} type="button" aria-pressed={on}
                   // an optional modifier can be un-picked; a mandatory one only re-picked
                   onClick={() => d.setModifier(m.key, on && !m.mandatory ? "" : c.key)}
-                  className={`rounded-full border px-3 py-1 text-sm ${on ? "border-foreground bg-foreground text-background" : "border-border"}`}>
+                  className={`rounded-control border px-3 py-1 text-sm ${on ? "border-foreground bg-foreground text-background" : "border-border"}`}>
                   {c.name}
                 </button>
               );
@@ -115,7 +115,7 @@ export default function OptionPicker({
       )}
       <div className="flex items-stretch gap-2">
         {showQuantity && (
-          <div className="flex items-center rounded-full border border-border">
+          <div className="flex items-center rounded-control border border-border">
             <button type="button" aria-label="Decrease quantity" disabled={d.quantity <= 1} onClick={() => d.setQuantity(d.quantity - 1)}
               className="px-3 py-2 text-sm disabled:opacity-40">−</button>
             <span className="min-w-6 text-center text-sm tabular-nums">{d.quantity}</span>
@@ -127,7 +127,7 @@ export default function OptionPicker({
           type="button"
           disabled={!d.canAdd || d.adding}
           onClick={() => d.add().then(() => onAdded?.()).catch(() => {})}
-          className="flex-1 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          className="flex-1 rounded-control bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
           {d.adding ? "Adding…" : d.isPreorder ? "Pre-order" : "Add to cart"}
         </button>
@@ -138,7 +138,7 @@ export default function OptionPicker({
       {d.isPreorder && d.preorderMessage && <p className="text-xs text-muted-foreground">{d.preorderMessage}</p>}
       {d.blockedReason && !d.canAdd && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
       {d.canNotify && <NotifyMe detail={d} />}
-      {d.error && <p className="text-xs text-red-600">{d.error}</p>}
+      {d.error && <p className="text-xs text-destructive">{d.error}</p>}
     </div>
   );
 }
@@ -161,11 +161,11 @@ function NotifyMe({ detail: d }: { detail: UseProductDetail }) {
       <div className="flex gap-2">
         <input id="notify-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
           className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
-        <button type="submit" disabled={d.notifying} className="rounded-full border border-foreground px-4 py-2 text-sm font-medium disabled:opacity-50">
+        <button type="submit" disabled={d.notifying} className="rounded-control border border-foreground px-4 py-2 text-sm font-medium disabled:opacity-50">
           {d.notifying ? "Saving…" : "Notify me"}
         </button>
       </div>
-      {d.notifyError && <p className="text-xs text-red-600">{d.notifyError}</p>}
+      {d.notifyError && <p className="text-xs text-destructive">{d.notifyError}</p>}
     </form>
   );
 }

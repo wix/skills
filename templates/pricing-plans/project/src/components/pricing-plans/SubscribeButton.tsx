@@ -24,7 +24,7 @@ export default function SubscribeButton({
   plan,
   options,
   children,
-  className = "rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
+  className = "rounded-control bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
   assignedText = "This plan is assigned by the site owner.",
 }: SubscribeButtonProps) {
   const { purchase, purchasingId, error } = usePlanPurchase();
@@ -35,7 +35,7 @@ export default function SubscribeButton({
       <button type="button" disabled={purchasing} onClick={() => void purchase(plan.id, options).catch(() => {})} className={className}>
         {purchasing ? "Redirecting…" : children ?? (plan.free ? "Get this plan" : "Subscribe")}
       </button>
-      {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
 }

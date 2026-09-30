@@ -17,8 +17,8 @@ call is memory, and an empty or error reply to it says nothing about the site.
 
 ## Skills
 
-Installed at `.agents/skills/`. If missing, restore with:
-`CI=1 npx skills@latest add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage --yes`
+Installed at `.agents/skills/` (by the Wix plugin, or by
+`npx skills add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage`).
 
 - `{{SKILL}}` — the code in this app and how to extend it. The shipped code sits in
   `.agents/skills/{{SKILL}}/templates/`, fetched once from the skill's repository and kept with this

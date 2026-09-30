@@ -11,7 +11,7 @@ import { useBookingFlow } from "../../hooks/bookings/useBookingFlow";
 import type { CtaState, ServiceDetail, Slot } from "../../wix/bookings/types";
 
 const chip = (selected: boolean, disabled = false) =>
-  `rounded-full border px-4 py-1.5 text-sm transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm transition-colors ${
     disabled
       ? "cursor-not-allowed border-border text-muted-foreground line-through opacity-60"
       : selected
@@ -355,12 +355,12 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
         ))}
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       <button
         type="button"
         disabled={!canBook || booking}
         onClick={() => book().catch(() => {})}
-        className="mt-5 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="mt-5 rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {booking ? "Booking…" : ctaLabel(service, ctaState, payDeposit)}
       </button>

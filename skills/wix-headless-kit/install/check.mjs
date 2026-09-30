@@ -24,7 +24,7 @@ const { repo } = installSource();
 const out = { skill: {}, templates: {}, update: {} };
 
 // ---- the repository: one clone of its history without file contents (small), read for both layers
-const tmp = mkdtempSync(join(tmpdir(), "wix-headless-fast-check-"));
+const tmp = mkdtempSync(join(tmpdir(), "wix-headless-kit-check-"));
 const clone = git(["clone", "--quiet", "--filter=blob:none", "--no-checkout", "--single-branch", repo, tmp]);
 if (clone.status !== 0) {
   rmSync(tmp, { recursive: true, force: true });
@@ -80,7 +80,7 @@ rmSync(tmp, { recursive: true, force: true });
 // ---- what would act on each ------------------------------------------------------------------
 const rel = relative(process.cwd(), SKILL_ROOT) || ".";
 out.update = {
-  skill: `CI=1 npx skills@latest update ${skillName} --yes   (or: gh skill update ${skillName})`,
+  skill: `update ${skillName} the way it was installed (the plugin's update, or the skills CLI's)`,
   templates: `node ${rel}/install/templates.mjs --refresh   (then commit the changed files under ${rel}/templates)`,
   note: "neither touches src/; a shipped fix reaches the project by comparing its copy with the template",
 };

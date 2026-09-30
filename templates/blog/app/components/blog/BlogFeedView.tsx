@@ -87,7 +87,7 @@ export interface BlogFeedViewProps {
 }
 
 const pill = (active: boolean) =>
-  `rounded-full border px-4 py-1.5 text-sm font-medium no-underline transition-colors ${
+  `rounded-control border px-4 py-1.5 text-sm font-medium no-underline transition-colors ${
     active
       ? "border-primary bg-primary text-primary-foreground"
       : "border-border text-foreground hover:bg-secondary"
@@ -149,7 +149,7 @@ export default function BlogFeedView({
         </div>
       )}
       {error && (
-        <p className="py-16 text-center text-sm text-red-600" role="alert">
+        <p className="py-16 text-center text-sm text-destructive" role="alert">
           The posts could not be loaded. {error}
         </p>
       )}

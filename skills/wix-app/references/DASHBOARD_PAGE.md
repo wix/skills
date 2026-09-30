@@ -14,6 +14,8 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 The order, what each library owns, and how to look a name up are stated once: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
 
+**Theme:** the page's iframe inherits none of the Business Manager redesign. Wrap the entry file in the app's `BusinessManagerTheme`, import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — [BUSINESS_MANAGER_THEME.md](BUSINESS_MANAGER_THEME.md), [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
+
 ## Scaffold
 
 Use `wix generate --params` with all required fields:
@@ -27,13 +29,13 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 | `title` | Display name shown in the dashboard sidebar. |
 | `route` | URL path segment (lowercase alphanumeric + hyphens). The page is served at `/dashboard/<route>`. The scaffold param is `route`; the builder file's runtime field is `routePath`. |
 
-The CLI generates the folder, the page's component file (`<page>.tsx`, which the builder's `component` points at), the builder file, the UUID, and the `src/extensions.ts` registration. Implement the page UI in that component file.
+The CLI generates the folder, the page's component file (`<page>.tsx`, the builder's `component`), the builder file, the UUID and the `src/extensions.ts` registration.
 
 **Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
-**Before writing that UI:** pick the matching page template the installed `@wix/patterns` ships, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md), and copy its files in over the generated stub — don't compose the shell from scratch.
+**Before writing that UI:** copy in the installed `@wix/patterns` page template that matches, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — don't compose the shell from scratch.
 
-**Then, for whatever the template case doesn't already cover:** resolve the package root and probe `<pkgRoot>/dist/docs/index.json` once with `grep`/`python3` — not a whole-file `Read`, which truncates it silently — per [Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites). That index carries each symbol's `importPath`, `examples` and `bundle`, which is what decides whether you need to open anything else at all. Each Bash call is a fresh shell — re-set the path variable in every call.
+**Then, for whatever the template doesn't cover:** probe `<pkgRoot>/dist/docs/index.json` once with `grep`/`python3` — never a whole-file `Read`, which truncates silently ([Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites)). Its `importPath`, `examples` and `bundle` decide whether you open anything else. Each Bash call is a fresh shell — re-set the path variable every time.
 
 ## Capabilities
 

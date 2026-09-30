@@ -1,6 +1,6 @@
 ---
 name: "CMS Schema Management"
-description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields (including single- and multi-reference fields that link two collections), and updating collection settings.
 ---
 # CMS Schema Management
 
@@ -37,7 +37,7 @@ curl -X GET \
 
 ## Get Collection Schema
 
-**Endpoint**: `GET /wix-data/v2/collections/{collectionId}`
+**Endpoint**: `GET https://www.wixapis.com/wix-data/v2/collections/{collectionId}`
 
 ```bash
 curl -X GET \
@@ -47,7 +47,7 @@ curl -X GET \
 
 ## Create a New Collection
 
-**Endpoint**: `POST /wix-data/v2/collections`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections`
 
 ```json
 {
@@ -72,7 +72,7 @@ curl -X GET \
 
 ## Add a Field to Existing Collection
 
-**Endpoint**: `POST /wix-data/v2/collections/create-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`
 
 ```json
 {
@@ -86,11 +86,60 @@ curl -X GET \
 }
 ```
 
+### Add a Reference Field
+
+Same endpoint as above: `POST https://www.wixapis.com/wix-data/v2/collections/create-field`. The two bodies below differ only in `type` and `typeMetadata`; omitting `typeMetadata` fails with `WDE0075` (see Error Handling).
+
+| Type | Field Type | Relationship | Example |
+|------|------------|--------------|---------|
+| Single Reference | `REFERENCE` | One-to-one, Many-to-one | Product → Category |
+| Multi-Reference | `MULTI_REFERENCE` | One-to-many, Many-to-many | Product → Tags |
+
+**Single reference** — `typeMetadata.reference` names the referenced collection:
+
+```json
+{
+  "dataCollectionId": "Products",
+  "field": {
+    "key": "category",
+    "displayName": "Category",
+    "type": "REFERENCE",
+    "typeMetadata": {
+      "reference": {
+        "referencedCollectionId": "Categories"
+      }
+    }
+  }
+}
+```
+
+**Multi-reference** — `typeMetadata.multiReference` also names the field created on the other collection:
+
+```json
+{
+  "dataCollectionId": "Products",
+  "field": {
+    "key": "tags",
+    "displayName": "Tags",
+    "type": "MULTI_REFERENCE",
+    "typeMetadata": {
+      "multiReference": {
+        "referencedCollectionId": "Tags",
+        "referencingFieldKey": "products",
+        "referencingDisplayName": "Products"
+      }
+    }
+  }
+}
+```
+
+To link items through these fields, see [Reference Fields](cms-data-items-crud.md#reference-fields) in the CMS Data Items CRUD recipe.
+
 ## Delete a Field from Collection
 
 > **Warning**: This permanently deletes all data stored in this field across all items.
 
-**Endpoint**: `POST /wix-data/v2/collections/delete-field`
+**Endpoint**: `POST https://www.wixapis.com/wix-data/v2/collections/delete-field`
 
 ```json
 {
@@ -101,7 +150,7 @@ curl -X GET \
 
 ## Update Collection Settings
 
-**Endpoint**: `PATCH /wix-data/v2/collections/{collectionId}`
+**Endpoint**: `PATCH https://www.wixapis.com/wix-data/v2/collections/{collectionId}`
 
 ```json
 {
@@ -116,7 +165,7 @@ This works for `displayName`/`displayField`. **Permission updates currently fail
 
 **To change permissions on an existing collection, use the full-replace endpoint instead** (`UpdateDataCollection`, not `PatchDataCollection`) — it requires the collection's current `revision` and full `fields` array (get both from a `GET` first), but it does work:
 
-**Endpoint**: `PUT /wix-data/v2/collections`
+**Endpoint**: `PUT https://www.wixapis.com/wix-data/v2/collections`
 
 ```json
 {
@@ -170,6 +219,8 @@ Don't delete and recreate a collection just to change its permissions — this f
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `WDE0075` (`Metadata for Reference type field not provided`) | `create-field` with `type` REFERENCE or MULTI_REFERENCE but no `typeMetadata` | Send `typeMetadata.reference.referencedCollectionId` (or `typeMetadata.multiReference…`), see Add a Reference Field |
+| `WDE0075` (`Not recognized role provided in permissions`) | `PATCH /collections/{id}` with a `permissions` change | Use the full-replace `PUT /collections` (see Update Collection Settings) or the Data Permissions API |
 | `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
 
 ## Related Documentation

@@ -32,7 +32,7 @@ export default function DonateForm({
   options,
   children,
   className = "grid gap-6",
-  buttonClassName = "w-full rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
+  buttonClassName = "w-full rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50",
 }: DonateFormProps) {
   const d = useDonation(campaign, options);
   const o = campaign.options;
@@ -60,7 +60,7 @@ export default function DonateForm({
               </button>
             ))}
           </div>
-          {show("frequency") && <p className="mt-2 text-sm text-red-600" role="alert">{show("frequency")}</p>}
+          {show("frequency") && <p className="mt-2 text-sm text-destructive" role="alert">{show("frequency")}</p>}
         </fieldset>
       )}
 
@@ -83,7 +83,7 @@ export default function DonateForm({
               </button>
             )}
           </div>
-          {show("amount") && <p className="mt-2 text-sm text-red-600" role="alert">{show("amount")}</p>}
+          {show("amount") && <p className="mt-2 text-sm text-destructive" role="alert">{show("amount")}</p>}
           {d.customMode && (
             <div className="mt-3">
               <label htmlFor={`${fid}-amount`} className="sr-only">
@@ -107,7 +107,7 @@ export default function DonateForm({
                   {[o.customAmount.minLabel && `Minimum ${o.customAmount.minLabel}`, o.customAmount.maxLabel && `Maximum ${o.customAmount.maxLabel}`].filter(Boolean).join(" · ")}
                 </p>
               )}
-              {show("customAmount") && <p className="mt-1 text-sm text-red-600" role="alert">{show("customAmount")}</p>}
+              {show("customAmount") && <p className="mt-1 text-sm text-destructive" role="alert">{show("customAmount")}</p>}
             </div>
           )}
         </fieldset>
@@ -139,7 +139,7 @@ export default function DonateForm({
           <p className="mt-1 text-right text-xs text-muted-foreground">
             {d.note.length}/{o.commentMaxLength}
           </p>
-          {show("note") && <p className="text-sm text-red-600" role="alert">{show("note")}</p>}
+          {show("note") && <p className="text-sm text-destructive" role="alert">{show("note")}</p>}
         </div>
       )}
 
@@ -147,7 +147,7 @@ export default function DonateForm({
         <button type="submit" disabled={d.submitting} aria-busy={d.submitting} className={buttonClassName}>
           {d.submitting ? "Redirecting…" : d.buttonLabel}
         </button>
-        {d.error && <p className="text-sm text-red-600" role="alert">{d.error}</p>}
+        {d.error && <p className="text-sm text-destructive" role="alert">{d.error}</p>}
         <p className="text-center text-xs text-muted-foreground">Secure payment on the next step.</p>
       </div>
     </form>
