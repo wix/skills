@@ -1,10 +1,10 @@
-name: site-properties/change-site-timezone
+name: site-properties/change-site-language
 description: >-
-  Verifies the agent reads the Site Properties regional-properties recipe and updates the
-  site's time zone in one direct Update Business Region call, without a rejected mask path, a
-  lookup for a docs page that doesn't exist, or a run of probing calls to discover the field name.
+  Verifies the agent reads the Site Properties regional-properties recipe and changes the site's
+  primary language in one direct update call, without trying Update Business Region, a rejected
+  mask path, a lookup for a docs page that doesn't exist, or a run of probing calls.
 triggerPrompt: >-
-  Change my site's time zone to America/New_York.
+  Change my site's language to Spanish.
 tags: [site-properties]
 maxTokens: 30000
 assertions:
@@ -15,14 +15,15 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user's request (verbatim): "Change my site's time zone to America/New_York."
+      The user's request (verbatim): "Change my site's language to Spanish."
 
-      Pass only if the trace shows the agent successfully (2xx) updated the site's time zone to
-      America/New_York and confirmed it in its final answer.
+      Pass only if the trace shows the agent successfully (2xx) set the site's primary language
+      to Spanish (`es`) and confirmed it in its final answer.
 
-      Fail if it set a different time zone; OR the update call errored (non-2xx) and was never
+      Fail if it set a different language; OR the update call errored (non-2xx) and was never
       corrected; OR it only described how to do it without doing it; OR it asked platform-level
-      clarifying questions instead of acting.
+      clarifying questions instead of acting; OR it added or switched a multilingual secondary
+      language instead of changing the primary one.
 
       Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
   - type: llm_judge
@@ -30,17 +31,18 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent reached the outcome. Examine the tool-call trace.
-      Score 0-10 (10 = direct: read the recipe, then one successful Update Business Region call).
+      Score 0-10 (10 = direct: read the recipe, then one successful update call).
 
       Penalize and LIST any of:
+      - an Update Business Region call attempted for the language;
       - an update call rejected because the field mask named a nested path (for example
-        `locale.timezone`) instead of the top-level `timeZone` field;
+        `locale.languageCode`) instead of the top-level `language` field;
       - an update call rejected for a missing field mask;
+      - a docs read that failed because the page doesn't exist (a URL the agent built rather than
+        one a tool returned);
       - API-spec or schema lookups made *after* a failed update in order to discover the correct
         field name or endpoint;
       - more than one attempt at the update call;
-      - a docs read that failed because the page doesn't exist (a URL the agent built rather than
-        one a tool returned);
       - probing calls that the recipe's content would have made unnecessary.
 
       For each issue, name the likely docs gap.
