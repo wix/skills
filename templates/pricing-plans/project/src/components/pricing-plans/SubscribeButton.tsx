@@ -35,7 +35,7 @@ export default function SubscribeButton({
       <button type="button" disabled={purchasing} onClick={() => void purchase(plan.id, options).catch(() => {})} className={className}>
         {purchasing ? "Redirecting…" : children ?? (plan.free ? "Get this plan" : "Subscribe")}
       </button>
-      {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
 }

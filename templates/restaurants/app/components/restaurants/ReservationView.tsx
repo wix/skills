@@ -115,7 +115,7 @@ export default function ReservationView() {
         {r.loading && r.slots === null ? "Finding times…" : "Find a table"}
       </button>
 
-      {r.error && <p className="mt-4 text-sm text-red-600">{r.error}</p>}
+      {r.error && <p className="mt-4 text-sm text-destructive">{r.error}</p>}
 
       {r.slots !== null && r.slots.length === 0 && !r.error && (
         <p className="mt-6 text-center text-sm text-muted-foreground">

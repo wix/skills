@@ -48,7 +48,7 @@ export default function RequirePlan({
 
   if (error) {
     return (
-      <p className="py-8 text-center text-sm text-red-600" role="alert">
+      <p className="py-8 text-center text-sm text-destructive" role="alert">
         {error}
       </p>
     );

@@ -307,7 +307,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
           </dl>
         )}
         {ticketCount >= ticketLimitPerOrder && <p className="mt-2 text-xs text-muted-foreground">Up to {ticketLimitPerOrder} tickets per order.</p>}
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         <button type="button" disabled={!canCheckout || submitting} onClick={() => checkout().catch(() => {})} className={cta}>
           {submitting ? "Reserving…" : ticketCount > 0 ? `Get ${ticketCount} ticket${ticketCount > 1 ? "s" : ""}` : "Get tickets"}
         </button>
@@ -351,7 +351,7 @@ export default function EventRegistrationView({ event }: { event: EventDetail })
             </>
           )}
         </div>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         <div className="flex items-center gap-3">
           <button type="button" disabled={!canRsvp || submitting} onClick={() => rsvp(true).catch(() => {})} className={cta}>
             {submitting ? "Sending…" : event.waitlistOnly ? "Join the waitlist" : "Count me in"}

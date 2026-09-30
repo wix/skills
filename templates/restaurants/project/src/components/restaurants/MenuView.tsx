@@ -80,7 +80,7 @@ export function MenuItemSheet({ item, money, busy, onAdd, onClose }: MenuItemShe
               </label>
             );
           })}
-          {errors[g.id] && <p className="mt-1 text-xs text-red-600">{errors[g.id]}</p>}
+          {errors[g.id] && <p className="mt-1 text-xs text-destructive">{errors[g.id]}</p>}
         </fieldset>
       ))}
       {item.acceptsSpecialRequests && (
@@ -100,7 +100,7 @@ export function MenuItemSheet({ item, money, busy, onAdd, onClose }: MenuItemShe
         </button>
         <button type="button" onClick={onClose} className="text-xs text-muted-foreground underline">Cancel</button>
       </div>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -177,7 +177,7 @@ export function MenuItemCard({ item, menuId, sectionId, money }: MenuItemCardPro
             </button>
           )}
           {pausedUntil && !item.soldOut && <p className="text-xs text-muted-foreground">Back at {pausedUntil}</p>}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         {open && canAdd && <MenuItemSheet item={item} money={money} busy={busy} onAdd={add} onClose={() => setOpen(false)} />}
       </div>
@@ -240,7 +240,7 @@ export default function MenuView({
           ))}
         </nav>
       )}
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {activeMenu?.sections.map((section) => (
         <section key={section.id} id={`section-${section.id}`} className="mb-12">
           <h2 className="text-lg font-semibold tracking-tight">{section.name}</h2>
