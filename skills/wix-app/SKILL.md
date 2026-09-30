@@ -43,7 +43,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **Compile as you go:** ran `npx tsc --noEmit` after the first file that imports `@wix/patterns`, not only at Step 5. Patterns' state and filter APIs are the most common source of errors, and finding twenty of them in one batch after the page is written costs far more than finding two early.
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
-  - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+  - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (the file the builder's `component` points at, modal `.tsx`, etc.) — not child/tab/helper files.
 - [ ] **Step 4c (dashboard page UI only):** Re-opened and read the page file(s) just written — not recalled intent — and confirmed against the actual code: no `SummaryBar` unless the request asked for one, a routed drill-in (`navigateToEntityPage`) for every row and no `SidePanel` used as one, every declared filter name also appearing inside `fetchData`, and — for every template with a router — the entry file both passes and guards `location`. See [UX Completeness Self-Audit](#step-4c-ux-completeness-self-audit).
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
@@ -418,7 +418,7 @@ Before moving to Step 5, re-open every page file you just wrote and check the ac
 - [ ] **Routed templates only (all but the settings one) — the entry file both passes and guards `location`.** `PatternsReactRouter` throws at open when `location` is missing *or* still `undefined` on the first render, and `tsc`, `wix build` and even a green build all pass regardless. Both halves are required — the `location={location}` prop **and** the `location ? … : null` guard around it, since `observeState` has not fired yet on the first render. Grep the entry file rather than trusting recall:
 
   ```bash
-  grep -n "observeState\|location={location}\|location ?" src/extensions/dashboard/pages/<page>/page.tsx
+  grep -n "observeState\|location={location}\|location ?" src/extensions/dashboard/pages/<page>/<page>.tsx  # the file the builder's `component` points at
   ```
 
   Three hits is correct. A missing guard is the failure mode that has actually shipped: a measured run produced a page whose plumbing looked present and still crashed on open, while a re-run of the same prompt produced a working one — so this is intermittent, and re-running is not a check.
