@@ -82,7 +82,7 @@ export default function FaqAccordion({
   return (
     <div>
       {error && (
-        <p className="mb-4 flex items-center gap-3 text-sm text-red-600">
+        <p className="mb-4 flex items-center gap-3 text-sm text-destructive">
           <span>{error}</span>
           <button type="button" onClick={retry} disabled={loading} className="rounded-md border border-border px-3 py-1 text-foreground hover:bg-secondary disabled:opacity-50">
             Try again

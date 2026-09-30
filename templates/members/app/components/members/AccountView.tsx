@@ -47,7 +47,7 @@ export default function AccountView({ initialMember }: AccountViewProps) {
           on this site.
         </p>
       )}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       <button
         type="button"
         onClick={() => void logout()}

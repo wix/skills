@@ -66,7 +66,7 @@ function QuickAddControl({ product }: { product: ProductSummary }) {
         >
           {adding ? "Adding…" : product.preorder ? "Pre-order" : "Add to cart"}
         </button>
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
     );
   }

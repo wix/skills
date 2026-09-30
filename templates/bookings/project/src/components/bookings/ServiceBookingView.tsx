@@ -355,7 +355,7 @@ export default function ServiceBookingView({ service }: { service: ServiceDetail
         ))}
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       <button
         type="button"
         disabled={!canBook || booking}

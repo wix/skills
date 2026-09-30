@@ -138,7 +138,7 @@ export default function OptionPicker({
       {d.isPreorder && d.preorderMessage && <p className="text-xs text-muted-foreground">{d.preorderMessage}</p>}
       {d.blockedReason && !d.canAdd && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
       {d.canNotify && <NotifyMe detail={d} />}
-      {d.error && <p className="text-xs text-red-600">{d.error}</p>}
+      {d.error && <p className="text-xs text-destructive">{d.error}</p>}
     </div>
   );
 }
@@ -165,7 +165,7 @@ function NotifyMe({ detail: d }: { detail: UseProductDetail }) {
           {d.notifying ? "Saving…" : "Notify me"}
         </button>
       </div>
-      {d.notifyError && <p className="text-xs text-red-600">{d.notifyError}</p>}
+      {d.notifyError && <p className="text-xs text-destructive">{d.notifyError}</p>}
     </form>
   );
 }

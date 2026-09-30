@@ -63,7 +63,7 @@ export default function PostView({
       </div>
     );
   }
-  if (error) return <p className="py-8 text-sm text-red-600">{error}</p>;
+  if (error) return <p className="py-8 text-sm text-destructive">{error}</p>;
   if (post === null) {
     return (
       <div aria-busy="true">

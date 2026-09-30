@@ -17,10 +17,12 @@ Token judgment (polarity, palette, contrast, type floors) lives in the `@theme` 
 - **Icons render bare on the surface** — no circle/square/pill shell behind nav or card
   glyphs.
 - **Corner shape is a token, never a class.** Shipped buttons, chips, labels and steppers read
-  `--radius-control` (pill by default); cards and fields read `--radius-lg/md/sm`. A square
-  brand sets `--radius-control: 0` and every control follows — don't patch `rounded-*` on
-  shipped markup, and give your own controls `rounded-control` so they move with it. Only
+  `--radius-control`, which follows `--radius-md` until the brand says otherwise: `9999px` is
+  the pill, `0` is square. Cards and fields read `--radius-lg/md/sm`. Don't patch `rounded-*`
+  on shipped markup, and give your own controls `rounded-control` so they move with it. Only
   genuine circles (avatars, swatches, dots) stay `rounded-full`.
+- **Error text reads `--color-destructive`** (`text-destructive`), never a Tailwind palette
+  colour. Set it with the palette so it keeps 4.5:1 on `--color-background`.
 - **No emojis** in UI copy, headings, or empty states (unless the brief itself asks for
   them).
 - **Vary the look across projects.** Repeating the same palette/layout on unrelated brands is

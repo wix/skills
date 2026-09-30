@@ -57,7 +57,7 @@ export default function OrderCartDrawer() {
                   </p>
                 ))}
                 {line.status !== "IN_STOCK" && (
-                  <p className="mt-1 text-xs text-red-600">No longer available</p>
+                  <p className="mt-1 text-xs text-destructive">No longer available</p>
                 )}
                 <div className="mt-2 flex items-center">
                   <div className="inline-flex items-center gap-3 rounded-control border border-border px-2 py-0.5">
@@ -104,7 +104,7 @@ export default function OrderCartDrawer() {
                 <strong className="font-semibold">{cart.subtotal}</strong>
               </div>
             )}
-            {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
             <button
               type="button"
               disabled={busy}

@@ -186,7 +186,7 @@ export default function RentalBookingView({ rental }: { rental: RentalDetail }) 
         ))}
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       <button type="button" disabled={!canRent || renting} onClick={() => rent().catch(() => {})} className="mt-5 rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
         {renting ? "Reserving…" : rental.free ? `${verb} — free` : quote?.total ? `${verb} · ${quote.total}` : rental.rateLabel ? `${verb} · ${rental.rateLabel}` : verb}
       </button>

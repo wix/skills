@@ -104,7 +104,7 @@ export default function CartDrawer() {
                   {line.subscription && (
                     <p className="mt-0.5 text-xs text-muted-foreground">Subscription: {line.subscription}</p>
                   )}
-                  {status && <p className="mt-1 text-xs text-red-600">{status}</p>}
+                  {status && <p className="mt-1 text-xs text-destructive">{status}</p>}
                   <div className="mt-2 flex items-center">
                     <div className="inline-flex items-center gap-3 rounded-control border border-border px-2 py-0.5">
                       <button
@@ -222,7 +222,7 @@ export default function CartDrawer() {
             <p className="mb-4 text-xs text-muted-foreground">
               {cart?.pricesIncludeTax ? "Prices include tax. Shipping is calculated at checkout." : cart?.taxes.length ? "Shipping is calculated at checkout." : "Shipping and taxes are calculated at checkout."}
             </p>
-            {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
             <button
               type="button"
               disabled={busy}
