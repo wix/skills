@@ -29,7 +29,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-**Before saving, check `routePath`:** use `support-tickets`, not `/support-tickets`. A leading slash fails registration even when the build passes. Keep internal `PatternsReactRoute` paths `/`, `/:id` and `/new` unchanged.
+**After scaffolding, check `routePath` in the builder file:** use `support-tickets`, not `/support-tickets`. A leading slash fails registration even when the build passes. Keep internal `PatternsReactRoute` paths `/`, `/:id` and `/new` unchanged.
 
 **Never reuse `<route>` as a path prefix inside this page's `PatternsReactRouter`** — its location is already page-scoped, so a page scaffolded `route: "shifts"` still routes from `path="/"`, and `path="/shifts"` silently never matches. Page-relative paths: `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
