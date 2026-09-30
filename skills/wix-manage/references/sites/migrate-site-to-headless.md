@@ -7,7 +7,7 @@ description: Takes an existing Wix site built with Wix Editor, Wix Studio or Wix
 
 A merchant with a regular Wix site can take it headless without starting over. The Headless Migration flow in the site's dashboard lets them build a new frontend for the same site, with their own AI coding tool, on top of the business data the site already has.
 
-The merchant starts the flow from the dashboard. It has no public API, so this recipe makes no changes to the site: it resolves the site, gives the merchant the direct link, and tells them what to expect.
+The merchant starts and runs the flow themselves, from the dashboard. It has no public API, so the answer is informational: give the direct link, say what to click, and tell them what to expect. Do not run the migration or any part of it for them.
 
 ## When to use
 
@@ -22,15 +22,11 @@ For a brand-new, separate headless site, use [Create Headless Site](create-headl
 - Do not create a new site.
 - Do not start a [Site Import](site-import.md).
 - Do not tell the merchant to rebuild the site from scratch or re-enter their business data.
-- Do not look for an API that starts the migration or checks whether a site can use it. There is none.
+- Do not call any API for this request, site lookups included. There is no API that starts the migration or checks whether a site can use it.
 
-## Steps
+## Answer
 
-### 1. Resolve the site's metaSiteId
-
-If the conversation is already scoped to the site, use its ID. Otherwise resolve it with [Query Sites](query-sites.md) (see "Find a site by name") or [Read Account or Site Context](read-site-context.md). If the account has more than one site and the user hasn't said which one, ask which site they mean, and give the rest of the answer anyway with `{metaSiteId}` in the link.
-
-### 2. Send the merchant to the Headless settings page
+### 1. Send the merchant to the Headless settings page
 
 The page isn't in the dashboard sidebar, so always give the direct link:
 
@@ -38,9 +34,11 @@ The page isn't in the dashboard sidebar, so always give the direct link:
 https://manage.wix.com/dashboard/{metaSiteId}/oauth-apps-settings
 ```
 
+If the conversation already carries the site's ID, put it in the link. Otherwise keep `{metaSiteId}` and tell the merchant it's the ID in the address bar when they open that site's dashboard. Don't look the site up.
+
 Tell them what to click. In the **Headless Migration** section, click **Go Headless**. That opens "Migrate to headless site", which takes them through the rest.
 
-### 3. Tell them what changes and what doesn't
+### 2. Tell them what changes and what doesn't
 
 - They build a new frontend for this same site with their own AI coding tool, connected to the site's existing business data.
 - Nothing changes on the live site until they decide to switch.
@@ -49,7 +47,7 @@ Tell them what to click. In the **Headless Migration** section, click **Go Headl
 - SEO stays as it is until the switch. After the switch, SEO and analytics follow the new frontend.
 - They can start from a blank frontend or from a copy of the current design.
 
-### 4. State who can start it
+### 3. State who can start it
 
 A site can start the flow when it:
 

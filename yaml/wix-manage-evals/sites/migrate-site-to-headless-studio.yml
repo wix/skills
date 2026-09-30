@@ -52,15 +52,15 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Examine the tool-call trace. The question needs no changes to the site: at most a read to
-      resolve the site's ID, then reading the migration skill and answering. Score 0-10 for how
-      directly the agent got there. 10 = found and read the migration skill, at most a read-only
-      lookup of the site (a site query or site-context read), then answered.
+      Examine the tool-call trace. The question needs an informational answer only: find and read
+      the migration skill, then answer, with no Wix API calls. Score 0-10 for how directly the
+      agent got there. 10 = found and read the migration skill, then answered, with no API calls.
 
       Penalize and LIST any of:
         - any mutating call (creating a site, provisioning headless, creating an OAuth app,
           starting an import, updating site data). Any one of these caps the score at 3.
-          Read-only POST queries (site list query, site count, site context) are not mutations.
+        - read-only Wix API calls, such as a site query or site-context read. Take 1 point off
+          for each. Reading docs or skills is not an API call.
         - reading Create Headless Site or Site Import and acting on it
         - probing Wix APIs to check migration eligibility or to find a migration endpoint
         - repeated docs searches or reading unrelated skills before finding the migration skill
