@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   Change my site's language to Spanish.
 tags: [site-properties]
-maxTokens: 30000
+maxTokens: 200000
 assertions:
   - tool: ReadFullDocsArticle
     params:
