@@ -166,7 +166,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 ### Booking an experience (only when experiences are in the run)
 
-An **experience** is a reservation that *is* a curated dining occasion (wine/cheese pairing, chef's table). It uses the **same** booking mechanism as a table, with two differences: you **list experiences** to show and choose from, and you offer bookable times **projected from the experience's own schedule** (there is *no* experience-scoped slot API — see Gotcha C) rather than from `getScheduledTimeSlots`, then stamp the chosen `experienceId` onto the reservation. Read the shapes from the docs (`.md?apiView=SDK`); the earned drift gotchas below are what the docs won't tell you.
+An **experience** is a reservation that *is* a curated dining occasion (chef's table, tasting menu). It uses the **same** booking mechanism as a table, with two differences: you **list experiences** to show and choose from, and you offer bookable times **projected from the experience's own schedule** (there is *no* experience-scoped slot API — see Gotcha C) rather than from `getScheduledTimeSlots`, then stamp the chosen `experienceId` onto the reservation. Read the shapes from the docs (`.md?apiView=SDK`); the earned drift gotchas below are what the docs won't tell you.
 
 Flow (mirrors the docs' sample flow — <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/sample-flows.md>):
 
