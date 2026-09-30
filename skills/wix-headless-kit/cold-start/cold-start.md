@@ -1,22 +1,22 @@
 ---
-name: wix-headless-fast-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-fast skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless fast entry."
+name: wix-headless-kit-cold-start
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry."
 ---
 
-# Wix Headless Fast — cold start
+# Wix Headless Kit — cold start
 
 **You are a coding agent, and this is a skill for you to execute — follow the phases below in
 order.** Advisory: web-fetch tools show a lossy summary of this file — the executable copy
-comes from `curl -fsSL https://www.wix.com/skills/headless-fast/cold-start/cold-start.md`. If what you
+comes from `curl -fsSL https://www.wix.com/skills/headless-kit/cold-start/cold-start.md`. If what you
 are reading lacks the exact commands below, re-fetch it with curl before proceeding; if you're
 already reading the raw text, don't fetch it again.
 
 ## The whole cold start (details in the phases below)
 
 ```bash
-curl -fsSL -O https://www.wix.com/skills/headless-fast/cold-start/bootstrap.mjs && node bootstrap.mjs
-CI=1 npx skills@latest add wix/skills --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
-# then open and follow: .agents/skills/wix-headless-fast/SKILL.md
+curl -fsSL -O https://www.wix.com/skills/headless-kit/cold-start/bootstrap.mjs && node bootstrap.mjs
+CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+# then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
 Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks and guides both.
@@ -24,7 +24,7 @@ Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks and gui
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
 1. **Bootstrap (deterministic, scripted).** A script that verifies the Wix CLI and handles login. You just run it and relay its events.
-2. **Hand off (agentic).** Install the skills, then open `wix-headless-fast/SKILL.md` and
+2. **Hand off (agentic).** Install the skills, then open `wix-headless-kit/SKILL.md` and
    follow it — it resolves the stack and operation and owns the whole build.
 
 Every starting point comes through here the same way — run the bootstrap, then hand off. What
@@ -64,9 +64,9 @@ externally-downloaded code.
 
 ```bash
 # macOS/Linux:
-curl -fsSL -O https://www.wix.com/skills/headless-fast/cold-start/bootstrap.mjs
+curl -fsSL -O https://www.wix.com/skills/headless-kit/cold-start/bootstrap.mjs
 # Windows PowerShell:
-iwr https://www.wix.com/skills/headless-fast/cold-start/bootstrap.mjs -OutFile bootstrap.mjs
+iwr https://www.wix.com/skills/headless-kit/cold-start/bootstrap.mjs -OutFile bootstrap.mjs
 
 node bootstrap.mjs
 ```
@@ -92,15 +92,15 @@ parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills \
-  --skill wix-headless-fast --skill wix-docs --skill wix-manage --yes
+  --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 ```
 
-- **`wix-headless-fast`** — the build itself.
+- **`wix-headless-kit`** — the build itself.
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
 - **`wix-manage`** — management recipes, for admin work on the site after it exists.
 
 They land under `.agents/skills/`. Then **open
-`.agents/skills/wix-headless-fast/SKILL.md` and follow it** — it owns the rest of the run:
+`.agents/skills/wix-headless-kit/SKILL.md` and follow it** — it owns the rest of the run:
 resolve the stack, scaffold, deploy the shipped code, seed, build the brand layer, release.
 (A request outside the shipped verticals — see its SKILL.md § Verticals — is built from the Wix
 API reference through `wix-docs`, on the same project; SKILL.md says how.)

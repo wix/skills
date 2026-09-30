@@ -36,7 +36,7 @@ export default function PlanDetailView({ plan }: { plan: PlanDetail }) {
       )}
 
       <div className="mt-6">
-        <SubscribeButton plan={plan} className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
+        <SubscribeButton plan={plan} className="rounded-control bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
           {plan.free ? "Get this plan" : `Subscribe · ${plan.price}`}
         </SubscribeButton>
       </div>

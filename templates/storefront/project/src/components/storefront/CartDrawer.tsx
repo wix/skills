@@ -104,9 +104,9 @@ export default function CartDrawer() {
                   {line.subscription && (
                     <p className="mt-0.5 text-xs text-muted-foreground">Subscription: {line.subscription}</p>
                   )}
-                  {status && <p className="mt-1 text-xs text-red-600">{status}</p>}
+                  {status && <p className="mt-1 text-xs text-destructive">{status}</p>}
                   <div className="mt-2 flex items-center">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-border px-2 py-0.5">
+                    <div className="inline-flex items-center gap-3 rounded-control border border-border px-2 py-0.5">
                       <button
                         type="button"
                         aria-label="Decrease quantity"
@@ -164,7 +164,7 @@ export default function CartDrawer() {
                   <label className="sr-only" htmlFor="cart-coupon">Promo code</label>
                   <input id="cart-coupon" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Promo code" autoFocus
                     className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" />
-                  <button type="submit" disabled={busy || !code.trim()} className="rounded-full border border-foreground px-4 py-2 text-sm font-medium disabled:opacity-40">Apply</button>
+                  <button type="submit" disabled={busy || !code.trim()} className="rounded-control border border-foreground px-4 py-2 text-sm font-medium disabled:opacity-40">Apply</button>
                 </form>
               ) : (
                 <button type="button" onClick={() => setCodeOpen(true)} className="self-start text-sm underline">Have a promo code?</button>
@@ -222,12 +222,12 @@ export default function CartDrawer() {
             <p className="mb-4 text-xs text-muted-foreground">
               {cart?.pricesIncludeTax ? "Prices include tax. Shipping is calculated at checkout." : cart?.taxes.length ? "Shipping is calculated at checkout." : "Shipping and taxes are calculated at checkout."}
             </p>
-            {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
             <button
               type="button"
               disabled={busy}
               onClick={() => checkout().catch(() => {})}
-              className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full rounded-control bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "One moment…" : "Continue to secure checkout"}
             </button>

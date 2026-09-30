@@ -3,17 +3,6 @@
 Use this reference when defining props, defaults, named-part wiring, complex data,
 or internal file boundaries.
 
-## Contents
-
-- [Public Props Contract](#public-props-contract)
-- [Numeric Range Constraints](#numeric-range-constraints)
-- [Named Parts and `elementProps`](#named-parts-and-elementprops)
-- [Content and Data](#content-and-data)
-- [Active-Item Components](#active-item-components)
-- [Defaults and Resources](#defaults-and-resources)
-- [Internal File Splitting](#internal-file-splitting)
-- [Checklist](#checklist)
-
 ## Public Props Contract
 
 Keep identity and platform contracts together with component-specific data and
@@ -54,6 +43,9 @@ Rules:
 - Default to common optional SDK callbacks by capability; add specialized ones
   when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
+- A CTA with a real destination is a native link with that `href`. If it only
+  performs an action, use a native button. Never use `href="#"` as a fallback;
+  it creates a focusable link without a meaningful destination.
 
 ## Numeric Range Constraints
 
@@ -153,6 +145,7 @@ slides, steps). Skip for always-visible lists, multi-select, or multi-expand.
   `@wix/react-component-utils`. The type argument must match the array prop name
   exactly, and `defaultProps` must set the index to `0`.
 - Render all bodies with `.map()`. Active body gets --active; inactive bodies get functional CSS visibility, aria-hidden, and inert.
+- With React 18 types, spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; this emits the boolean HTML attribute without a TypeScript prop error. Use the app's typecheck instead of a scratch TypeScript project.
 - Provide keyboard navigation and the matching ARIA pattern.
 
 ```ts
@@ -184,11 +177,16 @@ media type, whether it is a top-level prop or a field in an array item. Name
 the field for the media itself (`image`, `video`, `audio`, and so on), not for
 one representation of it.
 
+Common fields in the installed types: `Image` has required `url: string` and
+optional `uri`, `alt`, `width`, `height`; `Link` has optional `href`, `target`
+(`'_self' | '_blank'`), and `rel`. Use `image.url` for `<img src>`,
+`image.alt` for its alternative text, and `link.href` for `<a href>`.
+
 Do not represent media as a URL/source string or split its metadata across
 primitive props. Preserve the media object through the public contract so the
-component can consume all of its supported data. See
-`node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts` for the
-full list.
+component can consume all of its supported data. Inspect the installed media
+type declaration only if a needed field is not covered here or a typecheck
+reports an error.
 
 ## Defaults and Resources
 

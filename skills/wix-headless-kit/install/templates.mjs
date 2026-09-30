@@ -142,7 +142,7 @@ function fetchTemplates(cache) {
 
 // A sparse, shallow clone of templates/ at a ref (branch, tag, or commit id) into a temp dir.
 function cloneSparse(repo, ref) {
-  const tmp = mkdtempSync(join(tmpdir(), "wix-headless-fast-templates-"));
+  const tmp = mkdtempSync(join(tmpdir(), "wix-headless-kit-templates-"));
   let r;
   if (ref && /^[0-9a-f]{40}$/i.test(ref)) {
     // a commit: shallow-fetch just it (GitHub serves any reachable commit by id)

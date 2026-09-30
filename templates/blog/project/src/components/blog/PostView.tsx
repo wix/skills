@@ -33,7 +33,7 @@ const PlainLink = ({ href, className, children }: LinkLikeProps) => (
   </a>
 );
 
-const chipClass = "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline";
+const chipClass = "rounded-control border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline";
 
 export default function PostView({
   slug,
@@ -63,7 +63,7 @@ export default function PostView({
       </div>
     );
   }
-  if (error) return <p className="py-8 text-sm text-red-600">{error}</p>;
+  if (error) return <p className="py-8 text-sm text-destructive">{error}</p>;
   if (post === null) {
     return (
       <div aria-busy="true">

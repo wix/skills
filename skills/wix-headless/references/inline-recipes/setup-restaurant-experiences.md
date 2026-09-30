@@ -1,6 +1,6 @@
 ---
 name: "Setup Restaurant Experiences"
-description: Seeds Wix Table Reservations **Experiences** — a reservation that IS a special dining occasion at the restaurant (wine tasting, cheese pairing, chef's table, tasting-menu evening), as opposed to a plain table booking or a Bookings service. Points to the live docs for the full create payload and carries only the earned gotchas the docs don't state (field-shape drift, payment policy, premium gating, when-to-use). The occasions/prices/schedule come from the request.
+description: Seeds Wix Table Reservations **Experiences** — a reservation that IS a special dining occasion at the restaurant (chef's table, cheese pairing, tasting-menu evening), as opposed to a plain table booking or a Bookings service. Points to the live docs for the full create payload and carries only the earned gotchas the docs don't state (field-shape drift, payment policy, premium gating, when-to-use). The occasions/prices/schedule come from the request.
 ---
 **RECIPE**: Business Recipe – Experiences Setup for Wix Table Reservations (Experiences API)
 
@@ -8,7 +8,7 @@ description: Seeds Wix Table Reservations **Experiences** — a reservation that
 
 ## When to use experiences (and when NOT to)
 
-An **experience** is a **reservation that is itself a curated dining occasion at the restaurant** — it books seats at the restaurant's own reservation location but overrides the location's defaults with its own name, description, per-guest payment policy, party-size, schedule, and booking form. Reach for it when the brief names a **wine tasting, cheese/wine pairing, chef's table, or tasting-menu evening**.
+An **experience** is a **reservation that is itself a curated dining occasion at the restaurant** — it books seats at the restaurant's own reservation location but overrides the location's defaults with its own name, description, per-guest payment policy, party-size, schedule, and booking form. Reach for it when the brief names a **chef's table, cheese pairing, or tasting-menu evening**.
 
 - **Experience vs plain reservation:** a plain reservation just books a table; an experience books a *named, scheduled, often paid occasion*. Same booking mechanism, different intent.
 - **Experience vs `bookings`:** the separate `bookings` vertical is for a **service/appointment/class with a provider** (spa, tutor, studio). If a restaurant *hosts and seats* the occasion, it's an experience — not a booking. (See `CAPABILITIES.md` — "Experiences vs bookings".)

@@ -57,10 +57,10 @@ export default function OrderCartDrawer() {
                   </p>
                 ))}
                 {line.status !== "IN_STOCK" && (
-                  <p className="mt-1 text-xs text-red-600">No longer available</p>
+                  <p className="mt-1 text-xs text-destructive">No longer available</p>
                 )}
                 <div className="mt-2 flex items-center">
-                  <div className="inline-flex items-center gap-3 rounded-full border border-border px-2 py-0.5">
+                  <div className="inline-flex items-center gap-3 rounded-control border border-border px-2 py-0.5">
                     <button
                       type="button"
                       aria-label="Decrease quantity"
@@ -104,12 +104,12 @@ export default function OrderCartDrawer() {
                 <strong className="font-semibold">{cart.subtotal}</strong>
               </div>
             )}
-            {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
             <button
               type="button"
               disabled={busy}
               onClick={() => checkout().catch(() => {})}
-              className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full rounded-control bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "One moment…" : "Checkout"}
             </button>

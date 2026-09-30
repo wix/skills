@@ -56,6 +56,7 @@ that semantic element is the root. Do not wrap it just to host root props.
 
 Use flat, top-level selectors. Each selector must target one class plus an
 optional state pseudo-class or global state modifier.
+Put state overrides before bare classes so the manifest keeps resting defaults.
 
 ```css
 .heading {
@@ -103,7 +104,7 @@ Choose the simplest root shape that fits the component:
 
 - column: `--display: flex; flex-direction: column`
 - row: `--display: flex; flex-direction: row`
-- split layout: `--display: grid; grid-template-columns: 1fr 1fr`
+- split layout: `--display: grid; grid-template-columns: repeat(2, minmax(0, 1fr))`
 - responsive collection: `--display: grid; grid-template-columns: repeat(auto-fit, minmax(...))`
 
 Do not hardcode the root's pixel dimensions. Installation defaults belong in
@@ -136,7 +137,7 @@ the extension file.
 ## Responsiveness and Direction
 
 Respond to the component container, not the browser viewport. Prefer intrinsic
-flex/grid sizing, `minmax()`, `auto-fit`, `1fr`, and `clamp()`. Do not add
+flex/grid sizing and tracks that can shrink below content size. Do not add
 viewport `@media` rules; Wix owns page breakpoints.
 
 Use logical inline-axis properties so layout flips automatically in RTL:
@@ -171,7 +172,7 @@ Use this pattern:
 
 .grid {
   --columns: 3;
-  grid-template-columns: repeat(var(--columns), 1fr);
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
 }
 ```
 

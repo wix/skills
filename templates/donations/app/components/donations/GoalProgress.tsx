@@ -35,8 +35,8 @@ export default function GoalProgress({ goal, className = "", compact = false }: 
         </p>
         <p className="text-sm font-semibold text-foreground">{goal.percent}%</p>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={width} aria-label="Progress toward the goal">
-        <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${width}%` }} />
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-control bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={width} aria-label="Progress toward the goal">
+        <div className="h-full rounded-control bg-primary transition-[width]" style={{ width: `${width}%` }} />
       </div>
       {(!compact || timeLeft) && (
         <p className="mt-2 flex justify-between text-xs text-muted-foreground">

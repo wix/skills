@@ -24,11 +24,11 @@ const WIX = [bin('npx'), '-y', '@wix/cli@latest']; // run the CLI via npx — no
 // whose first check is the AI_AGENT env var, so setting it guarantees agent mode
 // (and the awaiting_user/success/logged_in events) for every child we spawn.
 // Respect an existing value so a known runner (claude, cursor, …) keeps its name.
-const AGENT_ENV = { ...process.env, AI_AGENT: process.env.AI_AGENT || 'wix-headless-fast-skill' };
+const AGENT_ENV = { ...process.env, AI_AGENT: process.env.AI_AGENT || 'wix-headless-skill' };
 
 // Where the detached login parks its output between runs. It has to outlive this
 // process, so it can't be a pipe and can't live in the project.
-const STATE_DIR = join(tmpdir(), 'wix-headless-fast-login');
+const STATE_DIR = join(tmpdir(), 'wix-headless-login');
 const LOG = join(STATE_DIR, 'login.log');
 const PIDFILE = join(STATE_DIR, 'login.pid');
 

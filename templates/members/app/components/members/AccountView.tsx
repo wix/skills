@@ -47,11 +47,11 @@ export default function AccountView({ initialMember }: AccountViewProps) {
           on this site.
         </p>
       )}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       <button
         type="button"
         onClick={() => void logout()}
-        className="mt-6 rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+        className="mt-6 rounded-control border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         Log out
       </button>

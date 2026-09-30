@@ -28,6 +28,47 @@ wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<title>","fol
 
 The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
 
+## Theme
+
+A modal opens as **its own iframe, separate from the page that opened it** — so theming the page does nothing for it. A themed page opening an unthemed modal is a common and very visible split: the dialog arrives in the pre-redesign look on top of a redesigned page.
+
+Wrap the generated `<modal>.tsx` in the app's `BusinessManagerTheme`, at the root, above `CustomModalLayout`:
+
+```tsx
+import type { FC } from 'react';
+import { CustomModalLayout } from '@wix/design-system';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme';
+import modalConfig from './<modal>.config';
+
+const Modal: FC = () => (
+  <BusinessManagerTheme>
+    <CustomModalLayout
+      title={modalConfig.title}
+      showHeaderDivider={false}
+      showFooterDivider={false}
+      closeButtonProps={{ size: 'small' }}
+      /* … */
+    />
+  </BusinessManagerTheme>
+);
+```
+
+The wrapper file is written once per app and reused by every extension — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app). Icons come from `@wix/wix-ui-icons-common/lazy`, and anything you style yourself uses `--wds-*` tokens or a `skin`/`size` prop — [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
+
+**The redesign changes modal chrome specifically**, and the wrapper cannot make these for you:
+
+| Part | Redesign | How |
+| --- | --- | --- |
+| Header / footer dividers | Removed | `showHeaderDivider={false} showFooterDivider={false}`. **Both default to `'auto'`**, which shows them once content scrolls — so doing nothing ships the dividers the redesign removes |
+| Close / help button | Smallest size | `closeButtonProps={{ size: 'small' }}`, `helpButtonProps={{ size: 'small' }}` — `CloseButton` sizes are `small \| medium \| large` |
+| Destructive confirm | Token, not a red literal | `skin="destructive"` on the confirm `Button` |
+
+A confirm dialog's footer is a primary `Button` plus a cancel, and because the cancel sits beside a primary it takes the **Dark** skin rather than the wrapper's `standard` default.
+
+**One thing the design note asks for that has no API at 1.330.0:** "the footer's secondary action is a `TextButton` at M size". `CustomModalLayout`'s slot is `secondaryButtonProps?: Omit<ButtonProps, …>` and renders a `Button`; there is no footer-skin prop either (the only `light` skin is `footnoteSkin`, which styles the footnote). Achieving it means hand-building the footer — so take it to **#wix-design-system** rather than improvising, and if you do hand-build it, the cancel needs both `skin="dark"` and `size="medium"` against the wrapper's `TextButton` default of `small`.
+
+**Nothing renders a modal until something opens it**, so an unthemed dialog survives more than the usual checks: it is invisible to `tsc` and `wix build`, and also to a careful look at the page in `wix preview`, because it isn't on screen yet. Trigger the dialog before calling it done — that is the only step that shows it.
+
 ## Quick Reference
 
 | Task | Method | Example |

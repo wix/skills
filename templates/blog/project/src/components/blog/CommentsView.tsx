@@ -115,7 +115,7 @@ export default function CommentsView({ referenceId, signInHref }: CommentsViewPr
 
       <CommentForm onSubmit={(t) => create(t)} disabled={saving} placeholder="Write a comment…" />
       {signIn}
-      {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
       {comments === null ? (
         <div aria-busy="true" className="space-y-3">
@@ -141,7 +141,7 @@ export default function CommentsView({ referenceId, signInHref }: CommentsViewPr
                     </button>
                   )}
                   {c.isOwn && (
-                    <button type="button" onClick={() => remove(c.id)} disabled={saving} className="text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                    <button type="button" onClick={() => remove(c.id)} disabled={saving} className="text-muted-foreground hover:text-destructive disabled:opacity-50">
                       Delete
                     </button>
                   )}
@@ -159,7 +159,7 @@ export default function CommentsView({ referenceId, signInHref }: CommentsViewPr
                             </button>
                           )}
                           {r.isOwn && (
-                            <button type="button" onClick={() => remove(r.id)} disabled={saving} className="text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                            <button type="button" onClick={() => remove(r.id)} disabled={saving} className="text-muted-foreground hover:text-destructive disabled:opacity-50">
                               Delete
                             </button>
                           )}

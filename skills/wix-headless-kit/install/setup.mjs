@@ -147,10 +147,13 @@ if (mode === "create") {
 } else if (mode === "migrate") {
   // ---- 1 · a migration preview: the config and credentials came with the folder -------------------
   // No site is created and nothing is provisioned: `wix.config.json` already names the deploy site
-  // and its app, `.env.local` the parent's. Managed Astro gets the vertical's composed template copied
-  // in around them (what `wix create` would have copied; the config and env are never overwritten);
-  // any other stack is code-only and deploy below adds it.
-  if (stack === "astro") {
+  // and its app, `.env.local` the parent's. The download usually carries the CLI's blank Astro
+  // starter beside the config: then the project is kept and deploy below adds the vertical's code and
+  // dependencies into it, as for an adopted project. A bare config (no package.json) gets the
+  // vertical's composed template copied in around it on managed Astro; any other stack is code-only.
+  if (stack === "astro" && has("package.json")) {
+    emit("migration_project_kept", { folder: cwd, project: pkg?.name ?? basename(cwd) });
+  } else if (stack === "astro") {
     const template = join(templatesDir({ need: `${vertical}/project` }), vertical, "project");
     emit("scaffolding", { folder: cwd, template, from: "migration preview" });
     cpSync(template, cwd, { recursive: true, force: false, errorOnExist: false });
