@@ -15,15 +15,24 @@ assertions:
   - type: build_passed
     command: npm run build
   - type: llm_judge
+    model: claude-sonnet-4-6
+    scoringMode: boolean
+    prompt: |-
+      Open the generated dashboard page builder file for the Orders Review page. Pass only if its routePath is nonempty and does not start with /.
+  - type: llm_judge
+    model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
       Inspect the generated source and tool results, not just the final explanation. The user needs one registered Orders Review dashboard extension with a read-only collection and bookmarkable record detail.
-      The dashboard extension's routePath must be a nonempty relative value without a leading slash, such as orders-review. It must remain registered in src/extensions.ts. Internal PatternsReactRoute paths must remain page-relative with their leading slash: the collection at / and a parameterized detail route such as /:id. Row navigation, direct detail loading and Back must target those same paths, without prefixing them with the extension routePath. The page must read real native Orders data and must not introduce record mutations or mock orders.
+      The dashboard extension's routePath must be a nonempty relative value without a leading slash, such as orders-review. It must remain registered in src/extensions.ts. Internal PatternsReactRoute paths must remain page-relative with their leading slash: the collection at / and a parameterized detail route such as /:id. Row navigation, direct detail loading and Back must target those same paths, without prefixing them with the extension routePath.
       Score 0-10. Score at most 3 if routePath starts with /, the extension is unregistered, internal routing is broken by removing its slashes or adding the extension prefix, or the detail route is absent. A clean build cannot compensate for any of those failures. Do not infer runtime registration or browser success from a build alone; identify any unverified runtime behavior in the reason.
   - type: llm_judge
+    model: claude-sonnet-4-6
     minScore: 7
     prompt: |-
       Inspect the sequence of tool calls for the distinction between dashboard registration and internal navigation. Score 0-10: 10 means the agent used the dashboard references, scaffolded a valid route without a leading slash, preserved internal router paths, and completed the request without route-repair coaching.
       Score at most 6 if the agent first generated a leading-slash routePath and repaired it later, encountered a route registration failure even if recovered, removed necessary internal route slashes, or asked the user to fix routing. Name the offending call or source change. A successful final result does not erase an earlier route failure. If registration or browser checks did not run, the final response must not claim they passed; score at most 6 for such an unsupported success claim. Unrelated environment failures do not by themselves prove a route error: report them separately.
   - type: time_limit
     maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

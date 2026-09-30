@@ -44,13 +44,13 @@ src/extensions/dashboard/pages/{feature}/
   {feature}-api.ts              # fetch/save calls — keep these out of the components
 ```
 
-Scaffold with a single call regardless of case — this is always one extension. For example:
+Scaffold with a single call regardless of case — this is always one extension:
 
 ```bash
-wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"Support Tickets","route":"support-tickets"}'
+wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
 ```
 
-Adapt the title and route to the request. The scaffold `route` and generated extension's `routePath` must have **no leading slash**. Internal router paths keep theirs. Check the generated field before saving; see [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
+`route` takes no leading slash — `support-tickets`, not `/support-tickets`. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
 
 ## 1. Entry — Case C only (router-free, no location plumbing)
 
