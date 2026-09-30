@@ -50,16 +50,23 @@ Each template's data file (`items-api.ts`, `settings-api.ts`) is an in-memory st
 
 ### Installing the CMS pair
 
-`@wix/patterns-cms` pins one exact `@wix/patterns` version, and the template's page says why a second copy breaks the page silently. Read the pair off the installed package rather than hardcoding it, then confirm a single copy survives:
+`@wix/patterns-cms` pins one exact `@wix/patterns` version, and the template's page says why a second copy breaks the page silently.
+
+**Already in `package.json`** (some app templates ship both): don't install it again — go straight to the check. **Not there:** install it, then align `@wix/patterns` to its pin:
 
 ```bash
 npm install @wix/patterns-cms
 npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
+```
+
+**Either way, confirm a single copy:**
+
+```bash
 npm dedupe
 find node_modules -path '*@wix/patterns/package.json' -not -path '*/dist/*'
 ```
 
-More than one line from `find` is a bug that `tsc` and `wix build` both pass.
+More than one line is a bug that `tsc` and `wix build` both pass. Declared ranges produce it when `@wix/patterns` ships ahead of `@wix/patterns-cms`, or a lockfile holds an older one. Run the second `npm install` line above, then the check again.
 
 ### Turning `query.search` into a query
 
