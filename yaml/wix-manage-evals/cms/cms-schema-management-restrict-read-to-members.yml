@@ -91,8 +91,10 @@ assertions:
       collections full-replace update carrying the current revision and fields.
       Subtract 3 for each of these mistakes, which the skill exists to prevent: deleting the
       collection or recreating it; a full-replace update sent without the current revision or
-      without the existing fields, then repaired; an invented endpoint; a non-2xx error other
-      than a single PATCH attempt on permissions; a permission value that is not a valid role.
+      without the existing fields, then repaired; an invented endpoint; a non-2xx response actually returned by a Wix API call, even if recovered, other than a single PATCH attempt on permissions (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); a permission value that is not a valid role.
       Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3
       points however many there are: one PATCH attempt on permissions that failed before switching
       to the full-replace update; a second read of the same collection; a docs or search call

@@ -1,0 +1,102 @@
+name: cms/cms-schema-management-add-reference-field
+description: >-
+  Verifies the agent adds a single REFERENCE field to an existing collection with the
+  typeMetadata.reference shape from the schema recipe's "Add a Reference Field" section, without
+  recreating the collection, and lists the fields from a read after the change.
+triggerPrompt: >-
+  In my Projects CMS collection, add a field called Lead that references a single item from the Team
+  collection. Go ahead and make the change, then list the fields the Projects collection now has.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Team
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Team
+            displayName: Team
+            fields:
+              - key: name
+                displayName: Name
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Create Projects
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Projects
+            displayName: Projects
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to add a field "Lead" to the Projects collection that references one item of the Team
+      collection, then list the Projects fields. Evaluate the tool calls and the final response.
+
+      Pass only if all of the following hold:
+      - A field with key lead (or similar) was added to Projects with type REFERENCE (single, not
+        MULTI_REFERENCE) whose typeMetadata.reference.referencedCollectionId is Team.
+      - The field list in the final answer comes from post-change data returned by a tool call: a
+        read of the collection after the change, or the create-field response itself (it returns the
+        updated collection). It includes title and the new reference field.
+      - Nothing else was changed: no new collections, no other fields added or removed, no items written.
+
+      Fail if the agent:
+      - created the field as TEXT or MULTI_REFERENCE, or pointing at another collection, OR
+      - hit WDE0075 (metadata missing) and did not recover by resending with typeMetadata, OR
+      - replaced or recreated the collection instead of adding a field, OR
+      - listed fields without a tool call that shows them, OR
+      - only described the call without executing it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: >
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      The expected path costs nothing: read the skill once, one read of the Projects collection
+      (or the collections list) to confirm it exists, one create-field call with
+      typeMetadata.reference.referencedCollectionId set, and one read of the collection to list
+      the fields.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response actually returned by a Wix API call, even if recovered (an error from the docs or
+      search tools is a detour, not a mistake; an error-handling branch in the agent's code that never
+      fired, or an error code merely mentioned in a recipe or in code, is not an error and is not a
+      deduction); a create-field call sent without
+      typeMetadata and then repaired (WDE0075); a full-replace or recreate of the collection to add
+      one field; an invented endpoint; a MULTI_REFERENCE field where a single REFERENCE was asked for.
+      Subtract 1 for each of these detours, and cap the total of these deductions at 3 points however
+      many there are: a docs or search call beyond the first skill read; a second read of the same
+      collection beyond the one before and the one after the change; querying items when only the
+      schema was needed.
+      LIST every deduction and apply the cap. A correct outcome reached with only detours scores 7 or
+      higher, never less.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.
