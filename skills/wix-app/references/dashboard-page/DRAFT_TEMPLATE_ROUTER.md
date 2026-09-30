@@ -1,19 +1,18 @@
 # Draft Template — Cases A, B and D (router-wired)
 
-**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A's detail route is read-only (§4); B and D route to a full `EntityPage`. The collection and settings components live in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md); this file covers only what a router adds — the entry file, the app shell, and the detail/entity page.
+**Applies to [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md)'s Cases A, B and D.** All three need `PatternsReactRouter`, because in all three a row opens a page of its own — a panel is not the drill-in ([UX_SUCCESS_MODEL.md](UX_SUCCESS_MODEL.md)). Case A's detail route is read-only (§4); B and D route to a full `EntityPage`. This file covers only what a router adds.
 
 Every snippet below is copied from the installed `dist/docs/*.md` this session read, not from memory.
 
 ## 1. Entry — `location` is manual in a Wix CLI app, and only because the router needs it
 
-`PatternsReactRouter` reads the page location through `container.usePageLocation()`, which only `withDashboard`'s `location` prop feeds — nothing supplies it automatically in a Wix CLI app the way Yoshi BM flow does:
+`PatternsReactRouter` reads the page location through `container.usePageLocation()`, which only `withDashboard`'s `location` prop feeds — nothing supplies it automatically in a Wix CLI app:
 
 ```tsx
 // {feature}.tsx — Case A, B or D
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
-import { WixDesignSystemProvider } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme';
 import { {Feature}App } from './{Feature}App';
 
 type PageLocation = Parameters<Parameters<typeof dashboard.observeState>[0]>[1]['pageLocation'];
@@ -29,16 +28,18 @@ const Page: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider>
+    <BusinessManagerTheme>
       {location ? <{Feature}App location={location} /> : null}
-    </WixDesignSystemProvider>
+    </BusinessManagerTheme>
   );
 };
 
 export default Page;
 ```
 
-**Skipping this is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." `tsc` and `wix build` will not catch a missing `location` — only opening the page in a browser will. This is exactly why [Step 5's Preview](../../SKILL.md#validation) is not optional for Case B/D.
+`BusinessManagerTheme` belongs here, not in `{Feature}App.tsx` — its default props must apply above `WixPatternsProvider`. Write it once per app: [BUSINESS_MANAGER_THEME.md](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+
+**Skipping either the theme or `location` is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." Only a browser catches a missing `location` or an unthemed page, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional.
 
 ## 2. App shell — provider, router, routes
 
