@@ -60,7 +60,7 @@ The wrapper file is written once per app and reused by every extension — [BUSI
 
 So a confirm dialog's footer is a primary `Button` plus a `TextButton` for cancel — and because the cancel sits beside a primary button, it takes the **Dark** skin rather than the wrapper's standard default.
 
-`tsc`, `wix build` and `wix preview` all pass on an unthemed modal — only opening it catches the split.
+**Nothing renders a modal until something opens it**, so an unthemed dialog survives more than the usual checks: it is invisible to `tsc` and `wix build`, and also to a careful look at the page in `wix preview`, because it isn't on screen yet. Trigger the dialog before calling it done — that is the only step that shows it.
 
 ## Quick Reference
 
