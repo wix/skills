@@ -28,7 +28,7 @@ curl -X GET 'https://www.wixapis.com/site-properties/v4/properties' \
 ```
 
 ## Step 2 — Update the properties you need
-Payment currency and time zone go through [Update Business Region](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-region): put the new values under `businessRegion` and name each one in a `fields.paths` mask. Primary language goes through a separate call, below.
+Payment currency and time zone go through [Update Business Region](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-region), the documented call for them: put the new values under `businessRegion` and name each one in a `fields.paths` mask. Primary language goes through a separate, undocumented call, below — use that call for language only.
 
 | Property | Field name | Value format |
 |---|---|---|
@@ -82,8 +82,7 @@ To confirm the new value, re-read with the Step 1 `GET`.
 - **Always send a field mask**: omitting `fields.paths` fails with `400` and `"Illegal request - No updates on request body"`.
 - **Mask paths must be top-level fields.** The `GET` response contains a `locale` object (`languageCode`, `country`), which makes a path like `locale.timezone` look plausible — a nested path is rejected with `400` and `"Illegal request - Unknown field in field mask - <path>"`. Time zone and language are the top-level `timeZone` and `language` fields.
 - Currency must be a **3-letter ISO-4217** code (for example, `USD`, `CAD`, `EUR`, `GBP`).
-- Update Business Region rejects `language` and `locale` in its field mask. Set the language with the `PATCH` call.
-- The root `PATCH` also accepts `paymentCurrency` and `timeZone`. Use Update Business Region for them, since it is the documented call.
+- Update Business Region rejects `language` and `locale` in its field mask with `400` and `"Illegal request - Fields Vector(<fields>) are not allowed for updateBusinessRegion"`. Set the language with the `PATCH` call.
 
 ## Related APIs
 - **Site Properties API**: [REST](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/introduction)

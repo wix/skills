@@ -6,7 +6,7 @@ description: >-
 triggerPrompt: >-
   Change my site's time zone to America/New_York.
 tags: [site-properties]
-maxTokens: 200000
+maxTokens: 180000
 assertions:
   - tool: ReadFullDocsArticle
     params:
