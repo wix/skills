@@ -34,6 +34,8 @@ Scaffold once — every template is one extension, however many routes it has:
 wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
 ```
 
+`route` takes no leading slash — `support-tickets`, not `/support-tickets`. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
+
 Then copy **every** file in `templateFiles` into the generated folder (`src/extensions/dashboard/pages/<feature>/`). They import one another by relative path, so keep their names relative to each other; one file on its own does not compile.
 
 - The template's `page.tsx` is the entry file, and the CLI generated none by that name: put its contents into the component file the builder's `component` path points at (e.g. `employee-shifts.tsx`), and add no separate `page.tsx`, which nothing loads. Leave the builder file and the `src/extensions.ts` registration as the CLI wrote them.
