@@ -112,7 +112,9 @@ curl -X PATCH 'https://www.wixapis.com/_serverless/pa-google/v1/accounts/a1b2c3d
   -d '{ "account": { "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "merchantCenterAccountId": "9876543210" } }'
 ```
 
-The response's `merchantCenterAccountLinkStatus.status` starts at `PENDING` — the Merchant Center account owner must approve the link before it becomes `ENABLED`.
+`merchantCenterAccountId` is digits only. Merchant Center shows the ID with dashes (`873-654-2190`); strip dashes and spaces before sending (`8736542190`).
+
+The response's `merchantCenterAccountLinkStatus.status` starts at `PENDING` or `UNKNOWN` — the Merchant Center account owner must approve the link before it becomes `ENABLED`.
 
 ### View conversion actions
 
@@ -144,6 +146,7 @@ Returns `{}`. Errors with `ACCOUNT_NOT_FOUND` if no account exists.
 | App-not-installed error before Create Account | STEP 1 was skipped | Call Install (STEP 1); it's idempotent |
 | Get Incentives returns no offers | Currency not supported for incentives | Proceed to Create Account without `selectedIncentiveId` |
 | `NOT_FOUND` / `ACCOUNT_NOT_FOUND` on Delete Account | No account exists for the site | Nothing to delete; confirm with Get Account For Current Site |
+| 500 `invalid number` on `merchant_center_id` when linking Merchant Center | `merchantCenterAccountId` sent with dashes or spaces | Send the digits only, e.g. `8736542190` |
 
 ## References
 

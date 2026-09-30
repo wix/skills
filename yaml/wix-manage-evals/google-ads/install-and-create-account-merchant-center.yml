@@ -1,0 +1,45 @@
+name: google-ads/install-and-create-account-merchant-center
+description: >-
+  Verifies the agent links a Merchant Center account with a digits-only
+  merchantCenterAccountId when the user gives the dashed ID Merchant Center
+  displays, instead of sending the dashes and getting a 500.
+triggerPrompt: >-
+  I just created my Google Merchant Center account. The Merchant Center ID is
+  873-654-2190. Link it to my Wix Google Ads account so I can run Shopping ads.
+  Show me the exact Wix Google Ads API call.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/install-google-ads-and-create-an-account
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user gave the Merchant Center ID as "873-654-2190" and wants it linked
+      to their Wix Google Ads account.
+
+      Pass if the response:
+      - reads the site's account first (GET /v1/accounts/current-site) or uses
+        its account.id, AND
+      - updates the account with PATCH /v1/accounts/{account.id}, sending
+        account.id and merchantCenterAccountId, AND
+      - sends merchantCenterAccountId as "8736542190" (digits only), AND
+      - notes the Merchant Center owner must approve the link before it is active.
+
+      Fail if the response:
+      - sends "873-654-2190" or any value with dashes or spaces, OR
+      - creates a new Google Ads account instead of updating the existing one, OR
+      - invents an endpoint or falls back to Google's own API instead of the
+        Wix REST API.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error from the account update even if
+      recovered; sending the dashed ID then retrying with digits; guessing the
+      account id instead of reading it; redundant or probing calls clearer docs
+      would avoid. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
