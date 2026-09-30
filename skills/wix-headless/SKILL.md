@@ -9,7 +9,6 @@ allowed-tools:
   - Bash(npm install *)
   - Bash(npm run *)
   - Bash(node *)
-  - Bash(bash *)
   - Bash(cd *)
   - Bash(ls *)
   - Bash(mkdir *)
