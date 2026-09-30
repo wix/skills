@@ -16,7 +16,7 @@ npx @wix/cli@latest whoami   # exits 0 when logged in; non-zero when logged out
 If it's non-zero, **log in yourself** — don't punt to the user and stop. A foreground command that exits in seconds, one JSON event per line:
 
 ```bash
-node ../../entry/bootstrap.mjs   # path relative to this file
+node ../../scripts/bootstrap.mjs   # path relative to this file
 ```
 
 | Event | Do |
@@ -25,20 +25,9 @@ node ../../entry/bootstrap.mjs   # path relative to this file
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | Send `message` verbatim, then stop. Re-run the script when the user says they're done → `logged_in`. Re-running early returns the **same** code, not a new one. |
 | `cli_unreachable` / `login_failed` (`detail`) | Show `detail` and stop. |
 
-### If you'd rather not execute it
+### What the script does
 
-Read `../../entry/bootstrap.mjs` and do the same thing yourself. What matters:
-
-```bash
-# AI_AGENT must be set, or the CLI renders an interactive Ink TUI and emits no JSON.
-# Detach, redirecting to a FILE — a pipe dies with your process and the CLI gets EPIPE.
-AI_AGENT=my-agent nohup npx -y @wix/cli@latest login > /tmp/wix-login.log 2>&1 &
-
-grep -m1 awaiting_user /tmp/wix-login.log
-# {"event":"awaiting_user","expiresInSeconds":600,"userCode":"…","verificationUri":"…"}
-```
-
-Send the user that URL + code, then stop — nothing moves until they act. The detached login lands the session on its own; resume with `whoami` (exit 0). Codes last ~10 min; after that, start a new login and surface the new code.
+Read `../../scripts/bootstrap.mjs` if you want to see it: it sets `AI_AGENT` so the CLI emits JSON events instead of an interactive TUI, starts `wix login` detached with its output in a file under the OS temp dir (a pipe would die with the parent), and prints the device code. It is the one login path; there is no manual variant. Codes last ~10 min; after that, run it again and surface the new code.
 
 ## 2 · Mint the token
 
