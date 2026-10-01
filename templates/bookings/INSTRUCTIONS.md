@@ -339,11 +339,13 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Availability | `bookings/availability` |
 | Booking form | `bookings/settings/booking-form-page` |
 | Policies | `bookings/settings/policies` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Completing a booking online — free services included — needs a payment method on the site (Settings →
-Accept payments; "manual payments" is enough for free and pay-in-person); taking real online payments
-also needs a premium plan. Until then `book()` surfaces "the site is not accepting payments" — mention
-it, don't treat it as a code failure.
+Completing a booking online — free services included — needs a payment method on the site ("manual
+payments" is enough for free and pay-in-person); taking real online payments also needs a premium
+plan. Until then `book()` surfaces "the site is not accepting payments" and hosted checkout says
+"We can't accept online payments." Hand both links above in the close; don't treat it as a code failure.
 
 ## Seeding
 

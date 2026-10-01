@@ -284,11 +284,13 @@ as `dashboardUrl`). Rentals live in the Rentals dashboard, not the Bookings one 
 | Calendar | `bookings/calendar` |
 | Booking form | `bookings/settings/booking-form-page` |
 | Policies | `bookings/settings/policies` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Completing a rental online — free rentals included — needs a payment method on the site (Settings →
-Accept payments; "manual payments" is enough for free and pay-in-person); taking real online payments
-also needs a premium plan. Until then `rent()` surfaces "the site cannot take online bookings yet" —
-mention it, don't treat it as a code failure. Resources are seeded bookable around the clock;
+Completing a rental online — free rentals included — needs a payment method on the site ("manual
+payments" is enough for free and pay-in-person); taking real online payments also needs a premium
+plan. Until then `rent()` surfaces "the site cannot take online bookings yet" and hosted checkout says
+"We can't accept online payments." Hand both links above in the close; don't treat it as a code failure. Resources are seeded bookable around the clock;
 opening hours per resource are dashboard work (and split a multi-day rental into one booking per
 day) — say so.
 
