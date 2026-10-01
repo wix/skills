@@ -40,7 +40,7 @@ Use the user's values wherever they gave one. For the rest:
 | `name` | the user's wording | the user's wording | the user's wording |
 | `description` | 1–2 sentences you write | 1–2 sentences, say it's a group class | 1–2 sentences, say it's a multi-session course (mention the session count if given) |
 | `defaultCapacity` | `1` (required, must be 1) | `10` (participants per session) | `10` (participants for the whole course) |
-| Duration | 60 minutes, via `schedule.availabilityConstraints.sessionDurations` | set by each session's start and end (Step 5) | set by each session's start and end (Step 5) |
+| Duration | 60 minutes, via `schedule.availabilityConstraints.sessionDurations` | each session's start and end — only from the user (Step 5), never a default | each session's start and end — only from the user (Step 5), never a default |
 | Staff | one staff member, via `staffMemberIds` (required unless the service is booked by a resource — see Related recipes) | the instructor goes on the session events, not the service | the instructor goes on the session events, not the service |
 | `onlineBooking` | `{ "enabled": true }` | `{ "enabled": true }` | `{ "enabled": true }` |
 | `category` | the closest existing category | the closest existing category | the closest existing category |
@@ -49,6 +49,8 @@ Use the user's values wherever they gave one. For the rest:
 - The user gave a price → `rateType: "FIXED"` with that amount in `fixed.price.value`. For a class it's the price of one session; for a course it's the price of the whole course — don't divide it per session.
 - The user said "free" → `rateType: "NO_FEE"`.
 - The user gave no price → create the service free (`NO_FEE`), say so in the summary, and offer to set a price.
+
+**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7).
 
 **Currency.** Send only `fixed.price.value`; leave `price.currency` out. The service always takes the site's payment currency — a currency you send is replaced with it (a `"JPY"` price on a USD site is stored as USD). Don't look up the site currency first; read it from the create response when you report the price.
 
