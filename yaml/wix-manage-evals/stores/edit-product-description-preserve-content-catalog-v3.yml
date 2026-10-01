@@ -4,7 +4,7 @@ triggerPrompt: >
   Prepend "New seasonal note." to the description of my "Eval Gate Ricos Mug" product.
   Keep every existing element in the description exactly as it is.
 tags: [stores]
-maxTokens: 25000
+maxTokens: 450000
 assertions:
   - tool: ReadFullDocsArticle
     params:
