@@ -84,7 +84,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The run
 
-Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
+Needed throughout: Node ≥ 22.12 (Astro 7; the Wix CLI alone runs on 20.11), git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
 `npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
 read tokens into context), and the two companion skills installed beside this one, `wix-docs`
 and `wix-manage`. `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login
