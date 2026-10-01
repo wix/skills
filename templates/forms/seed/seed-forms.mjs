@@ -213,8 +213,9 @@ function buildField(spec, taken) {
   if (spec.maxItems != null) validation.maxItems = spec.maxItems;
   if (values.length) {
     if (kind.inputType === "ARRAY") {
-      validation.itemType = "STRING";
-      validation.items = { stringOptions: other ? {} : { enum: values } };
+      // `itemType` sits INSIDE `items`, beside the options block; one level up the create is a 400
+      // whose message blames the options block ("itemType cannot be provided with ...").
+      validation.items = { itemType: "STRING", stringOptions: other ? {} : { enum: values } };
     } else if (!other) {
       validation.enum = values;
     }
@@ -413,6 +414,65 @@ async function verifyForm(ctx, formId, expected, body) {
   return { fieldsLive: live.size, steps: stepsLive, rules: rulesLive, degraded };
 }
 
+// ---- plan limits -----------------------------------------------------------------------------
+
+/**
+ * The caps the site's plan puts on forms, read live (Get Restrictions). A free site: 4 forms,
+ * 10 input fields per form, 3 steps, 3 rules. A paid plan lifts them, so they are never
+ * hardcoded here. Null when the call fails; the create then reports the cap itself.
+ */
+async function readLimits(ctx) {
+  try {
+    const { restrictions, totalFormCount } = await req(ctx, "/form-app-service/v4/restrictions", { method: "GET" });
+    const limit = (key) => restrictions?.[key]?.limit;
+    return {
+      forms: limit("formsLimit"),
+      fields: limit("fieldsLimit"),
+      steps: limit("stepsLimit"),
+      rules: limit("rulesLimit"),
+      totalFormCount: totalFormCount ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Checks the whole plan against the site's caps BEFORE any create, so the agent fixes the plan
+ * in one step instead of decoding the service's message one form at a time. The service rejects
+ * the whole form (FIELDS_COUNT_RESTRICTIONS_ERROR and friends); nothing would be created either
+ * way, but a local check costs no round trip.
+ */
+function checkPlanAgainstLimits(ctx, plan, byName, limits) {
+  if (!limits) return;
+  const over = (n, cap) => cap != null && n > cap;
+  const problems = [];
+  let newForms = 0;
+  for (const f of plan.forms ?? []) {
+    if (byName.has(f.name)) continue; // left as is, never counts twice
+    newForms += 1;
+    const fields = (f.fields ?? []).length;
+    const steps = (f.steps ?? []).length;
+    const rules = (f.rules ?? []).length;
+    if (over(fields, limits.fields)) problems.push(`form "${f.name}": ${fields} fields, this site's plan allows ${limits.fields} per form`);
+    if (over(steps, limits.steps)) problems.push(`form "${f.name}": ${steps} steps, this site's plan allows ${limits.steps} per form`);
+    if (over(rules, limits.rules)) problems.push(`form "${f.name}": ${rules} rules, this site's plan allows ${limits.rules} per form`);
+  }
+  if (over(limits.totalFormCount + newForms, limits.forms)) {
+    problems.push(
+      `${newForms} new form(s) on top of the site's ${limits.totalFormCount} would exceed this site's plan limit of ${limits.forms} forms`,
+    );
+  }
+  if (!problems.length) return;
+  throw new Error(
+    `The plan exceeds this site's plan limits; nothing was created:\n  - ${problems.join("\n  - ")}\n` +
+      `Either trim the plan to the limits, or the owner upgrades the site's plan at ` +
+      `https://www.wix.com/upgrade/website?metaSiteId=${ctx.siteId} and the same plan runs unchanged. ` +
+      `Do not split one form in two to fit: it spends a form slot and splits a visitor's answers across two records. ` +
+      `Say which way you went in the closing message.`,
+  );
+}
+
 /**
  * Create every form in the plan. Existing forms are left alone — matching by name, since a
  * re-run must not create a second copy of the same form.
@@ -426,6 +486,8 @@ export async function setupForms(ctx, plan) {
     { method: "GET" },
   ).catch(() => ({ forms: [] }));
   const byName = new Map((existing.forms ?? []).map((f) => [f.name, f]));
+
+  checkPlanAgainstLimits(ctx, plan, byName, await readLimits(ctx));
 
   const out = [];
   for (const planForm of plan.forms ?? []) {
