@@ -120,18 +120,16 @@ Presentation success applies across all five stages. Choose both the right **rep
 
 ### Choosing the Right Drill-In
 
-Default to an editable entity page when a user opens a collection record, for both CMS and vertical SDK data. A request to "show" a "table" or "list" does not imply read-only behavior. Apply [DRAFT_TEMPLATE.md's selection rule](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page) before choosing the interface.
+Default CMS and vertical collections to editable entity pages. "Show a table" does not mean read-only. See [template selection](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page) for exceptions.
 
 | Interface | Use when… | Success looks like… |
 |---|---|---|
-| **Entity page** | Default for opening a business record unless the user explicitly requests read-only behavior or editing is unsupported. | Editable fields, validation, and a save that persists to the source. |
-| **Read-only detail page** | The user explicitly requests read-only behavior, or a verified data-source limitation prevents editing any fields. | Fully readable, linkable, one back-click from the list; any editing limitation is explained. |
+| **Entity page** | Default for opening a business record. | Editable fields, validation, and a save that persists. |
+| **Read-only detail page** | Explicitly requested, or the source is verified to support no edits. | Linkable, one back-click from the list; limitations explained. |
 | **Modal** | A focused, bounded task that is not "open this record". | Attention stays on one task; the user returns cleanly. |
 | **Inline or expanded row** | A quick look *alongside* the drill-in, not instead of it. | Detail appears without a separate workspace. |
 
-Opening an item is a **route**, editable or not. A side panel is not one of the choices: in Cairo it hosts a page's own
-panels. A display-only record still routes, just to a WDS `Page`, since `EntityPage` has no view
-mode.
+Records open as **routes**. Side panels host a page's own panels, not records. Read-only details use a WDS `Page` because `EntityPage` has no view mode.
 
 Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in the installed package's `Collection Toolkit.md` guide — reached through [The Discovery Chain](../WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
