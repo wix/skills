@@ -19,7 +19,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
-Requires Node ≥ 20.11 and a logged-in Wix CLI — the bootstrap checks the CLI and guides the
+Requires Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and guides the
 login.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
@@ -48,11 +48,11 @@ there: the skill reads the folder and knows what it is. Everything below — the
 bootstrap, the scaffold — lands in this folder too, so a later session opened in the project finds
 all of it.
 
-The Wix CLI requires **Node ≥ 20.11**. Check `node -v`; if it errors or prints a lower
-version, install or upgrade Node first — do **not** work around it:
+The Astro stack requires **Node ≥ 22.12** (Astro 7). Check `node -v`; if it errors or prints a
+lower version, install or upgrade Node first — do **not** work around it:
 
-- **macOS:** `brew install node` (or `nvm install 20 && nvm use 20`)
-- **Linux:** `nvm install 20 && nvm use 20` (or your distro's Node 20+ package)
+- **macOS:** `brew install node` (or `nvm install 22 && nvm use 22`)
+- **Linux:** `nvm install 22 && nvm use 22` (or your distro's Node 22+ package)
 - **Windows:** `winget install OpenJS.NodeJS.LTS` (or download from nodejs.org)
 
 ## Phase 1 — Install the skills
