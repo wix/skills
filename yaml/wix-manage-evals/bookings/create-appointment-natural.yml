@@ -30,6 +30,9 @@ assertions:
       - sets a 60-minute duration via `schedule.availabilityConstraints.sessionDurations`, AND
       - sets a fixed price of 75 (`payment.rateType: "FIXED"` with `fixed.price.value` "75" or "75.00"), AND
       - enables online booking (`onlineBooking.enabled: true`), AND
+      - sets `category.id` to a category id returned by a categories query (or a
+        category create) on this site — a service without a category isn't shown on
+        the live site, AND
       - reports the created service back to the user based on a successful create response.
 
       Fail if the agent:

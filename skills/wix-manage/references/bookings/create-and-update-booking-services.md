@@ -10,7 +10,8 @@ One recipe for every Bookings service: pick the type, fill in what the user didn
 All service types are created with the same call (`POST https://www.wixapis.com/bookings/v2/bulk/services/create`); the type decides which fields the body carries and what has to happen after it.
 
 Related recipes:
-- A service driven by rooms or equipment instead of (or as well as) staff → [Multi-Resource Service Creation](multi-resource-service-creation.md).
+- A service booked by room or equipment instead of (or as well as) staff — "a massage in whichever treatment room is free" → [Multi-Resource Service Creation](multi-resource-service-creation.md). It creates the resource types and resources and gives the service body (`serviceResources`, and `primaryResourceType` for an appointment with no staff); this recipe's staff rules don't apply to such a service.
+- Memberships, class packs or session bundles for a service → [Create and Update Pricing Plans](../pricing-plans/create-and-update-pricing-plans.md).
 - Adding staff, or giving a staff member custom working hours → [Bookings Staff Setup](bookings-staff-setup.md).
 - Cancellation, booking-window or waitlist rules → [Booking Service Policy Setup](booking-service-policy-setup.md).
 
@@ -40,7 +41,7 @@ Use the user's values wherever they gave one. For the rest:
 | `description` | 1–2 sentences you write | 1–2 sentences, say it's a group class | 1–2 sentences, say it's a multi-session course (mention the session count if given) |
 | `defaultCapacity` | `1` (required, must be 1) | `10` (participants per session) | `10` (participants for the whole course) |
 | Duration | 60 minutes, via `schedule.availabilityConstraints.sessionDurations` | set by each session's start and end (Step 5) | set by each session's start and end (Step 5) |
-| Staff | one staff member, via `staffMemberIds` (required) | the instructor goes on the session events, not the service | the instructor goes on the session events, not the service |
+| Staff | one staff member, via `staffMemberIds` (required unless the service is booked by a resource — see Related recipes) | the instructor goes on the session events, not the service | the instructor goes on the session events, not the service |
 | `onlineBooking` | `{ "enabled": true }` | `{ "enabled": true }` | `{ "enabled": true }` |
 | `category` | the closest existing category | the closest existing category | the closest existing category |
 
@@ -75,7 +76,7 @@ Use each staff member's `resourceId` — not its `id` — everywhere this recipe
 { "query": {} }
 ```
 
-A service without a category isn't shown on the live site, and services aren't assigned one automatically. Pick the existing category that fits (sites start with one, "Our Services"). If none fits and the user named one, create it — `POST https://www.wixapis.com/bookings/v2/categories` with `{ "category": { "name": "Fitness" } }` — and use the returned `category.id`.
+A service without a category isn't shown on the live site, and services aren't assigned one automatically, so every create body carries a `category.id`. Use the category the user named; otherwise the existing one that fits the service (a fresh Bookings install has one, "Our Services"; template sites often have others); otherwise the only one there is. If the user named a category that doesn't exist, or the site has none, create it — `POST https://www.wixapis.com/bookings/v2/categories` with `{ "category": { "name": "Fitness" } }` (the user's name, or "General" when they gave none) — and use the returned `category.id`.
 
 **Existing services** (duplicate check):
 
@@ -260,7 +261,22 @@ Rules for every session event:
 
 The result lists the generated sessions (`INSTANCE` events for a weekly class, the single events for a course). For a course, the service itself also reports the span: `GET https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` returns `schedule.firstSessionStart` and `schedule.lastSessionEnd` once sessions exist.
 
-To change sessions later, use [Bulk Update Event](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event).
+**Change sessions later** with `POST https://www.wixapis.com/calendar/v3/bulk/events/update`, sending each event's `id`, its current `revision` and only the fields that change:
+
+```json
+{
+  "events": [{
+    "event": {
+      "id": "<EVENT_ID>",
+      "revision": "<EVENT_REVISION>",
+      "start": { "localDate": "2026-10-13T19:00:00" },
+      "end": { "localDate": "2026-10-13T20:00:00" }
+    }
+  }]
+}
+```
+
+For a weekly class, update the `MASTER` event (its id is in the create response, or query events with `"recurrenceType": ["MASTER"]`) to move every future session; updating one `INSTANCE` changes only that session. Details: [Bulk Update Event](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event).
 
 ### Step 6: Appointment availability
 
@@ -326,7 +342,7 @@ The price takes the site's currency, as on create. To change only the amount of 
 
 **Several services at once.** [Bulk Update Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services) takes a list of services (each with its own `id` and `revision`); [Bulk Update Services By Filter](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter) applies one change to every service a filter matches ("make all my services 60 minutes").
 
-**Changing the type** of a service deletes its schedule and sessions and creates a new schedule. Confirm with the user before doing it, and schedule the sessions again (Step 5).
+**Changing the type** (`"type": "COURSE"` in the same PATCH) deletes the service's schedule and sessions and creates a new schedule. Confirm with the user before doing it, then schedule the sessions again on the new `schedule.id` (Step 5).
 
 **Deleting a service**: `DELETE https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` cancels its future sessions. Confirm with the user first.
 
@@ -337,6 +353,7 @@ The price takes the site's currency, as on create. To change only the amount of 
 | Error | Cause | Fix |
 |---|---|---|
 | `service of type appointment requires at least one staff member id` | APPOINTMENT without `staffMemberIds` | Query staff (Step 3) and send a `resourceId` |
+| `primary_resource_type is required for appointment services without staff members` | An APPOINTMENT booked by a room or equipment | Follow [Multi-Resource Service Creation](multi-resource-service-creation.md) for the body |
 | `INVALID_PAYMENT_OPTIONS` — "mandatory to specify either payment.options.online or payment.options.inPerson as true" | No payment option set | Set `inPerson: true` (free) or `online: true` (paid) |
 | `INVALID_PAYMENT_OPTIONS` — "online as true is applicable only to payments of types FIXED or VARIED" | `online: true` on a `NO_FEE` service | Free services use `online: false, inPerson: true` |
 | `Payment of type FREE cannot be used with payment.rate` | Price set on a `NO_FEE` service without changing `rateType` | Send `rateType: "FIXED"`, `options` and `fixed.price` in one update |
