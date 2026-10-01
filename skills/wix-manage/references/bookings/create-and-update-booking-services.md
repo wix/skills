@@ -50,7 +50,7 @@ Use the user's values wherever they gave one. For the rest:
 - The user said "free" → `rateType: "NO_FEE"`.
 - The user gave no price → create the service free (`NO_FEE`), say so in the summary, and offer to set a price.
 
-**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7).
+**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7). This holds when you're working on your own and can't wait for an answer, too: an instruction to proceed on reasonable assumptions covers the service's other fields, never its schedule — sessions you pick are a timetable the owner didn't choose, published to customers.
 
 **Currency.** Send only `fixed.price.value`; leave `price.currency` out. The service always takes the site's payment currency — a currency you send is replaced with it (a `"JPY"` price on a USD site is stored as USD). Don't look up the site currency first; read it from the create response when you report the price.
 
@@ -190,7 +190,7 @@ Price-by-variant (`VARIED`), custom-text (`CUSTOM`), deposits and pricing plans 
 A CLASS or COURSE has no sessions when it's created, so customers can't book it, and a course with no future sessions shows as ended on its service page. Sessions are Calendar events on the service's own schedule (`item.schedule.id` from Step 4).
 
 - **The user gave days and times** ("Tuesdays at 6pm", "8 Wednesday evenings from the 14th") → create the sessions now.
-- **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule.
+- **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule — not even when you're told to proceed without asking; in that case finish with the service alone and name exactly what's missing.
 
 Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call).
 
