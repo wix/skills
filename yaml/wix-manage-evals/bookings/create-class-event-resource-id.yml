@@ -1,0 +1,51 @@
+name: bookings/create-class-event-resource-id
+description: >-
+  Verifies that when creating a recurring CLASS service and scheduling its
+  weekly sessions, the agent sources a real Resource id (a staff member's
+  resourceId) for the calendar event's resources — not the just-created
+  service id, which the Calendar API rejects with a 404.
+triggerPrompt: >-
+  Set up a free "Beginner Yoga" class, capacity 10, every Monday from 18:00 to
+  20:00 starting next Monday.
+tags: [bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants a free, weekly recurring "Beginner Yoga" CLASS service on Wix Bookings,
+      capacity 10, every Monday 18:00-20:00 starting next Monday. Evaluate the final response
+      and the Wix API calls made.
+
+      Pass if the agent:
+      - creates the service via `bulkCreateServices` with `type: "CLASS"`, `defaultCapacity: 10`,
+        a free payment configuration (`rateType: "NO_FEE"`, `options.inPerson: true`), AND
+      - queries staff members (or resources) to obtain a real `resourceId`, AND
+      - creates the recurring Monday session(s) via `bulkCreateEvents`/`bulkCreateEvent` using
+        `service.schedule.id` as `scheduleId`, `type: "CLASS"`, and `resources: [{ id: <the
+        queried resourceId> }]` — a real Resource id, not the service id, AND
+      - the calendar event creation call succeeds (2xx) in the trace, AND
+      - reports the class as created and scheduled.
+
+      Fail if the agent:
+      - passes the bookings service id (or its schedule id) as `event.resources[].id`, OR
+      - omits `event.resources` entirely on a CLASS event, OR
+      - hits a 404 "Resource … ID not found" (or any resource-id error) and does not recover by
+        querying for a real resource id, OR
+      - claims the class is fully scheduled without a successful calendar event creation call.
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call
+      trace. Score 0-10 (10 = direct: service created, one staff/resource query, event created,
+      no errors). Penalize and LIST any of: a non-2xx error even if recovered (especially a 404
+      "Resource … ID not found" from passing the wrong id type as event.resources[].id); a
+      request-body shape guessed wrong then corrected; redundant or probing calls clearer docs
+      would avoid. For each friction, name the likely recipe/docs/MCP gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
