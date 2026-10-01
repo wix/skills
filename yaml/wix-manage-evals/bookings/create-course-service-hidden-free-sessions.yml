@@ -1,17 +1,18 @@
 name: bookings/create-course-service-hidden-free-sessions
 description: >-
-  Verifies that the course creation recipe handles hidden/free test courses with
-  a requested session count by creating the service first and then scheduling
-  course events separately, without inventing Services V2 course.sessions fields.
+  Verifies the course path end to end on a fresh bookings site: a hidden, free COURSE
+  created through Services V2, then its 8 sessions created separately as COURSE Calendar
+  events on the service's own schedule (never as nested Services V2 course fields), and
+  confirmed before the agent reports them. Replaces an explain-only version of the same
+  request that a run could pass without creating anything.
 triggerPrompt: >-
-  Before changing my Wix site, explain exactly which Wix APIs you would use to
-  create a hidden free COURSE service called Test Kurs with 8 future online
-  sessions, and what you would verify before telling me it is bookable.
+  Create a hidden, free test course on my Wix site called "Test Kurs" with 8 weekly
+  sessions on Wednesdays from 19:00 to 20:30, starting next Wednesday.
 tags: [bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
 assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-course-service
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services
@@ -19,20 +20,59 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user is asking for a non-mutating plan before creating a hidden free Wix Bookings COURSE service named "Test Kurs" with 8 future online sessions.
-      Intent: explain the safe API sequence for creating a functional course without mutating the site during the eval.
+      The user asked for a hidden, free COURSE named "Test Kurs" with 8 weekly sessions on
+      Wednesdays 19:00-20:30 starting next Wednesday. Examine the tool-call trace,
+      including request and response bodies, and the final response.
 
-      Pass if the response:
-      - says to create the COURSE service with Services V2 `bulkCreateServices`, using `type: "COURSE"`, `onlineBooking.enabled: true`, `defaultCapacity`, and free payment via `rateType: "NO_FEE"` with a valid payment option such as `options.inPerson: true`, AND
-      - says to use the returned `service.schedule.id` to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
-      - says the Calendar events should use `event.type: "COURSE"` and include at least one resource/staff `resourceId`, AND
-      - warns that creating only the service does not make the course bookable and may leave the service page showing ended/unavailable, AND
-      - says to verify future course events exist before telling the user the course is bookable, AND
-      - avoids mutating the site in the answer because the user asked for an explanation first.
+      Pass only if ALL hold:
+      - exactly one service named "Test Kurs" is created with `type: "COURSE"`,
+        `hidden: true`, and free payment (`rateType: "NO_FEE"` with
+        `options.inPerson: true`), via a successful (2xx, `itemMetadata.success: true`)
+        create call, AND
+      - the sessions are created with Calendar event calls that succeed, as `COURSE`
+        events whose `scheduleId` equals the created service's `schedule.id`, each with a
+        staff `resourceId` from this site in `resources`, AND
+      - exactly 8 sessions result — either 8 single events, or a weekly Wednesday
+        recurrence whose `until` ends it after the 8th session — all on Wednesdays,
+        19:00-20:30 local, the first on a Wednesday that is today or later, AND
+      - the agent confirms the sessions exist (an events query or the service's
+        `schedule.firstSessionStart` / `lastSessionEnd`) or reports them from successful
+        create responses, AND
+      - the final response says the course is hidden and free and lists the session
+        dates.
 
-      Fail if the response:
-      - puts the 8 sessions under `course.sessions`, `CourseSession`, or another nested Services V2 course field instead of Calendar Events, OR
-      - claims `bulkCreateServices` alone creates bookable course sessions, OR
-      - omits `bulkCreateEvents` or the returned `service.schedule.id`, OR
-      - says the course is ready/bookable without verifying future events, OR
-      - tries to perform the creation instead of explaining the API plan.
+      Fail if:
+      - session dates or counts are put inside the Services V2 payload (`course.sessions`,
+        `CourseSession`, or any nested course field) instead of Calendar events, OR
+      - the service is not hidden, is not free, or is not a COURSE, OR
+      - any number of sessions other than 8 is created, or on another day or time, OR
+      - the agent reports sessions without a successful event-create response in the
+        trace, OR
+      - it only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent created the course and its sessions. Examine the
+      tool-call trace, including request bodies and error bodies. Score 0-10 (10 = direct:
+      the site reads it needs, one service create, one bulk event create, at most one
+      verification read). Reading the recipe is expected and never a wasted call.
+
+      HEAVY penalties (each costs 2-3 points):
+      - an event call rejected with `resources.permissionRole must not be UNKNOWN_ROLE`
+        or with a missing-resources error
+      - events sent without the `{ "event": { ... } }` wrapper, or on the wrong schedule
+      - a service create sent without `returnEntity: true` that forces an extra read just
+        to find `schedule.id`
+      - a free service rejected for its payment options (e.g. `online: true` on NO_FEE)
+      - any other non-2xx error on a create call, or duplicate services/events
+
+      LIGHT penalties (each costs at most 1 point):
+      - sessions created one call at a time instead of in one bulk call
+      - a Site Properties lookup just to learn the currency, or an installed-apps check
+        before the first Bookings call
+      - a request-body shape guessed wrong then corrected, or other probing calls
+
+      For each friction, name the likely cause: recipe, MCP, or docs gap. A path with only
+      light penalties should still score 7+.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

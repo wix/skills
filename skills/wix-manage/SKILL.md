@@ -92,19 +92,7 @@ Documents undocumented API patterns for booking payments. Covers Bookings→Ecom
 "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
-Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
-
-### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
-"Create a booking service from a user prompt — e.g. 'create a yoga class for $50', 'set up consultations for $75', 'add a personal training appointment', 'create a 6-week photography workshop', 'create a hidden free test course with 8 online sessions'. Determines the service type (APPOINTMENT, CLASS, or COURSE) and delegates to the type-specific recipe. For COURSE services with session dates/counts, follow the course recipe's separate Calendar bulkCreateEvents step; Services V2 alone does not create bookable course sessions."
-
-### [Create Appointment Service](references/bookings/create-appointment-service.md)
-"Create an appointment booking service — e.g. 'set up consultations', 'create a 1-on-1 session', 'add a personal training appointment', 'create a meeting service for $25'. Handles staff assignment (required), session duration, pricing, and 1-on-1 capacity defaults via bulkCreateServices API."
-
-### [Create Class Service](references/bookings/create-class-service.md)
-"Create a class booking service — e.g. 'create a yoga class for $50', 'set up a pilates class', 'add a group fitness session', 'create a weekly meditation class'. Handles group capacity, recurring session defaults, and pricing via bulkCreateServices API. Staff assignment is not used for classes."
-
-### [Create Course Service](references/bookings/create-course-service.md)
-"Create a course booking service — e.g. 'create a 6-week photography workshop', 'set up a training program', 'add a bootcamp course for $300', 'create a hidden free test course with 8 sessions'. Handles group capacity, full-course pricing, bulkCreateServices, and separate course session events via bulkCreateEvents. Staff assignment is not used for courses."
+"Creates and updates Wix Bookings services of every type — appointments, classes and courses — from a plain request such as 'a 60-minute consultation for $75', 'a yoga class for 12 people every Tuesday' or 'a 6-week photography course'. Covers choosing the service type, defaults for what the request leaves out, pricing (free, fixed, free-to-paid), staff, capacity, duration, categories, visibility, images, scheduling class and course sessions on the calendar, and changing existing services."
 
 ### [Check Bookings Availability (and Diagnose Issues)](references/bookings/diagnose-availability-issues.md)
 "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
