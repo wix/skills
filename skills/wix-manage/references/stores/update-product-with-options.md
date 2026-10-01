@@ -14,7 +14,8 @@ Every Catalog V3 product update is revision-based:
 - Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product, its `product.revision`, and its existing variants. Search Products and Query Products responses do not include `variantsInfo.variants`, so a variant or price update assembled from a search result sends an empty variants array and is rejected. Re-read the product before every variant-level update.
 - Include `product.id` and the current `product.revision` in every [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) PATCH body.
 - Update Product is a partial update: only `product`, `product.id`, and `product.revision` are required, and top-level fields you omit (for example `name`, `ribbon`, `brand`) are left unchanged. The full-array overwrite rule applies only to the repeated fields `options`, `modifiers`, and `variantsInfo.variants`.
-- For simple text/HTML description updates, prefer `plainDescription`. Use `description` only when sending a Rich Content object.
+- Get Product returns a default set of fields. When an update keeps or carries over existing projected data, request that data in `fields` before building the PATCH. For any edit that keeps part of the existing product description, request `DESCRIPTION`; a read without it has no Rich Content document to preserve.
+- For description changes, see [Update Description](#update-description): replacing the whole description uses `plainDescription`; editing any existing content uses the Rich Content `description` field.
 
 ### Find the product by name
 
@@ -37,6 +38,15 @@ For product-name lookup, prefer Search Products before retrieving the product by
 curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Authorization: <AUTH>"
 ```
+
+To edit an existing description, request its Rich Content document in the same read:
+
+```bash
+curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION" \
+  -H "Authorization: <AUTH>"
+```
+
+`product.description` is returned only when `DESCRIPTION` is requested. Request every other projected field that you need to carry over with its documented `fields` value as well.
 
 ## Common Update Patterns
 
@@ -66,9 +76,16 @@ Visibility behaviour to report back accurately:
 - For a product **with** options, product and variant visibility are independent: setting `product.visible` to `false` leaves each `variantsInfo.variants[].visible` as it was.
 - Point-of-sale visibility is a separate field, `visibleInPos`. Only change it when the user asks about POS. It is always `false` for `productType: DIGITAL`.
 
-### Update Description Only
+### Update Description
 
-For a normal user request like "set the product description to X", use `plainDescription` with valid HTML. The API converts it to rich content.
+Choose the flow from the user's request:
+
+- "Set the description to X", "replace the description", or "write a new description": **Replace the Description**.
+- "Add", "append", "prepend", "insert", "fix a typo", or "remove" existing text: **Edit the Existing Description**. Any request that keeps part of the current description is an edit.
+
+#### Replace the Description
+
+For a request like "set the product description to X", use `plainDescription` with valid HTML. The API converts it to rich content.
 
 Do not send a plain string in `description`. `description` is a Rich Content object.
 
@@ -85,7 +102,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-Use `description` only when you intentionally need to send Rich Content:
+Use `description` only when you intentionally need to send Rich Content. For valid Ricos node shapes, read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md):
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -121,6 +138,39 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
         }
     }
   }'
+```
+
+Both fields replace the whole description. To keep any existing content, use **Edit the Existing Description**.
+
+#### Edit the Existing Description
+
+Edit an existing description as Rich Content so its formatting, links, images, and other nodes remain unchanged. Do not round-trip an edit through `plainDescription`: HTML cannot represent every Rich Content node.
+
+1. Read the product with `?fields=DESCRIPTION` and use `product.revision` from that response.
+2. If `product.description` is missing or has no `nodes`, do not write. Tell the user that the existing description could not be read, and ask for confirmation before replacing it.
+3. Start with `product.description` exactly as returned — including `nodes`, `metadata`, and `documentStyle`. Change only the requested part: insert a new `PARAGRAPH` node at the start or end to prepend or append text; for a wording change, alter only the matching `TEXT` node's `textData.text`.
+4. PATCH the full edited `product.description` object with the current revision. Do not send `plainDescription` in this PATCH.
+
+For example, to prepend text, add this node at index `0` of the returned `product.description.nodes` array and leave every other returned node intact:
+
+```json
+{
+  "type": "PARAGRAPH",
+  "nodes": [
+    {
+      "type": "TEXT",
+      "textData": {
+        "text": "New text.",
+        "decorations": []
+      }
+    }
+  ],
+  "paragraphData": {
+    "textStyle": {
+      "textAlignment": "AUTO"
+    }
+  }
+}
 ```
 
 ### Update Options and Variants
