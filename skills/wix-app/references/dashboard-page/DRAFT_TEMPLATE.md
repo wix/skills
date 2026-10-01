@@ -29,7 +29,7 @@ for k, e in i.items():
 Use the `Collection and Read-Only Detail Template` instead in exactly three cases:
 
 - **The user explicitly asks for read-only** — "view only", "do not allow changes".
-- **The source is verified to support no edits** — the schema or the documented update API leaves no editable field, or it is a CMS collection that can never be updated (owned by a Wix app, shared from another site, or without an update operation). Check before concluding: keep immutable fields read-only while editing the supported ones. When editing only needs setup (a permission, a role, an elevated backend call), keep the editable page and name the setup. Never ship a form whose save always fails.
+- **The source is verified to support no edits** — the schema or the documented update API leaves no editable field, or it is a CMS collection that can never be updated (owned by a Wix app other than Members and Forms, shared from another site, or without an update operation). Check before concluding: keep immutable fields read-only while editing the supported ones. When editing only needs setup (a permission, a role, an elevated backend call), keep the editable page and name the setup. Never ship a form whose save always fails.
 - **The records are a log your app writes** — a backend event handler or job records something that happened elsewhere (a payment, a submission, an audit entry). Editing such a record falsifies history without changing what it describes, so it opens read-only unless the user asks to edit it.
 
 An explicit report-only or export-only request needs no detail page at all. Never invent an update method or a no-op save handler to satisfy the default.
