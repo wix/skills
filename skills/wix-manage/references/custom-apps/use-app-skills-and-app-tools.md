@@ -25,11 +25,11 @@ All four calls act on the site in the call's context and take no site ID in the 
 
 Make both calls. They are independent, so run them in parallel.
 
-**List App Skills**: `GET https://manage.wix.com/_api/app-skills/v1/app-skills`
+**List App Skills**: `GET https://www.wixapis.com/_api/app-skills/v1/app-skills`
 
 ```bash
 curl -X GET \
-  'https://manage.wix.com/_api/app-skills/v1/app-skills' \
+  'https://www.wixapis.com/_api/app-skills/v1/app-skills' \
   -H 'Authorization: <AUTH>'
 ```
 
@@ -60,11 +60,11 @@ curl -X GET \
 - Match the user's request against each skill's `description`, `tags` and `examples`.
 - `inputModes` and `outputModes` list the media types the skill accepts and produces (for example `text/plain`, `application/json`). Empty means no restriction.
 
-**List Tools Providers**: `POST https://manage.wix.com/_api/tools-host/v1/list-tools-providers`
+**List Tools Providers**: `POST https://www.wixapis.com/_api/tools-host/v1/list-tools-providers`
 
 ```bash
 curl -X POST \
-  'https://manage.wix.com/_api/tools-host/v1/list-tools-providers' \
+  'https://www.wixapis.com/_api/tools-host/v1/list-tools-providers' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{}'
@@ -122,11 +122,11 @@ When the user asks what their apps can do, present the skills and tools grouped 
 
 ## Step 3: Read the chosen skill
 
-**Get App Skill**: `GET https://manage.wix.com/_api/app-skills/v1/app-skills/{appSkillId}`, with the `id` from List App Skills (`<APP_SKILL_ID>` below).
+**Get App Skill**: `GET https://www.wixapis.com/_api/app-skills/v1/app-skills/{appSkillId}`, with the `id` from List App Skills (`<APP_SKILL_ID>` below).
 
 ```bash
 curl -X GET \
-  'https://manage.wix.com/_api/app-skills/v1/app-skills/<APP_SKILL_ID>' \
+  'https://www.wixapis.com/_api/app-skills/v1/app-skills/<APP_SKILL_ID>' \
   -H 'Authorization: <AUTH>'
 ```
 
@@ -156,11 +156,11 @@ A `404` with `APP_SKILL_NOT_FOUND` means the skill is no longer available on the
 
 ## Step 4: Run an app tool
 
-**Invoke Tool**: `POST https://manage.wix.com/_api/tools-host/v1/invoke-tool`
+**Invoke Tool**: `POST https://www.wixapis.com/_api/tools-host/v1/invoke-tool`
 
 ```bash
 curl -X POST \
-  'https://manage.wix.com/_api/tools-host/v1/invoke-tool' \
+  'https://www.wixapis.com/_api/tools-host/v1/invoke-tool' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{

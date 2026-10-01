@@ -8,7 +8,7 @@ description: >-
 triggerPrompt: >-
   Do any of the apps on my site have AI skills or tools you can use for me?
   What can they do?
-tags: [app-installation]
+tags: [custom-apps, app-installation]
 siteSetup:
   mode: template
   templateId: blank-editor
