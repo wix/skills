@@ -11,7 +11,7 @@ All service types are created with the same call (`POST https://www.wixapis.com/
 
 Related recipes:
 - A service booked by room or equipment instead of (or as well as) staff — "a massage in whichever treatment room is free" → [Multi-Resource Service Creation](multi-resource-service-creation.md). It creates the resource types and resources and gives the service body (`serviceResources`, and `primaryResourceType` for an appointment with no staff); this recipe's staff rules don't apply to such a service.
-- Memberships, class packs or session bundles for a service → [Create and Update Pricing Plans](../pricing-plans/create-and-update-pricing-plans.md).
+- Memberships, class packs or session bundles for a service → [Pricing Plans Bookings Integration](../pricing-plans/pricing-plans-bookings-integration.md).
 - Adding staff, or giving a staff member custom working hours → [Bookings Staff Setup](bookings-staff-setup.md).
 - Cancellation, booking-window or waitlist rules → [Booking Service Policy Setup](booking-service-policy-setup.md).
 
