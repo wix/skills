@@ -67,7 +67,11 @@ Astro stack additionally gets:
    configured; the marketing checkbox; terms and privacy links), the 10-minute countdown on the
    automatic path, and the confirmed vs pending states — on `useReservation`.
 4. **The home page** — hero, a featured-dishes strip (fetch `fetchMenus()` in frontmatter →
-   your cards; `item.featured` marks highlights), hours/location story, reserve CTA.
+   your cards; `item.featured` marks highlights), hours/location story, reserve CTA. Every card
+   is a link to its dish on the menu: `/menu#item-<item.id>` (the shipped `MenuItemCard` renders
+   that id; `#section-<section.id>` lands on the section). When the brief includes ordering and
+   the item is orderable, the card may also carry the add-to-order control, on `useOrderCart`
+   exactly as `MenuItemCard` does; a card the visitor cannot act on is a dead end.
 
 Plus the **theme** (`@theme` block, one edit) and the **chrome** (`SiteLayout`, one pass).
 
@@ -444,9 +448,12 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Ordering settings (pickup/delivery hours, fees, menu hours) | `wix-restaurants-orders-new/settings` |
 | Reservations | `wix-table-reservations/table-reservations` |
 | Floor plan | `wix-table-reservations/floor-plan` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Real paid orders need a premium plan + a connected payment method, and holding, completing, or
-requesting an online reservation is premium-gated — mention both.
+Real paid orders need a connected payment method **and** a premium plan, and holding, completing, or
+requesting an online reservation is premium-gated. Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."**
+Hand both links above in the close and name the reservations gate; don't treat either as a code failure.
 
 ## Seeding
 
