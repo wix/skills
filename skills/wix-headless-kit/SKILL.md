@@ -267,7 +267,14 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    `https://manage.wix.com/dashboard/<siteId>` (the `siteId` of the `ready_for_brand_layer`
    event: on a migration preview that is the migrated site's dashboard, the release URL is the
    preview's, the original site is unchanged, and completing the migration is the user's next
-   step in the Wix CLI once they approve — say all three). **Copy the live URL verbatim from the
+   step in the Wix CLI once they approve — say all three). When the site takes money through
+   hosted checkout (a cart, a paid booking or rental, tickets, plans, donations) and nothing says
+   payments are already set up, say what a visitor meets at checkout until they are — "We
+   can't accept online payments. Contact us for help with your order." — and hand the two links
+   that fix it: **Accept payments** `https://manage.wix.com/dashboard/<siteId>/wix-cashier/payments`
+   (connect a payment method; "manual payments" is enough for free and pay-in-person flows) and
+   **Upgrade the plan** `https://www.wix.com/upgrade/website?metaSiteId=<siteId>` (online payments
+   need a premium plan). Both are the owner's steps, not a defect in the site. **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404). Before you sign off, run the feedback self-check over the whole session
    (`guides/feedback.md`): anything that cost more turns than it should have, including what you
