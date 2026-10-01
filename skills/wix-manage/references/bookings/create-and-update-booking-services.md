@@ -194,7 +194,7 @@ A CLASS or COURSE has no sessions when it's created, so customers can't book it,
 
 Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call).
 
-**Weekly CLASS** — every Tuesday 18:00–19:00 from 13 October, no end date:
+**Weekly CLASS** — every Tuesday 18:00–19:00 from the first Tuesday the user gave, no end date:
 
 ```json
 {
@@ -203,8 +203,8 @@ Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/c
     "event": {
       "scheduleId": "<SERVICE_SCHEDULE_ID>",
       "type": "CLASS",
-      "start": { "localDate": "2026-10-13T18:00:00" },
-      "end": { "localDate": "2026-10-13T19:00:00" },
+      "start": { "localDate": "<FIRST_TUESDAY>T18:00:00" },
+      "end": { "localDate": "<FIRST_TUESDAY>T19:00:00" },
       "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }],
       "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["TUESDAY"] }
     }
@@ -212,7 +212,7 @@ Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/c
 }
 ```
 
-This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` for each Tuesday. To stop the series on a date, add `"until": { "localDate": "2026-12-15T19:00:00" }` to `recurrenceRule`.
+This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` for each Tuesday. To stop the series on a date, add `"until": { "localDate": "<LAST_SESSION_DATE>T19:00:00" }` to `recurrenceRule`.
 
 **COURSE** — one event per session, all in one call (here the first two of a weekly series):
 
@@ -223,15 +223,15 @@ This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` 
     { "event": {
         "scheduleId": "<SERVICE_SCHEDULE_ID>",
         "type": "COURSE",
-        "start": { "localDate": "2026-10-14T18:00:00" },
-        "end": { "localDate": "2026-10-14T20:00:00" },
+        "start": { "localDate": "<SESSION_1_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_1_DATE>T20:00:00" },
         "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
     } },
     { "event": {
         "scheduleId": "<SERVICE_SCHEDULE_ID>",
         "type": "COURSE",
-        "start": { "localDate": "2026-10-21T18:00:00" },
-        "end": { "localDate": "2026-10-21T20:00:00" },
+        "start": { "localDate": "<SESSION_2_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_2_DATE>T20:00:00" },
         "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
     } }
   ]
@@ -255,8 +255,8 @@ Rules for every session event:
 
 ```json
 {
-  "fromLocalDate": "2026-10-01T00:00:00",
-  "toLocalDate": "2026-12-31T00:00:00",
+  "fromLocalDate": "<TODAY>T00:00:00",
+  "toLocalDate": "<AFTER_LAST_SESSION>T00:00:00",
   "query": { "filter": { "scheduleId": "<SERVICE_SCHEDULE_ID>" } }
 }
 ```
@@ -271,8 +271,8 @@ The result lists the generated sessions (`INSTANCE` events for a weekly class, t
     "event": {
       "id": "<EVENT_ID>",
       "revision": "<EVENT_REVISION>",
-      "start": { "localDate": "2026-10-13T19:00:00" },
-      "end": { "localDate": "2026-10-13T20:00:00" }
+      "start": { "localDate": "<NEW_DATE>T19:00:00" },
+      "end": { "localDate": "<NEW_DATE>T20:00:00" }
     }
   }]
 }
