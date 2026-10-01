@@ -4,7 +4,9 @@ Dashboard pages appear in the site owner's Wix dashboard, where admins manage da
 
 ## Plan the Workflow Before the Components
 
-Before choosing components, identify what the site owner must understand, focus on, investigate, change, and see confirmed. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) and run its checklist before completion. Find the components through [The Discovery Chain](WIX_PATTERNS_DOCS.md#the-discovery-chain).
+A dashboard page is a workflow, not a screen. The site owner has to understand the situation, focus on what needs attention, investigate one record, act, and see the result confirmed — so translate the prompt into those needs before choosing any component.
+
+Do this first because a bare filtered table answers "what are all the records" and neither "which one needs my attention" nor "why did this happen" — and a table is what you get by default if the workflow was never named. Read [UX Success Model](dashboard-page/UX_SUCCESS_MODEL.md) now, and run its evaluation checklist before calling the page done. Which component serves each need is the installed package's own answer — see [The Discovery Chain](WIX_PATTERNS_DOCS.md#the-discovery-chain).
 
 ## UI Libraries — Read Before Writing Any JSX
 
@@ -32,8 +34,6 @@ The CLI generates the folder, the page's component file (`<page>.tsx`, the build
 **After scaffolding, check `routePath`:** use `support-tickets`, not `/support-tickets`; a leading slash fails registration even if the build passes. Internal router paths stay `/`, `/:id`, `/new`, never prefixed with `<route>` — see `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
 **Before writing that UI:** copy in the installed `@wix/patterns` page template that matches, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — don't compose the shell from scratch.
-
-**Default to editable entity pages for CMS and vertical collections.** "Show a table" does not mean read-only. [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page) defines the exceptions.
 
 **Then, for whatever the template doesn't cover:** probe `<pkgRoot>/dist/docs/index.json` once with `grep`/`python3` — never a whole-file `Read`, which truncates silently ([Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites)). Its `importPath`, `examples` and `bundle` decide whether you open anything else. Each Bash call is a fresh shell — re-set the path variable every time.
 
@@ -66,7 +66,7 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for all methods, 
 
 Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** use a dashboard modal extension — never a React modal or the WDS `Modal` component. Reserve it for dialogs that neither write nor display a listed record (delete/discard confirmations, unsaved-changes prompts, notices), plus any dialog on a page that lists nothing (settings, config). They open via `dashboard.openModal()` — see [Dashboard Modal reference](DASHBOARD_MODAL.md).
 
-> **🛑 The test — does the dialog create, update, or display one record this page lists?** Open a route, not a modal. The default is an editable `EntityPage`, whether those records come from a CMS collection or an existing Wix app's SDK; an explicit read-only request or verified data-source limitation uses the read-only detail layout. **A create / "add new" form is an `EntityPage` too** when the workflow requires creation.
+> **🛑 The test — does the dialog create, update, or display one record this page lists?** Open a route, not a modal. The default is an editable `EntityPage`, whether those records come from a CMS collection or an existing Wix app's SDK; one of the three read-only cases in [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page) uses the read-only detail layout. **A create / "add new" form is an `EntityPage` too** when the workflow requires creation: it writes the record, even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading — the most common way the patterns-first rule gets dropped after the table is already correct.
 >
 > The `EntityPage` comes from `@wix/patterns`, reached via `usePatternsNavigate().navigateToEntityPage`, with `useEntityPage` owning fetch/save/validation and `@wix/patterns/form` owning form state. Its route is registered with `PatternsReactRoute` inside `PatternsReactRouter` — so do not hand-roll page location state to fake a second view (`useState<PageLocation>` as a stand-in for a route); that is the router's job, and needing it is the signal you skipped one.
 >
@@ -96,6 +96,7 @@ Each starts from one of the package's page templates, found through [DRAFT_TEMPL
 | --- | --- | --- |
 | "Show products and orders in tables" | Collection and Entity | Each table opens editable `EntityPage`s; verify each SDK's update methods and fields. |
 | "Show products; do not allow changes" | Collection and Read-Only Detail | Routed details, with no mutation actions. |
+| "Record each paid order; list them on a dashboard" | CMS Collection and Entity, detail route on the read-only layout | The rows are a log the event handler writes, so they open read-only — editing one would change the record of a payment, not the payment. |
 | "Dashboard page to manage blog posts" | Collection and Entity | Columns for the post fields named; search, row actions and empty state from the collection's own APIs; add/edit navigate to the `EntityPage`; `{feature}-api.ts` calls `@wix/blog` |
 | "Settings page for notification preferences" | Settings Page | `SettingsPage` shell with a WDS field per preference (`FormField`, `Input`, `ToggleSwitch`); save confirms with `dashboard.showToast()`, and `dashboard.onBeforeUnload()` warns on unsaved changes — no collection, no table hook, no router |
 | "Admin panel for customer orders" | Collection and Entity | Filters, sorting and row actions from the collection APIs — **not** a hand-built WDS filter bar; status `Badge` is leaf UI in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); viewing or editing opens the `EntityPage`, and a Dashboard Modal appears only for the delete confirmation (see [Entity create and edit](../SKILL.md#entity-create-and-edit)) |

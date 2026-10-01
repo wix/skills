@@ -120,16 +120,18 @@ Presentation success applies across all five stages. Choose both the right **rep
 
 ### Choosing the Right Drill-In
 
-Default CMS and vertical collections to editable entity pages. "Show a table" does not mean read-only. See [template selection](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page) for exceptions.
+Choose the interface that gives users enough context and room to complete the task. These are defaults, not rigid rules — except where noted below.
 
 | Interface | Use when… | Success looks like… |
 |---|---|---|
 | **Entity page** | Default for opening a business record. | Editable fields, validation, and a save that persists. |
-| **Read-only detail page** | Explicitly requested, or the source is verified to support no edits. | Linkable, one back-click from the list; limitations explained. |
+| **Read-only detail page** | One of the three cases in [template selection](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page): asked for, no editable field, or a log the app writes. | Linkable, one back-click from the list; the reason stated. |
 | **Modal** | A focused, bounded task that is not "open this record". | Attention stays on one task; the user returns cleanly. |
 | **Inline or expanded row** | A quick look *alongside* the drill-in, not instead of it. | Detail appears without a separate workspace. |
 
-Records open as **routes**. Side panels host a page's own panels, not records. Read-only details use a WDS `Page` because `EntityPage` has no view mode.
+Opening an item is a **route**, editable or not — a constraint, not a preference. A side panel is not one of the choices: in Cairo it hosts a page's own
+panels. A display-only record still routes, just to a WDS `Page`, since `EntityPage` has no view
+mode.
 
 Which Wix primitive builds each of these — and which components serve the summaries, filters and empty states named above — is in the installed package's `Collection Toolkit.md` guide — reached through [The Discovery Chain](../WIX_PATTERNS_DOCS.md#the-discovery-chain).
 

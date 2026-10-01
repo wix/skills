@@ -21,16 +21,22 @@ for k, e in i.items():
 
 ## 2. Choose, then read the chosen template's page
 
-1. `Read <pkgRoot>/dist/docs/Page Templates.md` — choose the editable collection template by default, then account for explicit read-only requirements, settings, and where the rows come from (your own fetch, or a CMS collection).
+1. `Read <pkgRoot>/dist/docs/Page Templates.md` — choose the editable collection template by default, then account for the three read-only cases below, settings, and where the rows come from (your own fetch, or a CMS collection).
 2. `Read` the chosen template's page (`dist/docs/<entry file>`) — its files, and the wiring to keep. Most of that wiring passes `tsc` and `wix build` when wrong and fails only in the browser, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional for a routed page.
 
-**Editing existing records is the default.** Unless the user explicitly requests read-only or display-only behavior, every collection row opens an editable `EntityPage` with a working form and save operation. This applies to CMS collections and vertical SDK collections alike. Words such as "table", "list", "show", or "view" do not by themselves request read-only behavior. Choose the `Collection and Entity Template` for SDK/API data, or the `CMS Collection and Entity Template` for CMS data. Apply this choice to each collection when a page contains several.
+**Editing existing records is the default.** A site owner who opens a record from a dashboard table expects to fix what they see; a read-only page they never asked for sends them to a follow-up prompt. So every collection row opens an editable `EntityPage` with a working form and save operation, for CMS collections and vertical SDK collections alike. Words such as "table", "list", "show", or "view" do not by themselves request read-only behavior. Choose the `Collection and Entity Template` for SDK/API data, or the `CMS Collection and Entity Template` for CMS data. Apply this choice to each collection when a page contains several.
 
-Use a read-only detail page only for an explicit read-only request or a verified data-source limitation that prevents editing any fields. An explicit report-only or export-only request needs no entity edit flow. Check the schema or documented update API before concluding that editing is unsupported; keep immutable fields read-only while editing the supported ones. If editing is blocked by the API or permissions, explain the limitation and any required setup rather than silently delivering read-only behavior. Never invent an update method or a no-op save handler.
+Use the `Collection and Read-Only Detail Template` instead in exactly three cases:
 
-Existing project code may be inspected for integration and conventions, but an existing read-only page does not override this default or replace the packaged template. If an older installed guide says an edit form must be explicitly requested, apply this default and use the editable template's documented wiring.
+- **The user explicitly asks for read-only** — "view only", "do not allow changes".
+- **The source is verified to support no edits** — the schema or the documented update API leaves no editable field. Check before concluding: keep immutable fields read-only while editing the supported ones. If editing is blocked by the API or permissions, say so and name any required setup, rather than silently delivering read-only behavior.
+- **The records are a log your app writes** — a backend event handler or job records something that happened elsewhere (a payment, a submission, an audit entry). Editing such a record falsifies history without changing what it describes, so it opens read-only unless the user asks to edit it.
 
-This default covers editing existing records. Add create/delete actions or settings only when the requested workflow needs them; remove the template's create action and `/new` route when it does not. For an explicitly read-only CMS page, keep the schema-driven collection and adapt its detail route to the read-only layout rather than exposing the entity form.
+An explicit report-only or export-only request needs no detail page at all. Never invent an update method or a no-op save handler to satisfy the default.
+
+Existing project code may be inspected for integration and conventions, but an existing read-only page does not override this default or replace the packaged template. `Page Templates.md` in `@wix/patterns` releases that predate this default says to "pick the smallest" template and skip edit forms the request never named; for the read-only-versus-editable choice only, follow this section instead. Everything else in the installed docs still holds.
+
+This default covers editing existing records. Add create/delete actions or settings only when the requested workflow needs them; remove the template's create action and `/new` route when it does not. For a read-only CMS page (any of the three cases), keep the schema-driven collection and adapt its detail route to the read-only layout rather than exposing the entity form.
 
 ## 3. Copy it into the extension
 
