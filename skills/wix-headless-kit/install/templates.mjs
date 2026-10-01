@@ -24,7 +24,14 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 export const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-export const DEFAULT_REPO = "https://github.com/wix/skills.git";
+// PREVIEW: the shipped code lives in the headless-templates repository (the fork's default branch
+// carries the kit-preview layout): verticals/<v>/{app,app-astro,seed,INSTRUCTIONS.md}, rest/<v>/,
+// astro/kit-<v>/ (the composed project), verticals/shared, verticals/blank. The loader assembles
+// the cache in the layout every other script reads: <cache>/<v>/{app,app-astro,seed,rest,project},
+// <cache>/shared, <cache>/blank. WIX_HEADLESS_KIT_TEMPLATES_DIR names a ready-made cache (CI).
+export const DEFAULT_REPO = "https://github.com/ayal/headless-templates-preview.git";
+const LAYOUT = { sources: "verticals", rest: "rest", projects: "astro", projectPrefix: "kit-" };
+const SPARSE_PATHS = [LAYOUT.sources, LAYOUT.rest, LAYOUT.projects];
 
 const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", timeout: 180_000, ...opts });
 
@@ -53,6 +60,8 @@ export function installSource() {
   }
   return { repo: DEFAULT_REPO, ref: null };
 }
+// PREVIEW: the templates repository is fixed; the skill's own install source no longer names it.
+const templatesRepo = () => ({ repo: DEFAULT_REPO, ref: process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || null });
 
 function parseSource(src) {
   const m = src.match(/^(?:https?:\/\/github\.com\/)?([^/\s]+)\/([^/\s#@]+?)(?:\.git)?(?:\/tree\/([^\s]+))?$/);
@@ -68,8 +77,8 @@ export function listVerticals(dir) {
 }
 
 export function templatesDir({ refresh = false, need = null } = {}) {
-  const checkout = resolve(SKILL_ROOT, "..", "..", "templates");
-  if (existsSync(join(checkout, "shared", "app"))) return checkout;
+  const override = process.env.WIX_HEADLESS_KIT_TEMPLATES_DIR;
+  if (override && existsSync(join(override, "shared", "app"))) return override;
   const cache = join(SKILL_ROOT, "templates");
   if (!refresh && existsSync(join(cache, "shared", "app"))) {
     if (need && !existsSync(join(cache, need))) fetchIgnoredPart(cache, need);
@@ -87,15 +96,16 @@ const IGNORED = ["*/project/", "blank/", "compose.mjs"];
 // scaffold a create copies matches the code committed beside it; the committed files are untouched.
 function fetchIgnoredPart(cache, need) {
   const src = templatesSource(cache);
-  const { repo } = installSource();
+  const { repo } = templatesRepo();
   const r = cloneSparse(src.repo ?? repo, src.commit ?? process.env.WIX_HEADLESS_FAST_TEMPLATES_REF ?? null);
   const tmp = r.tmp;
-  if (r.status !== 0 || !existsSync(join(tmp, "templates", need))) {
+  const assembled = r.status === 0 ? assemble(tmp) : null;
+  if (!assembled || !existsSync(join(assembled, need))) {
     rmSync(tmp, { recursive: true, force: true });
-    throw new Error(`could not fetch templates/${need} from ${src.repo ?? repo}${src.commit ? ` @ ${src.commit.slice(0, 7)}` : ""}: ${(r.stderr || r.stdout || "not in the clone").trim().slice(-300)}`);
+    throw new Error(`could not fetch ${need} from ${src.repo ?? repo}${src.commit ? ` @ ${src.commit.slice(0, 7)}` : ""}: ${(r.stderr || r.stdout || "not in the clone").trim().slice(-300)}`);
   }
-  for (const part of ["blank", ...readdirSync(join(tmp, "templates"), { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(tmp, "templates", d.name, "project"))).map((d) => `${d.name}/project`)]) {
-    const from = join(tmp, "templates", part);
+  for (const part of ["blank", ...readdirSync(assembled, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(assembled, d.name, "project"))).map((d) => `${d.name}/project`)]) {
+    const from = join(assembled, part);
     if (existsSync(from) && !existsSync(join(cache, part))) cpSync(from, join(cache, part), { recursive: true });
   }
   rmSync(tmp, { recursive: true, force: true });
@@ -108,7 +118,8 @@ export function templatesSource(dir) {
 }
 
 function fetchTemplates(cache) {
-  const { repo, ref: lockRef } = installSource();
+  const { repo } = templatesRepo();
+  const lockRef = null;
   const envRef = process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || null;
   let ref = envRef || lockRef || null;
   let r = cloneSparse(repo, ref);
@@ -126,33 +137,53 @@ function fetchTemplates(cache) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error("git is not installed or not on PATH; the shipped code is fetched with a git clone of the skill's repository");
   }
-  if (r.status !== 0 || !existsSync(join(tmp, "templates", "shared", "app"))) {
+  const assembled = r.status === 0 ? assemble(tmp) : null;
+  if (!assembled || !existsSync(join(assembled, "shared", "app"))) {
     rmSync(tmp, { recursive: true, force: true });
-    throw new Error(`could not fetch templates/ from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || "no templates/shared/app in the clone").trim().slice(-400)}`);
+    throw new Error(`could not fetch the templates from ${repo}${ref ? ` @ ${ref}` : ""}: ${(r.stderr || r.stdout || `no ${LAYOUT.sources}/shared/app in the clone`).trim().slice(-400)}`);
   }
   const commit = git(["-C", tmp, "rev-parse", "HEAD"]).stdout.trim();
   rmSync(cache, { recursive: true, force: true });
   mkdirSync(dirname(cache), { recursive: true });
-  try { renameSync(join(tmp, "templates"), cache); }
-  catch { cpSync(join(tmp, "templates"), cache, { recursive: true }); }
+  try { renameSync(assembled, cache); }
+  catch { cpSync(assembled, cache, { recursive: true }); }
   rmSync(tmp, { recursive: true, force: true });
   writeFileSync(join(cache, ".gitignore"), IGNORED.join("\n") + "\n");
   writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? (fellBack ? `default branch (${lockRef} not found)` : "default branch"), commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
 }
 
-// A sparse, shallow clone of templates/ at a ref (branch, tag, or commit id) into a temp dir.
+// The clone holds the repository's layout; every script reads the legacy one. Build it in the
+// temp dir: <v>/{app,app-astro,seed,INSTRUCTIONS.md} from verticals/<v>, <v>/rest from rest/<v>,
+// <v>/project from astro/kit-<v>, shared and blank from verticals/.
+function assemble(tmp) {
+  const srcRoot = join(tmp, LAYOUT.sources);
+  if (!existsSync(srcRoot)) return null;
+  const out = join(tmp, "_assembled");
+  mkdirSync(out, { recursive: true });
+  for (const d of readdirSync(srcRoot, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    cpSync(join(srcRoot, d.name), join(out, d.name), { recursive: true });
+    const rest = join(tmp, LAYOUT.rest, d.name);
+    if (existsSync(rest)) cpSync(rest, join(out, d.name, "rest"), { recursive: true });
+    const project = join(tmp, LAYOUT.projects, `${LAYOUT.projectPrefix}${d.name}`);
+    if (existsSync(project)) cpSync(project, join(out, d.name, "project"), { recursive: true });
+  }
+  return out;
+}
+
+// A sparse, shallow clone of the templates repository at a ref (branch, tag, or commit id) into a temp dir.
 function cloneSparse(repo, ref) {
   const tmp = mkdtempSync(join(tmpdir(), "wix-headless-kit-templates-"));
   let r;
   if (ref && /^[0-9a-f]{40}$/i.test(ref)) {
     // a commit: shallow-fetch just it (GitHub serves any reachable commit by id)
-    for (const args of [["init", "-q", tmp], ["-C", tmp, "remote", "add", "origin", repo], ["-C", tmp, "fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", ref], ["-C", tmp, "sparse-checkout", "set", "templates"], ["-C", tmp, "checkout", "-q", "FETCH_HEAD"]]) {
+    for (const args of [["init", "-q", tmp], ["-C", tmp, "remote", "add", "origin", repo], ["-C", tmp, "fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", ref], ["-C", tmp, "sparse-checkout", "set", ...SPARSE_PATHS], ["-C", tmp, "checkout", "-q", "FETCH_HEAD"]]) {
       r = git(args);
       if (r.status !== 0) break;
     }
   } else {
     r = git(["clone", "--quiet", "--depth", "1", "--filter=blob:none", "--sparse", ...(ref ? ["-b", ref] : []), repo, tmp]);
-    if (r.status === 0) r = git(["-C", tmp, "sparse-checkout", "set", "templates"]);
+    if (r.status === 0) r = git(["-C", tmp, "sparse-checkout", "set", ...SPARSE_PATHS]);
   }
   return { ...r, tmp };
 }
