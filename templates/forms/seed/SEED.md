@@ -88,7 +88,7 @@ node <SKILL_ROOT>/templates/forms/seed/seed-forms.mjs plan.json    # from the pr
 | `label` | what the visitor reads — also the basis of the storage key |
 | `kind` | one of the kinds below |
 | `required` | default `false`; on a `checkbox` it means "must be ticked" |
-| `placeholder` · `description` | optional; passed to the control (description renders as help text) |
+| `placeholder` · `description` | optional; passed to the control (description renders as help text). A placeholder is at most 100 characters |
 | `default` | the prefill: text, a number, `true` for a checkbox, a choice value (or an array of them for `multi` / `tags`), a date (`"2026-01-31"` or `"$now+2d"`) |
 | `hidden` | start hidden — for a field a rule shows |
 | `choices` | `select` · `radio` · `multi` · `tags` — strings, or `{ value, label }` |
@@ -188,6 +188,8 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
   field is created as a plain text box. With an `other` entry no enum is written: the free text
   is by definition outside the list. For a multi, `itemType` sits inside `items` beside the
   options block; one level up the create is a `400` whose message blames the options block.
+- **A rule's expression root is an `and` / `or` group**, even for one condition. A bare
+  condition at the root is a `400` (`UNGROUPED_RULE_EXPRESSION_ROOT`).
 - **`validation` must be present even when empty**, nested under the *input-type* block, not
   the component one. Absent, the target is not registered as an accepted value and every
   submission is rejected with `UNKNOWN_VALUE_ERROR` on a key that IS in the schema.

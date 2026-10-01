@@ -26,7 +26,7 @@
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing forms.
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
-import { execFileSync } from "node:child_process";
+import { wixToken } from "../../shared/seed/wix-cli.mjs";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
@@ -38,11 +38,7 @@ export function makeCtx({ cwd = process.cwd() } = {}) {
   // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
   // a seed there unless --allow-parent is passed after the user confirmed).
   const siteId = seedSiteId({ cwd, argv: process.argv });
-  const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
-    encoding: "utf8",
-    cwd,
-  }).trim();
-  if (!token) throw new Error("The Wix CLI returned no token — run `npx @wix/cli@latest login` first.");
+  const token = wixToken(siteId, cwd);
   return { token, siteId };
 }
 
@@ -236,6 +232,9 @@ function buildField(spec, taken) {
 
   // A checkbox labels itself with rich content (its label may carry a link to the terms).
   const component = { label: spec.kind === "checkbox" ? richText(spec.label) : spec.label, showLabel: true };
+  if (spec.placeholder?.length > 100) {
+    throw new Error(`field "${spec.label}": placeholder is ${spec.placeholder.length} characters, the API allows 100`);
+  }
   if (spec.placeholder) component.placeholder = spec.placeholder;
   if (spec.description) component.description = richText(spec.description);
   if (options.length) component.options = options;
@@ -308,7 +307,9 @@ function buildRule(rule, fieldByLabel, formName) {
   return {
     id: randomUUID(),
     name: rule.name ?? `${when.field} ${opKey} ${JSON.stringify(value ?? "")}`.slice(0, 100),
-    expression: { condition: { target: source.inputOptions.target, operator, ...(value !== undefined ? { value } : {}) } },
+    // The root of a rule expression must be an and/or group, never a bare condition
+    // (UNGROUPED_RULE_EXPRESSION_ROOT). One condition still goes inside an `and`.
+    expression: { and: { conditions: [{ condition: { target: source.inputOptions.target, operator, ...(value !== undefined ? { value } : {}) } }] } },
     overrides,
   };
 }
@@ -487,6 +488,9 @@ export async function setupForms(ctx, plan) {
   ).catch(() => ({ forms: [] }));
   const byName = new Map((existing.forms ?? []).map((f) => [f.name, f]));
 
+  // Every form is built first, so a plan mistake (a bad kind, a rule naming an unknown field, a
+  // placeholder over 100 characters) surfaces before any call; then the site's caps are checked.
+  const bodies = new Map((plan.forms ?? []).filter((f) => !byName.has(f.name)).map((f) => [f.name, buildForm(f)]));
   checkPlanAgainstLimits(ctx, plan, byName, await readLimits(ctx));
 
   const out = [];
@@ -504,7 +508,7 @@ export async function setupForms(ctx, plan) {
       continue;
     }
 
-    const body = buildForm(planForm);
+    const body = bodies.get(planForm.name);
     let form;
     try {
       ({ form } = await req(ctx, "/form-schema-service/v4/forms", { body: { form: body } }));
