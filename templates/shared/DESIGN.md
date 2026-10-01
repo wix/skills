@@ -16,6 +16,10 @@ Token judgment (polarity, palette, contrast, type floors) lives in the `@theme` 
   hero action.
 - **Icons render bare on the surface** — no circle/square/pill shell behind nav or card
   glyphs.
+- **A card that shows a thing is a link to that thing.** A featured product, dish, service,
+  post or event on the home page leads to its own page, or to its place on the listing when the
+  vertical has no item pages (`/menu#item-<id>` for a dish). A card with a title, image and price
+  and nothing to click is a dead end, not a design choice.
 - **Corner shape is a token, never a class.** Shipped buttons, chips, labels and steppers read
   `--radius-control`, which follows `--radius-md` until the brand says otherwise: `9999px` is
   the pill, `0` is square. Cards and fields read `--radius-lg/md/sm`. Don't patch `rounded-*`
