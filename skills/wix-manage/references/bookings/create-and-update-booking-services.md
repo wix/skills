@@ -287,7 +287,7 @@ An APPOINTMENT has no events of its own: its free slots come from the working ho
 Base the summary on the API responses, not on what you sent:
 1. **What was created** — name, type, price as stored (amount and currency; "per session" for a class, "for the whole course" for a course; "free" if no price was given, with an offer to set one), capacity, duration or staff for an appointment, category, and hidden if it is.
 2. **Assumptions** — every default from Step 2 you applied ("I set capacity to 10 since you didn't say").
-3. **Sessions** (CLASS / COURSE) — the sessions you created and confirmed, or that none exist yet and the service can't be booked until the user gives you days and times.
+3. **Sessions** (CLASS / COURSE) — the sessions you created and confirmed. If none exist yet, say the service can't be booked until it has sessions, and end with a direct question for them: the weekday(s), start and end time, and first date — for a course, the date of each session or the weekly pattern and how many sessions.
 4. **What you can change** — offer to adjust price, capacity, duration, staff or schedule.
 
 ---
