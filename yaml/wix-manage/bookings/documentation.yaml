@@ -28,10 +28,6 @@ apiDoc:
       title: External Calendar Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings, calendar]
-    - file: ../../../skills/wix-manage/references/bookings/booking-system-integration-gaps.md
-      title: Booking System Integration Gaps
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
-      tags: [bookings]
     - file: ../../../skills/wix-manage/references/bookings/create-booking-service-from-prompt.md
       title: Create Booking Service from Prompt
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
