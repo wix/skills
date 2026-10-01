@@ -189,7 +189,8 @@ Listed because a hand-rolled payload hits all of them, and each returns `200` fi
   is by definition outside the list. For a multi, `itemType` sits inside `items` beside the
   options block; one level up the create is a `400` whose message blames the options block.
 - **A rule's expression root is an `and` / `or` group**, even for one condition. A bare
-  condition at the root is a `400` (`UNGROUPED_RULE_EXPRESSION_ROOT`).
+  condition at the root is a `400` (`UNGROUPED_RULE_EXPRESSION_ROOT`). Every condition carries a
+  `value`, `isEmpty` / `isNotEmpty` / `checked` included (`RULE_CONDITION_VALUE_MISSING` without).
 - **`validation` must be present even when empty**, nested under the *input-type* block, not
   the component one. Absent, the target is not registered as an accepted value and every
   submission is rejected with `UNKNOWN_VALUE_ERROR` on a key that IS in the schema.

@@ -292,7 +292,9 @@ function buildRule(rule, fieldByLabel, formName) {
   if (!when.field || !opKey) throw new Error(`form "${formName}": a rule needs "when": { "field", and one of ${Object.keys(RULE_OPERATORS).join("/")} }`);
   const source = byLabel(when.field);
   const operator = RULE_OPERATORS[opKey];
-  const value = ["checked", "isEmpty", "isNotEmpty"].includes(opKey) ? undefined : when[opKey];
+  // EMPTY, NOT_EMPTY and CHECKED carry no value of their own, but the service still requires one
+  // (RULE_CONDITION_VALUE_MISSING without it); `true` is what the dashboard sends.
+  const value = ["checked", "isEmpty", "isNotEmpty"].includes(opKey) ? true : when[opKey];
   const override = (label, propertyType, options) => ({
     entityType: "FIELD",
     fieldOptions: { fieldId: byLabel(label).id, propertyType, ...options },
@@ -309,7 +311,7 @@ function buildRule(rule, fieldByLabel, formName) {
     name: rule.name ?? `${when.field} ${opKey} ${JSON.stringify(value ?? "")}`.slice(0, 100),
     // The root of a rule expression must be an and/or group, never a bare condition
     // (UNGROUPED_RULE_EXPRESSION_ROOT). One condition still goes inside an `and`.
-    expression: { and: { conditions: [{ condition: { target: source.inputOptions.target, operator, ...(value !== undefined ? { value } : {}) } }] } },
+    expression: { and: { conditions: [{ condition: { target: source.inputOptions.target, operator, value } }] } },
     overrides,
   };
 }

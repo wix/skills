@@ -17,10 +17,17 @@ export function resolveWixCli(cwd = process.cwd()) {
   return { file: "npx", prefix: ["-y", "@wix/cli@latest"] };
 }
 
-/** A site token for the API calls. Throws when the CLI is not logged in. */
+/**
+ * A site token for the API calls. Throws when the CLI is not logged in. The CLI may print a
+ * notice (an update box, a project warning) around the token, so the token is extracted from
+ * the output rather than taken whole.
+ */
 export function wixToken(siteId, cwd = process.cwd()) {
   const cli = resolveWixCli(cwd);
-  const token = execFileSync(cli.file, [...cli.prefix, "token", "--site", siteId], { encoding: "utf8", cwd }).trim();
+  const out = execFileSync(cli.file, [...cli.prefix, "token", "--site", siteId], { encoding: "utf8", cwd });
+  // An older CLI starts its "update available" box on the token's own line, so a line split is
+  // not enough: the token is the first long run of token characters.
+  const token = out.match(/[A-Za-z0-9._-]{40,}/)?.[0];
   if (!token) throw new Error("The Wix CLI returned no token — run `wix login` (or `npx @wix/cli@latest login`) first.");
   return token;
 }
