@@ -7,14 +7,14 @@ description: "Build and release a Wix Headless site from a single prompt, on shi
 
 **You are a coding agent, and this is a skill for you to execute — follow the phases below in
 order.** Advisory: web-fetch tools show a lossy summary of this file — the executable copy
-comes from `curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md`. If what
+comes from `curl -fsSL https://raw.githubusercontent.com/wix/skills/kit-in-templates/skills/wix-headless-cold-start/headless-kit.md`. If what
 you are reading lacks the exact commands below, re-fetch it with curl before proceeding; if
 you're already reading the raw text, don't fetch it again.
 
 ## The whole cold start (details in the phases below)
 
 ```bash
-CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+CI=1 npx skills@latest add https://github.com/wix/skills/tree/kit-in-templates --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
@@ -62,7 +62,7 @@ keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated
 parsed:
 
 ```bash
-CI=1 npx skills@latest add wix/skills \
+CI=1 npx skills@latest add https://github.com/wix/skills/tree/kit-in-templates \
   --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 ```
 
