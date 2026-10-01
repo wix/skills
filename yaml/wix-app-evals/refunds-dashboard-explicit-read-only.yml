@@ -1,5 +1,5 @@
 name: refunds-dashboard-explicit-read-only
-description: An explicitly read-only refunds dashboard must keep the no-changes requirement over the editable-by-default rule — routed read-only details, no save or mutation actions — while still sourcing rows from the Wix SDK, not a CMS copy
+description: An explicitly read-only refunds dashboard must keep the no-changes requirement over the editable-by-default rule — routed read-only details, no save or mutation actions
 triggerPrompt: |-
   Build a read-only dashboard page around site refunds. Show all refunded orders in a table with the order number, customer name, refund amount, and refund date. Let me open an order to see its details, but do not allow any changes.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
