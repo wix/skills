@@ -34,7 +34,7 @@ Use the `Collection and Read-Only Detail Template` instead in exactly three case
 
 An explicit report-only or export-only request needs no detail page at all. Never invent an update method or a no-op save handler to satisfy the default.
 
-Existing project code may be inspected for integration and conventions, but an existing read-only page does not override this default or replace the packaged template. `Page Templates.md` in `@wix/patterns` releases that predate this default says to "pick the smallest" template and skip edit forms the request never named; for the read-only-versus-editable choice only, follow this section instead. Everything else in the installed docs still holds.
+Existing project code may be inspected for integration and conventions, but an existing read-only page does not override this default or replace the packaged template.
 
 This default covers editing existing records. Add create/delete actions or settings only when the requested workflow needs them; remove the template's create action and `/new` route when it does not. For a read-only CMS page (any of the three cases), keep the schema-driven collection and adapt its detail route to the read-only layout rather than exposing the entity form.
 
