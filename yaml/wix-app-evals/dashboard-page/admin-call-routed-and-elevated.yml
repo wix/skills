@@ -1,17 +1,17 @@
 name: dashboard-page/admin-call-routed-and-elevated
-description: Dashboard page performing the same admin Locations operation as the Editor React component scenario — the docs ship both methods elevated, so both must be routed through a backend endpoint that elevates, from the dashboard host too
+description: Dashboard page performing the same admin Locations operation as the Editor React component scenario — the docs ship both methods elevated, so both must be routed through a backend endpoint that elevates, from the dashboard host too — and, with no read-only request, rows open an editable EntityPage whose save is routed the same way
 triggerPrompt: |-
   Build a dashboard page for my app that lists the site's business locations and lets the site owner archive one. Use the Wix Locations API.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, backend-api, wix-patterns-docs]
+tags: [dashboard-page, draft-template, ux-success-model, backend-api, wix-patterns-docs]
 assertions:
   - type: skill_was_called
     negate: false
     skillNames: [wix-app]
     referenceFiles:
-      wix-app: [references/DASHBOARD_PAGE.md]
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
   - type: skill_was_called
     negate: false
     skillNames: [wix-app]
@@ -35,6 +35,11 @@ assertions:
     minScore: 7
     prompt: |-
       Evaluate the path the agent took. Check: (1) It settled the identity question from the method docs before writing the calls, rather than assuming the dashboard host licensed a direct admin call and discovering the problem later. Reading the Locations method pages and noticing the elevated example is the behavior to reward. (2) It read the Backend API reference before creating the endpoint, and the Dashboard Page reference before building the UI. (3) It used `npx wix generate` to scaffold the page and the endpoint unless the starter project already contained them, in which case editing in place is correct. (4) The agent looked up `@wix/patterns` names via `dist/dts-bundle/index.json` and `dist/docs/index.json` (and the specific `.d.ts`/`.md` files those point at) — not by running `ls`, `find`, `cat`, or `grep` against arbitrary paths under `node_modules`. Any such direct `node_modules` exploration is an automatic low score. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      The user requested a list of business locations and an archive action, without making the page read-only. Evaluate whether ordinary row navigation opens an editable EntityPage by default, separately from the archive action. Require a populated form and a real save for fields supported by the documented Locations update API, respecting its permissions and immutable fields. If the update method's docs show the call elevated, the save must go through a backend endpoint that elevates, like the archive call — a direct elevated-only call from the dashboard page scores at most 4. A list with only an archive button, or a read-only detail page chosen just because the user did not say "edit", scores at most 4. A no-op save, local-state-only save, invented API, or a save path that ignores a rejected call also scores at most 4. An editing limitation is acceptable only when backed by a specific schema/API/permission check and clearly reported; a general assumption that Locations data is read-only is not evidence. Check that the agent selected and copied the editable Collection and Entity Template. Do not require creation or deletion of locations. Score 0-10, citing generated code and documentation lookups rather than accepting the final response as proof.
   - type: time_limit
     maxDurationMs: 900000
   - type: cost
