@@ -385,6 +385,34 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
+This minimal `{id, price}` shape only works for a product **without** options — one with a single
+default variant that carries no `choices`. For a product **with** options, `variantsInfo.variants`
+is still a full-array overwrite: carry forward each variant's existing `choices` from Get Product
+and include the product's `options` array in the same PATCH, or the API rejects the request with
+`428 MISSING_OPTIONS_ON_UPDATE_VARIANTS: "Missing product options. Options must be provided for
+variants."` When updating prices across a mixed catalog, re-read each product's `options` and branch
+on whether it is empty before deciding which shape to send.
+
+```json
+{
+  "id": "{existingVariantId}",
+  "choices": [
+    {
+      "optionChoiceNames": {
+        "optionName": "Size",
+        "choiceName": "M",
+        "renderType": "TEXT_CHOICES"
+      }
+    }
+  ],
+  "price": {
+    "actualPrice": {
+      "amount": "29.99"
+    }
+  }
+}
+```
+
 ### Attach a Digital File
 
 A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
@@ -437,6 +465,7 @@ Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in 
 | `price must not be empty` | A variant was sent without a price — including an existing variant rebuilt from only its `id` and the field being changed | Carry `price.actualPrice.amount` on every variant you send, not just new ones; copy it from the Get Product response for variants you are not repricing |
 | `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
+| `Missing product options. Options must be provided for variants` (`MISSING_OPTIONS_ON_UPDATE_VARIANTS`) | `variantsInfo.variants` was sent without the product's `options` array in the same PATCH, on a product that has options | Re-read the product's `variantsInfo.variants[].choices` via Get Product and send them back on every variant, alongside `product.options` |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
 | `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
 | `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Set `inventoryItem.inStock: true` on the variant |
