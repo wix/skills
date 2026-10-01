@@ -362,9 +362,12 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Create a plan | `pricing-plans/new` |
 | Record a manual order | `pricing-plans/new-order` |
 | Settings | `pricing-plans/settings` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Editing a plan is reached from the list (no id path). Taking real payments needs a premium plan + a
-connected payment method — mention it.
+Editing a plan is reached from the list (no id path). Taking real payments needs a connected payment
+method **and** a premium plan. Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."**
+Hand both links above in the close; don't treat it as a code failure.
 
 ## Seeding
 

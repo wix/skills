@@ -661,9 +661,11 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Inventory | `wix-stores/inventory` |
 | Orders | `ecom-platform/orders-list` |
 | Store settings | `wix-stores/settings` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Real payments additionally need a premium plan + a connected payment method (Settings → Accept
-payments) — mention it, don't treat it as a code failure.
+Real payments need a connected payment method **and** a premium plan. Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."**
+Hand both links above in the close; don't treat it as a code failure.
 
 ## Seeding
 

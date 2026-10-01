@@ -448,9 +448,12 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Ordering settings (pickup/delivery hours, fees, menu hours) | `wix-restaurants-orders-new/settings` |
 | Reservations | `wix-table-reservations/table-reservations` |
 | Floor plan | `wix-table-reservations/floor-plan` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Real paid orders need a premium plan + a connected payment method, and holding, completing, or
-requesting an online reservation is premium-gated — mention both.
+Real paid orders need a connected payment method **and** a premium plan, and holding, completing, or
+requesting an online reservation is premium-gated. Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."**
+Hand both links above in the close and name the reservations gate; don't treat either as a code failure.
 
 ## Seeding
 

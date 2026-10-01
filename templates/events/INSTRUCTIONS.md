@@ -372,9 +372,11 @@ confirmation email carries them). Never elevate or proxy either through a server
 ## Point the user to their dashboard
 
 Give the owner the dashboard link plus the Events page — the deploy step's JSON printed
-`dashboardUrl`; append `/events` for event management. **Selling paid tickets needs a premium plan
-+ a connected payment method** (free/RSVP events work without) — until then `checkout()` surfaces
-"Ticket sales aren't switched on yet"; mention it, don't treat it as a code failure. The
+`dashboardUrl`; append `/events` for event management. **Selling paid tickets needs a connected
+payment method and a premium plan** (free/RSVP events work without) — until then `checkout()` surfaces
+"Ticket sales aren't switched on yet" and hosted checkout says "We can't accept online payments."
+Hand both links in the close: Accept payments `{dashboardUrl}/wix-cashier/payments` and Upgrade the
+plan `https://www.wix.com/upgrade/website?metaSiteId={siteId}`; don't treat it as a code failure. The
 organizer's tax settings, fee type, ticket limits, RSVP form fields and guest control are all
 dashboard settings the site renders as-is.
 
