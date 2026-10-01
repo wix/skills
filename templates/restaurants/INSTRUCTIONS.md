@@ -67,7 +67,11 @@ Astro stack additionally gets:
    configured; the marketing checkbox; terms and privacy links), the 10-minute countdown on the
    automatic path, and the confirmed vs pending states — on `useReservation`.
 4. **The home page** — hero, a featured-dishes strip (fetch `fetchMenus()` in frontmatter →
-   your cards; `item.featured` marks highlights), hours/location story, reserve CTA.
+   your cards; `item.featured` marks highlights), hours/location story, reserve CTA. Every card
+   is a link to its dish on the menu: `/menu#item-<item.id>` (the shipped `MenuItemCard` renders
+   that id; `#section-<section.id>` lands on the section). When the brief includes ordering and
+   the item is orderable, the card may also carry the add-to-order control, on `useOrderCart`
+   exactly as `MenuItemCard` does; a card the visitor cannot act on is a dead end.
 
 Plus the **theme** (`@theme` block, one edit) and the **chrome** (`SiteLayout`, one pass).
 

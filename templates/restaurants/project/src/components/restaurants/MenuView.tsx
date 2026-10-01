@@ -133,7 +133,7 @@ export function MenuItemCard({ item, menuId, sectionId, money }: MenuItemCardPro
     addToOrder(item, { menuId, sectionId }, quantity, selection).then(() => setError(null));
 
   return (
-    <div className="flex gap-4 rounded-lg border border-border p-4">
+    <div id={`item-${item.id}`} className="flex scroll-mt-24 gap-4 rounded-lg border border-border p-4">
       {item.imageUrl && (
         <img
           {...imgAttrs(item.imageUrl, "6rem")}
