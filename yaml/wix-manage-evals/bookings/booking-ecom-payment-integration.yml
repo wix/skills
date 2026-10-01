@@ -2,9 +2,8 @@ name: bookings/booking-ecom-payment-integration
 description: >-
   Verifies the agent reads the end-to-end booking flow reference and gets the booking
   lifecycle right for a paid service: CREATED is unconfirmed and off the calendar, an
-  online-paid booking is confirmed by the paid eCommerce order rather than by Confirm
-  Booking, and Confirm Booking (with a payment status) is only for free, offline or
-  custom-checkout payments. Complements end-to-end-booking-flow.yml, which covers the
+  online-paid booking is confirmed by the paid eCommerce order rather than by calling
+  Confirm Booking manually. Complements end-to-end-booking-flow.yml, which covers the
   full discovery-to-payment sequence.
 triggerPrompt: >-
   I created a booking through the Wix Bookings REST API for a paid appointment. The customer
@@ -23,8 +22,8 @@ assertions:
       The user has a `CREATED` booking for a paid service that the customer will pay online, and
       asks whether they must call Confirm Booking and what confirms the booking. Evaluate both
       the final response and any Wix API/tool calls made.
-      Intent: explain the booking lifecycle correctly — the eCommerce order confirms an
-      online-paid booking; Confirm Booking is for the cases where no eCommerce checkout happens.
+      Intent: explain why the online-paid booking is still CREATED and how the paid eCommerce
+      order confirms it without a manual Confirm Booking call.
 
       Pass if the response:
       - explains that `CREATED` means the booking is not yet confirmed and not on the calendar,
@@ -35,17 +34,19 @@ assertions:
         with `catalogItems`, the booking ID as `catalogItemId` and the Wix Bookings appId
         (`13d21c63-b5ec-5912-8397-c3a5ddb27a97`) in the `catalogReference`, then
         `POST /ecom/v2/carts/{cartId}/get-checkout-url` for the customer to pay, AND
-      - states that once the eCommerce order is paid the booking becomes `CONFIRMED` (or `PENDING`
-        when the service requires manual approval) automatically, AND
-      - reserves Confirm Booking / Confirm Or Decline Booking (with a `paymentStatus` such as
-        `EXEMPT`, `NOT_PAID` or `PAID`) for bookings that are not paid through Wix eCommerce
-        checkout — free, offline, or payment the owner collected outside Wix.
+      - states that the booking is automatically confirmed once the eCommerce order is paid.
+
+      Manual-approval states, free/offline confirmation, and custom-checkout APIs or payment
+      statuses are not required for this online-payment question. Accurate additional context
+      is acceptable, including qualifications about business approval; do not penalize its omission.
 
       Fail if the response:
       - says the booking is `CONFIRMED` regardless of payment, or that it must be `CONFIRMED`
         before checkout, OR
       - tells the user to call Confirm Booking for the online-paid booking before or instead of
         the eCommerce checkout, OR
+      - claims that creating the cart or retrieving its checkout URL confirms the booking
+        without the customer completing payment, OR
       - uses Checkout V1 (e.g. `/ecom/v1/checkouts`, a create-checkout step, `createOrder`, or
         `lineItems` instead of `catalogItems`) as the payment path, OR
       - claims the Bookings API charges the customer itself, OR
