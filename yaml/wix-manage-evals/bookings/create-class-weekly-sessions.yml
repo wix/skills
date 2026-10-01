@@ -1,0 +1,78 @@
+name: bookings/create-class-weekly-sessions
+description: >-
+  Verifies the class path end to end on a fresh bookings site: a CLASS service with the
+  requested price and capacity, then a weekly recurring session on the service's own
+  schedule — the step the services recipe exists to get right (event wrapper, service
+  schedule.id, a staff resource with permissionRole, one weekday per recurrence rule) —
+  confirmed before the class is called bookable.
+triggerPrompt: >-
+  Add a weekly yoga class to my Wix site: Tuesdays from 6 to 7pm, starting next week.
+  $25 a session, room for 12 people.
+tags: [bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for a weekly yoga class on Tuesdays 18:00-19:00 starting next week,
+      $25 per session, capacity 12. Examine the tool-call trace, including request and
+      response bodies, and the final response.
+
+      Pass only if ALL hold:
+      - exactly one service is created with `type: "CLASS"`, `defaultCapacity: 12`, and
+        `payment.rateType: "FIXED"` with `fixed.price.value` "25" or "25.00", via a
+        successful (2xx, `itemMetadata.success: true`) create call, AND
+      - a Calendar bulk-create (or create) event call succeeds (2xx, and the event's
+        `itemMetadata.success` is true where a bulk response is returned) for an event
+        whose `scheduleId` equals the created service's `schedule.id` (not a staff
+        member's or the business schedule), with `type: "CLASS"`, AND
+      - that event recurs weekly on Tuesday (`recurrenceRule.frequency: "WEEKLY"`,
+        `days: ["TUESDAY"]`) and runs 18:00 to 19:00 local time, starting on a Tuesday
+        that is today or later, AND
+      - the event's `resources` hold a staff `resourceId` obtained from this site (not an
+        invented ID), AND
+      - the final response reports the class and its weekly Tuesday sessions based on
+        those successful responses.
+
+      Fail if:
+      - the service is created as APPOINTMENT or COURSE, or more than one class is created, OR
+      - no session event is successfully created, or it is created on a schedule other
+        than the class service's `schedule.id`, or as `WORKING_HOURS`, OR
+      - the sessions are on a different day or time than the user asked, OR
+      - sessions are put inside the Services V2 payload instead of Calendar events, OR
+      - the agent tells the user the class is bookable without a successful
+        event-create response in the trace, OR
+      - it only explains how to do it instead of doing it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent created the class and its weekly session. Examine the
+      tool-call trace, including request bodies and error bodies. Score 0-10 (10 = direct:
+      the site reads it needs, one service create, one event create, at most one
+      verification read). Reading the recipe is expected and never a wasted call.
+
+      HEAVY penalties (each costs 2-3 points):
+      - an event call rejected with `resources.permissionRole must not be UNKNOWN_ROLE`
+        (resource sent without `permissionRole`) or with
+        `resources must have at least 1 resource for class events`
+      - an event sent without the `{ "event": { ... } }` wrapper, or on the wrong schedule
+      - a service create sent without `returnEntity: true` that forces an extra read just
+        to find `schedule.id`
+      - any other non-2xx error on a create call, or a duplicate service/event
+
+      LIGHT penalties (each costs at most 1 point):
+      - `staffMemberIds` or `sessionDurations` sent on the CLASS service
+      - a Site Properties lookup just to learn the currency, or an installed-apps check
+        before the first Bookings call
+      - a request-body shape guessed wrong then corrected, or other probing calls
+
+      For each friction, name the likely cause: recipe, MCP, or docs gap. A path with only
+      light penalties should still score 7+.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.
