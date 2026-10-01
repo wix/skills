@@ -14,10 +14,10 @@ Both are declared by each app and differ from site to site, so always discover t
 ## Required APIs
 
 - **App Skills API**: List App Skills, Get App Skill
-- **Tools Host API**: List Tools Providers, Invoke Tool
+- **App Tools API**: List Tools Providers, Invoke Tool
 - App side (how apps declare tools): [Tools Provider service plugin](https://dev.wix.com/docs/api-reference/app-management/app-tools/tools-provider-v1/introduction)
 
-All four calls act on the site in the call's context and take no site ID in the request.
+All four calls act on the site in the call's context and take no site ID in the request body. When calling with an API key, set the site with the `wix-site-id` header.
 
 ---
 
@@ -45,7 +45,9 @@ curl -X GET \
       "description": "Prices a product for a customer in another country: converts the price to their currency, adds their local VAT and rounds it to a customer-friendly price.",
       "toolMethodNames": ["convertCurrency", "calculateVat", "roundPrice"],
       "tags": ["pricing", "currency conversion", "vat"],
-      "examples": ["What should a customer in Germany pay for our $49 mug?"]
+      "examples": ["What should a customer in Germany pay for our $49 mug?"],
+      "inputModes": [],
+      "outputModes": []
     }
   ],
   "pagingMetadata": { "count": 1, "hasNext": false }
@@ -56,6 +58,7 @@ curl -X GET \
 - It never includes a skill's instructions (`guidelines`). Read them with Get App Skill in Step 3.
 - `displayName` is omitted when the app did not set one; show `slug` instead.
 - Match the user's request against each skill's `description`, `tags` and `examples`.
+- `inputModes` and `outputModes` list the media types the skill accepts and produces (for example `text/plain`, `application/json`). Empty means no restriction.
 
 **List Tools Providers**: `POST https://manage.wix.com/_api/tools-host/v1/list-tools-providers`
 
