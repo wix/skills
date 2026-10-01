@@ -1,0 +1,115 @@
+name: stores/edit-product-description-preserve-content-catalog-v3
+description: Verifies that prepending text to a Catalog V3 product description preserves the existing Rich Content document instead of replacing it through plainDescription.
+triggerPrompt: >
+  Prepend "New seasonal note." to the description of my "Eval Gate Ricos Mug" product.
+  Keep every existing element in the description exactly as it is.
+tags: [stores]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Prepend \"New seasonal note.\" to the description of my
+      \"Eval Gate Ricos Mug\" product. Keep every existing element in the description exactly as it is."
+
+      The site is a Catalog V3 store seeded with a physical product named "Eval Gate Ricos Mug".
+      Its description is a Ricos document containing a paragraph with a bold linked text run to
+      https://example.com/product-care and a LINK button labelled "Read care guide". The template
+      also ships other demo products; those are irrelevant and must not affect the score.
+
+      Score 9-10: after one successful (2xx) Update Product PATCH, the product description is
+      still a Rich Content document. Its first node adds exactly "New seasonal note."; the original
+      paragraph and button remain, including the bold decoration, URL, LINK button type, and button
+      label. The agent confirms the completed change.
+
+      Score 7-8: the same preserved Rich Content state, but the confirmation is vague.
+
+      Score 4-6: the requested text is present but an original Rich Content element or its
+      formatting/link metadata changed or disappeared.
+
+      Score 1-3: the description was replaced through plainDescription; the button or linked bold
+      text was lost; a different product was updated; a new product was created; the final update
+      call failed; or the agent only described how to perform the update.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace,
+      including query parameters and request bodies.
+
+      Score 9-10: a direct path — the exact product was located, Get Product requested DESCRIPTION
+      before the write, and one successful PATCH sent the current revision plus an edited Rich
+      Content description. No non-2xx responses, no retries, and no unnecessary schema probes.
+
+      Score 4-6: the correct state was reached, but the path had avoidable friction, such as a
+      redundant read or a schema lookup that the recipe should have avoided.
+
+      Score 1-3: Get Product omitted DESCRIPTION before the agent built the edit; any PATCH used
+      plainDescription; any update was rejected and retried; or the first request used the wrong
+      endpoint or catalog version.
+
+      Do not deduct for reading the seeded store's other demo products. For each issue found, name
+      the likely MCP/docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed product with rich description
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Ricos Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            description:
+              nodes:
+                - type: PARAGRAPH
+                  nodes:
+                    - type: TEXT
+                      textData:
+                        text: "Existing care details: "
+                        decorations: []
+                    - type: TEXT
+                      textData:
+                        text: "read the guide"
+                        decorations:
+                          - type: BOLD
+                            fontWeightValue: 700
+                          - type: LINK
+                            linkData:
+                              link:
+                                url: https://example.com/product-care
+                                target: BLANK
+                  paragraphData:
+                    textStyle:
+                      textAlignment: AUTO
+                - type: BUTTON
+                  buttonData:
+                    type: LINK
+                    text: Read care guide
+                    link:
+                      url: https://example.com/product-care
+                      target: BLANK
+                    containerData:
+                      alignment: CENTER
+                      width:
+                        size: ORIGINAL
+                      textWrap: true
+              metadata:
+                version: 1
+            variantsInfo:
+              variants:
+                - price:
+                    actualPrice:
+                      amount: "19.50"
+                  physicalProperties: {}
+                  visible: true
