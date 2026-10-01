@@ -27,11 +27,11 @@
 // If a call fails with an unexpected shape, read the live API reference (every call below
 // carries a docs: line with its reference page) — never guess.
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
-import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
+import { wixToken } from "../../shared/seed/wix-cli.mjs";
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -43,11 +43,7 @@ export function makeCtx({ cwd = process.cwd() } = {}) {
   // a seed there unless --allow-parent is passed after the user confirmed).
   const siteId = seedSiteId({ cwd, argv: process.argv });
   // The CLI returns a byte-identical token within a run — mint once, reuse.
-  const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
-    encoding: "utf8",
-    cwd,
-  }).trim();
-  if (!token) throw new Error("The Wix CLI returned no token — run `npx @wix/cli@latest login` first.");
+  const token = wixToken(siteId, cwd);
   return { token, siteId };
 }
 

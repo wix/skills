@@ -88,7 +88,7 @@ node <SKILL_ROOT>/templates/forms/seed/seed-forms.mjs plan.json    # from the pr
 | `label` | what the visitor reads — also the basis of the storage key |
 | `kind` | one of the kinds below |
 | `required` | default `false`; on a `checkbox` it means "must be ticked" |
-| `placeholder` · `description` | optional; passed to the control (description renders as help text) |
+| `placeholder` · `description` | optional; passed to the control (description renders as help text). A placeholder is at most 100 characters |
 | `default` | the prefill: text, a number, `true` for a checkbox, a choice value (or an array of them for `multi` / `tags`), a date (`"2026-01-31"` or `"$now+2d"`) |
 | `hidden` | start hidden — for a field a rule shows |
 | `choices` | `select` · `radio` · `multi` · `tags` — strings, or `{ value, label }` |
@@ -114,6 +114,16 @@ onto the owner's CRM contact, so prefer them over a plain `text` field for those
 
 A required `address` requires country, address line, city and postal code; `parts` overrides
 that per subfield.
+
+### Limits
+
+**The site's plan caps the forms.** A free site allows 4 forms, 10 fields per form, 3 steps and 3
+rules; a paid plan lifts them. The seed reads the live limits (Get Restrictions) and checks the
+whole plan against them before creating anything, naming each form and the cap it breaks; nothing
+is created. Trim the form, or the owner upgrades the plan
+(`https://www.wix.com/upgrade/website?metaSiteId=<siteId>`) and the same plan runs unchanged. Do
+not split one form in two to fit: it spends a form slot and splits a visitor's answers across two
+records. The example above sits at nine fields on purpose.
 
 **`file` needs a paid site plan.** Verified live: on a free site the create fails as a whole with
 `FILE_UPLOAD_RESTRICTIONS_ERROR` (the seed reports it by field label; nothing is created). No API
@@ -174,9 +184,12 @@ create the form again under a new name; a `200` on create does not mean the fiel
 Listed because a hand-rolled payload hits all of them, and each returns `200` first:
 
 - **A choice field declares its options twice** — the component's `options[]` and the
-  validation `enum` (or `items.stringOptions.enum` + `itemType` for a multi). Disagree and the
+  validation `enum` (or `items: { itemType, stringOptions.enum }` for a multi). Disagree and the
   field is created as a plain text box. With an `other` entry no enum is written: the free text
-  is by definition outside the list.
+  is by definition outside the list. For a multi, `itemType` sits inside `items` beside the
+  options block; one level up the create is a `400` whose message blames the options block.
+- **A rule's expression root is an `and` / `or` group**, even for one condition. A bare
+  condition at the root is a `400` (`UNGROUPED_RULE_EXPRESSION_ROOT`).
 - **`validation` must be present even when empty**, nested under the *input-type* block, not
   the component one. Absent, the target is not registered as an accepted value and every
   submission is rejected with `UNKNOWN_VALUE_ERROR` on a key that IS in the schema.

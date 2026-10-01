@@ -5,7 +5,7 @@
 // the CONTENT site's app, and on a migration preview also the site being migrated (the parent). Seeds
 // and readers are admin calls about content, so they target the content site: the config's site
 // normally, the parent on a migration. `env pull` runs when `.env.local` is missing.
-import { spawnSync } from "node:child_process";
+import { runWix } from "./wix-cli.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -28,7 +28,7 @@ function readEnvFile(file) {
 }
 
 
-const runPull = (dir) => spawnSync("npx", ["-y", "@wix/cli@latest", "env", "pull"], { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
+const runPull = (dir) => runWix(["env", "pull"], { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
 // `wix env pull` into cwd/.env.local, in place (every project shape has the command since Wix CLI
 // 1.1.253; same as install/context.mjs).
