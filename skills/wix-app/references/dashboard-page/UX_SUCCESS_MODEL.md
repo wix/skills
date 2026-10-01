@@ -120,12 +120,12 @@ Presentation success applies across all five stages. Choose both the right **rep
 
 ### Choosing the Right Drill-In
 
-Choose the interface that gives users enough context and room to complete the task. These are defaults, not rigid rules — except where noted below.
+Choose the interface that gives users enough context and room to complete the task. These are defaults, not rigid rules.
 
 | Interface | Use when… | Success looks like… |
 |---|---|---|
 | **Entity page** | Default for opening a business record. | Editable fields, validation, and a save that persists. |
-| **Read-only detail page** | One of the three cases in [template selection](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page): asked for, no editable field, or a log the app writes. | Linkable, one back-click from the list; the reason stated. |
+| **Read-only detail page** | One of the [three read-only cases](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page). | Linkable, one back-click from the list; the reason stated. |
 | **Modal** | A focused, bounded task that is not "open this record". | Attention stays on one task; the user returns cleanly. |
 | **Inline or expanded row** | A quick look *alongside* the drill-in, not instead of it. | Detail appears without a separate workspace. |
 
