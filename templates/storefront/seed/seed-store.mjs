@@ -814,7 +814,8 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     // Products the plan did not name (Wix's install samples on a fresh site, or the owner's own on an
     // existing one): the closing message names what the shop lists and where the owner removes it.
     preexisting: preexisting.map((p) => ({ id: p.id, name: p.name, slug: p.slug })),
-    dashboardProductsUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/store/products`,
+    // the Stores app's slug + products list (registered dashboard route); `store/products` is no route
+    dashboardProductsUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/wix-stores/products`,
   };
 }
 
