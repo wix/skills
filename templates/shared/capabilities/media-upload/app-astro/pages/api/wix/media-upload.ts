@@ -13,7 +13,10 @@ const elevatedGenerateUploadUrl = auth.elevate(files.generateFileUploadUrl);
  * field on a free site). A members policy needs the Wix Members Area app (the members seed
  * installs it): without it a logged-in member reads back as nobody.
  */
-type Policy = (typeof mediaUploadPolicies)[number] & { audience?: "members" | "visitors" };
+// Typed loosely on purpose: the generated file is `as const`, and a literal-typed `audience` would
+// make the comparison below a type error whenever every policy in it says the same thing.
+type Policy = { id: string; accept: readonly string[]; maxBytes: number; audience?: "members" | "visitors" };
+const policies: readonly Policy[] = mediaUploadPolicies;
 
 async function callerIsMember(): Promise<boolean> {
   try {
@@ -51,10 +54,10 @@ export const POST: APIRoute = async ({ request }) => {
   ) {
     return json({ error: "Invalid upload request" }, 400);
   }
-  const policy = mediaUploadPolicies.find((candidate) => candidate.id === body.policyId) as Policy | undefined;
+  const policy = policies.find((candidate) => candidate.id === body.policyId);
   if (!policy) return json({ error: "Unknown upload policy" }, 404);
   if (policy.audience !== "visitors" && !(await callerIsMember())) return json({ error: "Log in to upload" }, 401);
-  if (!policy.accept.includes(body.mimeType as never)) return json({ error: "File type is not allowed" }, 415);
+  if (!policy.accept.includes(body.mimeType)) return json({ error: "File type is not allowed" }, 415);
   if (body.sizeInBytes < 1 || body.sizeInBytes > policy.maxBytes) return json({ error: "File exceeds this policy's size limit" }, 413);
 
   // Do not accept a folder id, labels, privacy setting, or any other destination choice from
