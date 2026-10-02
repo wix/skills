@@ -33,7 +33,7 @@ export default function RequireAuth({ children, fallback }: RequireAuthProps) {
             </p>
             <a
               href={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`}
-              className="mt-4 rounded-control bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              className="mt-6 inline-block rounded-control bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               Log in / Sign up
             </a>
