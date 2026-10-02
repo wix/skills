@@ -303,7 +303,7 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
 | Donations (campaigns, settings) | `app/333b456e-dd48-4d6b-b32b-9fd48d74e163` (redirects to the app's own route) |
-| Orders — every donation is an eCom order | `ecom-platform/orders` |
+| Orders — every donation is an eCom order | `ecom-platform/orders-list` |
 | Accept payments — connect a payment method | `wix-cashier/payments` |
 | Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 

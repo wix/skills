@@ -279,7 +279,7 @@ as `dashboardUrl`). Rentals live in the Rentals dashboard, not the Bookings one 
 
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
-| Rentals | `rentals` |
+| Rentals (they are Bookings services) | `bookings/services` |
 | Bookings list | `bookings/bookings/bookings-list` |
 | Calendar | `bookings/calendar` |
 | Booking form | `bookings/settings/booking-form-page` |
