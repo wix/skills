@@ -436,9 +436,11 @@ function choiceImage(c: Raw, gallery: Map<string, Raw>, imgSrc: ImgSrc | undefin
 }
 
 export function toOptions(raw: Raw, imgSrc?: ImgSrc): ProductOption[] {
+  // the gallery by item id — `id` over REST, `_id` through the SDK (both feed this mapper)
   const gallery = new Map<string, Raw>();
   for (const m of [raw.media?.main, ...((raw.media?.itemsInfo?.items ?? []) as Raw[])]) {
-    if (m?.id) gallery.set(String(m.id), m.image ?? m);
+    const key = m?._id ?? m?.id;
+    if (key) gallery.set(String(key), m.image ?? m);
   }
   return ((raw.options ?? []) as Raw[]).map((o) => ({
     id: id(o) || o.name || "",

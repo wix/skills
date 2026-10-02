@@ -13,6 +13,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
+import { createHash } from "node:crypto";
 
 const API = "https://www.wixapis.com";
 // Order = cheap-and-permissive first (runware ~0.009 credits/img, ~5s, loosest content
@@ -106,6 +107,39 @@ export async function uploadImage(ctx, path, displayName) {
 
 /** Import an external/generated URL into Wix Media; returns { id, url } (permanent). */
 // docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file.md
+/**
+ * A file this seed already put in the Media Manager under this display name, or null. The seed
+ * names a file after its product/choice AND a hash of its source, so a re-run finds the same
+ * file instead of importing (or generating, a credit each) again — and the product gallery can
+ * recognise it by name instead of growing a duplicate per run.
+ */
+// docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files.md
+async function findExisting(ctx, displayName) {
+  try {
+    const r = await req(ctx, "/site-media/v1/files/search", { search: displayName, rootFolder: "MEDIA_ROOT", mediaTypes: ["IMAGE"], paging: { limit: 20 } });
+    const f = (r.files ?? []).find((x) => x.displayName === displayName && x.url && x.operationStatus !== "FAILED");
+    return f ? { id: f.id, url: f.url, reused: true } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Short stable fingerprint of an image's source (url, prompt + size, or file bytes). */
+function sourceHash(s) {
+  const h = createHash("sha1");
+  if (s.path) {
+    try { h.update(readFileSync(s.path)); } catch { h.update(String(s.path)); }
+  } else h.update(s.url ?? `${s.prompt}|${s.width ?? ""}x${s.height ?? ""}`);
+  return h.digest("hex").slice(0, 8);
+}
+
+/** `<name>-<hash>.<ext>`: the display name the seed gives a file, stable across runs. */
+function stableName(s) {
+  const given = s.displayName ?? (s.path ? basename(s.path) : "image.png");
+  const ext = (given.match(/\.[a-z0-9]+$/i) ?? [".png"])[0];
+  return `${given.replace(/\.[a-z0-9]+$/i, "")}-${sourceHash(s)}${ext}`;
+}
+
 export async function importImage(ctx, url, displayName = "image.png") {
   const r = await req(ctx, "/site-media/v1/files/import", { url, mimeType: "image/png", displayName });
   const f = r.file || r;
@@ -131,9 +165,14 @@ export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000
     (specs ?? []).map(async (s) => {
       if (!s || (!s.path && !s.url && !s.prompt)) return null;
       const resolve = (async () => {
-        if (s.path) return uploadImage(ctx, s.path, s.displayName);
+        const name = stableName(s);
+        // uploadImage swaps in the file's own extension; look for what it will actually be named
+        const uploadedName = s.path ? name.replace(/\.[a-z0-9]+$/i, "") + extname(s.path).toLowerCase() : name;
+        const existing = await findExisting(ctx, s.path ? uploadedName : name);
+        if (existing) return existing;
+        if (s.path) return uploadImage(ctx, s.path, name);
         const source = s.url ?? (await generateImage(ctx, s.prompt, { width: s.width, height: s.height }));
-        return importImage(ctx, source, s.displayName ?? "image.png");
+        return importImage(ctx, source, name);
       })();
       // Hard per-image budget: even a pathological multi-model hang costs the seed at most
       // perImageBudgetMs of wall clock (the wave is parallel, so it's paid once, not per item).

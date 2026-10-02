@@ -483,27 +483,51 @@ export async function addProductsToCategories(ctx, mapping) {
 // before). So: pair results to inputs, retry the misses once with fresh revisions, and report
 // what actually persisted. Returns { attached: [id], failures: [{ id, error }] }.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-update-products.md
+// Writing `media.itemsInfo.items` REPLACES the gallery and CLEARS every choice's link into it (seen
+// live: a re-sent gallery came back with the links empty; a gallery that drops a linked item is
+// refused outright, "Missing media files. Products must include media files linked to choices").
+// So the attach merges: the items already there are re-sent by id, only a url not yet in the
+// gallery (by file name) is added, a product with nothing new is left untouched, and a product
+// whose choices were linked (by this seed or by the owner in the dashboard) gets those links put
+// back right after.
+const sameFile = (a, b) => a && b && basename(a) === basename(b);
+const galleryHas = (items, url) => items.some((it) => sameFile(it.image?.filename, url) || sameFile(it.image?.url, url));
+
 export async function attachProductImages(ctx, items) {
   if (!items?.length) return { attached: [], failures: [] };
   const send = async (batch) => {
     const ids = batch.map((it) => it.id);
-    const q = await req(ctx, "/stores/v3/products/query", { body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } } } });
-    const revById = new Map((q.products ?? []).map((p) => [p.id, p.revision]));
-    const r = await req(ctx, "/stores/v3/bulk/products/update", {
-      body: {
-        products: batch.map((it) => ({
-          // one image (`url`) or several (`images`, the product's own first so it becomes the main one)
-          product: { id: it.id, revision: revById.get(it.id), media: { itemsInfo: { items: (it.images ?? [{ url: it.url, altText: it.altText }]).map(({ url, altText }) => ({ url, altText })) } } },
-        })),
-      },
+    const q = await req(ctx, "/stores/v3/products/query", {
+      body: { query: { filter: { id: { $in: ids } }, paging: { limit: ids.length } }, fields: ["MEDIA_ITEMS_INFO", "PRODUCT_CHOICES_MEDIA_REFERENCES", "VARIANT_OPTION_CHOICE_NAMES"] },
     });
+    const byId = new Map((q.products ?? []).map((p) => [p.id, p]));
     const ok = new Set();
     const failed = [];
-    for (const x of r.results ?? []) {
-      const src = batch[x.itemMetadata?.originalIndex];
-      if (!src) continue;
-      if (x.itemMetadata?.success) ok.add(src.id);
-      else failed.push({ id: src.id, error: x.itemMetadata?.error?.description ?? x.itemMetadata?.error?.code ?? "unknown" });
+    const toSend = [];
+    for (const it of batch) {
+      const p = byId.get(it.id);
+      const current = p?.media?.itemsInfo?.items ?? [];
+      const wanted = it.images ?? [{ url: it.url, altText: it.altText }];
+      const fresh = wanted.filter(({ url }) => !galleryHas(current, url));
+      if (!fresh.length) { ok.add(it.id); continue; } // every image is already there
+      toSend.push({ it, p, items: [...current.map(({ id }) => ({ id })), ...fresh.map(({ url, altText }) => ({ url, altText }))] });
+    }
+    if (toSend.length) {
+      const r = await req(ctx, "/stores/v3/bulk/products/update", {
+        body: { products: toSend.map(({ it, p, items }) => ({ product: { id: it.id, revision: p?.revision, media: { itemsInfo: { items } } } })) },
+      });
+      for (const x of r.results ?? []) {
+        const src = toSend[x.itemMetadata?.originalIndex];
+        if (!src) continue;
+        if (x.itemMetadata?.success) ok.add(src.it.id);
+        else failed.push({ id: src.it.id, error: x.itemMetadata?.error?.description ?? x.itemMetadata?.error?.code ?? "unknown" });
+      }
+      // the gallery write cleared the choice links: put back the ones the product had
+      for (const { it, p } of toSend) {
+        if (!ok.has(it.id)) continue;
+        const links = choiceLinksOf(p);
+        if (links.length) await linkChoiceImages(ctx, it.id, links).catch((e) => failed.push({ id: it.id, error: `relink: ${e?.message ?? e}` }));
+      }
     }
     // an input with no result at all did not persist either
     for (const it of batch) if (!ok.has(it.id) && !failed.some((f) => f.id === it.id)) failed.push({ id: it.id, error: "no result for item" });
@@ -520,6 +544,18 @@ export async function attachProductImages(ctx, items) {
   return { attached: [...attached], failures };
 }
 
+// The choice → gallery-item links a product carries (read with PRODUCT_CHOICES_MEDIA_REFERENCES).
+function choiceLinksOf(p) {
+  const out = [];
+  for (const o of p?.options ?? []) {
+    for (const c of o.choicesSettings?.choices ?? []) {
+      const mediaId = c.media?.items?.[0]?.mediaId;
+      if (mediaId) out.push({ optionName: o.name, choiceName: c.name, mediaId });
+    }
+  }
+  return out;
+}
+
 // Per-choice images (the dashboard's "image per colour"): a choice points at an item of the
 // product's OWN gallery, so the image is attached to the gallery first (pass 2) and linked here by
 // the gallery item's id — the id of the uploaded file is a different id and 400s. Links are a
@@ -528,16 +564,19 @@ export async function attachProductImages(ctx, items) {
 // from its choice at creation only; the storefront reads the choice's image, so a link made here
 // shows up on the product page the same as one made in the dashboard.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product.md
+// `links`: [{ optionName, choiceName, url }] (the file attached in pass 2) or [{ …, mediaId }] (a
+// gallery item id, used to put the owner's links back after a gallery write).
 export async function linkChoiceImages(ctx, productId, links) {
   const read = () => req(ctx, `/stores/v3/products/${productId}?fields=MEDIA_ITEMS_INFO&fields=VARIANT_OPTION_CHOICE_NAMES`, { method: "GET" });
   let { product: p } = await read();
-  const galleryIdFor = (url) => {
-    const want = basename(url);
-    const hit = (p?.media?.itemsInfo?.items ?? []).find((it) => basename(it.image?.filename ?? "") === want || basename(it.image?.url ?? "") === want);
+  const galleryIdFor = (link) => {
+    const items = p?.media?.itemsInfo?.items ?? [];
+    if (link.mediaId) return items.some((it) => it.id === link.mediaId) ? link.mediaId : null;
+    const hit = items.find((it) => sameFile(it.image?.filename, link.url) || sameFile(it.image?.url, link.url));
     return hit?.id ?? null;
   };
-  // the gallery can lag the attach by a few seconds (propagation): one re-read before giving up
-  if (links.some((l) => !galleryIdFor(l.url))) {
+  // the gallery can lag the attach (propagation, seen past 6 s live): poll for up to half a minute
+  for (let i = 0; i < 5 && links.some((l) => !galleryIdFor(l)); i++) {
     await new Promise((r) => setTimeout(r, 6000));
     ({ product: p } = await read());
   }
@@ -549,7 +588,7 @@ export async function linkChoiceImages(ctx, productId, links) {
     choicesSettings: {
       choices: (o.choicesSettings?.choices ?? []).map((c) => {
         const link = links.find((l) => l.optionName === o.name && l.choiceName === c.name);
-        const mediaId = link ? galleryIdFor(link.url) : null;
+        const mediaId = link ? galleryIdFor(link) : null;
         if (link && !mediaId) missing.push(`${o.name} / ${c.name}`);
         return {
           choiceId: c.choiceId,
