@@ -156,7 +156,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | the brief | the plan |
    |---|---|
    | supplies the content in any form: a CSV, JSON or spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a link to their current catalog, anything that names the content | that IS the plan: map it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md` ("Supplied content"), every entry, names and prices verbatim, their images and no others |
-   | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4) |
+   | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | on a site this run makes, draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4). On a site that existed before the run, a description of the business ("a store selling action figures") is not a request to add content — "Who decides the seed" below |
    | says nothing about content ("build me a store") | on a site this run makes (create, adopt) draft a plan per the vertical's `SEED.md` so the site opens with content — demo content the agent decides on, without being asked — and say in the closing message that it is placeholder content and where the owner edits it. On a site that existed before the run (attach, wix-project, migration): seed nothing; its content is its own |
 
    **An existing site has no plan of its own**: when the brief names a site by its id, or the
@@ -192,13 +192,16 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    it is always seeded: with the brief's content when it supplies or describes any, and otherwise
    with demo content the agent drafts per the vertical's `SEED.md` — without being asked, so the
    site opens with something to see. A site that existed before the run (attach, wix-project,
-   migration) holds content the run did not make, so the brief decides: when it supplies or
-   describes content, seed it (`attach.mjs --plan plan.json`, or the vertical's seed module from
-   the project root: `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`);
-   when it says nothing about content, seed nothing and never invent demo content for someone's
-   site. Read an existing site first either way (`seed/read-site.mjs`). Seeds are additive and
-   idempotent by name; nothing on a site is ever deleted or overwritten, and the result's
-   `preexisting[]` names what was already there.
+   migration) may hold content the run did not make, so read it first (`seed/read-site.mjs`) and
+   then, in this order: the brief **supplies content or asks for content to be added** → seed
+   that (`attach.mjs --plan plan.json`, or the vertical's seed module from the project root:
+   `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`); otherwise the
+   vertical **holds nothing of the owner's own** (the reader shows it empty, or only Wix's install
+   samples — storefront: `ownProductCount` 0) → it is the empty site it looks like, seed demo
+   content exactly as create would; otherwise → **seed nothing**. A description of the business
+   is not a request: "a new storefront for my toy store" on a store with its own catalog adds no
+   toys. Seeds are additive and idempotent by name; nothing on a site is ever deleted or
+   overwritten, and the result's `preexisting[]` names what was already there.
 
    - The brief names a site by id → not this call: read `<SKILL_ROOT>/guides/existing-site.md`
      and follow it (read the site, then `attach.mjs`, which does what setup does against the

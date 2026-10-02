@@ -1,9 +1,11 @@
 # An existing site: a new frontend for a site that already has its content
 
 Read when the brief names a Wix site by its id. The site owns its content and the frontend reads
-it live; the brief decides whether anything is added: content it supplies or describes is seeded
-with `--plan`, and a brief that says nothing about content seeds nothing (no demo content on
-someone's site — that is the create flow's job on an empty site it just made). (A project downloaded from Wix whose `.env.local` declares a
+it live. Whether anything is added is decided after the reader has run (SKILL.md, "Who decides
+the seed"): content the brief supplies or asks for is seeded with `--plan`; a vertical the reader
+shows empty of the owner's own content (nothing, or only Wix's install samples — storefront:
+`ownProductCount` 0) is the empty site it looks like and gets demo content as create would; a
+vertical with the owner's own content gets nothing, however the brief describes the business. (A project downloaded from Wix whose `.env.local` declares a
 migration is the other way to arrive at an existing site: `guides/migration.md`; the reading
 part below applies there too, against the migrated site.) `<SKILL_ROOT>` is the installed skill folder; the shipped code is
 under `<SKILL_ROOT>/templates/` (SKILL.md, "The run").
