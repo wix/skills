@@ -52,14 +52,19 @@ client helper and Astro endpoint once, plus a generated read-only policy module:
       "policies": [{
         "id": "gallery-artwork",
         "accept": ["image/png", "image/jpeg"],
-        "maxBytes": 5242880
+        "maxBytes": 5242880,
+        "audience": "members"
       }]
     }
   }
 }
 ```
 
-The generated policy lives at `src/wix/media-upload/policies.generated.ts`; do not hand-edit
+`audience` is who may use the policy: `members` (the default) admits a logged-in member only —
+the endpoint reads the caller's own session server-side and answers 401 to anyone else, before
+anything is elevated; it needs the Wix Members Area app, which the members seed installs.
+`visitors` admits anyone, and is only for a policy the product means for the public (a form's
+file field on a free site). The generated policy lives at `src/wix/media-upload/policies.generated.ts`; do not hand-edit
 it. The shared browser helper is `src/wix/media-upload/client.ts`:
 
 ```ts
