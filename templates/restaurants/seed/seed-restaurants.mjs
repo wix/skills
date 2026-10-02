@@ -550,7 +550,8 @@ export async function setupRestaurants(ctx, plan) {
     imagesAttached,
     imageFailures,
     preexistingMenus,
-    dashboardMenusUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/restaurants/menus`,
+    // the Menus app's slug (route read from the app's registered dashboard pages); `restaurants/menus` is no route
+    dashboardMenusUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/wix-restaurants-menus-new`,
     ordering,
     reservations,
   };

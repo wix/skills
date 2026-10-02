@@ -291,7 +291,8 @@ export async function setupRentals(ctx, { resourceTypes = [], rentals = [], curr
     preexisting,
     errors,
     imagesAttached,
-    dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/rentals`,
+    // rentals are Bookings services: the Bookings app's services list; `rentals` is no dashboard route
+    dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/bookings/services`,
   };
 }
 
