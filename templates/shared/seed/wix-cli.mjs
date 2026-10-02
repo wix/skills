@@ -10,7 +10,12 @@ import { execFileSync, spawnSync } from "node:child_process";
 export function resolveWixCli(cwd = process.cwd()) {
   const bin = process.platform === "win32" ? "wix.cmd" : "wix";
   const local = join(cwd, "node_modules", ".bin", bin);
-  if (existsSync(local)) return { file: local, prefix: [] };
+  // The project's copy counts only once its install has finished: the seed runs beside a detached
+  // npm install, and mid-install the .bin shim can exist before the package it points at does
+  // (seen live: "Cannot find module node_modules/.bin/wix"). npm writes node_modules/.package-lock.json
+  // last, the same marker the kit's install step syncs on.
+  const installed = existsSync(join(cwd, "node_modules", ".package-lock.json")) && existsSync(join(cwd, "node_modules", "@wix", "cli", "package.json"));
+  if (installed && existsSync(local)) return { file: local, prefix: [] };
   for (const dir of (process.env.PATH ?? "").split(delimiter)) {
     if (dir && existsSync(join(dir, bin))) return { file: join(dir, bin), prefix: [] };
   }

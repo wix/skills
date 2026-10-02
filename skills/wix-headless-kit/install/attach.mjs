@@ -2,11 +2,17 @@
 // exists (named in the prompt by its id). `init`/`wix create` cannot do this: they always create
 // a site. This script does what they do AFTER creating one — OAuth app, managed hosting, env
 // vars, `wix.config.json` — against the site id given, then scaffolds and deploys like
-// setup.mjs. Nothing on the site is created, changed or deleted; there is no seed step.
+// setup.mjs. Nothing on the site is changed or deleted. Seeding is the caller's decision: with
+// --plan the first vertical's seed runs with it (additive, idempotent by name; what the site already
+// held comes back as preexisting[]); without one nothing is seeded — the site owns its content.
 //
 //   node <SKILL_ROOT>/install/attach.mjs [--site <metaSiteId>] --business-name "<Brand>" \
-//        --vertical <a>[,<b>…] [--stack astro|react|lib|static] [--hosting wix|self [--origin <url>[,<url>]]] \
+//        --vertical <a>[,<b>…] [--plan plan.json] [--stack astro|react|lib|static] [--hosting wix|self [--origin <url>[,<url>]]] \
 //        [--subfolder [--folder-name <name>]]
+//
+// --plan           the content to seed, per the vertical's SEED.md — given when the brief supplies or
+//                  describes content (SKILL.md step 2). Also carries plan.capabilities (mediaUpload,
+//                  siteSearch) into deploy. Without it: no seed, and no capabilities.
 //
 // --hosting        wix (default): the frontend releases to Wix hosting — the site's app project is
 //                  created or reused and `wix release` uploads to its *.wix-site-host.com address.
@@ -19,8 +25,8 @@
 // --site           the site. May be omitted when the folder holds a wix.config.json: then it is
 //                  the site in that config (what `init` left behind in an empty folder).
 // --business-name  the site's name (names the folder, the hosting slug and the app project).
-// --vertical       which shipped code deploys (no seed runs — the site owns its content). Both are
-//                  the caller's decision, read off the site before calling this (SKILL.md step 3).
+// --vertical       which shipped code deploys, and whose seed runs with --plan (the first one). Both
+//                  are the caller's decision, read off the site before calling this (SKILL.md step 3).
 // --stack          astro (default) in a folder without a project: copies the first vertical's
 //                  composed template (templates/<vertical>/project). react|static there: writes wix.config.json
 //                  and stops — the caller scaffolds (Vite / plain HTML) per SKILL.md. In a folder
@@ -41,7 +47,7 @@
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@latest whoami`)
 // whose account owns or co-manages the site.
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
@@ -69,6 +75,8 @@ const flag = (name) => {
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : null;
 };
 const stackFlag = flag("stack");
+const planPath = flag("plan");
+if (planPath && !existsSync(resolve(planPath))) fail("args", `--plan ${planPath}: no such file`);
 const hosting0 = flag("hosting") ?? "wix";
 const origins = (flag("origin") ?? "").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
 const subfolder = argv.includes("--subfolder");
@@ -289,7 +297,8 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 
 if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, frontend, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
-    next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack} (the client id is read from wix.config.json); no seed — the site owns its content` +
+    next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack}${planPath ? ` --plan ${planPath}` : ""} (the client id is read from wix.config.json); ` +
+      (planPath ? `then seed with the plan: node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs ${planPath}` : `no plan given, so nothing seeds — the site owns its content`) +
       (hosting === "self" ? `; you host it: origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}` : "") });
   process.exit(0);
 }
@@ -297,7 +306,7 @@ if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
 // ---- 3 · deploy shipped code + deps (adds nothing to a scaffold from the template) --------------
 let deployResult = {};
 {
-  const deploy = spawnSync("node", [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack], { cwd: projectDir, encoding: "utf8", timeout: 60_000 });
+  const deploy = spawnSync("node", [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(planPath ? ["--plan", resolve(planPath)] : [])], { cwd: projectDir, encoding: "utf8", timeout: 60_000 });
   if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
   if (deployResult.error) fail("deploy", deployResult.error);
@@ -315,6 +324,27 @@ if (existsSync(join(projectDir, "package.json"))) {
   emit("install_started", install);
 }
 
+// ---- 5 · the seed, detached, only with --plan ------------------------------------------------------
+// The site existed before this run, so content goes in only when the caller says so (the brief
+// supplied or described it). Same shape as setup: result JSON + exit marker, synced on before release.
+// Seeds are additive and idempotent by name; what the site already held is reported, never touched.
+let seed = null;
+if (planPath) {
+  const seedDir = join(TEMPLATES, verticals[0], "seed");
+  const seedName = existsSync(seedDir) ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs")) : undefined;
+  if (!seedName) fail("seed", `no seed module found under ${seedDir}`);
+  const seedChild = spawn(
+    "sh",
+    ["-c", `node "${join(seedDir, seedName)}" "${resolve(planPath)}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
+    { cwd: projectDir, detached: true, stdio: "ignore" },
+  );
+  seedChild.unref();
+  seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
+  emit("seeding_started", { vertical: verticals[0], ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${verticals[0]}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
+} else if (verticals.includes("members")) {
+  emit("note", { step: "seed", detail: "members: the Members Area app (the profile layer, no content) is installed by templates/members/seed/seed-members.mjs — run it unless the site already has the app" });
+}
+
 // ---- done ----------------------------------------------------------------------------------------
 emit("ready_for_brand_layer", {
   projectDir,
@@ -330,9 +360,12 @@ emit("ready_for_brand_layer", {
   mode,
   stack,
   install,
-  seed: null,
+  seed,
   next:
-    "the site's content is live already — nothing to seed; get the measure of the site (SKILL.md step 3), theme + write the pages" +
+    (seed
+      ? "the plan is seeding in the background (additive; the result's preexisting[] names what the site already held) — sync on .seed-exit before release; "
+      : "no plan given, so nothing seeds — the site's content is its own; ") +
+    "get the measure of the site (SKILL.md step 3), theme + write the pages" +
     (mode === "link" && hosting !== "self" ? "; make the project what its stack needs on Wix hosting (SKILL.md step 1)" : "") +
     (install ? "; wait for the install marker" : "") +
     (hosting === "self"

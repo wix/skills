@@ -1,7 +1,9 @@
 # An existing site: a new frontend for a site that already has its content
 
-Read when the brief names a Wix site by its id. Nothing here is seeded: the site owns its content
-and the frontend reads it live. (A project downloaded from Wix whose `.env.local` declares a
+Read when the brief names a Wix site by its id. The site owns its content and the frontend reads
+it live; the brief decides whether anything is added: content it supplies or describes is seeded
+with `--plan`, and a brief that says nothing about content seeds nothing (no demo content on
+someone's site — that is the create flow's job on an empty site it just made). (A project downloaded from Wix whose `.env.local` declares a
 migration is the other way to arrive at an existing site: `guides/migration.md`; the reading
 part below applies there too, against the migrated site.) `<SKILL_ROOT>` is the installed skill folder; the shipped code is
 under `<SKILL_ROOT>/templates/` (SKILL.md, "The run").
@@ -20,14 +22,18 @@ so on per the Verticals table); the brief picks among them. Then one determinist
 shape as setup (SKILL.md step 3):
 
 ```bash
-node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>]
+node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>] [--plan plan.json]
 ```
 
 `init`/`wix create` always create a site, so they are not used here. attach does what they do
 after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
 given, copies the first vertical's composed template, deploys the rest, and starts the install
-detached. No seed runs and nothing on the site changes: the content is the site's own, read
-live through the deployed data layer. `attached` also says whether a frontend is already
+detached. With `--plan` the first vertical's seed runs with it, detached like setup's (sync on
+`.seed-exit` before release; `preexisting[]` in the result names what the site already held —
+nothing is deleted or overwritten). `--plan` also carries the plan's `capabilities` into the
+deploy. Without it nothing seeds and nothing on the site changes: the content is the site's own,
+read live through the deployed data layer. A vertical whose seed only installs an app (members:
+the Members Area, the profile layer) still needs that seed; attach says so in a `note`. `attached` also says whether a frontend is already
 serving at the site's address (`frontend.serving`, with the release date). When it is, a
 `wix release` from this project replaces it — the old deployment keeps its own address and
 production can be pointed back, but the user's site changes. Tell the user before you release,

@@ -129,7 +129,8 @@ records. The example above sits at nine fields on purpose.
 `FILE_UPLOAD_RESTRICTIONS_ERROR` (the seed reports it by field label; nothing is created). No API
 call lifts it — the owner upgrades the site in the dashboard, then the same plan runs unchanged.
 When the brief needs the upload now and the site is free, use a `url` kind for that field and add a
-`capabilities.mediaUpload` policy to the plan (Astro stack only): the site uploads the file itself
+`capabilities.mediaUpload` policy to the plan with `"audience": "visitors"` (Astro stack only; a
+policy admits logged-in members only unless it says so): the site uploads the file itself
 through the shared endpoint and submits the uploaded file's URL as the field's value. Say which way
 you went in the closing message; a "link to your CV" text field is not a substitute for an upload.
 
