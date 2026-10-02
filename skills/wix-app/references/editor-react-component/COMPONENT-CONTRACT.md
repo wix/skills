@@ -1,14 +1,13 @@
 # Component Contract
 
-Use this reference when defining props, defaults, named-part wiring, complex data,
-or internal file boundaries.
+Use for props, defaults, named parts, data, and file boundaries.
 
 ## Public Props Contract
 
-Keep identity and platform contracts together with component-specific data and
-behavior. Do not add `children` unless the component is explicitly a container.
+Keep identity, platform props, data, and behavior together. Add `children` only
+for an explicit container.
 
-Use this shape:
+Shape:
 
 ```ts
 import type { A11y, Direction } from '@wix/editor-react-types';
@@ -43,9 +42,8 @@ Rules:
 - Default to common optional SDK callbacks by capability; add specialized ones
   when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
-- A CTA with a real destination is a native link with that `href`. If it only
-  performs an action, use a native button. Never use `href="#"` as a fallback;
-  it creates a focusable link without a meaningful destination.
+- Use a native link for a CTA with a real `href`, or a native button for an
+  action. Never fall back to `href="#"`: it has no meaningful destination.
 
 ## Numeric Range Constraints
 
@@ -184,14 +182,20 @@ optional `uri`, `alt`, `width`, `height`; `Link` has optional `href`, `target`
 
 Do not represent media as a URL/source string or split its metadata across
 primitive props. Preserve the media object through the public contract so the
-component can consume all of its supported data. Inspect the installed media
-type declaration only if a needed field is not covered here or a typecheck
-reports an error.
+component can consume all of its supported data.
+
+Before using fields not documented here, inspect the relevant app-resolved
+`@wix/editor-react-types` declaration and only needed type references. Never
+infer one type's fields from another type's example. Recheck documented fields
+only if a related typecheck error reveals a mismatch; follow the installed
+declaration for the field shape while retaining editor rules. Preserve required
+fields. Do not bypass errors with `any`, casts, or replacement media types.
 
 ## Defaults and Resources
 
-Export `defaultProps` from `<component-name>.props.ts`. Both `component.tsx` and
-the extension consume this object; never duplicate fallbacks in JSX.
+Export `defaultProps` from `<component-name>.props.ts`, including defaults for
+root and nested `a11y` fields. Both `component.tsx` and the extension consume
+this object; never duplicate these defaults in destructuring or JSX.
 
 All rendered media must come from Wix-hosted services, local assets, or props.
 No external hosts or third-party runtime dependencies.

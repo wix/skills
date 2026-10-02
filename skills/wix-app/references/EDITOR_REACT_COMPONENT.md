@@ -57,8 +57,9 @@ Supplementary files are allowed; keep scaffold roles intact.
    ```
 
 3. **Plan.** Identify props, root, parts, and states; read routed references.
-   Use the scaffold and references before package declarations; probe an API
-   only when undocumented or a typecheck fails.
+   Use the scaffold and references before inspecting package declarations.
+   Inspect only needed declarations resolved by the app for undocumented APIs
+   or fields, or typecheck failures. They govern API shapes; retain editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's configured formatter before
