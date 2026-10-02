@@ -46,6 +46,9 @@ export const DETAIL_FIELDS = [
   "SUBSCRIPTION_PRICES_INFO",
   "BREADCRUMBS_INFO",
   "DIRECT_CATEGORIES_INFO",
+  // the gallery image linked to each option choice (the dashboard's "image per colour"); variant
+  // media is derived from it at creation only, so the choice is the source of truth
+  "PRODUCT_CHOICES_MEDIA_REFERENCES",
 ] as const;
 
 /** Stores' category tree — every Categories API call names it. */
@@ -419,7 +422,24 @@ export function toSummary(raw: Raw, imgSrc: ImgSrc, mediaKey: MediaKey): Product
   };
 }
 
-export function toOptions(raw: Raw): ProductOption[] {
+/**
+ * A choice's linked image. With PRODUCT_CHOICES_MEDIA_REFERENCES the choice carries
+ * `media.items[].mediaId` pointing into the product gallery; without it Wix returns the same link
+ * as the deprecated `linkedMedia` with the media object inline. Both read forms are handled.
+ */
+function choiceImage(c: Raw, gallery: Map<string, Raw>, imgSrc: ImgSrc | undefined): string | null {
+  if (!imgSrc) return null;
+  const ref = (c.media?.items ?? [])[0]?.mediaId;
+  const linked = (c.linkedMedia ?? [])[0];
+  const m = ref ? gallery.get(String(ref)) : linked ? (linked.image ?? linked) : null;
+  return m ? imgSrc(m, 1200, 1200) || null : null;
+}
+
+export function toOptions(raw: Raw, imgSrc?: ImgSrc): ProductOption[] {
+  const gallery = new Map<string, Raw>();
+  for (const m of [raw.media?.main, ...((raw.media?.itemsInfo?.items ?? []) as Raw[])]) {
+    if (m?.id) gallery.set(String(m.id), m.image ?? m);
+  }
   return ((raw.options ?? []) as Raw[]).map((o) => ({
     id: id(o) || o.name || "",
     key: o.key ?? o.name ?? "",
@@ -427,7 +447,14 @@ export function toOptions(raw: Raw): ProductOption[] {
     isColor: o.optionRenderType === "SWATCH_CHOICES" || o.optionRenderType === "COLOR_CHOICES",
     choices: ((o.choicesSettings?.choices ?? []) as Raw[])
       .filter((c) => c.visible !== false) // a retired choice the merchant no longer sells
-      .map((c) => ({ choiceId: c.choiceId ?? "", key: c.key ?? c.name ?? "", name: c.name ?? "", colorCode: c.colorCode ?? null, inStock: c.inStock !== false })),
+      .map((c) => ({
+        choiceId: c.choiceId ?? "",
+        key: c.key ?? c.name ?? "",
+        name: c.name ?? "",
+        colorCode: c.colorCode ?? null,
+        inStock: c.inStock !== false,
+        imageUrl: choiceImage(c, gallery, imgSrc),
+      })),
   }));
 }
 
@@ -555,7 +582,7 @@ export function toDetail(raw: Raw, imgSrc: ImgSrc, mediaKey: MediaKey): ProductD
     gallery: mediaEntries(raw, mediaKey).map((m) => imgSrc(m, 1200, 1200)).filter(Boolean),
     breadcrumbs: toBreadcrumbs(raw.breadcrumbsInfo),
     categoryIds: ((raw.directCategoriesInfo?.categories ?? []) as Raw[]).map((c) => id(c)).filter(Boolean),
-    options: toOptions(raw),
+    options: toOptions(raw, imgSrc),
     modifiers: toModifiers(raw),
     variants,
     subscriptions: toSubscriptionPlans(raw),
