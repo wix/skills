@@ -98,6 +98,10 @@ if (cwdConfig) {
   }
 }
 const siteId = flag("site") ?? cwdConfig?.siteId ?? cwdConfig?.projectId ?? null;
+// Where the site came from decides the seed (SKILL.md step 3). A config in this folder for this site
+// is what `init` leaves behind, and `init` always creates a site: that site was made for this run and
+// is empty. A site named with --site (and not already this folder's) existed before the run.
+const siteOrigin = cwdConfig && (cwdConfig.siteId === siteId || cwdConfig.projectId === siteId) ? "init" : "given";
 const stack = stackFlag ?? "astro";
 const knownVerticals = listVerticals(TEMPLATES);
 const verticals = argv
@@ -127,7 +131,7 @@ if (!subfolder) {
   }
 }
 const mode = !subfolder && hasProject ? "link" : hosting0 === "self" ? "config-only" : "scaffold";
-emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cwdConfig ? "same site" : null });
+emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cwdConfig ? "same site" : null, siteOrigin });
 
 // ---- http ---------------------------------------------------------------------------------------
 const cliToken = (site) => {
@@ -341,8 +345,13 @@ if (planPath) {
   seedChild.unref();
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
   emit("seeding_started", { vertical: verticals[0], ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${verticals[0]}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
-} else if (verticals.includes("members")) {
-  emit("note", { step: "seed", detail: "members: the Members Area app (the profile layer, no content) is installed by templates/members/seed/seed-members.mjs — run it unless the site already has the app" });
+} else {
+  if (siteOrigin === "init") {
+    emit("note", { step: "seed", detail: `this site was made for this run (init) and is empty: draft a plan per templates/${verticals[0]}/seed/SEED.md — the brief's content, else demo content — and run node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs plan.json from the project root` });
+  }
+  if (verticals.includes("members")) {
+    emit("note", { step: "seed", detail: "members: the Members Area app (the profile layer, no content) is installed by templates/members/seed/seed-members.mjs — run it unless the site already has the app" });
+  }
 }
 
 // ---- done ----------------------------------------------------------------------------------------
@@ -361,10 +370,13 @@ emit("ready_for_brand_layer", {
   stack,
   install,
   seed,
+  siteOrigin,
   next:
     (seed
       ? "the plan is seeding in the background (additive; the result's preexisting[] names what the site already held) — sync on .seed-exit before release; "
-      : "no plan given, so nothing seeds — the site's content is its own; ") +
+      : siteOrigin === "init"
+        ? "no plan given and this site was made for this run (empty): draft a plan per SEED.md and run the vertical's seed before release; "
+        : "no plan given, so nothing seeds — the site existed before this run and its content is its own; ") +
     "get the measure of the site (SKILL.md step 3), theme + write the pages" +
     (mode === "link" && hosting !== "self" ? "; make the project what its stack needs on Wix hosting (SKILL.md step 1)" : "") +
     (install ? "; wait for the install marker" : "") +
