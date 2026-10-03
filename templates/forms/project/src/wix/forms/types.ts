@@ -50,13 +50,33 @@ export interface FormChoice {
 
 /** One subfield of an ADDRESS field — its own control, its own error key (`target/sub`). */
 export interface FormAddressPart {
-  /** `country`, `addressLine`, `city`, `postalCode`, … — also the key inside the submitted object. */
+  /**
+   * `country`, `addressLine`, `streetName`, `streetNumber`, `city`, `subdivision`, `postalCode`, … —
+   * also the key inside the submitted object. WHICH subfields appear, and in what order, follows
+   * the chosen country (Wix's own per-country address templates: Israel has a street name and
+   * number and no subdivision, the United States one address line and a state), so re-read
+   * `addressParts` from the store after the country changes.
+   */
   sub: string;
-  /** "Postal code" — humanized from `sub`; the schema carries no label for a subfield. */
+  /** "Postal code", or the country's own word for its subdivision ("State", "Province", "Region"). */
   label: string;
   required: boolean;
-  /** `country` only: ISO-2 codes to offer — the owner's `allowedCountries`, else every country. */
+  /**
+   * `country`: ISO-2 codes to offer — the owner's `allowedCountries`, else every country.
+   * `subdivision`: the country's states / provinces / regions (value is the ISO 3166-2 code, "US-NY");
+   * absent when the country has none on record — render a text input then.
+   */
   choices?: FormChoice[];
+}
+
+/** The owner's address settings, kept on the field so the parts can be recomputed for a country. */
+export interface AddressOverrides {
+  /** `validation.fields[sub].required` */
+  required: Record<string, boolean | undefined>;
+  /** `multilineAddressOptions.fieldSettings[sub].show` */
+  show: Record<string, boolean | undefined>;
+  /** `validation.allowedCountries`; empty means every country. */
+  allowedCountries: string[];
 }
 
 /** The schema's own rules, resolved onto the field. Undefined means the owner set no rule. */
@@ -121,8 +141,13 @@ export interface FormFieldDto {
   choices: FormChoice[];
   /** A free-text "Other" entry the owner enabled on a choice field. Its submitted value is `otherValue(field, text)`. */
   otherOption?: { label: string; placeholder?: string };
-  /** address only — empty for every other control. `country` is always first. */
+  /**
+   * address only — empty for every other control. `country` is always first. The store recomputes
+   * these for the country the visitor picked (`FormState.form.fields`), so take them from there.
+   */
   addressParts: FormAddressPart[];
+  /** address only: what the recomputation needs. Not for rendering. */
+  addressOverrides?: AddressOverrides;
   validation: FormValidation;
   /** phone only: the country whose example to show ("US", "GB", …). */
   phoneCountry?: string;
