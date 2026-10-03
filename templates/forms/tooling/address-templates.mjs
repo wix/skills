@@ -4,25 +4,23 @@
 // + number, no subdivision; the United States: one address line and a state) and the submission API
 // rejects any other subfield as "additional properties", so the storefront must follow the same
 // templates. Three sources, all Wix's own:
-//   - @wix/form-multiline-address (npm, public): the country → template map (constants.js)
-//   - the template forms themselves, namespace wix.form_platform.form, read through the Forms API
-//   - @wix/locale-dataset-data (npm, public): subdivisions per country and their English names
-// Run by hand when Wix changes any of them; the output is committed:
-//   node templates/forms/tooling/address-templates.mjs [--site <siteId>]   (needs a logged-in Wix CLI)
+//   - @wix/headless-forms (npm, public): the country → template map its form service uses
+//     (dist/services/utils/address-forms.js; the same map as Wix's internal form-multiline-address)
+//   - the template forms themselves, from the public form-template endpoint Wix's own form
+//     components call at runtime (no authentication; namespace wix.form_platform.form)
+//   - @wix/locale-dataset-data (Wix's npm registry, the default inside Wix; no token): subdivisions
+//     per country and their English names
+// Run by hand when Wix changes any of them; the output is committed. Needs npm and the network,
+// no Wix login:
+//   node templates/forms/tooling/address-templates.mjs
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, "..", "app", "wix", "forms", "address-templates.generated.ts");
-const argv = process.argv.slice(2);
-const flag = (n) => { const i = argv.indexOf(`--${n}`); return i !== -1 ? argv[i + 1] : null; };
-const cwdConfig = existsSync("wix.config.json") ? JSON.parse(readFileSync("wix.config.json", "utf8")) : null;
-const siteId = flag("site") ?? cwdConfig?.siteId;
-if (!siteId) { console.error("usage: node address-templates.mjs --site <siteId>  (or run from a project folder)"); process.exit(1); }
 
 const tmp = mkdtempSync(join(tmpdir(), "wix-address-"));
 const pack = (name) => {
@@ -33,23 +31,31 @@ const pack = (name) => {
   return join(dir, "package");
 };
 
-// 1 · country → template, from Wix's own address component
-const fma = pack("@wix/form-multiline-address");
-const fmaVersion = JSON.parse(readFileSync(join(fma, "package.json"), "utf8")).version;
-const { ADDRESS_FORM_ID_BY_COUNTRY, DEFAULT_COUNTRY } = await import(pathToFileURL(join(fma, "dist", "esm", "lib", "constants.js")).href);
+// 1 · country → template, from Wix's own headless form components. The module imports the SDK at
+// the top, so its two constants are read from the source text rather than by importing it.
+const hf = pack("@wix/headless-forms");
+const hfVersion = JSON.parse(readFileSync(join(hf, "package.json"), "utf8")).version;
+const addressForms = readFileSync(join(hf, "dist", "services", "utils", "address-forms.js"), "utf8");
+const mapSource = addressForms.match(/ADDRESS_FORM_ID_BY_COUNTRY\s*=\s*(\{[^}]*\})/)?.[1];
+const DEFAULT_COUNTRY = addressForms.match(/DEFAULT_COUNTRY\s*=\s*'([A-Z_]+)'/)?.[1];
+if (!mapSource || !DEFAULT_COUNTRY) throw new Error("@wix/headless-forms: ADDRESS_FORM_ID_BY_COUNTRY or DEFAULT_COUNTRY not found in address-forms.js");
+const ADDRESS_FORM_ID_BY_COUNTRY = Object.fromEntries([...mapSource.matchAll(/([A-Z_]+):\s*'([0-9a-f-]{36})'/g)].map((m) => [m[1], m[2]]));
 
-// 2 · the template forms, through the Forms API
-const token = wixToken(siteId);
+// 2 · the template forms, from the same public endpoint Wix's form components fetch at runtime
+// (@wix/headless-forms services/utils/address-forms.js): all twelve in one call, no token.
 const formIds = [...new Set(Object.values(ADDRESS_FORM_ID_BY_COUNTRY))];
+const url = `https://www.wixapis.com/form-template-service/v1/templates?${formIds.map((id) => `templateIds=${id}`).join("&")}&namespace=wix.form_platform.form`;
+const res = await fetch(url);
+const json = await res.json().catch(() => ({}));
+if (!res.ok || !Array.isArray(json.templates)) throw new Error(`form templates: ${res.status} ${JSON.stringify(json).slice(0, 200)}`);
 const templates = {};
 const nameByFormId = {};
 for (const id of formIds) {
-  const res = await fetch(`https://www.wixapis.com/form-schema-service/v4/forms/${id}`, { headers: { Authorization: `Bearer ${token}`, "wix-site-id": siteId } });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.form) throw new Error(`template form ${id}: ${res.status} ${JSON.stringify(json).slice(0, 200)}`);
-  const name = String(json.form.name ?? id).replace(/^MLA_/, "");
+  const form = json.templates.find((t) => t.id === id);
+  if (!form) throw new Error(`template form ${id} missing from the response`);
+  const name = String(form.name ?? id).replace(/^MLA_/, "");
   nameByFormId[id] = name;
-  templates[name] = (json.form.fields ?? []).map((f) => ({ sub: f.target, required: Boolean(f.validation?.required), hidden: Boolean(f.hidden) }));
+  templates[name] = (form.fields ?? []).map((f) => ({ sub: f.target, required: Boolean(f.validation?.required), hidden: Boolean(f.hidden) }));
 }
 const byCountry = Object.fromEntries(Object.entries(ADDRESS_FORM_ID_BY_COUNTRY).filter(([c]) => c !== DEFAULT_COUNTRY).map(([c, id]) => [c, nameByFormId[id]]));
 
@@ -73,8 +79,8 @@ for (const c of data.countries) {
 }
 
 const body = `// Generated by templates/forms/tooling/address-templates.mjs on ${new Date().toISOString().slice(0, 10)}
-// from @wix/form-multiline-address ${fmaVersion} (country → template), the ${formIds.length} template forms
-// (wix.form_platform.form, read through the Forms API) and @wix/locale-dataset-data ${ldVersion}
+// from @wix/headless-forms ${hfVersion} (country → template), the ${formIds.length} template forms
+// (wix.form_platform.form, from the public form-template endpoint) and @wix/locale-dataset-data ${ldVersion}
 // (country names, subdivisions). Do not edit; re-run the generator.
 export interface AddressTemplatePart { sub: string; required: boolean; hidden: boolean }
 export interface AddressSubdivisions { label: string; list: [code: string, name: string][] }
