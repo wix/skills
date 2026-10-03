@@ -1,6 +1,6 @@
 ---
 name: "Create Headless Site"
-description: Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
+description: Creates a new Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client. Not for taking an existing Wix Editor, Wix Studio or Wix Harmony site headless (use Migrate a Wix Site to Headless).
 ---
 # Create Headless Site
 
@@ -43,7 +43,9 @@ Headless sites are not created from templates. One account-level call creates th
 
 ## Existing Sites
 
-To provision headless onto an existing site, pass `"existingMetasite": {}` instead of `newMetasite`. This is a site-level call in the context of that site.
+If the user wants to take an existing Wix site (built with Wix Editor, Wix Studio or Wix Harmony) headless, use [Migrate a Wix Site to Headless](migrate-site-to-headless.md) instead of this recipe. Do not call provision for that request, with either target. Provisioning skips everything the migration flow exists for: a separate new frontend, previewing it while the live site stays untouched, and an explicit switch.
+
+The provision call also accepts `"existingMetasite": {}` in place of `newMetasite`, as a site-level call in the context of that site. It provisions headless onto the site and is not a migration.
 
 ## Next Steps
 

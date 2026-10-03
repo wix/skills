@@ -401,10 +401,13 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 
 ### [Create Headless Site](references/sites/create-headless-site.md)
-Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
+Creates a new Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client. Not for taking an existing Wix Editor, Wix Studio or Wix Harmony site headless (use Migrate a Wix Site to Headless).
 
 ### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
 Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs.
+
+### [Migrate a Wix Site to Headless](references/sites/migrate-site-to-headless.md)
+Takes an existing Wix site built with Wix Editor, Wix Studio or Wix Harmony headless through the Headless Migration flow in the site's dashboard, so the merchant can replace its frontend with one they code themselves while keeping the site's products, orders, contacts and other business data. Covers the Help Center article that explains the flow, where it starts, what changes and what doesn't, and which sites can start it. Use when the user wants to move, convert, or migrate their Wix site to headless, or to replace their Wix site's frontend with their own code while keeping its business data. Not for creating a new, separate headless site (use Create Headless Site), and not for moving a site from another platform into Wix (use Site Import).
 
 ### [Query Sites](references/sites/query-sites.md)
 List, count, and find the sites in a Wix account. Covers the namespace filter for headless sites, counting before enumerating, cursor pagination, and resolving a site by name.
