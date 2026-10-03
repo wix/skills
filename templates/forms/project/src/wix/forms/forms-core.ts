@@ -164,8 +164,15 @@ export function humanizeSub(sub: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** "US" → "United States" where the runtime knows names (Intl.DisplayNames); the code otherwise. */
+/**
+ * "US" → "United States". From the shipped data first — the same string on the server and in the
+ * browser, which Intl.DisplayNames does not guarantee (Node and Chrome spell Hong Kong, Macao,
+ * Palestine and the Falklands differently, and a server-rendered list the browser disagrees with
+ * is a hydration mismatch). Intl for a code the data lacks; the code itself otherwise.
+ */
 export function countryName(code: string): string {
+  const known = ADDRESS_TEMPLATES.countryNames[code];
+  if (known) return known;
   try {
     const dn = (Intl as any).DisplayNames ? new (Intl as any).DisplayNames(["en"], { type: "region" }) : null;
     return (dn?.of(code) as string | undefined) ?? code;
