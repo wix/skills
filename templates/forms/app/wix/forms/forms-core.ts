@@ -5,6 +5,7 @@
 // rules, which the store re-runs on every value change. A raw form may come from the SDK (`_id`) or
 // from REST (`id`); the mappers accept both. Imports are type-only so a strip to JS emits no imports.
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields.md
+import { ADDRESS_TEMPLATES } from "./address-templates.generated";
 import type {
   FormAddressPart,
   FormChoice,
@@ -18,6 +19,7 @@ import type {
   FormValues,
   RuleCondition,
   RuleEffect,
+  AddressOverrides,
 } from "./types";
 
 /** A raw Form Schemas v4 entity as either transport returns it. */
@@ -118,13 +120,11 @@ export const FILE_FORMAT_ACCEPT: Record<string, string> = {
 export const COUNTRY_CODES: readonly string[] = ["AD","AE","AF","AG","AI","AL","AM","AN","AO","AQ","AR","AS","AT","AU","AW","AX","AZ","BA","BB","BD","BE","BF","BG","BH","BI","BJ","BL","BM","BN","BO","BQ","BR","BS","BT","BV","BW","BY","BZ","CA","CC","CD","CF","CG","CH","CI","CK","CL","CM","CN","CO","CR","CV","CW","CX","CY","CZ","DE","DJ","DK","DM","DO","DZ","EC","EE","EG","EH","ER","ES","ET","FI","FJ","FK","FM","FO","FR","GA","GB","GD","GE","GF","GG","GH","GI","GL","GM","GN","GP","GQ","GR","GS","GT","GU","GW","GY","HK","HM","HN","HR","HT","HU","ID","IE","IL","IM","IN","IO","IQ","IS","IT","JE","JM","JO","JP","KE","KG","KH","KI","KM","KN","KR","KW","KY","KZ","LA","LB","LC","LI","LK","LR","LS","LT","LU","LV","LY","MA","MC","MD","ME","MF","MG","MH","MK","ML","MM","MN","MO","MP","MQ","MR","MS","MT","MU","MV","MW","MX","MY","MZ","NA","NC","NE","NF","NG","NI","NL","NO","NP","NR","NU","NZ","OM","PA","PE","PF","PG","PH","PK","PL","PM","PN","PR","PS","PT","PW","PY","QA","RE","RO","RS","RU","RW","SA","SB","SC","SD","SE","SG","SH","SI","SJ","SK","SL","SM","SN","SO","SR","SS","ST","SV","SX","SZ","TC","TD","TF","TG","TH","TJ","TK","TL","TM","TN","TO","TR","TT","TV","TW","TZ","UA","UG","UM","US","UY","UZ","VA","VC","VE","VG","VI","VN","VU","WF","WS","XK","YE","YT","ZA","ZM","ZW"];
 
 /**
- * The subfields of an address, in the order Wix's country templates lay them out; `country`
- * always comes first (Wix prepends it to every template, get-country-field.ts). The per-country
- * templates Wix fetches at runtime vary this set (a US template adds a state, a JP one reorders);
- * this is the common set, with any extra key the owner configured in `validation.fields`
- * (streetName, streetNumber, apartment) appended.
+ * Every subfield an address can have. WHICH ones a given address shows is per country
+ * (`addressPartsForCountry`): Wix's address field loads one of twelve templates by country, and
+ * the submission API rejects any other key as "additional properties".
  */
-export const ADDRESS_SUBFIELDS = ["country", "addressLine", "addressLine2", "city", "subdivision", "postalCode"] as const;
+export const ADDRESS_SUBFIELDS = ["country", "addressLine", "addressLine2", "streetName", "streetNumber", "city", "subdivision", "postalCode"] as const;
 
 // An enum missing from a table means Wix added a type. Say so ONCE — a silent empty block
 // renders a field labelled by its storage key with none of its settings.
@@ -215,21 +215,56 @@ export function otherText(field: FormFieldDto, value: unknown): string | null {
   return value.startsWith(prefix) ? value.slice(prefix.length) : value;
 }
 
+/** The owner's address settings, as `addressPartsForCountry` needs them. */
+function addressOverrides(rules: Raw, component: Raw): AddressOverrides {
+  const fields: Raw = rules.fields ?? {};
+  const settings: Raw = component.fieldSettings ?? {};
+  return {
+    required: Object.fromEntries(Object.keys(fields).map((k) => [k, fields[k]?.required as boolean | undefined])),
+    show: Object.fromEntries(Object.keys(settings).map((k) => [k, settings[k]?.show as boolean | undefined])),
+    allowedCountries: Array.isArray(rules.allowedCountries) ? rules.allowedCountries.map(String) : [],
+  };
+}
+
+/**
+ * The subfields of an address for ONE country, in Wix's order: `country` first (Wix prepends it
+ * to every template and requires it exactly when the address is required, get-country-field.ts),
+ * then the country's template — Israel: street name, street number, city, postal code; the United
+ * States: address line, city, state, postal code — with the owner's `validation.fields` deciding
+ * requiredness and `fieldSettings` visibility over the template's defaults. A `subdivision` part
+ * carries the country's states / provinces / regions as `choices` (ISO 3166-2 codes) when Wix has
+ * them on record. No country yet → Wix's common template.
+ */
+export function addressPartsForCountry(country: string | undefined, o: AddressOverrides, required: boolean): FormAddressPart[] {
+  const code = country ? country.toUpperCase() : "";
+  const templateName = ADDRESS_TEMPLATES.byCountry[code] ?? ADDRESS_TEMPLATES.defaultTemplate;
+  const template = ADDRESS_TEMPLATES.templates[templateName] ?? ADDRESS_TEMPLATES.templates[ADDRESS_TEMPLATES.defaultTemplate] ?? [];
+  const allowed = o.allowedCountries.length ? o.allowedCountries : [...COUNTRY_CODES];
+  const parts: FormAddressPart[] = [{
+    sub: "country",
+    label: "Country",
+    required: o.required.country ?? required,
+    choices: allowed.map((c) => ({ value: c, label: countryName(c) })),
+  }];
+  const subdivisions = ADDRESS_TEMPLATES.subdivisions[code];
+  for (const t of template) {
+    if (!(o.show[t.sub] ?? !t.hidden)) continue;
+    const isSubdivision = t.sub === "subdivision";
+    parts.push({
+      sub: t.sub,
+      label: isSubdivision && subdivisions ? subdivisions.label : humanizeSub(t.sub),
+      required: o.required[t.sub] ?? t.required,
+      ...(isSubdivision && subdivisions ? { choices: subdivisions.list.map(([k, name]) => ({ value: `${code}-${k}`, label: name })) } : {}),
+    });
+  }
+  return parts;
+}
+
 function addressParts(rules: Raw, component: Raw, required: boolean): FormAddressPart[] {
-  const overrides: Raw = rules.fields ?? {};
-  const allowed: string[] = Array.isArray(rules.allowedCountries) && rules.allowedCountries.length ? rules.allowedCountries : [...COUNTRY_CODES];
-  const subs = [...ADDRESS_SUBFIELDS, ...Object.keys(overrides).filter((k) => !(ADDRESS_SUBFIELDS as readonly string[]).includes(k))];
-  return subs
-    // Only addressLine2 carries a visibility setting; hide it when the owner turned it off.
-    .filter((sub) => component.fieldSettings?.[sub]?.show !== false)
-    .map((sub) => ({
-      sub,
-      label: humanizeSub(sub),
-      // Wix requires the country exactly when the address itself is required (get-country-field.ts);
-      // every other subfield is optional unless the owner's `validation.fields` says otherwise.
-      required: overrides[sub]?.required ?? (sub === "country" ? required : false),
-      ...(sub === "country" ? { choices: allowed.map((code) => ({ value: code, label: countryName(code) })) } : {}),
-    }));
+  // The owner's pre-selected country when the field has one; else the common template until the
+  // visitor picks a country (the store recomputes the parts on every change).
+  const preset = component.defaultCountryConfig?.countryOptions;
+  return addressPartsForCountry(typeof preset === "string" ? preset : undefined, addressOverrides(rules, component), required);
 }
 
 export function toField(raw: Raw, imgSrc: ImgSrc, stepId: string): FormFieldDto {
@@ -329,6 +364,7 @@ export function toField(raw: Raw, imgSrc: ImgSrc, stepId: string): FormFieldDto 
       ? { otherOption: { label: String(component.customOption.label ?? "Other"), ...(component.customOption.placeholder ? { placeholder: String(component.customOption.placeholder) } : {}) } }
       : {}),
     addressParts: control === "address" ? addressParts(rules, component, required) : [],
+    ...(control === "address" ? { addressOverrides: addressOverrides(rules, component) } : {}),
     validation,
     ...(component.defaultCountryCode ? { phoneCountry: String(component.defaultCountryCode) } : {}),
     ...(component.buttonText ? { buttonText: String(component.buttonText) } : {}),

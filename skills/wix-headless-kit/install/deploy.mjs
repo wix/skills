@@ -299,7 +299,8 @@ if (stack === "static") {
       // Every vertical has a types.ts; flat in one folder they would collide, so each lands as
       // <vertical>-types.ts and the vertical's own files are pointed at it below.
       if (f === "types.ts") cpSync(join(appWix, f), join(JS, `${vertical}-types.ts`), COPY);
-      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+      // *.generated.ts: data a core file imports (the forms' per-country address templates).
+      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts") || f.endsWith(".generated.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
     }
     const own = new Set([...readdirSync(join(root, "rest")), ...readdirSync(appWix)].filter((f) => f.endsWith(".ts") && f !== "types.ts"));
     for (const f of own) {
