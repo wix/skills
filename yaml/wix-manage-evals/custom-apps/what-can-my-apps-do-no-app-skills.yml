@@ -1,0 +1,54 @@
+name: custom-apps/what-can-my-apps-do-no-app-skills
+description: >-
+  Verifies the agent reads the use-app-skills-and-app-tools skill when asked
+  what the site's apps can do for it, discovers the site's app skills and app
+  tools with List App Skills and List Tools Providers, and reports that none
+  of the installed apps provide any, instead of inventing capabilities or
+  describing built-in Wix features as app skills.
+triggerPrompt: >-
+  Do any of the apps on my site have AI skills or tools you can use for me?
+  What can they do?
+tags: [custom-apps, app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/app-management/app-tools/skills/use-app-skills-and-app-tools
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked whether the apps on their site have AI skills or tools the
+      agent can use, and what they can do. The site is a fresh blank site: no
+      installed app declares app skills or app tools.
+      Intent: discover the site's app skills and app tools and report them
+      accurately.
+
+      Pass if the agent:
+      - called List App Skills (GET .../_api/app-skills/v1/app-skills) AND
+        List Tools Providers (POST .../_api/tools-host/v1/list-tools-providers)
+        for this site, AND
+      - told the user that none of the installed apps currently provide app
+        skills or app tools.
+
+      Fail if the agent:
+      - lists skills or tools that neither call returned, OR
+      - presents built-in Wix features or the installed Wix apps themselves as
+        the site's app skills or app tools, OR
+      - calls Invoke Tool or Get App Skill even though both lists were empty, OR
+      - answers without calling either discovery endpoint.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; a
+      discovery endpoint called with a wrong URL, host or HTTP method and then
+      corrected; searching the docs or probing other APIs (such as installed
+      apps) to find app skills before or instead of the two discovery calls;
+      redundant or repeated calls clearer docs would avoid. For each, name the
+      likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
