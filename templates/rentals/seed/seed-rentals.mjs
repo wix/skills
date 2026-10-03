@@ -291,8 +291,10 @@ export async function setupRentals(ctx, { resourceTypes = [], rentals = [], curr
     preexisting,
     errors,
     imagesAttached,
-    // rentals are Bookings services: the Bookings app's services list; `rentals` is no dashboard route
-    dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/bookings/services`,
+    // The Rentals app's own page (slug wix-rental, route rental-list). Rentals are Bookings services,
+    // but the Bookings services page lists only services with the Bookings app id (its global filter),
+    // so on a rentals site it shows an empty "Add a New Service" wizard instead of the rooms.
+    dashboardUrl: `https://manage.wix.com/dashboard/${ctx.siteId}/wix-rental/rental-list`,
   };
 }
 
