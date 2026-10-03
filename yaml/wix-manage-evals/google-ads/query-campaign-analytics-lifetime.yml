@@ -1,0 +1,54 @@
+name: google-ads/query-campaign-analytics-lifetime
+description: >-
+  Verifies a lifetime, newest-day-first performance query sends an explicit
+  dateRange and keeps DATE in fields, the two omissions that make
+  performance-metrics return 500.
+triggerPrompt: >-
+  Show me the daily clicks and cost for my Google Ads campaign on my site
+  (MSID: b342a30b-616e-40ce-ad26-52a83397e08e) since it started, newest day
+  first. Give me the exact Wix Google Ads API call.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/query-campaign-performance-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants daily clicks and cost for the campaign's whole lifetime,
+      sorted newest day first.
+
+      Pass if the response:
+      - uses POST /v1/performance-metrics with a campaignResourceName
+        (customers/{customerId}/campaigns/{campaignId}), AND
+      - sends an explicit dateRange ({ custom: { from, to } }) whose from is the
+        campaign's creation or start date (or says to fill it from the campaign),
+        AND
+      - sorts by DATE descending, AND
+      - includes DATE in fields alongside CLICKS and COST.
+
+      Fail if the response:
+      - omits dateRange or says omitting it returns the campaign lifetime, OR
+      - sorts by DATE while fields leaves out DATE, OR
+      - uses the Wix campaignId instead of campaignResourceName, OR
+      - invents an endpoint or falls back to generic Google Ads reporting.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how directly the agent reached the lifetime performance query.
+      Examine the tool-call trace. Score 9-10 for a direct path on site
+      b342a30b-616e-40ce-ad26-52a83397e08e: select that site, read the campaign
+      once for its resource name and start date, and call performance-metrics
+      once with dateRange and DATE in fields. Score 7-8 if extra documentation
+      discovery is needed but the agent stays on this route without an
+      erroneous API call.
+
+      Score below 7 for using or probing another site, a non-2xx response from
+      performance-metrics even if recovered, a request sent without dateRange
+      then corrected, a DATE sort sent without DATE in fields then corrected,
+      guessing the campaign identifier instead of reading it from the campaign,
+      or repeated campaign or performance-metrics calls. Name the likely recipe,
+      MCP, or docs gap for each detour. Return only
+      {"score":<0-10>,"reason":"<terse findings or clean path>"}.

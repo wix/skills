@@ -24,13 +24,13 @@ Both come from Get/List Campaign (see [Manage Campaign Lifecycle](manage-campaig
 | Per-product performance | `POST /v1/shopping-performance-metrics` | Shopping / retail PMAX | `campaignId` |
 | Per-asset (headline/description/image) | `POST /v1/asset-performance-metrics` | PMAX Leads only | `campaignId` |
 
-**Date range** is shared: `{ "dateRange": { "custom": { "from": "2026-03-01", "to": "2026-03-31" } } }` (YYYY-MM-DD). Omit `dateRange` to default to the campaign lifetime.
+**Date range** is shared: `{ "dateRange": { "custom": { "from": "2026-03-01", "to": "2026-03-31" } } }` (YYYY-MM-DD). Always send a `custom` `dateRange`: performance metrics fail without a finite range, and conversion metrics require one. The API also lists `predefined` values, but `predefined: LIFETIME` is not a finite range and fails on performance metrics. For a lifetime view, send `custom` with `from` set to the campaign's creation date and `to` set to today.
 
 ---
 
 ## Daily performance metrics
 
-Clicks, impressions, CTR, cost, leads, phone calls — per day, plus a summary row. `fields` chooses which metrics to return (defaults to clicks, impressions, CTR, cost, phone calls, date). `includePreviousPeriod: true` adds a `previousPeriodSummaryRow` and `trends` (decimal % change vs the equivalent preceding period).
+Clicks, impressions, CTR, cost, leads, phone calls — per day, plus a summary row. `fields` chooses which metrics to return (defaults to clicks, impressions, CTR, cost, phone calls, date). `includePreviousPeriod: true` adds a `previousPeriodSummaryRow` and `trends` (decimal % change vs the equivalent preceding period). When you pass `fields` and sort by `DATE`, include `DATE` in `fields`.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/performance-metrics' \
@@ -144,6 +144,8 @@ Each result has `assetContent`, `assetFieldType`, `assetSource` (`ADVERTISER` vs
 | Asset-performance returns nothing on a non-Leads campaign | Only PMAX Leads is supported | Use performance/shopping metrics for other types |
 | Shopping per-product `conversions`/`conversionRate` are 0 | By design (not queried from Google) | Read the summary's `totalConversions`/`roas` |
 | Slow response (conversion/shopping) | 120s SLA | Wait; don't retry prematurely |
+| 500 `Expects filters on the following field to limit a finite date range: 'segments.date'` | Performance metrics called without `dateRange`, or with `predefined: LIFETIME` | Send a `custom` `dateRange` with `from` and `to` |
+| 500 `The following field must be present in SELECT clause: 'segments.date'` | Sorted by `DATE` but `DATE` is missing from `fields` | Add `DATE` to `fields`, or drop the `DATE` sort |
 
 ## References
 
