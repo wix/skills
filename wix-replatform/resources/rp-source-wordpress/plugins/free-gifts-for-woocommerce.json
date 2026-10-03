@@ -22,7 +22,9 @@
       "entity": "coupon-gift-rule-definition",
       "capability": "commerce.coupons",
       "channel": "admin-page-only",
-      "candidateTargetRefs": ["stores/coupon"],
+      "candidateTargetRefs": [
+        "stores/coupon"
+      ],
       "pitfalls": [
         {
           "code": "plugin-identity-ambiguous",
@@ -37,13 +39,18 @@
           "unverified": true
         },
         {
+          "code": "gift-is-not-auto-added-on-wix",
+          "severity": "warning",
+          "summary": "A rebuilt Wix coupon does NOT reproduce this plugin's central behaviour, and the loss is easy to miss because the mapping otherwise looks clean. On the source, applying the Coupon Gift code ADDS the gift product to the cart. The Wix equivalent — `percentOffRate: 100` scoped to that product — only discounts the gift if the buyer has already put it in the cart, so a buyer who enters the code and adds nothing receives nothing. There is no platform fallback: no Wix service plugin mutates a cart (every extension returns a decision — eligible triggers, rates, fees, validations, tax — and none can insert a line item). So the outcome is either the lossy coupon plus an explicit note to the merchant, or custom storefront/app development outside the migration. Surface this at mapping review rather than after go-live. See rp-target-wix/domains/stores/entities/coupon.json's free-gift-coupons-are-a-lossy-mapping-the-gift-is-not-auto-added."
+        },
+        {
           "code": "admin-page-not-reachable-with-application-password",
           "severity": "blocker",
           "summary": "Coupon Gift is standing configuration and maps to a product-scoped Wix coupon, not an Automatic Discount. The source rule is still admin-page-only unless the unverified REST CRUD route is present; Application Passwords cannot authenticate a wp-admin settings-page render.",
           "blocked": [
             {
               "kind": "user-file",
-              "resolution": "First check whether the live site's REST index exposes a Free Gifts namespace (v12.2.0+ may have one). If not, ask the site owner to transcribe or screenshot each Coupon Gift rule, including its code, trigger threshold, and eligible gift product. Rebuild it as a product-scoped Wix coupon.",
+              "resolution": "First check whether the live site's REST index exposes a Free Gifts namespace (v12.2.0+ may have one). If not, ask the site owner to transcribe or screenshot each Coupon Gift rule, including its code, trigger threshold, and eligible gift product. Rebuild it as a product-scoped Wix coupon — and see the gift-is-not-auto-added-on-wix pitfall below before telling anyone the rebuild is equivalent.",
               "declined": false
             }
           ]
@@ -54,12 +61,14 @@
       "entity": "automatic-or-bogo-gift-rule-definition",
       "capability": "commerce.free-gift-rules",
       "channel": "admin-page-only",
-      "candidateTargetRefs": [],
+      "candidateTargetRefs": [
+        "ecom/discount-rule"
+      ],
       "pitfalls": [
         {
-          "code": "different-product-gift-has-no-confirmed-native-target",
-          "severity": "blocker",
-          "summary": "Automatic Gift and Buy X Get Y grant a different product after a trigger. Wix DiscountRule QUANTITY_BASED discounts the same items counted by its trigger; no native target for granting a different product is confirmed. Keep this capability pending rather than routing it to ecom/discount-rule or stores/coupon."
+          "code": "different-product-gift-maps-to-buy-x-get-y",
+          "severity": "warning",
+          "summary": "CORRECTED 2026-08-31 — this pitfall previously said no native Wix target existed for granting a DIFFERENT product, and that was WRONG. Automatic Gift and Buy X Get Y both map natively: DiscountRule `discounts.values[].targetType` accepts BUY_X_GET_Y with a `buyXGetYInfo` payload ({customerBuys: {scopes[], minimumQuantity|minimumSpend}, customerGets: {scopes[], quantity}, limit?}). Set customerBuys to the threshold scope and customerGets to the gift product with discountType FIXED_PRICE / fixedPrice '0'. So route these definitions to ecom/discount-rule rather than keeping the capability pending. The old conclusion came from reading QUANTITY_BASED, which is the wrong axis — BOGO lives on targetType, not discountType — and from buyXGetYInfo being absent from the published method schema while the docs' own Buy-X-Get-Y example returns HTTP 500. WHAT STILL DOES NOT MAP is a gate Wix has no trigger for, a cart COUPON CODE being the common one: such a rule imported `active` applies to every shopper unconditionally, so import it inactive and flag it, or rebuild it as a Wix coupon. See rp-target-wix/domains/ecom/entities/discount-rule.json's buy-x-get-y-is-supported-but-undocumented pitfall."
         },
         {
           "code": "admin-page-not-reachable-with-application-password",
@@ -77,7 +86,7 @@
     }
   ],
   "quirks": [
-    "Functional scope (vendor docs, woocommerce.com/document/free-gifts/): Coupon Gift is standing configuration mapped to stores/coupon; Automatic Gift and Buy X Get Y are tracked separately as the pending commerce.free-gift-rules capability; Manual Gift is a merchant action on an individual order, not standing configuration or an entity to migrate.",
+    "Functional scope (vendor docs, woocommerce.com/document/free-gifts/): Coupon Gift is standing configuration mapped to stores/coupon; Automatic Gift and Buy X Get Y are tracked separately as the commerce.free-gift-rules capability, which routes to ecom/discount-rule via targetType BUY_X_GET_Y (corrected 2026-08-31; it was recorded as pending until then). The rule DEFINITIONS are still admin-page-only, so having a target does not make them readable; Manual Gift is a merchant action on an individual order, not standing configuration or an entity to migrate.",
     "Vendor docs and third-party summaries consistently describe the applied gift as landing on the order as a real $0.00 line item for the gift product (either via a zero-price line or a $0 coupon restricted to that product) — this is NOT a distinct entity here because a $0 product line item already migrates generically through the existing commerce.order-line-items capability (ecom/order-line-item, sourceEntity woocommerce:order_line_item, confidence high) with no plugin-specific channel required. What is NOT captured anywhere in this profile is a marker distinguishing 'this $0 line was a promotional gift' from 'the merchant manually priced this product at $0' — no meta key was found (no source access); if a future live run finds one (search sampled order line_items[].meta_data for anything gift-related), add it here as a core-meta entity under a new applied-discount-style capability rather than folding it into commerce.order-line-items.",
     "fingerprint-aliases.json already maps the observed `fgf` asset-path token to `free-gifts-for-woocommerce`, promoting that otherwise named-only signal to this profile's deterministic detection path.",
     "This profile has not been verified against a running installation of the assumed WooCommerce.com Marketplace extension. Every behavioral claim above is vendor-documentation-tier, not source- or live-verified."

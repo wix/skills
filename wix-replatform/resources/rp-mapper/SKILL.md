@@ -149,7 +149,17 @@ infer a request from `db-only`, `admin-page-only`, or another channel by itself.
 `lib/blocked-data-requests.js` builder to aggregate one request per `sourceEntityRef`, appending
 all dependent target entity/field rows. Resolve each source entity's `blocked[].fulfillment`
 through `rp-source-wordpress/lib/blocked-data-handlers.js`; offer it only when its fixture
-self-test passes and, for `bridge-plugin`, the matching manifest case is production-ready.
+self-test passes. `structure-bridge-plugin` (wix-wp-plugin-v2, spec 0101/0102) has no
+manifest or readiness flag to check beyond that -- authorization is live (denylist +
+`DESCRIBE`) at request time, not a build-time gate. This readiness check is the only
+thing this stage does with a `structure-bridge-plugin` fulfillment: unlike `csv-upload`,
+its actual data is never resolved through this file's `attemptFulfillment()`/snapshot
+mechanism (that path is for a small, static, one-shot document) -- `rp-import-codegen`
+generates a normal incremental reader for it instead, reusing the same `table`/
+`sampleStructureRequest` metadata. See `rp-import-codegen`'s "`structure-bridge-plugin`
+entities" section. Which credential that reader authenticates with depends on whether the
+source site has WooCommerce (Application Password requires it; the migration key does not)
+— `rp-source-wordpress/plugins/README.md`'s "Resolving a db-only capability" section.
 
 Persist the request under `state/` as the authority and render
 `mapping/review/blocked-data-requests.md` as a passive review section. This adds no new blocking
@@ -246,6 +256,19 @@ This metadata must be surfaced in **both** machine and human mapping artifacts:
 Do not leave safe-mode contact replacement coverage implicit in field tables or only in
 JSON. A reviewer should be able to confirm from the review markdown which outbound
 email/phone fields will be replaced in safe mode.
+
+## Variant inventory is part of the catalog plan
+
+For each source variant, plan either explicit stock (`inventoryTracked`, `inventoryQuantity`,
+`inStock` canonical fields) or a named inventory gap. Use the source adapter's stock mapper;
+stock flags, quantities, and backorders are different policies. Count every intended variant
+before filtering gaps or failed product mappings. Carry that denominator into inventory
+verification as `expectedCount`. A product count never stands in for inventory coverage.
+Default-location stock is supported; any shared pool, multi-location allocation, preorder,
+or fallback availability needs an explicit mapping decision. The target builder has no
+implicit in-stock default. A legacy explicit `inStock` fallback must not override known
+variant stock. Inventory verification remains required for deliberately excluded stock:
+record the expected destination state and the gap rather than exempting the catalog audit.
 
 ## Identity and deduplication rules
 
@@ -345,9 +368,11 @@ Load full entity records only for selected candidates that materially affect the
 project.
 
 - Verify enum **values**, not just names: every `Field.type` you assign must be a real
-  member of the Create Data Collection `Type` enum. (Common trap: there is no `SLUG`
-  type — a slug maps to a `TEXT` field. Never assign a guessed enum value and flag it
-  `unverified`; resolve it or omit it.)
+  member of the Create Data Collection `Type` enum. Never assign a guessed enum value and
+  flag it `unverified`; resolve it or omit it. (`SLUG` **does** exist in that enum — it is
+  documented for dynamic page URLs. Prefer `TEXT` when the field carries a *preserved source*
+  slug as identity/SEO data, and `SLUG` only when the target itself generates the dynamic-page
+  URL from it; both are real choices, so do not record `SLUG` as unavailable.)
 - If a Wix tool surface such as Wix MCP is available in the runtime, use it as a fast
   verification aid for entity, field, enum, app, and setup names.
 - If no Wix tool surface is available, rely on `rp-target-wix`'s verified contracts plus
@@ -441,21 +466,25 @@ Additional plugin rules:
   row presented without them reads as more automatic than it is.
 - `requires-development` and `pending` rows belong in the summary's gaps section in plain
   language, even though there is no mapping to make for them.
-- A `targetClassification: "manual-mapping"` entity gets its own section in
-  `mapping-summary.md`, separate from both the gaps section above and the review-gate list
-  below — carry over its `manualSteps.steps[]` as a numbered list, not a one-line summary; the
-  point of this section is to hand over a runbook, not to compress it. **Do not** put these
-  rows in the pending/gaps section: unlike `pending`, a manual-mapping row is a complete,
-  decided mapping the moment it is authored with real evidence — there is nothing left for a
-  human to decide, only steps for the merchant to execute. It needs no verdict at the review
-  gate below.
+- A `targetClassification: "manual-mapping"` entity becomes a checklist item in
+  `mapping-summary.md`'s `Manual steps you need to complete` section (see "The manual-steps
+  section"), not a section of its own — one consolidated list is what makes the handover
+  readable, and a per-entity section splits it. Carry over its `manualSteps.steps[]` as a
+  numbered list under that item, not a one-line summary; the point is to hand over a runbook,
+  not to compress it. **Do not** put these rows in the pending/gaps section: unlike `pending`,
+  a manual-mapping row is a complete, decided mapping the moment it is authored with real
+  evidence — there is nothing left for a human to decide, only steps for the merchant to
+  execute. It needs no verdict at the review gate below.
 
 **Mandatory step — pending rows are decided at the review gate.** The mapping review is the
 single human gate and **the only exit from Pending**: every `pending` row is put to the user
 for a decision, none may survive the gate undecided. Four verdicts, each with a producer:
 
 - **"We can migrate it"** — record the chosen target and move the row to *Migration planned*
-  in the plan (its `confidence` stays `proposed` until a profile is authored).
+  in the plan (its `confidence` stays `proposed` until a profile is authored) — when the
+  capability has no REST route, follow `rp-source-wordpress/plugins/README.md`'s "Resolving
+  a db-only capability" order (try wix-wp-plugin-v2's structure-bridge-plugin before
+  defaulting to a `user-file`/csv-upload ask) before authoring the profile.
 - **"Nothing to move"** — the row becomes *No need to migrate* with `basis: decision` and the
   user's stated reason as its `rationale`.
 - **"Wix has no surface — build it first"** — the row becomes *Requires development*: write it
@@ -553,6 +582,9 @@ review without forcing the user through the full plan.
 The summary should:
 
 - explicitly say that full details live in `mapping/review/mapping-plan.md`
+- **carry a `Manual steps you need to complete` section — required, always present, placed
+  immediately after the opening and ahead of the entity mappings.** See "The manual-steps
+  section" below; it is the one place the user learns what stays their job
 - list each in-scope source entity and its planned Wix target
 - call out the main gaps, lossy transformations, skipped entities, and `unverified`
   target paths from the faithfulness ledger
@@ -572,6 +604,7 @@ shape" from this file alone, then consult `mapping/review/mapping-plan.md` only 
 Recommended structure:
 
 - one-sentence purpose / pointer to `mapping/review/mapping-plan.md`
+- **`Manual steps you need to complete`** — required, in this position, never further down
 - `Source -> Wix targets`
 - `Plugin coverage` (when the source reported plugins): one line per capability that is not
   `migration-planned · confirmed`, in the user's terms, plus anything they must supply or
@@ -585,6 +618,65 @@ Recommended structure:
 Do not restate full field tables or detailed transformation rules here unless a specific
 field-level issue is central to the approval decision.
 
+## The manual-steps section
+
+The user can otherwise approve a migration without understanding what they still have to do
+themselves. Payment setup, a domain/DNS cutover, add-on work, app installs and permissions
+are scattered across setup notes, gaps and per-entity runbooks — or missing altogether. This
+section is the single consolidated list, and it is **not** optional.
+
+Write it as a **numbered checklist**, each item carrying:
+
+- a clear **action title** and short instructions — what to do and where to do it
+- **who must act**, when that is someone other than the user
+- any **prerequisite**
+- **what stays unavailable until it is done**
+- **when it is needed**, which is also the sort order: before import → before launch →
+  optional follow-up
+
+Mark an item optional only when skipping it genuinely is acceptable. Necessary redirect work
+is not optional by default.
+
+**Where the items come from.** Gather from the plan and the mapping inputs already in hand —
+`manualSteps` on target entities, `setupRequirements`, `reconfigure-in-wix` hints in
+`no-migration-needed.json`, actionable rows in the faithfulness ledger, and known
+domain/launch requirements. Notification, consent and redirect follow-up belong here when it
+is known at mapping time and needs the user to act.
+
+**Coverage prompts, not a checklist to copy.** Include only work actually still needed for
+this source, destination and plan:
+
+| Manual action | What the user needs to know |
+| --- | --- |
+| Set up payments | Connect and activate the payment provider in Wix before taking payments. Payment setup is currently manual. |
+| Connect the domain / change DNS | Follow the destination's domain-connection instructions at the domain provider when ready to switch the live site. Say that this changes where visitors go — never present it as an immediate pre-import task. |
+| Finish product add-ons | Name the actual add-on behaviour that stays manual, the affected products or groups, and the agreed work to make it available. "Configure the add-on plugin" alone is not an instruction. |
+| Complete other required setup | Applicable app installs, permission scopes, plans, CMS collections, sales-channel connections and other reconfiguration found during mapping. |
+
+Where an action's details are not yet known, say what must be confirmed. Never invent a
+setting, a screen or a step.
+
+**Keep every step of an existing runbook.** A `manual-mapping` entity's `manualSteps.steps[]`
+is carried in full under its checklist item — `prerequisite` as its own "before you start"
+line, `mechanism` as "how it behaves once connected". A compressed runbook is not actionable.
+List a shared setup action **once**, naming every capability it covers.
+
+**Manual actions are not unresolved gaps.** A known manual procedure belongs here. An
+unsupported feature, or an approach nobody has agreed yet, stays in the gaps/questions
+section until there is an agreed action — detecting a plugin does not prove its behaviour can
+be recreated by hand in Wix. If it needs development, say so in the gaps section; list a
+manual workaround only once it is agreed. A gap that does have an actionable workaround may
+link to its checklist item.
+
+**Check the list before the summary goes to the user.** Reconcile it against the mapping plan,
+the manual runbooks, `setupRequirements`, the actionable gaps and the known launch
+requirements. Work the agent will perform automatically is **not** a user task and must not
+appear. Refresh the section whenever the mapping changes.
+
+**An empty list still gets the heading**, followed by exactly: `No manual steps identified for
+this mapping.` A summary that omits the section, or leaves a known manual action only in
+scattered setup or gap notes, fails review.
+
 ## Mapping review checkpoint
 
 Once both mapping artifacts exist, reset `orchestration/approvals.json` so
@@ -593,7 +685,17 @@ Once both mapping artifacts exist, reset `orchestration/approvals.json` so
 
 - this is a semantic review of what will be migrated where
 - the full technical detail remains in `mapping/review/mapping-plan.md`
+- **what the user will still have to do by hand**, pointing at the summary's
+  `Manual steps you need to complete` section
 - downstream setup discovery and code generation will wait for acceptance
+
+**Before presenting the checkpoint, run the manual-steps coverage check** described in "The
+manual-steps section": the section exists, every applicable manual action from the plan, the
+runbooks, `setupRequirements` and the actionable gaps appears in it, nothing the agent
+automates appears in it, and an empty set carries the explicit empty statement. A summary
+presented for approval without that section is not ready for review, and this applies in
+`1-click mode` too — the checkpoint is recorded as agent-accepted there, but the section is
+still written.
 
 Do not proceed to `rp-setup-discovery` or `rp-import-codegen` until the user accepts this
 mapping review checkpoint, unless the user explicitly asks to continue provisionally. In

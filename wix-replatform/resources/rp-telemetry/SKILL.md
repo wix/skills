@@ -112,6 +112,29 @@ what to fix.
    dims (a runtime with better provenance than the recorder can infer), but normally you
    leave them to auto-resolve.
 
+   **Operator identity is auto-stamped too — you don't pass it, and you must not
+   invent it.** At `start` the recorder resolves `wix_user_id` (the operator's Wix
+   user GUID) from the Wix CLI's login artifact, `~/.wix/auth/account.json`. If the
+   CLI isn't logged in, resolution returns nothing and the run proceeds
+   **unattributed**: it completes normally, its local record is untouched and
+   authoritative, but **BI receives nothing** — the sink cannot route a row without a
+   real user, and a fabricated subject was verified to ingest nothing (spec 0106). The
+   loss is journaled as `no_operator_identity` and flagged in the rollup as
+   `operator_identity_unresolved`; `rebuild --push` backfills it if identity later
+   becomes available.
+
+   **Never mention any of this to the person running the migration.** Telemetry
+   health is our signal, not theirs: it says nothing about whether their migration
+   worked, and an unattributed run is complete and correct. It is read from BI and
+   the local rollup, not narrated in a completion report. The same goes for push
+   failures and `bi_push` counts — they belong in the telemetry record only.
+
+   You may pass `wix_user_id` explicitly in the `start` dims and it wins over
+   resolution, but only when the runtime genuinely knows better (a hosted runner
+   that authenticated the operator itself). Never pass a GUID you guessed, copied
+   from another run, or read off a site — a wrong identity misattributes the run to
+   a real person and is worse than no identity at all.
+
 2. **Stage boundaries** as the pipeline moves. Map orchestrator steps to stages like this:
 
    | Stage | Covers |
@@ -265,6 +288,34 @@ The rollup's `timing.agentic_ms` vs `timing.deterministic_ms` (and `agentic_shar
 that shows whether moving work into deterministic code is paying off. `agentic_share` is `null` when
 nothing was metered rather than `0`, which would falsely read as a fully deterministic run.
 
+### Source key/value reads — the one capability that widened what we can read
+
+Spec 0122 let the WordPress bridge read key/value ("EAV") tables like `postmeta`, key-scoped.
+That is the largest widening of source-read reach this pipeline has taken, so it is counted.
+
+```bash
+node scripts/rp-telemetry.js source-read --discovery-queries 1 --discovery-table postmeta --redacted-values 0 --project <dir>
+node scripts/rp-telemetry.js source-read --scoped-queries 6 --scoped-table postmeta --redacted-values 2 --project <dir>
+node scripts/rp-telemetry.js source-read --tier-refusals 1 --project <dir>
+```
+
+Counts accumulate across calls, so report per batch rather than holding a running total.
+`wix-wp-plugin-v2-client.js` derives the per-read counts for you and hands them to its
+`onSourceRead` hook — use that rather than counting at a call site, because the call site that
+forgets is what makes a run's total quietly wrong.
+
+**`redacted_values` is the field worth watching across runs.** The other three describe how one
+migration read one site. A non-zero redaction total means a source site keeps a credential in a
+column nobody expected, which is a fleet-level signal no single run can see. `tier_refusals` has
+to be reported by the caller rather than inferred, because the plugin answers a tier violation
+with the same 400 as a nonexistent column — deliberately, so a refusal never discloses which
+column holds the values.
+
+**Key names are never telemetry.** The run's own artifacts hold those. `discovery_tables` and
+`scoped_tables` carry bare WordPress table names (`postmeta`), which are structural, not customer
+data; the validator rejects anything that is not `^[A-Za-z0-9_]+$`, and rejects a `pinned_keys`
+field outright as unknown. Nothing here should ever be able to carry a value.
+
 ### Collecting `operator_acceptance`
 
 At the finish handoff, ask the operator one plain question: does the migrated result look
@@ -399,7 +450,11 @@ when files regenerate). Never reference secret-bearing config files.
 - Never hand-write, edit, or re-read `run-telemetry.json` or `telemetry/` files — the
   recorder appends; you only call it.
 - Never record client data values, names, URLs beyond the recorded source origin, or
-  secrets — in any field, including shapes and locators.
+  secrets — in any field, including shapes and locators. For a credential-bearing source
+  surface such as a payment gateway's configuration, telemetry may carry the **field name** and
+  its state (`present` / `blank` / `absent`) and nothing else: never the value, never a prefix
+  of it, never its length, never a hash. A length narrows a brute force and a hash confirms a
+  guess, so neither is a safe substitute for the value.
 - Never record a fix, root cause, or recommendation — observations only.
 - Never estimate durations — timing comes from `stage`/`wait` boundary calls.
 - Never skip a rejected call: fix the listed fields and retry. Rejections are counted

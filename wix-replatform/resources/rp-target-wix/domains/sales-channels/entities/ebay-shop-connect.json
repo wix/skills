@@ -35,7 +35,7 @@
     {
       "code": "no-internal-fqdn-found-for-ebay",
       "severity": "warning",
-      "summary": "No FQDN matching \"ebay\" was found anywhere in the internal Business Schema registry this session (docs-schema MCP fqdn_lookup), unlike every other channel in this domain (Google, Facebook, TikTok, Pinterest, and Amazon all resolved to a real internal wix.stores_channels.* service). The mechanism below is sourced from support.wix.com only — treat it as lower confidence than the other entities in this domain until an internal service is located or a live site is checked."
+      "summary": "No FQDN matching \"ebay\" was found in the internal Business Schema registry, unlike the other channels in this domain. The mechanism below is sourced only from public Wix support documentation; treat it as lower confidence until an internal service is located or the current dashboard behavior is independently verified."
     }
   ],
   "mappingGuidance": [],
@@ -56,7 +56,7 @@
       { "actor": "external", "text": "Authorize the connection on eBay's side." },
       { "actor": "merchant", "text": "Once connected, manage which products are listed on eBay from the eBay tab added to the Wix dashboard." }
     ],
-    "mechanism": "Public docs describe live inventory/listing management from the Wix dashboard once connected, but the underlying sync mechanism (push vs. pull, frequency) was not confirmed against an internal service this session — see the no-internal-fqdn-found-for-ebay pitfall.",
+    "mechanism": "Public docs describe inventory and listing management from the Wix dashboard once connected, but the underlying sync mechanism and frequency are unverified; see the no-internal-fqdn-found-for-ebay pitfall.",
     "evidence": [
       { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-ebay-shop" }
     ]

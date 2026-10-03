@@ -3,14 +3,6 @@
   "description": "Capabilities we have profiled but not yet resolved to a Wix target. PENDING IS THE DEFAULT: any capability without a target entity is pending, whether or not it is listed here. Listing it adds our working note — why we think a target does or does not exist, and what to author.\n\n`suspected` is OUR guess and carries no authority:\n  - target-exists : we believe Wix can receive this; `plannedTarget` names the entity to author.\n  - no-target     : we believe Wix cannot represent this. This is still PENDING. Only a human can turn it into a verdict, and there are exactly two signed destinations, both mutually exclusive with this file: requires-development.json (\"Wix has no surface — build it first\") and the `capabilities[]` register in no-migration-needed.json (\"nothing to move\" — the outcome exists in Wix or was never data).\n\nAn agent may never conclude that Wix cannot do something. Two such conclusions have already been wrong (gift cards and events both had a create API), so the automation is limited to 'profiled' or 'pending' and the impossibility verdict is reserved for a named human.",
   "capabilities": [
     {
-      "capability": "commerce.free-gift-rules",
-      "reason": "Free Gifts for WooCommerce Automatic Gift and Buy X Get Y rules grant a different catalog item when a threshold or quantity trigger is met. Routing these definitions to Automatic Discounts would misconfigure the migration because Wix DiscountRule's documented QUANTITY_BASED form discounts the same items counted by its trigger.",
-      "searched": "rp-target-wix/domains/ecom/entities/discount-rule.json and research/woocommerce-discount-engines-to-wix-automatic-discounts.md, reviewed 2026-08-19: trigger and discount enums contain no confirmed primitive that grants or discounts a different product. stores/coupon applies only to the plugin's separate Coupon Gift mode; Manual Gift is not standing configuration.",
-      "suspected": "no-target",
-      "plannedTarget": null,
-      "note": "This remains pending rather than a requires-development verdict until a named human signs that conclusion or a native target is found."
-    },
-    {
       "capability": "commerce.gift-card-activity",
       "reason": "PW WooCommerce Gift Cards keeps a per-card activity ledger (issuance, redemptions, adjustments — the rows its balances are summed from) in the same plugin-owned custom tables as the cards. Durable historical data, doubly unplaced: the source side is db-only (free v2.47 registers no REST surface at all, VERIFIED LIVE 2026-08-16), and Wix has no public method to write historical gift-card transactions (gift-cards/gift-card pitfall no-transaction-history-import).",
       "searched": "gift card transaction history, redemption history, gift card activity, stored value ledger — dev.wix.com business-solutions/gift-cards (docs-survey sweep evidence on gift-cards/gift-card, 2026-08-11): create accepts initialValue only; balance is derived; no historical-transaction write. The domain entity's documented fallback for history is a CMS archive.",
@@ -121,6 +113,16 @@
       "suspected": "no-target",
       "plannedTarget": null,
       "note": "Authored 2026-08-16 with the SEO vertical. NOT a requires-development verdict — that needs a named human. Also not blocked work: the redirect map is at worst Migration planned via CMS, and the redirects.ndjson ledger is already its home. Related classifier note: lib/wp-route-classifier.js excludes /redirection/* as `wp.integration.redirection`, but live those routes are genuine durable collections, so that rule's stated reason is now inaccurate — revisit the rule and this entry together, in one change."
+    }
+  ],
+  "resolved": [
+    {
+      "capability": "commerce.free-gift-rules",
+      "resolvedOn": "2026-08-31",
+      "resolution": "NATIVE TARGET FOUND — ecom/discount-rule, via targetType BUY_X_GET_Y + buyXGetYInfo. Profile routing updated in plugins/free-gifts-for-woocommerce.json.",
+      "why": "The pending reason said Wix DiscountRule's QUANTITY_BASED form discounts only the items its own trigger counted, so a different-product gift had no target. QUANTITY_BASED was the wrong axis to read: BOGO lives on `targetType`, whose live enum is [SPECIFIC_ITEMS, BUY_X_GET_Y]. It looked absent because buyXGetYInfo appears nowhere in the published Create Discount Rule schema and the docs' own Buy-X-Get-Y example returns HTTP 500; the shape is only visible in the API spec's component schemas.",
+      "note": "This file's own preamble says an agent may never conclude that Wix cannot do something, because two such conclusions (gift cards, events) were already wrong. This was the third — the preamble was right.",
+      "stillNotMappable": "A cart COUPON CODE gate. Wix has no coupon trigger, so a coupon-gated gift rule imported `active` gives the gift to every shopper. Import inactive and flag it, or rebuild it as a Wix coupon."
     }
   ]
 }

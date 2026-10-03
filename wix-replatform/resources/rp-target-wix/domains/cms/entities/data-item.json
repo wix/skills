@@ -11,6 +11,9 @@
     "idPolicy": "client-assigned",
     "crosswalkRequired": false
   },
+  "dependsOn": [
+    "cms/collection"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -63,7 +66,6 @@
     "Target collection exists before item writes."
   ],
   "evidence": [
-    
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/operations/data-movement-jobs/introduction",

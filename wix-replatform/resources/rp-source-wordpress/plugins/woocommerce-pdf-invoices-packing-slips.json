@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "plugin": "woocommerce-pdf-invoices-packing-slips",
+  "displayName": "PDF Invoices & Packing Slips for WooCommerce (WPO WCPDF)",
+  "profileVersion": "2026-09",
+  "sourceOfTruth": "https://wordpress.org/plugins/woocommerce-pdf-invoices-packing-slips/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.order-invoice-documents"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "woocommerce-pdf-invoices-packing-slips/woocommerce-pdf-invoices-packingslips"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "order-invoice-number",
+      "channel": "core-meta",
+      "recordKeyField": "id",
+      "propertyPath": "_wcpdf_invoice_number",
+      "candidateTargetRefs": [
+        "ecom/order-invoice-document"
+      ],
+      "metaKeys": [
+        "_wcpdf_invoice_number",
+        "_wcpdf_invoice_number_data",
+        "_wcpdf_invoice_date",
+        "_wcpdf_invoice_date_formatted"
+      ],
+      "pitfalls": [
+        {
+          "code": "installed-is-not-issued",
+          "severity": "blocker",
+          "summary": "Gate on ROW COUNT, never on plugin presence. This plugin can be installed and active on a store whose invoices are actually issued and numbered by the payment provider or an external accounting system, in which case its own tables and meta keys hold ZERO rows. A surveyed store had this plugin's invoice-number key at 0 rows while the provider had issued and numbered 19 of 20 sampled documents. An installed invoicing plugin is not evidence that this plugin issued anything."
+        },
+        {
+          "code": "number-without-a-document",
+          "severity": "warning",
+          "summary": "An invoice NUMBER is not an invoice DOCUMENT. This plugin renders PDFs on demand rather than storing one file per order, so a store can carry numbers with no durable file anywhere. Where only a number exists, carry it as a reference on the imported order and create nothing: re-rendering a historical tax document produces a second body under the same legal identifier."
+        },
+        {
+          "code": "attachment-path-is-on-the-source-filesystem",
+          "severity": "warning",
+          "summary": "Where this plugin DOES keep files, they sit under the site's own uploads directory. Those bytes die with the source site, so they are the one case preserved without asking the merchant. Classify every discovered document URL by host before fetching it -- a discovered URL is untrusted input."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    {
+      "code": "key-names-vary-by-version-and-fork",
+      "severity": "warning",
+      "summary": "Invoice meta key names differ across versions, forks and the Professional extension, and other issuers use their own entirely (one surveyed store carried a provider key with a trailing capital letter). Discovery therefore matches key FAMILIES -- invoice-number, invoice-document, document-address, invoice-type -- rather than the exact names listed here, and reports families it finds but does not recognize."
+    }
+  ]
+}

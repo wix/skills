@@ -98,8 +98,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/cms/external-databases/external-database-service-plugin",
       "group": "External Databases",
       "verdict": "not-relevant",
-      "reason": "Service plugin (SPI) — an extension point the site implements, never an import path.",
-      "reviewedOn": "2026-08-11"
+      "reason": "Service plugin (SPI), and 'not relevant' is right for a reason worth stating: it CONNECTS an external database to Wix CMS, i.e. leaves the data where it is. Directly opposed to migrating it in. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-solutions/cms/operations/background-tasks",

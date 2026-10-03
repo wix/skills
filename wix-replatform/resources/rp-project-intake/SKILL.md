@@ -12,6 +12,10 @@ Resolve project precedence: explicit user project, current project context, the 
 project under the migrations root, otherwise ask the user to choose. Never infer from a
 sibling project.
 
+Project initialization also creates `EXPECTATIONS.md` at the project root when it is
+missing. Mention it as an optional place to record expectations; do not make it an intake
+question or replace a user's existing file.
+
 Resolve delivery mode before destination creation: default to `management`; choose
 `website` for frontend only; choose `management_and_website` when the user wants both a
 backend migration and a customer-facing storefront. Accept `both` as an input alias for

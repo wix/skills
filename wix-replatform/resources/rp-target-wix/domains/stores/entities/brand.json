@@ -93,19 +93,19 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/reference-run",
-      "note": "finding #6: 84 WooCommerce brand terms observed; fold-into-product.brand was the interim guidance"
+      "path": "anonymized-live-verification",
+      "note": "Earlier guidance folded source brand terms into product.brand before the standalone Brands V3 surface was confirmed."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run 2026-08-12: brand created via inline product.brand.name (adopted into crosswalk, via=inline-product-create); the preferred bulk pre-create endpoint was NOT exercised in that run"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: brand created via inline product.brand.name (adopted into crosswalk, via=inline-product-create); the preferred bulk pre-create endpoint was NOT exercised in that run"
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16 (a docs-only flag), safe mode on / site muted: POST /stores/v3/brands → 200 (aef22bd2…); POST /stores/v3/bulk/brands/create with 2 brands → 200, totalSuccesses 2 with per-item ids; probe product created with brand:{id} → bound correctly; second probe product with brand:{name:<existing>} → bound to the SAME existing brand id (no duplicate, no 409); duplicate single create → 409 ALREADY_EXISTS; brands query by $startsWith read all three back; both products and all three brands deleted, query empty afterwards"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: POST /stores/v3/brands → 200 (<anonymized-id>); POST /stores/v3/bulk/brands/create with 2 brands → 200, totalSuccesses 2 with per-item ids; probe product created with brand:{id} → bound correctly; second probe product with brand:{name:<existing>} → bound to the SAME existing brand id (no duplicate, no 409); duplicate single create → 409 ALREADY_EXISTS; brands query by $startsWith read all three back; both products and all three brands deleted, query empty afterwards"
     }
   ],
-  "notes": "Authored 2026-08-11 from the docs sweep (Brands V3 gap verdict). Corrects the finding #6 working note that Wix has no standalone brand entity: Brands V3 has full CRUD + bulk create, and the product object references brands by id (or auto-creates by name). Promoted to verified-live 2026-08-16 — the pre-create path flagged docs-only earlier (single + bulk) was exercised end to end against a probe product, and the inline-dedupe question raised by the 2026-08-12 subset run is answered: inline by-name binds to an existing brand rather than failing."
+  "notes": "Brands V3 provides standalone CRUD and bulk create, and the product object references brands by ID or auto-creates them by name. Live verification covered single and bulk pre-create plus product attachment and established that inline by-name attachment binds to an existing brand rather than failing or duplicating it."
 }

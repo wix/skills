@@ -13,6 +13,7 @@ const {
 function usage() {
   console.error(`Usage:
   node scripts/verify-stores.js stores subscription-create --artifact <file> [--proposal-artifact <file>] [--marker <id>] [--no-cleanup]
+  node scripts/verify-stores.js stores inventory-import --env <test-target-config> --artifact <file>
   node scripts/verify-stores.js stores product-count --artifact <file>
   node scripts/verify-stores.js stores product-by-source-marker --marker-path <path> --marker-value <value> --artifact <file>
   node scripts/verify-stores.js stores delete-probe --product-id <id> --artifact <file>
@@ -84,6 +85,9 @@ function loadEnvFile(file) {
         fs.writeFileSync(options.artifact, `${JSON.stringify(result, null, 2)}\n`);
       }
     }
+  } else if (command === 'inventory-import') {
+    if (!options.artifact) throw new Error('inventory-import requires --artifact for recovery and verification evidence');
+    result = await verify.verifyStoresInventoryImport(common);
   } else if (command === 'product-count') {
     result = await verify.verifyStoresProductCount(common);
   } else if (command === 'product-by-source-marker') {

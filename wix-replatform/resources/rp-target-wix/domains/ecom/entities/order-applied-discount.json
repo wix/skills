@@ -84,10 +84,15 @@
       "code": "merchant-discount-description-cap",
       "severity": "warning",
       "summary": "merchantDiscount is a one-of: either a predefined discountReason enum (UNSPECIFIED / EXCHANGED_ITEMS / BILLING_ADJUSTMENT — none fits a source plugin rule) or a free-text description capped at 200 chars. Source rule names/labels longer than 200 chars truncate; keep the full label in the migration ledger if it matters."
+    },
+    {
+      "code": "coupon-variant-verified-on-import-order",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-09-05 (fresh site): Import Order accepts `appliedDiscounts: [{ discountType: 'GLOBAL', coupon: { id, code, name, amount: { amount } } }]` naming a coupon created seconds earlier on the same site, and GET reads the entry back with the same id, code and amount; `priceSummary.discount` is stored as sent. Built by rp-target-wix/lib/order-applied-discount-build.js from the source order's coupon lines through the coupon crosswalk; a code the crosswalk cannot resolve produces no entry and an unresolved report line."
     }
   ],
   "mappingGuidance": [
-    "Mapping confirmed by Spec Owner 2026-08-16: source-plugin applied-discount records map to Order.appliedDiscounts[] with the merchantDiscount variant, written at import time on the eCom Import Order (or Create Order for live flows) payload.",
+    "source-plugin applied-discount records map to Order.appliedDiscounts[] with the merchantDiscount variant, written at import time on the eCom Import Order (or Create Order for live flows) payload.",
     "Use the merchantDiscount one-of variant for discounts a source plugin computed and applied on the source site: description = source rule label (free text, max 200 chars), amount = the applied discount Price. Do NOT use the discountRule variant — its id is a Wix discount-rule GUID that does not exist for source-computed discounts — and do not use coupon unless the source discount genuinely was a coupon redemption (then it belongs to the coupon crosswalk instead).",
     "These records are carried as historical fact only: Wix never re-evaluates them as live discount rules, and rule DEFINITIONS are reconfigure-in-wix, not migratable data.",
     "Set discountType per record: GLOBAL for order-level discounts, SPECIFIC_ITEMS when the source recorded per-line-item amounts, SHIPPING for free/discounted shipping. For SPECIFIC_ITEMS, fill lineItemDiscounts[] with { id: <line item GUID in the same payload>, totalDiscount: <Price> } per affected line.",
@@ -116,9 +121,9 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Import Order create + GET readback exercised all three discountType values in one payload and again in isolation. GLOBAL + merchantDiscount.description, SHIPPING + merchantDiscount.description, GLOBAL + merchantDiscount.discountReason BILLING_ADJUSTMENT, and SPECIFIC_ITEMS + lineItemDiscounts[{ id: <client-minted line item GUID>, totalDiscount }] all persisted with the values sent; server assigned appliedDiscounts[].id; lineItemIds[] and itemCombinations[] came back empty (the linkage lives in lineItemDiscounts). Discovered live: merchantDiscount.amount must be an object, the array is reordered on readback, and order.number must be numeric. Probe orders 501e1d96/a02680f8/8e577f10/b36cabfa/d4643149 deleted afterwards via Bulk Delete Imported Orders."
+      "path": "anonymized-live-verification",
+      "note": "Verified live: Import Order create and GET readback exercised all discountType variants. Sent values persisted, the server assigned appliedDiscounts[].id, and SPECIFIC_ITEMS linkage remained in lineItemDiscounts while lineItemIds[] and itemCombinations[] read back empty. merchantDiscount.amount must be an object, appliedDiscounts may be reordered on readback, and order.number must be numeric. Probe records were deleted after verification."
     }
   ],
-  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site (see the live-run evidence entry); the merchantDiscount object-amount trap, the readback reordering, the client-settable line item GUID, and the numeric-order-number trap were all discovered by that probe, not by docs."
+  "notes": "Authored 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on an anonymized verification environment (see the live-run evidence entry); the merchantDiscount object-amount trap, the readback reordering, the client-settable line item GUID, and the numeric-order-number trap were all discovered by that probe, not by docs."
 }

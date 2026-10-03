@@ -24,8 +24,8 @@
       "url": "https://dev.wix.com/docs/api-reference/business-management/marketing/seo/seo-keywords-suggestions-service-plugin",
       "group": null,
       "verdict": "not-relevant",
-      "reason": "A service plugin (SPI): an extension point where a 3rd-party keyword tool SUPPLIES suggestions to Wix (Extension Config, Get Quota, List Suggested Keywords). An SPI is not an import path. The source-side analogue - a Yoast/Rank Math focus keyphrase stored on a post - is durable data and imports through Item SEO Tags `focusKeywords`, not here.",
-      "reviewedOn": "2026-08-16"
+      "reason": "Service plugin (SPI) -- supplies keyword SUGGESTIONS to the dashboard. Explicitly NOT a home for migrated per-item SEO data: Yoast focus keyphrases (gap 8) are per-product values with nowhere to live on Wix, and this plugin does not change that. See domains/SERVICE-PLUGINS.md for the escalation rule, the cost list, a worked example and the full 25-plugin catalog.",
+      "reviewedOn": "2026-08-31"
     },
     {
       "id": "api-reference/business-management/marketing/seo/seo-user-config",

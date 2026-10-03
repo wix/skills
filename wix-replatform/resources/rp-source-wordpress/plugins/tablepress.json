@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "plugin": "tablepress",
+  "displayName": "TablePress",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/tablepress/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.data-tables"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "tablepress/tablepress.php"
+    ],
+    "assetPathSlugs": [
+      "tablepress"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "table-definition",
+      "capability": "content.data-tables",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "shared-posts-table-requires-filter",
+          "severity": "warning",
+          "summary": "Tables are wp_posts rows (post_type=tablepress_table, public=false) with no dedicated table and no show_in_rest -- reading the posts table WITHOUT this entity's declared where-filter would return every post type on the site (1546 rows on poratus.wpcomstaging.com: products, pages, attachments, etc.), not just TablePress tables. sampleStructureRequest.where is mandatory here, not optional -- enforced by plugin-knowledge.js's SHARED_CORE_TABLES_REQUIRING_WHERE check."
+        },
+        {
+          "code": "table-data-is-json-blob",
+          "severity": "warning",
+          "summary": "post_content holds the whole table as a JSON blob (row/column array), not display-ready text -- must be parsed, not copied verbatim, before any target mapping can use individual cell values."
+        },
+        {
+          "code": "empty-on-poratus-wpcomstaging",
+          "severity": "info",
+          "summary": "VERIFIED LIVE 2026-08-29: a filtered query against poratus.wpcomstaging.com's posts table (where post_type = tablepress_table) found zero rows. The plugin is active but unused on this specific site -- the mechanism is real and reachable, there is simply nothing to migrate here today."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "wix-wp-plugin-v2 can read the shared posts table filtered to this plugin's post_type -- VERIFIED LIVE 2026-08-29 against poratus.wpcomstaging.com: a filtered query (where post_type = tablepress_table) executes correctly and returns pagingMetadata.total: 0 (no TablePress tables configured on this site). Reachability is confirmed; fulfillment wiring is deferred until a Wix target is researched and approved at the mapping review. The working filtered query, for reference once a target is approved: select ID/post_title/post_content/post_status/post_date where post_type=tablepress_table, orderBy ID asc.",
+          "declined": false
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Registers custom post type tablepress_table (public=false): table JSON lives in post_content with post_mime_type application/json. Confirmed via the plugin's own source (model-post.php).",
+    "No native Wix target researched or approved yet -- do not assume a generic CMS collection is the right landing spot without that approval. Do not wire the table-definition entity's blocked[] fulfillment on your own judgment before that target decision is made."
+  ]
+}

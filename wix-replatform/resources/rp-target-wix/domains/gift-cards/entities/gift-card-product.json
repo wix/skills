@@ -74,14 +74,14 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/reference-run",
-      "note": "finding #10: PW Gift Cards observed live (balances db-only; product definitions REST-visible)"
+      "path": "anonymized-live-verification",
+      "note": "Source verification established that gift-card balances are database-only while product definitions are REST-visible."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: POST /gift-cards/v1/gift-card-products with { name, description, expirationType: NONE, presetVariants: [{ price 25 / value 25 }, { price 45 / value 50 }], customVariant: { minValue 10, maxValue 500 } } → 200 with server-assigned product id and per-preset-variant ids; GET readback preserved every amount and populated formattedAmount/convertedAmount in the site currency (ILS). A first attempt using variants[] instead of presetVariants[] failed with 428 CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS. No image was supplied and the create still succeeded. DELETE /gift-cards/v1/gift-card-products/{id} → 200 at cleanup. Not exercised: image attachment, FIXED/RELATIVE expiration, and the documented one-product-per-site 409 (only one product was ever created)."
+      "path": "anonymized-live-verification",
+      "note": "Verified live: POST /gift-cards/v1/gift-card-products with { name, description, expirationType: NONE, presetVariants: [{ price 25 / value 25 }, { price 45 / value 50 }], customVariant: { minValue 10, maxValue 500 } } → 200 with server-assigned product id and per-preset-variant ids; GET readback preserved every amount and populated formattedAmount/convertedAmount in the site currency (ILS). A first attempt using variants[] instead of presetVariants[] failed with 428 CANNOT_CREATE_GIFT_CARD_PRODUCT_WITHOUT_VARIANTS. No image was supplied and the create still succeeded. DELETE /gift-cards/v1/gift-card-products/{id} → 200 at cleanup. Not exercised: image attachment, FIXED/RELATIVE expiration, and the documented one-product-per-site 409 (only one product was ever created)."
     }
   ],
-  "notes": "Authored 2026-08-11 from the docs-survey gap (Gift Card Products). Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site, which also CORRECTED two docs-era claims: the denomination field is presetVariants[] (a wrong field name surfaces as a misleading 'without variants' 428), and the image is optional rather than required. The one-gift-card-product-per-site cap — the biggest constraint on this migration path — was found in the create-method docs during that probe and is the reason reliability is partially-reliable rather than reliable. Pairs with gift-cards/gift-card for a complete gift-card migration."
+  "notes": "Authored 2026-08-11 from the docs-survey gap (Gift Card Products). Promoted to verified-live 2026-08-16 by a create/readback/delete probe on an anonymized verification environment, which also CORRECTED two docs-era claims: the denomination field is presetVariants[] (a wrong field name surfaces as a misleading 'without variants' 428), and the image is optional rather than required. The one-gift-card-product-per-site cap — the biggest constraint on this migration path — was found in the create-method docs during that probe and is the reason reliability is partially-reliable rather than reliable. Pairs with gift-cards/gift-card for a complete gift-card migration."
 }

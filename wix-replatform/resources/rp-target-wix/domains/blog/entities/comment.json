@@ -11,6 +11,9 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "blog/post"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -61,7 +64,6 @@
     "Comment relation verification before execution."
   ],
   "evidence": [
-    
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/velo/apis/wix-comments-v2/comments/create-comment",

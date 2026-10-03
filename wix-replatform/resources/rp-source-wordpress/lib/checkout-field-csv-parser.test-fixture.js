@@ -43,7 +43,7 @@ const BAD_CSV_INVALID_SORT_ORDER = [
 // shape blocked-data-requests.js's attemptFulfillment() calls, not the internal pure text
 // parser, so this self-test actually exercises the contract a real resolveBlockedDataRequest()
 // run depends on.
-async function selfTest(parse) {
+async function selfTest({ parse }) {
   const readFile = (csvByPath) => async (inputPath) => {
     if (!(inputPath in csvByPath)) throw new Error(`fixture readFile: no CSV registered for ${inputPath}`);
     return csvByPath[inputPath];

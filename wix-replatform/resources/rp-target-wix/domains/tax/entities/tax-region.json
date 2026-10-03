@@ -11,11 +11,14 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
       "sourceEntity": "tax-rate",
-      "routes": ["/wc/v3/taxes"],
+      "routes": [
+        "/wc/v3/taxes"
+      ],
       "confidence": "medium",
       "note": "A wc/v3/taxes row's `country` + `state` columns map to one Tax Region (country + optional ISO 3166-2 subdivision, without the country prefix). `postcode`/`postcodes` and `city`/`cities` have NO Wix Tax Region equivalent -- Wix's region model stops at country/subdivision (see pitfalls). `priority`/`compound`/`order` (rate stacking/ordering) also have no direct Tax Region/Manual Tax Mapping field; a compound-rate WooCommerce setup needs the 'tax breakdowns' multi-mapping pattern documented in manual-tax-mapping.json, not a Tax Region field."
     }
@@ -31,14 +34,17 @@
   "fallbacks": [
     {
       "classification": "skip-by-default",
-      "when": "No source has any wc/v3/taxes rows (the reference store's actual state, verified live 2026-08-12: 0 rows) -- there is nothing to create a region FOR. Do not pre-create speculative regions; wait for real rate data."
+      "when": "No source has any wc/v3/taxes rows (an anonymized verification environment's actual state, verified live 2026-08-12: 0 rows) -- there is nothing to create a region FOR. Do not pre-create speculative regions; wait for real rate data."
     },
     {
       "classification": "cms",
       "when": "A source rate row is scoped narrower than subdivision (postcode or city) -- Wix Tax Region has no field for either. Record the narrower scope as a mapping gap rather than silently widening it to the whole subdivision/country, which would change who gets charged tax."
     }
   ],
-  "reliability": { "status": "reliable", "flags": [] },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
   "pitfalls": [
     {
       "code": "tax-apis-live-under-billing-v1",
@@ -48,7 +54,7 @@
     {
       "code": "never-hardcode-the-calculator-appid",
       "severity": "blocker",
-      "summary": "`appId` is required and installation-scoped -- it differs per site. Always resolve it live via List Tax Calculators (GET /billing/v1/list-tax-calculators) immediately before creating a region. On the reference store (2026-08-12) the live values were 'Wix Manual Tax Calculator' = 57d13128-4a4c-494b-80b3-a6fb2e28018d and 'Avalara Tax Calculator' = 7516f85b-0868-4c23-9fcb-cea7784243df; a WooCommerce-transcribed manual rate should always resolve to the non-Avalara entry (see resolveManualTaxCalculatorAppId in wix-writers.js), never a hardcoded id."
+      "summary": "appId is required and installation-scoped. Resolve it with List Tax Calculators immediately before creating a region. A source manual rate must select the non-Avalara calculator by display name through resolveManualTaxCalculatorAppId in wix-writers.js, never a hardcoded installation-specific ID."
     },
     {
       "code": "no-postcode-or-city-granularity",
@@ -83,13 +89,25 @@
   ],
   "setupRequirements": [],
   "evidence": [
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/tax-region-object" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/create-tax-region" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/query-tax-regions" },
-    { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation/list-tax-calculators" },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/tax-region-object"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/create-tax-region"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-regions/query-tax-regions"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation/list-tax-calculators"
+    },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real List Tax Calculators, Create Tax Region (US, manual calculator), Query Tax Regions, and Delete Tax Region calls against the live site (region created as a throwaway diagnostic, then deleted -- the reference store has 0 real wc/v3/taxes rows to create a lasting region for as of this date)."
+      "path": "anonymized-live-verification"
     }
   ]
 }

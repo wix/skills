@@ -64,11 +64,11 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
-      "note": "the source side this domain was authored against: WPS Bookings for WooCommerce 3.12.0, live on the reference store 2026-08-16"
+      "note": "the source side this domain was authored against: WPS Bookings for WooCommerce 3.12.0, live on an anonymized verification environment 2026-08-16"
     },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real Create Service / Create (Calendar V3) Event calls against a live site, plus Install App / Clone Form bisection to root-cause FORM_NOT_FOUND."
+      "path": "anonymized-live-verification"
     }
   ]
 }

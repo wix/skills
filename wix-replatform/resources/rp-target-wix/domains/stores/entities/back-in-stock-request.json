@@ -11,6 +11,10 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "stores/product",
+    "crm/contact"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

@@ -98,43 +98,115 @@ capability as awaiting a target. Validation enforces this rather than leaving it
 | `core-meta` | registered meta (`show_in_rest`) | auth for edit-context meta |
 | `plugin-rest-child` | a `{parentId}`-templated sub-resource on an already-sampled parent (`route` + `parentRoute`) | nothing extra, but only a representative sample — see SKILL.md |
 | `export-file` | a user-supplied WXR / CSV / JSON export | the file |
-| `db-only` | plugin custom tables | out of current scope |
+| `db-only` | plugin custom tables | see "Resolving a db-only capability" below |
 | `admin-page-only` | a wp-admin settings page with no REST route at all (config, not records) | human transcription — see below |
 
-**`admin-page-only` is not the same limitation as `db-only`.** A `db-only` capability might
-still be reachable via a DB export or a source-side bridge plugin — the Wix Migration Helper
-WordPress plugin (spec 0040/0057) is a real one, built for exactly this: read-only REST routes
-exposing specifically-named `db-only` data a source plugin never puts over REST itself. It is a
-separate, standalone plugin the site owner installs themselves if they choose to (it ships
-outside this skill bundle entirely, so this skill never assumes it is present) — a `blocked[]`
-entry's `fulfillment` (see a plugin profile's own JSON, e.g. `pw-woocommerce-gift-cards.json`)
-references it only by its REST namespace/route and manifest case ID, never by a path into its
-source, since this skill bundle may be published standalone with no guarantee the plugin's
-source tree ships alongside it.
-Before reaching for it, check the plugin's own admin UI for a built-in export first — two `db-only`
-guesses on this project turned out to have one (Discount Rules' CSV export, MailPoet's own REST
-API) and needed no bridge at all. The
-data exists in a table, just not over REST. `admin-page-only` means the *configuration itself*
-renders only inside an authenticated wp-admin page (e.g. `wp-admin/admin.php?page=<slug>`), and
-**WordPress Application Passwords do not authenticate wp-admin page loads at all** — only REST
-API requests. VERIFIED against a live WordPress installation (Discount Rules for WooCommerce's
-`woo_discount_rules` settings page): a Basic-Auth request with a valid Application Password
-302-redirects to `wp-login.php?reauth=1`, the standard unauthenticated-session response,
-identical to what an anonymous request gets. There is no scrapeable path here — WordPress core
-does not extend Application Password auth to admin page rendering, by design.
+**Resolving a `db-only` capability -- try this order, do not default straight to a user file:**
+
+1. **Check whether the plugin exposes a REST route at all.** Confirm live against
+   `GET /wp/v2/plugins` and the REST index -- do not assume from the plugin's name or
+   marketing copy.
+2. **If there is no REST route, check the plugin's own admin UI for a built-in export
+   first.** Two `db-only` guesses on this project turned out to have one (Discount Rules'
+   CSV export, MailPoet's own REST API) and needed no bridge at all -- an existing native
+   export is simpler than authoring a new fulfillment.
+3. **Research the plugin's actual storage mechanism** before assuming a bridge can reach
+   it: check the plugin's public docs/WordPress.org page, or clone its public GitHub
+   source (many WordPress.org plugins are mirrored) and grep for `CREATE TABLE` /
+   `dbDelta` (a real custom table) versus `get_option`/`update_option` (`wp_options`) or
+   `add_post_meta`/`add_user_meta` (postmeta/usermeta). This determines which of the next
+   two steps applies -- guessing wrong wastes a whole fulfillment-authoring attempt.
+4. **A genuine custom database table is reachable, with zero user effort, via
+   wix-wp-plugin-v2's `structure-bridge-plugin` fulfillment kind (spec 0101/0102) -- try
+   this BEFORE falling back to a user-supplied export.** wix-wp-plugin-v2 is this skill
+   bundle's own bridge plugin (unlike the retired Wix Migration Helper below, it ships
+   with this skill and is meant to be installed on every source site this adapter
+   targets). Its `/structure` route describes any live table's real columns; its `/query`
+   route reads it with a safe, validated query. Author the profile entity's `blocked[]` as
+   `{"kind": "structure-bridge-plugin", "resolution": "<what/why, cite live evidence>",
+   "declined": false, "fulfillment": {"kind": "structure-bridge-plugin", "handlerId":
+   "wix-wp-plugin-v2", "table": "<bare_table_name>"}}` -- `handlerId`/`table` (and the
+   optional `sampleStructureRequest` below) live nested under `fulfillment`, not flattened
+   onto the `blocked[]` entry itself; `resolution` and `declined` are required on every
+   `blocked[]` entry regardless of kind (see the field reference below). Add
+   `sampleStructureRequest` when a raw "every column" read would expose something that needs
+   filtering or aggregating -- see `pw-woocommerce-gift-cards.json`'s gift-card-balance
+   aggregate for a full worked example of the complete shape.
+   See `lib/wix-wp-plugin-v2-client.js`, `scripts/wp-discovery.js`'s
+   `sampleStructureBridgeEntities`, and spec 0102's Appendix A for the full contract.
+
+   **Credential split, decided by whether the source site has WooCommerce.** The bridge's
+   routes register two ways: an Application Password path gated on
+   `current_user_can('manage_woocommerce')`, and a signed migration-key JWT path gated only
+   on the signature/request-binding. `manage_woocommerce` does not exist on a WordPress
+   site with no WooCommerce installed, not even for an administrator -- on such a site the
+   Application Password bridge routes are structurally unusable for every user, so do not
+   offer an Application Password as the bridge credential on a content-only/blog/marketing
+   WordPress site; collect the migration key (`WMH2_MIGRATION_KEY`) instead. An Application
+   Password may still be required separately for private `wp/v2` reads. When a migration
+   key is configured, `wp-discovery.js` prefers the signed bridge route; otherwise it uses
+   the Application Password route when WooCommerce supplies the required capability.
+   Standard private `wp/v2`/`wc/v3` reads still require their own WordPress REST credential;
+   the migration key is never a substitute for that scope.
+5. **Know which tables the bridge can and cannot reach -- the answer changed with spec 0122.**
+
+   | Table | Reachable? |
+   | --- | --- |
+   | `wp_options`, `wp_usermeta`, `wp_links`, multisite globals | **No, never.** No unlock path; pinning `option_name` does not help |
+   | `wp_postmeta`, `wp_commentmeta`, `wp_termmeta`, `wc_orders_meta`, any `*meta` table, or any table whose live schema carries a recognized key/value column pair | **Yes -- key-scoped.** Key names and counts are freely listable; a value is readable by naming its key (max 50 per request) |
+   | A table NAMED like a meta table whose key/value columns are *not* one of the six recognized pairs | **No.** No key column to pin means nothing to scope |
+   | Everything else | Yes, in full, minus the named credential columns in `COLUMN_DENYLIST` |
+
+   Row 2 is the one that changed. `wp_postmeta` **is** reachable now, via a two-step read
+   (discover key names, then read the keys you want) -- see `rp-source-wordpress/SKILL.md`'s
+   "Reading key/value tables through the bridge" for the request shapes. So Flamingo's message
+   data, which this list previously called permanently unreachable, is reachable: it is
+   `wp_postmeta` on a `flamingo_inbound` CPT. Checkout Field Editor's is not: it is a single
+   `wp_options` row (`thwcfe_sections`), and row 1 is unchanged.
+
+   **Do not declare a `user-file` blocker or accept a gap for a `wp_postmeta`-shaped entity
+   without checking this first.** Asking a site owner to hand-export data the bridge can read
+   is a real cost, and a profile that hard-codes "unreachable" outlives the reason it was
+   written. When research in step 3 lands on rows 1 or 3, then yes -- stop, and the remaining
+   options are `user-file` or accepting the gap.
+
+The retired Wix Migration Helper plugin (spec 0040/0057) used the same idea -- a
+site-installed bridge exposing specifically-named read-only REST routes for `db-only`
+data -- but was a bespoke, per-capability plugin the site owner had to install
+separately. wix-wp-plugin-v2 replaces it with one generic bridge covering any table,
+subject only to the reachability table in step 5; do not author a new profile against the retired
+`bridge-plugin` fulfillment kind.
+
+**`admin-page-only` is not the same limitation as `db-only`.** `admin-page-only` means the
+*configuration itself* renders only inside an authenticated wp-admin page (e.g.
+`wp-admin/admin.php?page=<slug>`), and **WordPress Application Passwords do not
+authenticate wp-admin page loads at all** — only REST API requests. VERIFIED against a
+live WordPress installation (Discount Rules for WooCommerce's `woo_discount_rules`
+settings page): a Basic-Auth request with a valid Application Password 302-redirects to
+`wp-login.php?reauth=1`, the standard unauthenticated-session response, identical to what
+an anonymous request gets. There is no scrapeable path here — WordPress core does not
+extend Application Password auth to admin page rendering, by design.
 
 ### Blocked source data and fulfillment
 
-An entity may declare `blocked[]` only for a concrete, evidenced access gap. `user-file` means
-the owner must supply or transcribe data; it does not imply a machine-readable import path.
-`bridge-plugin` means an installed, read-only source bridge can expose the data, and its
-`fulfillment` names a registered `handlerId`, `manifestCaseId`, `expectedNamespace`, and
-`extractionRoute`. A future file handoff uses `fulfillment.kind: "csv-upload"` with a registered
-`handlerId` and `expectedInputPath`.
+An entity may declare `blocked[]` only for a concrete, evidenced access gap. Every entry needs a
+`kind` (`user-file` or `structure-bridge-plugin`), a `resolution` (what/why, citing live
+evidence), and a `declined` boolean (whether the user has already declined this ask at
+run time -- always `false` at authoring time). `user-file` means the owner must supply or
+transcribe data; it does not imply a machine-readable import path. `structure-bridge-plugin`
+means wix-wp-plugin-v2 (this skill bundle's own generic bridge -- see "Resolving a `db-only`
+capability" above) can read the table directly; its optional `fulfillment` names the
+registered `handlerId` and the bare `table` to read (plus an optional `sampleStructureRequest`
+-- see the field reference below). A future file handoff uses `fulfillment.kind:
+"csv-upload"` with a registered `handlerId` and `expectedInputPath`.
 
-A fulfillment option is offered only when its registered handler passes its fixture self-test;
-`bridge-plugin` additionally requires its manifest case to have `productionReady: true`.
-Markdown specs are never runtime readiness authorities.
+wix-wp-plugin-v2 has no manifest or case registry of its own to check a fulfillment's
+readiness against -- unlike the retired, per-capability Wix Migration Helper bridge (spec
+0040/0057), which did (`manifestCaseId`, `expectedNamespace`, `extractionRoute`,
+`productionReady: true` -- do not author against that retired shape). Authorization for
+`structure-bridge-plugin` is a live core-table denylist plus a live `DESCRIBE` check at
+request time, not a build-time readiness flag. Markdown specs are never runtime readiness
+authorities.
 
 Do not ask the user for their real WordPress account password to work around this — that is a
 materially more sensitive credential than an Application Password and outside this pipeline's
@@ -206,6 +278,12 @@ optional for backward compatibility, but required on every entity once any entit
 uses it; it must name one of the profile's `capabilities[]`. This attribution prevents a
 multi-capability profile's entities and target refs from leaking into each other's coverage rows.
 Then:
+**The FIRST `blocker`-severity pitfall across a capability's entities is what the merchant
+reads.** `classifyCoverage` uses it verbatim as the coverage row's `userImpact`, and
+`buildDispositionRows` joins those into the plugin's `consequence` line. So lead that one with
+the consequence in plain words and put the internal instruction after it — an authoring note or
+a cross-reference in first position becomes the customer-facing sentence.
+
 `route` (route-bearing channels; a `{parentId}`-templated path for `plugin-rest-child`) ·
 `parentRoute` (`plugin-rest-child` only — the already-sampled collection route parent ids come
 from) · `responseEnvelope` (route-bearing channels only — `{itemsPath, countPath}` for a

@@ -26,6 +26,20 @@ never a keyword hit:
 
 The validator enforces all of it; a domain with entities and no survey fails the build.
 
+### Service-plugin surfaces are not import paths — but they are not noise either
+
+Every `Service Plugins` surface triages to `not-relevant`, because Wix calls *us*, so it can never
+carry historical records. That verdict is right and it is also the easiest thing in this knowledge
+base to misread: a service plugin cannot import data, but it **can supply a capability the
+destination lacks**, which is exactly the category of gap that otherwise gets written up as "Wix
+cannot do this."
+
+That misreading has already cost this project a wrong answer twice on `ecom/discount-rule.json`.
+Before writing a capability gap into a report, check **`SERVICE-PLUGINS.md`** in this directory: it
+holds the escalation rule (native primitive first, always), the honest cost of a plugin, a complete
+worked example, and a catalog of all 25 Wix service plugins with a per-plugin judgment on whether it
+could close a migration gap.
+
 ## Maintenance
 
 - Edit only the affected `domains/<domain>/` subtree when changing domain-owned facts.

@@ -68,8 +68,8 @@
     
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 3/3 labels (MailPoet segments) created and read back"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 3/3 labels (MailPoet segments) created and read back"
     }
   ]
 }

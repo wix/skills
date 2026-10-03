@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "plugin": "product-extras-for-woocommerce",
+  "displayName": "WooCommerce Product Add-Ons Ultimate",
+  "profileVersion": "2026-09",
+  "sourceOfTruth": "https://www.pluginrepublic.com/wordpress-plugins/woocommerce-product-add-ons-ultimate/",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.product-addon-fields",
+    "commerce.order-addon-values"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "product-extras-for-woocommerce/product-extras-for-woocommerce"
+    ],
+    "recordProperties": [
+      "pewc_display_groups",
+      "pewc_global_groups_by_product",
+      "pewc_price_display",
+      "product_extras",
+      "_pewc_product_extra_id"
+    ],
+    "assetPathSlugs": [
+      "product-extras-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "addon-field-group",
+      "capability": "commerce.product-addon-fields",
+      "channel": "db-only",
+      "candidateTargetRefs": [
+        "stores/product-customization"
+      ],
+      "pitfalls": [
+        {
+          "code": "definitions-are-cpt-rows-with-empty-post-content",
+          "severity": "warning",
+          "summary": "Groups and fields are custom post types (`pewc_group`, `pewc_field`, `pewc_product_extra`) with `post_content` of length 0 on every row -- reading the posts table proves the definitions exist and names them, and tells you nothing about what they contain. The configuration is entirely `postmeta`, which is reachable key-scoped (see blocked[]). VERIFIED LIVE 2026-09-08 on a reference store: every definition post carried empty post_content, and the configuration was recoverable only from postmeta. Expect tens of meta keys per group/field set; read the live count rather than assuming one."
+        },
+        {
+          "code": "one-global-group-scoped-by-category-not-per-product",
+          "severity": "warning",
+          "summary": "A group's reach is a rule, not a product list. VERIFIED LIVE 2026-09-08 on a reference store: a single `pewc_group` carried `global_rules` matching several product categories, so a large number of products showed a pewc meta key while only ONE group definition existed. Do not infer one add-on group per product from the product-side meta count, and do not migrate N customizations where the source has one -- see stores/product-customization's inline-modifiers-mint-a-new-customization pitfall."
+        },
+        {
+          "code": "numeric-priced-field-has-no-wix-render-type",
+          "severity": "blocker",
+          "summary": "An add-on where the customer types a quantity and pays a per-unit price becomes a fixed list of choices on Wix instead of an open number box, so quantities nobody has ordered before are no longer offerable. Wix `customizationRenderType` is FREE_TEXT | TEXT_CHOICES | SWATCH_CHOICES only: there is no numeric input, and FREE_TEXT's `defaultAddedPrice` is a flat add rather than a multiplier, so a `field_type: number` field with `field_price` and `multiply: 1` has no faithful target. Map it as a bounded TEXT_CHOICES enumeration over the quantities real orders show and ledger the open-ended range as a loss. See FEATURE-TRACKER ECOM-F02."
+        },
+        {
+          "code": "field-conditions-have-no-counterpart",
+          "severity": "warning",
+          "summary": "Fields carry `condition_action`, `condition_match`, `field_visibility` and formula keys (`formula_action`, `formula_round`). Wix customizations have no conditional-visibility mechanism at all (stores/product-customization pitfall conditional-visibility-no-counterpart), so any conditional field needs a per-field decision at mapping review rather than a silent flatten."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "The definition config is `postmeta`, which wix-wp-plugin-v2 reads KEY-SCOPED under spec 0122 -- it is not refused. VERIFIED LIVE 2026-09-08 against a production store: `GET /structure?table=postmeta` returns 200 with `eavPair {meta_key, meta_value}`, and the two-step read works exactly as plugins/README.md row 2 describes. Step 1, key discovery (never names meta_value, so no pinning needed): select meta_key + count(meta_id), where post_id in <the pewc CPT post ids>, groupBy [meta_key] -> the live key list. Step 2, key-scoped read: select post_id/meta_key/meta_value, where meta_key in <=45 of those keys AND post_id in <ids>, orderBy meta_id asc -> the rows carrying the whole definition. Pin at most 50 keys per request (MAX_PINNED_KEYS) and batch beyond that; naming meta_value without pinning meta_key returns the ordinary 400 wmh2_invalid_structure_request. The keys that matter: field_label, field_type, field_price, multiply, field_minval, field_default, decimal_places, field_description, field_options, field_ids, global_rules, group_layout, condition_action, condition_match, field_visibility, price_visibility. No executable `fulfillment` is declared yet: that requires a matching blockedSourceDependencies entry on stores/product-customization, which is a target-side change worth reviewing on its own.",
+          "declined": false
+        }
+      ]
+    },
+    {
+      "entity": "product-addon-assignment",
+      "capability": "commerce.product-addon-fields",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "pewc_display_groups",
+      "candidateTargetRefs": [
+        "stores/product-customization"
+      ],
+      "pitfalls": [
+        {
+          "code": "product-side-meta-is-settings-not-assignment",
+          "severity": "warning",
+          "summary": "The six product-side keys (`pewc_display_groups`, `pewc_global_groups_by_product`, `pewc_force_minimum`, `pewc_price_label`, `pewc_price_display`, `pewc_minimum_price`) are per-product SETTINGS, and they commonly all carry identical default values -- `pewc_display_groups: \"standard\"` means 'show whatever the global groups match', not 'this product has its own group'. VERIFIED LIVE 2026-09-08 in both `view` and `edit` context, where every product carrying them held identical defaults. Which products actually receive a group comes from the group's own `global_rules`, not from here."
+        },
+        {
+          "code": "per-product-route-returns-no-definition",
+          "severity": "info",
+          "summary": "The plugin registers real REST routes under the `wc` namespace -- `/wc/pewc/{product_id}`, `/wc/pewc/{product_id}/{group_id}`, `/wc/pewc/{product_id}/{group_id}/{field_id}` -- which is why searching the REST index for a `pewc` NAMESPACE finds nothing and a guess at `/pewc/v1` 404s. They are not a definition read: VERIFIED LIVE 2026-09-08, the base route answered `{product_id, group_order: \"\"}` for every pewc product on a reference store, and a global group id is rejected as `pewc_rest_group_invalid_id`. Do not spend probes here."
+        }
+      ]
+    },
+    {
+      "entity": "order-line-item-addon-values",
+      "capability": "commerce.order-addon-values",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/orders"
+      ],
+      "propertyPath": "product_extras",
+      "candidateTargetRefs": [
+        "ecom/order-line-item-options"
+      ],
+      "pitfalls": [
+        {
+          "code": "chosen-values-ride-as-label-keyed-line-item-meta",
+          "severity": "warning",
+          "summary": "What the customer actually chose is NOT inside `product_extras` -- that object is `{product_id, title, groups, price_with_extras, original_price, aelia_currency}` and its `groups` array was empty on every line item across a multi-thousand-order sample. The selections arrive as SEPARATE line-item meta entries whose KEY is the field label (often `_`-prefixed) and whose value is the quantity and money, e.g. a key named for the field's own label, valued `1 &#8362;10` for one unit at 10. Read the label-keyed entries; `_pewc_product_extra_id` names the definition post. Money arrives HTML-entity encoded (`&#8362;` for the shekel sign) and needs decoding."
+        },
+        {
+          "code": "price-delta-is-derivable-per-line",
+          "severity": "info",
+          "summary": "`product_extras.price_with_extras` minus `original_price` gives the add-on charge for that line without parsing labels -- useful for reconciling an imported order's totals against the source. Equal values mean no add-on was used, which is typically the large majority of line items."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "The plugin slug and its textdomain disagree: the folder is `product-extras-for-woocommerce` while every meta key, CPT and label uses the `pewc` prefix. Detect on the plugin file id, match data on `pewc`.",
+    "Its REST routes live under the shared `wc` namespace (`/wc/pewc/...`), not a namespace of its own, so a namespace-level search for the plugin finds nothing even though the surface exists. VERIFIED LIVE 2026-09-08.",
+    "Field option lists arrive URL-encoded in order meta and decode to a comma-separated option list; non-ASCII labels are percent-encoded. Decode before comparing to the definition's own `field_options`.",
+    "`field_type: number` with `multiply: 1` is a per-unit charge, and `decimal_places` may allow fractional quantities (a live order charged a fractional quantity). Do not assume integer quantities when enumerating choices for the Wix mapping."
+  ]
+}

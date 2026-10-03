@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "order-invoice-document",
+  "displayName": "eCommerce Order Invoice Document (preserved reference)",
+  "capability": "commerce.order-invoice-documents",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "eCommerce Order extended fields + Media Manager private file",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "objectPageException": "This is not a Wix object. It is a REFERENCE contract: the source invoice document is preserved as a private Media file and pointed at from two user-defined fields on the order. Wix exposes no historical-invoice entity to model, and the invoicing service is deliberately not called, so there is no object page to cite. The shapes come from the Import File, Generate File Download Url and Update Order method schemas in evidence[].",
+  "dependsOn": [
+    "ecom/order"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order_invoice_document",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Media Manager (private) + eCom Orders extended fields",
+    "endpoint": "POST /site-media/v1/files/import (private) then PATCH /ecom/v1/orders/{order.id}",
+    "writerId": "preserveOrderInvoiceDocument",
+    "verification": "docs",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "native",
+      "when": "Where the source holds an invoice NUMBER but no document, store the number alone as a reference and create nothing."
+    }
+  ],
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "never-re-issue-a-historical-tax-document",
+      "severity": "blocker",
+      "summary": "Do NOT create, publish or re-issue a Wix invoice for a historical sale. Re-issuing mints a SECOND legal document for the same sale under a different number, and the original -- issued and numbered by whoever issued it -- remains the authoritative body. Separately, whether publishing an invoice emails the customer is undocumented in either direction, and on a multi-year store a wrong assumption emails thousands of customers an invoice for a sale they made years ago. The contract is NON-USE, provable by a route-level test rather than by a runtime probe: tests/target-wix/no-invoices-api-contract-test.js."
+    },
+    {
+      "code": "discovered-url-is-untrusted-input",
+      "severity": "blocker",
+      "summary": "A document URL read from source-site metadata is untrusted input that something is about to fetch. Classify before touching it: HTTPS only, no embedded credentials, port 443 only, no loopback/private/link-local address in either dotted or IPv4-mapped-IPv6 notation (`[::ffff:127.0.0.1]` classified SAFE until 2026-09-05 because Node canonicalizes it). LIMITS OF THIS CHECK, stated because the earlier wording promised more than the code does: it is LEXICAL. It does not resolve DNS and it does not follow or re-classify redirects, so a public hostname resolving to a private address, or redirecting to one, passes. Wix Media fetches the document server-side, so the request that would need bounding is not ours to bound. This rejects what is obviously internal; it is not SSRF protection, and a request-plan object that nothing executed used to sit here creating the opposite impression."
+    },
+    {
+      "code": "never-store-or-log-the-source-url",
+      "severity": "blocker",
+      "summary": "A hosted invoice URL is an unauthenticated bearer link whose query string can carry a token and whose filename can carry the customer's name and the invoice number. It is never written to a site-readable field, never logged, and never carried out of the import: the Import File RESPONSE echoes `sourceUrl`, so only the returned file `id` is kept. Media `displayName` is derived from the invoice number, never from the source filename."
+    },
+    {
+      "code": "patch-replaces-extended-fields",
+      "severity": "blocker",
+      "summary": "SCHEMA-CONFIRMED 2026-09-03: `extendedFields` IS updatable via PATCH Update Order, and the call needs ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS / Manage Orders. MERGE SEMANTICS, re-established 2026-09-05 with a corrected oracle: a partial patch MERGES -- keys the patch omits survive. Three consecutive runs agree. The FIRST version of this probe could not have known: it patched, read once, and judged what survived, so a stale read returning the pre-patch order looked identical to a merge. It now polls until its own included marker is observable before inspecting the omitted keys, and answers UNKNOWN if the patch never becomes visible. What three runs buy and do not buy: they rule out the stale-read artefact and a one-off fluke on this site. They do not establish the behaviour across namespaces, across other extendable objects, or against a future change -- so the MERGE in our writer stays. It costs nothing if the behaviour holds and is the only protection if it ever changes."
+    },
+    {
+      "code": "download-url-default-expiry-is-ten-hours",
+      "severity": "warning",
+      "summary": "SCHEMA-CONFIRMED: Generate File Download Url defaults `expirationInMinutes` to 600. Relying on the default hands out a ten-hour link to a tax document, so the expiry is always passed explicitly and kept small. The member-facing endpoint accepts an ORDER id only and resolves the file id server-side -- accepting a client-supplied file id would let any member fetch another member's invoice."
+    },
+    {
+      "code": "media-import-is-async-and-quota-bounded",
+      "severity": "warning",
+      "summary": "Import File returns `operationStatus: PENDING`; the file is not immediately usable. Poll the descriptor before promising a download, and treat FAILED as a per-document reported outcome. The API also defines a `SITE_QUOTA_EXCEEDED` error, so a large invoice archive can exhaust the site's media quota part-way through -- report per document rather than failing the run."
+    },
+    {
+      "code": "visibility-in-business-manager-is-resolved",
+      "severity": "info",
+      "summary": "RESOLVED 2026-09-05 -- see `business-manager-shows-the-field-but-not-the-document`. This row previously said merchant visibility was unverified and promised neither automatic nor manual visibility. That was never tested and is wrong: the merchant sees these fields on the ORDER DETAIL view, and can toggle them on as COLUMNS in the order list. Kept as a marker because the claim was repeated into the research README and into owner ask ECOM-05, and anyone finding those needs to know they were corrected. What is genuinely absent is the invoice LIST, which is a different surface and does not read order extended fields."
+    },
+    {
+      "code": "string-fields-require-maxlength",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-09-04 on a disposable site: Create Data Extension Schema REJECTS a string field that declares no `maxLength` -- `400 MANDATORY_FIELD_MISSING: <key>.maxLength`. It is a required part of the field definition, not an optional constraint. Both invoice fields therefore declare one (file id 256, invoice number 256); the earlier removal of a length contract went one step too far -- what was unverified was the SPECIFIC 64-character value, not whether a cap is needed at all."
+    },
+    {
+      "code": "order-patch-validates-against-the-schema",
+      "severity": "info",
+      "summary": "LIVE-VERIFIED 2026-09-04: patching a value into an unprovisioned field fails closed with `400 INVALID_PATCH -- verify namespace '_user_fields' exists and the schema contains the specified fields`. So the API independently enforces what the setup-verification guard enforces locally: a value cannot reach a field that was never provisioned. Good news for safety, and it means a provisioning failure surfaces immediately rather than silently dropping data."
+    },
+    {
+      "code": "live-writes-are-intermittently-flaky",
+      "severity": "warning",
+      "summary": "OBSERVED 2026-09-04 across five sentinel runs on one disposable site: four runs completed every step, one failed several unrelated steps at once (a schema field not preserved, the Media import not landing, the order values absent) and then succeeded again on the next run with no code change. So these writes are not reliably deterministic, and a single run -- passing OR failing -- is weak evidence. Run a verification more than once before believing it, and never let a downstream conclusion depend on an upstream step having succeeded without checking that it did."
+    },
+    {
+      "code": "business-manager-shows-the-field-but-not-the-document",
+      "severity": "warning",
+      "summary": "OBSERVED 2026-09-05 in Business Manager, on TWO surfaces: (a) the ORDER DETAIL view shows user-defined extended fields when an order is opened; (b) the order LIST offers them in its 'Manage fields' dialog, tagged `User`, to be toggled on as columns. Neither is on by default in the list. So the earlier assumption that nothing renders them is WRONG -- merchant visibility is achievable, manually. What the merchant then sees is the raw value, which for the file id is an opaque Media identifier like `630ce4_....pdf`: visible but not usable, since there is no way to open it from the order list. The number field is genuinely useful there; the file id is not. That gap is exactly what owner ask ECOM-05 requests -- a native order-invoice association that renders as something clickable. Still open: whether the column toggle is API-settable, or whether the merchant must enable it by hand."
+    },
+    {
+      "code": "column-labels-use-title-not-x-wix-display",
+      "severity": "warning",
+      "summary": "LIVE-VERIFIED 2026-09-05: a friendly column heading comes from plain JSON Schema `title` (and `description` for the hint). The `x-wix-display` object the Data Extension Schema vocabulary documents -- with `label`, `hint` and `placeholder` -- is REJECTED by the schema service: `400 UNKNOWN_KEYWORD_AT_THIS_LEVEL: <field>.x-wix-display.label`. The docs define a keyword the API does not accept on a user-defined schema, so do not reinstate it from the documentation. Also confirmed in the same probe: `x-wix-permissions` is MANDATORY per field, alongside the already-recorded mandatory `maxLength`."
+    },
+    {
+      "code": "three-fields-three-lifespans",
+      "severity": "info",
+      "summary": "The order carries three invoice fields and they are NOT interchangeable. `Invoice number` is the legal identifier and is permanent. `Invoice file (preserved)` is the document copied into the site's own private Media -- permanent, but opaque: the private file's own URL returns 403 (verified live), so reaching it needs an authorized request. `Invoice link (original)` is where the document has always lived: clickable today, and it rots -- a source-hosted link dies with the source site, a provider-hosted one dies when the merchant leaves that provider. Storing the link was ADDED deliberately on 2026-09-05 after the earlier blanket ban: the merchant already has it on their own store, and these fields are readable by apps and users but not by site visitors, so it widens nothing. It sits beside the preserved copy, never instead of it, and the labels say which is which."
+    },
+    {
+      "code": "the-entity-is-the-producer-not-the-js-constant",
+      "severity": "blocker",
+      "summary": "Setup discovery reads `setupRequirements` from THIS FILE, through domain-knowledge.js. A declaration in JavaScript is not the producer, however canonical it looks. Found in review 2026-09-05: the JS constant carried three fields with lengths while this file still carried two without, so the requirement the shipped path actually emits was INVALID -- and the seam test missed it because it built its input from the JS helper rather than from here. Any change to these fields must land in this file; the JS constant is derived from it, never the other way round."
+    },
+    {
+      "code": "invoice-media-destination",
+      "severity": "medium",
+      "summary": "LIVE-VERIFIED 2026-09-05 on a disposable site: the file id written to the order is an opaque string with nothing to click, so it is not an access path. The path that works is the MEDIA MANAGER -- the import sets `displayName` to `Source invoice <number>`, and the merchant finds and opens the document by searching that name. That makes the import's DESTINATION load-bearing rather than cosmetic: the default `media-root` drops one PDF per order into the same library the merchant keeps their own photos in -- thousands of them, on a real store. Import File accepts `filePath`, and it CREATES the folder when absent (probe: filePath '/Imported invoices' returned parentFolderId 2cad1b0d..., a real folder of that name under media-root, NOT media-root itself). Preserved documents therefore all land in one folder. This does not close ECOM-05: opening an invoice still means leaving the order and searching Media Manager by hand."
+    }
+  ],
+  "mappingGuidance": [
+    "Resolve invoices per run rather than assuming them. Nothing found means nothing is created, and the report says \"no invoices found\", never \"not supported\".",
+    "A number without a document is retained as a reference. Do not render a replacement document.",
+    "Documents on the source filesystem are re-hosted privately without asking, because those bytes die with the source site. Documents on a provider or accounting host are referenced by default and copied only after an explicit merchant opt-in at the approval gate.",
+    "Sampling may discover which key families a store uses, but the selected patterns are then applied across the full in-scope order population, and every discovered document is classified -- not only the sampled ones.",
+    "Read the order before importing: an existing file id suppresses the import, which is what makes a re-run idempotent without depending on the migration crosswalk.",
+    "Set up and verify the two extended fields before any invoice write. A value write is blocked until setup verification passed for that exact field.",
+    "A crosswalk row for the preserved file is an accelerator, not the correctness boundary: re-run safety comes from reading the order's own extended fields first, so a lost crosswalk never causes a second copy of a tax document to be imported."
+  ],
+  "setupRequirements": [
+    {
+      "kind": "extendedFieldSchema",
+      "schemaKind": "data-extension-schema",
+      "targetRef": "ecom/order",
+      "fqdn": "wix.ecom.*.order",
+      "namespace": "_user_fields",
+      "fields": [
+        {
+          "key": "replatformSourceInvoiceNumber",
+          "fieldType": "string",
+          "maxLength": 256,
+          "displayName": "Invoice number",
+          "hint": "Invoice number as issued by the original store. This is the legal identifier and does not change.",
+          "permissionsPreset": "migration-internal",
+          "writePath": "extendedFields.namespaces._user_fields.replatformSourceInvoiceNumber"
+        },
+        {
+          "key": "replatformSourceInvoiceFileId",
+          "fieldType": "string",
+          "maxLength": 256,
+          "displayName": "Invoice file (preserved)",
+          "hint": "The original document, copied into this site's private Media so it survives the old store being switched off. Opening it needs an authorized request; the id alone is not a link.",
+          "permissionsPreset": "migration-internal",
+          "writePath": "extendedFields.namespaces._user_fields.replatformSourceInvoiceFileId"
+        },
+        {
+          "key": "replatformSourceInvoiceUrl",
+          "fieldType": "string",
+          "maxLength": 2048,
+          "displayName": "Invoice link (original)",
+          "hint": "Where the document lives on the original system. Clickable today, but it stops working when the old store is switched off or the payment provider changes — the preserved copy is the durable one.",
+          "permissionsPreset": "migration-internal",
+          "writePath": "extendedFields.namespaces._user_fields.replatformSourceInvoiceUrl"
+        }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/assets/media/media-manager/files/import-file",
+      "note": "Re-checked 2026-09-03. Establishes the `private` boolean, DOCUMENT media type, async PENDING status, the SITE_QUOTA_EXCEEDED error, and that the response echoes `sourceUrl`."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/assets/media/media-manager/files/generate-file-download-url",
+      "note": "Re-checked 2026-09-03. Establishes `expirationInMinutes` defaulting to 600, the ATTACHMENT/INLINE content disposition, and that this is the way to grant access to a private file."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/update-order",
+      "note": "Re-checked 2026-09-03. `extendedFields` is in the updatable-fields list; permissions are ECOM.MODIFY_ORDERS + ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS; \"to remove a field's value, pass null\", which is why a partial extendedFields drops other namespaces."
+    }
+  ]
+}

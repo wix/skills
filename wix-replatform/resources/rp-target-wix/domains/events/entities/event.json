@@ -11,6 +11,10 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "events/category",
+    "media/media-file"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -69,7 +73,8 @@
       "code": "rsvp-and-tickets-are-separate-work",
       "severity": "blocker",
       "summary": "Creating the event does not carry its attendees. RSVPs need a separate import with disableNotifications set; ticketed orders have no import path at all."
-    }
+    },
+    "Ordering `category` before `event` is necessary but NOT sufficient: attaching an event to a category is its own call, POST /events/v1/categories/{categoryId}/events, needing both ids. Creating the category first and the event second leaves an empty category and an uncategorised event unless a third step runs after both. `dependsOn` sequences creation; it cannot express a relationship write. Any plan that maps source categories must emit that assignment step explicitly. (Found 2026-09-05 while adding the dependsOn/import-order invariant, which surfaced the ordering gap but cannot surface this one.)"
   ],
   "mappingGuidance": [
     "Create with draft: true for past or unpublished source events, then publish only what should be publicly listed.",
@@ -93,11 +98,10 @@
       "type": "wix-docs-search",
       "path": "searched: event, calendar, RSVP, ticketing across business-solutions/events (2026-08-02)"
     },
-    
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 3/3 events created as drafts and read back by crosswalk ID (initial payload-shape 400s fixed in-run)"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 3/3 events created as drafts and read back by crosswalk ID (initial payload-shape 400s fixed in-run)"
     }
   ]
 }

@@ -45,12 +45,36 @@ const METER_FLAGS = new Map(
     .map((key) => [`--${key.replace(/_/g, '-')}`, key]),
 );
 
+const SOURCE_READ_FLAGS = new Map(
+  ['discovery_queries', 'scoped_queries', 'tier_refusals', 'redacted_values']
+    .map((key) => [`--${key.replace(/_/g, '-')}`, key]),
+);
+// Repeatable, because a run touches several tables: --discovery-table postmeta --discovery-table wc_orders_meta
+const SOURCE_READ_LIST_FLAGS = new Map([['--discovery-table', 'discovery_tables'], ['--scoped-table', 'scoped_tables']]);
+
 function parseArgs(argv) {
   const positional = [];
   const flags = {};
   const meter = {};
+  const sourceRead = {};
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (SOURCE_READ_FLAGS.has(arg)) {
+      const raw = argv[i + 1];
+      const value = Number(raw);
+      if (!Number.isFinite(value)) fail([`${arg} expects a number (got: ${raw === undefined ? '(none)' : raw})`]);
+      sourceRead[SOURCE_READ_FLAGS.get(arg)] = value;
+      i += 1;
+      continue;
+    }
+    if (SOURCE_READ_LIST_FLAGS.has(arg)) {
+      const key = SOURCE_READ_LIST_FLAGS.get(arg);
+      const raw = argv[i + 1];
+      if (raw === undefined) fail([`${arg} expects a bare table name`]);
+      sourceRead[key] = [...(sourceRead[key] || []), raw];
+      i += 1;
+      continue;
+    }
     if (VALUE_FLAGS.has(arg)) {
       flags[arg.slice(2)] = argv[i + 1];
       i += 1;
@@ -70,7 +94,7 @@ function parseArgs(argv) {
       positional.push(arg);
     }
   }
-  return { positional, flags, meter };
+  return { positional, flags, meter, sourceRead };
 }
 
 function fail(errors, hint) {
@@ -139,7 +163,7 @@ async function runDigest(projectDir, transcriptPath, { offline }) {
 }
 
 async function main() {
-  const { positional, flags, meter } = parseArgs(process.argv.slice(2));
+  const { positional, flags, meter, sourceRead } = parseArgs(process.argv.slice(2));
   const [command, ...rest] = positional;
   const projectDir = flags.project || process.cwd();
   if (!fs.existsSync(projectDir) || !fs.statSync(projectDir).isDirectory()) {
@@ -167,6 +191,14 @@ async function main() {
       const payload = { ...fromJson, ...meter };
       if (flags.stage) payload.stage = flags.stage;
       result = recorder.meter(projectDir, payload);
+      break;
+    }
+    case 'source-read': {
+      // Spec 0122 §7. Counts key/value source reads; accumulates across calls, so a reader can
+      // report per batch. Table lists come as repeated --discovery-table/--scoped-table flags.
+      const fromJson = rest[0] === undefined ? {} : parseJsonArg(rest[0], 'source-read');
+      const payload = { ...fromJson, ...sourceRead };
+      result = recorder.sourceRead(projectDir, payload);
       break;
     }
     case 'wait':

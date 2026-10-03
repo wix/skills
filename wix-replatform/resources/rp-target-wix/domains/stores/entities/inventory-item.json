@@ -11,6 +11,9 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "stores/product"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -32,11 +35,11 @@
   ],
   "preferredWrite": {
     "surface": "Stores Inventory V3",
-    "endpoint": "POST /stores/v3/inventory-items",
-    "writerId": "createInventoryItem",
-    "verification": "unverified",
+    "endpoint": "POST /stores/v3/bulk/inventory-items/create",
+    "writerId": "reconcileInventory",
+    "verification": "verified-live",
     "importSafe": true,
-    "bulk": false
+    "bulk": true
   },
   "fallbacks": [
     {
@@ -45,7 +48,7 @@
     }
   ],
   "reliability": {
-    "status": "partially-reliable",
+    "status": "reliable",
     "flags": []
   },
   "pitfalls": [
@@ -58,20 +61,58 @@
       "code": "bis-side-effects",
       "severity": "warning",
       "summary": "Avoid stock transitions that trigger Back in Stock notifications on live stores."
+    },
+    {
+      "code": "tracking-oneof",
+      "severity": "blocker",
+      "summary": "inStock and quantity are mutually exclusive. trackQuantity and availabilityStatus are read-only; do not send them to select tracking mode."
+    },
+    {
+      "code": "inventory-completion-independent",
+      "severity": "blocker",
+      "summary": "A product receipt is not inventory verification. Preserve inventory gaps, failed writes and mismatched read-backs in a separate partial checkpoint and report."
+    },
+    {
+      "code": "existing-preorder-policy",
+      "severity": "blocker",
+      "summary": "Reconciliation refuses existing enabled preorder settings instead of silently changing the merchant policy. Resolve the policy before updating stock."
+    },
+    {
+      "code": "catalog-inventory-disagreement",
+      "severity": "blocker",
+      "summary": "Default-location Inventory and Catalog variant availability are separate reads. An inventory item can be correct while Catalog still marks the same variant unavailable. Require both to agree; bounded read retries may recover propagation, but never toggle stock to repair a disagreement."
     }
   ],
   "mappingGuidance": [
-    "Create products first, then create or update inventory per variant."
+    "Use stores-inventory.js reconcileInventory with resolved product/variant IDs and an explicit expectedCount including source gaps. Reads are scoped to one resolved Stores location. Query before create; compare before accepting existing inventory; update with current id/revision and verify by read-back.",
+    "Write exactly one tracking field: inStock (boolean) or quantity (integer 0\u201399999 for creation). trackQuantity is read-only and derived. Verify its value, exact stock value, identity and availabilityStatus.",
+    "Initial bulk product creation can include variantsInfo.variants[].inventoryItem in the default location. Always verify inventory independently of product success; recover stock using existing product/variant IDs.",
+    "Unknown source stock is a named mapping gap, never implicit availability. Backorders, preorders and shared stock allocation require explicit policy decisions. Do not duplicate pooled quantity across variants.",
+    "Bulk results require originalIndex and complete accounting. A 409, partial bulk response, stale revision or unreadable write remains failed/unverified until a later read confirms the intended value. Use absolute updates, not increment/decrement operations for reruns.",
+    "For default-location rows, reconcileInventory also reads each distinct Catalog product (at most four concurrent reads), matches exact variant IDs and verifies inventoryStatus.inStock and disabled preorder. Missing or conflicting Catalog state remains unverified even on no-write reruns. Non-default-location rows explicitly record Catalog verification as not applicable."
   ],
   "setupRequirements": [
-    "SCOPE.STORES.INVENTORY_ITEM_WRITE"
+    "Read Stores Locations in v3 catalog",
+    "Read inventory in v3 catalog",
+    "Inventory write in v3 catalog (create and update)",
+    "Resolve one Stores location; verify read, create, update and read-back using the actual import token and approved canary; retain notification protection",
+    "Read products in v3 catalog, including hidden products and variants (Product v3 read admin), for Catalog consistency verification"
   ],
   "evidence": [
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/inventory-item-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-update-inventory-items",
+      "note": "Revisioned bulk update; live create/read/update/reconcile and inline stock verified with synthetic hidden products. Probe cleanup succeeded; no preorder or multi-location allocation claim."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product",
+      "note": "Default-location availability is checked against the exact Catalog variant as well as the inventory item; a persistent disagreement has been observed in read-only verification."
     }
-    
   ]
 }

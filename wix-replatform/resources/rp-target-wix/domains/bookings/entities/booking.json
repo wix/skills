@@ -11,6 +11,10 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "bookings/service",
+    "crm/contact"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -170,8 +174,8 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/mwb-bookings-for-woocommerce.json",
-      "note": "sourceAliases added 2026-08-16 from the live probe of WPS Bookings for WooCommerce 3.12.0: the plugin registers NO booking post type and NO booking order type (authed /wp/v2/types on the reference store carries neither), so a booked appointment on WooCommerce is an ORDER LINE ITEM on /wc/v3/orders, flagged by order meta mwb_order_type='booking' and carrying its window in line-item meta (_wps_single_cal_date_time_from/_to, _wps_single_cal_booking_dates, or legacy _mwb_bfwp_date_time_from/_to). confidence 'medium': the route and the key names are established from the live REST index plus the published 3.12.0 source, but the test site holds zero booking orders so no payload has been observed."
+      "note": "sourceAliases added 2026-08-16 from the live probe of WPS Bookings for WooCommerce 3.12.0: the plugin registers NO booking post type and NO booking order type (authed /wp/v2/types on an anonymized verification environment carries neither), so a booked appointment on WooCommerce is an ORDER LINE ITEM on /wc/v3/orders, flagged by order meta mwb_order_type='booking' and carrying its window in line-item meta (_wps_single_cal_date_time_from/_to, _wps_single_cal_booking_dates, or legacy _mwb_bfwp_date_time_from/_to). confidence 'medium': the route and the key names are established from the live REST index plus the published 3.12.0 source, but the test site holds zero booking orders so no payload has been observed."
     }
   ],
-  "notes": "Authored 2026-08-16 to complete the bookings vertical. Docs-verified only, never exercised live - verification docs, reliability unknown. THREE things stand between this entity and a usable booking import and all three are cheap to settle: (1) whether a past-dated slot is accepted at all, one probe; (2) which site automations a create/confirm actually fires and whether anything suppresses them, one owner ask or one two-arm probe; (3) whether class sessions can be created, which is the events-v3 gap in the docs survey. sourceAliases carries ONE medium-confidence entry pointing at /wc/v3/orders, added 2026-08-16 from the live probe: WPS Bookings for WooCommerce registers no booking post type and no custom table, so a booked appointment IS a WooCommerce order line item carrying booking meta. The route claim is therefore structural and well-founded, but no booking record was ever observed - the test site holds 150 orders and not one of them is a booking - so the per-field mapping behind that alias is [NEEDS-VERIFICATION] and the line-item meta shape is still unknown. Note the asymmetry that makes this entity dangerous to generate code for: sendSmsReminder defaults to TRUE while every other notification control the KB has met defaults to off, so 'build the payload from the required fields' produces a safe call everywhere else in the repo and an SMS blast here."
+  "notes": "Docs-verified only; reliability remains unknown. Three questions block a usable booking import: whether past-dated slots are accepted, which automations create/confirm triggers and how they are suppressed, and whether class sessions can be created. WPS Bookings for WooCommerce registers no booking post type or custom table, so a booked appointment is represented by WooCommerce order-line metadata, but no representative booking payload has been verified and the per-field mapping remains [NEEDS-VERIFICATION]. sendSmsReminder defaults to true, so generated code must set it false explicitly until notification behavior is proven safe."
 }

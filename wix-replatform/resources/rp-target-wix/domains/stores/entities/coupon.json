@@ -36,7 +36,7 @@
     "writerId": "createCoupon",
     "verification": "verified-live",
     "importSafe": true,
-    "bulk": false
+    "bulk": true
   },
   "fallbacks": [
     {
@@ -45,8 +45,10 @@
     }
   ],
   "reliability": {
-    "status": "reliable",
-    "flags": []
+    "status": "partially-reliable",
+    "flags": [
+      "IMPORT_UNRELIABLE"
+    ]
   },
   "pitfalls": [
     {
@@ -65,19 +67,147 @@
       "summary": "VERIFIED live: omitting `startTime` does not mean \"no start restriction\" — Wix's own default resolves to epoch 0, which the API then rejects (\"date with value 0 got 0, expected more than 0\"). Always send an explicit startTime (the source coupon's creation date, or now if unavailable)."
     },
     {
+      "code": "starttime-and-expirationtime-are-epoch-milliseconds-not-iso",
+      "severity": "blocker",
+      "summary": "VERIFIED live 2026-09-02: `startTime` and `expirationTime` are epoch MILLISECONDS (a number, or a decimal string), not ISO-8601. An ISO string returns 400 `{\"message\":\"Not a numeric value\"}` — no field name, no hint that a date is the problem, and it reads like a bad amount. Epoch SECONDS returns \"Invalid coupon field\". lib/wix-writers.js's normalizeCouponSpecification already converts via toEpochMilliseconds, so callers going through createCoupon are safe; anything hand-rolling the payload must convert. This one costs an hour if you go looking at the amount fields first."
+    },
+    {
       "code": "non-freeshipping-requires-scope-or-minimum",
       "severity": "blocker",
-      "summary": "VERIFIED live: any non-FreeShipping coupon (percentOffRate/moneyOffAmount/fixedPriceAmount) without a product/category `scope` AND without `minimumSubtotal > 0` 400s \"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed\". A source coupon with no real minimum spend and no product restriction has nothing genuine to put there — Wix does not model an unrestricted percent/fixed coupon. Default to a nominal minimumSubtotal (e.g. 0.01) as the closest faithful equivalent and record the substitution as a mapping gap; do not invent a real-looking minimum."
+      "summary": "VERIFIED live: any non-FreeShipping coupon (percentOffRate/moneyOffAmount/fixedPriceAmount) without a `scope` AND without `minimumSubtotal > 0` 400s \"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed\". This does NOT mean an unrestricted coupon is unmappable — see storewide-scope-is-valid-and-needs-no-group. Reach for a nominal minimumSubtotal only when a storewide scope is wrong for the source coupon; it is a substitution and must be recorded as a mapping gap, and a real-looking invented minimum is never acceptable."
+    },
+    {
+      "code": "storewide-scope-is-valid-and-needs-no-group",
+      "severity": "info",
+      "summary": "VERIFIED live: `scope: {namespace: \"stores\"}` — no `group`, no `entityId` — is a valid STOREWIDE scope and satisfies the scope-or-minimumSubtotal rule above on its own. This is the faithful mapping for a source coupon with no product restriction and no minimum spend: nothing is invented, no synthetic minimum, no synthetic all-categories list. Earlier guidance here reached for a nominal minimumSubtotal, and a multi-category scope is not dashboard-renderable, so neither substitute is needed or wanted. Server-side enumeration, from the error text on an unknown group name: namespace=stores with group empty | product | collection, each valid for BuyXGetY and for MoneyOff/PercentOff/FixedPrice; plus namespace=forms with group empty | form for MoneyOff/PercentOff."
+    },
+    {
+      "code": "product-scope-requires-a-visible-product",
+      "severity": "blocker",
+      "summary": "MEASURED live, and this pitfall previously blamed Catalog V3, which was WRONG — the wrong version causes coupons that import fine to be abandoned as gaps. `scope.group = {name: \"product\", entityId: <id>}` returns 400 \"entityId '<id>' not found\" when the product has `visible: false`, and succeeds when it is visible. That is a visibility rule reported as a missing-id error: the id exists and GET /stores/v3/products/<id> returns 200 for it. Catalog V3 is not involved — V3 product ids resolve. Controlled test, 8 for 8: four hidden products all rejected, four visible ones all accepted. The wrong version came from generalising one failing product that happened to be hidden. `group = {name: \"collection\", entityId: <V3 category id>}` also resolves and returns displayData with the category name and image. PRACTICAL RULE: read `visible` on the crosswalked product before scoping. If it is hidden, report the coupon — do NOT widen it to storewide, which is more generous than the source and the same defect class as dropping the restriction. Making a product visible to admit a coupon is a storefront change and is the owner's decision, never an importer's. Do NOT offer `active: false` as a way around this — the scope is validated at creation, so an inactive coupon on a hidden product is rejected identically. See an-inactive-coupon-is-validated-exactly-like-an-active-one."
+    },
+    {
+      "code": "writes-are-not-readable-immediately-and-absence-does-not-mean-failure",
+      "severity": "blocker",
+      "summary": "MEASURED live over a multi-thousand-coupon import. A successful write is not readable straight away, and while it is not readable it is indistinguishable from a write that never happened.\nBEHAVIOUR: (a) an offset-paginated query taken while the store is settling UNDER-COLLECTS, because rows shift between pages as they appear, so a sweep can report far fewer coupons than exist; (b) a response can carry a correct `totalResults` with the `coupons` array absent entirely; (c) an individual coupon was unreadable for OVER THIRTY MINUTES, during which GET by id 404d, an unfiltered query and a `specification.code` filter both returned nothing, and re-creating the code 400d \"already exists\".\nTHE TRAP: that last combination — absent AND already-taken — looks like conclusive proof the code was consumed with no object behind it. It is not. All of those symptoms share one cause, a read that has not caught up, so they are one observation and not four. No probe distinguishes lag from loss at the time.\nRECOVERY PROCEDURE: settle ~30s after the writes; page the full list TWICE and union by id; treat a code that is still absent as UNKNOWN, not lost — re-read it later, do not re-write it, do not escalate it to the vendor, and do not reissue a replacement code. Never conclude a write failed from a fresh read: doing so triggers a redundant write pass whose entire output is meaningless \"already exists\" errors."
+    },
+    {
+      "code": "free-gift-coupons-are-a-lossy-mapping-the-gift-is-not-auto-added",
+      "severity": "warning",
+      "summary": "A source \"free gift\" coupon (e.g. WooCommerce `fgf_free_gift` / Smart Coupons, whose gifted product lives in plugin meta such as `_wt_free_product_ids` and NOT in `product_ids` — that field is what the buyer must BUY, which for a pure gift is empty) has a PARTIAL mapping, not an exact one. `percentOffRate: 100` scoped to the gifted product is accepted live and makes that product cost nothing.\nWHAT IS LOST: the source ADDS the giveaway product to the cart when the code is applied. A Wix percentage coupon only discounts an eligible item the buyer has already put in the cart. So a buyer who enters the code and does not add the gift themselves receives nothing — a silent behaviour change, not a rounding error.\nTHERE IS NO PLATFORM FALLBACK FOR THE AUTO-ADD. Nothing in Wix's service-plugin surface mutates a cart: every extension in domains/SERVICE-PLUGINS.md is called to RETURN a decision (eligible triggers, rates, fees, validations, tax) and none can insert a line item. Custom discount triggers in particular only decide eligibility from `lineItems[].quantity`. So the options are exactly two: import the coupon as the lossy 100%-off mapping AND tell the merchant the gift is no longer added automatically, or build custom storefront / app code outside the migration. Do not route this to a service plugin.\nTwo alternatives were tried and both 400: `buyXGetY: {x: 0, y: 1}` rejects x=0 (\"expected more than 0\"), so Wix BuyXGetY always demands a purchase and is lossy in the same direction; `fixedPriceAmount: 0` rejects a zero newPrice. A free-gift coupon naming no product, or offering a CHOICE of products, has no mapping at all — nothing to scope to, and Wix holds one scope group.\nWHOSE CALL IT IS: this is a warning, not a blocker, and the decision belongs to the merchant — surface the behaviour change and let them rule, do not withhold the coupon on your own judgement. Datapoint, n=1: on one migration the owner ruled that a buyer adding the product and then entering a code IS the expected Wix shopping flow, and accepted the mapping. Treat that as evidence the trade is often acceptable, not as a default to apply silently."
+    },
+    {
+      "code": "buyxgety-is-a-real-coupon-type-not-only-a-discount-rule",
+      "severity": "info",
+      "summary": "VERIFIED live 2026-09-02: `buyXGetY: {x, y}` is a valid Stores COUPON type (`type: \"BuyXGetY\"` on read-back), distinct from an eCom Discount Rule's BUY_X_GET_Y. It requires a scope — storewide, product or collection, per the enumeration in storewide-scope-is-valid-and-needs-no-group — and `x` must be greater than 0. Useful when the source gates a BOGO behind a coupon CODE, which an automatic discount rule cannot express: ecom/discount-rule has no coupon trigger, so a code-gated BOGO belongs here and not there. Read-back returns `displayData` with the scoped product's name, image and formatted price, which is a cheap confirmation that the scope resolved to what you intended."
+    },
+    {
+      "code": "limitedtooneitem-reads-back-true-regardless-of-what-is-sent",
+      "severity": "warning",
+      "summary": "READ-BACK DISCREPANCY, cause not established. `limitedToOneItem` returns `true` from query on every coupon regardless of what was sent, including on FreeShipping where it has no obvious meaning, and sending `false` explicitly does not change the read-back. Wix documents the field as controlling whether only the lowest-priced eligible item is discounted, and publishes request examples using `false`, so it is a real setting and this is NOT evidence that it is inert. Only the read path was tested; checkout behaviour was not. Send it explicitly to state intent, do not infer the effective value from a read-back, and verify at checkout before relying on either value. See https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/functionality"
+    },
+    {
+      "code": "appliestosubscriptions-default-depends-on-the-rest-of-the-payload",
+      "severity": "warning",
+      "summary": "VERIFIED live 2026-09-02: unsent, `appliesToSubscriptions` comes back `true` when a `scope` is present and `false` when only `minimumSubtotal` is. Two coupons meant to be equivalent therefore end up with different subscription behaviour depending on which branch of the scope-or-minimum rule they took. Always send it explicitly."
+    },
+    {
+      "code": "stale-token-masquerades-as-a-missing-app-install",
+      "severity": "warning",
+      "summary": "VERIFIED live 2026-09-02: an expired token on the coupon surface returns 401 \"Coupons App is not installed or unauthorized\" — which reads as a setup problem and has previously been recorded as one. Re-mint the token (scripts/mint-token.sh) before concluding the Coupons app is missing."
     },
     {
       "code": "free-shipping-is-its-own-type-not-a-zero-percent-discount",
       "severity": "warning",
       "summary": "VERIFIED live: `freeShipping: true` is a distinct, valid coupon type exempt from the scope/minimumSubtotal requirement above. A source `free_shipping: true` flag (e.g. WooCommerce) must map to `freeShipping: true`, never to `percentOffRate: 0` — the latter creates a real, active, non-functional 0%-off coupon that does not actually grant free shipping."
+    },
+    {
+      "code": "free-shipping-and-a-discount-amount-cannot-coexist-on-one-coupon",
+      "severity": "warning",
+      "summary": "A source coupon can set the free-shipping flag AND a discount amount at once; a Wix coupon cannot, because `freeShipping` is its own type and carries no value. One half has to go. DECISION: keep `freeShipping: true` and report the dropped amount, per coupon, with its code and value — the merchant re-creates a plain discount coupon in a minute, but the free-shipping behaviour has no other expression in Wix. Report both values so the call is reversible coupon by coupon; never drop either half silently. shipping-build.js's findFreeShippingCouponConflicts enumerates them from the source set."
+    },
+    {
+      "code": "free-shipping-and-a-product-restriction-cannot-coexist-either",
+      "severity": "warning",
+      "summary": "SEPARATE from the dropped-amount conflict above, and easy to miss because it looks like the same pitfall. A `freeShipping: true` coupon carries NO scope group at all — it is exempt from the scope/minimumSubtotal rule, and that exemption cuts both ways: there is nowhere to put a product or collection restriction. So a source coupon that is BOTH free shipping AND restricted to one product cannot keep both halves, for a different reason than a dropped discount amount: the restriction has no field to live in.\nDECISION: report it, do NOT import it as unrestricted free shipping. Dropping the restriction grants free shipping on ANY order, which is more generous than the source — the same defect class as widening a product scope to storewide. This is the opposite call from the dropped-amount conflict above, where keeping the free shipping IS the faithful choice; here keeping it silently expands who gets it.\nWHY THIS MATTERS FOR COUNTING: a migration that fixes the product-scope visibility rule (see product-scope-requires-a-visible-product) will expect every product-scoped coupon to become importable. The free-shipping ones will not, and they are not a regression — they were never blocked by the scope rule. Count them separately before promising a number."
+    },
+    {
+      "code": "an-inactive-coupon-is-validated-exactly-like-an-active-one",
+      "severity": "warning",
+      "summary": "MEASURED live: `active: false` relaxes NOTHING. A coupon scoped to a hidden product is rejected `400 entityId '<id>' not found` with `active: false` exactly as with `active: true`. The scope is validated when the coupon is CREATED, not when a buyer redeems it.\nWHY THIS COMES UP: `active: false` looks like the natural way to park a coupon whose scope target is not ready yet — import it now, switch it on once the merchant fixes the storefront. That does not work, and it is worth knowing before promising it to an owner, because the obvious workaround is the one that fails. The precondition has to be satisfied at write time: the product must be visible at the moment of the POST.\nWhat `active: false` IS good for is unchanged — a coupon that must exist on the target but must not be redeemable yet, where the scope is already valid."
+    },
+    {
+      "code": "free-shipping-coupons-are-what-carry-a-coupon-gated-shipping-method",
+      "severity": "info",
+      "summary": "A source shipping zone can hold a free-shipping method gated on a coupon. That method has no delivery-config counterpart in Wix and produces nothing in the delivery profile — the coupons carrying the free-shipping flag are what implement it, and at checkout the buyer sees the normal delivery price with the coupon removing it. So the two domains are linked in one direction only: the shipping side must confirm such a coupon exists (in the source, or already on the target) before concluding, and must never create one itself. See ecom/delivery-profile's coupon-gated-free-shipping-is-not-a-delivery-setting pitfall."
+    },
+    {
+      "code": "scope-and-minimumsubtotal-do-not-coexist",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-09-05 (fresh site): a coupon sent with BOTH `scope: {namespace: 'stores'}` and `minimumSubtotal: 200` is accepted (200) and reads back with the scope and NO minimum -- the minimum is dropped silently, no error, no field in the response. So the scope-or-minimumSubtotal rule is effectively exclusive-or on the write. An unrestricted coupon with a minimum spend must be sent with `minimumSubtotal` and no scope (the minimum then round-trips); a product- or collection-scoped coupon cannot carry a minimum spend at all -- such a coupon is REFUSED (coupon-discovery.js: coupon-scope-unmappable, constraint scope-with-minimum), because written without the minimum it would be more generous than the merchant published. WRITE-SIDE ONLY: that a minimum-only coupon then REDEEMS storewide at checkout is inferred from the docs' scope-or-minimum rule, not observed -- no checkout test has run (review). Verify at checkout on the payments test site before describing it as settled."
+    },
+    {
+      "code": "create-coupon-answers-id-only",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-09-05: Create Coupon's response is `{ id }` -- the documented shape -- with no coupon object. A writer that reaches for `response.coupon.id` and falls back to a query by code is defeated by this entity's write-then-read lag (four of five creates on a fresh site read back nothing within ~2s), and reports a landed coupon as failed. `createCoupon` now takes `response.id` first; `ensureCoupon` accepts a string, an `{ id }` or an `{ coupon: { id } }`."
+    },
+    {
+      "code": "past-expiration-accepted-inactive-round-trips",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-09-05: an `expirationTime` in the past is ACCEPTED on create and the coupon reads back with `expired: true` -- so expired source coupons import as records, per spec 0127 Decision 2. `active: false` round-trips (an exhausted single-use source code imports inactive and stays so). `usageLimit: 1` and `limitPerCustomer: 1` both round-trip, so a per-customer cap IS expressible on the API despite the Coupons functionality article saying customers cannot be limited."
+    },
+    {
+      "code": "update-coupon-works-but-only-with-a-minimal-specification",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-14 (throwaway coupons only, all deleted afterwards). Update Coupon works, and the ONLY thing that decides whether it writes is how much of the specification you send. WORKS: `PATCH /stores/v2/coupons/{id}` with `{specification: {active: false}}` -- ONLY the fields being changed -- plus a field mask. The mask may be `?fieldMask=active`, `?fieldMask.paths=active`, or body `fieldMask: {paths: ['active']}`; all three write. Paths are specification field NAMES (`active`, `tags`), with NO `specification.` prefix -- `specification.active` returns 500. `?fieldMask=active,tags` sets both in one call. FAILS LOUDLY: no field mask at all -> 400 \"Updating coupons: field mask is missing\" (`updateMask` is the wrong field name and gets the same 400); a bare-array `fieldMask: ['active']` -> 400 deserialize. `PUT /stores/v2/coupons/{id}` is 404 and there is no v3/ecom coupons surface. The documented REST example omits the field mask entirely and therefore does not work as printed (dev.wix.com update-a-coupon) -- the mask is required, as the parameter table says. See the sibling pitfall full-specification-patch-returns-200-and-writes-nothing for the dangerous case."
+    },
+    {
+      "code": "full-specification-patch-returns-200-and-writes-nothing",
+      "severity": "blocker",
+      "summary": "MEASURED LIVE 2026-09-14 and it is the most expensive fact on this surface. `PATCH /stores/v2/coupons/{id}` with the coupon's WHOLE specification in the body alongside a narrow field mask (e.g. `fieldMask: {paths: ['active']}`) returns **200 with an empty body `{}` and writes NOTHING**. The same call with a specification carrying only `{active: false}` writes correctly. Controlled: five fresh coupons, one per request variant; the full-spec form left `active: true` at +15s, +45s and +150s, and the minimal form flipped it within ~18s. WHY IT IS A TRAP AND NOT A NUISANCE: spreading the coupon you just read into the update body is the obvious way to write one ('start from current state, change one field'), it is what every other Wix entity tolerates, and the response is a success. A repair pass built that way reports thousands of coupons updated while every one is unchanged -- on bearer vouchers that is a false pass on money. The docs' own wording is the rule: 'Only the properties passed in the `specification` object will be updated', so passing everything and masking one field is self-contradicting input, and the API resolves it by doing nothing instead of erroring. PRACTICAL RULE: build the update body from the CHANGE, never from the current record (lib/coupon-redemption-drift.js buildRemedyRequest does exactly this and cannot emit the full spec), and never report a coupon mutation from its status code -- verify by read-back after a settle, per verifyRemedyApplied."
+    },
+    {
+      "code": "wix-exposes-no-redemption-count-for-a-coupon",
+      "severity": "blocker",
+      "summary": "MEASURED LIVE 2026-09-14. There is NO readable usage/redemption count for a Wix coupon on any surface. `GET /stores/v2/coupons/{id}` and `POST /stores/v2/coupons/query` return the same object and it carries `usageLimit` (what was written) but none of `numberOfUsages`, `usageCount`, `numUses`, `redemptions`, `timesUsed` or `used`. No redemptions surface answers either: `/stores/v2/coupons/redemptions/query`, `/stores-reader/v2/coupons/query` and `/coupons/v1/redemptions/query` are all 404. CONSEQUENCE: \"has this coupon been redeemed on the target?\" is UNANSWERABLE. Any migration check on coupon redeemability can only compare SOURCE usage against the target's `active` flag, and only while the source is still the system of record -- after go-live, a coupon cashed on Wix is invisible to every check. Do not design a reconciliation, a report line or an acceptance gate that needs the target's own count. Combined with the immutable-`active` pitfall this is what makes write-time correctness the only correctness available on this entity."
+    },
+    {
+      "code": "an-imported-order-does-not-consume-the-coupon-it-references",
+      "severity": "warning",
+      "summary": "MEASURED LIVE 2026-09-14, once against a throwaway coupon as a control and once against a real single-use money voucher; both orders removed afterwards through Bulk Delete Imported Orders. `POST /ecom/v1/orders/import` with `appliedDiscounts[].coupon.id` is ACCEPTED and the id round-trips, but the coupon's state is byte-identical before and after at +10s, +30s and +60s -- the import does NOT consume a usage. WHY IT MATTERS: importing the historical order that spent a voucher looks like a free way to close that voucher on the target, and it is the obvious alternative to deleting it. It does not work. This is consistent with Import Order's documented no-side-effects contract (ecom/order.json), but it had to be measured because it removes the only remedy cheaper than delete. Note this cuts the reassuring way too: importing order history can never accidentally burn a live coupon."
+    },
+    {
+      "code": "coupons-carry-a-real-tags-field",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-09-14. `specification.tags` is a real, validated field: `array<string>`, max 100 items, max 255 chars each (dev.wix.com update-a-coupon schema). It is settable at CREATE and updatable in place through the minimal-specification PATCH above (`?fieldMask=active,tags` sets both at once). It round-trips on read from both `GET /stores/v2/coupons/{id}` and the query, and it is editable from the Wix dashboard's coupon screen. `tags: [{name: 'x'}]` is rejected 400 \"Unexpected value for field tags\", so it is strings only. EVERYTHING ELSE IS SILENTLY DROPPED -- `labels`, `customFields`, `extendedFields`, `description`, and a body-level `tags` outside `specification` all return 200 and store nothing, so do not reach for them as a marker. USE: tag migrated coupons so the merchant can tell them from ones they authored; the vocabulary is frozen in code (Imported / Already_Used / Disabled_At_Source) because a tag cannot be corrected without another update and a casing variant is indistinguishable from the real tag in the dashboard."
+    },
+    {
+      "code": "bulk-create-exists-but-one-bad-specification-fails-the-whole-batch",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE. `POST /stores/v2/bulk/coupons/create` exists and works. The body key is `specifications` (an array of coupon specifications) -- sending `coupons` returns a clear 400 naming the field. Max **100 per call**; 101 returns 400. The companion `POST /stores/v2/bulk/coupons/delete` takes `{ids: [...]}`, also 100 per call. There is NO bulk update: `/stores/v2/bulk/coupons/update` is 404, so changing anything on N existing coupons is N single PATCH calls. THE TRAP, MEASURED: a bulk create is **all-or-nothing, and its per-item errors lie**. A batch of five with ONE invalid specification (index 2) returned HTTP 200 with `totalFailures: 5` and the SAME error description on all five, including the four that were valid -- and none of the five was created. So a caller reading per-item errors concludes every specification was malformed when only one was, and a batch of 100 loses 100 coupons to one bad row. REQUIRED HANDLING: on any failure in a bulk create, do NOT trust the per-item errors and do NOT mark the batch's coupons as failed. Re-send the batch as individual creates to find the real culprit and let the rest land. Bulk delete behaves differently and correctly -- a non-existent id returns a per-id error while the rest of the batch succeeds -- so the two verbs must not be assumed to share failure semantics."
+    },
+    {
+      "code": "bulk-create-omits-originalindex-for-the-first-item",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE, and it is the positional-correlation defect class that has already corrupted identity data on another entity. `POST /stores/v2/bulk/coupons/create` answers `{results: [{itemMetadata: {id, originalIndex, success, error}}], bulkActionMetadata: {...}}`. `originalIndex` is present on results 1..N-1 and **ABSENT on result 0** -- a protobuf zero-value omission, not a missing field. Code that reads `originalIndex` and treats `undefined` as \"cannot correlate\" mis-attributes the FIRST item of EVERY batch; code that defaults it to `-1` or skips the row silently drops one coupon per 100. REQUIRED HANDLING: read it as `originalIndex ?? 0`, and correlate by that index into the request array -- never by array position in `results`, and never by matching on code alone. Verify the count: results length must equal specifications length."
+    },
+    {
+      "code": "bulk-create-silently-drops-tags",
+      "severity": "blocker",
+      "summary": "MEASURED LIVE, isolated: the same specification sent to `POST /stores/v2/coupons` round-trips `specification.tags`, and sent to `POST /stores/v2/bulk/coupons/create` reads back `tags: undefined`. Both return 200. Every other field in the same payload survives the batch, including `active: false`, so the loss is specific to `tags`. CONSEQUENCE: the batch create and a tagging requirement are mutually exclusive today. A batch that wrote a hundred untagged coupons is indistinguishable from success at the call site, and nothing on the coupon afterwards says which migration created it. REQUIRED HANDLING: write tagged coupons one at a time, or create them untagged in a batch and apply tags afterwards with the minimal-specification PATCH -- which costs one call per coupon and therefore removes most of the batch's advantage. `bulkCreateCoupons` refuses a specification carrying tags rather than letting the loss happen silently. This was found by importing a real batch and reading it back; a mocked transport cannot reproduce a field the server discards, so unit tests passed throughout."
     }
   ],
   "mappingGuidance": [
     "Prefer native coupons and record unsupported conditions as CMS shadow fields or setup gaps.",
-    "Required fields beyond `code`: `name` (default to `code` if the source has no separate display name) and `startTime` (default to the source coupon's creation date, or now)."
+    "Required fields beyond `code`: `name` (default to `code` if the source has no separate display name) and `startTime` (the source coupon's creation date, or now) — as epoch MILLISECONDS, not ISO.",
+    "A source coupon with no product restriction and no minimum spend maps exactly: `scope: {namespace: \"stores\"}`. It is not a gap and needs no invented minimum.",
+    "A source coupon restricted to a specific PRODUCT works, provided that product is `visible` on the target — a hidden one is rejected as a missing entityId. Check visibility before scoping; report the coupon rather than widening it. A category restriction maps to `group: {name: \"collection\"}` and works.",
+    "Wix holds at most ONE scope group per coupon. A source coupon spanning several products or several categories, or carrying an exclusion list, does not fit and must be reported.",
+    "A source \"free gift\" coupon is not automatically a gap, but it is not an exact mapping either: `percentOffRate: 100` scoped to the gifted product makes it free, and does NOT add it to the cart the way the source does. No service plugin can add it — record the lossiness and tell the merchant. The gifted product is usually in plugin meta, not in `product_ids`.",
+    "The WooCommerce mapping lives in rp-source-wordpress/lib/coupon-discovery.js (mapCouponToWix) and the reconcile-then-create write in wix-writers.js ensureCoupon (Query Coupons by exact specification.code, paced and retried; zero matches creates, one reconciles, more is ambiguous). Import ALL published coupons and classify by redeemability; `usage_limit` 0/empty is UNLIMITED. An exhausted single-use code is imported `active: false` -- Wix's own usage count starts at zero, so an active import would make a fully-redeemed code redeemable again. `fgf_free_gift` and any unrecognised discount_type produce NO write and a coupon-type-unmappable line; a multi-product, multi-category or exclusion-bearing scope is coupon-scope-unmappable, never widened to the store, and so is any eligibility constraint Wix cannot hold (sale-item exclusion, maximum discount amount, email restriction, a minimum spend on a scoped coupon). Free-shipping wins over an amount, with the amount reported per coupon.",
+    "A bearer voucher (a fixed money amount, no scope, no minimum, `usage_limit: 1`) is a money instrument, and its redeemability must be decided at WRITE time, not from the discovery snapshot: a voucher spent at source between capture and write imports fully redeemable, because Wix starts its own usage count at zero and nothing ever seeds a prior redemption. It CAN be corrected afterwards -- Update Coupon flips `active` in place, provided the request carries only the changed fields (see update-coupon-works-but-only-with-a-minimal-specification) -- but the correction needs someone to notice, so write-time correctness is still the goal. Re-read usage immediately before writing each voucher, do not write one whose fresh read is unobtainable, and reconcile again at cutover -- the source keeps trading until then. lib/coupon-redemption-drift.js holds the classification, the remedy plan and the read-back verification. Measured on one migration: ten single-use money vouchers of equal face value, spent at source during the multi-day gap between the coupon read and the coupon write, were all live and redeemable on the target.",
+    "Write coupons through the bulk create (100 per call) rather than one at a time -- a few thousand coupons is a normal volume for a WooCommerce source and single creates make it a few thousand round trips. Two rules make it safe, both measured and both blockers if ignored: a single invalid specification fails the WHOLE batch and reports the same error against every item in it, so any failure means re-sending that batch as individual creates rather than believing the per-item errors; and `originalIndex` is omitted on the first result, so correlate with `originalIndex ?? 0` into the request array and never by position in the response.",
+    "⚠️ The batch create and tagging cannot be combined: the batch discards `tags` while returning 200 (see bulk-create-silently-drops-tags). Either write tagged coupons singly, or batch them untagged and tag each one afterwards with the minimal-specification PATCH. Choose deliberately and report which was used -- the fast path and the complete path are not the same path."
   ],
   "setupRequirements": [
     "Wix Stores app"
@@ -88,15 +218,19 @@
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/coupon-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     },
-    
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real POST /stores/v2/coupons against the live reference store; 4/4 coupons created and independently re-queried (3 percent/fixed-cart with a substituted nominal minimumSubtotal, 1 genuine freeShipping)."
+      "path": "anonymized-live-verification"
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/execution/verification.json",
-      "note": "subset run imp_msq0ugnj_f0b16c (2026-08-12): create + query-back readback, safe mode on — 4/4 coupons created and read back, corroborating the same day's reference-store verification independently"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: coupon create and query-back readback succeeded in safe mode."
+    },
+    {
+      "type": "live-verification",
+      "path": "tests/target-wix/coupon-plan-live-sentinel.js",
+      "note": "2026-09-05, two fresh disposable sites created through POST /funnel/projects/v1/create: percent (storewide), fixed_cart with minimumSubtotal (no scope), expired (past expirationTime), exhausted (active:false), freeShipping -- all created, all readable by exact `specification.code` through Query Coupons after the settle lag, values round-trip as recorded in the pitfalls; a re-run of the same code reconciles through ensureCoupon and creates nothing; Delete Coupon 200."
     }
   ]
 }

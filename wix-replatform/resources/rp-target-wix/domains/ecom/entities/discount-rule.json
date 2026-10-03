@@ -11,21 +11,33 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "stores/product",
+    "stores/category"
+  ],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.woo-discount-rules.discount-rule-definition",
+      "degradedField": "rule-definition",
+      "pitfallCode": "rule-definitions-via-bridge-plugin-not-rest",
+      "degradation": "warning"
+    }
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
       "sourceEntity": "discount-rule-definition",
       "sourcePlugin": "woo-discount-rules",
       "routes": [],
-      "confidence": "low",
-      "note": "No REST route — see admin-page-only channel in the plugin profile. Source data can only arrive via human transcription of the wp-admin settings page."
+      "confidence": "medium",
+      "note": "No REST route to the wp-admin settings page itself, but the underlying wdr_rules table is directly readable via wix-wp-plugin-v2's discover-structure/query-structure -- VERIFIED LIVE 2026-08-28 against an anonymized live source. See the plugin profile's db-only entity and its blocked[].fulfillment."
     }
   ],
   "preferredWrite": {
     "surface": "Discount Rules",
     "endpoint": "POST /ecom/v1/discount-rules",
     "writerId": "createDiscountRule",
-    "verification": "docs",
+    "verification": "verified-live",
     "importSafe": true,
     "bulk": false
   },
@@ -37,9 +49,21 @@
   ],
   "reliability": {
     "status": "partially-reliable",
-    "flags": ["not-yet-live-verified"]
+    "flags": []
   },
   "pitfalls": [
+    {
+      "code": "scope-id-must-follow-wix-own-prefix-convention-or-the-rule-is-dashboard-uneditable",
+      "severity": "blocker",
+      "summary": "`scopes[].id` accepts ANY non-empty string server-side (create succeeds with an arbitrary value like `\"stores-catalog\"`), but the merchant dashboard's own Automatic Discounts editor only recognizes the id patterns Wix's own tooling generates: `all_<catalogAppId>` (storewide), `specific_<catalogAppId>` (named products, id + catalogItemIds), `collections_<catalogAppId>` (CUSTOM_FILTER, a collection). VERIFIED LIVE 2026-08-29 in anonymized live verification: a rule created with `scopes[].id: \"stores-catalog\"` shows in the dashboard as created by a third-party integration with NO edit option at all -- confirmed by direct comparison via Get Discount Rule against a dashboard-created rule in the same anonymized verification environment, whose only structural difference was this id (`all_215238eb-22a5-4c36-9e7b-e7c08025e04e`) plus a populated `settings` object (see the settings-object pitfall below). This defeats any placeholder-rule strategy that relies on the merchant reconfiguring the rule afterward in the dashboard -- always use the real `all_`/`specific_`/`collections_` prefix, never an arbitrary caller-assigned id, even though the API accepts one.",
+      "unverified": false
+    },
+    {
+      "code": "settings-and-activeTimeInfo-should-be-populated-on-create",
+      "severity": "blocker",
+      "summary": "`settings.indexOptIn` and `activeTimeInfo.start` are both omittable server-side (create succeeds with neither), but every dashboard-created rule observed live carries `settings.indexOptIn: true` and a populated `activeTimeInfo.start` even when the caller never asked for a start date -- confirmed by the Wix skills doc's own \"Settings\" section (`{appliesTo: \"ALL_ITEMS\", indexOptIn: true}` verbatim) and its \"Date handling\" table (`startDate` empty -> default to current time, never omit). Missed in the first TWO live-fix passes in anonymized live verification (2026-08-29) -- both times the dashboard-editability bug looked fully explained by the scope-id/quantity-range findings alone, but this was a third, independently real gap sitting underneath them. Always set `settings: {appliesTo: \"ALL_ITEMS\", indexOptIn: true}` AND `activeTimeInfo: {start: <now, ISO 8601>}` on create -- never omit either just because the API accepts the omission.",
+      "unverified": false
+    },
     {
       "code": "automatic-discounts-is-a-dashboard-label-for-discount-rules",
       "severity": "info",
@@ -51,10 +75,15 @@
       "summary": "Per dev.wix.com: 'Currently, only 1 discount can be defined per discount rule.' A source rule with multiple stacked effects needs one Wix DiscountRule per effect, not one rule with a list."
     },
     {
+      "code": "cumulative-tiered-discount-needs-one-rule-per-tier-no-clean-solution",
+      "severity": "blocker",
+      "summary": "SUPERSEDED IN PART 2026-08-31 -- see bounded-quantity-bands-need-a-custom-trigger-spi below for a clean solution via the Custom Discount Triggers service plugin (bands become mutually exclusive, nothing stacks). The trade-off described here still applies whenever you are restricted to NATIVE triggers only.\n\nA source cumulative/tiered quantity discount (e.g. WooCommerce Discount Rules' bulk_adjustments: 1-5 units -> 5% off, 6-10 -> 10%, 11-15 -> 15%, ...) has no single-rule Wix equivalent (only-one-discount-per-rule, above), AND every multi-rule approach has a real downside -- there is no clean fix, only a tradeoff a human must choose:\n(a) BOUNDED (`itemQuantityRange: {from, to}`, both inclusive -- VERIFIED LIVE the field accepts both, not from-only as the truncated docs example suggested): ranges are non-overlapping by construction (correct math, no stacking), but VERIFIED LIVE 2026-08-29 the merchant dashboard's Automatic Discounts editor cannot render a bounded range at all -- it shows EVERY such rule as created by a third-party integration with no edit option, the same failure as the scope-id pitfall, not a coincidence.\n(b) OPEN-ENDED (`itemQuantityRange: {from}` only, one rule per tier's minimum): fully dashboard-editable (VERIFIED LIVE), but the tiers are not mutually exclusive once activated -- past the highest threshold every lower tier's trigger is also true and Wix stacks them (e.g. at 21+ items: 5+10+15+20+25 = 75% off, not 25%), a real compounding-discount bug once live, not just an approximation.\nDEFAULT SUPERSEDED 2026-08-31 (spec 0105). The old default was (b) open-ended, on the reasoning that every tier imports `active: false` so a merchant would consolidate before activating, and that a Custom Discount Trigger was 'out of scope for a data migration'. BOTH HALVES WERE WRONG. Relying on the import being inactive is not a control — it only defers the bug to whoever flips the switch, and 5+10+15+20+25 = 75% off is then live. And the service plugin is in scope: it is the sanctioned rung 3 of the escalation ladder, built with the Wix CLI as an app extension, implemented and verified end to end against live carts. CURRENT DEFAULT: express bounded bands through a Custom Discount Trigger service plugin, which answers yes/no per cart so exactly one tier can match. See bounded-quantity-bands-need-a-custom-trigger-spi below and domains/SERVICE-PLUGINS.md. Options (a) and (b) above remain accurate descriptions of the NATIVE-ONLY trade-off and are kept for the case where a service plugin is genuinely unavailable — but neither is the default any more, and choosing (b) means accepting a live compounding-discount bug."
+    },
+    {
       "code": "trigger-type-and-discount-type-are-each-a-closed-enum",
       "severity": "warning",
-      "summary": "trigger.triggerType: AND | OR | SUBTOTAL_RANGE | ITEM_QUANTITY_RANGE | CUSTOM | CUSTOMER_ELIGIBILITY. discounts.values[].discountType: PERCENTAGE | FIXED_AMOUNT | FIXED_PRICE | QUANTITY_BASED. A source rule shape outside these (e.g. WooCommerce's free-gift-with-purchase style BOGO) may not map 1:1 — QUANTITY_BASED ('3 for $10') covers simple buy-X-for-amount, but a true 'buy X get Y free' where X and Y are different products has no direct equivalent found in this schema as of 2026-08-12; verify live before assuming it's supported.",
-      "unverified": true
+      "summary": "trigger.triggerType: AND | SUBTOTAL_RANGE | ITEM_QUANTITY_RANGE | CUSTOM | OR | CUSTOMER_ELIGIBILITY. discounts.values[].discountType: PERCENTAGE | FIXED_AMOUNT | FIXED_PRICE | QUANTITY_BASED. Both enums read live off the server's own UnrecognizedEnumValidator error by POSTing a bogus value -- do that instead of trusting a doc page. CORRECTION 2026-08-31: an earlier version of this pitfall said a true 'buy X get Y' where X and Y differ has no equivalent. THAT IS WRONG -- see buy-x-get-y-is-supported-but-undocumented below. QUANTITY_BASED is only for '3 for $10'; BOGO lives on targetType, not discountType, which is why it looked absent.",
+      "unverified": false
     },
     {
       "code": "scope-targets-a-real-catalog-item-id-not-a-source-id",
@@ -62,16 +91,52 @@
       "summary": "`scopes[].catalogItemFilter.catalogItemIds` takes Wix catalog item GUIDs (e.g. the migrated product's Wix product id from the product crosswalk), not the source WooCommerce product id. Resolve via the product crosswalk before building the scope, the same as category/tag assignment elsewhere in this pipeline. Omitting scopes (or passing none) applies the rule storewide."
     },
     {
-      "code": "not-yet-live-verified-for-this-project",
+      "code": "rule-definitions-via-bridge-plugin-not-rest",
       "severity": "warning",
-      "summary": "Authored from dev.wix.com docs (Create Discount Rule) on 2026-08-12; no live call has been made yet — the reference store has no source data for this capability's rule definitions until the site owner transcribes the wp-admin settings page (see woo-discount-rules.json's admin-page-only entity). Promote `preferredWrite.verification` to verified-live and this flag away once the first real rule is created and independently re-queried."
+      "summary": "The source rule configuration has no REST route at all (wp-admin/admin.php?page=woo_discount_rules renders it, with no API) -- it is read via wix-wp-plugin-v2's discover-structure/query-structure against the plugin's own wdr_rules table instead, VERIFIED LIVE 2026-08-28 against an anonymized live source. This requires the site owner to have installed wix-wp-plugin-v2 (see plugins/wix-wp-plugin-v2/README.md) -- a source with only a standard WooCommerce REST credential and no bridge plugin installed cannot migrate this entity's data at all, only reconfigure it manually in Wix."
+    },
+    {
+      "code": "buy-x-get-y-is-supported-but-undocumented",
+      "severity": "blocker",
+      "summary": "Wix DOES support buy-X-get-a-DIFFERENT-Y. Two earlier passes of this file and an earlier research pass concluded it does not, and both were WRONG. VERIFIED LIVE 2026-08-31: discounts.values[].targetType accepts [UNDEFINED, SPECIFIC_ITEMS, BUY_X_GET_Y]. Payload is buyXGetYInfo: {customerBuys: {scopes[], minimumQuantity | minimumSpend}, customerGets: {scopes[], quantity}, limit?}. WHY IT LOOKS UNSUPPORTED, so the next reader does not repeat the mistake: (a) buyXGetYInfo appears NOWHERE in the published Create Discount Rule method schema; (b) the docs' one 'Create Buy X Get Y Discount Rule' example is a body that returns a bare HTTP 500, because it shows only targetType/discountType/fixedPrice and omits buyXGetYInfo entirely; (c) the server's error text says 'buyXGetYInfo.customerBuy.condition' -- SINGULAR, which is the protobuf type name, while the actual field is customerBuys (PLURAL). The shape is only visible via SearchWixAPISpec's component schemas: getResourceSchemaByUrl(docsUrl).components.schemas['com.wix.ecom.discounts.BuyXGetYInfo']. RULE: when a Wix method 500s on its own documented example, inspect the component schemas before concluding a capability is absent."
+    },
+    {
+      "code": "offer-string-is-the-machine-readable-dashboard-editability-test",
+      "severity": "blocker",
+      "summary": "The server computes a human-readable `offer` summary on every discount rule and returns it on create/get/query. An EMPTY STRING means the merchant dashboard cannot render the rule and shows it as created by a third-party integration with no edit option. THE TEST IS ONE-WAY: a populated `offer` does NOT prove the rule is editable — see the scope note below. VERIFIED LIVE 2026-08-31 by creating throwaway rules and deleting them, and corroborated by a merchant independently reporting exactly the rule whose offer was empty.\n\nSCOPE OF THE TEST -- READ THIS BEFORE TRUSTING IT. `offer` reflects the DISCOUNT and its SCOPE only. It is TRIGGER-BLIND: verified live 2026-08-31 that a rule with no trigger at all, one with a bounded itemQuantityRange {from:6,to:10}, and one with subtotalRange {from:500} ALL return the byte-identical offer '10% off\\nAll products'. So an empty offer proves a rendering problem, but a POPULATED offer does NOT prove the trigger renders. Use this test for scope/target shapes (where it is proven). Do NOT use it to clear the cumulative-tiered-discount pitfall's bounded-range claim -- that one is about the trigger, and only a human opening the dashboard can currently settle it."
+    },
+    {
+      "code": "buyxgety-renders-only-with-exactly-one-catalog-item-scope",
+      "severity": "blocker",
+      "summary": "Inside buyXGetYInfo.customerBuys.scopes, only a SINGLE CATALOG_ITEM scope renders in the dashboard. VERIFIED LIVE 2026-08-31 on one site, each case created then deleted, judged by the `offer` string: 1 x CATALOG_ITEM with <=50 explicit catalogItemIds -> offer rendered, EDITABLE. 1 x CATALOG_ITEM storewide (all_<appId>, empty catalogItemIds) -> rendered, EDITABLE. 2 x CATALOG_ITEM scopes -> offer '', NOT editable. 1 x CUSTOM_FILTER (a Stores category) -> offer '', NOT editable. 3 x CUSTOM_FILTER -> offer '', NOT editable. So more than one scope, or ANY category/collection scope, breaks rendering regardless of count. CONSEQUENCE, and it is a real trade-off with no clean answer: catalogItemIds caps at 50 per scope, so a source rule whose trigger covers MORE than 50 products cannot be both faithful and dashboard-editable. Choose explicitly and record which: (a) keep the category/CUSTOM_FILTER scope -- faithful, uneditable; (b) enumerate <=50 product ids -- editable, silently drops the rest; (c) go storewide -- editable, triggers far wider than the source. Never pick one silently."
+    },
+    {
+      "code": "specificiteminfo-belongs-on-the-discount-value-not-the-rule",
+      "severity": "blocker",
+      "summary": "specificItemsInfo goes on discounts.values[0], NOT on the discountRule object. Putting it on the rule passes request validation and then returns a bare HTTP 500 with an empty body and no field violation -- there is nothing in the response to point at the mistake. VERIFIED LIVE 2026-08-30 (cost several probe rounds). Same class of failure as omitting settings.appliesTo: the 500 is the ONLY signal, so when a discount-rule create 500s, suspect misplaced or missing sub-objects before anything else."
+    },
+    {
+      "code": "carry-the-source-rule-name-and-active-flag-verbatim",
+      "severity": "warning",
+      "summary": "Import the source rule's own name, with no migration prefix or tag -- a merchant comparing the two systems side by side must see the same string in both. `name` is capped at 50 characters, so truncate only when the source title genuinely exceeds it (Hebrew and other non-Latin titles hit this sooner than they look). Where one source rule legitimately becomes several Wix rules (see cumulative-tiered-discount...), suffix the source name with the distinguishing bound rather than renaming it. Likewise mirror the source rule's enabled/disabled flag into `active` instead of importing everything inactive by default: a promotion running at source should run at the destination. TWO CASES WHERE MIRRORING IS UNSAFE and the importer must import inactive and say so loudly: (1) the source rule is gated on something Wix cannot express -- a cart coupon code is the common one -- so an 'active' import applies unconditionally and gives the discount to everyone; (2) one source rule expanded into several open-ended tiers, which stack once active."
+    },
+    {
+      "code": "bounded-quantity-bands-need-a-custom-trigger-spi",
+      "severity": "blocker",
+      "summary": "RESOLVES the cumulative-tiered-discount pitfall's 'no clean solution'. A source bulk/tiered discount (1-5 -> 5%, 6-10 -> 10%, 11-15 -> 15%, ...) has a clean Wix mapping after all, but not through a native trigger: implement the Custom Discount Triggers SERVICE PLUGIN and give each tier its own bounded band. Each tier becomes one DiscountRule with trigger {triggerType:'CUSTOM', customTrigger:{id:'<band id>', appId:'<your app>'}}, and the plugin answers a plain yes/no per cart -- so bands are mutually exclusive, nothing stacks, and no bounded itemQuantityRange is needed. IMPLEMENTED, DEPLOYED AND VERIFIED END TO END AGAINST LIVE CARTS 2026-08-31 (with only the 6-10 band active: 3 units -> no discount, 7 units -> exactly 10% off, 11 units -> NO discount. The 11-unit case is the proof, because the old open-ended shape would have discounted it too — design the verification around the input where old and new behaviour DISAGREE, or a passing test proves nothing). A complete, copy-pasteable implementation is in domains/SERVICE-PLUGINS.md.\n\nDESIGN THAT MADE IT CHEAP: encode the band in the trigger id ('bulk-qty-6-10', 'bulk-qty-21-plus') and parse it in getEligibleTriggers, so re-cutting a tier is a discount-rule edit with NO plugin redeploy; listTriggers only feeds the dashboard dropdown. Count UNITS not lines (sum lineItems[].quantity) to match WooCommerce's product_cumulative operator. Treat an unparseable id as NOT eligible -- a permissive default silently discounts every cart.\n\nCOST, so this is not chosen lightly: it needs a Wix CLI app project (`wix generate` -> Service Plugin -> Ecom Discount Triggers), and `wix release` to deploy -- which ALSO PUBLISHES THE SITE. The plugin becomes permanent production infrastructure: uninstall the app and every tier rule pointing at its triggers stops resolving. Worth it for a real tiered promotion, not for a disabled sample rule.\n\nSEE ALSO rp-target-wix/domains/SERVICE-PLUGINS.md — the escalation rule, the honest cost list (an app, hosting, a 3-second budget, permanent production infrastructure, and the fact that `wix release` also PUBLISHES THE SITE), a full worked example including the SDK's inbound-only id -> _id rename, and the catalog of all 25 Wix service plugins with a per-plugin judgment on whether it could close a migration gap."
+    },
+    {
+      "code": "sdk-renames-rest-id-to-underscore-id-in-service-plugins",
+      "severity": "warning",
+      "summary": "When implementing an SPI through @wix/ecom/service-plugins, the SDK types rename the REST `id` field to `_id` -- and only on the inbound side. For Custom Discount Triggers, VERIFIED 2026-08-31 against the shipped .d.ts: request is triggers[].customTrigger._id, listTriggers returns customTriggers[]._id, but getEligibleTriggers returns eligibleTriggers[].customTriggerId (NOT renamed) and LineItem.quantity is unchanged. A correct handler therefore looks internally inconsistent. Writing `id` on the list side compiles clean in plain JS and silently returns a trigger list Wix cannot match to any rule -- the discount never applies and nothing errors. Read node_modules/@wix/auto_sdk_ecom_custom-triggers/build/cjs/interfaces-*.d.ts rather than the REST docs, and typecheck (astro check / tsc) before releasing."
     }
   ],
   "mappingGuidance": [
+    "ESCALATION LADDER for a source discount shape that does not obviously fit. Work it in order and do not skip a rung. (1) NATIVE PRIMITIVE FIRST, ALWAYS — and confirm what native actually offers by reading the live enum off the server rather than a doc page: POST a bogus value and let UnrecognizedEnumValidator list the real members. targetType accepts BUY_X_GET_Y, which two earlier passes of this file declared impossible because it is absent from the published method schema and the docs' own example for it 500s (see buy-x-get-y-is-supported-but-undocumented). (2) NATIVE BUT MERELY AWKWARD STILL BEATS INFRASTRUCTURE — an extra rule per tier, more configuration, a field the merchant re-enters. AWKWARD IS NOT THE SAME AS INEXACT, AND THE LINE IS WHAT A CUSTOMER PAYS: ask whether the shape changes WHO QUALIFIES or WHAT THEY ARE CHARGED. A widened scope (e.g. variation ids resolving up to their parent product, so every variant now qualifies) and a lossy field both FAIL that test — they are approximations, not awkwardness, and they belong at (4) with the gap, not here. An earlier version of this guidance listed a widened scope as a preferred native fallback; that was wrong and it contradicted (4). (3) ONLY IF WIX HAS NO PRIMITIVE for a condition the source depends on, build a CUSTOM DISCOUNT TRIGGER service plugin: Wix calls your endpoint on every cart change and you answer yes/no per trigger, so any condition you can compute from the cart becomes expressible. Docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/introduction Add it with the CLI: https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/supported-extensions/backend/service-plugins/add-service-plugin-extensions-with-the-wix-cli Full cost, caveats, a complete worked example and the catalog of all 25 Wix service plugins: rp-target-wix/domains/SERVICE-PLUGINS.md. (4) IF NEITHER WORKS IT IS A REAL GAP — and so is anything you had to approximate to make 'native' fit. Record it with the rule's exact values and say what changed. An approximated discount silently changes what customers are charged, which is worse than an absent one because an absent one is visible.",
     "A trigger-less rule (`trigger` omitted) always applies — use this for a source rule with no minimum-spend/quantity condition.",
     "SUBTOTAL_RANGE trigger maps a WooCommerce 'X% off orders over $Y' rule: trigger.subtotalRange.from = Y, no `to` needed for an open-ended minimum.",
-    "ITEM_QUANTITY_RANGE maps a simple buy-N-get-discount rule when the discount applies to the same items counted by the trigger.",
-    "Storewide (no product/category restriction) omits `scopes` entirely on both the trigger and the discount's specificItemsInfo — do not pass an empty array where omission is what 'no restriction' means; verify live which of the two Wix actually expects."
+    "ITEM_QUANTITY_RANGE maps a simple buy-N-get-discount rule when the discount applies to the same items counted by the trigger. It supports a `to` bound (inclusive) as well as `from`, but VERIFIED LIVE `to` makes the dashboard treat the rule as third-party-created/uneditable -- see the cumulative-tiered-discount pitfall for the real tradeoff before choosing bounded vs. open-ended for a multi-tier discount.",
+    "Storewide (no product/category restriction) does NOT omit `scopes` -- VERIFIED LIVE 2026-08-29: a real dashboard-created storewide rule still carries `specificItemsInfo.scopes: [{id: \"all_<catalogAppId>\", type: \"CATALOG_ITEM\", catalogItemFilter: {catalogAppId}}]`. Always build the scope with the real `all_`/`specific_`/`collections_` id-prefix convention (see the scope-id pitfall above) even for storewide; never omit `scopes` or invent an arbitrary `id`."
   ],
   "setupRequirements": [],
   "objectPageException": "The Discount Rules API menu (dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/introduction, checked 2026-08-12) lists only Create/Update/Delete/Get/Query — no dedicated '…-object' reference page exists for DiscountRule. The full field shape is sourced from Create Discount Rule's request/response schema instead.",
@@ -83,6 +148,35 @@
     {
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/create-discount-rule"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Live create and readback verification established that arbitrary scope IDs produce rules the dashboard treats as third-party-created and uneditable. Comparing against a dashboard-created rule isolated the supported scope-ID prefixes; see the scope-id-prefix pitfall."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Live create and readback verification compared bounded and open-ended cumulative quantity tiers. Bounded ranges were uneditable in the dashboard; open-ended tiers remained editable but overlap and can stack. See the cumulative-tiered-discount pitfall for the required migration decision."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Field-by-field live verification against dashboard-created rules established the complete create contract for dashboard editability: use the supported `all_`/`specific_`/`collections_` scope-ID prefix, `settings: {appliesTo, indexOptIn: true}`, and `activeTimeInfo.start`. Recreated rules carrying the complete field set were confirmed editable."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "2026-08-31: BUY_X_GET_Y confirmed supported and buyXGetYInfo's shape recovered from the API spec's component schemas; the `offer` empty-string rendering test discovered; and the one-CATALOG_ITEM-scope limit established across five scope shapes."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/introduction",
+      "note": "Custom Discount Triggers service plugin — the sanctioned fallback when no native trigger expresses the source condition. Implemented live 2026-08-31; see domains/SERVICE-PLUGINS.md."
     }
   ]
 }

@@ -83,7 +83,7 @@
     }
   ],
   "mappingGuidance": [
-    "Mapping confirmed by Spec Owner 2026-08-16: captured addon/option values on historical order line items map to Import Order lineItems[].descriptionLines[] — one line per addon field, name.original = field title (max 100 chars), plainText.original = captured value (max 600 chars) — written on the order import payload (ecom/order).",
+    "captured addon/option values on historical order line items map to Import Order lineItems[].descriptionLines[] — one line per addon field, name.original = field title (max 100 chars), plainText.original = captured value (max 600 chars) — written on the order import payload (ecom/order).",
     "plainText and colorInfo are a one-of per description line; addon values are text, so use plainText (colorInfo only for genuine color selections with a name and optional HEX/RGB code).",
     "Optionally mirror machine-readable selections into lineItems[].catalogReference.options — a writable key:value object for item-selection specificity — in addition to the display-oriented description lines.",
     "modifierGroups is read-only on import — never plan it as a target for addon values; record that explicitly in mapping reports.",
@@ -115,9 +115,9 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: Import Order create + GET readback on a two-line-item order. Line item 1 carried three descriptionLines (two plainText, one colorInfo with name + HEX code) and a catalogReference { appId: Wix Stores, catalogItemId: <live probe product>, options: { variantId, sourceAddonGroupId, 'ZZZ Probe engraving': '<value>' } }; all persisted exactly as sent. Line item 2 carried none and read back with descriptionLines: []. modifierGroups came back [] on both. Probe order 1cfe4291 and its probe product deleted afterwards."
+      "path": "anonymized-live-verification",
+      "note": "Verified live: Import Order create and GET readback preserved plainText and colorInfo descriptionLines plus catalogReference.options exactly as sent. A line item without descriptions read back with descriptionLines: [], and modifierGroups read back empty. Probe records were deleted after verification."
     }
   ],
-  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on the probe site: descriptionLines (plainText and colorInfo variants) and catalogReference.options both persisted verbatim, and modifierGroups was confirmed empty on readback."
+  "notes": "Authored 2026-08-16. Promoted to verified-live 2026-08-16 by a create/readback/delete probe on an anonymized verification environment: descriptionLines (plainText and colorInfo variants) and catalogReference.options both persisted verbatim, and modifierGroups was confirmed empty on readback."
 }

@@ -11,6 +11,7 @@
     "idPolicy": "natural-key",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

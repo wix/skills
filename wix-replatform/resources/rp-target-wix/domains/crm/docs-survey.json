@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "domain": "crm",
-  "fetchedAt": "2026-08-16",
+  "fetchedAt": "2026-09-14",
   "roots": [
     "api-reference/crm/members-contacts/contacts",
     "api-reference/crm/communication",
@@ -103,6 +103,24 @@
         "stores/review"
       ],
       "reviewedOn": "2026-08-16"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/activity-log/activity-v1",
+      "title": "Activity V1",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/activity-log/activity-v1",
+      "group": "Activity Log",
+      "verdict": "not-relevant",
+      "reason": "Custom contact activity logging and activity reads. No mapped source contact-activity stream in the supported import paths; reassess when a source adapter exposes one.",
+      "reviewedOn": "2026-09-14"
+    },
+    {
+      "id": "api-reference/crm/members-contacts/contacts/activity-log/template-v1",
+      "title": "Template V1",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/activity-log/template-v1",
+      "group": "Activity Log",
+      "verdict": "not-relevant",
+      "reason": "Read-only activity presentation templates and categories, not contact records or imported customer fields.",
+      "reviewedOn": "2026-09-14"
     },
     {
       "id": "api-reference/crm/members-contacts/contacts/attachments/attachment-v4",

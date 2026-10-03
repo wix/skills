@@ -10,6 +10,7 @@
     "api-reference/business-solutions/events"
   ],
   "defaultImportOrder": [
+    "category",
     "event",
     "registration-form",
     "ticket-definition",
@@ -32,6 +33,5 @@
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event"
     }
-    
   ]
 }

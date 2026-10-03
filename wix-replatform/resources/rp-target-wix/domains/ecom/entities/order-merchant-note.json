@@ -72,7 +72,7 @@
     }
   ],
   "mappingGuidance": [
-    "Mapping confirmed by Spec Owner 2026-08-16: source order notes (including payment-gateway plugin notes) map to eCom order activities — POST /ecom/v1/orders/{orderId}/activities/add with activityType MERCHANT_COMMENT and merchantComment.message (max 5000 chars) — called as a follow-up write AFTER Import Order creates the order.",
+    "source order notes (including payment-gateway plugin notes) map to eCom order activities — POST /ecom/v1/orders/{orderId}/activities/add with activityType MERCHANT_COMMENT and merchantComment.message (max 5000 chars) — called as a follow-up write AFTER Import Order creates the order.",
     "Sequencing: import the order first (ecom/order via importOrder), resolve the Wix order id from the crosswalk, then add activities. Add Activities is currently documented to support MERCHANT_COMMENT only; up to 300 activities per request, but each request targets a single order.",
     "Author and timestamp are stamped at call time and cannot be backdated. Preserve provenance inside the message text, e.g. '[source note — {author}, {original ISO date}] {note text}', keeping the total within 5000 chars.",
     "Source notes are commingled with system and other plugins' notes on the source order — inspect note content at import time to decide which notes carry over; do not blindly replay every source order note.",
@@ -100,13 +100,13 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
-      "note": "commerce.payment-gateway-notes pending-register entry (researched 2026-08-11 with the plugin-rest-child read channel, finding #21); resolved by this entity 2026-08-16."
+      "note": "The plugin-rest-child read channel supplies commerce.payment-gateway-notes, which this entity resolves."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: POST /ecom/v1/orders/{orderId}/activities/add with one MERCHANT_COMMENT activity on a freshly imported order → 200; GET on the order read the message back verbatim, including the '[source note — {author}, {ISO date}] …' provenance prefix. Before the call activities[] held only the auto-created ORDER_PLACED entry; after it, the MERCHANT_COMMENT entry carried a server id, createdDate = call time, and authorEmail = the token holder's login email. Probe order d4643149 deleted afterwards."
+      "path": "anonymized-live-verification",
+      "note": "Verified live: POST /ecom/v1/orders/{orderId}/activities/add created a MERCHANT_COMMENT that GET returned verbatim, including a caller-supplied source-author/date prefix. Wix assigned the activity ID and current createdDate and recorded the token holder's login email as authorEmail. Probe records were deleted after verification."
     }
   ],
-  "notes": "Authored 2026-08-16. Mapping confirmed by Spec Owner 2026-08-16. Promoted to verified-live 2026-08-16 by an import-then-add-activity probe under this entity's own capability on the probe site. writerId stays null — the direct-REST plan is unchanged; a dedicated writer in rp-target-wix/lib/wix-writers.js is still the open gap."
+  "notes": "Authored 2026-08-16. Promoted to verified-live 2026-08-16 by an import-then-add-activity probe under this entity's own capability on an anonymized verification environment. writerId stays null — the direct-REST plan is unchanged; a dedicated writer in rp-target-wix/lib/wix-writers.js is still the open gap."
 }

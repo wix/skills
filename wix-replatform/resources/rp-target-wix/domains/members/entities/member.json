@@ -11,6 +11,9 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "crm/contact"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -94,6 +97,16 @@
       "code": "chronology-server-controlled",
       "severity": "warning",
       "summary": "Original createdDate and lastLoginDate are not writable as native member chronology."
+    },
+    {
+      "code": "phone-must-be-e164-and-dedupes-across-contacts",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-06: contact.phones[] REJECTS anything not already E.164 (\"050-1234567\" 400s INVALID_PHONE; \"+972501234567\" is accepted) -- WooCommerce phones are local-format text and need converting or dropping, never sent as-is. Separately, Contacts dedupes on phone: creating a SECOND member with an unrelated name/email but the SAME phone as a first member returned the FIRST member's contactId -- silently attaching the new person onto the old contact, renaming it in the process -- and this happened even after the first member had been DELETED (deleting a member does not delete its contact; the contact is left orphaned and reusable). rp-target-wix/lib/customer-member.js normalizePhoneE164 converts under an explicit per-country rule or refuses (never guesses); wix-writers.js ensureMember queries Contacts V5 by phone before every create (every phone in the array, not just the first -- an earlier version of this guard checked only phones[0], which a review caught 2026-09-06) and drops the phone(s) (finding member-phone-collision-dropped) rather than risk merging two different source customers. Also cosmetic, not a defect: Members V1 read-back reformats the phone with spaces/dashes for display (\"+972 50-999-0001\"), while Contacts V5 stores the compact string sent and exposes it again verbatim under phone.e164 -- compare on digits, not the display string."
+    },
+    {
+      "code": "query-members-by-login-email-is-eventually-consistent",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-09-06: a freshly created member is NOT immediately findable through Query Members by loginEmail -- one probe saw zero matches at +0ms and +2000ms after Create Member returned, then one match at +5000ms. Create Member's own loginEmail UNIQUENESS check, by contrast, is immediate and case-insensitive (a same-email create in a different case 409s ALREADY_EXISTS right away, with no delay observed). So a caller that reconciles by Query Members before creating (rp-target-wix/lib/wix-writers.js ensureMember) can, within that window, see zero matches for a member that in fact already exists on the target (created moments earlier by an interrupted or concurrent run) and then hit a 409 attempting to create it again. ensureMember reports this as its own outcome (member-already-exists-unreconciled) rather than the generic member-failed, since the record is not lost -- a later run's query will catch up and reconcile it -- but it is not a silent success either. Reconciling through a crosswalk row's GET-by-id (matchedBy: crosswalk) does not depend on this: a fresh site's crosswalk-driven re-run in this project's own live verification reconciled correctly immediately after creation, suggesting GET-by-id does not carry the same lag, though that was not isolated and confirmed the way this consistency gap was."
     }
   ],
   "mappingGuidance": [
@@ -109,6 +122,5 @@
       "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/member-object",
       "note": "object page (docs-survey sweep 2026-08-11)"
     }
-    
   ]
 }

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "plugin": "ti-woocommerce-wishlist",
+  "displayName": "TI WooCommerce Wishlist",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/ti-woocommerce-wishlist/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.wishlists"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "ti-woocommerce-wishlist/ti-woocommerce-wishlist.php"
+    ],
+    "assetPathSlugs": [
+      "ti-woocommerce-wishlist"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "wishlist-definition",
+      "capability": "commerce.wishlists",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-rest-collection-route",
+          "severity": "info",
+          "summary": "The plugin's own REST API (wc/v3/wishlist/*) only offers a per-user get_by_user/{user_id} route, no bulk collection endpoint. structure-bridge-plugin reads the dedicated tinvwl_lists table directly instead. VERIFIED LIVE 2026-08-29 against poratus.wpcomstaging.com: discover-structure returned tinvwl_lists's real 7-column schema, query-structure returned 70 real rows."
+        },
+        {
+          "code": "no-native-wix-target-verified",
+          "severity": "warning",
+          "summary": "Wix has a real native Wishlist API (com.wixpress.wishlist.Wishlist, fqdn wix.platform.v1.wishlist -- confirmed 2026-08-29 from its internal proto, NOT wix.ecom.v1.wishlist as an earlier orphaned attempt assumed), but its write RPCs are member-session-scoped only with no backend bulk-write path -- unusable for a migration import. See rp-target-wix/domains/ecom/entities/wishlist-item.json for the full writeup. DECIDED 2026-08-29: land in a Wix CMS collection instead for now (see this entity's blocked[].fulfillment below); revisit the native target if a backend write path is ever added."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "wix-wp-plugin-v2's discover-structure/query-structure routes read the tinvwl_lists table directly -- VERIFIED LIVE 2026-08-29 against poratus.wpcomstaging.com: discover-structure returned tinvwl_lists's real 7-column schema, query-structure returned 70 real rows. Native Wix Wishlist write has no backend path (see no-native-wix-target-verified pitfall) -- lands in a Wix CMS collection instead, decided 2026-08-29.",
+          "declined": false,
+          "fulfillment": {
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "tinvwl_lists"
+          }
+        }
+      ]
+    },
+    {
+      "entity": "wishlist-item",
+      "capability": "commerce.wishlists",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "references-product-by-source-id",
+          "severity": "warning",
+          "summary": "product_id/variation_id reference WooCommerce products by source id -- must be crosswalked to Wix catalog ids, not carried as-is."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "VERIFIED LIVE 2026-08-29 against poratus.wpcomstaging.com: discover-structure returned tinvwl_items's real 10-column schema, query-structure returned 50 real rows. Native Wix Wishlist write has no backend path (see wishlist-definition's no-native-wix-target-verified pitfall) -- lands in a Wix CMS collection instead, decided 2026-08-29.",
+          "declined": false,
+          "fulfillment": {
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "tinvwl_items"
+          }
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "wishlist_id in tinvwl_items joins to tinvwl_lists.ID; author=0 rows are guest wishlists (no user reference).",
+    "Live-verified 2026-08-29: 70 real wishlists (tinvwl_lists) and 50 real wishlist items (tinvwl_items) on poratus.wpcomstaging.com.",
+    "Target decided 2026-08-29: Wix CMS collection, not the native Wishlist API -- see rp-target-wix/domains/ecom/entities/wishlist-item.json for the full gap writeup (real native API exists, but has no backend/service-account write path usable for a migration import)."
+  ]
+}

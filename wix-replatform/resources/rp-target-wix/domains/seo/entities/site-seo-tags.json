@@ -28,7 +28,7 @@
     {
       "code": "site-noindex-is-writable-here",
       "severity": "blocker",
-      "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on the reference store 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+      "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on an anonymized verification environment 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
     },
     {
       "code": "only-site-wide-tags-accepted",

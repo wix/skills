@@ -11,6 +11,10 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "pricing-plans/plan",
+    "members/member"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -43,7 +47,7 @@
     {
       "code": "notification-proof-requirements",
       "severity": "warning",
-      "summary": "What it would take to flip importSafe to true: EITHER (1) an owner-approved probe on an UNMUTED throwaway site, with the probe member's loginEmail pointed at a mailbox the operator controls and can inspect, creating one offline order with paid:true and confirming no member-facing mail arrives within a stated window (and, as a positive control, confirming that Mark As Paid on a second order DOES arrive — otherwise a silent inbox only proves the mailbox is broken); OR (2) a written statement from the Pricing Plans team that Create Offline Order sends no member notification, recorded as an owner-tracker answer. Option 1 conflicts with the standing rule that the migration flow never unmutes a site, so it needs an explicit, separately provisioned probe site — do not run it on a migration target."
+      "summary": "To make importSafe true, obtain either a controlled notification test on a separately provisioned, unmuted throwaway site with monitored mailboxes and a positive-control Mark As Paid message, or an authoritative Pricing Plans statement that Create Offline Order sends no member notification. The migration flow never unmutes a destination, so this test must never run on a migration target."
     },
     {
       "code": "lifecycle-state-not-settable-at-create",
@@ -68,7 +72,7 @@
     {
       "code": "business-address-precondition",
       "severity": "warning",
-      "summary": "Create Offline Order is documented to fail with 428 MISSING_BUSINESS_ADDRESS_STATE / MISSING_BUSINESS_ADDRESS_COUNTRY when the site business address is incomplete; configure it during setup, not at import time. NOT REPRODUCED 2026-08-16: the probe site's GET /site-properties/v4/properties returned no businessAddress at all (only locale/currency/timezone) and the offline order still created successfully — so the precondition either depends on the plan's tax configuration or is not enforced on every path. Keep the setup step (it is cheap and the documented error is specific), but do not treat a missing business address as a hard preflight blocker without reproducing the 428."
+      "summary": "Create Offline Order is documented to fail with 428 MISSING_BUSINESS_ADDRESS_STATE / MISSING_BUSINESS_ADDRESS_COUNTRY when the site business address is incomplete; configure it during setup, not at import time. NOT REPRODUCED 2026-08-16: an anonymized verification environment's GET /site-properties/v4/properties returned no businessAddress at all (only locale/currency/timezone) and the offline order still created successfully — so the precondition either depends on the plan's tax configuration or is not enforced on every path. Keep the setup step (it is cheap and the documented error is specific), but do not treat a missing business address as a hard preflight blocker without reproducing the 428."
     },
     {
       "code": "order-snapshot-mislabels-plan-description",
@@ -84,8 +88,8 @@
   "mappingGuidance": [
     "Per active subscriber: create/crosswalk the plan first (pricing-plans/plan), resolve memberId via the member-import crosswalk (400 MEMBER_DOESNT_EXIST is the hard dependency - members import must run first), then POST the offline order; planId + memberId are the only required fields.",
     "Set paid:true for contracts whose current cycle is already collected on the source (lastPaymentStatus becomes PAID); leave paid:false only when the source cycle is genuinely unpaid. For free plans lastPaymentStatus is NOT_APPLICABLE regardless.",
-    "Recurring BILLING never migrates - payment tokens do not carry and an offline order has no charge method attached; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Decision: Spec Owner 2026-08-16.",
-    "The Stores-product linkage is severed: the contract is recreated as a Pricing Plans membership and the source product name survives only in the plan title/description - trade-off accepted by Spec Owner 2026-08-16.",
+    "Recurring BILLING never migrates - payment tokens do not carry and an offline order has no charge method attached; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Required migration policy.",
+    "The Stores-product linkage is severed: the contract is recreated as a Pricing Plans membership and the source product name survives only in the plan title/description - required migration trade-off.",
     "Status mapping: source active -> startDate now or past (ACTIVE); source pending-start -> future startDate (PENDING); source paused -> create ACTIVE then Pause Order; source cancelled/expired -> do not recreate natively, land the historical record in CMS.",
     "Plan purchase limits are ignored for offline orders (documented), so per-member limits on the recreated plan cannot block the import.",
     "Persist the returned order.id and subscriptionId against the source subscription id in the crosswalk at create time; the order also snapshots planName/planPrice at creation (but NOT a usable planDescription — see order-snapshot-mislabels-plan-description).",
@@ -121,13 +125,13 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-source-wordpress/plugins/capabilities-pending-decision.json",
-      "note": "commerce.subscription-contracts pending entry: researched surfaces and the accepted recreation trade-off, resolved by Spec Owner 2026-08-16"
+      "note": "commerce.subscription-contracts uses the Pricing Plans recreation path described by this entity."
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / SITE MUTED (mute state re-read immediately before the write: muted true, reason 'RePlatform migration — probe-run-20260812'). A throwaway member with the undeliverable address zzz-probe-planorder@example.invalid was created, then POST /pricing-plans/v2/checkout/orders/offline { planId, memberId, paid: true, startDate: '2025-06-01T00:00:00.000Z' } → 200. MECHANICS verified: status ACTIVE, backdated startDate preserved, currentCycle index 64 derived from it, type OFFLINE, subscriptionId + wixPayOrderId + buyer.contactId + onEcom true returned, lastPaymentStatus UNPAID in the create response then PAID on re-read. NOTIFICATION BEHAVIOR NOT VERIFIED: the site was muted and the address undeliverable, so no conclusion about member email can be drawn — importSafe stays false. Cleanup: order cancelled IMMEDIATELY (status CANCELED, endDate stamped; no delete exists), probe member deleted, probe plan archived."
+      "path": "anonymized-live-verification",
+      "note": "Verified live on a muted site: Create Offline Order accepted paid:true with a backdated startDate, preserved the start date, derived the current cycle, returned the expected offline-order identifiers, and changed lastPaymentStatus from UNPAID on create to PAID on readback. Notification behavior remains unverified because the site was muted and the test address was undeliverable, so importSafe stays false. Orders can be cancelled but not deleted; probe records were cleaned up accordingly."
     }
   ],
-  "notes": "Authored 2026-08-16 from Spec Owner's confirmation that WooCommerce active-subscription records migrate by recreation as Pricing Plans memberships (Plans V3 Create Plan + Orders Create Offline Order per subscriber). A live probe on 2026-08-16 verified the write MECHANICS end to end (see the live-run evidence entry) and resolved the backdated-startDate question in favour of full signup-date + billing-anniversary fidelity — but preferredWrite.verification stays 'docs' and importSafe stays FALSE, because the one thing that gates this entity, member-notification behaviour, remains unproven: the probe ran under a site-wide notification mute against an undeliverable address, which makes silence uninformative. See notification-proof-requirements for the two ways to settle it. Codegen must keep treating this as a guarded write behind the approval gate."
+  "notes": "WooCommerce active-subscription records migrate by recreation as Pricing Plans memberships using Plans V3 Create Plan and Create Offline Order per subscriber. Live verification established the end-to-end write mechanics and preservation of backdated start dates and billing anniversaries. preferredWrite.verification remains docs and importSafe remains false because member-notification behavior is unproven: verification used a muted site and an undeliverable address, so silence was not evidence. Codegen must keep this as a guarded write behind the approval gate."
 }

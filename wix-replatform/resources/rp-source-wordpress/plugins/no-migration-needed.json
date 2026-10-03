@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Nothing-to-move verdicts, in two tiers.\n\n`hints[]` \u2014 a flat slug lookup for plugins that need no data migration at all, where a full profile would be dead weight. A hit here is strong evidence the agent confirms at classification, never the answer by itself. Without this list, a caching or SMTP plugin whose data we cannot read is reported as potential data loss \u2014 which is both wrong and alarming. Keyed by plugin directory slug; a slug with a full profile may not appear here.\n\n`capabilities[]` \u2014 the human-signed per-capability register, for PROFILED plugins the slug list cannot reach. This is the only way a profiled capability reaches the no-need-to-migrate status (basis: decision); without it a decided capability re-lands as pending on every run. It is not an impossibility verdict (that is requires-development.json) \u2014 it says the outcome exists in Wix or was never data \u2014 but it is still a decision about what the customer does not get, so it carries decidedBy + decidedOn and validation rejects an unsigned entry. Mutually exclusive with requires-development.json and capabilities-pending-decision.json, and rejected once a Wix target entity claims the capability.",
+  "description": "Nothing-to-move verdicts, in two tiers.\n\n`hints[]` — a flat slug lookup for plugins that need no data migration at all, where a full profile would be dead weight. A hit here is strong evidence the agent confirms at classification, never the answer by itself. Without this list, a caching or SMTP plugin whose data we cannot read is reported as potential data loss — which is both wrong and alarming. Keyed by plugin directory slug; a slug with a full profile may not appear here.\n\n`capabilities[]` — the human-signed per-capability register, for PROFILED plugins the slug list cannot reach. This is the only way a profiled capability reaches the no-need-to-migrate status (basis: decision); without it a decided capability re-lands as pending on every run. It is not an impossibility verdict (that is requires-development.json) — it says the outcome exists in Wix or was never data — but it is still a decision about what the customer does not get, so it carries decidedBy + decidedOn and validation rejects an unsigned entry. Mutually exclusive with requires-development.json and capabilities-pending-decision.json, and rejected once a Wix target entity claims the capability.",
   "reasons": {
     "platform-does-it": "Wix provides this capability natively; drop the plugin and keep the behaviour.",
     "not-needed": "Development, hosting or licensing tooling with no role after migration; it was never data.",
@@ -89,7 +89,7 @@
       "slug": "equalweb",
       "reason": "platform-does-it",
       "does": "Accessibility overlay",
-      "replacedBy": "Wix has a built-in accessibility wizard \u2014 compare coverage before dropping it.",
+      "replacedBy": "Wix has a built-in accessibility wizard — compare coverage before dropping it.",
       "provenance": "observed:reference-store-2026-07-30"
     },
     {
@@ -273,6 +273,13 @@
       "does": "Duplicates posts and products",
       "replacedBy": "An authoring convenience.",
       "provenance": "expected:not-yet-observed"
+    },
+    {
+      "slug": "woo-cart-abandonment-recovery",
+      "reason": "platform-does-it",
+      "does": "Cart Abandonment Recovery for WooCommerce: records abandoned checkouts in its own table (cartflows_ca_cart_abandonment) and sends recovery email sequences",
+      "replacedBy": "Wix eCommerce captures abandoned checkouts natively from launch onward, and Wix Automations sends the recovery mail — so the capability is not lost going forward. What cannot move is the HISTORY: there is no way to write a historical AbandonedCheckout (see requires-development commerce.abandoned-carts, verdict 2026-09-08, and FEATURE-TRACKER ECOM-F01). Do not attempt to backfill it by recreating carts — that was piloted and produced nothing. If the owner wants the abandoned-cart PEOPLE as contacts, that is a separate, explicitly-approved crm/contact import, email only and never a marketing subscription.",
+      "provenance": "observed:production-store-2026-09-08"
     }
   ],
   "policy": "Grow from real runs: add a hint when a real migration surfaces the plugin as unresolved. `provenance` records whether we have actually seen the plugin or added it by expectation, so the unobserved entries stay visible and reviewable rather than accumulating silently."

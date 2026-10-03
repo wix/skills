@@ -84,7 +84,7 @@
     {
       "code": "one-review-per-author-per-entity",
       "severity": "warning",
-      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — the reference store had 0 collisions across 120 reviews, which makes this easy to miss on a first run."
+      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — an anonymized verification environment had 0 collisions across 120 reviews, which makes this easy to miss on a first run."
     },
     {
       "code": "body-plain-text-3000",
@@ -114,7 +114,7 @@
   ],
   "mappingGuidance": [
     "Import order: products first (entityId is a Wix product ID), then contacts for reviewers, then reviews. Write via POST /reviews/v1/bulk/reviews/create in chunks of 100 with returnEntity=true, recording sourceReviewId -> Wix review ID in the crosswalk.",
-    "REVIEWER CONTACTS ARE A SIDE EFFECT THE USER MUST APPROVE AT THE REVIEW GATE. Every imported review needs author.contactId, so importing reviews grows the site's CRM by one contact per distinct reviewer email — on the reference store that is 108 distinct reviewer emails behind 120 reviews, most of whom are not customers and would otherwise never appear in Contacts. Present the distinct-reviewer count, state that these contacts are created by the review import (not by the customer import), and let the user choose: import reviews with their contacts, or skip reviews.",
+    "REVIEWER CONTACTS ARE A SIDE EFFECT THE USER MUST APPROVE AT THE REVIEW GATE. Every imported review needs author.contactId, so importing reviews grows the site's CRM by one contact per distinct reviewer email, including reviewers who are not customers and would otherwise never appear in Contacts. Present the run-specific distinct-reviewer count, state that these contacts are created by the review import, and let the user choose whether to import or skip reviews.",
     "Carry the original review date with review.reviewDate (writable at create, format date-time) — the docs designate it as the import path: \"This should match createdDate, except for reviews imported from another system.\" createdDate is read-only and will be the import timestamp, so reviewDate is the only faithful date.",
     "Approval state needs a second pass. Create everything, then group the created review IDs by the source status and call POST /reviews/v1/bulk/reviews/moderate once per target status (APPROVED for WooCommerce approved, REJECTED for spam/trash). WooCommerce `hold` has no exact native equivalent — IN_MODERATION is not settable through the bulk moderate enum — so decide with the user whether held reviews are left to the site's moderation rules, rejected, or skipped entirely.",
     "Map author.authorName from the WooCommerce reviewer display name (maxLength 100) and author.contactId from the resolved contact. If authorName is omitted, Wix falls back to the member name for members and to null otherwise — always send it explicitly so anonymous reviewers do not lose their display name.",
@@ -171,7 +171,7 @@
     {
       "type": "live-run",
       "path": "tests/fixtures/wordpress/rest-index-scope.json",
-      "note": "source side, observed live on the reference store 2026-08-16: /wc/v3/products/reviews carries 120 reviews (114 approved + 6 hold) across 108 distinct reviewer emails; 0 (reviewer_email, product_id) collisions. Already classified backend_data/sample by the /wc/v3/products* catch-all rule in lib/wp-route-classifier.js — the fixture pins that so a future narrowing of the catch-all cannot silently drop reviews."
+      "note": "Live source verification established that /wc/v3/products/reviews exposes review status and reviewer email and is classified backend_data/sample by the /wc/v3/products* catch-all rule in lib/wp-route-classifier.js. The fixture pins that classification so future narrowing cannot silently drop reviews."
     }
   ],
   "notes": "Authored 2026-08-16. Before this file no domain entity claimed a product-review capability, so every run dropped its source reviews into a pending row despite Wix having a native, explicitly import-oriented API. Docs-verified only — nothing here has been exercised live, hence verification=docs / reliability=unknown / importSafe=false. importSafe is false because a review import writes into CRM (a contact per distinct reviewer) as well as the catalog, which is a side effect a user must accept at the gate, not a silent consequence. Promote verification after a live subset write that exercises bulk create + the moderation second pass."

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "wishlist-item",
+  "displayName": "Wishlist Item",
+  "capability": "commerce.wishlists",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Wishlist",
+    "verifiedFqdn": "wix.platform.v1.wishlist",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": ["stores/product"],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.ti-woocommerce-wishlist.wishlist-definition",
+      "degradedField": "items",
+      "pitfallCode": "no-backend-write-path-for-migration",
+      "degradation": "warning"
+    },
+    {
+      "sourceEntityRef": "plugin.ti-woocommerce-wishlist.wishlist-item",
+      "degradedField": "items",
+      "pitfallCode": "no-backend-write-path-for-migration",
+      "degradation": "warning"
+    }
+  ],
+  "objectPageException": "This API is internal-only (proto exposure: INTERNAL for its mutating RPCs, ALPHA maturity) -- it has no public dev.wix.com docs object page. Confirmed by two ranked SearchWixRESTDocumentation queries and a full raw API-spec index substring scan for 'wishlist', all returning zero results; the authoritative source is the internal proto itself (see evidence[]).",
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "ti_woocommerce_wishlist",
+      "routes": [
+        "tinvwl_lists (structure-bridge-plugin)",
+        "tinvwl_items (structure-bridge-plugin)",
+        "/wc/v3/wishlist/get_by_user/{user_id} (plugin-rest-child, per-member chain)"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "com.wixpress.wishlist.Wishlist (internal proto, package com.wixpress.wishlist)",
+    "endpoint": "POST /v1/wishlists/my",
+    "writerId": null,
+    "verification": "unverified",
+    "importSafe": false,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Always, for a bulk migration import. The native AddToWishlist/RemoveFromWishlist RPCs only operate on 'the default wishlist by context's member' (member-session-scoped, exposure: INTERNAL) -- there is no service-account/backend RPC to write items to an arbitrary existing member's wishlist on their behalf. GetWishlistById/GetWishlists accept a site-level WISHLIST.MANAGE-SITE-WISHLISTS permission but are read-only. A migration script has no member session for historical WooCommerce customers who have never logged into the new Wix site, so the native write path is unusable for import regardless of Alpha status."
+    }
+  ],
+  "reliability": {
+    "status": "unreliable",
+    "flags": ["IMPORT_UNRELIABLE"]
+  },
+  "pitfalls": [
+    {
+      "code": "no-backend-write-path-for-migration",
+      "severity": "blocker",
+      "summary": "Verified against the authoritative internal proto: the fqdn is wix.platform.v1.wishlist (service com.wixpress.wishlist.Wishlist). Its three mutating RPCs (GetWishlist/AddToWishlist/RemoveFromWishlist) are ALPHA maturity, exposure: INTERNAL, and scoped to 'the default wishlist by context's member' -- the caller's own session, not an arbitrary member named by a backend script. The only RPCs open to a site-level manage permission (GetWishlistById, GetWishlists) are read-only. There is no proto-level path for a migration script to write wishlist items on behalf of pre-existing customers who have never authenticated to the new site."
+    },
+    {
+      "code": "native-target-exists-do-not-conclude-requires-development",
+      "severity": "info",
+      "summary": "This is NOT a 'Wix has no surface' gap -- a real native Wishlist entity and proto exist, confirmed live from source. The limitation is specifically the migration-import use case (no backend bulk-write RPC), not an absent feature. Do not record this capability in requires-development.json; it is a documented reliability/fallback case (see fallbacks[] and reliability.flags above), revisitable if Wix adds a service-account write path or a different integration surface (e.g. Velo backend code running with elevated permissions, not yet investigated)."
+    }
+  ],
+  "mappingGuidance": [
+    "Land wishlist data in a Wix CMS collection (cms/collection) for migration imports today -- see fallbacks[]. Revisit this entity if a backend/service-account write RPC is ever added to the Wishlist API."
+  ],
+  "setupRequirements": [
+    "Wix Data (CMS) app, for the fallback collection",
+    "Wix Stores, so wishlist items can reference real migrated product ids"
+  ],
+  "evidence": [
+    {
+      "type": "source-proto",
+      "path": "wix-private/monorepo@391685f038538afc4a84ac7f9fa6e38a3642783a:comp/ecom/platform/wishlist/wishlist-api/src/main/proto/com/wixpress/wishlist/wishlist.proto",
+      "note": "Authoritative internal proto for com.wixpress.wishlist.Wishlist."
+    }
+  ]
+}

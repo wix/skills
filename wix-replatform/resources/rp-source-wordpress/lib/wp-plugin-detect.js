@@ -11,7 +11,7 @@
 // rows state whether the plugin was `recognized` (a profile matched) and whether the mapping is
 // `confirmed` (authored by a human) or `proposed` (derived; approved at the mapping review).
 
-const { patternMatchesRoute } = require('./plugin-knowledge.js');
+const { patternMatchesRoute, blockedEntriesOf } = require('./plugin-knowledge.js');
 const { childRouteAdvertised } = require('./wp-route-classifier.js');
 
 const CONFIDENCE_ORDER = { high: 3, medium: 2, low: 1 };
@@ -92,7 +92,15 @@ const CHANNEL_BLOCKERS = {
 function blockersForEntities(entities) {
   const blocked = [];
   for (const entity of entities) {
-    const declared = (entity.pitfalls || []).flatMap((pitfall) => pitfall.blocked || []);
+    // A profile may declare `blocked[]` at entity level (the current convention -- see
+    // woo-discount-rules.json, pw-woocommerce-gift-cards.json) or nested inside a pitfall
+    // (the older convention, still used by a few profiles). Reading only one form silently
+    // drops the other profile's real fulfillment metadata and falls through to a generic,
+    // possibly stale, per-channel template message instead. Call the shared helper (PR review
+    // finding: this used to be a hand-duplicated copy of blockedEntriesOf() that had already
+    // drifted out of sync with it -- which is why entity-level blocked[] was silently ignored
+    // here) so this can never drift from plugin-knowledge.js's own definition again.
+    const declared = blockedEntriesOf(entity);
     if (declared.length > 0) {
       for (const blocker of declared) {
         blocked.push({
@@ -455,8 +463,19 @@ function describeProfiledEntity(entity, { routes, rawRoutes, properties, apiBelo
     requestMethod: entity.requestMethod || null,
     requestBody: entity.requestBody || null,
     responseFragmentGroupSize: entity.responseFragmentGroupSize || null,
+    // Also spec 0044 (the $SAMPLED_IDS batching/dedup mechanism, documented alongside the
+    // fields above in rp-import-codegen/SKILL.md) — omitting it here left this function
+    // (documented as the authoritative structured source for this field family) silently
+    // out of sync with the one profile that declares a non-default value
+    // (subscriptions-for-woocommerce.json's `subscription_id`) (PR review finding).
+    recordKeyField: entity.recordKeyField || null,
     candidateTargetRefs: [...(entity.candidateTargetRefs || [])],
     pitfalls: entity.pitfalls || [],
+    // Entity-level `blocked[]` (the current profile convention -- see
+    // woo-discount-rules.json, pw-woocommerce-gift-cards.json) as well as `pitfalls`: dropping
+    // this here means blockersForEntities() never sees it and falls back to a generic,
+    // possibly stale, per-channel template message instead of the profile's real fulfillment.
+    blocked: entity.blocked || [],
   };
 }
 

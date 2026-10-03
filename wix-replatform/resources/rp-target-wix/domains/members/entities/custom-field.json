@@ -72,8 +72,8 @@
     },
     {
       "type": "live-run",
-      "path": "migrations/probe-run-20260812/config/wix.env (target site 00000000-0000-0000-0000-000000000000)",
-      "note": "KB verification probe 2026-08-16, safe mode on / site muted: create → 200 (id 32611f4f…, server key custom.zzz-probe-wp-meta-iveokecsuhrarwyqq, fieldOrigin CUSTOM, appliesTo ALL_MEMBERS, section GENERAL); value set on a probe member via member PATCH and read back; DELETE without revision → 400, DELETE ?revision=1 → 200; list-custom-fields empty afterwards"
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create → 200 (id <anonymized-id>, server key custom.zzz-probe-wp-meta-iveokecsuhrarwyqq, fieldOrigin CUSTOM, appliesTo ALL_MEMBERS, section GENERAL); value set on a probe member via member PATCH and read back; DELETE without revision → 400, DELETE ?revision=1 → 200; list-custom-fields empty afterwards"
     }
   ],
   "notes": "Authored 2026-08-11 from the docs-survey gap (member Custom Fields). Classified setup-config: it defines profile schema (the member-side analog of contact extended fields); per-member values ride on members/member. Promoted to verified-live 2026-08-16; the probe corrected the original mappingGuidance claim that the source meta key becomes the Wix field key — the key is server-assigned."

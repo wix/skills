@@ -134,9 +134,14 @@ function chooseAutoScope(scopeSuggestions) {
   return 'home';
 }
 
+// Accepts every key a mapping plan may carry its per-entity rows under. `entityDecisions` is
+// the vocabulary rp-mapper uses for its own `mapping/entity-decisions/<entity>.json` artifacts,
+// so a plan written in that vocabulary must resolve here too — omitting it produced a handoff
+// that reported zero dynamic routes, zero collections and zero apps while still returning ok.
 function readEntityMappings(mappingPlan) {
   if (!mappingPlan || typeof mappingPlan !== 'object') return [];
   if (Array.isArray(mappingPlan.entityMappings)) return mappingPlan.entityMappings;
+  if (Array.isArray(mappingPlan.entityDecisions)) return mappingPlan.entityDecisions;
   if (Array.isArray(mappingPlan.mappings)) return mappingPlan.mappings;
   if (mappingPlan.entities && typeof mappingPlan.entities === 'object') {
     return Object.entries(mappingPlan.entities).map(([sourceEntity, value]) => ({
@@ -555,6 +560,74 @@ async function writeFileAtomic(filePath, text) {
   await fs.rename(tempPath, filePath);
 }
 
+// Read from the contract, not retyped. This file declared two paths of its own and therefore did
+// not know the third field existed -- so it reported "provisioned" on a receipt that verified two
+// of three, which is precisely the drift the contract adapter exists to prevent.
+const invoiceContract = require('../resources/rp-target-wix/lib/order-invoice-contract.js');
+const dataExtensionSchema = require('../resources/rp-target-wix/lib/data-extension-schema.js');
+const INVOICE_FILE_ID_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.fileId}`;
+const INVOICE_NUMBER_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.number}`;
+const INVOICE_URL_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.url}`;
+
+// The member-facing document contract.
+//
+// The handoff is generated BEFORE the import runs, so it cannot carry per-order file ids -- they
+// do not exist yet, and there could be thousands of them. What it carries is the CONTRACT: where
+// the values live on an order once written, that a preserved document is a private file rather
+// than a URL, and that the only way to hand one to a member is a backend that takes an ORDER id
+// and resolves the file server-side.
+//
+// That last part is the load-bearing bit. A frontend that accepts a file id from the client lets
+// any member pull any other member's tax invoice, so the contract states the rule rather than
+// leaving the frontend to infer it.
+function buildMemberDocuments({ extendedFieldVerification, invoiceOutcome }) {
+  // The SAME judgement the writer makes, made by the same function. Two readings of one receipt
+  // is a contradiction waiting to happen, and it happened: this file filtered failed entries out
+  // and unioned the rest, while the writer requires every entry on the current contract to have
+  // passed. A receipt with one passing and one failing entry told the frontend the fields were
+  // there while the writer refused every write against them.
+  const writePaths = invoiceContract.writePaths('_user_fields');
+  const fieldsProvisioned = dataExtensionSchema.validateExtendedFieldWriterReferences({
+    writePaths,
+    setupVerification: extendedFieldVerification,
+    contractVersion: invoiceContract.version(),
+  }).valid;
+
+  return {
+    invoices: {
+      // null, not false, when the import has not reported yet: "we do not know" and "there are
+      // none" are different answers, and a frontend must not render "no invoices" for the first.
+      preserved: invoiceOutcome ? Boolean(invoiceOutcome.preserved) : null,
+      strategy: (invoiceOutcome && invoiceOutcome.strategy) || null,
+      fieldsProvisioned,
+      fileIdPath: INVOICE_FILE_ID_PATH,
+      numberPath: INVOICE_NUMBER_PATH,
+      // The original link: clickable now, and it rots. The frontend should prefer the authorized
+      // download and treat this as a fallback that may already be dead.
+      originalLinkPath: INVOICE_URL_PATH,
+      download: {
+        generator: 'skills/wix-headless-replatform/scripts/generate-invoice-download-backend.mjs',
+        // What the generator emits, so a frontend has an address to POST to rather than a rule to
+        // reimplement. The route is real: it resolves the member, the order and the file through
+        // the Wix SDK, and it needs no `locals` wiring from the app.
+        endpoint: '/api/invoice-download',
+        method: 'POST',
+        acceptsOnly: ['orderId'],
+        rejects: ['fileId'],
+        expiryMinutes: 10,
+        rule: 'The backend takes an order id, checks the current member may read that order, and resolves the file server-side. It must never accept a file id from the client.',
+      },
+      notes: [
+        'A preserved document is a PRIVATE Media file. It has no public URL; a short-lived download URL is minted on demand.',
+        'An order may carry a number with no document. Render the number as a reference rather than a broken link.',
+        fieldsProvisioned
+          ? null
+          : 'The order fields are not provisioned yet, so no order carries these values. Run setup before building against them.',
+      ].filter(Boolean),
+    },
+  };
+}
+
 async function generateWebsiteHandoff(projectDir) {
   const handoffDir = path.join(projectDir, 'website');
   const decisionsPath = path.join(projectDir, HANDOFF_ARTIFACTS.decisions);
@@ -576,6 +649,8 @@ async function generateWebsiteHandoff(projectDir) {
   const setupPlan = await readJsonIfExists(setupPlanPath);
   const setupRequirements = await readJsonIfExists(setupRequirementsPath);
   const setupBlockers = await readJsonIfExists(setupBlockersPath);
+  const extendedFieldVerification = await readJsonIfExists(path.join(projectDir, 'setup', 'extended-field-verification.json'));
+  const invoiceOutcome = await readJsonIfExists(path.join(projectDir, 'import', 'invoice-outcome.json'));
   const wixEnv = await readEnvIfExists(wixEnvPath);
   const frontendConfig = await readJsonIfExists(frontendConfigPath);
   const completionReportExists = await pathExists(completionReportPath);
@@ -603,6 +678,24 @@ async function generateWebsiteHandoff(projectDir) {
   }
 
   const entityMappings = readEntityMappings(mappingPlan);
+  /*
+   * A mapping plan that exists but yields no per-entity rows means its rows are under a key
+   * this reader does not know — not that the migration has no entities. Reporting that as a
+   * clean handoff with zero routes is the failure mode this guard exists to prevent: the
+   * frontend build would be handed no bindings at all with nothing signalling the loss.
+   */
+  const handoffWarnings = [];
+  if (mappingPlan && typeof mappingPlan === 'object' && entityMappings.length === 0) {
+    handoffWarnings.push({
+      code: 'mapping_plan_yielded_no_entities',
+      severity: 'blocker',
+      message: 'mapping/mapping-plan.json was read but produced no per-entity rows. Its rows are '
+        + 'probably under an unrecognized key; route intent, CMS bindings and app requirements '
+        + 'will all be empty until that is corrected.',
+      keysSeen: Object.keys(mappingPlan).slice(0, 20),
+      acceptedKeys: ['entityMappings', 'entityDecisions', 'mappings', 'entities'],
+    });
+  }
   const apps = uniqueBy(
     ensureArray(setupPlan.requiredApps).map(normalizeAppRequirement).filter(Boolean),
     (item) => item.appDefId || item.appName,
@@ -649,6 +742,7 @@ async function generateWebsiteHandoff(projectDir) {
       requestedBy: faceliftMode === 'requested' ? 'user' : null,
       constraints: ['preserve_brand_identity', 'preserve_site_structure', 'preserve_content'],
     },
+    memberDocuments: buildMemberDocuments({ extendedFieldVerification, invoiceOutcome }),
     websiteScope: {
       selectedScope,
       explicitUrls: scopeDecision.explicitUrls,
@@ -696,6 +790,7 @@ async function generateWebsiteHandoff(projectDir) {
       urlPreservationState: 'state/url-preservation/',
     },
     inputFreshness,
+    warnings: handoffWarnings,
     handoffFingerprint: handoffFingerprint(inputFreshness),
   };
 
@@ -726,11 +821,13 @@ async function validateWebsiteHandoff(projectDir) {
   }
   const current = createInputFreshness(projectDir);
   const comparison = compareInputFreshness(current, handoff.inputFreshness);
+  const blockingWarnings = ensureArray(handoff.warnings).filter((warning) => warning && warning.severity === 'blocker');
   return {
-    ok: comparison.ok,
+    ok: comparison.ok && blockingWarnings.length === 0,
     present: true,
     stale: comparison.stale,
     changes: comparison.changes,
+    blockingWarnings,
     handoff,
     current,
   };
@@ -739,6 +836,9 @@ async function validateWebsiteHandoff(projectDir) {
 module.exports = {
   SCHEMA_VERSION,
   HANDOFF_ARTIFACTS,
+  // Exported so the entity-row contract is testable: which keys a mapping plan may carry its
+  // per-entity rows under is the difference between a real handoff and a silently empty one.
+  readEntityMappings,
   handoffFingerprint,
   createInputFreshness,
   compareInputFreshness,

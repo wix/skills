@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "purpose": "What qualifies as evidence that a source refund happened, and what may supply its amount. A gateway field name is never evidence.",
+  "qualifications": [
+    {
+      "evidence": "woocommerce-refund-entity",
+      "requires": [
+        "stable source refund id",
+        "parseable positive amount"
+      ],
+      "qualification": "authoritative",
+      "sufficientToWrite": true,
+      "maySupplyAmount": true,
+      "note": "A canonical refund entity is the refund record itself, not a signal that needs a second producer to confirm it."
+    },
+    {
+      "evidence": "woocommerce-refunded-order-status",
+      "requires": [],
+      "qualification": "corroboration-only",
+      "sufficientToWrite": false,
+      "maySupplyAmount": false,
+      "note": "Corroborates an entity but cannot establish a refund on its own and cannot supply a missing amount."
+    },
+    {
+      "evidence": "documented-gateway-refund-record",
+      "requires": [
+        "verified schema and semantics",
+        "stable id",
+        "amount"
+      ],
+      "qualification": "authoritative-once-verified",
+      "sufficientToWrite": true,
+      "maySupplyAmount": true,
+      "note": "No gateway currently qualifies. Adding one requires that gateway's own documentation."
+    },
+    {
+      "evidence": "gateway-flag-status-response-or-refundable-balance",
+      "requires": [],
+      "qualification": "weak-signal",
+      "sufficientToWrite": false,
+      "maySupplyAmount": false,
+      "note": "May corroborate an authoritative record once its semantics are documented. It never creates a refund."
+    },
+    {
+      "evidence": "two-fields-from-one-gateway-callback",
+      "requires": [],
+      "qualification": "weak-signal",
+      "sufficientToWrite": false,
+      "maySupplyAmount": false,
+      "note": "One weak signal, not two independent ones, however many fields the callback wrote."
+    }
+  ],
+  "excludedKeys": [
+    {
+      "key": "payplus_refunded",
+      "exclusion": "never-an-amount-or-existence-signal",
+      "reason": "Observed carrying the full refundable order total on essentially every order of this gateway, written at payment time. Treating it as a refund would refund that gateway's whole revenue."
+    },
+    {
+      "key": "payplus_status",
+      "exclusion": "not-a-refund-signal",
+      "reason": "Observed as a single constant value across every order of this gateway. A field with one value discriminates nothing."
+    },
+    {
+      "key": "payplus_response",
+      "exclusion": "never-read",
+      "reason": "A raw provider blob whose sibling fields carry customer personal data. A refund contract that requires parsing it is not one that can be honoured safely."
+    },
+    {
+      "keyPattern": "tranzila_*",
+      "exclusion": "excluded-until-documented",
+      "reason": "Refund-shaped keys for this gateway are unsurveyed and undocumented. Field names are not evidence."
+    },
+    {
+      "keyPattern": "_gobit_*",
+      "exclusion": "excluded-until-documented",
+      "reason": "Refund-shaped keys for this gateway are unsurveyed and undocumented. Field names are not evidence."
+    }
+  ],
+  "amountSources": [
+    "The qualified refund entity's own amount. Nothing else.",
+    "Never the order total, and never a gateway refundable-balance field."
+  ],
+  "writeContract": [
+    "Resolve the parent order through the order crosswalk.",
+    "Resolve an existing eligible target payment. If none exists, do not fabricate one; report refund-without-payment.",
+    "Add Payments runs before Refund Payments only when a real payment was produced and is not already present.",
+    "Every paymentRefunds[].externalRefund occurrence is the hardcoded literal true, with no caller override.",
+    "Omit side effects. Never place the source refund date in a customer-visible reason field.",
+    "Count every written refund in refund-date-not-preserved; the target refund date is read-only.",
+    "Import an authoritative total at order level and report refund-line-detail-not-preserved. Invent no line ids."
+  ],
+  "findings": [
+    "refund-written",
+    "refund-weak-signal",
+    "refund-without-payment",
+    "refund-date-not-preserved",
+    "refund-line-detail-not-preserved"
+  ]
+}

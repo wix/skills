@@ -15,6 +15,10 @@
 //   2. Every GUID-typed field must be a real GUID; a non-hex value fails
 //      validation before routing and drops the whole event.
 //   3. Every row carries `logged_user_id` = the operator's wix_user_id (GUID).
+//      A run with no identity is NOT pushed: BI discards rows whose subject is not
+//      a real user, so a fabricated one (verified 2026-09-02 with the nil UUID)
+//      returns 2xx and ingests nothing. Better to journal the loss than to fake a
+//      success — see specs/backlog/0106-anonymous-unattributed-run-event.md.
 //
 // frog's HTTP status is not an ingestion receipt — only a Trino read-back proves
 // arrival. The recorder treats any non-2xx or network error as a push failure
@@ -134,6 +138,18 @@ function finalizedRunRow(rollup) {
   // why 5012/5013 aren't materializing their payload. Nothing to fix here: this `put()`
   // call matches the pattern every other field on the row already uses correctly.
   put(f, 'transcriptDigest', rollup.transcript_digest, { json: true });
+  // spec 0122 §7: the run's key/value source-read counts. Rides the finalized row as one
+  // JSON field, exactly like transcript_digest above and for the same reason -- it is a
+  // run-grain fact, not a new grain.
+  //
+  // This has to leave the machine to be worth anything. `redacted_values` is explicitly a
+  // CROSS-RUN signal: one run's non-zero count says little, while a rate across runs says
+  // some sites keep credentials where nobody expects them, and that is a fleet-level fact no
+  // single run can see. Computing it into a local file and stopping there would satisfy the
+  // letter of "record it" and none of the point.
+  //
+  // Same known 5012/5013 materialization limitation the comment above documents applies.
+  put(f, 'sourceReads', rollup.source_reads, { json: true });
   return { evid: EVID_RUN, fields: f };
 }
 

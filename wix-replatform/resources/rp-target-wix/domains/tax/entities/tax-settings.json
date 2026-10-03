@@ -48,7 +48,7 @@
     }
   ],
   "mappingGuidance": [
-    "Read the source's woocommerce_prices_include_tax (GET /wc/v3/settings/tax) and Get Tax Settings (GET /billing/v1/tax-settings) on the destination; only call Upsert Tax Settings when the two actually differ -- the reference store's WooCommerce value ('no') already matched the Wix default (false) on 2026-08-12, so no live write was needed for this project."
+    "Read the source's woocommerce_prices_include_tax setting and the destination's Get Tax Settings response; call Upsert Tax Settings only when they differ. Live verification confirmed that a source value of 'no' can already match Wix's false default, requiring no write."
   ],
   "setupRequirements": [],
   "evidence": [
@@ -57,7 +57,7 @@
     { "type": "wix-docs", "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-settings/upsert-tax-settings" },
     {
       "type": "live-verification",
-      "path": "migrations/reference-run (2026-08-12): real Get Tax Settings call confirmed taxIncludedInItemPrices=false on the live site, matching WooCommerce's woocommerce_prices_include_tax='no' -- no Upsert call was needed for this project since the values already agreed."
+      "path": "anonymized-live-verification"
     }
   ]
 }

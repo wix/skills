@@ -64,7 +64,7 @@
     {
       "code": "preferredWrite-was-stale",
       "severity": "info",
-      "summary": "This entity previously pointed at createOrder (live-commerce, importSafe:false) — wrong for historical import, and inconsistent with every sibling order sub-entity (order-applied-discount, order-line-item-options) which correctly use importOrder. Corrected 2026-08-17 while doing spec 0041's dependency backfill on the order family; line items are written through Import Order exactly like the rest of the order payload."
+      "summary": "This entity previously pointed at createOrder (live-commerce, importSafe:false) — wrong for historical import, and inconsistent with every sibling order sub-entity (order-applied-discount, order-line-item-options) which correctly use importOrder. Corrected 2026-08-17 while doing the order-family dependency correction; line items are written through Import Order exactly like the rest of the order payload."
     }
   ],
   "mappingGuidance": [
