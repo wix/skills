@@ -67,7 +67,10 @@ assertions:
       Penalize and LIST any of: a non-2xx error even if recovered; an endpoint
       called with a wrong URL, host or HTTP method and then corrected;
       calling Get App Skill for skills other than the chosen one; searching
-      the docs or probing other APIs (such as eCommerce orders or shipping)
+      the REST docs (SearchWixRESTDocumentation) or probing other APIs (such as eCommerce orders or shipping)
       before the two discovery calls; redundant or repeated calls clearer
       docs would avoid. For each, name the likely MCP/docs gap.
+      Reading the Wix README, calling GetSiteContext and reading the
+      recipe article before the discovery calls are expected steps; do
+      not penalize them.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

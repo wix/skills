@@ -49,8 +49,11 @@ assertions:
       the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
       Penalize and LIST any of: a non-2xx error even if recovered; a
       discovery endpoint called with a wrong URL, host or HTTP method and then
-      corrected; searching the docs or probing other APIs (such as installed
+      corrected; searching the REST docs (SearchWixRESTDocumentation) or probing other APIs (such as installed
       apps) to find app skills before or instead of the two discovery calls;
       redundant or repeated calls clearer docs would avoid. For each, name the
       likely MCP/docs gap.
+      Reading the Wix README, calling GetSiteContext and reading the
+      recipe article before the discovery calls are expected steps; do
+      not penalize them.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
