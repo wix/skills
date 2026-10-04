@@ -120,17 +120,16 @@ Presentation success applies across all five stages. Choose both the right **rep
 
 ### Choosing the Right Drill-In
 
-Choose the smallest interface that gives users enough context and room to complete the task. These are defaults, not rigid rules.
+Choose the interface that gives users enough context and room to complete the task. These are defaults, not rigid rules.
 
 | Interface | Use when… | Success looks like… |
 |---|---|---|
-| **Entity page** | The item is editable — the default for a business record. | Enough space and structure to complete deeper work. |
-| **Read-only detail page** | The collection is display-only. | Fully readable, linkable, one back-click from the list. |
+| **Entity page** | Default for opening a business record. | Editable fields, validation, and a save that persists. |
+| **Read-only detail page** | One of the [three read-only cases](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page). | Linkable, one back-click from the list; the reason stated. |
 | **Modal** | A focused, bounded task that is not "open this record". | Attention stays on one task; the user returns cleanly. |
 | **Inline or expanded row** | A quick look *alongside* the drill-in, not instead of it. | Detail appears without a separate workspace. |
 
-Opening an item is a **route**, editable or not — a constraint, not a preference, and it outranks
-"smallest interface". A side panel is not one of the choices: in Cairo it hosts a page's own
+Opening an item is a **route**, editable or not — a constraint, not a preference. A side panel is not one of the choices: in Cairo it hosts a page's own
 panels. A display-only record still routes, just to a WDS `Page`, since `EntityPage` has no view
 mode.
 

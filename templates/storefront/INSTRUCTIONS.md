@@ -92,7 +92,8 @@ of its category. Then, by default:
 - **Product page:** image, name, price, the first choice, and the buy button with `blockedReason`
   in the first screen **at 390px wide too** — on a phone the image is a bounded band
   (`max-h-[45vh]`), not a full-screen hero that pushes the price below the fold; every ribbon;
-  every image reachable in the gallery; breadcrumbs (Home › the category path › the product)
+  every image reachable in the gallery; the main image follows the selection (`imageUrl` from the
+  store when set, else the gallery's first); breadcrumbs (Home › the category path › the product)
   when the product has a main category.
 - **Cart:** the shipped drawer — it opens after every add, and checkout is a button in it.
 - **Overlays you build** (quick-add, mobile nav, filters): mount at the document root (a fixed
@@ -163,9 +164,11 @@ contracts.
 
 // useProductDetail({ initial? /* SSR */, slug? /* SPA */ }) →
 // { product: ProductDetail|null, notFound,
-//   optionGroups: [{ id, key, name, isColor, choices: [{ choiceId, key, name, colorCode|null,
+//   optionGroups: [{ id, key, name, isColor, choices: [{ choiceId, key, name, colorCode|null, imageUrl|null,
 //                    inStock /* buyable WITH the other picks */, exists /* some variant has this combination */, selected }] }],
 //   selectOption(optionId, choiceId),                 // by ids (option.id, choice.choiceId), never by name
+//   imageUrl,                                         // the picked choice's own photo (last pick wins), else the variant's; null → keep the
+//                                                     //   gallery's main image. Render it AS the main image so a colour pick swaps the photo
 //   modifierValues, setModifier(key, value),          // product.modifiers: pills or a text input; "*" = mandatory;
 //                                                     //   a text modifier carries title, maxChars|null, minChars|null
 //   plans: [{ id, name, description, terms /* "every 2 months · 6 payments" */, price /* this variant's, "" until resolved */, selected }],
@@ -661,9 +664,11 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Inventory | `wix-stores/inventory` |
 | Orders | `ecom-platform/orders-list` |
 | Store settings | `wix-stores/settings` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-Real payments additionally need a premium plan + a connected payment method (Settings → Accept
-payments) — mention it, don't treat it as a code failure.
+Real payments need a connected payment method **and** a premium plan. Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."**
+Hand both links above in the close; don't treat it as a code failure.
 
 ## Seeding
 

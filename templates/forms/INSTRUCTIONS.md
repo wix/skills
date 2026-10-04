@@ -97,7 +97,7 @@ Defaults for a brief that says nothing about them; the prompt wins when it asks 
 //   defaultValue,      // "" | [] | {} | false | the owner's prefill — already the right SHAPE
 //   choices: [{ value, label, imageUrl? }],   // select/radio/checkboxGroup/tags — else []; after a rule: the allowed subset
 //   otherOption?: { label, placeholder? },    // a free-text "Other" entry — see below
-//   addressParts: [{ sub, label, required, choices? }],  // address — `country` first, with its choices
+//   addressParts: [{ sub, label, required, choices? }],  // address — `country` first; the rest per chosen country
 //   validation: { format?, minLength?, maxLength?, pattern?, patternMessage?, minimum?, maximum?,
 //                 multipleOf?, minDate?, maxDate?, fileLimit?, fileFormats?, accept?, minItems?,
 //                 maxItems?, mustBeTrue?, allowedCountryCodes? },   // resolved: minDate is a real date
@@ -153,7 +153,7 @@ keeping the same `name`, `onBlur: () => validate(target)` and `aria-describedby`
 | `radio` | one `<input type="radio">` per choice, all sharing `name={f.target}` |
 | `checkbox` | a single `<input type="checkbox">`; its value is a **boolean**. `identifier === "CONTACTS_SUBSCRIBE"` is the marketing opt-in — unchecked by default, never pre-ticked |
 | `checkboxGroup` `tags` | one checkbox per choice; the value is an **array** of chosen values. `identifier === "IMAGE_CHOICE"` ⇒ each choice has `imageUrl` — render a picture tile per choice |
-| `address` | one control per `addressParts` entry — `country` is a `<select>` over its `choices` (ISO-2 codes, labelled) and comes first; the value is an **object** keyed by `sub`, and its error keys are `target/sub` |
+| `address` | one control per `addressParts` entry — `country` is a `<select>` over its `choices` (ISO-2 codes, labelled) and comes first; the value is an **object** keyed by `sub`, and its error keys are `target/sub`. The parts follow the chosen country (Wix's per-country templates: Israel has a street name and number and no state; the US one address line and a state), so render from `f.form.fields` on every pass, never from a copy taken at mount. A `subdivision` part with `choices` is a `<select>` (its label is the country's own word: State, Province, Region); without `choices` it is a text input |
 | `file` `signature` | `<input type="file" accept={validation.accept} multiple={validation.fileLimit > 1}>` (uncontrolled) — put the `File` objects in `values[target]`; the store uploads them on submit. Button wording from `buttonText`; a signature is an image the visitor draws or uploads |
 | `payment` `appointment` `unknown` | out of scope for a plain form — a payment field needs the payment flow, an appointment field needs the `bookings` vertical. Render a disabled note rather than an input that submits the wrong thing |
 

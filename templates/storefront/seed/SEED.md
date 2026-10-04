@@ -28,8 +28,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
       "price": 49.99, "quantity": 12, "imageUrl": "https://…" },
     { "name": "The Understudy", "description": "…", "price": 245, "quantity": 8,
       "options": [{ "name": "Color", "type": "color",
-                    "choices": [{ "name": "Ink", "colorCode": "#1B1B2F" },
-                                { "name": "Bone", "colorCode": "#EDE6D6" }] }] },
+                    "choices": [{ "name": "Ink", "colorCode": "#1B1B2F", "imageUrl": "https://…/ink.jpg" },
+                                { "name": "Bone", "colorCode": "#EDE6D6", "imageUrl": "https://…/bone.jpg" }] }] },
     { "name": "Encore Jacket", "description": "…", "price": 68, "compareAtPrice": 129,
       "quantity": 5, "ribbon": "Sale",
       "options": [{ "name": "Size", "choices": ["S", "M", "L"] }],
@@ -54,6 +54,9 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   `type: "color"` renders as real swatches (give every color choice a `colorCode`); anything
   else renders as text pills. Variants are expanded automatically (full cross-product, each
   carrying the product's price/compareAtPrice/quantity) — keep option counts small.
+  A choice may carry its own photo — `imageUrl` | `imagePath` | `imagePrompt` (+ `altText`), the
+  same three forms as a product image: it joins the product's gallery and the product page shows
+  it when that choice is picked (a colour's photo). Give it when the source has one per colour.
 - `variantPrices` — `{ "<choice name>": price }` when one option's choices are priced differently
   ("L": 74): every variant carrying that choice takes that price (the first priced choice wins);
   the tile then shows the range. Omit it when every variant costs the same.
@@ -131,7 +134,9 @@ Manage products link (`dashboardProductsUrl` in the result) so the owner removes
 want to. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
 
 **Images are confirmed, not assumed.** `imagesAttached` counts the attaches the API reported as
-successful; `imageFailures: [{ name, error }]` names the products left without an image and why
+successful; `imageFailures: [{ name, error }]` names the products left without an image and why.
+`choiceImagesLinked` counts the choice photos linked to their choice, `choiceImageFailures:
+[{ name, choice, error }]` the ones that are in the gallery but not linked (a re-run links them)
 (one miss out of three was seen live — a revision moved between read and update). The seed already
 retries a miss once. To retry again, re-run the same plan: existing products are reused and their
 images attached; nothing is duplicated.
@@ -142,9 +147,8 @@ mis-mapped, so the rest of the catalog is fine to build on. To retry, re-run the
 creation is idempotent by name, so products that already exist are skipped rather than
 duplicated. Never hand-patch ids to "fill the gap".
 
-Three things this module does not seed (dashboard-only — tell the merchant): **SKUs**,
-**per-choice linked media** (color choice → gallery photo), and **subscription plans** (the
-storefront renders them when the merchant adds them).
+Two things this module does not seed (dashboard-only — tell the merchant): **SKUs** and
+**subscription plans** (the storefront renders them when the merchant adds them).
 
 ## Escape hatch — individual functions
 

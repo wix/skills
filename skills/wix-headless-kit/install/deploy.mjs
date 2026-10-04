@@ -80,6 +80,8 @@ const CAPABILITY_DEPS = {
   "media-upload": {
     "@wix/media": "^1.0.271",
     "@wix/essentials": "^1.0.10",
+    // the endpoint reads the caller's own session for a members policy
+    "@wix/members": "^1.0.511",
   },
   "site-search": {
     "@wix/search": "^1.0.90",
@@ -297,7 +299,8 @@ if (stack === "static") {
       // Every vertical has a types.ts; flat in one folder they would collide, so each lands as
       // <vertical>-types.ts and the vertical's own files are pointed at it below.
       if (f === "types.ts") cpSync(join(appWix, f), join(JS, `${vertical}-types.ts`), COPY);
-      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+      // *.generated.ts: data a core file imports (the forms' per-country address templates).
+      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts") || f.endsWith(".generated.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
     }
     const own = new Set([...readdirSync(join(root, "rest")), ...readdirSync(appWix)].filter((f) => f.endsWith(".ts") && f !== "types.ts"));
     for (const f of own) {
@@ -362,9 +365,10 @@ for (const policy of uploadPolicies) {
     !Array.isArray(policy.accept) ||
     !policy.accept.every((mime) => typeof mime === "string") ||
     !Number.isSafeInteger(policy.maxBytes) ||
-    policy.maxBytes < 1
+    policy.maxBytes < 1 ||
+    (policy.audience !== undefined && policy.audience !== "members" && policy.audience !== "visitors")
   ) {
-    console.log(JSON.stringify({ error: "each mediaUpload policy needs id, accept: string[], and positive integer maxBytes" }));
+    console.log(JSON.stringify({ error: 'each mediaUpload policy needs id, accept: string[], positive integer maxBytes, and optionally audience: "members" (default) | "visitors"' }));
     process.exit(1);
   }
 }

@@ -5,7 +5,7 @@
 // created submission may arrive wrapped (`{ submission }`, REST) or bare (SDK), with `_id` (SDK)
 // or `id` (REST); the mapper accepts both.
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values.md
-import type { Raw } from "./forms-core";
+import { humanizeSub, type Raw } from "./forms-core";
 import type { FormDto, FormFieldDto, FormValues, SubmissionDto, UploadedFile } from "./types";
 
 /**
@@ -383,6 +383,9 @@ export function messageFor(errorType: string, f: FormFieldDto, path: string = f.
         : f.control === "date" || f.control === "datetime" ? "Enter a month, day and year."
         : "Enter a valid answer.";
     case "TYPE_ERROR": return "Enter a valid answer.";
+    // A key the server does not know for this field — for an address, a subfield the chosen
+    // country's template lacks. The store sends only the country's own parts, so this is rare.
+    case "UNKNOWN_VALUE_ERROR": return sub ? `${humanizeSub(sub)} isn't part of an address in this country.` : "This answer isn't accepted here.";
     // The enum grows; an unmapped type degrades to safe copy rather than showing nothing.
     default: return `Please check ${f.label}.`;
   }

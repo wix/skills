@@ -13,6 +13,7 @@
 // `start()` then does nothing. Without it `start()` loads the schema. One store per mounted form:
 // createFormStore(), not a singleton — a page can hold two forms.
 import { applyRules, getForm, isClosed, otherText, otherValue } from "./forms";
+import { addressPartsForCountry } from "./forms-core";
 import {
   EMAIL_PATTERN,
   PHONE_PATTERN,
@@ -281,10 +282,22 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
   let snapshot: FormState | null = null;
   const emit = () => { snapshot = null; for (const fn of listeners) fn(); };
 
+  /**
+   * An address field with its parts for the country the visitor picked: Israel shows a street
+   * name and number and no subdivision, the United States one address line and a state. Values
+   * typed under a subfield the new country lacks stay in `values` but are neither validated nor
+   * submitted (both read `addressParts`), so switching countries never sends an unknown key.
+   */
+  const withCountryParts = (f: FormFieldDto): FormFieldDto => {
+    if (f.control !== "address" || !f.addressOverrides) return f;
+    const country = (values[f.target] as Record<string, unknown> | undefined)?.country;
+    return { ...f, addressParts: addressPartsForCountry(typeof country === "string" && country ? country : undefined, f.addressOverrides, f.required) };
+  };
+
   /** `base` narrowed to what is visible right now. */
   function visibleForm(): FormDto | null {
     if (!base) return null;
-    const fields = applied.filter((f) => !f.hidden);
+    const fields = applied.filter((f) => !f.hidden).map(withCountryParts);
     const shown = new Set(fields.map((f) => f.target));
     const steps: FormStep[] = base.steps.map((s) => ({ ...s, targets: s.targets.filter((t) => shown.has(t)) }));
     return { ...base, fields, steps };
@@ -296,7 +309,7 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
     return snapshot;
   }
 
-  const visibleFields = (): FormFieldDto[] => applied.filter((f) => !f.hidden);
+  const visibleFields = (): FormFieldDto[] => applied.filter((f) => !f.hidden).map(withCountryParts);
   const stepFields = (i: number): FormFieldDto[] => {
     const s = base?.steps[i];
     return s ? visibleFields().filter((f) => f.stepId === s.id) : visibleFields();
