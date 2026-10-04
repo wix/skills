@@ -387,7 +387,25 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Attach a Digital File
 
-A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
+A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. For an existing product, find it by exact name and Get Product as described above; keep its current revision and complete variants array. Search Products alone does not return the variants needed for this update.
+
+If the user supplies a publicly accessible file URL, [Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file) directly. Do not download it just to re-upload its bytes. This example is for a PDF; use the source file's MIME type and extension for other formats:
+
+```bash
+curl -X POST "https://www.wixapis.com/site-media/v1/files/import" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{"url":"{publicPdfUrl}","mimeType":"application/pdf","displayName":"download.pdf"}'
+```
+
+Use the returned `file.id`, not its `url`. Import is asynchronous: if `file.operationStatus` is `PENDING`, check [Get File Descriptor](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor) until it is `READY`; stop and report a `FAILED` import. Attach only a ready file.
+
+```bash
+curl -X GET "https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}" \
+  -H "Authorization: <AUTH>"
+```
+
+If the source is local bytes or its URL cannot be imported, use [Upload Media to Wix](../media/upload-media-to-wix.md) instead. Then update the existing variant: `digitalProperties` belongs directly on the variant, not on the product or under `typedProperties`. Copy the complete variants array from Get Product, preserving each variant's ID, price, and other existing writable fields; add the file ID only to the intended variant. The following PATCH illustrates a single default variant with no options. Replace its price with the value read from the product, and do not invent options for this case.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -418,7 +436,7 @@ Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in 
 
 - A request to hide a product is a `visible: false` update on the product, never a Delete Product call and never a variant-only change.
 - To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
-- To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
+- When a product has options, updating `variantsInfo.variants` also requires the complete existing `options` array, and vice versa. Keep them aligned. A product with no options has only its default variant; use the no-options PATCH above without inventing option definitions.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
 - An existing choice's `name` can't be changed via Update Product or Update Customization. The request succeeds and revision increments, but the rename is silently dropped — see "Renaming an Existing Choice Is Not Supported" above.
