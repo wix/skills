@@ -27,6 +27,20 @@ describe('computeCoverage', () => {
       .toEqual(['blog/x']);
   });
 
+  it('covers a file published under several URLs when a scenario asserts any of them', () => {
+    const result = computeCoverage(
+      [{ filename: 'skills/wix-manage/references/blog/how-to-create-blog-posts.md', status: 'modified' }],
+      new Map([['blog/x', blogScenario]]),
+      () => [
+        'https://dev.wix.com/docs/go-headless/blog/skills/how-to-create-blog-posts',
+        'https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts',
+      ],
+    );
+    expect(result.uncovered).toEqual([]);
+    expect(result.coveredBy.get('skills/wix-manage/references/blog/how-to-create-blog-posts.md'))
+      .toEqual(['blog/x']);
+  });
+
   it('reports uncovered when no sibling assertion matches', () => {
     const result = computeCoverage(
       [{ filename: 'skills/wix-manage/references/blog/schedule-post.md', status: 'added' }],

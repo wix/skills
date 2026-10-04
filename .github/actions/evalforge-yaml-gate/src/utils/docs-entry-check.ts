@@ -46,8 +46,9 @@ type MenuNode = {
   children?: MenuNode[];
 };
 
-export function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarget> {
-  const index = new Map<string, DocsEntryTarget>();
+/** Every doc entry in the workspace; a skill file may appear under several docsEntry categories. */
+export function loadDocsEntries(workspace: string): DocsEntryTarget[] {
+  const entries: DocsEntryTarget[] = [];
   const yamlPaths = glob.sync(DOC_YAML_GLOB, {
     cwd: workspace,
     nodir: true,
@@ -61,7 +62,7 @@ export function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarg
       if (!entry.file || !entry.docsEntry || !entry.title) continue;
       const skillFileAbsolutePath = resolvePath(dirname(yamlAbsolutePath), entry.file);
       const skillFilePath = relative(workspace, skillFileAbsolutePath).split('\\').join('/');
-      index.set(skillFilePath, {
+      entries.push({
         file: skillFilePath,
         yamlPath,
         title: entry.title,
@@ -69,7 +70,7 @@ export function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarg
       });
     }
   }
-  return index;
+  return entries;
 }
 
 /**
@@ -77,11 +78,9 @@ export function loadDocsEntryIndex(workspace: string): Map<string, DocsEntryTarg
  * pipeline will try to place in the menu after merge.
  */
 export function changedDocsEntries(workspace: string, baseWorkspace: string): DocsEntryTarget[] {
-  const headIndex = loadDocsEntryIndex(workspace);
-  const baseIndex = loadDocsEntryIndex(baseWorkspace);
-  return [...headIndex.values()].filter(
-    (target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry,
-  );
+  const placementKey = (target: DocsEntryTarget) => `${target.file}\n${target.docsEntry}`;
+  const basePlacements = new Set(loadDocsEntries(baseWorkspace).map(placementKey));
+  return loadDocsEntries(workspace).filter((target) => !basePlacements.has(placementKey(target)));
 }
 
 function stripTrailingSlashes(url: string): string {
@@ -186,5 +185,5 @@ export async function validateDocsEntries(targets: DocsEntryTarget[]): Promise<D
  * gate's own URL (a slugify of the whole title). For a skill a slash is never wanted.
  */
 export function slashedTitles(workspace: string): DocsEntryTarget[] {
-  return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
+  return loadDocsEntries(workspace).filter((target) => target.title.includes('/'));
 }

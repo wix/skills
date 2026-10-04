@@ -39,7 +39,7 @@ function stringValuesIn(params: ParamMap | undefined): string[] {
 export function computeCoverage(
   changedFiles: ChangedFile[],
   scenarios: Map<string, LoadedScenario>,
-  canonicalUrlOf: (file: string) => string | null,
+  canonicalUrlOf: (file: string) => string | string[] | null,
 ): CoverageResult {
   const coveredBy = new Map<string, string[]>();
   const uncovered: Uncovered[] = [];
@@ -66,13 +66,15 @@ export function computeCoverage(
     if (!f.filename.endsWith('.md')) continue;
     const area = areaOfDoc(f.filename);
     if (!area) continue;
-    const canonical = canonicalUrlOf(f.filename);
-    if (!canonical) continue;
-    const norm = normalizeUrl(canonical);
+    const resolved = canonicalUrlOf(f.filename);
+    // A file published under several docsEntry categories is covered by a scenario on any of them.
+    const canonicalUrls = (Array.isArray(resolved) ? resolved : resolved ? [resolved] : []);
+    if (canonicalUrls.length === 0) continue;
+    const norms = canonicalUrls.map(normalizeUrl);
     const inArea = scenariosByArea.get(area) ?? [];
-    const matching = inArea.filter(s => s.urls.has(norm)).map(s => s.name);
+    const matching = inArea.filter(s => norms.some(n => s.urls.has(n))).map(s => s.name);
     if (matching.length === 0) {
-      uncovered.push({ file: f.filename, canonicalUrl: canonical, area });
+      uncovered.push({ file: f.filename, canonicalUrl: canonicalUrls.join('` or `'), area });
     } else {
       coveredBy.set(f.filename, matching);
     }
