@@ -15,7 +15,8 @@ Both are declared by each app and differ from site to site, so always discover t
 
 - **App Skills API**: List App Skills, Get App Skill
 - **App Tools API**: List Tools Providers, Invoke Tool
-- App side (how apps declare tools): [Tools Provider service plugin](https://dev.wix.com/docs/api-reference/app-management/app-tools/tools-provider-v1/introduction)
+- App side (how apps declare tools): [App Tools extension](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/backend-extensions/app-tools/about-app-tools-extensions) and [Tools Provider service plugin](https://dev.wix.com/docs/api-reference/app-management/app-tools/tools-provider-v1/introduction)
+- App side (how apps declare skills): an App Skills extension, which sets each skill's `slug`, `displayName`, `description`, `guidelines`, `toolMethodNames` (tools of the same app only), `tags` and `examples`. A site's skills come only from its installed apps' extensions; the agent can't create or change them.
 
 All four calls act on the site in the call's context and take no site ID in the request body. When calling with an API key, set the site with the `wix-site-id` header.
 

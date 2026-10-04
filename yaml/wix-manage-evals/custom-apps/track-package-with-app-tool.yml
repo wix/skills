@@ -1,0 +1,65 @@
+name: custom-apps/track-package-with-app-tool
+description: >-
+  Verifies the agent runs an installed app's tool directly when no app skill
+  fits: the site has an app that declares the getPackageTracking app tool but
+  no app skills, so the agent discovers both lists, skips Get App Skill, and
+  calls Invoke Tool with a payload built from the tool's requestSchema.
+triggerPrompt: >-
+  Where is package 1Z999AA10123456784 right now, and when will it arrive?
+tags: [custom-apps, app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install App with tools, a demo app that declares an app tool and no app skills
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 10da4283-f652-4ae1-9c9c-28800c2c051e
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/app-management/app-tools/skills/use-app-skills-and-app-tools
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked where package 1Z999AA10123456784 is and when it will
+      arrive. The site has the "App with tools" app installed. It declares
+      one app tool, getPackageTracking (required field: trackingNumber), and
+      no app skills. The tool returns status "In Transit", location
+      "Distribution Center, New York" and estimatedDelivery "2026-07-30".
+      Intent: answer from the app's tracking tool.
+
+      Pass if the agent:
+      - discovered the site's app skills and app tools (List App Skills and
+        List Tools Providers), AND
+      - called Invoke Tool with methodName getPackageTracking, providerAppId
+        set to the app's appId, and payload {"trackingNumber":
+        "1Z999AA10123456784"}, AND
+      - told the user the package is in transit at the Distribution Center
+        in New York, with an estimated delivery of 2026-07-30.
+
+      Fail if the agent:
+      - calls Get App Skill, although List App Skills returned no skill, OR
+      - answers without calling Invoke Tool, or invents a status, location
+        or date the tool did not return, OR
+      - says no app on the site can track the package.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; an endpoint
+      called with a wrong URL, host or HTTP method and then corrected; an
+      Invoke Tool payload or methodName guessed wrong then corrected;
+      searching the docs or probing other APIs (such as eCommerce orders or
+      shipping) before the two discovery calls; redundant or repeated calls
+      clearer docs would avoid. For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
