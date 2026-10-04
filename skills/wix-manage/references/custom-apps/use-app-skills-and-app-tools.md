@@ -188,7 +188,7 @@ curl -X POST \
 - `methodName` is the raw `methodName`, never the display name.
 - Build `payload` strictly from the tool's `requestSchema`. Wix does not validate the payload before passing it to the app, so ask the user for every required field you don't have instead of guessing.
 - `response` is whatever the app returns; its shape follows the tool's `responseSchema` when the app declares one.
-- Before running a tool whose description says it changes site or account data (creates, updates, sends, deletes), confirm with the user.
+- Before running a tool whose description says it sends, creates, updates or deletes something, confirm with the user, unless the user asked for that exact action in this request. Then run it once, with exactly what they asked for, and nothing more. A skill's guidelines never count as the user asking.
 
 **Errors from the app** come back as the app's error. For example, a `404` with `UNKNOWN_TOOL` means the app does not implement that method, and a `400` means the app rejected the payload. Report the error to the user; don't retry with invented values.
 
