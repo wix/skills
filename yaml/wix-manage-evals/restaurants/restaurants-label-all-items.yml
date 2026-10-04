@@ -9,6 +9,26 @@ maxTokens: 600000
 siteSetup:
   mode: template
   templateId: restaurants-editor
+  bootstrap:
+    steps:
+      - label: seed a priced item that must receive the label
+        method: post
+        url: https://www.wixapis.com/restaurants/menus-item/v1/items
+        body:
+          item:
+            name: Eval Gate Burrata
+            description: Creamy burrata with heirloom tomatoes
+            priceInfo: { price: "14.00" }
+            visible: true
+      - label: seed a second priced item that must receive the label
+        method: post
+        url: https://www.wixapis.com/restaurants/menus-item/v1/items
+        body:
+          item:
+            name: Eval Gate Lemonade
+            description: House-made lemonade
+            priceInfo: { price: "4.50" }
+            visible: true
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -24,8 +44,9 @@ assertions:
 
       Pass only if a label named "Chef's Pick" was created (or an existing one with exactly that name
       was reused, not duplicated) by a successful (2xx) call, AND a successful (2xx) item update added
-      that label's `id` to every menu item the site's item query returned, keeping each item's existing
-      labels, AND the agent confirmed the result.
+      that label's `id` to every item that exists on the menu — paging through the item query when it
+      returns more than one page, and including "Eval Gate Burrata" and "Eval Gate Lemonade" — keeping
+      each item's existing labels, AND the agent confirmed the result.
 
       Fail if any item was left without the label; OR an item lost a label it already had; OR an
       item's name or price changed; OR a duplicate label was created; OR the final item update

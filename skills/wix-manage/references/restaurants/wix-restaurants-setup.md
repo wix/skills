@@ -1,6 +1,6 @@
 ---
 name: "Wix Restaurants Setup"
-description: Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
+description: Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, ordering settings, and item labels (look up, create, bulk-assign).
 ---
 # Wix Restaurants Setup API Reference
 
