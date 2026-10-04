@@ -65,6 +65,8 @@ assertions:
         - an anonymous publish followed by a claim when the agent held the user's identity from the
           start
         - a template site-creation call
+        - with a shell available, the file contents written into a wix.request call instead of
+          sent with curl -F from disk (identity may still come from the API tool, e.g. for a claim)
         - re-reading docs repeatedly, or a probing spiral
 
       For each issue name the likely skill gap behind it.

@@ -17,15 +17,20 @@ Two facts decide it.
 tool that carries their login or a shell token from the
 [Wix CLI](#getting-the-users-identity), or none.
 
-**Where are the files, and what can carry them?** Every route sends the files as
-one `multipart/form-data` request.
+**What carries the files?** Every route sends them as one `multipart/form-data`
+request.
 
-- **Files you can read from disk, plus a shell** — `curl -F` sends any file type.
-- **Text files you hold in memory** (a page you generated or the user pasted:
-  HTML, CSS, JS, SVG) **and a Wix API tool that runs JavaScript with
-  `wix.request`** — build the multipart body as a string. That runtime has no
-  filesystem and sends a string body as UTF-8, so binary files (PNG, JPG, fonts,
-  zips) arrive corrupted; reference images by absolute URL instead.
+- **A shell** — `curl -F` reads files from disk and streams them: any type, any
+  number, up to the [limits](#what-the-upload-accepts-and-how-it-fails), at no cost
+  to you. With a shell, files always go this way, even when a Wix API tool is
+  also connected; a page you generated goes to disk first.
+- **Only a Wix API tool that runs JavaScript with `wix.request`** — the runtime
+  has no filesystem, so the file contents are written out inside the call itself:
+  every byte is code you generate, and each change resends all of it. That fits a
+  generated page or a few small text files (HTML, CSS, JS, SVG). A string body is
+  sent as UTF-8, so binary files (PNG, JPG, fonts, zips) arrive corrupted;
+  reference images by absolute URL instead. Many files, a long page or binary
+  assets go to the drop page.
 - **Files only on the user's machine** — nothing you run can carry them.
 
 | Identity | Files | Route |
@@ -34,10 +39,11 @@ one `multipart/form-data` request.
 | No | Can be carried | [Publish anonymously](#publish-anonymously) — live at once, kept through a save link or a later claim |
 | Any | Can't be carried | [The drop page](#the-drop-page) — the user uploads in the browser |
 
-With identity only in a Wix API tool and binary files on disk, either log in
-with the Wix CLI (identity in the shell, then publish into the account), or
-publish anonymously with `curl` and [claim](#claim-it-into-the-users-account)
-through the API tool.
+**A shell plus a Wix API tool, and no CLI login:** the identity is in the tool,
+the files are on disk. Keep the files in the shell. Either log in with the
+[Wix CLI](#getting-the-users-identity) and publish into the account with `curl`,
+or publish anonymously with `curl` and [claim](#claim-it-into-the-users-account)
+through the API tool — a claim is a small JSON call.
 
 Publishing yourself beats the drop page whenever a route fits — the user gets a
 live site without uploading anything. Decide honestly: never report an upload you
@@ -87,7 +93,8 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-ayalg5-1406.wix-site-host.com" }
 ```
 
-The same two calls through `wix.request`, for text files held in memory:
+With no shell, the same two calls through `wix.request`, for a page or a few small
+text files held in memory:
 
 ```javascript
 async function run() {
@@ -236,7 +243,8 @@ fail on the first try.
 ## Getting the user's identity
 
 - **A Wix API tool that carries the user's login** — call through it with
-  `scope: 'account'`; no token to handle. It reaches JSON and text bodies only.
+  `scope: 'account'`; no token to handle. Use it for the JSON calls (create, claim,
+  Query Sites); with a shell, the files themselves still go through `curl`.
 - **The Wix CLI, for a shell** — the user signs in once in the browser, then
   `wix token` prints a token for `curl`:
 
