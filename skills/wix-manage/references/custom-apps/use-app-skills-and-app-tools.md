@@ -19,6 +19,8 @@ Both are declared by each app and differ from site to site, so always discover t
 
 All four calls act on the site in the call's context and take no site ID in the request body. When calling with an API key, set the site with the `wix-site-id` header.
 
+The `www.wixapis.com/_api/...` URLs below are these APIs' public endpoints; the `_api/` segment is part of the path. Don't call them on `manage.wix.com`, which accepts only a dashboard session.
+
 ---
 
 ## Step 1: Discover the site's skills and tools
