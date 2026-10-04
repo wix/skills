@@ -405,7 +405,7 @@ curl -X GET "https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={
   -H "Authorization: <AUTH>"
 ```
 
-If the source is local bytes or its URL cannot be imported, use [Upload Media to Wix](../media/upload-media-to-wix.md) instead. Then update the existing variant: `digitalProperties` belongs directly on the variant, not on the product or under `typedProperties`. Copy the complete variants array from Get Product, preserving each variant's ID, price, and other existing writable fields; add the file ID only to the intended variant. The following PATCH illustrates a single default variant with no options. Replace its price with the value read from the product, and do not invent options for this case.
+If the source is local bytes or its URL cannot be imported, use [Upload Media to Wix](../media/upload-media-to-wix.md) instead. Then update the existing variant: `digitalProperties` belongs directly on the variant, not on the product or under `typedProperties`. The `variantsInfo.variants` array replaces the existing array, so include **every** existing variant. For each one, copy its writable `id`, `choices`, `price` (including any `compareAtPrice`), `sku`, `barcode`, `visible`, and `revenueDetails` fields when present; leave out read-only fields such as `inventoryStatus`, `media`, and `subscriptionPricesInfo`. Add the file ID only to the intended variant. For a product without options, use the one existing default variant with `choices: []`; do not invent options. The example below uses the variant's existing SKU, price, and visibility—omit optional fields such as `sku` if they were absent in Get Product. The product is already in stock, so this Product PATCH does not change its inventory.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -419,9 +419,10 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
         "variants": [
           {
             "id": "{existingVariantId}",
+            "choices": [],
+            "sku": "{existingSku}",
             "price": { "actualPrice": { "amount": "9.99" } },
             "visible": true,
-            "inventoryItem": { "inStock": true },
             "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
           }
         ]
@@ -430,7 +431,25 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in the response.
+Confirm the existing variant's ID, price, SKU (if present), and `digitalProperties.digitalFile.id` in the PATCH response. A successful Product PATCH does not by itself prove that the item can be added to a cart. When the user reported an add-to-cart failure, test that outcome with [Cart V2 Create Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart). Use the product and variant IDs from the update response; the [Catalog V3 cart reference](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration) requires the Wix Stores app ID and `options.variantId`:
+
+```bash
+curl -X POST "https://www.wixapis.com/ecom/v2/carts" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "catalogItems": [{
+      "catalogReference": {
+        "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+        "catalogItemId": "{productId}",
+        "options": { "variantId": "{existingVariantId}" }
+      },
+      "quantity": 1
+    }]
+  }'
+```
+
+Confirm `cart.lineItems[]` contains that product and variant in `source.catalogReference`, with `quantityInfo.confirmedQuantity` greater than zero. If cart access is unavailable, report that cart behavior remains unverified rather than claiming the original symptom is fixed.
 
 ## Important Notes
 
