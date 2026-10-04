@@ -7,8 +7,8 @@ description: >-
   through Invoke Tool, with payloads built from each tool's requestSchema.
 triggerPrompt: >-
   Use the pricing app on my site: what should a customer in Germany pay, in
-  euros and including VAT, for our $49 mug? Round the final price up to a
-  whole number of euros.
+  euros and including VAT, for our $49 mug? Round it up to a whole number of
+  euros. Give me the final price first, then how you got there.
 tags: [custom-apps, app-installation]
 siteSetup:
   mode: template
@@ -49,8 +49,9 @@ assertions:
         with providerAppId set to the app's appId and payloads matching each
         tool's requestSchema (amount/from/to, amount/country, amount/style),
         AND
-      - told the user the final price is 54 EUR (€54), showing the
-        converted price, the 19% VAT and the total before rounding.
+      - told the user the final price is 54 EUR (€54) before the breakdown,
+        and showed the converted price, the 19% VAT and the total before
+        rounding.
 
       Fail if the agent:
       - computes the conversion, VAT or rounding itself instead of calling
