@@ -14,44 +14,45 @@ CI=1 npx @wix/cli@latest release
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
 - The published URL is printed on stdout (`Site published on <url>`).
 
-## Give the user both links — the live site **and** the dashboard
+### Still in the project directory — get a domain for it
 
-When you close the run, surface **two** links, not one:
+The published URL is a generic Wix subdomain, so a custom domain is the obvious next step. **These two commands are part of releasing, not a follow-up to it** — run them straight after `release`, before you compose your closing message. Don't wait to be asked, and don't decide on the user's behalf that they aren't interested; in a non-interactive run there is nobody to ask, so put the result in your message and let them act on it.
+
+```bash
+# 1 — available domains, built from what you know about this site
+#     (its business name, topic or purpose from this run — not a generic placeholder)
+npx @wix/cli@latest account domain suggest "<business name or site topic>" --limit 5 --json
+
+# 2 — a site-scoped checkout link for the best of them
+npx @wix/cli@latest account --site-id <SITE_ID> domain checkout-link <domain> --json
+```
+
+- Everything `suggest` returns is already available to buy. For more options, re-run it with different keywords, a higher `--limit`, or `--tld com net ...` to filter extensions.
+- `<SITE_ID>` is the `siteId` from `wix.config.json`. `checkout-link` only builds a URL — it does **not** purchase a domain or charge anyone; the user completes payment in the browser.
+- If the user is present and picks a domain, link that one. If nobody is there to pick, link the best suggestion.
+
+## Close the run with three things — live site, dashboard, domain
+
+When you close the run, surface **three** things, not one:
 
 1. **The live site URL** — the `Site published on <url>` value from release above.
 2. **The site dashboard (Business Manager)** — `https://manage.wix.com/dashboard/<SITE_ID>`, where `<SITE_ID>` is the `siteId` held in scratch (read from `wix.config.json`). This is where the owner manages the site behind the headless frontend — view store orders, edit content, manage members, etc. **Always include it**: a headless site has no editor button, so without this link the owner has no obvious way back into their own backend, and the seeded content/apps look unreachable.
+3. **An available domain and its checkout link** — from the two commands above. Name a few of the best fits if you have them.
 
 Present them plainly, e.g.:
 
 ```
 Live site:  <published-url>
 Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
+Domain:     mybusiness.com is available — <checkout-url>
 ```
 
-## Suggest a custom domain (required, after release)
+Or in prose:
 
-The published URL is a generic Wix subdomain, so a custom domain is the obvious next step and the CLI handles the whole flow. **Run step 1 on every managed release and put its result in the same message as the links above** — this is a step you execute, not a judgment call about whether the user seems interested. It applies in a non-interactive run too: there's no one to ask, so just include the suggestions and a checkout link in your final message and let the user act on them.
+> Your site is live at <published-url>, and you can manage it from your [dashboard](https://manage.wix.com/dashboard/<SITE_ID>).
+> To build a professional online presence, [connect a custom domain](<checkout-url>) — **mybusiness.com** is available.
 
-1. **Run the suggestion command.** Build a search query from what you know about the site — its business name, topic, or purpose from this run (not a generic placeholder):
-
-   ```bash
-   npx @wix/cli@latest account domain suggest "<business name or site topic>" --limit 5 --json
-   ```
-
-   All returned suggestions are already available for purchase. Name a few of the best fits in your message, and mention they can explore more options — re-run `suggest` with different keywords, a higher `--limit`, or `--tld com net ...` to filter extensions.
-
-2. **Give a checkout link.** Generate a site-scoped deep link for the domain the user picks — or, if nobody is there to pick, for the best of the suggestions — so the purchase is tied to this site and can be connected after payment:
-
-   ```bash
-   npx @wix/cli@latest account --site-id <SITE_ID> domain checkout-link <domain> --json
-   ```
-
-   Use the `siteId` from `wix.config.json`. `checkout-link` only returns a site-scoped checkout URL; it does **not** purchase a domain or charge the user. The user completes payment in the browser.
-
-   > Your site is live at <published-url>, and you can manage it from your [dashboard](https://manage.wix.com/dashboard/<SITE_ID>).
-   > To build a professional online presence, [connect a custom domain](<checkout-url>) — **mybusiness.com** is available.
-
-Once the suggestions and the link are in front of the user, you're done: if they don't want a domain, drop it — one offer, no upselling.
+That's the whole offer: if the user doesn't want a domain, drop it — one offer, no upselling.
 
 ## Before you sign off — feedback checkpoint
 

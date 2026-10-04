@@ -146,4 +146,4 @@ depends on `frontendFramework` (§0):
 - **Non-Astro** → the framework's own build (e.g. `npm run build`); a static (no-build) site skips this.
   `release` publishes whatever `site.outputDirectory` points at (default `./dist`).
 
-Close with a short summary (apps installed, content seeded, pages built) and **both links — the live site URL and the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`** (see `managed/DEPLOYMENT.md` § "Give the user both links"; `<SITE_ID>` is the `siteId` in scratch), then run the feedback checkpoint (`managed/DEPLOYMENT.md` § "Before you sign off").
+Close with a short summary (apps installed, content seeded, pages built) and **all three closing items — the live site URL, the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`, and an available domain with its checkout link** (see `managed/DEPLOYMENT.md` § "Close the run with three things"; `<SITE_ID>` is the `siteId` in scratch), then run the feedback checkpoint (`managed/DEPLOYMENT.md` § "Before you sign off").
