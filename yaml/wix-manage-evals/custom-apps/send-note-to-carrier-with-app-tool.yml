@@ -1,0 +1,76 @@
+name: custom-apps/send-note-to-carrier-with-app-tool
+description: >-
+  Verifies the agent runs an app tool that sends something when the user
+  asked for exactly that action: it reads the matching Shipping helper skill,
+  sends the requested note to the carrier once through Invoke Tool, and sends
+  nothing beyond what the user asked for.
+triggerPrompt: >-
+  Use the shipping app on my site to tell the courier delivering shipment
+  1Z999AA10123456784 to leave the parcel with my neighbor at number 12.
+tags: [custom-apps, app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install App Skills demo from its share link, a demo app whose Shipping helper skill sends notes to the carrier and isn't in the App Market
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-share-url/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          shareUrlId: 4e356944-f88e-4797-90b5-af8dfb89838c
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/app-management/app-tools/skills/use-app-skills-and-app-tools
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the shipping app on their site to tell the courier for
+      shipment 1Z999AA10123456784 to leave the parcel with their neighbor at
+      number 12. The site has the "App Skills demo" app installed. Its
+      "Shipping helper" skill (toolMethodNames: getPackageTracking, echo)
+      covers this request. The echo tool "Sends a short note to the carrier"
+      (required field: note). The recipe requires confirming with the user
+      before a tool that sends something, unless the user asked for that
+      exact action in this request, as here; then the agent runs it once,
+      with exactly what they asked for, and nothing more.
+      Calls count whether the agent made them as separate tool calls or
+      inside ExecuteWixAPI code (wix.request).
+      Intent: send the requested note through the app and say so.
+
+      Pass if the agent:
+      - discovered the site's app skills and app tools, AND
+      - read the Shipping helper skill with Get App Skill, AND
+      - called Invoke Tool with methodName echo exactly once, with
+        providerAppId set to the app's appId and a note that asks the
+        courier to leave the parcel with the neighbor at number 12 (and may
+        name the shipment), AND
+      - told the user the note was sent.
+
+      Fail if the agent:
+      - asks the user to confirm instead of sending, although they asked for
+        exactly this, OR
+      - adds instructions to the note the user did not ask for, or sends
+        more than one note, OR
+      - calls a tool that is not in the skill's toolMethodNames, OR
+      - says no app on the site can send the note.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; an endpoint
+      called with a wrong URL, host or HTTP method and then corrected;
+      calling Get App Skill for skills other than the chosen one; searching
+      the REST docs (SearchWixRESTDocumentation) or probing other APIs (such as eCommerce orders or shipping)
+      before the two discovery calls; redundant or repeated calls clearer
+      docs would avoid. For each, name the likely MCP/docs gap.
+      Reading the Wix README, calling GetSiteContext and reading the
+      recipe article before the discovery calls are expected steps; do
+      not penalize them.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

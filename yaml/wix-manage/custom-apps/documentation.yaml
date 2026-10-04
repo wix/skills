@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Custom Apps Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/custom-apps/use-app-skills-and-app-tools.md
+      title: Use App Skills and App Tools
+      docsEntry: https://dev.wix.com/docs/api-reference/app-management/app-tools
+      tags: [custom-apps, app-installation]
