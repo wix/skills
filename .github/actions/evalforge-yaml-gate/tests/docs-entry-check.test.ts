@@ -41,6 +41,20 @@ describe('changedDocsEntries', () => {
     expect(changed.every(t => t.yamlPath === 'yaml/wix-manage/seo/documentation.yaml')).toBe(true);
   });
 
+  it('returns a second placement of an already-published file, not its existing one', () => {
+    const head = makeWorkspace();
+    const base = makeWorkspace();
+    writeDocYaml(base, 'sites', [{ file: 'a.md', title: 'A', docsEntry: `${API_REF}/sites` }]);
+    writeDocYaml(head, 'sites', [
+      { file: 'a.md', title: 'A', docsEntry: `${API_REF}/sites` },
+      { file: 'a.md', title: 'A in headless', docsEntry: 'https://dev.wix.com/docs/go-headless/x' },
+    ]);
+
+    const changed = changedDocsEntries(head, base);
+
+    expect(changed.map(t => t.docsEntry)).toEqual(['https://dev.wix.com/docs/go-headless/x']);
+  });
+
   it('treats every head entry as changed when the base workspace has no yamls', () => {
     const head = makeWorkspace();
     writeDocYaml(head, 'sites', [

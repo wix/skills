@@ -8,7 +8,8 @@ type DocEntry = { file?: string; docsEntry?: string; title?: string };
 type DocYaml = { apiDoc?: { docs?: DocEntry[] } };
 
 type DocInfo = { docsEntry: string; title: string };
-type DocIndex = Map<string, DocInfo>;
+// A skill file may be published under several docsEntry categories, one entry each.
+type DocIndex = Map<string, DocInfo[]>;
 
 const indexCache = new Map<string, DocIndex>();
 
@@ -29,7 +30,8 @@ function buildDocIndex(workspace: string): DocIndex {
     const parsed = (jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA }) as DocYaml) ?? {};
     for (const e of parsed.apiDoc?.docs ?? []) {
       if (!e.file || !e.docsEntry || !e.title) continue;
-      index.set(resolvePath(yamlDir, e.file), { docsEntry: e.docsEntry, title: e.title });
+      const file = resolvePath(yamlDir, e.file);
+      index.set(file, [...(index.get(file) ?? []), { docsEntry: e.docsEntry, title: e.title }]);
     }
   }
   indexCache.set(workspace, index);
@@ -50,10 +52,16 @@ function slugify(displayName: string): string {
   return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
 
+/** Every doc URL a skill file is published at, in documentation.yaml order. */
+export function docUrls(filePath: string, workspace: string): string[] {
+  const entries = buildDocIndex(workspace).get(resolvePath(workspace, filePath)) ?? [];
+  return entries.flatMap((info) => {
+    const slug = slugify(info.title);
+    return slug ? [`${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`] : [];
+  });
+}
+
+/** The first doc URL a skill file is published at, or null when it has none. */
 export function canonicalDocUrl(filePath: string, workspace: string): string | null {
-  const info = buildDocIndex(workspace).get(resolvePath(workspace, filePath));
-  if (!info) return null;
-  const slug = slugify(info.title);
-  if (!slug) return null;
-  return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
+  return docUrls(filePath, workspace)[0] ?? null;
 }
