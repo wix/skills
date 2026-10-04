@@ -60,12 +60,12 @@ Use the user's values wherever they gave one. For the rest:
 
 Run these reads before creating anything; they're independent, so run them together.
 
-**Staff members** — required for an APPOINTMENT, and the instructor for a CLASS or COURSE session:
+**Staff members** — required for an APPOINTMENT, and the instructor for CLASS or COURSE sessions. For a CLASS or COURSE whose schedule the user didn't give, skip this read: no sessions are created yet, so no instructor is needed.
 
 `POST https://www.wixapis.com/bookings/v1/staff-members/query`
 
 ```json
-{ "query": {}, "fields": ["RESOURCE_DETAILS"] }
+{ "query": {} }
 ```
 
 Use each staff member's `resourceId` — not its `id` — everywhere this recipe asks for a staff ID. Pick the staff member the user named; otherwise the one with `default: true`; otherwise the first one. If the site has no staff members, create one with [Bookings Staff Setup](bookings-staff-setup.md) first.
@@ -88,7 +88,7 @@ A service without a category isn't shown on the live site, and services aren't a
 { "query": { "paging": { "limit": 100 } } }
 ```
 
-If a service with the same or a very similar name exists, tell the user before creating another one.
+A site with more than 100 services needs more pages: repeat with `"offset": 100`, `200`… inside `paging` until a page returns fewer than 100. If a service with the same or a very similar name exists, tell the user before creating another one.
 
 ### Step 4: Create the service
 
@@ -138,7 +138,7 @@ If a service with the same or a very similar name exists, tell the user before c
 }
 ```
 
-For a CLASS or COURSE, don't send `staffMemberIds` (it's read-only for these types — the API drops it and derives it from the staff on the sessions) or `sessionDurations`, and don't put sessions anywhere in this body (`course.sessions`, `CourseSession` and the like do not create sessions).
+For a CLASS or COURSE, don't send `staffMemberIds` (it's read-only for these types — the API fills it from the staff on the service's recurring sessions, so staff on single, non-recurring sessions don't appear there; query the calendar events for the full list) or `sessionDurations`, and don't put sessions anywhere in this body (`course.sessions`, `CourseSession` and the like do not create sessions).
 
 **Free service** — replace `payment` with:
 
@@ -192,7 +192,7 @@ A CLASS or COURSE has no sessions when it's created, so customers can't book it,
 - **The user gave days and times** ("Tuesdays at 6pm", "8 Wednesday evenings from the 14th") → create the sessions now.
 - **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule — not even when you're told to proceed without asking; in that case finish with the service alone and name exactly what's missing.
 
-Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call).
+Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call). The instructor in each event's `resources` is a staff `resourceId` from Step 3 — if you skipped that read because the schedule came later, run it now.
 
 **Weekly CLASS** — every Tuesday 18:00–19:00 from the first Tuesday the user gave, no end date:
 
@@ -306,7 +306,7 @@ When the user gave a service ID, use it. Otherwise list the services and match t
 { "query": { "paging": { "limit": 100 } } }
 ```
 
-If more than one service matches, ask the user which one; if none does, say so rather than creating one. Then read it to get its current `revision` and current values:
+Page with `offset` as in Step 3 on a site with more than 100 services. If more than one service matches, ask the user which one; if none does, say so rather than creating one. Then read it to get its current `revision` and current values:
 
 `GET https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>`
 
@@ -345,6 +345,8 @@ The price takes the site's currency, as on create. To change only the amount of 
 **Several services at once.** [Bulk Update Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services) takes a list of services (each with its own `id` and `revision`); [Bulk Update Services By Filter](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter) applies one change to every service a filter matches ("make all my services 60 minutes").
 
 **Changing the type** (`"type": "COURSE"` in the same PATCH) deletes the service's schedule and sessions and creates a new schedule. Confirm with the user before doing it, then schedule the sessions again on the new `schedule.id` (Step 5).
+- An APPOINTMENT that already has future bookings can't change type — the update fails with `can't change a service of type appointment after it has been booked`. Tell the user; don't cancel their bookings to get around it.
+- Changing to or from COURSE resets the service's locations to the site's default business location; restore any other location the user needs with [Set Service Locations](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/set-service-locations). Changing an APPOINTMENT to a CLASS or COURSE also clears its `staffMemberIds` and session durations.
 
 **Deleting a service**: `DELETE https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` cancels its future sessions. Confirm with the user first.
 
