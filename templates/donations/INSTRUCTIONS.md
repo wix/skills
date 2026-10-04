@@ -303,11 +303,11 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
 | Donations (campaigns, settings) | `app/333b456e-dd48-4d6b-b32b-9fd48d74e163` (redirects to the app's own route) |
-| Orders — every donation is an eCom order | `ecom-platform/orders` |
-| Accept payments | `payments` |
+| Orders — every donation is an eCom order | `ecom-platform/orders-list` |
+| Accept payments — connect a payment method | `wix-cashier/payments` |
+| Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-**Taking real donations needs a premium plan plus a connected payment method** — until then the
-hosted checkout refuses the payment; recurring frequencies (`WEEK`/`MONTH`/`YEAR`) additionally need a
+**Taking real donations needs a connected payment method plus a premium plan.** Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."** Recurring frequencies (`WEEK`/`MONTH`/`YEAR`) additionally need a
 payment provider that supports recurring payments. Mention it; don't treat it as a code failure. The
 cover-fee 2.9% is added to every recurring charge.
 

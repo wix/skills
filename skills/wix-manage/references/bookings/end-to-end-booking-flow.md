@@ -1,6 +1,6 @@
 ---
 name: "End-to-End Booking Flow"
-description: Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
+description: Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or by taking payment through eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 ---
 
 # End-to-End Booking Flow (REST)

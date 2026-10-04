@@ -67,6 +67,8 @@ export interface OptionChoice {
   colorCode: string | null;
   /** At least one variant with this choice is in stock (catalog-level; the PDP store refines it against the current selection). */
   inStock: boolean;
+  /** The gallery image the merchant linked to this choice (shown when it is picked), resolved to https; null when none. */
+  imageUrl: string | null;
 }
 
 export interface ProductOption {
@@ -144,7 +146,11 @@ export interface ProductVariant {
   quantity: number | null;
   /** The merchant's pre-order note ("Ships in 3 weeks"); null when none or not pre-orderable. */
   preorderMessage: string | null;
-  /** This variant's own image (from its choice's linked media), resolved to an https URL; null when it has none. */
+  /**
+   * The image Wix derived for this variant from its choice's linked media, resolved to https; null when none.
+   * Wix derives it at product creation only (and only for single-option products), so a choice image the
+   * merchant added later never lands here: read the choice's own `imageUrl` (the detail store's `imageUrl` does).
+   */
   imageUrl: string | null;
 }
 

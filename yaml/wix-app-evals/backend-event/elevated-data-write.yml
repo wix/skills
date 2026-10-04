@@ -1,11 +1,11 @@
 name: backend-event/elevated-data-write
-description: Backend event handler writing to a CMS collection — backend extensions run as the app, so the Wix Data call must be elevated inside the handler, the one context where auth.elevate is valid
+description: Backend event handler writing to a CMS collection — backend extensions run as the app, so the Wix Data call must be elevated inside the handler, the one context where auth.elevate is valid — and the dashboard that lists those records opens each one read-only, because they are a log the app writes
 triggerPrompt: |-
   Build a backend event handler for my app that listens for e-commerce orders being paid, and records each paid order in a CMS collection with the order number, buyer email, and total. Also add a dashboard page that lists what has been recorded.
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [backend-event, data-collection, dashboard-page, wix-patterns-docs]
+tags: [backend-event, data-collection, dashboard-page, draft-template, ux-success-model, wix-patterns-docs]
 assertions:
   - type: skill_was_called
     negate: false
@@ -21,7 +21,7 @@ assertions:
     negate: false
     skillNames: [wix-app]
     referenceFiles:
-      wix-app: [references/DASHBOARD_PAGE.md]
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
   - type: skill_was_called
     negate: false
     skillNames: [wix-app]
@@ -43,6 +43,11 @@ assertions:
     minScore: 7
     prompt: |-
       Evaluate the path the agent took. Check: (1) It confirmed the exact event name against the common-events reference or the API docs rather than inventing a plausible one. (2) It scoped the collection ID with the supplied `APP_NAMESPACE` rather than using a bare collection name. (3) It did not attempt to reach the event payload from the dashboard page, or route the write through an HTTP endpoint the event handler could perform itself. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      The dashboard lists CMS records that the app's event handler writes as a log of paid orders, and the user did not ask to edit them. Under the skill's rule, records an app writes to log something that happened elsewhere open read-only: editing one would change the record of a payment, not the payment. Evaluate the generated code. Each row must open a routed read-only detail page — the CMS Collection and Entity Template's schema-driven collection, with its detail route adapted to the Collection and Read-Only Detail Template's layout — showing the order number, buyer email, and total, with a way back to the list. An editable EntityPage, a save button, or any mutation action on these records scores at most 4. A table with no drill-in, or a modal/side panel standing in for the detail page, scores at most 4. Do not require create or delete actions: the event handler creates these records. Confirm from the trace that the agent selected the template rather than copying an existing page. Score 0-10, citing code or tool evidence rather than the final response alone.
   - type: time_limit
     maxDurationMs: 1200000
   - type: cost

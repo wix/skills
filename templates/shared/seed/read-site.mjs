@@ -10,9 +10,9 @@
 // `calls` lists every request made, with the method's documentation URL — open one of those (the
 // URL plus `.md` is the full page) when the brief needs more than the summary shows. A failed call
 // is reported in `calls` with its status and message; the reader continues and marks the field null.
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { contentSiteId } from "./site-context.mjs";
+import { wixToken } from "./wix-cli.mjs";
 
 const API = "https://www.wixapis.com";
 const DOCS_INSTALLED_APPS = "https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps";
@@ -30,8 +30,7 @@ export function siteIdFromArgsOrConfig() {
 }
 
 export function makeApi(siteId) {
-  const token = execFileSync("npx", ["-y", "@wix/cli@latest", "token", "--site", siteId], { encoding: "utf8" }).trim();
-  if (!token) throw new Error("the Wix CLI returned no token — run `npx @wix/cli@latest login` first");
+  const token = wixToken(siteId);
   const calls = [];
   async function call({ method = "POST", path, body, docs }) {
     const entry = { method, path: path.split("?")[0], docs };

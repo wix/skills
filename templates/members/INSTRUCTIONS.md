@@ -44,7 +44,7 @@ Astro stack additionally gets:
 | file | what it is |
 |---|---|
 | `layouts/SiteLayout.astro` | the site chrome — **yours to brand**: header, footer, nav. Keep the `<slot name="seo-tags" />`, the global.css import, and one `<MemberMenu client:only="react" />` in the header (if another vertical's layout won, mount `MemberMenu` in that header instead) |
-| `pages/login.astro` · `pages/account.astro` | the login and account routes — thin shells mounting `LoginForm` and `RequireAuth` + `AccountView` `client:only="react"`; brand the chrome around them, keep the mounts |
+| `pages/login.astro` · `pages/account.astro` | the login and account routes — thin shells mounting `LoginForm` and `AccountPage` `client:only="react"`; brand the chrome around them, keep the mounts |
 
 ## What you build — this is the design job, not optional polish
 
@@ -119,7 +119,11 @@ else. Then, by default:
 
 Hooks first, branches after (an early return above a hook changes hook order between renders and
 React throws). Session-reading islands mount `client:only="react"` — they read browser state and
-must not server-render; a `client:load` gate would flash the logged-out state.
+must not server-render; a `client:load` gate would flash the logged-out state. **One island per
+gated surface:** nest `RequireAuth` around the view inside a React component and mount that
+component from the `.astro` page. Children written in the `.astro` file
+(`<RequireAuth client:only="react"><AccountView /></RequireAuth>`) are rendered once on the server
+as static HTML and never hydrate — the view stays on its loading placeholder forever.
 
 ```astro
 ---
@@ -139,13 +143,23 @@ import LoginForm from "../components/members/LoginForm";
 ---
 // src/pages/account.astro — ships; the gate stays, the surface inside is yours to replace.
 import SiteLayout from "../layouts/SiteLayout.astro";
-import AccountView from "../components/members/AccountView";
-import RequireAuth from "../components/members/RequireAuth";
+import AccountPage from "../components/members/AccountPage";
 ---
 <SiteLayout title="My account">
   <h1 class="mb-8 text-2xl font-semibold tracking-tight">My account</h1>
-  <RequireAuth client:only="react"><AccountView /></RequireAuth>
+  <AccountPage client:only="react" />
 </SiteLayout>
+```
+
+```tsx
+// src/components/members/AccountPage.tsx — ships: the gate and the view in ONE React tree.
+export default function AccountPage() {
+  return (
+    <RequireAuth>
+      <AccountView />
+    </RequireAuth>
+  );
+}
 ```
 
 ```tsx
