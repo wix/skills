@@ -26,7 +26,7 @@ assertions:
       The user pasted the finished landing page (a single index.html, text only) and asked the
       agent to put it online; they have no Wix site and would rather not upload files themselves.
       The page is in the conversation, so the agent can carry it: from a shell with curl -F, or
-      as a string multipart body through a Wix API tool that runs JavaScript with wix.request.
+      as a string multipart body through the Wix MCP's ExecuteWixAPI tool (wix.request).
       Judge the tool-call trace and the final answer.
 
       Pass if the response does ONE of these:
@@ -36,7 +36,7 @@ assertions:
         https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop as
         multipart/form-data with a `files` part named index.html; reports the `siteUrl` the drop
         returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}.
-      - Publish anonymously (a shell, no CLI login), optionally claimed through an API tool: POST .../v1/headless-business/anonymous/{anonymousId}
+      - Publish anonymously (a shell, no CLI login), optionally claimed through ExecuteWixAPI: POST .../v1/headless-business/anonymous/{anonymousId}
         → POST .../anonymous/{anonymousId}/{metaSiteId}/upload as multipart with `files` →
         POST .../anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"}; reports the
         live siteUrl and the save link
@@ -69,12 +69,12 @@ assertions:
 
       Penalize and LIST any of:
         - an anonymous publish followed by a claim when the identity could carry the upload itself —
-          no shell (only an API tool with the user's login), or a Wix CLI token in the shell;
+          no shell (only the Wix MCP), or a Wix CLI token in the shell;
           provision + drop does it in two calls with no URL change. With a shell and identity only
-          in an API tool, anonymous + claim is the intended path, not a detour
+          in the Wix MCP, anonymous + claim is the intended path, not a detour
         - a template site-creation call, or a provision call with business solutions
         - with a shell available, the file contents written into a wix.request call instead of
-          sent with curl -F from disk (identity may still come from the API tool, e.g. for a claim)
+          sent with curl -F from disk (identity may still come from the Wix MCP, e.g. for a claim)
         - a call to the site-import API or any crawl/migration tool
         - an upload attempted as JSON rather than multipart
         - calls made out of order, or release attempted without an uploadId

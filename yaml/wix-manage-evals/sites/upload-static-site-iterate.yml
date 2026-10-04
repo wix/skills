@@ -63,11 +63,11 @@ assertions:
         - a second site creation (provision or anonymous create) for the edit
         - two different metaSiteIds or two different live URLs across the run
         - an anonymous publish followed by a claim when the identity could carry the upload itself
-          (no shell, or a Wix CLI token in the shell); with a shell and identity only in an API
-          tool, anonymous + claim is the intended path
+          (no shell, or a Wix CLI token in the shell); with a shell and identity only in the Wix
+          MCP, anonymous + claim is the intended path
         - a template site-creation call
         - with a shell available, the file contents written into a wix.request call instead of
-          sent with curl -F from disk (identity may still come from the API tool, e.g. for a claim)
+          sent with curl -F from disk (identity may still come from the Wix MCP, e.g. for a claim)
         - re-reading docs repeatedly, or a probing spiral
 
       For each issue name the likely skill gap behind it.

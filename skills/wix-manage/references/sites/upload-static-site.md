@@ -17,24 +17,25 @@ route is what can carry them, and whether you hold the user's Wix identity.
 **You have a shell and can read the files** (the user's project, a build, or a
 page you generated — write it to disk first). The files go through `curl -F`:
 it streams them from disk, any type and any number, at no cost to you. Use it even
-when a Wix API tool is also connected.
+when the Wix MCP is also connected.
 
 - **A Wix CLI login in the shell** (`npx @wix/cli token` prints a token) —
   [publish into the user's account](#publish-into-the-users-account).
 - **No CLI login** — [publish anonymously](#publish-anonymously), then keep it:
-  [claim](#claim-it-into-the-users-account) it through a connected Wix API tool
-  (a claim is a small JSON call), or have the user sign in once with
+  [claim](#claim-it-into-the-users-account) it through the Wix MCP's `ExecuteWixAPI`
+  tool (a claim is a small JSON call), or have the user sign in once with
   `npx @wix/cli login` and claim with that token. With neither, the save link.
 
-**You have no shell, only a Wix API tool that runs JavaScript with `wix.request`**
-(it carries the user's login). Its runtime has no filesystem: the file contents
+**You have no shell, only the Wix MCP** — the usual case for a chat assistant with
+the Wix connector. Its `ExecuteWixAPI` tool runs JavaScript whose `wix.request`
+calls carry the user's login. That runtime has no filesystem: the file contents
 are written out inside the call itself, every byte is code you generate, and each
 change resends all of it. A string body is sent as UTF-8, so binary files (PNG,
 JPG, fonts, zips) arrive corrupted.
 
 - **A page or a few small text files** (HTML, CSS, JS, SVG; images linked by
   absolute URL) — [publish into the user's account](#publish-into-the-users-account)
-  through `wix.request`.
+  through `ExecuteWixAPI`.
 - **Many files, a long page, or binary assets** — [the drop page](#the-drop-page).
 
 **The files are only on the user's machine** — [the drop page](#the-drop-page).
@@ -83,8 +84,8 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-With no shell, the same two calls through `wix.request`, for a page or a few small
-text files held in memory:
+With no shell, the same two calls as one `ExecuteWixAPI` script, for a page or a
+few small text files held in memory:
 
 ```javascript
 async function run() {
