@@ -36,7 +36,7 @@ assertions:
         https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop as
         multipart/form-data with a `files` part named index.html; reports the `siteUrl` the drop
         returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}.
-      - Publish anonymously (no identity): POST .../v1/headless-business/anonymous/{anonymousId}
+      - Publish anonymously (a shell, no CLI login), optionally claimed through an API tool: POST .../v1/headless-business/anonymous/{anonymousId}
         → POST .../anonymous/{anonymousId}/{metaSiteId}/upload as multipart with `files` →
         POST .../anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"}; reports the
         live siteUrl and the save link
@@ -68,8 +68,10 @@ assertions:
       spiral or a wrong-API attempt scores lower.
 
       Penalize and LIST any of:
-        - an anonymous publish followed by a claim when the agent held the user's identity from the
-          start (provision + drop does it in two calls, with no URL change)
+        - an anonymous publish followed by a claim when the identity could carry the upload itself —
+          no shell (only an API tool with the user's login), or a Wix CLI token in the shell;
+          provision + drop does it in two calls with no URL change. With a shell and identity only
+          in an API tool, anonymous + claim is the intended path, not a detour
         - a template site-creation call, or a provision call with business solutions
         - with a shell available, the file contents written into a wix.request call instead of
           sent with curl -F from disk (identity may still come from the API tool, e.g. for a claim)

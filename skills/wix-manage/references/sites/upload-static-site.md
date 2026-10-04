@@ -11,49 +11,39 @@ reach the same result: a live, Wix-hosted static site.
 
 ## Choose the route
 
-Two facts decide it.
+Every route sends the files as one `multipart/form-data` request. What decides the
+route is what can carry them, and whether you hold the user's Wix identity.
 
-**Whose identity do you hold?** Either the user's Wix identity, through a Wix API
-tool that carries their login or a shell token from the
-[Wix CLI](#getting-the-users-identity), or none.
+**You have a shell and can read the files** (the user's project, a build, or a
+page you generated — write it to disk first). The files go through `curl -F`:
+it streams them from disk, any type and any number, at no cost to you. Use it even
+when a Wix API tool is also connected.
 
-**What carries the files?** Every route sends them as one `multipart/form-data`
-request.
+- **A Wix CLI login in the shell** (`npx @wix/cli token` prints a token) —
+  [publish into the user's account](#publish-into-the-users-account).
+- **No CLI login** — [publish anonymously](#publish-anonymously), then keep it:
+  [claim](#claim-it-into-the-users-account) it through a connected Wix API tool
+  (a claim is a small JSON call), or have the user sign in once with
+  `npx @wix/cli login` and claim with that token. With neither, the save link.
 
-- **A shell** — `curl -F` reads files from disk and streams them: any type, any
-  number, up to the [limits](#what-the-upload-accepts-and-how-it-fails), at no cost
-  to you. With a shell, files always go this way, even when a Wix API tool is
-  also connected; a page you generated goes to disk first.
-- **Only a Wix API tool that runs JavaScript with `wix.request`** — the runtime
-  has no filesystem, so the file contents are written out inside the call itself:
-  every byte is code you generate, and each change resends all of it. That fits a
-  generated page or a few small text files (HTML, CSS, JS, SVG). A string body is
-  sent as UTF-8, so binary files (PNG, JPG, fonts, zips) arrive corrupted;
-  reference images by absolute URL instead. Many files, a long page or binary
-  assets go to the drop page.
-- **Files only on the user's machine** — nothing you run can carry them.
+**You have no shell, only a Wix API tool that runs JavaScript with `wix.request`**
+(it carries the user's login). Its runtime has no filesystem: the file contents
+are written out inside the call itself, every byte is code you generate, and each
+change resends all of it. A string body is sent as UTF-8, so binary files (PNG,
+JPG, fonts, zips) arrive corrupted.
 
-| Identity | Files | Route |
-| --- | --- | --- |
-| Yes | Can be carried | [Publish into the user's account](#publish-into-the-users-account) — two calls, the site is theirs from the start |
-| No | Can be carried | [Publish anonymously](#publish-anonymously) — live at once, kept through a save link or a later claim |
-| Any | Can't be carried | [The drop page](#the-drop-page) — the user uploads in the browser |
+- **A page or a few small text files** (HTML, CSS, JS, SVG; images linked by
+  absolute URL) — [publish into the user's account](#publish-into-the-users-account)
+  through `wix.request`.
+- **Many files, a long page, or binary assets** — [the drop page](#the-drop-page).
 
-**A shell plus a Wix API tool, and no CLI login:** the identity is in the tool,
-the files are on disk. Keep the files in the shell. Either log in with the
-[Wix CLI](#getting-the-users-identity) and publish into the account with `curl`,
-or publish anonymously with `curl` and [claim](#claim-it-into-the-users-account)
-through the API tool — a claim is a small JSON call.
+**The files are only on the user's machine** — [the drop page](#the-drop-page).
 
 Publishing yourself beats the drop page whenever a route fits — the user gets a
-live site without uploading anything. Decide honestly: never report an upload you
-couldn't perform. Whenever a route fails partway, hand over the drop page.
+live site without uploading anything. Never report an upload you couldn't
+perform; whenever a route fails partway, hand over the drop page.
 
 ## Publish into the user's account
-
-```
-Base URL: https://www.wixapis.com/headless-business-setup
-```
 
 ### 1. Create the site
 
@@ -90,7 +80,7 @@ curl -sS -X POST \
 
 ```json
 { "uploadId": "c0d5b3bb-60a9-43f9-9d27-7ca8df967825",
-  "siteUrl": "https://headless-zjfqzddjtww-ayalg5-1406.wix-site-host.com" }
+  "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
 With no shell, the same two calls through `wix.request`, for a page or a few small
@@ -188,6 +178,8 @@ curl -sS -X POST \
 
 **To change it**, re-run steps 2–3 with the same `anonymousId` and `metaSiteId` and
 the full file set; `siteUrl` stays the same. Never go back to step 1 for a change.
+Iterate first, claim last: after a claim, changes need the user's identity in the
+shell (a [drop](#change-it-later) with a CLI token).
 
 **When it's final:** with the user's identity, [claim it](#claim-it-into-the-users-account).
 Without it, stop here — a finished result. Give the user `siteUrl` plus the save
@@ -240,22 +232,6 @@ them on a live URL at once, and a banner offers to sign in and keep the site. Te
 them the [requirements](#what-the-upload-accepts-and-how-it-fails) so it doesn't
 fail on the first try.
 
-## Getting the user's identity
-
-- **A Wix API tool that carries the user's login** — call through it with
-  `scope: 'account'`; no token to handle. Use it for the JSON calls (create, claim,
-  Query Sites); with a shell, the files themselves still go through `curl`.
-- **The Wix CLI, for a shell** — the user signs in once in the browser, then
-  `wix token` prints a token for `curl`:
-
-  ```bash
-  npx @wix/cli login
-  ACCESS_TOKEN=$(npx @wix/cli token)
-  ```
-
-  The same login is what [Keep building](#keep-building-add-a-backend-when-you-need-one)
-  needs, so it's never wasted.
-
 ## What the upload accepts, and how it fails
 
 These apply to every route:
@@ -292,20 +268,17 @@ unzip project.zip -d project      # the site's files + wix.config.json
 ```
 
 Then follow `https://wix.com/headless/skill.md`: it turns the files into a
-headless project bound to the same site, released with the Wix CLI from then on.
+headless project bound to the same site, released with the Wix CLI from then on
+(`npx @wix/cli login`).
 
 ## Route the request correctly
 
-- **Files you can carry, user's identity held** — publish into their account;
-  return `siteUrl` + dashboard.
-- **Files you can carry, no identity** — publish anonymously; return `siteUrl` +
-  save link.
-- **Files only on the user's machine, or nothing can carry them** — the drop page.
-  It's also the fallback whenever publishing fails partway.
-- **A change to a site published this way** — re-drop (owned) or re-upload and
-  release (still anonymous) on the same site, full file set.
-- **An anonymous site the user wants to keep** — claim it with their identity,
-  else the save link.
+- **A new site from the user's files** — [Choose the route](#choose-the-route).
+- **A change to a site published this way** — the same site, full file set: a
+  [drop](#change-it-later) when it's in the user's account, upload + release while
+  it's anonymous.
+- **An anonymous site the user wants to keep** — [claim](#claim-it-into-the-users-account)
+  it, else the save link.
 - **A site that now needs a backend** — [Keep building](#keep-building-add-a-backend-when-you-need-one).
 - **Migrating a live site/store from another platform by URL, or CSV/TSV
   exports** — [Site Import](site-import.md).
