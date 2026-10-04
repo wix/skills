@@ -6,40 +6,43 @@ description: Publish a user's ready-made website — an index.html, a static bui
 # Upload a Website or HTML Files
 
 The user has a finished website as files — hand-written HTML, a static build, a
-zip, or the output of an AI site builder — and wants it live on Wix. Three routes
-reach the same result: a live, Wix-hosted static site.
+zip, or the output of an AI site builder — and wants it live on Wix as a static,
+Wix-hosted site.
 
 ## Choose the route
 
-Every route sends the files as one `multipart/form-data` request. What decides the
-route is what can carry them, and whether you hold the user's Wix identity.
+Every route sends the files as one `multipart/form-data` request. Four ways to
+get them live; what you have decides which are open to you.
 
-**You have a shell and can read the files** (the user's project, a build, or a
-page you generated — write it to disk first). The files go through `curl -F`:
-it streams them from disk, any type and any number, at no cost to you. Use it even
-when the Wix MCP is also connected.
+| Option | Needs | Carries | The user ends up with |
+| --- | --- | --- | --- |
+| **A.** `curl` + CLI token → [into the account](#publish-into-the-users-account) | A shell; a Wix CLI login | Anything on disk | A site in their account, final URL |
+| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | A page or a few small text files | A site in their account, final URL |
+| **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
+| **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
 
-- **A Wix CLI login in the shell** (`npx @wix/cli token` prints a token) —
-  [publish into the user's account](#publish-into-the-users-account).
-- **No CLI login** — [publish anonymously](#publish-anonymously), then keep it:
-  [claim](#claim-it-into-the-users-account) it through the Wix MCP's `ExecuteWixAPI`
-  tool (a claim is a small JSON call), or have the user sign in once with
-  `npx @wix/cli login` and claim with that token. With neither, the save link.
+What sets them apart:
 
-**You have no shell, only the Wix MCP.** Its `ExecuteWixAPI` tool runs JavaScript
-whose `wix.request` calls carry the user's login. That runtime has no filesystem: the file contents
-are written out inside the call itself, every byte is code you generate, and each
-change resends all of it. A string body is sent as UTF-8, so binary files (PNG,
-JPG, fonts, zips) arrive corrupted.
+- **`curl -F` streams files from disk** — any type, any number, up to the
+  [limits](#what-the-upload-accepts-and-how-it-fails), at no cost to you. A page
+  you generated can be written to disk first.
+- **`ExecuteWixAPI` has no filesystem.** The Wix MCP's tool runs JavaScript whose
+  `wix.request` calls carry the user's login, so it needs no install and no
+  token — but the file contents are written out inside the call: every byte is
+  code you generate, and each change resends all of it. A string body is sent as
+  UTF-8, so binary files (PNG, JPG, fonts, zips) arrive corrupted; link images by
+  absolute URL.
+- **A CLI login** is one browser sign-in by the user (`npx @wix/cli login`; then
+  `npx @wix/cli token` prints a token). It also unlocks later changes from disk
+  and [Keep building](#keep-building-add-a-backend-when-you-need-one).
+- **Anonymous** needs no identity, but the URL changes on claim and the record
+  expires after an hour.
 
-- **A page or a few small text files** (HTML, CSS, JS, SVG; images linked by
-  absolute URL) — [publish into the user's account](#publish-into-the-users-account)
-  through `ExecuteWixAPI`.
-- **Many files, a long page, or binary assets** — [the drop page](#the-drop-page).
+So: a small text page with the Wix MCP connected — B is the shortest path, shell
+or not. Many files, binary assets or a large build — A, or C when there's no CLI
+login. Files only on the user's machine, or nothing above fits — D.
 
-**The files are only on the user's machine** — [the drop page](#the-drop-page).
-
-Publishing yourself beats the drop page whenever a route fits — the user gets a
+Publishing yourself beats the drop page whenever an option fits — the user gets a
 live site without uploading anything. Never report an upload you couldn't
 perform; whenever a route fails partway, hand over the drop page.
 
@@ -83,8 +86,8 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-With no shell, the same two calls as one `ExecuteWixAPI` script, for a page or a
-few small text files held in memory:
+Option B — the same two calls as one `ExecuteWixAPI` script, for a page or a few
+small text files held in memory:
 
 ```javascript
 async function run() {

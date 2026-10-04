@@ -33,7 +33,7 @@ assertions:
         .../v1/headless-business/{metaSiteId}/drop on the SAME metaSiteId (or only the edited page
         dropped, once); the final answer gives a single live URL from the drop response, and the
         delivered site carries the updated headline.
-      - Anonymously (a shell, no CLI login; a claim at the end is fine): exactly ONE POST to .../v1/headless-business/anonymous/{anonymousId};
+      - Anonymously from a shell (a claim at the end is fine): exactly ONE POST to .../v1/headless-business/anonymous/{anonymousId};
         the change published by re-running upload (.../anonymous/{anonymousId}/{metaSiteId}/upload)
         and release (.../{metaSiteId}/release) with the SAME anonymousId and metaSiteId (or only
         the edited page uploaded and released, once); a single live URL; the updated headline.
@@ -62,12 +62,9 @@ assertions:
       Penalize and LIST any of:
         - a second site creation (provision or anonymous create) for the edit
         - two different metaSiteIds or two different live URLs across the run
-        - an anonymous publish followed by a claim when the identity could carry the upload itself
-          (no shell, or a Wix CLI token in the shell); with a shell and identity only in the Wix
-          MCP, anonymous + claim is the intended path
+        - an anonymous publish followed by a claim when the page could go straight into the account
+          (the Wix MCP connected, or a CLI token in the shell): a longer path with a URL change
         - a template site-creation call
-        - with a shell available, the file contents written into a wix.request call instead of
-          sent with curl -F from disk (identity may still come from the Wix MCP, e.g. for a claim)
         - re-reading docs repeatedly, or a probing spiral
 
       For each issue name the likely skill gap behind it.
