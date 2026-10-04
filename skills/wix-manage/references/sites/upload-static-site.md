@@ -11,36 +11,36 @@ Wix-hosted site.
 
 ## Choose the route
 
-Every route sends the files as one `multipart/form-data` request. Four ways to
-get them live; what you have decides which are open to you.
+Four ways to get the files live; what you have decides which are open to you.
 
 | Option | Needs | Carries | The user ends up with |
 | --- | --- | --- | --- |
 | **A.** `curl` + CLI token → [into the account](#publish-into-the-users-account) | A shell; a Wix CLI login | Anything on disk | A site in their account, final URL |
-| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | A page or a few small text files | A site in their account, final URL |
+| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Small text files already in the conversation | A site in their account, final URL |
 | **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
 | **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
 
-What sets them apart:
+What sets them apart is **whether the bytes pass through you**:
 
-- **`curl -F` streams files from disk** — any type, any number, up to the
-  [limits](#what-the-upload-accepts-and-how-it-fails), at no cost to you. A page
-  you generated can be written to disk first.
+- **`curl -F` streams files from disk**, so you never read them: any type, any
+  number, up to the [limits](#what-the-upload-accepts-and-how-it-fails).
 - **`ExecuteWixAPI` has no filesystem.** The Wix MCP's tool runs JavaScript whose
-  `wix.request` calls carry the user's login, so it needs no install and no
-  token — but the file contents are written out inside the call: every byte is
-  code you generate, and each change resends all of it. A string body is sent as
-  UTF-8, so binary files (PNG, JPG, fonts, zips) arrive corrupted; link images by
-  absolute URL.
-- **A CLI login** is one browser sign-in by the user (`npx @wix/cli login`; then
-  `npx @wix/cli token` prints a token). It also unlocks later changes from disk
-  and [Keep building](#keep-building-add-a-backend-when-you-need-one).
-- **Anonymous** needs no identity, but the URL changes on claim and the record
-  expires after an hour.
+  `wix.request` calls carry the user's login — no install, no token — but every
+  byte is written out inside the call. That costs nothing extra for a page you
+  generated or the user pasted (it's already in the conversation); for files on
+  disk it means reading them in and writing them back out, and each change
+  resends all of it. A string body is sent as UTF-8, so binary files (PNG, JPG,
+  fonts, zips) arrive corrupted; link images by absolute URL.
+- **A CLI login** is one approval by the user in the browser: run
+  `npx @wix/cli login`, have them approve, then `npx @wix/cli token` prints a
+  token. It also unlocks later changes from disk and
+  [Keep building](#keep-building-add-a-backend-when-you-need-one).
+- **Anonymous** needs no identity, but the record expires after an hour and the
+  URL changes on claim.
 
-So: a small text page with the Wix MCP connected — B is the shortest path, shell
-or not. Many files, binary assets or a large build — A, or C when there's no CLI
-login. Files only on the user's machine, or nothing above fits — D.
+So: a small page already in the conversation, with the Wix MCP connected — B,
+shell or not. Files on disk — A with a CLI login, else C (claimed through the Wix
+MCP when it's connected). Files out of your reach, or nothing above fits — D.
 
 Publishing yourself beats the drop page whenever an option fits — the user gets a
 live site without uploading anything. Never report an upload you couldn't
@@ -86,8 +86,8 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-Option B — the same two calls as one `ExecuteWixAPI` script, for a page or a few
-small text files held in memory:
+Option B — the same two calls as one `ExecuteWixAPI` script, for small text files
+already in the conversation:
 
 ```javascript
 async function run() {
@@ -119,7 +119,9 @@ Re-run step 2 on the same `metaSiteId` with the **full** file set: each drop
 replaces the site's files (a file left out is gone), and `siteUrl` stays the same.
 Never create another site for a change. The same call updates any site the user
 owns that was published this way, including one claimed from an
-[anonymous publish](#publish-anonymously).
+[anonymous publish](#publish-anonymously). For a site from an earlier conversation,
+find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
+below, matching the site's name or `viewUrl`.
 
 ## Publish anonymously
 
@@ -181,8 +183,8 @@ curl -sS -X POST \
 
 **To change it**, re-run steps 2–3 with the same `anonymousId` and `metaSiteId` and
 the full file set; `siteUrl` stays the same. Never go back to step 1 for a change.
-Iterate first, claim last: after a claim, changes need the user's identity in the
-shell (a [drop](#change-it-later) with a CLI token).
+Iterate first, claim last: after a claim, changes are a [drop](#change-it-later),
+which needs the user's identity — a CLI token for files on disk.
 
 **When it's final:** with the user's identity, [claim it](#claim-it-into-the-users-account).
 Without it, stop here — a finished result. Give the user `siteUrl` plus the save
