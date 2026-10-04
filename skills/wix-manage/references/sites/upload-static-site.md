@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
@@ -11,7 +11,7 @@ Wix-hosted site.
 
 ## Choose the route
 
-Four ways to get the files live; what you have decides which are open to you.
+Five ways to get the files live; what you have decides which are open to you.
 
 | Option | Needs | Carries | The user ends up with |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@ Four ways to get the files live; what you have decides which are open to you.
 | **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Small text files already in the conversation | A site in their account, final URL |
 | **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
 | **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
+| **E.** [The headless skill](#keep-building-add-a-backend-when-you-need-one) | A shell; Node; a Wix CLI login | A project folder, source included (built for you) | A site in their account as a Wix Headless project, released with the Wix CLI, ready for Wix Business Solutions |
 
 What sets them apart is **whether the bytes pass through you**:
 
@@ -37,10 +38,15 @@ What sets them apart is **whether the bytes pass through you**:
   [Keep building](#keep-building-add-a-backend-when-you-need-one).
 - **Anonymous** needs no identity, but the record expires after an hour and the
   URL changes on claim.
+- **The headless skill** is the heaviest — an install, a project, a build — and
+  the only one that takes framework source as is and leaves a project ready for a
+  backend. A drop site can still move to it [later](#keep-building-add-a-backend-when-you-need-one).
 
 So: a small page already in the conversation, with the Wix MCP connected — B,
-shell or not. Files on disk — A with a CLI login, else C (claimed through the Wix
-MCP when it's connected). Files out of your reach, or nothing above fits — D.
+shell or not. Static files on disk — A with a CLI login, else C (claimed through
+the Wix MCP when it's connected). A framework project (a `package.json`), or a
+site that needs stores, bookings, a CMS or members from the start — E. Files out
+of your reach, or nothing above fits — D.
 
 Publishing yourself beats the drop page whenever an option fits — the user gets a
 live site without uploading anything. Never report an upload you couldn't
@@ -246,7 +252,7 @@ These apply to every route:
 - **3 MB per file, 20 MB per site.**
 - **Static files only** — HTML, CSS, JS, images, fonts. Framework source that
   needs a build step (a `package.json`, React/Vue sources) must be built first;
-  upload the build output.
+  upload the build output, or take the project to the headless skill (option E).
 
 Failures come back as HTTP 400 with a code in `details.applicationError.code`:
 `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. A drop onto a site the
@@ -259,12 +265,15 @@ forward.
 
 ## Keep building: add a backend when you need one
 
-A dropped site is **static**. When it needs a real backend — stores, payments,
-bookings, a CMS, members, forms — it becomes a **Wix Headless project**, keeping
-the same site, appId and URL. This is a choice the user makes when the need
-appears; static changes never need it, they're a [drop](#change-it-later).
+The headless skill, `https://wix.com/headless/skill.md`, builds and releases a
+**Wix Headless project** with the Wix CLI: it adopts a project folder (a
+`package.json`, or an `index.html` at its root) into a new site, or takes a
+dropped one. A dropped site is **static**; when it needs a real backend — stores,
+payments, bookings, a CMS, members, forms — it moves to a headless project,
+keeping the same site, appId and URL. This is a choice the user makes when the
+need appears; static changes never need it, they're a [drop](#change-it-later).
 
-In a shell, once the site is in the user's account:
+To move a dropped site, in a shell, once it's in the user's account:
 
 ```bash
 curl -sSL -o project.zip \
@@ -272,9 +281,8 @@ curl -sSL -o project.zip \
 unzip project.zip -d project      # the site's files + wix.config.json
 ```
 
-Then follow `https://wix.com/headless/skill.md`: it turns the files into a
-headless project bound to the same site, released with the Wix CLI from then on
-(`npx @wix/cli login`).
+Then follow the headless skill from that folder: it turns the files into a
+headless project bound to the same site, released with the Wix CLI from then on.
 
 ## Route the request correctly
 
