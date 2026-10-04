@@ -38,8 +38,9 @@ assertions:
       - the agent confirms the sessions exist (an events query or the service's
         `schedule.firstSessionStart` / `lastSessionEnd`) or reports them from successful
         create responses, AND
-      - the final response says the course is hidden and free and lists the session
-        dates.
+      - the final response says the course is hidden and free and states the session
+        schedule — either every session date, or the weekday and time with the first
+        and last session dates.
 
       Fail if:
       - session dates or counts are put inside the Services V2 payload (`course.sessions`,

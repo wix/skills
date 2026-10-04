@@ -50,7 +50,7 @@ Use the user's values wherever they gave one. For the rest:
 - The user said "free" → `rateType: "NO_FEE"`.
 - The user gave no price → create the service free (`NO_FEE`), say so in the summary, and offer to set a price.
 
-**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7).
+**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7). This holds when you're working on your own and can't wait for an answer, too: an instruction to proceed on reasonable assumptions covers the service's other fields, never its schedule — sessions you pick are a timetable the owner didn't choose, published to customers.
 
 **Currency.** Send only `fixed.price.value`; leave `price.currency` out. The service always takes the site's payment currency — a currency you send is replaced with it (a `"JPY"` price on a USD site is stored as USD). Don't look up the site currency first; read it from the create response when you report the price.
 
@@ -190,11 +190,11 @@ Price-by-variant (`VARIED`), custom-text (`CUSTOM`), deposits and pricing plans 
 A CLASS or COURSE has no sessions when it's created, so customers can't book it, and a course with no future sessions shows as ended on its service page. Sessions are Calendar events on the service's own schedule (`item.schedule.id` from Step 4).
 
 - **The user gave days and times** ("Tuesdays at 6pm", "8 Wednesday evenings from the 14th") → create the sessions now.
-- **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule.
+- **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule — not even when you're told to proceed without asking; in that case finish with the service alone and name exactly what's missing.
 
 Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call).
 
-**Weekly CLASS** — every Tuesday 18:00–19:00 from 13 October, no end date:
+**Weekly CLASS** — every Tuesday 18:00–19:00 from the first Tuesday the user gave, no end date:
 
 ```json
 {
@@ -203,8 +203,8 @@ Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/c
     "event": {
       "scheduleId": "<SERVICE_SCHEDULE_ID>",
       "type": "CLASS",
-      "start": { "localDate": "2026-10-13T18:00:00" },
-      "end": { "localDate": "2026-10-13T19:00:00" },
+      "start": { "localDate": "<FIRST_TUESDAY>T18:00:00" },
+      "end": { "localDate": "<FIRST_TUESDAY>T19:00:00" },
       "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }],
       "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["TUESDAY"] }
     }
@@ -212,7 +212,7 @@ Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/c
 }
 ```
 
-This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` for each Tuesday. To stop the series on a date, add `"until": { "localDate": "2026-12-15T19:00:00" }` to `recurrenceRule`.
+This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` for each Tuesday. To stop the series on a date, add `"until": { "localDate": "<LAST_SESSION_DATE>T19:00:00" }` to `recurrenceRule`.
 
 **COURSE** — one event per session, all in one call (here the first two of a weekly series):
 
@@ -223,15 +223,15 @@ This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` 
     { "event": {
         "scheduleId": "<SERVICE_SCHEDULE_ID>",
         "type": "COURSE",
-        "start": { "localDate": "2026-10-14T18:00:00" },
-        "end": { "localDate": "2026-10-14T20:00:00" },
+        "start": { "localDate": "<SESSION_1_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_1_DATE>T20:00:00" },
         "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
     } },
     { "event": {
         "scheduleId": "<SERVICE_SCHEDULE_ID>",
         "type": "COURSE",
-        "start": { "localDate": "2026-10-21T18:00:00" },
-        "end": { "localDate": "2026-10-21T20:00:00" },
+        "start": { "localDate": "<SESSION_2_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_2_DATE>T20:00:00" },
         "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
     } }
   ]
@@ -255,8 +255,8 @@ Rules for every session event:
 
 ```json
 {
-  "fromLocalDate": "2026-10-01T00:00:00",
-  "toLocalDate": "2026-12-31T00:00:00",
+  "fromLocalDate": "<TODAY>T00:00:00",
+  "toLocalDate": "<AFTER_LAST_SESSION>T00:00:00",
   "query": { "filter": { "scheduleId": "<SERVICE_SCHEDULE_ID>" } }
 }
 ```
@@ -271,8 +271,8 @@ The result lists the generated sessions (`INSTANCE` events for a weekly class, t
     "event": {
       "id": "<EVENT_ID>",
       "revision": "<EVENT_REVISION>",
-      "start": { "localDate": "2026-10-13T19:00:00" },
-      "end": { "localDate": "2026-10-13T20:00:00" }
+      "start": { "localDate": "<NEW_DATE>T19:00:00" },
+      "end": { "localDate": "<NEW_DATE>T20:00:00" }
     }
   }]
 }
@@ -289,7 +289,7 @@ An APPOINTMENT has no events of its own: its free slots come from the working ho
 Base the summary on the API responses, not on what you sent:
 1. **What was created** — name, type, price as stored (amount and currency; "per session" for a class, "for the whole course" for a course; "free" if no price was given, with an offer to set one), capacity, duration or staff for an appointment, category, and hidden if it is.
 2. **Assumptions** — every default from Step 2 you applied ("I set capacity to 10 since you didn't say").
-3. **Sessions** (CLASS / COURSE) — the sessions you created and confirmed. If none exist yet, say the service can't be booked until it has sessions, and end with a direct question for them: the weekday(s), start and end time, and first date — for a course, the date of each session or the weekly pattern and how many sessions.
+3. **Sessions** (CLASS / COURSE) — the sessions you created and confirmed: list each session's date and time (for a weekly class with no end date, the weekday, time and first date). If none exist yet, say the service can't be booked until it has sessions, and end with a direct question for them: the weekday(s), start and end time, and first date — for a course, the date of each session or the weekly pattern and how many sessions.
 4. **What you can change** — offer to adjust price, capacity, duration, staff or schedule.
 
 ---
