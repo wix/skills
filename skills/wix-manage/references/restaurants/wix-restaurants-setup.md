@@ -278,20 +278,71 @@ For complex restaurant menus, use this order to avoid dependency issues:
 ## Item Labels
 
 A label is its own entity with a GUID `id` and a `name`; an item references labels as
-`"labels": [{ "id": "<LABEL_ID>" }]`.
+`"labels": [{ "id": "<LABEL_ID>" }]`. Never send a label name or slug such as
+`chef-recommendation` where a label `id` is required. Sites often already carry common dietary
+labels such as Vegan, so look the name up before creating.
 
-1. Look the label up by name first. Sites often already carry common dietary labels such as Vegan:
-   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query` with
-   `{ "query": { "cursorPaging": { "limit": 500 } } }`, then match the name in the response's `labels`.
-2. Create it only if no label has that exact name:
-   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels` with
-   `{ "label": { "name": "Chef's Pick" } }`. The response carries the new label's `id`.
-3. Only when the user asks to put the label on items: read the items first with Query Items (Step 8),
-   append `{ "id": "<LABEL_ID>" }` to each item's `labels`, and send them with
-   `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/update`. That call rejects an item
-   whose pricing fields are missing with `428`, even with a `labels` field mask, so send each item as the
-   query returned it — including its `revision`, `name`, `pricingType` and `priceInfo` — with only
-   `labels` changed.
+### Step 9a: Find an existing label by name
+
+**Endpoint**: `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query`
+
+```json
+{ "query": { "filter": { "name": { "$eq": "Chef's Pick" } }, "cursorPaging": { "limit": 100 } } }
+```
+
+**Response**: `{ "labels": [ { "id": "<LABEL_ID>", "revision": "1", "name": "Chef's Pick" } ], "pagingMetadata": { ... } }`
+— an empty `labels` array means no label has that exact name.
+
+### Step 9b: Create the label
+
+Only when Step 9a returned nothing.
+
+**Endpoint**: `POST https://www.wixapis.com/restaurants/item-labels/v1/labels`
+
+```json
+{ "label": { "name": "Chef's Pick" } }
+```
+
+**Response**: `{ "label": { "id": "<LABEL_ID>", "revision": "1", "name": "Chef's Pick" } }`
+
+### Step 9c: Put the label on items
+
+Only when the user asks to label items. Read the items first with Query Items (Step 8); each
+update needs the item's current `revision`, its pricing and its existing `labels`.
+
+**Endpoint**: `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/update`
+
+```json
+{
+  "items": [
+    {
+      "item": {
+        "id": "<ITEM_ID>",
+        "revision": "<ITEM_REVISION>",
+        "name": "Caesar Salad",
+        "priceInfo": { "price": "14.99" },
+        "labels": [{ "id": "<EXISTING_LABEL_ID>" }, { "id": "<LABEL_ID>" }]
+      },
+      "mask": { "paths": ["labels"] }
+    }
+  ],
+  "returnEntity": false
+}
+```
+
+Send each item as the query returned it — `id`, `revision`, `name`, and its `priceInfo` or
+`priceVariants` — with only `labels` changed: the call rejects an item whose pricing fields are
+missing with `428`, even with a `labels`-only mask. Keep the item's existing label ids in the
+array. For large menus, page through Query Items with `cursorPaging` and send the items in
+batches.
+
+**Response**: `results[].itemMetadata.success` per item and
+`bulkActionMetadata.totalSuccesses` / `totalFailures`.
+
+Full contract:
+[Query Labels](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-labels/query-labels),
+[Create Label](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-labels/create-label),
+[Bulk Update Items](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/bulk-update-item).
 
 ## Error Handling
 
@@ -301,6 +352,8 @@ A label is its own entity with a GUID `id` and a `name`; an item references labe
 | `ITEM_NOT_FOUND` | Invalid item ID | Verify item exists |
 | `INVALID_PRICE` | Negative price | Use positive amounts |
 | `400 modifierGroup must not be empty` | Request body wrapped the group in `modifier` instead of `modifierGroup` | Use `modifierGroup` as the top-level field (Step 5b) |
+| `400` label ID `is not a valid GUID` | A label name or slug was sent in `labels[].id` | Look the label up by name (Step 9a) and send its `id` |
+| `428` from Bulk Update Items with a `labels` mask | An item was sent without its `priceInfo` / `priceVariants` | Send each item as Query Items returned it, changing only `labels` (Step 9c) |
 | Group created but `modifiers` is `[]` | Choices were sent inline (e.g. an `options` array) instead of as item modifier IDs | Create item modifiers first, then reference their IDs in `modifiers[].id` (Step 5a → 5b) |
 
 ## Related Documentation
