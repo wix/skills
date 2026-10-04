@@ -43,6 +43,12 @@ export interface ProductDetailState {
   modifierValues: Record<string, string>;
   /** The resolved variant; null while the selection is incomplete. */
   variant: ProductVariant | null;
+  /**
+   * The image for the current selection: the last-picked choice's own image, else any picked
+   * choice's, else the resolved variant's; null when none is linked (keep showing the gallery).
+   * Render it as the main image so a colour pick changes the photo, as on Wix's own product page.
+   */
+  imageUrl: string | null;
   /** The RANGE ("€24.99 – €34.99"; "From €24.99" on a discounted range) until every option is picked, then the variant's price — or its price on the selected plan. */
   price: string;
   /** Struck "was" price — only once a variant is resolved (or for a single-price product), never beside a range or a plan price. */
@@ -100,6 +106,7 @@ export function createProductDetailStore({ initial, slug }: ProductDetailStoreOp
   let product: ProductDetail | null = initial ?? null;
   let notFound = false;
   let selections: Record<string, string> = {}; // optionId -> choiceId
+  let lastPicked: string | null = null; // the option picked most recently — its choice's image wins
   let modifierValues: Record<string, string> = {};
   let subscriptionPlanId: string | null = null;
   let quantity = 1;
@@ -126,6 +133,12 @@ export function createProductDetailStore({ initial, slug }: ProductDetailStoreOp
         return { ...c, selected: selections[o.id] === c.choiceId, inStock: a ? a.inStock : c.inStock, exists: a ? a.exists : true };
       }),
     }));
+    const pickedImage = (optionId: string): string | null => {
+      const o = product?.options.find((x) => x.id === optionId);
+      return o?.choices.find((c) => c.choiceId === selections[optionId])?.imageUrl ?? null;
+    };
+    const pickedImages = (product?.options ?? []).map((o) => pickedImage(o.id)).filter((u): u is string => !!u);
+    const imageUrl = (lastPicked ? pickedImage(lastPicked) : null) ?? pickedImages[pickedImages.length - 1] ?? variant?.imageUrl ?? null;
     const missingOptions = (product?.options ?? []).filter((o) => !selections[o.id]).map((o) => o.name);
     const selectionComplete = missingOptions.length === 0;
     const missingModifier = (product?.modifiers ?? []).find((m) => m.mandatory && (modifierValues[m.key] ?? "").trim().length === 0);
@@ -152,7 +165,7 @@ export function createProductDetailStore({ initial, slug }: ProductDetailStoreOp
     const rangeDisplay = product ? (product.fromPrice ? `From ${product.price}` : isRange ? `${product.price} – ${product.maxPrice}` : product.price) : "";
     const planPrice = plan && variant ? variant.subscriptionPrices[plan.id] ?? "" : "";
     snapshot = {
-      product, notFound, optionGroups, modifierValues, variant,
+      product, notFound, optionGroups, modifierValues, variant, imageUrl,
       price: planPrice || variant?.price || rangeDisplay,
       // a plan price is its own thing — never strike the one-time price beside it
       compareAtPrice: plan ? null : variant ? variant.compareAtPrice : isRange ? null : (product?.compareAtPrice ?? null),
@@ -200,6 +213,7 @@ export function createProductDetailStore({ initial, slug }: ProductDetailStoreOp
     stop() { started = false; },
     selectOption(optionId, choiceId) {
       selections = { ...selections, [optionId]: choiceId };
+      lastPicked = optionId;
       quantity = 1; // the ceiling belongs to the newly resolved variant
       notifyResult = null; notifyError = null;
       emit();

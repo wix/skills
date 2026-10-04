@@ -335,7 +335,7 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 - `sku`, `barcode` — per combination.
 - `visible` — hide a single variant.
 - `revenueDetails` — cost / profit tracking.
-- Read-only, don't send: `media` (derived from the choices' media), `inventoryStatus` (stock — use the Inventory API, see *Set Stock for New Variants*), `subscriptionPricesInfo`.
+- Read-only, don't send: `media` (derived from the choices' media **at creation only**, and only on single-option products — a choice image linked by a later update never reaches the variant, so a storefront reads the choice's `media`, not the variant's), `inventoryStatus` (stock — use the Inventory API, see *Set Stock for New Variants*), `subscriptionPricesInfo`.
 
 ```bash
 # A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —

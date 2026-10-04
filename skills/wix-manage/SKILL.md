@@ -85,9 +85,6 @@ Creates and publishes blog posts using Blog Posts API. Covers resolving the requ
 ### [Booking Service Policy Setup](references/bookings/booking-service-policy-setup.md)
 Sets up booking policies, cancellation rules, and waitlist configuration using the Booking Policies API — query for the (default) bookingPolicy entity, then PATCH it with its revision. Covers cancellationPolicy, reschedulePolicy, booking-notice limits, waitlistPolicy, and participants limits — e.g. "customers can cancel up to 24 hours before".
 
-### [Booking System Integration Gaps](references/bookings/booking-system-integration-gaps.md)
-Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows.
-
 ### [Bookings Staff Setup](references/bookings/bookings-staff-setup.md)
 "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 
@@ -110,7 +107,7 @@ Full CRUD operations for Wix Bookings services using Services API. Covers servic
 "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
 
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
-Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
+Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or by taking payment through eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 
 ### [External Calendar Integration](references/bookings/external-calendar-integration.md)
 OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management.

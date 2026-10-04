@@ -21,10 +21,10 @@
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; every call below
 // carries a docs: line with its reference page.
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
+import { wixToken } from "../../shared/seed/wix-cli.mjs";
 
 const API = "https://www.wixapis.com";
 const WIX_DATA_APP_ID = "e593b0bd-b783-45b8-97c2-873d42aacaf4";
@@ -37,11 +37,7 @@ export function makeCtx({ cwd = process.cwd() } = {}) {
   // The content site: the config's site, or the parent on a migration preview (site-context.mjs stops
   // a seed there unless --allow-parent is passed after the user confirmed).
   const siteId = seedSiteId({ cwd, argv: process.argv });
-  const token = execFileSync("npx", ["@wix/cli@latest", "token", "--site", siteId], {
-    encoding: "utf8",
-    cwd,
-  }).trim();
-  if (!token) throw new Error("The Wix CLI returned no token — run `npx @wix/cli@latest login` first.");
+  const token = wixToken(siteId, cwd);
   return { token, siteId };
 }
 

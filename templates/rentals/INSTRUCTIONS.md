@@ -275,11 +275,13 @@ directly — hash routes, or one HTML file per route, decided before the first r
 ## Point the user to their dashboard
 
 Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the deploy JSON prints it
-as `dashboardUrl`). Rentals live in the Rentals dashboard, not the Bookings one — that is correct.
+as `dashboardUrl`). Rentals live in the Rentals dashboard page, not the Bookings services page: that
+page lists only services carrying the Bookings app id, so on a rentals site it shows an empty "Add a
+New Service" wizard. Never send the owner there for their rentals.
 
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
-| Rentals | `rentals` |
+| Rentals (the rooms, their prices and hours) | `wix-rental/rental-list` |
 | Bookings list | `bookings/bookings/bookings-list` |
 | Calendar | `bookings/calendar` |
 | Booking form | `bookings/settings/booking-form-page` |
