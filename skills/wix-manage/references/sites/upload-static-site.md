@@ -21,9 +21,9 @@ Five ways to get the files live; what you have decides which are open to you.
 | **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
 | **E.** [The headless skill](#keep-building-add-a-backend-when-you-need-one) | A shell; Node; a Wix CLI login | A project folder, source included (built for you) | A site in their account as a Wix Headless project, released with the Wix CLI, ready for Wix Business Solutions |
 
-What sets them apart is **whether the bytes pass through you**:
+What sets them apart:
 
-- **`curl -F` streams files from disk**, so you never read them: any type, any
+- **`curl -F` streams files from disk** — the bytes never pass through you: any type, any
   number, up to the [limits](#what-the-upload-accepts-and-how-it-fails).
 - **`ExecuteWixAPI` has no filesystem.** The Wix MCP's tool runs JavaScript whose
   `wix.request` calls carry the user's login — no install, no token — but every
