@@ -398,7 +398,7 @@ curl -X POST "https://www.wixapis.com/site-media/v1/files/import" \
   -d '{"url":"{publicPdfUrl}","mimeType":"application/pdf","displayName":"download.pdf"}'
 ```
 
-Use the returned `file.id`, not its `url`. Import is asynchronous: if `file.operationStatus` is `PENDING`, check [Get File Descriptor](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor) until it is `READY`; stop and report a `FAILED` import. Attach only a ready file.
+Use the returned `file.id`, not its `url`. Import is asynchronous: if `file.operationStatus` is `PENDING`, allow processing time between [Get File Descriptor](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor) checks rather than repeating immediate reads. Stop and report a `FAILED` import or a file that stays `PENDING` after bounded waiting. Attach only a ready file.
 
 ```bash
 curl -X GET "https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}" \
@@ -433,7 +433,9 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-Confirm the existing variant's ID, price, SKU (if present), and `digitalProperties.digitalFile.id` in the PATCH response.
+For this path, Search Products returns `products[]` (use the exact-name match's `id`); Get Product returns `product.revision` and `product.variantsInfo.variants[]`; Import File and Get File Descriptor return `file.id` and `file.operationStatus`; Update Product returns `product.variantsInfo.variants[]`. These are the response fields needed by the examples above.
+
+Confirm the intended variant's ID, unchanged price and SKU (if present), and `digitalProperties.digitalFile.id` **from the returned PATCH product**, not from the variant array sent in the request. If the response omits those fields, do not claim the attachment was verified.
 
 ## Important Notes
 
