@@ -38,18 +38,24 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how directly the agent got from the request to the label existing. Examine the tool-call
-      trace, including request bodies and any error bodies. 10 = no wasted calls and no errors.
+      trace, including request bodies and any error bodies.
 
       Reading the restaurants recipe is expected and is never a wasted call. One label lookup before the
-      create is expected and is not redundancy.
+      create is expected and is not redundancy. Verifying a method it is about to call — one reference
+      read or one schema inspection for that method — is acceptable and is not a wasted call either.
 
-      Penalize and LIST any of the following, even where a later call succeeded:
-      - any non-2xx response, in particular `400` for a label ID that is not a GUID — a label name or
-        slug such as `chef-recommendation` sent where a label `id` is required;
-      - `BrowseWixRESTDocsMenu` or documentation searches spent finding the label endpoints the recipe
-        gives;
-      - updating menu items at all, since the user asked only for the label;
-      - two or more `SearchWixAPISpec` / `ReadFullDocsMethodSchema` calls spent on the label shape.
+      Score bands:
+      - 9-10: no errors, and every call after the recipe was the label lookup, the create, or one
+        verification of one of them.
+      - 7-8: no errors, no wrong endpoint, but more than one verification call per method — for example
+        a reference read AND a schema inspection on the same method, or a documentation search spent
+        finding an endpoint the recipe already gives.
+      - 0-6: any of the following, even where a later call succeeded:
+        * any non-2xx response, in particular `400` for a label ID that is not a GUID — a label name or
+          slug such as `chef-recommendation` sent where a label `id` is required;
+        * the create called without a lookup first, or a duplicate label created;
+        * updating menu items at all, since the user asked only for the label;
+        * `BrowseWixRESTDocsMenu`, or three or more documentation searches.
 
       A crash inside a Wix MCP tool itself — for example `Cannot read properties of undefined` — is an
       MCP defect, not an agent mistake: name it in the reason but do NOT deduct for it.

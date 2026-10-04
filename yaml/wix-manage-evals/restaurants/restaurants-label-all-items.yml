@@ -37,20 +37,28 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how directly the agent got from the request to every item carrying the label. Examine the
-      tool-call trace, including request bodies and any error bodies. 10 = no wasted calls and no
-      errors.
+      tool-call trace, including request bodies and any error bodies.
 
-      Reading the restaurants recipe, one label lookup, one label create, one items query and the
-      bulk item update are expected and are never wasted calls.
+      Reading the restaurants recipe, one label lookup, one label create, one items query and the bulk
+      item update are expected and are never wasted calls. Verifying a method it is about to call — one
+      reference read or one schema inspection for that method — is acceptable and is not a wasted call
+      either.
 
-      Penalize and LIST any of the following, even where a later call succeeded:
-      - a `428` from the bulk item update because an item was sent without its pricing fields, or any
-        other non-2xx response;
-      - `400` for a label ID that is not a GUID — a label name or slug sent where a label `id` is
-        required;
-      - reading item or label reference pages, `SearchWixAPISpec` or `ReadFullDocsMethodSchema` calls,
-        or documentation searches spent on the label or item-update shape the recipe gives;
-      - a separate call spent only inspecting item fields before retrying an update.
+      Score bands:
+      - 9-10: no errors, and every call after the recipe was one of the expected calls or one
+        verification of one of them.
+      - 7-8: no errors, no wrong endpoint, items sent back as the query returned them with only `labels`
+        changed, but more than one verification call per method — for example a reference read AND a
+        schema inspection on the same method, or documentation searches spent finding endpoints the
+        recipe already gives.
+      - 0-6: any of the following, even where a later call succeeded:
+        * a `428` from the bulk item update because an item was sent without its pricing fields, or any
+          other non-2xx response;
+        * `400` for a label ID that is not a GUID — a label name or slug sent where a label `id` is
+          required;
+        * a failed mutation followed by a retry, or a separate call spent only inspecting item fields
+          before retrying an update;
+        * an item that lost a label it already had, or a duplicate label created.
 
       A crash inside a Wix MCP tool itself is an MCP defect, not an agent mistake: name it in the
       reason but do NOT deduct for it.
