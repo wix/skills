@@ -26,9 +26,8 @@ when the Wix MCP is also connected.
   tool (a claim is a small JSON call), or have the user sign in once with
   `npx @wix/cli login` and claim with that token. With neither, the save link.
 
-**You have no shell, only the Wix MCP** — the usual case for a chat assistant with
-the Wix connector. Its `ExecuteWixAPI` tool runs JavaScript whose `wix.request`
-calls carry the user's login. That runtime has no filesystem: the file contents
+**You have no shell, only the Wix MCP.** Its `ExecuteWixAPI` tool runs JavaScript
+whose `wix.request` calls carry the user's login. That runtime has no filesystem: the file contents
 are written out inside the call itself, every byte is code you generate, and each
 change resends all of it. A string body is sent as UTF-8, so binary files (PNG,
 JPG, fonts, zips) arrive corrupted.
