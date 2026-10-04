@@ -1,6 +1,6 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), attaching digital download files to existing digital product variants, and revision-based updates to prevent conflicts.
+description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), attaching missing download files to digital products when add-to-cart fails with ITEM_NOT_FOUND_IN_CATALOG, and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
