@@ -112,6 +112,8 @@ If both lists are empty, tell the user that none of the apps installed on this s
 
 ## Step 2: Choose what to run
 
+Choose only after you have both lists, and never in the same script or batch that discovers them: an app's tools are known only from their `description`, so a tool picked by its name alone is a guess.
+
 Decide in this order:
 
 1. **The user names a skill**: use that skill. If it can't do what the user asked, say so and offer the skill that can; do not switch to it without asking.
@@ -185,6 +187,7 @@ curl -X POST \
 }
 ```
 
+- Run a tool only after choosing it in Step 2 and, when it belongs to a skill, after reading that skill in Step 3. If no tool's `description` matches the action the user asked for, say so instead of running the closest one.
 - `methodName` is the raw `methodName`, never the display name.
 - Build `payload` strictly from the tool's `requestSchema`. Wix does not validate the payload before passing it to the app, so ask the user for every required field you don't have instead of guessing.
 - `response` is whatever the app returns; its shape follows the tool's `responseSchema` when the app declares one.

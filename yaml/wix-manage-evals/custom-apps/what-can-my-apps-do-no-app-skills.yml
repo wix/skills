@@ -23,6 +23,8 @@ assertions:
       The user asked whether the apps on their site have AI skills or tools the
       agent can use, and what they can do. The site is a fresh blank site: no
       installed app declares app skills or app tools.
+      Calls count whether the agent made them as separate tool calls or
+      inside ExecuteWixAPI code (wix.request).
       Intent: discover the site's app skills and app tools and report them
       accurately.
 

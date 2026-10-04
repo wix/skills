@@ -33,6 +33,8 @@ assertions:
       one app tool, getPackageTracking (required field: trackingNumber), and
       no app skills. The tool returns status "In Transit", location
       "Distribution Center, New York" and estimatedDelivery "2026-07-30".
+      Calls count whether the agent made them as separate tool calls or
+      inside ExecuteWixAPI code (wix.request).
       Intent: answer from the app's tracking tool.
 
       Pass if the agent:

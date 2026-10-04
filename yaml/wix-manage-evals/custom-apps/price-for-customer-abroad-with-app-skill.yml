@@ -37,6 +37,8 @@ assertions:
       (toolMethodNames: convertCurrency, calculateVat, roundPrice) covers
       exactly this request. Its tools return: 49 USD = 45.08 EUR (rate 0.92);
       German VAT 19% = 8.57, total 53.65; charm rounding = 53.99.
+      Calls count whether the agent made them as separate tool calls or
+      inside ExecuteWixAPI code (wix.request).
       Intent: answer with the app's pricing, not with the agent's own math.
 
       Pass if the agent:
@@ -47,8 +49,8 @@ assertions:
         with providerAppId set to the app's appId and payloads matching each
         tool's requestSchema (amount/from/to, amount/country, amount/style),
         AND
-      - told the user the final price is 53.99 EUR, showing the converted
-        price, the 19% VAT and the total before rounding.
+      - told the user the final price is 53.99 EUR (€53.99), showing the
+        converted price, the 19% VAT and the total before rounding.
 
       Fail if the agent:
       - computes the conversion, VAT or rounding itself instead of calling
@@ -56,7 +58,7 @@ assertions:
       - calls a tool that is not in the skill's toolMethodNames, OR
       - asks the user to choose a skill or a rounding style, although the
         request names everything the skill needs, OR
-      - reports a final price other than 53.99 EUR.
+      - reports a final price other than 53.99 EUR (€53.99).
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
