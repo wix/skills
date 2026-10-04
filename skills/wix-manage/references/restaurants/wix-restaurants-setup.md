@@ -277,15 +277,21 @@ For complex restaurant menus, use this order to avoid dependency issues:
 
 ## Item Labels
 
-Common dietary labels:
-- `vegetarian`
-- `vegan`
-- `gluten-free`
-- `gluten-free-option`
-- `dairy-free`
-- `nut-free`
-- `spicy`
-- `chef-recommendation`
+A label is its own entity with a GUID `id` and a `name`; an item references labels as
+`"labels": [{ "id": "<LABEL_ID>" }]`.
+
+1. Look the label up by name first. Sites often already carry common dietary labels such as Vegan:
+   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels/query` with
+   `{ "query": { "cursorPaging": { "limit": 500 } } }`, then match the name in the response's `labels`.
+2. Create it only if no label has that exact name:
+   `POST https://www.wixapis.com/restaurants/item-labels/v1/labels` with
+   `{ "label": { "name": "Chef's Pick" } }`. The response carries the new label's `id`.
+3. Only when the user asks to put the label on items: read the items first with Query Items (Step 8),
+   append `{ "id": "<LABEL_ID>" }` to each item's `labels`, and send them with
+   `POST https://www.wixapis.com/restaurants/menus-item/v1/bulk/items/update`. That call rejects an item
+   whose pricing fields are missing with `428`, even with a `labels` field mask, so send each item as the
+   query returned it — including its `revision`, `name`, `pricingType` and `priceInfo` — with only
+   `labels` changed.
 
 ## Error Handling
 
