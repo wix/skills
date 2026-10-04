@@ -6,23 +6,23 @@ description: >-
   reads its guidelines with Get App Skill, and runs only that skill's tools
   through Invoke Tool, with payloads built from each tool's requestSchema.
 triggerPrompt: >-
-  What should a customer in Germany pay for our $49 mug, including VAT?
-  Round the final price so it ends in .99.
+  Use the pricing app on my site: what should a customer in Germany pay, in
+  euros and including VAT, for our $49 mug? Round the final price so it
+  ends in .99.
 tags: [custom-apps, app-installation]
 siteSetup:
   mode: template
   templateId: blank-editor
   bootstrap:
     steps:
-      - label: Install Global Pricing Helper, a demo app that declares app skills and app tools
+      - label: Install Global Pricing Helper from its share link, a demo app that declares app skills and app tools and isn't in the App Market
         method: post
-        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        url: https://www.wixapis.com/apps-installer-service/v1/app-share-url/install
         body:
           tenant:
             id: "{{siteId}}"
             tenantType: SITE
-          appInstance:
-            appDefId: dc3d45f5-4f88-4f7f-92f9-f00c98ed745d
+          shareUrlId: 503085ae-8a7d-450c-8af1-cbb37906011c
 assertions:
   - tool: ReadFullDocsArticle
     params:

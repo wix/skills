@@ -5,23 +5,22 @@ description: >-
   to the carrier right away, but the recipe's own rule wins, so the agent
   reads the skill, then asks for confirmation instead of calling Invoke Tool.
 triggerPrompt: >-
-  Tell the courier delivering shipment 1Z999AA10123456784 to leave the
-  parcel with my neighbor at number 12.
+  Use the shipping app on my site to tell the courier delivering shipment
+  1Z999AA10123456784 to leave the parcel with my neighbor at number 12.
 tags: [custom-apps, app-installation]
 siteSetup:
   mode: template
   templateId: blank-editor
   bootstrap:
     steps:
-      - label: Install App Skills demo, a demo app whose Shipping helper skill sends notes to the carrier
+      - label: Install App Skills demo from its share link, a demo app whose Shipping helper skill sends notes to the carrier and isn't in the App Market
         method: post
-        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        url: https://www.wixapis.com/apps-installer-service/v1/app-share-url/install
         body:
           tenant:
             id: "{{siteId}}"
             tenantType: SITE
-          appInstance:
-            appDefId: 6c4d3373-2afc-46a6-b7e0-9b98a43df146
+          shareUrlId: 4e356944-f88e-4797-90b5-af8dfb89838c
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -12,15 +12,14 @@ siteSetup:
   templateId: blank-editor
   bootstrap:
     steps:
-      - label: Install App with tools, a demo app that declares an app tool and no app skills
+      - label: Install App with tools from its share link, a demo app that declares an app tool and no app skills and isn't in the App Market
         method: post
-        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        url: https://www.wixapis.com/apps-installer-service/v1/app-share-url/install
         body:
           tenant:
             id: "{{siteId}}"
             tenantType: SITE
-          appInstance:
-            appDefId: 10da4283-f652-4ae1-9c9c-28800c2c051e
+          shareUrlId: e696a23e-7abe-4ede-ba9e-7d3a45d0525e
 assertions:
   - tool: ReadFullDocsArticle
     params:
