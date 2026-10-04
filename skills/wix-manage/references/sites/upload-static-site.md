@@ -1,73 +1,143 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — handing the user the Wix Headless drop page, and calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
 
 The user has a finished website as files — hand-written HTML, a static build, a
-zip, or the output of an AI site builder — and wants it live on Wix as a new
-site. There are two ways to get there.
+zip, or the output of an AI site builder — and wants it live on Wix as a static,
+Wix-hosted site.
 
-## The two paths
+## Choose the route
 
-**[Path A — hand the user the drop page](#path-a--hand-the-user-the-drop-page).**
-One URL; the user uploads in the browser and gets a live site. This works for
-**any** agent and any user — it's the default. Reach for it whenever you can't
-clearly do Path B.
+Five ways to get the files live; what you have decides which are open to you.
 
-**[Path B — publish the files yourself](#path-b--publish-the-files-yourself).**
-Three calls put the site live without the user touching a browser. Available only
-when **both** hold: you can read the file bytes (you generated them here, or
-they're reachable from where you run), **and** you can do a `multipart/form-data`
-file upload from a shell (`curl` or equivalent). Reaching APIs *only* through the
-Wix API-call/execute-API tools does **not** count — they can't upload a local
-file.
+| Option | Needs | Carries | The user ends up with |
+| --- | --- | --- | --- |
+| **A.** `curl` + CLI token → [into the account](#publish-into-the-users-account) | A shell; a Wix CLI login | Anything on disk | A site in their account, final URL |
+| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Small text files already in the conversation | A site in their account, final URL |
+| **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
+| **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
+| **E.** [The headless skill](#keep-building-add-a-backend-when-you-need-one) | A shell; Node; a Wix CLI login | A project folder, source included (built for you) | A site in their account as a Wix Headless project, released with the Wix CLI, ready for Wix Business Solutions |
 
-Prefer Path B when you can genuinely do it — the user gets a live site without
-uploading anything themselves. Otherwise, and by default, take Path A. Decide
-honestly: if you can't read the bytes or can't upload from a shell, hand over the
-drop page rather than attempting Path B and reporting an upload you couldn't
-perform.
+What sets them apart:
 
-## Path A — hand the user the drop page
+- **`curl -F` streams files from disk** — the bytes never pass through you: any type, any
+  number, up to the [limits](#what-the-upload-accepts-and-how-it-fails).
+- **`ExecuteWixAPI` has no filesystem.** The Wix MCP's tool runs JavaScript whose
+  `wix.request` calls carry the user's login — no install, no token — but every
+  byte is written out inside the call. That costs nothing extra for a page you
+  generated or the user pasted (it's already in the conversation); for files on
+  disk it means reading them in and writing them back out, and each change
+  resends all of it. A string body is sent as UTF-8, so binary files (PNG, JPG,
+  fonts, zips) arrive corrupted; link images by absolute URL.
+- **A CLI login** is one approval by the user in the browser: run
+  `npx @wix/cli login`, have them approve, then `npx @wix/cli token` prints a
+  token. It also unlocks later changes from disk and
+  [Keep building](#keep-building-add-a-backend-when-you-need-one).
+- **Anonymous** needs no identity, but the record expires after an hour and the
+  URL changes on claim.
+- **The headless skill** is the heaviest — an install, a project, a build — and
+  the only one that takes framework source as is and leaves a project ready for a
+  backend. A drop site can still move to it [later](#keep-building-add-a-backend-when-you-need-one).
 
-Send the user here:
+So: a small page already in the conversation, with the Wix MCP connected — B,
+shell or not. Static files on disk — A with a CLI login, else C (claimed through
+the Wix MCP when it's connected). A framework project (a `package.json`), or a
+site that needs stores, bookings, a CMS or members from the start — E. Files out
+of your reach, or nothing above fits — D.
 
+Publishing yourself beats the drop page whenever an option fits — the user gets a
+live site without uploading anything. Never report an upload you couldn't
+perform; whenever a route fails partway, hand over the drop page.
+
+## Publish into the user's account
+
+### 1. Create the site
+
+The [Create Headless Site](create-headless-site.md) call with no Wix Business
+Solutions. Name it after the page's `<title>`.
+
+```bash
+curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
+       "synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
-https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>
+
+```json
+{ "metaSiteId": "7597a72e-bedc-4d86-af86-9a25d11f0632", "appId": "9f0a8b59-1acb-4a67-aafd-f8602259cbfa" }
 ```
 
-**Keep `utm_campaign=mcp`** (the drop-flow referral tag — don't change it) **and set
-`agent` to your own identifier** — the coding agent or tool you are (e.g.
-`claude-code`, `cursor`, `codex-cli`, `windsurf`, `github-copilot`, or your product's
-name). Hand the URL with `agent` filled in and both params intact. There the user drags
-in their files (no login), Wix hosts them immediately on a live URL, and a banner
-offers to sign in and keep the site. Tell them the requirements from
-[What the upload accepts](#what-the-upload-accepts-and-how-it-fails) so it doesn't
-fail on the first try.
+### 2. Drop the files — the site goes live
 
-## Path B — publish the files yourself
+One multipart request uploads and releases. Each file is a part named `files`
+whose **filename is its path relative to the site root** — that is how
+subdirectories survive; with `curl`, set it with `;filename=` whenever it isn't
+just the basename. A single `.zip` part works too — it's unpacked server-side, a
+single wrapping folder stripped.
 
-> **Run every call from your shell with `curl` — not the Wix API-call/execute-API
-> tools.** The upload (step 2) and the download in
-> [Add a backend](#keep-building-add-a-backend-when-you-need-one) move a **file**
-> to or from disk; those tools proxy JSON and can't (hand-building a multipart
-> body inline silently drops every image and font). Create and release are plain
-> JSON and would work through anything, but the upload needs a real file client
-> anyway, so keep it all in the shell. **None of steps 1–3 (or the download) need
-> auth — they're anonymous.** Only [claim](#4-put-the-site-in-the-users-account)
-> needs the user's identity.
-
+```bash
+curl -sS -X POST \
+  "https://www.wixapis.com/headless-business-setup/v1/headless-business/$META_SITE_ID/drop" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -F "files=@index.html;filename=index.html" \
+  -F "files=@assets/styles.css;filename=assets/styles.css" \
+  -F "files=@assets/logo.png;filename=assets/logo.png"
 ```
-Base URL: https://www.wixapis.com/headless-business-setup
+
+```json
+{ "uploadId": "c0d5b3bb-60a9-43f9-9d27-7ca8df967825",
+  "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
+
+Option B — the same two calls as one `ExecuteWixAPI` script, for small text files
+already in the conversation:
+
+```javascript
+async function run() {
+  const created = await wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
+    body: { newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+            synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
+  const files = { 'index.html': html, 'assets/styles.css': css };   // path → text content
+  const boundary = '----wixdropboundary';
+  const body = Object.entries(files).flatMap(([path, text]) => [
+    '--' + boundary,
+    `Content-Disposition: form-data; name="files"; filename="${path}"`,
+    '', text,
+  ]).concat('--' + boundary + '--', '').join('\r\n');
+  return await wix.request({ scope: 'account', method: 'POST',
+    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.metaSiteId}/drop`,
+    headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary },
+    body });                                                          // a string body is sent verbatim
+}
+```
+
+`siteUrl` is the site's final address — it's already in the user's account. Give
+the user two links: `siteUrl`, and its dashboard at
+`https://manage.wix.com/dashboard/{metaSiteId}`.
+
+### Change it later
+
+Re-run step 2 on the same `metaSiteId` with the **full** file set: each drop
+replaces the site's files (a file left out is gone), and `siteUrl` stays the same.
+Never create another site for a change. The same call updates any site the user
+owns that was published this way, including one claimed from an
+[anonymous publish](#publish-anonymously). For a site from an earlier conversation,
+find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
+below, matching the site's name or `viewUrl`.
+
+## Publish anonymously
+
+No identity needed: the site is created under a temporary owner and lives for one
+hour unless the user keeps it.
 
 Generate `anonymousId` yourself — any UUID, **once per site, not once per
-request** — and reuse it (with the returned `metaSiteId`) for every call for that
-site, including later changes ([Iterate](#iterate-while-anonymous-dont-create-a-new-site)).
-**Finish within one hour of step 1**: after that the record expires and every
-later step, claim included, returns `404`.
+request** — and reuse it, with the returned `metaSiteId`, for every call for that
+site. **Finish within one hour of step 1**: after that the record expires and
+every later call, claim included, returns `404`.
 
 ### 1. Create the site
 
@@ -81,86 +151,60 @@ curl -sS -X POST \
   "projectId":  "54528d34-b23c-4fbe-b07d-2c522350abd7" }
 ```
 
-Keep both: `metaSiteId` addresses the site in every later call; `projectId`
-builds the save link in step 3b.
+Keep both: `metaSiteId` addresses the site, `projectId` builds the save link.
 
 ### 2. Upload the files
 
-One `multipart/form-data` request carrying every file. Each file is a part named
-`files` whose **filename is its path relative to the site root** — that is how
-subdirectories survive; with `curl`, set it explicitly with `;filename=` whenever
-it isn't just the basename. A single `.zip` part works too — send it alone and
-it's unpacked server-side, a single wrapping folder stripped.
+Same multipart shape as the [drop](#2-drop-the-files--the-site-goes-live), to the
+upload path, with the attribution parameters:
 
 ```bash
-AGENT=claude-code   # ← replace with your own identifier (see note below)
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp&agent=$AGENT" \
   -F "files=@index.html;filename=index.html" \
-  -F "files=@assets/styles.css;filename=assets/styles.css" \
-  -F "files=@assets/logo.png;filename=assets/logo.png"
+  -F "files=@assets/styles.css;filename=assets/styles.css"
 ```
 
 ```json
 { "uploadId": "03244542-d820-42f6-acfa-166c6658b1a6" }
 ```
 
-Keep `campaign=mcp` (the drop-flow referral tag — don't change it) and set
-`agent=$AGENT` to **your own identifier**: the coding agent or tool performing this
-drop, so the upload is attributed to the real client. Use a short, stable,
-lowercase-hyphenated slug — e.g. `claude-code`, `cursor`, `codex-cli`, `windsurf`,
-`github-copilot`, or your product's name; if you genuinely can't name yourself, use
-`unknown-agent`. Send the **same** `agent` on every upload for this site, matching
-the `agent` you'd use in Path A. Nothing is live yet; this only stages and validates.
+Keep `campaign=mcp` (the referral tag — don't change it) and set `agent` to your
+own identifier: a short, stable, lowercase-hyphenated slug for the coding agent or
+tool you are (e.g. `claude-code`, `cursor`, `codex-cli`, `windsurf`,
+`github-copilot`, or your product's name; `unknown-agent` if you can't name
+yourself). Nothing is live yet; this only stages and validates.
 
 ### 3. Release — the site goes live
 
 ```bash
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/release" \
-  -H 'Content-Type: application/json' \
-  -d "{\"uploadId\":\"$UPLOAD_ID\"}"
+  -H 'Content-Type: application/json' -d "{\"uploadId\":\"$UPLOAD_ID\"}"
 ```
 
 ```json
 { "siteUrl": "https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com" }
 ```
 
-The site is live at `siteUrl` immediately.
+**To change it**, re-run steps 2–3 with the same `anonymousId` and `metaSiteId` and
+the full file set; `siteUrl` stays the same. Never go back to step 1 for a change.
+Iterate first, claim last: after a claim, changes are a [drop](#change-it-later),
+which needs the user's identity — a CLI token for files on disk.
 
-#### Iterate while anonymous (don't create a new site)
+**When it's final:** with the user's identity, [claim it](#claim-it-into-the-users-account).
+Without it, stop here — a finished result. Give the user `siteUrl` plus the save
+link, which is how the site survives:
 
-Simple static changes — new copy, another page, a different look — happen here,
-**while the site is still anonymous**, and this is the only window for them:
-re-run steps 2–3 with the **same `anonymousId` and `metaSiteId`**; the upload
-replaces the site's contents and `siteUrl` stays the same. Send the full file set
-each time (release replaces, it doesn't merge). Don't go back to step 1 — a fresh
-site per change leaves the user a trail of abandoned sites on changing URLs; only
-create another for a genuinely separate site.
+```
+https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
+```
 
-So **iterate first, claim last**: refine on the same ids until the site is right,
-*then* finish. Once claimed, these anonymous endpoints stop working and the only
-way to keep changing the site in code is a headless project
-([Keep building](#keep-building-add-a-backend-when-you-need-one)).
+That page shows the site with a countdown and signs the user in to keep it. Treat
+the link as a secret — whoever opens it while signed in to Wix claims the site
+into *their* account — so give it only to the user who asked.
 
-**When the site is final, finish based on identity:**
-
-- **You have the user's access token** — claim it into their account (step 4).
-  Don't stop at a temporary site: an unclaimed site expires, so saving it is part
-  of publishing, not an extra favour to ask about.
-- **You have no user identity** — stop here; this is a finished, legitimate result
-  (exactly what the drop page produces for every visitor). Give the user `siteUrl`
-  plus the save link, which is how the site survives:
-
-  ```
-  https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
-  ```
-
-  That page shows the site with a countdown and signs the user in to keep it.
-  Treat the link as a secret — whoever opens it while signed in to Wix claims the
-  site into *their* account — so give it only to the user who asked.
-
-### 4. Put the site in the user's account
+### Claim it into the user's account
 
 ```bash
 curl -sS -X POST \
@@ -168,110 +212,87 @@ curl -sS -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Returns `{}` on success; needs a user or account-level identity (else
-`UNAUTHENTICATED`). It consumes the anonymous record, so it's the last call that
-works against these endpoints — do it after the release, never before.
+Returns `{}`. Claim after the release, never before — it consumes the anonymous
+record, so the anonymous endpoints stop working for this site; later changes go
+through the [drop](#change-it-later).
 
-**The site's URL changes here.** The step-3 host stops resolving — the free host
-is scoped to the owning account and re-minted under the user's. Read the new one
-in step 5; never repeat the step-3 URL after a claim.
-
-### 5. Read the site's final URL
-
-[Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites)
-filtered to the **`HEADLESS` namespace** — headless sites are omitted from the
-default query, so the filter is required, and an `id` filter is rejected, so match
-the id yourself.
+**The URL changes on claim**: the step-3 host stops resolving. Read the new one
+with [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites),
+filtered to the `HEADLESS` namespace (the default query omits headless sites, and
+an `id` filter is rejected, so match the id yourself):
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"query":{"filter":{"namespace":"HEADLESS"},"cursorPaging":{"limit":100}}}'
 ```
 
-Find the entry whose `id` equals your `metaSiteId`, read `viewUrl` (page with
-`metadata.cursors.next` if needed):
+Take `viewUrl` from the entry whose `id` is your `metaSiteId` (page with
+`metadata.cursors.next` if needed), and give the user it plus
+`https://manage.wix.com/dashboard/{metaSiteId}`.
 
-```json
-{ "id": "f0ad8672-09e9-4111-b6fe-070c70bd2df5",
-  "displayName": "Snake", "published": true, "namespace": "HEADLESS",
-  "viewUrl": "https://instant-hguwrvtcrniw-ayalg5-1406.wix-site-host.com/" }
+## The drop page
+
+```
+https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>
 ```
 
-Give the user two links: `viewUrl` for the live site, and its dashboard at
-`https://manage.wix.com/dashboard/{metaSiteId}` to manage it.
+Keep `utm_campaign=mcp` and set `agent` to your own identifier, as in the
+[upload](#2-upload-the-files). The user drags in their files (no login), Wix hosts
+them on a live URL at once, and a banner offers to sign in and keep the site. Tell
+them the [requirements](#what-the-upload-accepts-and-how-it-fails) so it doesn't
+fail on the first try.
 
-### What the upload accepts, and how it fails
+## What the upload accepts, and how it fails
 
-The requirements below apply to both paths — an upload that breaks them is why a
-release never happens:
+These apply to every route:
 
-- **A top-level HTML file is required.** It needn't be named `index.html` (a lone
-  top-level HTML of any name becomes the homepage), but once there's more than
-  one, an `index.html` must be among them.
+- **A top-level HTML file is required.** A lone top-level HTML of any name becomes
+  the homepage; with more than one, an `index.html` must be among them.
 - **3 MB per file, 20 MB per site.**
 - **Static files only** — HTML, CSS, JS, images, fonts. Framework source that
   needs a build step (a `package.json`, React/Vue sources) must be built first;
-  upload the build output.
+  upload the build output, or take the project to the headless skill (option E).
 
-On Path B, failures come back as HTTP 400 with a code in
-`details.applicationError.code`: `MISSING_INDEX_HTML` (add a top-level HTML),
-`FILE_TOO_LARGE` (a file over 3 MB), `TOTAL_TOO_LARGE` (bundle over 20 MB). A
-`404` after step 1 means the one-hour window passed or the site was already
-claimed — start again from step 1.
+Failures come back as HTTP 400 with a code in `details.applicationError.code`:
+`MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. A drop onto a site the
+caller doesn't own returns `PERMISSION_DENIED`. On the anonymous route, a `404`
+after step 1 means the hour passed or the site was claimed — start again.
 
-**If Path B fails for any reason you can't quickly fix — a rejected upload, an
-error, a call you can't make — fall back to [Path A](#path-a--hand-the-user-the-drop-page):
-give the user the drop-page link so they can finish in the browser.** Never leave
-them with a failed publish and no way forward; the drop page reaches the same
-result without the step that broke.
+**If publishing fails for any reason you can't quickly fix, hand the user the
+[drop page](#the-drop-page).** Never leave them with a failed publish and no way
+forward.
 
 ## Keep building: add a backend when you need one
 
-The drop flow publishes **static** files. When the site needs a real backend —
-stores, payments, bookings, a CMS, members, forms — it becomes a **Wix Headless
-project**. This is a solution the user chooses when the need appears, not a
-required step: a static site is a finished result on its own.
+The headless skill, `https://wix.com/headless/skill.md`, builds and releases a
+**Wix Headless project** with the Wix CLI: it adopts a project folder (a
+`package.json`, or an `index.html` at its root) into a new site, or takes a
+dropped one. A dropped site is **static**; when it needs a real backend — stores,
+payments, bookings, a CMS, members, forms — it moves to a headless project,
+keeping the same site, appId and URL. This is a choice the user makes when the
+need appears; static changes never need it, they're a [drop](#change-it-later).
 
-Offer it once the site is claimed/owned and you're in a coding environment with a
-shell. It keeps the **same site, appId and URL** (the downloaded project already
-carries a `wix.config.json` binding it), and is released with the Wix CLI from
-then on:
+To move a dropped site, in a shell, once it's in the user's account:
 
 ```bash
 curl -sSL -o project.zip \
   "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
-unzip project.zip -d project      # index.html + assets + wix.config.json
+unzip project.zip -d project      # the site's files + wix.config.json
 ```
 
-Then follow `https://wix.com/headless/skill.md`: it turns the static files into a
-headless project (`@wix/sdk` + the business solutions the site needs), bound to
-the same site.
-
-This is the only way to keep changing a **claimed** site in code, and it's why it
-needs `wix login`: re-releasing to a claimed site is authenticated *and*
-file-based, and an authenticated file operation needs the token in your **shell**
-(via `wix login`), not injected into a tool — the API-call/execute-API tools carry
-the auth but can't do file operations. There's no lighter "re-upload static to my
-claimed site" shortcut.
+Then follow the headless skill from that folder: it turns the files into a
+headless project bound to the same site, released with the Wix CLI from then on.
 
 ## Route the request correctly
 
-- **You can't read the files, can't make HTTP calls, or have no shell
-  (API-call/execute-API tools only, which can't upload a file)** — Path A, the
-  drop page. It's also the default whenever Path B isn't clearly available, and
-  the fallback whenever Path B fails partway — hand over the link, don't leave the
-  user stuck.
-- **Files you generated here or can read, and you can upload from a shell** —
-  Path B. If you hold the user's identity, claim it into their account and return
-  the live URL + dashboard.
-- **A change to a site you published this way here** —
-  [iterate in place](#iterate-while-anonymous-dont-create-a-new-site) on the same ids.
-- **A published anonymous site the user wants to keep** — steps 4–5 with their
-  identity, else the step-3 save link.
-- **A claimed site that now needs a backend** (stores, bookings, CMS, members,
-  forms) — [add a backend](#keep-building-add-a-backend-when-you-need-one).
+- **A new site from the user's files** — [Choose the route](#choose-the-route).
+- **A change to a site published this way** — the same site, full file set: a
+  [drop](#change-it-later) when it's in the user's account, upload + release while
+  it's anonymous.
+- **An anonymous site the user wants to keep** — [claim](#claim-it-into-the-users-account)
+  it, else the save link.
+- **A site that now needs a backend** — [Keep building](#keep-building-add-a-backend-when-you-need-one).
 - **Migrating a live site/store from another platform by URL, or CSV/TSV
   exports** — [Site Import](site-import.md).
 - **Adding HTML, an embed, or code to an existing Wix site** — not this recipe
@@ -279,5 +300,5 @@ claimed site" shortcut.
 - **Images, videos, or documents for a site** —
   [Upload Media to Wix](../media/upload-media-to-wix.md).
 
-Don't create the site with other tools (meta-site templates, headless-business
-provisioning) — those make an empty site, not a published copy of the user's files.
+Don't create the site from a template — that makes an empty site, not a published
+copy of the user's files.

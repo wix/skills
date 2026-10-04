@@ -1,13 +1,13 @@
 name: sites/upload-static-site-iterate
 description: >-
   Verifies that when a user asks for a site to be published and then changed, the agent treats it
-  as ONE site: with a shell, it publishes through the Headless instant-site API and re-runs upload
-  + release with the same anonymousId and metaSiteId so the live URL is unchanged; without a shell
-  (API-call tools only), it hands over the final version and the drop page once. Guards against
-  the "new site per change" pattern that leaves abandoned one-off sites and a different URL each
-  time, and against claiming a publish that never happened. The Wix MCP routes ready-made site
-  files to the drop page before any docs read, so the scenario asserts on the outcome and on what
-  was not called rather than on a ReadFullDocsArticle call.
+  as ONE site: with the user's identity it creates the headless site once and drops the files
+  twice on the same metaSiteId; without identity it re-runs the anonymous upload + release with
+  the same anonymousId and metaSiteId. Either way the live URL is unchanged. Guards against the
+  "new site per change" pattern that leaves abandoned one-off sites and a different URL each time,
+  and against claiming a publish that never happened. The Wix MCP routes ready-made site files to
+  the drop page before any docs read, so the scenario asserts on the outcome and on what was not
+  called rather than on a ReadFullDocsArticle call.
 triggerPrompt: >-
   Take this one-page site and put it live on Wix, then make one change: the headline currently says
   "Welcome to Bloom Cafe" — change it to "Bloom Cafe — Now Open" and publish that too. Here's the
@@ -23,49 +23,49 @@ assertions:
     prompt: |
       The user pasted a one-page site and asked for it to be put live, then for a headline change
       ("Bloom Cafe — Now Open") to be published too. The point is ONE site: the change replaces the
-      site's contents at the same URL; it never becomes a second site.
-
-      The skill's Path B (publish through the Headless instant-site API) needs a shell that can
-      send multipart/form-data. An agent that reaches Wix only through API-call/execute tools
-      cannot upload files and takes Path A (the drop page). Either is acceptable; judge one-site
-      behavior and honesty. Examine the tool-call trace, not just the final prose.
+      site's files at the same URL; it never becomes a second site. Examine the tool-call trace,
+      not just the final prose.
 
       Pass if ONE of these holds:
-      - Path B: exactly ONE anonymous site is created (one POST to
-        /v1/headless-business/anonymous/{anonymousId} with no metaSiteId in the path); the
-        headline change is published by re-running upload
-        (POST /v1/headless-business/anonymous/{anonymousId}/{metaSiteId}/upload) and release
-        (POST .../{metaSiteId}/release) with the SAME anonymousId and metaSiteId; the final answer
-        gives a single live URL; and the delivered site carries the updated headline.
-      - Path A: the agent returns the full updated index.html with the headline
-        "Bloom Cafe — Now Open" and the drop URL https://www.wix.com/headless/drop keeping the
-        utm_campaign=mcp parameter, as one upload of the final version, without claiming it
-        published anything itself.
+      - With the user's identity: exactly ONE POST to
+        https://www.wixapis.com/headless-business-setup/v1/headless-business/provision, then the
+        original page and the edited page each published by a multipart POST to
+        .../v1/headless-business/{metaSiteId}/drop on the SAME metaSiteId (or only the edited page
+        dropped, once); the final answer gives a single live URL from the drop response, and the
+        delivered site carries the updated headline.
+      - Anonymously from a shell (a claim at the end is fine): exactly ONE POST to .../v1/headless-business/anonymous/{anonymousId};
+        the change published by re-running upload (.../anonymous/{anonymousId}/{metaSiteId}/upload)
+        and release (.../{metaSiteId}/release) with the SAME anonymousId and metaSiteId (or only
+        the edited page uploaded and released, once); a single live URL; the updated headline.
+      - A publish call failed in a way the agent could not fix, and it says so and hands over the
+        full updated index.html with the drop URL https://www.wix.com/headless/drop keeping
+        utm_campaign=mcp, as one upload of the final version.
 
       Fail if:
-      - a SECOND anonymous site is created for the change (a second create call, a second,
-        different metaSiteId, or two different live URLs handed to the user), OR
-      - the agent claims the site is live or updated without a release call that returned a URL, OR
-      - the headline change is missing from what it delivers (no second release on Path B, or
-        the old headline on Path A), OR
-      - it invents endpoints, sends files as a JSON body, hand-rolls multipart inside an
-        API-call/execute tool, or creates the site with a template or provisioning API.
+      - a SECOND site is created for the change (a second provision or anonymous create call, a
+        second metaSiteId, or two different live URLs handed to the user), OR
+      - the agent claims the site is live or updated without a drop or release call that returned
+        a URL, OR
+      - the headline change is missing from what it delivers, OR
+      - it hands over the drop page without attempting to publish, although the page was in the
+        conversation, OR
+      - it invents endpoints, sends files as a JSON body, or creates the site from a template.
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
       Rate how cleanly the agent handled the edit as one site. Examine the tool-call trace. Score
-      0-10, where 10 means either: one create, then the edit published via a second upload+release
-      on the same anonymousId/metaSiteId, one URL throughout; or — with no shell to upload from —
-      the final HTML and the drop URL handed over directly, with no site-creation calls. No
-      redundant or exploratory calls in either case; answering with no tool calls at all is fine.
+      0-10, where 10 means one site creation, then the edit published on the same metaSiteId (a
+      second drop, or a second upload + release on the same anonymousId), one URL throughout, with
+      no redundant or exploratory calls. Publishing only the final version once is also a 10.
 
       Penalize and LIST any of:
-        - a second `POST /v1/headless-business/anonymous/{anonymousId}` (new site) for the edit
+        - a second site creation (provision or anonymous create) for the edit
         - two different metaSiteIds or two different live URLs across the run
-        - a create-from-template or headless-provision call
+        - an anonymous publish followed by a claim when the page could go straight into the account
+          (the Wix MCP connected, or a CLI token in the shell): a longer path with a URL change
+        - a template site-creation call
         - re-reading docs repeatedly, or a probing spiral
-        - publishing the edit to a brand-new anonymousId
 
       For each issue name the likely skill gap behind it.
 
