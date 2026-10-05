@@ -59,6 +59,8 @@ curl -X GET \
 - **Draft Items plugin present** → the collection gates items behind draft/publish. Its `draftItemsPluginOptions.draftsCollectionId` gives the paired drafts collection to author and edit drafts against.
 - **Draft Items plugin absent** → plain collection; every insert/update goes straight live. No draft surface exists.
 
+Once the Draft Items plugin is installed, do not insert, update, patch, remove, or save items directly in the published collection. Write new items and pending edits to the paired drafts collection (`<collectionId>__drafts`), then call **Publish Data Item Draft** (`POST /wix-data/v2/items/publish-draft`) to publish an item to the published collection. This lifecycle operation takes the published collection ID; it is the supported way to move a draft into the live collection.
+
 ---
 
 ## 2. Read items
@@ -90,7 +92,7 @@ Reads target a specific surface — there is no merged view:
 
 ### Author a brand-new draft
 
-Insert into the **drafts** collection. The item starts as **DRAFT**.
+Insert into the **drafts** collection. Do not insert into the published collection while the Draft Items plugin is installed. The item starts as **DRAFT** and becomes live only after you call **Publish Data Item Draft**.
 
 **Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items`
 
@@ -115,7 +117,7 @@ Editing a live item does **not** overwrite the live copy — it stages a **pendi
 
 ### Publish a pending draft (DRAFT/CHANGED → PUBLISHED)
 
-Replaces the published item's data with the draft's content; the draft is then deleted. Pass the **published** collection id.
+Call **Publish Data Item Draft** to publish the pending draft. It replaces the published item's data with the draft's content; the draft is then deleted. Pass the **published** collection ID. This lifecycle operation is the allowed way to write the draft's content to the published collection.
 
 **Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items/publish-draft`
 
@@ -181,14 +183,17 @@ curl -X DELETE \
 -H 'Authorization: <AUTH>'
 ```
 
-### Delete an item entirely (removes both versions)
+### Delete an item permanently
 
-Deleting must remove **both** the live item and any pending draft.
+To permanently delete a published item, first call **Unpublish Data Item** with `copyToDraft: false` to remove it from the published collection. Then delete the item from the paired drafts collection if a draft with that ID remains.
 
 ```bash
-# live version
-curl -X DELETE 'https://www.wixapis.com/wix-data/v2/items/<id>?dataCollectionId=articles' -H 'Authorization: <AUTH>'
-# drafts collection, if a draft exists
+# remove the published version without creating a draft
+curl -X POST 'https://www.wixapis.com/wix-data/v2/items/unpublish' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  -d '{"dataCollectionId":"articles","dataItemId":"<id>","copyToDraft":false}'
+# delete any remaining draft with the same ID
 curl -X DELETE 'https://www.wixapis.com/wix-data/v2/items/<id>?dataCollectionId=articles__drafts' -H 'Authorization: <AUTH>'
 ```
 
@@ -258,16 +263,18 @@ At the REST level, every read/author/publish/unpublish call here goes through th
 | PUBLISHED | Edit into a pending draft (→ CHANGED) | Create the draft (`createDataItemDraft`), then edit it on the drafts collection | Write Data Items |
 | — | Create new draft (→ DRAFT) | `POST https://www.wixapis.com/wix-data/v2/items` on the drafts collection | Write Data Items |
 | DRAFT / CHANGED | Publish (→ PUBLISHED) | `POST https://www.wixapis.com/wix-data/v2/items/publish-draft` (published id) | Write Data Items |
-| PUBLISHED / CHANGED | Unpublish, keep as draft (→ DRAFT) | `POST https://www.wixapis.com/wix-data/v2/items/unpublish` `copyToDraft:true` | Write Data Items |
-| PUBLISHED / CHANGED | Unpublish, discard | `POST https://www.wixapis.com/wix-data/v2/items/unpublish` `copyToDraft:false` | Write Data Items |
+| PUBLISHED / CHANGED | Remove from live collection, keep as draft (→ DRAFT) | **Unpublish Data Item** — `POST https://www.wixapis.com/wix-data/v2/items/unpublish`, `copyToDraft:true` | Write Data Items |
+| PUBLISHED / CHANGED | Remove from live collection without a draft | **Unpublish Data Item** — `POST https://www.wixapis.com/wix-data/v2/items/unpublish`, `copyToDraft:false` | Write Data Items |
 | CHANGED | Revert to live version (discard edit) | `DELETE https://www.wixapis.com/wix-data/v2/items/{id}?dataCollectionId=<drafts id>` | Write Data Items |
-| any | Delete entirely (both versions) | Delete on the published id (+ drafts id if a draft exists) | Write Data Items |
+| any published item | Permanently delete | `POST https://www.wixapis.com/wix-data/v2/items/unpublish` with `copyToDraft:false` (published id), then delete any remaining draft from the drafts collection | Write Data Items |
 | plain, no plugin | Enable workflow | `POST https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin` | Manage Data Collections |
 
 ---
 
 ## Agent gotchas
 
+- **Never write item data directly to the published collection while Draft Items is installed.** Create and edit items in the paired drafts collection, then call **Publish Data Item Draft** to publish. Lifecycle calls such as publish still take the published collection ID.
+- **Use Unpublish Data Item to remove an item from the published collection.** It takes the published collection ID; by default it leaves a draft, while `copyToDraft: false` removes the live item without creating one. To delete permanently, use `copyToDraft: false`, then delete any remaining draft from the paired drafts collection.
 - **Resolve the drafts collection from the plugin.** Read `draftItemsPluginOptions.draftsCollectionId` off the published collection's Draft Items plugin rather than assuming a `__drafts` suffix.
 - **Status is server-authoritative.** Derive DRAFT/PUBLISHED/CHANGED from the published + drafts surfaces (or the value the API returns). Never compute it locally, and never render an optimistic status before the write confirms (**confirm-then-render**).
 - **Pass the *published* collection id** to `publish-draft` and `unpublish` — not the drafts collection id. Author and edit drafts against the drafts collection id.

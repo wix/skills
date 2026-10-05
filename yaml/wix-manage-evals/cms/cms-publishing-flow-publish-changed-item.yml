@@ -1,11 +1,10 @@
 name: cms/cms-publishing-flow-publish-changed-item
 description: >-
-  Verifies the agent reads the cms-publishing-flow skill and correctly explains the
-  Publishing Flow CHANGED state and how to publish a changed item's edits to the live site.
+  Verifies the agent reads the cms-publishing-flow skill, avoids direct writes to a
+  published collection with Draft Items enabled, and explains how to publish draft content.
 triggerPrompt: >-
-  My Wix CMS collection uses the publishing workflow (review edits before publishing). One of my
-  items now shows a "Changed" status. What does that mean, and how do I get my edits to appear on
-  the live site?
+  My Wix CMS collection has the Draft Items plugin. I need to add a new news item, and an existing
+  item shows a "Changed" status. How do I get the new item and my edits onto the live site?
 tags: [cms]
 assertions:
   - tool: ReadFullDocsArticle
@@ -15,18 +14,26 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user has a Publishing-Flow (draft/publish) CMS collection; an item shows the "Changed"
-      status and they want their edits to go live.
-      Intent: recognize CHANGED = a published (live) item that has a newer draft with unpublished
-      edits, and that publishing the item's draft is what pushes those edits live.
+      The user has a CMS collection with the Draft Items plugin. They want to add a new item and
+      publish edits to an existing item in CHANGED state.
+      Intent: prevent direct item writes to the published collection. New items and edits must be
+      written to the paired drafts collection, then published with Publish Data Item Draft, passing
+      the published collection ID. CHANGED means the item is live and has
+      a newer draft with unpublished edits.
 
       Pass if the response:
+      - says not to insert, update, patch, or save directly to the published collection while the
+        Draft Items plugin is installed, AND
+      - directs the user to write the new item to the paired drafts collection (typically
+        <collectionId>__drafts), AND
+      - says to call Publish Data Item Draft to publish the draft, passing the published collection ID, AND
       - explains CHANGED means the item is published/live but has draft edits that are not yet published, AND
       - tells the user to publish the item (publish its draft) to push the edits to the live site, AND
       - reflects the draft/published model (edits live on a draft until published; optionally mentions
         unpublish or revert-to-live as related transitions).
 
       Fail if the response:
+      - recommends writing directly to the published collection, OR
       - misidentifies CHANGED (e.g. treats it as an error, a merge conflict, or merely "unsaved" needing
         only a re-save), OR
       - claims editing the item directly makes it live with no publish step, OR
