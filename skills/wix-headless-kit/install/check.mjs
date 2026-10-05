@@ -15,7 +15,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
-import { SKILL_ROOT, installSource, templatesDir, templatesSource } from "./templates.mjs";
+import { SKILL_ROOT, TEMPLATES_PATH, installSource, templatesDir, templatesSource } from "./templates.mjs";
 
 const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", timeout: 120_000, ...opts });
 const skillName = SKILL_ROOT.split("/").pop();
@@ -64,11 +64,11 @@ if (dir) {
   else if (src.commit === head) out.templates = { status: "current", commit: src.commit };
   else {
     out.templates = { status: "behind", commit: src.commit, head };
-    const files = git(["-C", tmp, "diff", "--name-only", `${src.commit}..${head}`, "--", "templates"]).stdout.split("\n").filter(Boolean);
-    const log = git(["-C", tmp, "log", "--format=%s", `${src.commit}..${head}`, "--", "templates"]).stdout.split("\n").filter(Boolean);
+    const files = git(["-C", tmp, "diff", "--name-only", `${src.commit}..${head}`, "--", TEMPLATES_PATH]).stdout.split("\n").filter(Boolean);
+    const log = git(["-C", tmp, "log", "--format=%s", `${src.commit}..${head}`, "--", TEMPLATES_PATH]).stdout.split("\n").filter(Boolean);
     if (files.length || log.length) {
       out.templates.commitsBehind = log.length;
-      out.templates.verticals = [...new Set(files.map((f) => f.split("/")[1]).filter((v) => v && !v.endsWith(".mjs")))].sort();
+      out.templates.verticals = [...new Set(files.map((f) => f.split("/")[2]).filter((v) => v && !v.endsWith(".mjs") && !v.endsWith(".md")))].sort();
       out.templates.commits = log.slice(0, 20);
     } else {
       out.templates.detail = git(["-C", tmp, "cat-file", "-e", src.commit]).status === 0 ? "no template changes between the two commits" : "the recorded commit is not in the repository's history (a branch that was deleted?)";
