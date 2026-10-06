@@ -138,14 +138,14 @@ shipped code is readable in place.
 
 ```
 Fetch and follow these as a reference:
-- https://www.wix.com/skills/headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site: what each step reads, decides and calls; its guides/reference-mode.md is the mechanics for a stack that can't run the shipped code
-- https://www.wix.com/skills/headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
-- https://www.wix.com/skills/docs/SKILL.md — the Wix API reference, for any contract the templates don't cover
-- https://www.wix.com/skills/manage/SKILL.md — recipes for managing a site that exists, each a REST call
+- https://www.wix.com/skills/wix-headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site: what each step reads, decides and calls; its guides/reference-mode.md is the mechanics for a stack that can't run the shipped code
+- https://www.wix.com/skills/wix-headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
+- https://www.wix.com/skills/wix-docs/SKILL.md — the Wix API reference, for any contract the templates don't cover
+- https://www.wix.com/skills/wix-manage/SKILL.md — recipes for managing a site that exists, each a REST call
 ```
 
-Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<slug>.manifest.json`
-(`headless-kit`, `headless-templates`, `docs`, `manage`); fetch a manifest to find a file before
+Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`
+(`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
 reading it.
 
 What the reference cannot give you is the part that needs the machine: installing, running the Wix
