@@ -5,7 +5,7 @@
 //   node <SKILL_ROOT>/install/check.mjs
 //
 // Two layers, two answers:
-//   skill      the installed skill folder (SKILL.md, guides/, install/, cold-start/) against the
+//   skill      the installed skill folder (SKILL.md, guides/, install/) against the
 //              repository head: `current`, `behind` (with the files that differ), or `unknown`.
 //   templates  `templates/.source` commit against the head: `current` or `behind`, with the
 //              verticals touched and the commit messages in between.
