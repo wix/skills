@@ -165,9 +165,11 @@ jobs:
                 owner, repo, workflow_id: workflowId,
                 // The gates' own trigger, so a differently-triggered run of the same file is not
                 // picked up. The API returns newest first.
-                event: 'pull_request', head_sha: pr.head.sha, per_page: 1,
+                event: 'pull_request_target', per_page: 100,
               });
-              const run = runs.workflow_runs[0];
+              // A pull_request_target run is attached to the base commit, so `head_sha` cannot find
+              // it. Each gate puts the PR's head SHA at the end of its `run-name` instead.
+              const run = runs.workflow_runs.find(r => (r.display_title ?? '').endsWith(pr.head.sha));
               if (!run) continue;
 
               if (run.status !== 'completed') {

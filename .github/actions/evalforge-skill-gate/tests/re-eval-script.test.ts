@@ -28,7 +28,9 @@ const RE_EVAL_SCRIPT = (() => {
   return script;
 })();
 
-type WorkflowRun = { id: number; status: string; conclusion: string | null; html_url: string };
+type WorkflowRun = {
+  id: number; status: string; conclusion: string | null; html_url: string; display_title: string;
+};
 
 type PullRequest = {
   state: string;
@@ -46,11 +48,15 @@ const OPEN_PR: PullRequest = {
   head: { sha: 'abc1234def5678', repo: { full_name: 'wix/skills' } },
 };
 
+// Each gate's `run-name` ends with the PR head SHA; that is how the script finds the run.
+const TITLE_FOR_HEAD = `EvalForge gate · PR #42 · ${OPEN_PR.head.sha}`;
+
 const FAILED_RUN: WorkflowRun = {
   id: 900,
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/900',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const MANAGE_RUN: WorkflowRun = {
@@ -58,6 +64,7 @@ const MANAGE_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/901',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const REVIEW_RUN: WorkflowRun = {
@@ -65,6 +72,7 @@ const REVIEW_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/902',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const SWEEP_RUN: WorkflowRun = {
@@ -72,6 +80,7 @@ const SWEEP_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'success',
   html_url: 'https://github.com/wix/skills/actions/runs/903',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const YAML_GATE = 'evalforge-yaml-gate.yml';
@@ -298,17 +307,33 @@ describe('finding the run to re-run', () => {
     expect(test.runQueries).toEqual([
       expect.objectContaining({
         workflow_id: 'evalforge-wix-app-gate.yml',
-        event: 'pull_request',
-        head_sha: OPEN_PR.head.sha,
-        per_page: 1,
+        event: 'pull_request_target',
+        per_page: 100,
       }),
       expect.objectContaining({
         workflow_id: YAML_GATE,
-        event: 'pull_request',
-        head_sha: OPEN_PR.head.sha,
-        per_page: 1,
+        event: 'pull_request_target',
+        per_page: 100,
       }),
     ]);
+  });
+
+  // A pull_request_target run is attached to the base commit, so the head SHA in the run's title
+  // is the only link to this commit. A newer run for another commit must not be re-run instead.
+  it('picks the run whose title names this head sha, not the newest run', async () => {
+    const other = run({ id: 950, display_title: 'EvalForge gate · PR #42 · 0000000ffffffff' });
+    const mine = run({ id: 951 });
+    const test = harness({ runs: [other, mine] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([951]);
+  });
+
+  it('re-runs nothing when no run names this head sha', async () => {
+    const test = harness({ runs: [run({ display_title: 'EvalForge gate · PR #42 · 0000000ffffffff' })] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([]);
   });
 
   // The sweep is green in soak mode and manual after every push, so the run worth re-running is a

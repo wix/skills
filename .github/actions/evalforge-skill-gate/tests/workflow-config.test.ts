@@ -8,7 +8,8 @@ const loadWorkflow = (name: string) =>
 
 type Workflow = {
   on: {
-    pull_request: { types: string[]; paths?: string[]; branches: string[] };
+    pull_request?: unknown;
+    pull_request_target: { types: string[]; paths?: string[]; branches: string[] };
     /** Only the re-eval workflow has this one. */
     issue_comment?: { types: string[] };
   };
@@ -21,32 +22,53 @@ type Workflow = {
     outputs?: Record<string, string>;
     // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
     // typechecks — the gate gained one to capture the checked-out merge commit.
-    steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
+    steps: Array<{ id?: string; uses?: string; run?: string; if?: string; with?: Record<string, string | boolean> }>;
   }>;
 };
 
 describe('EvalForge wix-app gate workflow', () => {
   const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
-  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps.find(step => step.id === 'gate')!;
 
-  it('runs the action in gate mode', () => {
-    expect(gateStep.uses).toBe('./.github/actions/evalforge-skill-gate');
+  it('runs the action in gate mode, from the base checkout', () => {
+    expect(gateStep.uses).toBe('./.action-src/.github/actions/evalforge-skill-gate');
     expect(gateStep.with?.mode).toBe('gate');
   });
 
+  // pull_request_target, so the workflow file and the action come from main: under pull_request a
+  // branch could rewrite either and run it with the gate's secrets.
+  it('triggers on pull_request_target, not pull_request', () => {
+    expect(workflow.on.pull_request).toBeUndefined();
+    expect(workflow.on.pull_request_target.branches).toEqual(['main']);
+  });
+
+  it('checks the PR merge ref out as data, persisting no credentials anywhere', () => {
+    const checkouts = workflow.jobs.gate.steps.filter(step => step.uses?.startsWith('actions/checkout'));
+    expect(checkouts[0].with?.ref).toBe('refs/pull/${{ github.event.pull_request.number }}/merge');
+    for (const checkout of checkouts) expect(checkout.with?.['persist-credentials']).toBe(false);
+  });
+
+  it('reports pending, then its verdict, as a status on the PR head', () => {
+    expect(workflow.jobs.gate.permissions.statuses).toBe('write');
+    const scripts = workflow.jobs.gate.steps.filter(step => step.uses?.startsWith('actions/github-script'));
+    expect(scripts).toHaveLength(2);
+    expect(String(scripts[0].with?.script)).toContain("state: 'pending'");
+    expect(scripts[1].if).toBe('always()');
+  });
+
   it('triggers on the PR events that change a PR head', () => {
-    expect(workflow.on.pull_request.types).toEqual(
+    expect(workflow.on.pull_request_target.types).toEqual(
       expect.arrayContaining(['opened', 'synchronize', 'reopened']),
     );
   });
 
   it('also triggers on ready_for_review, since the job skips drafts', () => {
-    expect(workflow.on.pull_request.types).toContain('ready_for_review');
+    expect(workflow.on.pull_request_target.types).toContain('ready_for_review');
     expect(workflow.jobs.gate.if).toContain('draft');
   });
 
   it('watches both the skill dir and the scenario YAML', () => {
-    expect(workflow.on.pull_request.paths).toEqual(
+    expect(workflow.on.pull_request_target.paths).toEqual(
       expect.arrayContaining(['skills/wix-app/**', 'yaml/wix-app-evals/**']),
     );
   });
@@ -114,7 +136,7 @@ describe('EvalForge wix-app gate workflow — analyze job', () => {
   const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
   const analyze = workflow.jobs.analyze;
   const analyzeStep = analyze.steps[analyze.steps.length - 1];
-  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps.find(step => step.id === 'gate')!;
 
   it('exposes the gate job output the analyze job triggers on', () => {
     expect(workflow.jobs.gate.outputs?.['analyze-run-id'])
@@ -183,7 +205,9 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
 
   it('runs the action in cleanup mode on PR close', () => {
     expect(cleanupStep.with?.mode).toBe('cleanup');
-    expect(workflow.on.pull_request.types).toEqual(['closed']);
+    expect(workflow.on.pull_request_target.types).toEqual(['closed']);
+    // Under pull_request, closing a PR unmerged would run the PR's own copy of this workflow.
+    expect(workflow.on.pull_request).toBeUndefined();
   });
 
   it('runs on merge as well as close, since wix-app has no promote step to sweep versions', () => {

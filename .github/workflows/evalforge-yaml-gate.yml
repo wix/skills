@@ -1,7 +1,13 @@
 name: EvalForge YAML Gate
+# `/re-eval` finds this run by the head SHA in its title (evalforge-re-eval.yml): a
+# pull_request_target run is attached to the base commit, so `head_sha` cannot find it.
+run-name: EvalForge YAML Gate · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -24,16 +30,35 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+      statuses: write
     steps:
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
       # Two checkouts is intentional:
-      # 1) PR merge ref — reads head YAMLs, .md files, documentation.yaml, and provides the action source.
-      # 2) Base SHA into .action-src — base evals for diff computation only.
+      # 1) PR merge ref — head YAMLs, .md files and documentation.yaml, read as data only.
+      #    No credentials are persisted into it.
+      # 2) Base SHA into .action-src — base evals for the diff, and the action source.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .action-src
-      - uses: ./.github/actions/evalforge-yaml-gate
+          persist-credentials: false
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
@@ -46,3 +71,19 @@ jobs:
           auto-approve: ${{ vars.EVAL_AUTO_APPROVE || 'false' }}
           eval-compare: ${{ vars.TRIGGER_EVAL_COMPARE || 'true' }}
           max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILL_AREAS || '1' }}
+
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });

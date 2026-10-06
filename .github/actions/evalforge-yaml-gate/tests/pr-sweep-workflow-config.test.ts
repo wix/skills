@@ -6,7 +6,8 @@ import * as yaml from 'js-yaml';
 type Step = { id?: string; name?: string; uses?: string; run?: string; if?: string; with?: Record<string, string | number> };
 type Workflow = {
   on: {
-    pull_request?: { types: string[]; paths?: string[]; branches: string[] };
+    pull_request?: unknown;
+    pull_request_target?: { types: string[]; paths?: string[]; branches: string[] };
     issue_comment?: unknown;
     workflow_dispatch?: unknown;
     push?: unknown;
@@ -27,24 +28,25 @@ const workflow = yaml.load(raw) as Workflow;
 const reEval = readFileSync(join(WORKFLOWS, 'evalforge-re-eval.yml'), 'utf-8');
 
 describe('EvalForge PR Sweep workflow — trigger', () => {
-  // Modelled on the skill review: a `pull_request` run is attached to the PR head, which is what
-  // lets its job be a required status check. A comment-triggered run is attached to the default
-  // branch commit and never appears on the PR.
-  it('runs on pull_request events, and on nothing else', () => {
-    expect(workflow.on.pull_request?.branches).toEqual(['main']);
+  // pull_request_target, so the workflow file and the action come from main: under pull_request a
+  // branch could rewrite either and run it with the sweep's secrets. Such a run is attached to the
+  // base commit, so the job reports its own status on the PR head (see the status steps below).
+  it('runs on pull_request_target events, and on nothing else', () => {
+    expect(workflow.on.pull_request_target?.branches).toEqual(['main']);
+    expect(workflow.on.pull_request).toBeUndefined();
     expect(workflow.on.issue_comment).toBeUndefined();
     expect(workflow.on.workflow_dispatch).toBeUndefined();
     expect(workflow.on.push).toBeUndefined();
   });
 
   it('includes synchronize, so every head commit gets a check for /sweep to re-run', () => {
-    expect(workflow.on.pull_request?.types).toEqual(expect.arrayContaining(['opened', 'synchronize', 'reopened', 'ready_for_review']));
+    expect(workflow.on.pull_request_target?.types).toEqual(expect.arrayContaining(['opened', 'synchronize', 'reopened', 'ready_for_review']));
   });
 
   // A required check whose workflow is path-scoped is never reported on PRs outside those paths,
   // and GitHub then waits for it forever. The action decides scope from the diff instead.
   it('has no paths filter', () => {
-    expect(workflow.on.pull_request?.paths).toBeUndefined();
+    expect(workflow.on.pull_request_target?.paths).toBeUndefined();
   });
 
   it('supersedes an in-flight run of the same PR — only the newest head matters', () => {
@@ -56,7 +58,7 @@ describe('EvalForge PR Sweep workflow — trigger', () => {
 
 describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
   const job = workflow.jobs['pr-sweep'];
-  const action = job.steps.find(s => s.uses === './.github/actions/evalforge-yaml-gate');
+  const action = job.steps.find(s => s.uses === './.action-src/.github/actions/evalforge-yaml-gate');
 
   it('names its job pr-sweep, which is the required-status-check name', () => {
     expect(job).toBeDefined();
@@ -74,8 +76,26 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
 
   it('checks out the merge ref with full history, so HEAD^1 is the base', () => {
     const checkout = job.steps.find(s => s.uses?.startsWith('actions/checkout'));
-    expect(checkout?.with?.ref).toBeUndefined();
+    expect(checkout?.with?.ref).toBe('refs/pull/${{ github.event.pull_request.number }}/merge');
     expect(checkout?.with?.['fetch-depth']).toBe(0);
+  });
+
+  // The PR is data: nothing from it runs, and no token is left in its git config.
+  it('runs the action from the base checkout, never from the PR', () => {
+    const checkouts = job.steps.filter(s => s.uses?.startsWith('actions/checkout'));
+    const base = checkouts.find(s => s.with?.path === '.action-src');
+    expect(base?.with?.ref).toBe('${{ github.event.pull_request.base.sha }}');
+    for (const checkout of checkouts) expect(checkout.with?.['persist-credentials']).toBe(false);
+    expect(action).toBeDefined();
+    expect(job.steps.some(s => s.uses?.startsWith('./.github/'))).toBe(false);
+  });
+
+  it('reports pending, then its verdict, as a status on the PR head', () => {
+    const scripts = job.steps.filter(s => s.uses?.startsWith('actions/github-script'));
+    expect(scripts).toHaveLength(2);
+    expect(String(scripts[0].with?.script)).toContain("state: 'pending'");
+    expect(scripts[1].if).toBe('always()');
+    for (const step of scripts) expect(String(step.with?.script)).toContain('sha: context.payload.pull_request.head.sha');
   });
 
   it('diffs the merge commit against its first parent, so only the PR\'s own changes count', () => {
@@ -114,8 +134,8 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
     expect(action?.with?.['evalforge-app-secret']).toBe('${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}');
   });
 
-  it('can comment on the PR and read the repo, nothing more', () => {
-    expect(job.permissions).toEqual({ contents: 'read', 'pull-requests': 'write' });
+  it('can comment on the PR, set statuses and read the repo, nothing more', () => {
+    expect(job.permissions).toEqual({ contents: 'read', 'pull-requests': 'write', statuses: 'write' });
   });
 
   it('allows a job budget above the worst-case three sequential 30-minute polls', () => {
@@ -136,8 +156,8 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
 });
 
 describe('the /sweep command', () => {
-  // The command lives in the re-eval workflow's COMMANDS map, which re-runs the head's own
-  // pull_request run; that is what turns a comment into a verdict on the required check.
+  // The command lives in the re-eval workflow's COMMANDS map, which re-runs the run whose title
+  // names the PR head; the re-run then reports its verdict on the head again.
   it('is registered in the re-eval command map, pointing at this workflow', () => {
     expect(reEval).toContain("['/sweep', {");
     expect(reEval).toMatch(/\['\/sweep', \{[^}]*gates: \['evalforge-pr-sweep\.yml'\]/s);

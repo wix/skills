@@ -1,7 +1,12 @@
 name: EvalForge wix-app Gate
+# `/re-eval` finds this run by the head SHA in its title (evalforge-re-eval.yml).
+run-name: EvalForge wix-app Gate · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     # ready_for_review matters because the job is gated on `!draft`: without it, marking a
     # draft PR ready would not fire the gate at all, and the PR would sit unevaluated until
@@ -29,18 +34,36 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
     outputs:
       analyze-run-id: ${{ steps.gate.outputs.analyze-run-id }}
     steps:
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
       # Two checkouts, as the yaml-gate workflows do:
-      # 1) PR merge ref — the skill files and head scenario YAML, and the action source.
+      # 1) PR merge ref — the skill files and head scenario YAML, read as data only.
       # 2) Base SHA into .action-src — base scenarios, so the sync plan can tell a PR-only
-      #    scenario from one that pre-existed the PR.
+      #    scenario from one that pre-existed the PR, and the action source.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .action-src
+          persist-credentials: false
       # The version label is content-addressed, so it must name the commit actually checked out.
       # GITHUB_SHA is right on a first run, but a re-run replays the original event's merge commit
       # while the checkout above resolved refs/pull/N/merge fresh — if base advanced they differ,
@@ -49,7 +72,7 @@ jobs:
         id: merge
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - id: gate
-        uses: ./.github/actions/evalforge-skill-gate
+        uses: ./.action-src/.github/actions/evalforge-skill-gate
         with:
           mode: gate
           evaluated-sha: ${{ steps.merge.outputs.sha }}
@@ -73,6 +96,22 @@ jobs:
           runs-per-scenario: ${{ vars.WIX_APP_EVAL_RUNS_PER_SCENARIO }}
           base-arm-grace-seconds: ${{ vars.WIX_APP_EVAL_BASE_GRACE_SECONDS }}
 
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
+
   # The investigation runs here rather than in the gate job because a check finalises when its job
   # ends, not when a comment posts — sharing the job would hold the required check open for the
   # analysis's 57-second budget. Its own job also means an analysis failure cannot reach the gate's
@@ -95,8 +134,12 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      # One checkout, for the action source. No base-SHA checkout: analyze mode reads no scenarios.
+      # One checkout, for the action source, from the PR's base on main. Analyze mode reads no
+      # scenarios, so the PR itself is not checked out.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/evalforge-skill-gate
         with:
           mode: analyze

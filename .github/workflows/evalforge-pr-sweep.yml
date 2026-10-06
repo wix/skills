@@ -1,4 +1,6 @@
 name: EvalForge PR Sweep
+# `/sweep` finds this run by the head SHA in its title (evalforge-re-eval.yml).
+run-name: EvalForge PR Sweep · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
 # Runs the merge-tag sweep against an open PR on request, so a regression in another area can be
 # found before merge rather than after. `evalforge-merge-tag-sweep.yml` runs the same sweep on every
@@ -19,8 +21,11 @@ name: EvalForge PR Sweep
 # The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
 # the tests covering this wiring.
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     # No `paths:` filter, for the reason ci.yml gives at length: a required check whose workflow is
     # path-scoped is never reported on PRs outside those paths, and GitHub leaves it "Expected —
@@ -56,12 +61,36 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
     steps:
-      # Default `refs/pull/N/merge` — the tree as it will land. Its first parent is the base, so
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
+
+      # The PR merge ref, `refs/pull/N/merge`, read as data only. Its first parent is the base, so
       # `HEAD^1 HEAD` is this PR's diff. fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+          persist-credentials: false
+
+      # The action source, from the PR's base on main.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+          persist-credentials: false
 
       - name: Diff the PR against its base
         id: diff
@@ -72,7 +101,7 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/evalforge-yaml-gate
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         id: sweep
         with:
           mode: pr-sweep
@@ -87,3 +116,19 @@ jobs:
           required: ${{ vars.PR_SWEEP_REQUIRED || 'false' }}
           blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}
           remind: ${{ vars.PR_SWEEP_REMIND || 'false' }}
+
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
