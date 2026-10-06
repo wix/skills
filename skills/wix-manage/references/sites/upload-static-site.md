@@ -117,7 +117,12 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  const files = { 'index.html': html, 'assets/styles.css': css };   // path → text content
+  // path → text content. Each file goes in a template literal: escape ` as \` and ${ as \${.
+  const files = {
+    'index.html': `<!doctype html><html><head><title>Northwind Studio</title>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>`,
+    'assets/styles.css': `body { font-family: sans-serif; margin: 0; padding: 4rem; }`,
+  };
   const boundary = '----wixdropboundary';
   const body = Object.entries(files).flatMap(([path, text]) => [
     '--' + boundary,
@@ -125,15 +130,16 @@ async function run() {
     '', text,
   ]).concat('--' + boundary + '--', '').join('\r\n');
   return await wix.request({ scope: 'account', method: 'POST',
-    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.metaSiteId}/drop`,
+    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop`,
     headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary },
     body });                                                          // a string body is sent verbatim
 }
 ```
 
-Keep the body's shape exactly. It's a string; an object is sent as JSON and
-rejected. Lines end in `\r\n`, the body ends with `--<boundary>--`, and the
-header names the same boundary the body uses. Break any of these and the drop
+`wix.request` returns `{ status, data }`; read a response's fields from `data`
+(`created.data.metaSiteId`). Keep the body's shape exactly. It's a string; an
+object is sent as JSON and rejected. Lines end in `\r\n`, the body ends with
+`--<boundary>--`, and the header names the same boundary the body uses. Break any of these and the drop
 fails with a bare `500`.
 
 `siteUrl` is the site's final address — it's already in the user's account. Give
