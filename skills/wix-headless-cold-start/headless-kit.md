@@ -131,24 +131,24 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 ## When you can't run this
 
 Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
-Wix CLI login. If you have none of that (a chat agent, an MCP-only host), or you have it but
-something blocks a phase (sandbox rules, a blocked install, a CLI that won't run, a login that
-can't complete), the build still happens: not by you, and not by hand-writing a Wix integration in
-its place. Tell the user this build needs a coding agent that can run commands, and give them this
-to paste into one (Claude Code, Codex, Cursor, or any agent with a terminal), opened in an empty
-folder named for the business:
+Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
+CLI or the login), the skills are still yours to read: fetch them from the registry and follow them
+as a **reference**, not as steps to execute. They say what a build does, decides and calls, and the
+shipped code is readable in place.
 
 ```
-<the user's brief, in their words>
-
-Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md
-Follow it exactly. It installs these skills from https://www.wix.com/skills/ and builds from them:
-- wix-headless-kit: the build itself, from a brief to a released Wix Headless site
-- wix-headless-templates: the shipped, verified code per Wix Business Solution the kit deploys and seeds
-- wix-docs: the Wix API reference, for any contract the templates don't cover
-- wix-manage: recipes for managing the site once it exists
+Fetch and follow these as a reference:
+- https://www.wix.com/skills/headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site: what each step reads, decides and calls; its guides/reference-mode.md is the mechanics for a stack that can't run the shipped code
+- https://www.wix.com/skills/headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
+- https://www.wix.com/skills/docs/SKILL.md — the Wix API reference, for any contract the templates don't cover
+- https://www.wix.com/skills/manage/SKILL.md — recipes for managing a site that exists, each a REST call
 ```
 
-Tell them what will happen: that agent installs the skills, asks them once to sign in to Wix in
-the browser, builds and releases the site, and ends with the live URL and the dashboard link. The
-site is theirs; they can bring it back to you afterwards for anything you do on a live site.
+Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<slug>.manifest.json`
+(`headless-kit`, `headless-templates`, `docs`, `manage`); fetch a manifest to find a file before
+reading it.
+
+What the reference cannot give you is the part that needs the machine: installing, running the Wix
+CLI, logging in, releasing a project. Say so, and leave the user the brief with
+`Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md`
+to paste into a coding agent that runs commands.
