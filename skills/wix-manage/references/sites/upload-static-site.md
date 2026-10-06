@@ -117,7 +117,8 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  // path → text content. Each file goes in a template literal: escape ` as \` and ${ as \${.
+  // path → text content, as template literals. Escape \ as \\ first, then ` as \` and ${ as \${
+  // (an unescaped \ is dropped or reinterpreted: /\d+/ would arrive as /d+/).
   const files = {
     'index.html': `<!doctype html><html><head><title>Northwind Studio</title>
 <link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>`,
