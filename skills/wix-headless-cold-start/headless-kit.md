@@ -148,6 +148,15 @@ Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<s
 (`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
 reading it.
 
+Reading needs no login; calling does. Everything the seeds and the recipes do on the user's site
+(install an app, create content, change a setting) is an authenticated call as the site owner, and
+so is a read of anything a visitor can't see. The Wix MCP is the usual way to get that without a
+machine: its `ExecuteWixAPI` and `CallWixSiteAPI` tools carry the user's own login, so a `wix.request`
+runs as them with no token in sight. Without the MCP, the user has to authenticate and hand you a
+token: a site token from the Wix CLI (`npx @wix/cli@latest token --site <siteId>`, run by them, short-lived),
+or an API key or OAuth app from their account, per the wix-manage skill. A visitor token, the kind a
+site's own frontend mints, covers only what a visitor may see and is not a substitute.
+
 What the reference cannot give you is the part that needs the machine: installing, running the Wix
 CLI, logging in, releasing a project. Say so, and leave the user the brief with
 `Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md`
