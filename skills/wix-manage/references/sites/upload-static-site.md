@@ -33,10 +33,9 @@ What sets them apart:
   resends all of it. A string body is sent as UTF-8, so binary files (PNG, JPG,
   fonts, zips) arrive corrupted; link images by absolute URL.
 - **A CLI login** is one approval by the user in the browser: run
-  `npx @wix/cli login` and have them approve. `npx @wix/cli token` then prints a
-  token that lasts 15 minutes and refreshes itself, so call it in every request
-  (`-H "Authorization: Bearer $(npx @wix/cli token)"`) rather than keeping one.
-  It also unlocks later changes from disk and
+  `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
+  token (see [Before the calls](#before-the-calls)). It also unlocks later
+  changes from disk and
   [Keep building](#keep-building-add-a-backend-when-you-need-one).
 - **Anonymous** needs no identity, but the record expires after an hour and the
   URL changes on claim.
@@ -54,12 +53,21 @@ Publishing yourself beats the drop page whenever an option fits — the user get
 live site without uploading anything. Never report an upload you couldn't
 perform; whenever a route fails partway, hand over the drop page.
 
-## Publish into the user's account
+## Before the calls
 
-The `curl` examples here and in the anonymous route read shell variables
-(`$META_SITE_ID`, `$UPLOAD_ID`, …): set each one from the previous response
-before the next call. In an `ExecuteWixAPI` script, put the values themselves in
-the URL; a `$NAME` there is sent as is.
+The `curl` examples here and in the anonymous route read shell variables.
+
+- **`$ACCESS_TOKEN`** is the user's access token, from wherever you have it. A
+  token from the Wix CLI (`npx @wix/cli token`) lasts 15 minutes; running the
+  command again returns a valid one, refreshed if needed, so set `$ACCESS_TOKEN`
+  again when it may have expired, and always after a `403`.
+- **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response; set each
+  one before the next call.
+
+In an `ExecuteWixAPI` script there is no token to handle, and the ids go into the
+URL as values; a `$NAME` there is sent as is.
+
+## Publish into the user's account
 
 ### 1. Create the site
 
@@ -69,7 +77,7 @@ the site as a dropped one, the same as the drop page and the anonymous route do.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
-  -H "Authorization: Bearer $(npx @wix/cli token)" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
        "synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
@@ -89,7 +97,7 @@ single wrapping folder stripped.
 ```bash
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/$META_SITE_ID/drop" \
-  -H "Authorization: Bearer $(npx @wix/cli token)" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -F "files=@index.html;filename=index.html" \
   -F "files=@assets/styles.css;filename=assets/styles.css" \
   -F "files=@assets/logo.png;filename=assets/logo.png"
@@ -222,7 +230,7 @@ into *their* account — so give it only to the user who asked.
 ```bash
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/claim" \
-  -H "Authorization: Bearer $(npx @wix/cli token)"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 Returns `{}`. Claim after the release, never before — it consumes the anonymous
@@ -236,7 +244,7 @@ an `id` filter is rejected, so match the id yourself):
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
-  -H "Authorization: Bearer $(npx @wix/cli token)" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"query":{"filter":{"namespace":"HEADLESS"},"cursorPaging":{"limit":100}}}'
 ```
 
@@ -270,8 +278,8 @@ These apply to every route:
 Failures come back as HTTP 400 with a code in `details.applicationError.code`:
 `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. Beyond those:
 
-- **`403 PERMISSION_DENIED` on a drop** — the token expired (a CLI token lasts 15
-  minutes; fetch a new one and retry), or the site isn't the caller's. A site
+- **`403 PERMISSION_DENIED` on a drop** — the token expired or is missing (see
+  [Before the calls](#before-the-calls)), or the site isn't the caller's. A site
   that's still anonymous is changed by upload + release, not by a drop.
 - **`500` on a drop or upload** — the multipart body is malformed (see the shape
   above). Rebuild it from the example; sending it again unchanged fails the
