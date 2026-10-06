@@ -148,15 +148,13 @@ Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<s
 (`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
 reading it.
 
-Reading the skills needs no login. Most calls do: everything the seeds and the recipes do on the
-user's site (install an app, create content, change a setting) is an authenticated call as the
-site owner, and so is a read of anything a visitor can't see. The exception is publishing a static
-site: the anonymous flow in
-`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads and
-releases with no identity at all, and the same recipe publishes into the user's account when you
-hold their login. For everything else you need the user's authentication: the Wix MCP when it is
-connected, or a token they hand you (a site token from the Wix CLI, an API key or an OAuth app from
-their account, per the wix-manage skill). A visitor token covers only what a visitor may see.
+Calls on the user's site run as the site owner: installing an app, creating content, changing a
+setting, reading anything a visitor can't see. That takes the user's authentication, the Wix MCP
+when it is connected, or a token they hand you (a site token from the Wix CLI, an API key or an
+OAuth app from their account, per the wix-manage skill); a visitor token covers only what a
+visitor may see. Publishing a static site is the one flow with no identity at all:
+`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads
+and releases anonymously, and publishes into the user's account when you hold their login.
 
 What the reference cannot give you is the part that needs the machine: installing, running the Wix
 CLI, logging in, releasing a project. Say so, and leave the user the brief with
