@@ -18,24 +18,24 @@ description: "Assess automation feasibility, supported action configuration, upd
 ## 1. What you cannot do with the public APIs
 
 - **Hidden drafts / separate publish step** → create with `status: INACTIVE` (your "draft");
-  activate on request ([validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3).
+  activate on request ([Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3).
 - **Dry-run / simulate** → none exists. Test Automation runs the actions FOR REAL — only with
-  explicit user consent ([validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §5). Validate checks shape, not runtime
+  explicit user consent ([Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §5). Validate checks shape, not runtime
   behavior; never claim runtime results from validation.
 - **Activation / run diagnosis** is supported through activation and action logs; use
-  [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). An unavailable/forbidden log is unknown, not a successful or absent run.
+  [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). An unavailable/forbidden log is unknown, not a successful or absent run.
 - **Generate site actions / "API integration" steps** (`wix_automations-wix_api_integration`) →
   not public; don't create them. Offer an existing app action, a webhook action, or "Generate or analyze
   text" (`wix_automations-llm_call`). An existing one in an automation you update: leave it untouched, don't rename it.
 - **New Send an email steps** have a dedicated Generate Action Input Mapping API
-  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Use it for new automations and for new email nodes in
+  ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Use it for new automations and for new email nodes in
   updates, then persist before Get / Set Email Content. Availability during rollout must be
   checked through the documented method; a missing binding or permission is a concrete blocker,
   not permission to invent a mapping. Never save an email step without its app-created email.
 - **Code variables** (`wix_automations-data_manipulation_code`) → Create refuses them; use the
-  alternatives in [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4.
+  alternatives in [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4.
 - **Item Selection** is PUBLIC/BETA: discover installed providers and query their items
-  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2). Vertical public APIs are also valid. Missing binding,
+  ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2). Vertical public APIs are also valid. Missing binding,
   permission or provider means options are unknown; it does not mean the API is private.
 - **Create labels / coupons / forms / pipelines while building** → out of scope. They must exist
   first: tell the user, list what exists, and treat creation as a blocking prerequisite (create it
@@ -52,7 +52,7 @@ Enforce by `appId` + `actionKey`. Why: these are configured by a builder widget 
 | Action                 | Key                                                                          | Use instead                                                                                                                                  |
 | ---------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Velo action            | `wix_automations-velo_action` (appId `139ef4fa-c108-8f9a-c7be-d5f492a2c939`) | An app action, an LLM action, or the HTTP request action (`webhooks-action`) calling a Velo http-function URL the user exposes.              |
-| Data manipulation code | `wix_automations-data_manipulation_code` (same appId)                        | Code variable — not creatable via the public API. Formulas, SET_VARIABLES, a code condition or an LLM step ([special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4).          |
+| Data manipulation code | `wix_automations-data_manipulation_code` (same appId)                        | Code variable — not creatable via the public API. Formulas, SET_VARIABLES, a code condition or an LLM step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4).          |
 | Send a coupon (legacy) | `send-coupon-action` (appId `14d7032a-0a65-5270-cca7-30f599708fed`)          | "Add a coupon" `wixcoupons-retrieve_coupon` — selects the coupon by entity selector and outputs the code for later steps (e.g. an email).    |
 | Get an email           | `send-mail` (appId `139ef4fa-c108-8f9a-c7be-d5f492a2c939`)                   | "Send an email" `triggered-emails` — recipient is the trigger's contact, the site owner, or an existing contact.                             |
 | WhatsApp message       | `whatsapp-send-message` (hidden)                                             | Its approved WhatsApp template can only be picked in the builder. Use chat (`send-message`) or email, or let the user add it in the builder. |
@@ -66,8 +66,8 @@ Enforce by `appId` + `actionKey`. Why: these are configured by a builder widget 
 
 Say YES to these (common false-impossibilities):
 
-- Variables (SET_VARIABLES) and rate limiting are available on every USER automation even when absent from the catalog list (not on APPLICATION/PREINSTALLED ones — §4). Variables are alpha: confirm by read-back ([special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
-- Parallel steps: SPLIT. Calendar logic without payload dates (today's month, weekday, birthdays): a CODE_CONDITION with `new Date()`, or a boolean SET_VARIABLES step (formulas may use `now()`, `day()`, `month()`, `year()`) tested with `boolEq` — the condition panel itself has no date-part or `now()` functions ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §4).
+- Variables (SET_VARIABLES) and rate limiting are available on every USER automation even when absent from the catalog list (not on APPLICATION/PREINSTALLED ones — §4). Variables are alpha: confirm by read-back ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
+- Parallel steps: SPLIT. Calendar logic without payload dates (today's month, weekday, birthdays): a CODE_CONDITION with `new Date()`, or a boolean SET_VARIABLES step (formulas may use `now()`, `day()`, `month()`, `year()`) tested with `boolEq` — the condition panel itself has no date-part or `now()` functions ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §4).
 - Email recipients: the trigger's contact, the **site owner**, or an **existing contact** — regardless of how contact-centric the input schema looks. Picking the specific contact happens during configuration.
 - Preferred language: map `contact.locale` into the email; no language field needed.
 
@@ -86,9 +86,9 @@ Existing-item actions (labels, badges, coupons, pipelines…): select existing i
 
 Manual-configuration actions (Google Sheets, third-party integrations, OAuth-based apps): you can add the node, but the user completes auth/selection in the builder. Say so upfront; collect every static value you CAN (URLs, tokens, exact resource names) before building; an uncollectable required value is a stated blocker, not a placeholder.
 
-AI actions (which one: the AI ladder in [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §2 — Aria passes only a `summary` downstream; the custom agent `ai_custom_agent_bm-delegate_to_agent` when a later step needs structured output; "Generate or analyze text" `wix_automations-llm_call` over data already in the payload). Use agents ONLY when the user explicitly wants agentic behavior — never as a fallback for a missing built-in action (a built-in action is always more reliable). "Generate or analyze text" is different: it may be used without being asked when it is the only way to derive a value the user needs (extraction/computation the formula list can't do — [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4); say so in your answer.
+AI actions (which one: the AI ladder in [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §2 — Aria passes only a `summary` downstream; the custom agent `ai_custom_agent_bm-delegate_to_agent` when a later step needs structured output; "Generate or analyze text" `wix_automations-llm_call` over data already in the payload). Use agents ONLY when the user explicitly wants agentic behavior — never as a fallback for a missing built-in action (a built-in action is always more reliable). "Generate or analyze text" is different: it may be used without being asked when it is the only way to derive a value the user needs (extraction/computation the formula list can't do — [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4); say so in your answer.
 
-Scheduling patterns (last day of month, days 29–31, sub-daily…): [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
+Scheduling patterns (last day of month, days 29–31, sub-daily…): [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
 
 ## 4. Update restrictions
 
@@ -118,10 +118,10 @@ Explain what's locked and why (installed by Wix or an app), say what IS editable
 Every update:
 
 - **Live edits**: if `status` is `ACTIVE`, Update Automation changes the running automation immediately. Tell the user and confirm before writing. (Or offer: deactivate, edit, re-activate.) If the request already contains that consent ("it's live, change it anyway"), don't ask again — record in your answer that it was a live edit made on their stated consent.
-- **Procedure** (builder edits published or discarded first → Get → merge → Validate → Update with the current `revision`, `origin`, `settings` → read-back; revision conflict → re-Get, re-merge, re-validate): [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
-- Touch only what was asked; keep untouched nodes, ids, namespaces and SPLIT paths exactly as they are. A new step's namespace number = 1 + the largest number among the steps that REMAIN ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §3): numbers of removed steps are not reserved, so removing the highest-numbered step frees its number for the next new step. Re-point or remove every `var()` that read a removed step before reusing its namespace. The single-parent tree rules still apply to any restructuring.
+- **Procedure** (builder edits published or discarded first → Get → merge → Validate → Update with the current `revision`, `origin`, `settings` → read-back; revision conflict → re-Get, re-merge, re-validate): [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
+- Touch only what was asked; keep untouched nodes, ids, namespaces and SPLIT paths exactly as they are. A new step's namespace number = 1 + the largest number among the steps that REMAIN ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §3): numbers of removed steps are not reserved, so removing the highest-numbered step frees its number for the next new step. Re-point or remove every `var()` that read a removed step before reusing its namespace. The single-parent tree rules still apply to any restructuring.
 - Re-verify every entity and field the change touches — they may have been renamed or deleted since creation.
-- **Email content of an existing step** (subject, preview text, body text — "add the phone number to the email") → edit it in place with Get / Set Email Content ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3), after the user's OK: it goes live immediately. Recipient or design changes → the user does them in the email editor (site-owner audience: the one allowed edit). Do not initialize or recreate an existing step for content-only changes. Adding a distinct new email uses Generate Action Input Mapping, subject to the origin's new-node restrictions.
+- **Email content of an existing step** (subject, preview text, body text — "add the phone number to the email") → edit it in place with Get / Set Email Content ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3), after the user's OK: it goes live immediately. Recipient or design changes → the user does them in the email editor (site-owner audience: the one allowed edit). Do not initialize or recreate an existing step for content-only changes. Adding a distinct new email uses Generate Action Input Mapping, subject to the origin's new-node restrictions.
 - **Deleting a node needs the user's explicit OK**: name the nodes you'll remove (recreating an email creates a different content resource, not restoration) and get a yes before the Update. Then connect its parent to its child and fix or ask about any downstream `var()` that read its outputs.
 
 ## 5. Planning heuristics (recurring real failure modes)
@@ -135,9 +135,9 @@ Every update:
 
 ### Data flow
 
-5. Trace every REQUIRED input to a concrete source — trigger field, ancestor output, identity enrichment, variable, or user literal — with exact path, type and format, present in that node's aggregated schema ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). "Use the payment method from the payload" is not verification.
+5. Trace every REQUIRED input to a concrete source — trigger field, ancestor output, identity enrichment, variable, or user literal — with exact path, type and format, present in that node's aggregated schema ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). "Use the payment method from the payload" is not verification.
 6. Dynamic schemas: verify only after the determining choice is made (which form, service, template). Display labels ≠ keys.
-7. Arrays: never assume indexing. A value only inside an array needs an extraction step — "Generate or analyze text" with a named scalar output (code variables can't be created publicly; [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4), or a code condition when it only decides a branch. Plain variables are transformation, not extraction.
+7. Arrays: never assume indexing. A value only inside an array needs an extraction step — "Generate or analyze text" with a named scalar output (code variables can't be created publicly; [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4), or a code condition when it only decides a branch. Plain variables are transformation, not extraction.
 8. Follow object containers to scalar leaves (`paymentMethodName.buyerLanguageName`, not `paymentMethodName`).
 9. Identifier types must match: an email address doesn't satisfy a contact-id input. Use the id field or a supported lookup step.
 10. Trigger lacks the needed data (order number, payment method…) → switch to a trigger that has it (compare candidate payload schemas), don't degrade the request.
@@ -149,7 +149,7 @@ Every update:
 13. Verify an action supports the requested configuration/optional fields before promising them.
 14. Trigger-filter entities must exist, or the automation can't be configured.
 15. "Do A and B" → a chain by default; SPLIT when they must run at the same time — decide during planning.
-16. Prefer shapes the builder can render: visual conditions only for renderable operators, otherwise CODE_CONDITION ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).
+16. Prefer shapes the builder can render: visual conditions only for renderable operators, otherwise CODE_CONDITION ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).
 
 ### Conversation
 

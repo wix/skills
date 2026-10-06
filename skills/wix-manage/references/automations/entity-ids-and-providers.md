@@ -33,7 +33,7 @@ them, and which components need special handling.
   an entity id or key of that kind.
 - **Trigger `filters[]` entry**: `valueInput.type: "ENTITY_SELECTOR"` +
   `entitySelector{id, multiSelect, queryFieldToFilterIdMapping, queryFieldToValueMapping}` → ids as
-  **quoted string literals** in a literal array ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1). `queryFieldToFilterIdMapping`
+  **quoted string literals** in a literal array ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1). `queryFieldToFilterIdMapping`
   = depends on another filter; `queryFieldToValueMapping` = fixed constraints (e.g.
   `{namespace: "wix.form_app.form"}`) — honor them in your lookup.
 
@@ -46,7 +46,7 @@ label keys; `contactId` → map it from the payload, not a lookup. Can't tell �
 - **Shape follows the schema type.** `type: "string"` → exactly one id (`"couponId": "<uuid-1>"`);
   never an array. `type: "array"` → array of ids, **max 50**; with no selection, omit the key
   (the picker writes nothing, not `[]`). Trigger filters use a literal array of quoted ids even for one value
-  ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1–4.2); conditions compare with `stringContains(["<id>"];var("field"))` ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).
+  ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1–4.2); conditions compare with `stringContains(["<id>"];var("field"))` ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).
 - **Exact id match.** The picker loads titles by querying the provider and matching
   `item.id === value` exactly. Use the identifier the entity's API returns, unchanged — not
   always a uuid (contact labels use a `key` such as `custom.vip`). Never reformat or lower-case it.
@@ -71,7 +71,7 @@ The PUBLIC/BETA Item Selection service discovers installed providers and queries
 Use the concrete provider key or discover providers by the selector tag, apply fixed and parent
 filters, page results, and save returned ids unchanged. Vertical APIs below remain valid alternatives.
 
-Load [item-selection.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) for request shapes, permissions, service-relative paths, public binding
+Load [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) for request shapes, permissions, service-relative paths, public binding
 limitations, search, cursor/offset paging and dependent selections. An inaccessible binding or
 failed lookup means options are unknown; never invent an id.
 
@@ -121,7 +121,7 @@ confirmed here — try Item Selection with the supplied provider key, otherwise 
   leave it empty and tell the user to pick
   the assignee in the builder; never invent an id. If it is required, ask.
 
-Item Selection is a separate API from the Automations catalogs ([api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §8); use its
+Item Selection is a separate API from the Automations catalogs ([Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §8); use its
 verified client binding or a documented vertical endpoint. With near-duplicate triggers (two "form submitted"), the family whose entities you can
 actually find on the site is the live one.
 
@@ -132,22 +132,22 @@ Components needing handling beyond "map the input schema". Match by `appId` + ke
 **Send an email** — initialize each new `triggered-emails` action with **Generate Action Input
 Mapping**, whether creating an automation or adding a step during Update; persist before content
 edits. Existing email content edits use Get / Set Email Content without initialization.
-See [email-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions) for the public endpoint, settings, sequence and recipient verification.
+See [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions) for the public endpoint, settings, sequence and recipient verification.
 
-- **Unsupported / legacy — never add** ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §1–§2): `send-mail` ("Get an
+- **Unsupported / legacy — never add** ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §1–§2): `send-mail` ("Get an
   email" → `triggered-emails`); `send-coupon-action` (hidden, no selector → `wixcoupons-retrieve_coupon`
   feeding a message — confirm it delivers what the user wants); Velo and code-variable
-  (data-manipulation-code) actions (Create is refused; alternatives [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4); site
+  (data-manipulation-code) actions (Create is refused; alternatives [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4); site
   actions / Wix custom action `wix_automations-wix_api_integration` (not public — offer a built-in
   action; never invent its `inputMapping`). Leave existing ones untouched.
 - **Webhook trigger** — Automations app `139ef4fa-c108-8f9a-c7be-d5f492a2c939` / `wix_automations-webhook_trigger`:
-  generate a fresh uuid webhook id, set it per [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) / [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling), define
+  generate a fresh uuid webhook id, set it per [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) / [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling), define
   `trigger.overrideSchema` with the posted fields (keep `webhookId`); give the user the URL
-  ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6) — the builder shows the same one.
+  ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6) — the builder shows the same one.
 - **Custom trigger** — `wix_automations-custom_trigger`: define `overrideSchema`; the automation runs only
-  when the user's site code calls Run Trigger (`hookId`, snippet and REST call: [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6).
+  when the user's site code calls Run Trigger (`hookId`, snippet and REST call: [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6).
 - **Scheduled trigger** — `wix_automations-scheduled_trigger`: timing in `automationConfigMapping`;
-  site time zone from Site Properties, else ask ([schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §4).
+  site time zone from Site Properties, else ask ([Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §4).
 - **Webhook action** (`webhooks-action`, "HTTP request") — collect URL, method and body fields from the
   user up front. Its input schema has **no header/auth input**: if the endpoint needs auth, it can go
   in the URL only if the receiving service supports that (e.g. a token query parameter) — otherwise
@@ -155,17 +155,17 @@ See [email-actions.md](https://dev.wix.com/docs/api-reference/business-managemen
   step reads the response.
 - **Generate or analyze text** (`wix_automations-llm_call`) / **Custom AI agent**
   (`ai_custom_agent_bm-delegate_to_agent`) — `overrideOutputSchema` when a later step consumes the
-  result, per the per-action rules in [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3 (`enum` decision fields,
+  result, per the per-action rules in [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3 (`enum` decision fields,
   concrete `{{var(…)}}` inputs in the prompt, agent schema matches its task). Delegate-to-assistant
   exposes only `summary`.
 - **Manual-setup actions** (Google Sheets, OAuth/third-party apps) — add the node, map what you can,
   state the manual steps; expect `PROVIDER_ERROR` from Validate until the user connects the account.
 
 Override output schemas are allowed only on the webhook and custom triggers and the webhook, LLM
-and custom-agent actions ([schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling)).
+and custom-agent actions ([Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling)).
 
 ### Email configuration
 
 New email initialization, existing content edits, recipient encoding and the existing-owner
-audience exception are documented in [email-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions). Use that reference before configuring
+audience exception are documented in [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions). Use that reference before configuring
 any email step; do not hand-author or reuse an email's opaque mapping.

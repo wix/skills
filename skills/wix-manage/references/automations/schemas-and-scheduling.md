@@ -7,27 +7,27 @@ description: "Configure dynamic schemas and scheduled automation triggers with c
 
 **TL;DR**
 
-- Every step can reference only its **aggregated schema** (trigger payload + **ancestor** outputs + `setVariable.*` + identity enrichment) — build it yourself, per step ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4).
+- Every step can reference only its **aggregated schema** (trigger payload + **ancestor** outputs + `setVariable.*` + identity enrichment) — build it yourself, per step ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4).
 - Dynamic schemas: trigger payload grows with its filters; an action's inputs grow with `updateSchemaOnChange` fields; its outputs grow with its mapping. Fetch them — never invent fields.
 - Override output schema is allowed ONLY on: triggers `wix_automations-webhook_trigger`, `wix_automations-custom_trigger`; actions `webhooks-action`, `wix_automations-llm_call`, `ai_custom_agent_bm-delegate_to_agent`. Wire fields: `trigger.overrideSchema`, `appDefinedInfo.overrideOutputSchema`.
 - Scheduled trigger: `trigger.automationConfigMapping = { startDate, repetitions? { cronExpression, everyNthDay | everyNthWeek | everyNthMonth, endDate? } }`. No `repetitions` = one run. Use the site time zone from Site Properties. Create and Update support `automationConfigMapping`; include it in the trigger configuration.
-- "N days before the event" = `trigger.scheduledEventOffset` (only for triggers with a `futureDate` field). "After" = a DELAY step ([special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
+- "N days before the event" = `trigger.scheduledEventOffset` (only for triggers with a `futureDate` field). "After" = a DELAY step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
 
 ---
 
 ## 1. The aggregated schema
 
-Each step may read only its aggregated schema: the trigger payload (override, or static + dynamic merged) + outputs of its ancestor steps under their `namespace` + `setVariable.*` + identity enrichment — never a sibling branch, a descendant or a skipped step. Full recipe, identity-enrichment keys and resolution order: [automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4. Only its paths may appear in a step's `var("…")` expressions ([bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)).
+Each step may read only its aggregated schema: the trigger payload (override, or static + dynamic merged) + outputs of its ancestor steps under their `namespace` + `setVariable.*` + identity enrichment — never a sibling branch, a descendant or a skipped step. Full recipe, identity-enrichment keys and resolution order: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4. Only its paths may appear in a step's `var("…")` expressions ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)).
 
 ## 2. Dynamic schemas — markers
 
 | Marker                                                                   | Meaning                                                                  | Call                                               |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------- |
-| trigger `implementedMethods.getDynamicSchema: true`                      | Payload depends on filter selections (`reevaluateDynamicSchema` filters) | Get Trigger Dynamic Schema ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5)      |
-| action input property `updateSchemaOnChange: true`                       | Setting it reveals more inputs                                           | Get Action Dynamic Input Schema ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §4)  |
-| action output depends on mapping (e.g. an email template's placeholders) | Output fields revealed by configuration                                  | Get Action Dynamic Output Schema ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §4) |
+| trigger `implementedMethods.getDynamicSchema: true`                      | Payload depends on filter selections (`reevaluateDynamicSchema` filters) | Get Trigger Dynamic Schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5)      |
+| action input property `updateSchemaOnChange: true`                       | Setting it reveals more inputs                                           | Get Action Dynamic Input Schema ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §4)  |
+| action output depends on mapping (e.g. an email template's placeholders) | Output fields revealed by configuration                                  | Get Action Dynamic Output Schema ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §4) |
 
-A field you need but cannot see is **unknown until its controlling selection is made** — say which selection reveals it; don't claim the data doesn't exist, and don't invent it. Form answers with no form filter chosen are such fields: use only static fields, or ask which form ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5).
+A field you need but cannot see is **unknown until its controlling selection is made** — say which selection reveals it; don't claim the data doesn't exist, and don't invent it. Form answers with no form filter chosen are such fields: use only static fields, or ask which form ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5).
 
 ## 3. Override output schema
 
@@ -46,7 +46,7 @@ Schema requirements (both kinds):
 
 - JSON Schema draft-07: `"$schema": "http://json-schema.org/draft-07/schema"`, root `"type": "object"`, `properties`, `required`; standard types only; give each property a `title`.
 - Trigger overrides: one realistic `examples` entry per property.
-- A trigger `overrideSchema` **replaces** the payload schema. An action `overrideOutputSchema` is **merged** over the catalog output schema (its `properties` win on a clash) — catalog output fields stay addressable. Get Automation returns overrides only with `fields: ["OVERRIDE_SCHEMA"]` — use it on read-back, or the override looks lost. For the webhook trigger keep the `webhookId` property in the override if the validator reports it missing. Webhook wiring (id, filter, config mapping) and the custom trigger's `hookId`: [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6.
+- A trigger `overrideSchema` **replaces** the payload schema. An action `overrideOutputSchema` is **merged** over the catalog output schema (its `properties` win on a clash) — catalog output fields stay addressable. Get Automation returns overrides only with `fields: ["OVERRIDE_SCHEMA"]` — use it on read-back, or the override looks lost. For the webhook trigger keep the `webhookId` property in the override if the validator reports it missing. Webhook wiring (id, filter, config mapping) and the custom trigger's `hookId`: [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6.
 
 ```json
 {
@@ -135,7 +135,7 @@ Not supported — say so and offer an alternative:
 - More than once a day (hourly/minutes).
 - Two `everyNth*` params together, or `repetitions` with none.
 
-**Daily + month-end check** (for "last day of month" or other calendar rules the schedule can't express): a daily schedule (`everyNthDay: 1`) whose root is a CODE_CONDITION ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5) with `dynamicVariableExpressions: []` (the scheduled trigger has no payload) and the site time zone written into the code:
+**Daily + month-end check** (for "last day of month" or other calendar rules the schedule can't express): a daily schedule (`everyNthDay: 1`) whose root is a CODE_CONDITION ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5) with `dynamicVariableExpressions: []` (the scheduled trigger has no payload) and the site time zone written into the code:
 
 ```js
 /**
@@ -163,7 +163,7 @@ export default function (payload) {
 }
 ```
 
-Validate the site's IANA time zone before saving; an invalid or unavailable zone is a blocker, never a reason to use UTC. The runtime guard returns false if date formatting fails. Compare calendar dates as above: adding 24 hours is not "tomorrow" across daylight-saving changes. Keep the JSDoc header and the complete snippet within 1000 characters per [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5; put the real steps on its true branch, `[]` on the false one. Tell the user the check runs in code.
+Validate the site's IANA time zone before saving; an invalid or unavailable zone is a blocker, never a reason to use UTC. The runtime guard returns false if date formatting fails. Compare calendar dates as above: adding 24 hours is not "tomorrow" across daylight-saving changes. Keep the JSDoc header and the complete snippet within 1000 characters per [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5; put the real steps on its true branch, `[]` on the false one. Tell the user the check runs in code.
 
 Checklist: `startDate` matches the pattern day • cron consistent with the `everyNth*` param • offsets correct for the site time zone on each date • monthly pattern exists in every month • when in doubt prefer daily/weekly over monthly.
 
@@ -178,9 +178,9 @@ For triggers whose payload has a date-time field with `futureDate: true` (e.g. s
 ```
 
 - MUST: a positive integer literal in `{{N}}` (no spaces, no `var()` — the builder edits and labels only a number), unit `MINUTES` | `HOURS` | `DAYS` | `WEEKS` | `MONTHS`. Omit `scheduledEventOffset` entirely when there is none.
-- Offsets are always _before_ the event. "2 days after the booking" → no offset; add a DELAY step ([special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
+- Offsets are always _before_ the event. "2 days after the booking" → no offset; add a DELAY step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
 - A trigger without a `futureDate` field cannot take an offset.
 
 ## 6. Custom API ("site") actions
 
-Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §1). Leave an existing one's `inputMapping` untouched.
+Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §1). Leave an existing one's `inputMapping` untouched.

@@ -6,7 +6,7 @@ description: "Validate automation configuration, check builder compatibility, pe
 # Validation and Verification
 
 How to prove an automation is correct, saved, and editable in the builder before you tell the
-user it exists. This file owns the create / update / activate procedures. API shapes: [api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
+user it exists. This file owns the create / update / activate procedures. API shapes: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
 
 **TL;DR**
 
@@ -25,13 +25,13 @@ tagged **[code]** are deterministic — a small script beats reasoning (ids, gra
 `var()` inventory, field limits). The rest need you to read schemas.
 
 Semantic review (you, not code) — required for every action before acceptance; full rules in
-[actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §6:
+[Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §6:
 
 - **Side-effect contract:** the action does what the user's verb says to the affected entity —
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails the audience fields decide ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3).
+  it; for emails the audience fields decide ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -77,7 +77,7 @@ Trigger (`configurationError.errorType`):
   substitute silently.
 - `DEPRECATED` — being retired → prefer its replacement, or tell the user.
 - `INVALID_FILTER_FIELD_KEY` — not a filter the trigger defines → use only its `filters[]`.
-- `INVALID_FILTER_EXPRESSION` → rebuild with the filter shapes in [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.
+- `INVALID_FILTER_EXPRESSION` → rebuild with the filter shapes in [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.
 - `MISSING_REQUIRED_FILTER` → add it (ask the user for its value if needed).
 
 Action (`configurationError.errorType`, with `fieldKey` — fix the field it names; never delete a
@@ -86,7 +86,7 @@ field to silence an error):
 - `NOT_FOUND`, `INVALID_ACTION_KEY`, `APP_NOT_INSTALLED`, `MODERATION_MISMATCH` — not available
   on this site → re-resolve; pick another action or tell the user.
 - `DEPRECATED` — the builder shows "Action will be removed soon" → use its replacement
-  ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2).
+  ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2).
 - `INVALID_MAPPING` → remove keys not in the effective schema; re-fetch the dynamic input schema.
 - `MAPPING_TYPE_MISMATCH` → convert (`toString`, `toNumber`), map another field, or build the
   object shape (e.g. MONEY).
@@ -94,7 +94,7 @@ field to silence an error):
 - `MAPPING_SCHEMA_MISMATCH` (enum, uuid, email format…) → a legal enum value / real id.
 - `MAPPING_VARIABLE_MISSING_FROM_SCHEMA` → fix the path against the aggregated schema, or reorder
   so the source is an ancestor.
-- `SAMPLE_CODE_RUN_FAILED` → fix the code step (guard missing fields — [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5).
+- `SAMPLE_CODE_RUN_FAILED` → fix the code step (guard missing fields — [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5).
 - `POST_ACTION_NOT_FOUND` → a successor id doesn't exist; fix the graph.
 
 Create/Update can also fail with `ON_BEFORE_SAVE_ACTION_EXCEPTION`: the owning app's save hook (e.g. for Send an email) rejected the step. Treat it like a provider error — read the message, fix the mapping or tell the user; don't retry the same write blindly.
@@ -120,7 +120,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
    Capture `id`.
 3. **Read back** with Get Automation on the same site. Confirm the trigger, the root id, and the
    set of action ids/types match what you sent (string literals come back URI-encoded, as sent).
-   If you used an override schema, Get with `fields: ["OVERRIDE_SCHEMA"]` ([api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
+   If you used an override schema, Get with `fields: ["OVERRIDE_SCHEMA"]` ([Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
 4. Hand off: name, status (inactive), id, and the edit link
    `https://manage.wix.com/dashboard/<metaSiteId>/triggers/edit/<automationId>`. Ask the user to
    review it in the builder; its main button on an inactive automation, **Activate**, turns it on.
@@ -130,13 +130,13 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` so a complete-object update preserves
    trigger/action override schemas. Check `origin` and `settings` locks
-   ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4) before planning any change.
+   ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4) before planning any change.
 2. Change only what was asked, on the current object. Keep ids of untouched nodes.
 3. §4 checklist + full Validate on the merged object.
 4. If the automation is `ACTIVE`, the update goes live immediately — say so and get confirmation
-   first (consent rules: [limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4).
+   first (consent rules: [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4).
 5. Update with the whole merged automation, the `revision` you read, and `origin` + `settings`
-   exactly as fetched (else `INVALID_ORIGIN_TYPE`, even with a field mask — [api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
+   exactly as fetched (else `INVALID_ORIGIN_TYPE`, even with a field mask — [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
    On a revision conflict, re-Get, re-apply, re-validate.
 6. Capture the returned automation's `id` — the first override of a preinstalled automation
    can have a new id. Read back that id and compare the **content** of every node you changed (and that untouched node ids
@@ -163,9 +163,9 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 ### Activation status, activate, deactivate
 
-Follow [activation-status.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
+Follow [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
 locks, preinstalled override ids and revision conflicts. Deactivation does not require repairing
-the configuration. Execution diagnosis is separate: [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis).
+the configuration. Execution diagnosis is separate: [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis).
 
 ### Reporting rules
 
@@ -186,7 +186,7 @@ blocker, not a warning: some make the canvas spin forever or crash, others are s
 rewritten or deleted on the user's first save. Each owning reference has a detailed checklist —
 this list is the union; run those too for the node types you used.
 
-**Graph and ids** — [automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)
+**Graph and ids** — [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)
 
 1. [code] Exactly one `rootActionIds` entry, and it exists in `actions`. RATE_LIMIT, if present, is
    that root and the only one.
@@ -200,22 +200,22 @@ this list is the union; run those too for the node types you used.
    ending successor list, and a builder-format `namespace`. Namespaces are unique except that
    SET_VARIABLES steps share `setVariable`; their output keys must be unique across steps.
 
-**Trigger** — [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §7
+**Trigger** — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §7
 
 5. `appId`+`triggerKey` came from Resolve Triggers on this site.
 6. Filters: catalog filter `id`, verbatim `fieldKey`, Shape A/B expression whose literal value array
-   holds the form its filter type allows ([triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1: quoted entity ids, quoted static
+   holds the form its filter type allows ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.1: quoted entity ids, quoted static
    values, or exactly one bare number/boolean); **no filter with an empty `filterExpression`**; ≤ 5 filters; every required
    filter present, plus required follow-ups of every set parent. Webhook trigger: exactly its
    `webhookId` shape.
 7. Scheduled / future-date configuration and `scheduledEventOffset` match
-   [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
+   [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
 
-**Actions** — [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration), [limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2
+**Actions** — [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration), [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
-   New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
+   New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
    (except the documented site-owner audience replacement).
 9. `inputMapping`: only schema keys (an existing email/widget step's mapping passes through unchanged), types and
    enums match, every required/visible field mapped, entity-selector fields hold ids, formulas
@@ -224,7 +224,7 @@ this list is the union; run those too for the node types you used.
     an `identityType: "contact"` field — the builder marks it "can't create a contact" and blocks
     activation.
 
-**Expressions and conditions** — [bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §9, [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §6
+**Expressions and conditions** — [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §9, [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §6
 
 11. [code] Every `var()` path exists in that node's aggregated schema
     — trigger + ancestor outputs only — with a compatible type.
@@ -233,15 +233,15 @@ this list is the union; run those too for the node types you used.
 13. CONDITION: exactly one expression group with `AND`/`OR` and 1–20 panel-renderable expressions;
     not both branches empty; otherwise a CODE_CONDITION.
 
-**Special steps** — [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)
+**Special steps** — [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)
 
 14. DELAY: exactly one mode — relative (`offsetExpression` a `{{N}}` literal + unit) or absolute
     (`dueDateExpression`). RATE_LIMIT: `{{1}}`, a trigger identifier allowed by
-    [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §2 (preserve existing supported member/user/UUID identifiers), and a
+    [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §2 (preserve existing supported member/user/UUID identifiers), and a
     duration (`{{24}} HOURS`, never `{{1440}} MINUTES`) unless the user explicitly wants
     "only ever once" (no duration).
     SET_VARIABLES: matching keys, every property has a `title`, keys unique across all variable
-    steps; preserve existing image-variable metadata per [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §3.
+    steps; preserve existing image-variable metadata per [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §3.
     SPLIT: 2–10 paths. `skipActionExpression` is `"{{true}}"` or absent.
 
 **Object and limits**
@@ -265,6 +265,6 @@ automations. It is not a dry run.
 - Ask first, naming the concrete side effects; "go ahead and build it" is not authorization.
 - Build `payload` to match the trigger payload schema, with test data the user approves (e.g.
   their own contact), never real customers.
-- The response is an `activationId`: report "started", then use [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) to read
+- The response is an `activationId`: report "started", then use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) to read
   the run and its action results. Report completion/failure only from that evidence; an empty
   or not-yet-visible log is not success, and do not rerun the test just to obtain a log.

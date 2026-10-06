@@ -10,8 +10,8 @@ description: "Configure visual and code conditions while preserving boolean inte
 - `CONDITION` must be something the builder's condition panel can draw: exactly ONE group in `orExpressionGroups`, `operator` `"AND"` or `"OR"`, 1–20 `booleanExpressions`. Each expression is ONE function from §2 (optionally inside `not(…)` — only the negatable ones), with the field as `var()` and a **literal** value.
 - The panel re-writes every expression the moment the user opens the step. A shape outside §2 is dropped, mis-read or silently changed — restructure (§4) or use `CODE_CONDITION` (§5).
 - Entity fields hold ids: `stringContains(["<id>"];var("field"))`, never a display name.
-- String literals are URI-encoded ([bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §1); date literals may be encoded or not (§2).
-- `truePostActionIds` / `falsePostActionIds`: at most ONE id each; branch children have this condition as their only parent ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)).
+- String literals are URI-encoded ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §1); date literals may be encoded or not (§2).
+- `truePostActionIds` / `falsePostActionIds`: at most ONE id each; branch children have this condition as their only parent ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)).
 
 ---
 
@@ -44,7 +44,7 @@ MUST:
 - Exactly one entry in `orExpressionGroups` with an explicit `operator` (`"AND"` = all hold, `"OR"` = any). Several groups are flattened into one on first open and their logic is lost; a missing `operator` is saved as `OR`.
 - 1–20 expressions — an empty group makes the builder loader hang; the panel allows at most 20 (more than 20 → a code condition).
 - One comparison per entry; never combine with `and(…)`/`or(…)` inside an entry.
-- Every `var()` path exists in THIS step's aggregated schema (trigger + ancestors; [automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). A path the panel can't find marks the step invalid and its canvas label stays empty.
+- Every `var()` path exists in THIS step's aggregated schema (trigger + ancestors; [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). A path the panel can't find marks the step invalid and its canvas label stays empty.
 - No whitespace outside string literals (`{{ stringEq(…` makes the function unreadable).
 - Only `conditionInfo` on the step; both branch arrays present; never both empty (dead end). Set a short `displayName`.
 
@@ -98,13 +98,13 @@ time zone** with its offset (a date → that day's 00:00 site time), and URI-enc
 literal (`"2026-12-31T23%3A59%3A00%2B02%3A00"`). Its reader decodes first, so an encoded and an
 unencoded ISO literal load the same (a `"YYYY-MM-DD"` literal is unchanged by encoding). Treat a
 calendar date the user names as a site-time-zone date: "valid until Dec 31" → compare with the end
-of that day in the site's zone (Site Properties `timeZone`, [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §4).
+of that day in the site's zone (Site Properties `timeZone`, [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §4).
 
 Semantics: `stringEq`/`stringHasSubString`/`stringContains` are case-insensitive. No ≥/≤: for integers `numberGt(var("f");N-1)`; otherwise `numberGt` + `numberEq` in an `OR` group (only if the group may be `OR`) or code. `$_` appears bare, only inside `contains(…)`.
 
 ## 3. Entity-id fields
 
-A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the vertical's public API or ask the user ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)). Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
+A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the vertical's public API or ask the user ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)). Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
 
 - Scalar field `service_id`: `{{stringContains(["<service-id>"];var("service_id"))}}`
 - Property in an array of objects `lineItems[].rootCatalogItemId`: `{{arraySome(arrayMap(var("lineItems");"rootCatalogItemId");contains(["<product-id>"];$_))}}` — visual only when that property is the `defaultConditionedProperty`; else code: `(payload.lineItems || []).some(i => ids.includes(i.rootCatalogItemId))`
@@ -114,9 +114,9 @@ Never synthesize `[0]`, `.0`, `firstItem` or a dotted path through an array. "Th
 
 ## 4. When the logic doesn't fit one group
 
-- **`(A AND B) OR C` / mixed AND+OR / anything needing more than one group** → one `CODE_CONDITION` (§5) with exactly that logic — the default; it keeps a single true/false branch. Chaining two visual conditions (`A AND B` → false: condition `C`) is an alternative only when the true branch is one small step, since that step must then be duplicated (tree only — duplicate, never join; [automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)). Never write several `orExpressionGroups`.
+- **`(A AND B) OR C` / mixed AND+OR / anything needing more than one group** → one `CODE_CONDITION` (§5) with exactly that logic — the default; it keeps a single true/false branch. Chaining two visual conditions (`A AND B` → false: condition `C`) is an alternative only when the true branch is one small step, since that step must then be duplicated (tree only — duplicate, never join; [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)). Never write several `orExpressionGroups`.
 - **Starts / ends with** → No operator. "contains" (`stringHasSubString`) when close enough (say so), or code for the exact test
-- **Two fields compared, computed values, relative dates, month/day of a date (birthdays), string length, decimals below 1, any §2 NEVER** → `CODE_CONDITION` (§5), or compute a boolean with a set-variables step ([special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)) and test it with `boolEq(var("setVariable.<key>");true)`
+- **Two fields compared, computed values, relative dates, month/day of a date (birthdays), string length, decimals below 1, any §2 NEVER** → `CODE_CONDITION` (§5), or compute a boolean with a set-variables step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)) and test it with `boolEq(var("setVariable.<key>");true)`
 - **Optional field ("if phone is present it must contain 555")** → Two chained conditions (`not(isEmpty(…))`, then the test), or code
 
 Prefer a visual `CONDITION` when it expresses the logic exactly — users can keep editing it. Don't force complex logic into it; if the user insists, explain what can't be drawn. Never say the logic is impossible when code can do it.
@@ -156,12 +156,12 @@ MUST:
 - `type: "CODE_CONDITION"` with only `codeConditionInfo`; `namespace` follows the condition pattern (`CONDITION-N`, unique).
 - `language` is always `JAVASCRIPT`. The code default-exports a synchronous `function (payload)` with exactly one parameter, starts with the JSDoc block the builder's template has (`/** @param {Payload} payload … @returns {boolean} … */` — required), and returns an explicit boolean. No imports, no network calls. Whole code ≤ 1000 characters; newlines escaped in JSON.
 - Guard every access (`?.`, `|| []`, `|| 0`, `typeof`, `try/catch` for deep paths); a missing field must not throw.
-- Access — the same paths as the aggregated schema ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4): `payload.field`, `payload['field-with-hyphens']`, action outputs `payload['<namespace>'].field`, `payload.contact.email`, `payload.setVariable['<key>']`. JS may index arrays and use `.some/.every/.filter` and `Date` math; `new Date()` gives the current time for calendar checks.
+- Access — the same paths as the aggregated schema ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4): `payload.field`, `payload['field-with-hyphens']`, action outputs `payload['<namespace>'].field`, `payload.contact.email`, `payload.setVariable['<key>']`. JS may index arrays and use `.some/.every/.filter` and `Date` math; `new Date()` gives the current time for calendar checks.
 - `dynamicVariableExpressions`: one `{{var("<path>")}}` for EVERY field the code reads — the runtime hydrates ONLY these, so an undeclared field is `undefined`. Arrays: declare the array itself (`payload.lineItems.some(…)` → `{{var("lineItems")}}`), never items or indexes; reading an object whole needs the object declared; if a path has no valid `var()`, declare its closest valid parent. Never `payload[computedKey]` or the whole `payload`. `[]` only when the code reads no field. Every path must exist in this node's aggregated schema.
 - Use it only when the visual panel can't express the logic (array indexing, per-element math, string splitting, date parts, regex — §4).
 - Test mentally against a true case, a false case and a payload with the fields missing.
 
-Other special steps (delay, rate limit, set variables, split): [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches).
+Other special steps (delay, rate limit, set variables, split): [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches).
 
 ## 6. Pre-save checklist
 

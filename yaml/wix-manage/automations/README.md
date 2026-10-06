@@ -7,7 +7,8 @@ a maintainer runs the exporter when preparing or updating a publication PR.
 The generated surfaces are:
 
 - `skills/wix-manage/references/automations/*.md`: the orchestrator and its references.
-- The marked Automations section of `skills/wix-manage/SKILL.md`.
+- The marked Automations section of `skills/wix-manage/SKILL.md`, plus the
+  Automations entry in its frontmatter routing list (other routes are preserved).
 - `yaml/wix-manage/automations/documentation.yaml` and this README.
 - `yaml/wix-manage-evals/automations/*.yml`: public evaluation scenarios.
 

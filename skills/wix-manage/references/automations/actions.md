@@ -10,15 +10,15 @@ description: "Configure app-defined automation actions from their input schemas 
 - An action is `appId` + `actionKey`. Find real ones with **Resolve Actions** (site catalog), then read the version active on the site with **Get Runtime Action**. Never invent keys.
 - The configuration is `appDefinedInfo.inputMapping`: an object keyed ONLY by input-schema property names, with values of the schema's type — literals, or `{{…}}` formulas in fields the UI schema marks as dynamic.
 - Fields marked `updateSchemaOnChange: true` reveal more inputs once set → **Get Action Dynamic Input Schema**. Output that depends on configuration → **Get Action Dynamic Output Schema** after the mapping is final.
-- **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Existing content-only edits do not initialize another email.
-- Entity-selector fields take **ids**, never display names ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
+- **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Existing content-only edits do not initialize another email.
+- Entity-selector fields take **ids**, never display names ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
 - Before accepting any action, prove its side effect and its recipient (§6).
 
 ---
 
 ## 1. APIs used here
 
-Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions · Get Runtime Action (the version this site runs — use it) · Get Action Dynamic Input / Output Schema (+ bulk output). Paths and request shapes: [api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §4.
+Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions · Get Runtime Action (the version this site runs — use it) · Get Action Dynamic Input / Output Schema (+ bulk output). Paths and request shapes: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §4.
 
 ## 2. Finding the right action
 
@@ -27,7 +27,7 @@ Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions 
 3. Get Runtime Action for the 1–3 best candidates; build against that version's `inputSchema`, `outputSchema`, `interfaceConfiguration`.
 4. An action missing from Resolve Actions is not usable on this site. The builder shows such a step as "action not found" and blocks it.
 
-**Do not use** unsupported or deprecated actions — `send-mail` (→ `triggered-emails`), `send-coupon-action` (→ `wixcoupons-retrieve_coupon` + a delivery step that uses its code), `wix_automations-velo_action`, `wix_automations-data_manipulation_code` (code variable; public Create refuses it — [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4), `whatsapp-send-message` (WhatsApp), `forward-to-zapier` (Zapier), and site actions `wix_automations-wix_api_integration` (non-public). Match these by `actionKey` (+ `appId`), not by app or display name — other actions of the same app are fine. Reasons and replacements: [limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2 (site actions: §1).
+**Do not use** unsupported or deprecated actions — `send-mail` (→ `triggered-emails`), `send-coupon-action` (→ `wixcoupons-retrieve_coupon` + a delivery step that uses its code), `wix_automations-velo_action`, `wix_automations-data_manipulation_code` (code variable; public Create refuses it — [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4), `whatsapp-send-message` (WhatsApp), `forward-to-zapier` (Zapier), and site actions `wix_automations-wix_api_integration` (non-public). Match these by `actionKey` (+ `appId`), not by app or display name — other actions of the same app are fine. Reasons and replacements: [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §2 (site actions: §1).
 
 ### Selection rules
 
@@ -40,7 +40,7 @@ Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions 
 
 ## 3. Reading the action
 
-- `inputSchema` — JSON Schema of the mapping. `required` = must map. `oneOf`/`const` = enum. `format`, `wixCustomType`, `identityType` as in [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §3.
+- `inputSchema` — JSON Schema of the mapping. `required` = must map. `oneOf`/`const` = enum. `format`, `wixCustomType`, `identityType` as in [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §3.
 - `interfaceConfiguration.type` — `GENERIC` → the builder renders a form from `inputSchema` + `genericOptions.uiSchema` (rules in §5.2). `WIDGET_COMPONENT` → the app's own configuration widget, which you can't see (below).
 - `interfaceConfiguration.genericOptions.uiSchema` — per-field UI hints (below). It cannot add fields.
 - `outputSchema` — fields downstream steps read as `var("<namespace>.<field>")`. Empty and no dynamic output → later steps must not reference its namespace.
@@ -53,7 +53,7 @@ Conditional fields (`if`/`then`/`dependencies`, e.g. a due date shown only when 
 UI-schema keys that change what you may write:
 
 - `dynamicValuesOptions.enabled: true` → the field accepts `{{…}}` formulas. `strict: true` → the formula must return the field's exact type/format. **A field without it is static: literal only.**
-- `"ui:widget": "EntitySelector"` + `entitySelectorOptions` (`selectorId`/`tag`, `filters`, `dynamicFiltersMapping`) → entity picker; value = id or array of ids ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1). Same for input properties carrying `itemsSelectionConfiguration`.
+- `"ui:widget": "EntitySelector"` + `entitySelectorOptions` (`selectorId`/`tag`, `filters`, `dynamicFiltersMapping`) → entity picker; value = id or array of ids ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1). Same for input properties carrying `itemsSelectionConfiguration`.
 - `"ui:field": "AudienceSelector"` → an audience object owned by the app's picker; don't hand-author it — the user sets it in the builder (§5.1).
 - `"ui:field": "TextSectionField"` → display-only text; never map it.
 - `"ui:widget": "hidden"`, `ui:readonly` → keep the schema `default`. Other `ui:*` keys are presentation only.
@@ -61,13 +61,13 @@ UI-schema keys that change what you may write:
 ## 4. Dynamic input and output schemas
 
 - **Input**: a property with `updateSchemaOnChange: true` (e.g. a template or form id) changes which inputs exist. Set it, then call Get Action Dynamic Input Schema with `{appId, actionKey, inputMapping}` (the mapping so far). The builder shows the static schema **merged** with the returned one (properties and `required` united), so keys from either are kept. Repeat if another controlling field is revealed. Never invent a field you expected but didn't get — it appears only after its controlling selection. The builder re-fetches this schema from your saved mapping every time the step is opened, so a dynamic key whose controlling value isn't in the mapping is dropped on the first edit.
-- **Output**: after the mapping is final, call Get Action Dynamic Output Schema (or the bulk variant) and use the returned `outputSchema` for downstream `var()` paths. A dynamic output is a _real_ schema — never replace it with an override (allowlist: [schemas-and-scheduling.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3).
+- **Output**: after the mapping is final, call Get Action Dynamic Output Schema (or the bulk variant) and use the returned `outputSchema` for downstream `var()` paths. A dynamic output is a _real_ schema — never replace it with an override (allowlist: [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3).
 
 ## 5. Building the input mapping
 
 ### 5.1 Provider-owned mappings — email and opaque widgets
 
-Check the **provider APIs registry** ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3) before treating an opaque
+Check the **provider APIs registry** ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3) before treating an opaque
 widget as unavailable. **Send an email** has a dedicated **Generate Action Input Mapping** API:
 
 - For every new email action, whether creating an automation or inserting into an existing one,
@@ -105,8 +105,8 @@ MUST (builder renderability — the `GENERIC` form drops, rewrites or flags anyt
 - An action with no input properties (or only hidden ones): send `"inputMapping": {}` — the builder writes `{}` itself on open otherwise.
 - Map fields the form would auto-fill, or opening the step silently changes the automation: fields with a schema `default` (write the default or your value), every `identityType` input (the form auto-maps it when exactly one matching payload path exists), required `date`/`date-time`/`time` strings (else filled with "now").
 - Enum fields (`oneOf` / `enum`): one of the listed constants.
-- Entity-selector fields: real ids of the right kind and shape ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1).
-- `{{…}}` only in fields with `dynamicValuesOptions.enabled` (or an `identityType` field), per [bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §4: number/boolean hold exactly one expression of that type; date-time a single date-time expression or ISO literal; strings may mix text and expressions. An **array-typed** `var()` in a string field is flagged as a format mismatch.
+- Entity-selector fields: real ids of the right kind and shape ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1).
+- `{{…}}` only in fields with `dynamicValuesOptions.enabled` (or an `identityType` field), per [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §4: number/boolean hold exactly one expression of that type; date-time a single date-time expression or ISO literal; strings may mix text and expressions. An **array-typed** `var()` in a string field is flagged as a format mismatch.
 - Don't copy volatile values: dates → `now()`/payload dates; ids → resolved at build time, never from examples.
 
 Value kinds:
@@ -134,7 +134,7 @@ Process: (1) fetch the effective schema (§4) → (2) classify required vs optio
 
 ### 5.3 Validation errors on actions
 
-Error shape, error type → fix, and how the builder shows each: [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
+Error shape, error type → fix, and how the builder shows each: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
 
 ## 6. Side-effect and recipient review
 
@@ -144,7 +144,7 @@ This section owns the semantic review (you, not code) required for every action 
 - **Entity**: the affected entity has a matching input (e.g. a label picker for "add label").
 - **Identity input**: the id it acts on, with the right `identityType`.
 - **Recipient lineage** (email, chat, SMS, push): write down `{requestedAudience, resolvedAudienceKind (contact|visitor|owner|contributor|label|phone|device), resolvedIdentityPath}`. The trigger contact and a contact created upstream are different people even if both are `contactId`. Wording never proves the recipient.
-  - Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
+  - Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
   - Chat (`send-message`): only a schema-supported contact-id or visitor-id route; owner/team chat needs a different, proven component or a clarification.
   - SMS / push: prove the schema-supported contact, audience, phone or device route.
 

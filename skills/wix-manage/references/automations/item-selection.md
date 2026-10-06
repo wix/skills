@@ -16,10 +16,10 @@ Use the available public API client/MCP binding in the target site's context. Th
 `wixapis.com` base/prefix and access with an external token have not been verified for these
 paths; do not guess a gateway URL or substitute a dashboard session endpoint. If your tools
 cannot resolve a supported binding or permissions are missing, use a vertical API from
-[entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2 or ask.
+[Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2 or ask.
 This delivery limitation does **not** make the service private.
 
-1. Read the selector metadata ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1). A `providerKey` / `selectorId` / trigger selector `id`
+1. Read the selector metadata ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1). A `providerKey` / `selectorId` / trigger selector `id`
    identifies a concrete provider; keep the full key unchanged. A `tag` identifies a family,
    **not** a provider key. Call List Installed Providers with that optional `tag`, then match
    `providers[].key`, `appId`, `contentData` and `supportedTags` to the requested entity. For a

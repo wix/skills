@@ -185,7 +185,7 @@ owner/team = `selectedAudience.contributorRoleIds: ["<role-id>"]` **and**
 
 - Recipients the action supports: the trigger contact; the site owner / contributors ("Can it go to
   the owner?" — yes); an existing contact. Custom addresses, CC/BCC, ad-hoc lists, addresses from
-  variables and conditional recipients: [limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §3.
+  variables and conditional recipients: [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §3.
 - **Existing email that must go to the owner** (the user said "me" / "the owner"): set the audience
   to the owner shape Wix's own templates use — keep the root `contactId` and every other key, and
   replace only `selectedAudience` (Update Automation):
@@ -200,10 +200,10 @@ owner/team = `selectedAudience.contributorRoleIds: ["<role-id>"]` **and**
   the site owner. This is the only audience edit allowed. If the user didn't say who receives it, ask.
 
 - Email content (subject, preview text, body) of an existing step: Set Email Content (above), after
-  the user's OK. New email steps: initialized separately as above, then persisted ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
+  the user's OK. New email steps: initialized separately as above, then persisted ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
 - **Attachments are supported** but can't be added through the API: keep the email and tell the
   user to add files in the email editor — never call them impossible, swap in a link or recreate
-  the email ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §3, also video).
+  the email ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §3, also video).
   Never fabricate business content (hours, prices) — ask.
 
 ## Related API references

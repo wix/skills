@@ -8,10 +8,10 @@ description: "Write builder-compatible automation mapping expressions, literals 
 **TL;DR**
 
 - `{{expression}}`; fields via `var("dotted.path")` (double quotes, one argument); arguments separated by `;`; string literals in double quotes and URI-encoded.
-- In formula fields (action inputs, set-variable values, delay due dates) use ONLY the builder function list in §2. Conditions and trigger filters have their own, stricter vocabularies — [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions), [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.2.
+- In formula fields (action inputs, set-variable values, delay due dates) use ONLY the builder function list in §2. Conditions and trigger filters have their own, stricter vocabularies — [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions), [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.2.
 - The builder type-checks every argument and the arity (§2): `eq`/`gt`/`gte`/`lt`/`lte` take NUMBERS only (strings → `stringEq`, dates → `date*`); `if()`'s first argument is boolean. There are no operators.
 - No array element access in any form. Project with `arrayMap(array;"path")`, aggregate with `array*`. A single-value field can never be filled from an array — ask the user which item.
-- Only data from the step's aggregated schema (trigger + ancestors) is in scope ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4).
+- Only data from the step's aggregated schema (trigger + ancestors) is in scope ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4).
 
 ---
 
@@ -31,7 +31,7 @@ MUST:
 - `;` between arguments, no leading/trailing/double `;`, balanced parentheses. No whitespace outside string literals — `{{ concat(…` or `sum( 1;2)` is unreadable to the builder.
 - Numbers: plain decimal literals (`5`, `-3`, `12.5`). Never `0.5`, `.5`, `-0.25`, `05` or `1e3` — the builder's parser rejects them (conditions, filters, delays and rate limits stop loading). Write `divide(1;2)` instead.
 - Path segments may contain hyphens (`var("triggered-emails-1.messageId")`); a space inside a segment is invalid.
-- **URI-encode every string literal inside `{{…}}`** exactly as `encodeURIComponent` does — this is how the builder's panels and the platform store them: `"a@b.com"` → `"a%40b.com"`, `"50%"` → `"50%25"`, `"New York"` → `"New%20York"`, `"&"` → `"%26"`. Letters, digits and `- _ . ! ~ * ' ( )` stay as they are, so uuids and `arrayMap` paths are unchanged. Do NOT encode `var("…")` paths (except in trigger filters, where the filter panel encodes the path too — [triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)) or text outside `{{…}}`, nor a date-time literal in a formula field (§2). Decode literals when you read an existing automation. Action formula fields display literals as stored, so in string fields keep fixed text outside `{{…}}` (`Hi {{var("contact.name.first")}}, welcome!`) rather than in `concat("…")`.
+- **URI-encode every string literal inside `{{…}}`** exactly as `encodeURIComponent` does — this is how the builder's panels and the platform store them: `"a@b.com"` → `"a%40b.com"`, `"50%"` → `"50%25"`, `"New York"` → `"New%20York"`, `"&"` → `"%26"`. Letters, digits and `- _ . ! ~ * ' ( )` stay as they are, so uuids and `arrayMap` paths are unchanged. Do NOT encode `var("…")` paths (except in trigger filters, where the filter panel encodes the path too — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)) or text outside `{{…}}`, nor a date-time literal in a formula field (§2). Decode literals when you read an existing automation. Action formula fields display literals as stored, so in string fields keep fixed text outside `{{…}}` (`Hi {{var("contact.name.first")}}, welcome!`) rather than in `concat("…")`.
 
 Prefix rules: trigger fields have no prefix; action outputs `"<namespace>.<field>"` (namespace = the step's `namespace`, e.g. `createTask-1`); set variables `"setVariable.<key>"`; identity enrichment `"contact.…"` / `"member.…"`. `siteInfo.*` is not available — don't reference it.
 
@@ -57,12 +57,12 @@ Argument types the builder enforces (convert with `toString()`/`toNumber()`):
 | date-time (`hour`, `minute`, `dateTimeEq/Before/After`)                       | a var with `format: date-time`, a function, or an ISO date-time literal — a `format: date` var or plain-string var is rejected                                    |
 | array (`array*` functions, `isEmpty`)                                         | array var or `arrayMap(…)`; no other function takes an array argument                                                                                             |
 
-An encoded date-time literal (`"2026-12-25T10%3A00%3A00Z"`) is not recognized as a date in a formula field — pass a `"YYYY-MM-DD"` literal or a function, or make the whole field a plain ISO value (§4). This exception is for formula fields only: in a CONDITION the panel itself writes date-time literals encoded and reads both forms ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §2).
+An encoded date-time literal (`"2026-12-25T10%3A00%3A00Z"`) is not recognized as a date in a formula field — pass a `"YYYY-MM-DD"` literal or a function, or make the whole field a plain ISO value (§4). This exception is for formula fields only: in a CONDITION the panel itself writes date-time literals encoded and reads both forms ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §2).
 
 Semantics: `stringEq` and `stringHasSubString` are case-insensitive (normalize with `lower()` if it matters). Booleans: use the value directly (`if(var("isVip");…)`, `not(var("isVip"))`), never `eq(var("isVip");true)`.
 
 **Never use in a formula field** (the builder flags them as unknown functions):
-`toEpoch`, `arrayFilter`, `hasSubstring`, `textWithExpressions`, `contains`, `arraySome`, `arrayEvery`, `arrayIncludesAnyOf/AllOf/Only`, `stringContains`, `numberContains`, `boolEq`, `numberEq/numberGt/numberGte/numberLt/numberLte`. (Several of these ARE the condition vocabulary — [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §2 — and `contains`/`arraySome` the trigger-filter vocabulary.)
+`toEpoch`, `arrayFilter`, `hasSubstring`, `textWithExpressions`, `contains`, `arraySome`, `arrayEvery`, `arrayIncludesAnyOf/AllOf/Only`, `stringContains`, `numberContains`, `boolEq`, `numberEq/numberGt/numberGte/numberLt/numberLte`. (Several of these ARE the condition vocabulary — [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §2 — and `contains`/`arraySome` the trigger-filter vocabulary.)
 
 **Do not exist** (never guess): `replace`, `replaceAll`, `trim`, `split`, `join`, `indexOf`, regex/`match`, `ceil`, `floor`, `parseInt`, `parseFloat`, `random`, `filter`, `reduce`, `sort`, `switch`, loops, `try/catch`, `coalesce`, `formatDate`, `formatNumber`, `formatCurrency`, `titleCase`, `add`, `addDays`, `equals`.
 
@@ -83,7 +83,7 @@ In number and boolean target fields BOTH branches must return exactly the field'
 - **boolean** — Exactly ONE `{{…}}` returning boolean — or `true`/`false`.
 - **date / date-time** — A plain ISO literal without `{{}}` (`2026-12-25T16:00:00Z`), or ONE expression: a function (`now()`, `addToDate(…)`) or a var. For a `date-time` field the var must be `format: date-time` — wrap a `format: date` var as `addToDate(var("d");0;0;0)`.
 - **array / object** — A literal array/object built field by field, or one `{{var("…")}}` of the same shape.
-- **field without `dynamicValuesOptions.enabled` in the UI schema** — Literal only — no `{{…}}` ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §3).
+- **field without `dynamicValuesOptions.enabled` in the UI schema** — Literal only — no `{{…}}` ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §3).
 
 A `strict` dynamic field requires the exact return type/format. `skipActionExpression` is `"{{true}}"` or absent.
 
@@ -96,13 +96,13 @@ A `strict` dynamic field requires the exact return type/format. `skipActionExpre
 - **No lists as text**: no `join`; an `arrayMap` result can't go into `concat` or a string field.
 - **Single-value field from an array → impossible.** Ask the user which item or use a user-given value; don't retry array-shaped variants.
 - Empty arrays make `arraySum/arrayMin/arrayMax/arrayMedian/arrayMultiply` fail at runtime.
-- Membership tests (`does the order contain X`) belong in a condition ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §3) or, for complex logic, a code condition.
+- Membership tests (`does the order contain X`) belong in a condition ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §3) or, for complex logic, a code condition.
 
 ## 6. Dates
 
 - `date*` compare calendar dates, `dateTime*` instants (argument formats: §2). `addToDate`/`subtractFromDate` offset by whole years/months/days.
 - "Within N days before X": `{{dateAfter(var("d");subtractFromDate(var("x");0;0;7))}}`. Day differences can't be computed renderably (no `toEpoch`) — use a DELAY, such a comparison, or a code condition.
-- **Annual dates (birthdays)**: never `dateEq(var("birthdate");now())`. Compare month and day: `{{and(eq(month(var("contact.birthdate"));month(now()));eq(day(var("contact.birthdate"));day(now())))}}` — in a formula field; as a condition use code or a boolean set-variable ([conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §4).
+- **Annual dates (birthdays)**: never `dateEq(var("birthdate");now())`. Compare month and day: `{{and(eq(month(var("contact.birthdate"));month(now()));eq(day(var("contact.birthdate"));day(now())))}}` — in a formula field; as a condition use code or a boolean set-variable ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §4).
 - **Never hardcode a year**; derive it: `{{dateAfter(var("order_date");concat(toString(year(var("order_date")));"-10-31"))}}`. Use `year(now())` only when the rule is about the current calendar year.
 - Windows crossing New Year (Dec 26 – Jan 4): `{{or(and(eq(month(var("d"));12);gt(day(var("d"));25));and(eq(month(var("d"));1);lt(day(var("d"));5)))}}`; pick `gt`/`gte` from the user's wording.
 - Formatting: `{{toString(month(var("d")))}}/{{toString(day(var("d")))}}/{{toString(year(var("d")))}}` in a string field.

@@ -7,7 +7,7 @@ description: "Inspect or change active status with lock checks, revision handlin
 
 **What the public API can see.** An automation's live state is `configuration.status` —
 `ACTIVE` (eligible for new trigger events) or `INACTIVE` (not eligible for new trigger events).
-Status is not evidence that an individual run succeeded; see [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). There is no separate
+Status is not evidence that an individual run succeeded; see [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). There is no separate
 "published" flag and no public draft API:
 
 - **Status check** = Get Automation → read `configuration.status`. Report exactly that value;
@@ -25,10 +25,10 @@ Status is not evidence that an individual run succeeded; see [activation-logs.md
 1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` → current `revision`, `origin`, `settings`.
    If `settings.disableStatusChange`
    or `settings.readonly` is true, stop and report the lock: the owning app doesn't allow it
-   ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4).
+   ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4).
 2. Already `ACTIVE` → report it and stop (idempotent; no write).
-3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) and full Validate — never activate
-   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) explains.
+3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) and full Validate — never activate
+   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) explains.
 4. Explicit activation instructions authorize this change; do not ask again. If the user only
    asked to build or inspect it, obtain authorization before making it eligible for real runs.
 5. Update Automation with the object exactly as fetched, `configuration.status: "ACTIVE"`, and
@@ -40,7 +40,7 @@ Status is not evidence that an individual run succeeded; see [activation-logs.md
 **Deactivate** (on explicit request): Get the complete object with override schemas; check
 `settings.disableStatusChange` and `settings.readonly`; already INACTIVE means no write.
 Otherwise change only `configuration.status` to `INACTIVE`, preserving origin, settings,
-revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) or
+revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) or
 Validate as a prerequisite**, and do not repair or remove unrelated invalid/legacy steps.
 An explicit request to turn it off is sufficient authorization. Deactivating prevents new
 triggered runs; it is not proof that every pending/running activation has stopped or will finish.
