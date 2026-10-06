@@ -148,9 +148,13 @@ Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<s
 (`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
 reading it.
 
-Reading needs no login; calling does. Everything the seeds and the recipes do on the user's site
-(install an app, create content, change a setting) is an authenticated call as the site owner, and
-so is a read of anything a visitor can't see. The Wix MCP is the usual way to get that without a
+Reading the skills needs no login. Most calls do: everything the seeds and the recipes do on the
+user's site (install an app, create content, change a setting) is an authenticated call as the
+site owner, and so is a read of anything a visitor can't see. The exception is publishing a static
+site: the anonymous flow in
+`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads and
+releases with no identity at all, and the same recipe publishes into the user's account when you
+hold their login. For everything else the Wix MCP is the usual way to get that without a
 machine: its `ExecuteWixAPI` and `CallWixSiteAPI` tools carry the user's own login, so a `wix.request`
 runs as them with no token in sight. Without the MCP, the user has to authenticate and hand you a
 token: a site token from the Wix CLI (`npx @wix/cli@latest token --site <siteId>`, run by them, short-lived),
