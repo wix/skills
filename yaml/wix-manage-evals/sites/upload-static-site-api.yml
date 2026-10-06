@@ -26,7 +26,8 @@ assertions:
       The user pasted the finished landing page (a single index.html, text only) and asked the
       agent to put it online; they have no Wix site and would rather not upload files themselves.
       The page is in the conversation, so the agent can carry it: from a shell with curl -F, or
-      as a string multipart body through the Wix MCP's ExecuteWixAPI tool (wix.request).
+      through the Wix MCP's ExecuteWixAPI tool (the `files` param with `wix.multipart()`, or a
+      string multipart body passed to wix.request).
       Judge the tool-call trace and the final answer.
 
       Pass if the response does ONE of these:

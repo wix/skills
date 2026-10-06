@@ -30,8 +30,10 @@ What sets them apart:
   byte is written out inside the call. That costs nothing extra for a page you
   generated or the user pasted (it's already in the conversation); for files on
   disk it means reading them in and writing them back out, and each change
-  resends all of it. A string body is sent as UTF-8, so binary files (PNG, JPG,
-  fonts, zips) arrive corrupted; link images by absolute URL.
+  resends all of it. Text files travel in the tool's `files` param, raw, and
+  `wix.multipart()` builds the upload body (below). A binary file (PNG, JPG, a
+  font) goes as a `Uint8Array` body in its own request, or by `curl` from a
+  shell; a few images are simpler linked by absolute URL.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -108,8 +110,23 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-Option B — the same two calls as one `ExecuteWixAPI` script, for small text files
-already in the conversation:
+Option B — the same two calls as one `ExecuteWixAPI` script, for text files
+already in the conversation. The files go in the tool's **`files` param**, not in
+`code`: one bundle, each file introduced by a line `=== FILE: <path> ===` and
+followed by its raw text, `<path>` relative to the site root. Nothing in it is
+escaped, so quotes, backticks, `${}` and backslashes arrive as written.
+
+```
+=== FILE: index.html ===
+<!doctype html><html><head><title>Northwind Studio</title>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>
+=== FILE: assets/styles.css ===
+body { font-family: sans-serif; margin: 0; padding: 4rem; }
+```
+
+In `code`, the bundle is the `files` global (`[{ path, content }]`) and
+`wix.multipart()` turns it into the upload body: one part named `files` per
+file, the path as its filename, a content type guessed from the extension.
 
 ```javascript
 async function run() {
@@ -117,31 +134,20 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  // path → text content, as template literals. Escape \ as \\ first, then ` as \` and ${ as \${
-  // (an unescaped \ is dropped or reinterpreted: /\d+/ would arrive as /d+/).
-  const files = {
-    'index.html': `<!doctype html><html><head><title>Northwind Studio</title>
-<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>`,
-    'assets/styles.css': `body { font-family: sans-serif; margin: 0; padding: 4rem; }`,
-  };
-  const boundary = '----wixdropboundary';
-  const body = Object.entries(files).flatMap(([path, text]) => [
-    '--' + boundary,
-    `Content-Disposition: form-data; name="files"; filename="${path}"`,
-    '', text,
-  ]).concat('--' + boundary + '--', '').join('\r\n');
+  const mp = wix.multipart();                                   // the `files` param; or pass [{ path, content }]
   return await wix.request({ scope: 'account', method: 'POST',
     url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop`,
-    headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary },
-    body });                                                          // a string body is sent verbatim
+    headers: { 'Content-Type': mp.contentType },
+    body: mp.body });
 }
 ```
 
 `wix.request` returns `{ status, data }`; read a response's fields from `data`
-(`created.data.metaSiteId`). Keep the body's shape exactly. It's a string; an
-object is sent as JSON and rejected. Lines end in `\r\n`, the body ends with
-`--<boundary>--`, and the header names the same boundary the body uses. Break any of these and the drop
-fails with a bare `500`.
+(`created.data.metaSiteId`). Don't build the multipart body by hand — a missing
+`\r\n` or a boundary mismatch is a bare `500` — and don't put file text inside
+`code` as string literals: that second layer of escaping is what corrupts
+backslashes and `${}`. The one thing `files` cannot carry is a file with a line
+that reads exactly `=== FILE: … ===`.
 
 `siteUrl` is the site's final address — it's already in the user's account. Give
 the user two links: `siteUrl`, and its dashboard at
@@ -189,6 +195,16 @@ for (let i = 0, p = u32(e + 16); i < u16(e + 10); i++) {            // one centr
 // files: { 'index.html': '…', 'assets/styles.css': '…', 'wix.config.json': '…' }
 ```
 
+Edit in memory, then drop the full set back in the same script, leaving
+`wix.config.json` out:
+
+```javascript
+const mp = wix.multipart(Object.entries(files).filter(([path]) => path !== 'wix.config.json')
+  .map(([path, content]) => ({ path, content })));
+await wix.request({ scope: 'account', method: 'POST', headers: { 'Content-Type': mp.contentType }, body: mp.body,
+  url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${metaSiteId}/drop` });
+```
+
 The live URL itself (`*.wix-site-host.com`) can't be read from a script; this
 download is the way back to the files. Don't rebuild the site from memory.
 
@@ -219,7 +235,8 @@ Keep both: `metaSiteId` addresses the site, `projectId` builds the save link.
 ### 2. Upload the files
 
 Same multipart shape as the [drop](#2-drop-the-files--the-site-goes-live), to the
-upload path, with the attribution parameters:
+upload path, with the attribution parameters (in a script: `wix.multipart()` with
+the `files` param, posted to this URL):
 
 ```bash
 curl -sS -X POST \
@@ -323,7 +340,7 @@ Failures come back as HTTP 400 with a code in `details.applicationError.code`:
 - **`403 PERMISSION_DENIED` on a drop** — the token expired or is missing (see
   [Before the calls](#before-the-calls)), or the site isn't the caller's. A site
   that's still anonymous is changed by upload + release, not by a drop.
-- **`500` on a drop or upload** — the multipart body is malformed (see the shape
+- **`500` on a drop or upload** — the multipart body was built by hand and is malformed (see the shape
   above). Rebuild it from the example; sending it again unchanged fails the
   same way.
 - **`404` on the anonymous route after step 1** — the hour passed or the site was
