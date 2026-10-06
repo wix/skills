@@ -20,8 +20,9 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 ```
 
 Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
-guides the login. Without a shell, see [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one)
-at the end. If `npx` can't reach npm or GitHub, Phase 1 says when the install can be skipped.
+guides the login. If you can't run this — no shell, no file system, no machine for the CLI, a
+sandbox that blocks the install, the CLI or the login — see
+[When you can't run this](#when-you-cant-run-this) at the end.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -103,7 +104,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 | `cli_ok` | Wix CLI reachable — continue. |
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
-| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
+| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, [hand it off](#when-you-cant-run-this). |
 
 On `awaiting_user`, run the script again once the user says they've logged in: it reports
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
@@ -127,32 +128,24 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 - You're already authenticated from Phase 2, so the skill's CLI auth step will pass without
   prompting again.
 
-## No shell — hand the build to an agent that has one
+## When you can't run this
 
-This skill builds a project and releases it with the Wix CLI, so it needs a shell. Without one,
-tell the user this build needs a coding agent that can run commands, and hand over one of these.
+Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
+Wix CLI login. If you have none of that (a chat agent, an MCP-only host), or you have it but
+something blocks a phase (sandbox rules, a blocked install, a CLI that won't run, a login that
+can't complete), the build still happens: not by you, and not by hand-writing a Wix integration in
+its place. Tell the user this build needs a coding agent that can run commands, and give them this
+to paste into one (Claude Code, Codex, Cursor, or any agent with a terminal), opened in an empty
+folder named for the business:
 
-- **The build the user asked for.** Give the user a prompt to paste into a coding agent that
-  runs commands (Claude Code, Codex, Cursor, or any agent with a terminal), opened in an empty
-  folder named for the business:
+```
+<the user's brief, in their words>
 
-  ```
-  <the user's brief, in their words>
+Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md
+Follow it exactly. It installs wix-headless-kit with its companions wix-docs and wix-manage
+(all at https://www.wix.com/skills/), signs in to Wix once, and builds and releases the site.
+```
 
-  Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md
-  Follow it exactly.
-  ```
-
-  Tell them what will happen: the agent installs the skill, asks them once to sign in to Wix in
-  the browser, builds and releases the site, and ends with the live URL and the dashboard link.
-  A site made this way is theirs; they can bring it back to you afterwards for anything the Wix
-  MCP does on a live site (content, settings, orders).
-
-- **A static site, when that is what they need.** If the request is a page or a set of files
-  with no store, bookings, CMS or members behind it, you may be able to publish it yourself
-  through the Wix MCP without a shell: follow
-  `https://www.wix.com/skills/manage/references/sites/upload-static-site.md` (the `ExecuteWixAPI`
-  route). When the files are the user's and not in the conversation, hand them the drop page it
-  names instead.
-
-Either way the user leaves with a path, not with "go headless" and nowhere to go.
+Tell them what will happen: that agent installs the skills, asks them once to sign in to Wix in
+the browser, builds and releases the site, and ends with the live URL and the dashboard link. The
+site is theirs; they can bring it back to you afterwards for anything you do on a live site.
