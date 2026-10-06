@@ -15,10 +15,10 @@ through calls you can make.
 ## 0. Identity
 
 Every call below runs as the site owner, with whatever identity your host gives you: the Wix
-MCP's `ExecuteWixAPI` carries the user's login; an API key or an OAuth app token from the user's
-account goes in the `Authorization` header of any call, as `<MANAGE>/SKILL.md` describes; a site
-token from the Wix CLI works the same way when the user runs the CLI for you. A visitor token covers
-only what a visitor may see.
+MCP's `ExecuteWixAPI` carries the user's login; an API key from the user's account goes in the
+`Authorization` header of any call, as `<MANAGE>/SKILL.md` describes; a site token from the Wix CLI
+works the same way when the user runs the CLI for you. The site's OAuth app (`client_id`) mints
+visitor tokens only, which cover what a visitor may see and nothing here.
 
 ## 1. The brief → the solutions
 
