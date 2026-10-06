@@ -492,7 +492,7 @@ Execute these steps sequentially after all implementation is complete. See [APP_
 1. **Package Installation** — Detect package manager, run install
 2. **TypeScript Compilation** — `npx tsc --noEmit -p .`
 3. **Build** — `npx wix build`
-4. **Preview** — `npx wix preview`, in the foreground: it uploads, prints the preview URLs and exits on its own, so no `timeout`, backgrounding or `sleep`
+4. **Preview** — `npx wix preview`, in the foreground and unpiped: it uploads, prints the preview URLs and exits on its own, so no `timeout`, backgrounding, `sleep` or `| tail`. If your shell moves it to the background anyway, it stalled: read what it printed and `.wix/debug.log` once, then report that the preview did not complete. Don't poll, and don't promise a URL
 
 Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 
