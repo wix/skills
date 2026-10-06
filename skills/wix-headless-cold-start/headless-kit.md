@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. An agent without a shell, Node or network learns here what to hand over instead, so the request still ends with a built site or an honest answer."
 ---
 
 # Wix Headless Kit — cold start
@@ -19,8 +19,10 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
-Requires Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and guides the
-login.
+Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
+guides the login. If you can't run this — no shell, no file system, no machine for the CLI, a
+sandbox that blocks the install, the CLI or the login — see
+[No machine, no shell, no CLI, or blocked](#no-machine-no-shell-no-cli-or-blocked-the-skills-as-a-reference) at the end.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -93,7 +95,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 | `cli_ok` | Wix CLI reachable — continue. |
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
-| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
+| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, [read the skills as a reference](#no-machine-no-shell-no-cli-or-blocked-the-skills-as-a-reference). |
 
 On `awaiting_user`, run the script again once the user says they've logged in: it reports
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
@@ -110,3 +112,37 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
   page stops at *logged in*.
 - You're already authenticated from Phase 2, so the skill's CLI auth step will pass without
   prompting again.
+
+## No machine, no shell, no CLI, or blocked: the skills as a reference
+
+Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
+Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
+CLI or the login), the skills are still yours to read: fetch them from the registry and follow them
+as a **reference**, not as steps to execute. They say what a build does, decides and calls, and the
+shipped code is readable in place.
+
+```
+Fetch and follow these as a reference:
+- https://www.wix.com/skills/wix-headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site. It picks the Wix Business Solutions the brief needs (a store, bookings, rentals, a blog, CMS collections, forms, members, events, a restaurant, donations, pricing plans, a portfolio, an FAQ), scaffolds the project with the Wix CLI, deploys each solution's shipped code (a typed data layer, stores, React hooks, Astro pages with SEO, a cart and checkout where there is one), fills the site from a plan with the seed scripts, has the agent design the brand, layout and copy on those hooks, and releases to Wix hosting with the live URL and the dashboard links. It runs on Wix-managed Astro and any React project; its guides/reference-mode.md is the same build for a stack that can't run the shipped code, over the REST layer
+- https://www.wix.com/skills/wix-headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
+- https://www.wix.com/skills/wix-docs/SKILL.md — how to look up the Wix API and SDK docs: find the right page, read it as markdown, and confirm an endpoint, body, field or enum before writing code; the kit's playbooks defer to it for any contract they don't cover
+- https://www.wix.com/skills/wix-manage/SKILL.md — REST recipes to configure and manage a site's business solutions (stores, bookings, payments, CMS and more), one recipe per operation with the exact endpoint and payload
+```
+
+Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`
+(`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
+reading it.
+
+Calls on the user's site run as the site owner: installing an app, creating content, changing a
+setting, reading anything a visitor can't see. That takes the user's authentication, the Wix MCP
+when it is connected, or a token they hand you (a site token from the Wix CLI, an API key or an
+OAuth app from their account, per the wix-manage skill); a visitor token covers only what a
+visitor may see.
+
+A site that already exists as files (hand-written HTML, a static build, a zip, the output of an
+AI site builder) goes live through
+`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md`: into the user's
+account when you hold their identity, anonymously with a save link when you don't (the one flow
+with no identity at all), or by the drop page the user uploads to. The same recipe updates a site
+published this way on its URL, reads its files back, and moves it to a Wix Headless project when a
+backend is needed.
