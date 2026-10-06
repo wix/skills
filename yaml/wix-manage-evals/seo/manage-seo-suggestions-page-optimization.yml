@@ -38,10 +38,11 @@ assertions:
         itemSeoTags.focusKeywords containing that term with isMain true and fieldMask
         "focusKeywords"), unless the page already had it,
       - calls Trigger Home Page Optimization
-        (POST .../seo/suggestions/v1/page-optimization/trigger-home) once with that pageId
-        and pagePath "/", keeps the returned predictionId, and polls Get Page Optimization
-        Results (GET .../page-optimization/results?predictionId=...) until status is no
-        longer IN_PROGRESS,
+        (POST .../seo/suggestions/v1/page-optimization/trigger-home) once with an empty
+        body (the service resolves the homepage and returns its pageId), keeps the returned
+        predictionId, and polls Get Page Optimization Results
+        (GET .../page-optimization/results?predictionId=...) until status is no longer
+        IN_PROGRESS,
       - on COMPLETED, presents metaTitle, metaDescription, h1, h2OrH3, and any content entries
         as current text versus proposed text, and applies none of them: no Set Item SEO Tags
         call that writes tags after the results arrived.
@@ -68,14 +69,15 @@ assertions:
       errors).
 
       Expected path: read the skill, one List Item SEO Tags read to find the homepage, one
-      focus-keyword write with fieldMask "focusKeywords", one Trigger Home Page Optimization,
-      Get Page Optimization Results polls (by predictionId or by pageId, both are correct)
+      focus-keyword write with fieldMask "focusKeywords", one Trigger Home Page Optimization
+      with an empty body, Get Page Optimization Results polls (by predictionId or by pageId, both are correct)
       until the status changes, then the answer.
 
       HEAVY penalties (2-3 points each): a trigger sent before the focus keyword was set
       (the FOCUS_KEYWORD_NOT_SET error the recipe warns about); a second trigger sent on
       purpose while the first job was running; a request sent with a guessed body shape or
-      to a path that is not in the recipe; a non-2xx response even if recovered, except a
+      to a path that is not in the recipe (including pageId or pagePath on the homepage
+      trigger); a non-2xx response even if recovered, except a
       FAILED_PRECONDITION or 403 that the agent reported and did not retry; polling that
       continued after a terminal status.
 
