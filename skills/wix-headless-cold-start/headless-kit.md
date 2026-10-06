@@ -137,6 +137,12 @@ Calls on the user's site run as the site owner: installing an app, creating cont
 setting, reading anything a visitor can't see. That takes the user's authentication, the Wix MCP
 when it is connected, or a token they hand you (a site token from the Wix CLI, an API key or an
 OAuth app from their account, per the wix-manage skill); a visitor token covers only what a
-visitor may see. Publishing a static site is the one flow with no identity at all:
-`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads
-and releases anonymously, and publishes into the user's account when you hold their login.
+visitor may see.
+
+A site that already exists as files (hand-written HTML, a static build, a zip, the output of an
+AI site builder) goes live through
+`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md`: into the user's
+account when you hold their identity, anonymously with a save link when you don't (the one flow
+with no identity at all), or by the drop page the user uploads to. The same recipe updates a site
+published this way on its URL, reads its files back, and moves it to a Wix Headless project when a
+backend is needed.
