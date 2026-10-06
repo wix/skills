@@ -154,12 +154,9 @@ site owner, and so is a read of anything a visitor can't see. The exception is p
 site: the anonymous flow in
 `https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads and
 releases with no identity at all, and the same recipe publishes into the user's account when you
-hold their login. For everything else the Wix MCP is the usual way to get that without a
-machine: its `ExecuteWixAPI` and `CallWixSiteAPI` tools carry the user's own login, so a `wix.request`
-runs as them with no token in sight. Without the MCP, the user has to authenticate and hand you a
-token: a site token from the Wix CLI (`npx @wix/cli@latest token --site <siteId>`, run by them, short-lived),
-or an API key or OAuth app from their account, per the wix-manage skill. A visitor token, the kind a
-site's own frontend mints, covers only what a visitor may see and is not a substitute.
+hold their login. For everything else you need the user's authentication: the Wix MCP when it is
+connected, or a token they hand you (a site token from the Wix CLI, an API key or an OAuth app from
+their account, per the wix-manage skill). A visitor token covers only what a visitor may see.
 
 What the reference cannot give you is the part that needs the machine: installing, running the Wix
 CLI, logging in, releasing a project. Say so, and leave the user the brief with
