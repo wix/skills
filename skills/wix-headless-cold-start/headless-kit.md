@@ -14,7 +14,7 @@ you're already reading the raw text, don't fetch it again.
 ## The whole cold start (details in the phases below)
 
 ```bash
-CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
+CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
@@ -26,7 +26,7 @@ sandbox that blocks the install, the CLI or the login — see
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
-1. **Install (deterministic).** The four skills land under `.agents/skills/`.
+1. **Install (deterministic).** The skill and its two companions land under `.agents/skills/`.
 2. **Bootstrap (deterministic, scripted).** The installed script verifies the Wix CLI and
    handles login. You just run it and relay its events.
 3. **Hand off (agentic).** Open `wix-headless-kit/SKILL.md` and follow it — it resolves the
@@ -59,26 +59,25 @@ lower version, install or upgrade Node first — do **not** work around it:
 
 ## Phase 1 — Install the skills
 
-Install the four skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix
-CLI command). Repeat `--skill` per skill; a comma-separated list is not parsed:
+Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output — keep
+it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills \
-  --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
+  --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 ```
 
-Windows, PowerShell: `$env:CI = "1"; npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes`.
-Windows, cmd: `set CI=1 && npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes`.
+Windows, PowerShell: `$env:CI = "1"; npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
+Windows, cmd: `set CI=1 && npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
 
-- **`wix-headless-kit`** — the build itself.
-- **`wix-headless-templates`** — the shipped, verified code per Wix Business Solution the kit
-  deploys and seeds; installed beside the kit, it is read in place.
+- **`wix-headless-kit`** — the build itself. It fetches the shipped code, the
+  `wix-headless-templates` skill, on first use.
 - **`wix-docs`** — how to look up the Wix API and SDK docs, for any contract the playbooks don't cover.
 - **`wix-manage`** — REST recipes for managing the site after it exists.
 
-They land under `.agents/skills/`. When your host already carries all four as installed skills
-(the Wix plugin for Claude Code, Codex, Cursor or VS Code ships them), use that copy: wherever the
-phases below say `.agents/skills/wix-headless-kit/…`, read the path from where it lives.
+They land under `.agents/skills/`. When your host already carries them as installed skills (the
+Wix plugin for Claude Code, Codex, Cursor or VS Code ships them with the templates), use that copy:
+wherever the phases below say `.agents/skills/wix-headless-kit/…`, read the path from where it lives.
 
 ## Phase 2 — Run the bootstrap (deterministic, shared)
 
