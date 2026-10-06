@@ -66,6 +66,9 @@ assertions:
           (the Wix MCP connected, or a CLI token in the shell): a longer path with a URL change
         - a template site-creation call
         - re-reading docs repeatedly, or a probing spiral
+        - a drop or upload retried unchanged after a 500 or 403 (rebuild the body, or fetch a new
+          token, before retrying)
+        - a URL sent with an unfilled placeholder such as $META_SITE_ID
 
       For each issue name the likely skill gap behind it.
 
