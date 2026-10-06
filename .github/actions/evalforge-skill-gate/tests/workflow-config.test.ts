@@ -268,7 +268,7 @@ describe('EvalForge re-eval workflow', () => {
   // A workflow id that names no file finds no run, and the command then declines as if the gate
   // had never run for the commit — a silent scope loss no behavioural test can see.
   it('gives each command its own gates, and every one names a file that exists', () => {
-    const script = step.with?.script;
+    const script = step.with?.script as string | undefined;
     expect(script).toBeDefined();
 
     const commands = [...script!.matchAll(/\['(\/[a-z-]+)', \{/g)].map(match => match[1]);
