@@ -24,8 +24,8 @@ assertions:
       Pass if the response:
       - says not to insert, update, patch, or save directly to the published collection while the
         Draft Items plugin is installed, AND
-      - directs the user to write the new item to the paired drafts collection (typically
-        <collectionId>__drafts), AND
+      - directs the user to read `draftItemsPluginOptions.draftsCollectionId` from the published
+        collection's Draft Items plugin and write the new item to that collection, AND
       - says to call Publish Data Item Draft to publish the draft, passing the published collection ID, AND
       - explains CHANGED means the item is published/live but has draft edits that are not yet published, AND
       - tells the user to publish the item (publish its draft) to push the edits to the live site, AND

@@ -59,7 +59,7 @@ curl -X GET \
 - **Draft Items plugin present** → the collection gates items behind draft/publish. Its `draftItemsPluginOptions.draftsCollectionId` gives the paired drafts collection to author and edit drafts against.
 - **Draft Items plugin absent** → plain collection; every insert/update goes straight live. No draft surface exists.
 
-Once the Draft Items plugin is installed, do not insert, update, patch, remove, or save items directly in the published collection. Write new items and pending edits to the paired drafts collection (`<collectionId>__drafts`), then call **Publish Data Item Draft** (`POST /wix-data/v2/items/publish-draft`) to publish an item to the published collection. This lifecycle operation takes the published collection ID; it is the supported way to move a draft into the live collection.
+Once the Draft Items plugin is installed, do not insert, update, patch, remove, or save items directly in the published collection. Read `draftItemsPluginOptions.draftsCollectionId` from the plugin and write new items and pending edits to that drafts collection. Then call **Publish Data Item Draft** (`POST /wix-data/v2/items/publish-draft`) to publish an item to the published collection. This lifecycle operation takes the published collection ID; it is the supported way to move a draft into the live collection.
 
 ---
 
