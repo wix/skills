@@ -21,8 +21,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The model
 
-- **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
-  the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
+- **Shipped code is the implementation.** Every vertical ships in the repository's
+  `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
+  folder: `node <SKILL_ROOT>/install/templates.mjs`
   fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
   script below fetches it itself when the folder is missing. The folder stays with the project
   (only the composed `project/` scaffolds are left out of its repository), so a later session

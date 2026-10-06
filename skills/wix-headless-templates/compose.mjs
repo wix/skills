@@ -1,9 +1,9 @@
 // Compose a vertical's project: the blank scaffold (`blank/project`, what `wix create` copies plus
 // what the CLI's extender adds), the vertical deployed into it by the skill's own deploy script,
-// and a package-lock.json, so `wix create --template-path templates/<vertical>/project` yields the
-// whole first vertical and `npm ci` installs it without resolving.
+// and a package-lock.json, so `wix create --template-path skills/wix-headless-templates/<vertical>/project`
+// yields the whole first vertical and `npm ci` installs it without resolving.
 //
-//   node templates/compose.mjs [<vertical> …] [--relock] [--lock-from <package-lock.json>]
+//   node skills/wix-headless-templates/compose.mjs [<vertical> …] [--relock] [--lock-from <package-lock.json>]
 //
 //   no vertical      every vertical (a folder with an app/)
 //   default          the project's existing lock is kept; a project without one gets a fresh
@@ -19,11 +19,11 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { listVerticals } from "../skills/wix-headless-kit/install/templates.mjs";
-import { syncLockRoot } from "../skills/wix-headless-kit/install/lock.mjs";
+import { listVerticals } from "../wix-headless-kit/install/templates.mjs";
+import { syncLockRoot } from "../wix-headless-kit/install/lock.mjs";
 
 const TEMPLATES = dirname(fileURLToPath(import.meta.url));
-const DEPLOY = resolve(TEMPLATES, "..", "skills", "wix-headless-kit", "install", "deploy.mjs");
+const DEPLOY = resolve(TEMPLATES, "..", "wix-headless-kit", "install", "deploy.mjs");
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(`--${n}`); return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : null; };
 const relock = argv.includes("--relock");
