@@ -4,9 +4,23 @@ Read when you cannot run the commands this skill is built on: no shell, no file 
 sandbox that blocks the install, the CLI or the login, or a host that only talks to Wix through
 the Wix MCP. Nothing in this guide installs, downloads or runs anything. It walks the run of
 SKILL.md step by step and names, for each, the Wix API call the CLI or the script performs, and
-the file beside this skill that carries the contract. `<TEMPLATES>` is the `wix-headless-templates`
-skill, installed beside this one (or fetched to `<SKILL_ROOT>/templates/`); `<MANAGE>` is the
-`wix-manage` skill beside it.
+the file beside this skill that carries the contract.
+
+## Where these skills are
+
+This skill is one of a set, and the guide reads from three of them:
+
+- `<SKILL_ROOT>` — this skill, `wix-headless-kit`: the run, its guides, the Verticals table.
+- `<TEMPLATES>` — `wix-headless-templates`: the shipped, verified code per Wix Business Solution,
+  one folder each, with its `INSTRUCTIONS.md` (the contracts), `seed/` (the seed script and
+  `SEED.md`) and `rest/` (the data layer over plain `fetch`). Installed beside this skill, or
+  fetched to `<SKILL_ROOT>/templates/`.
+- `<MANAGE>` — `wix-manage`: REST recipes to configure and manage a site's business solutions, one
+  recipe per operation with the exact endpoint and payload; its `SKILL.md` is the index.
+
+They install together and sit beside each other. When you are reading this skill online rather
+than from an install, the other two are published alongside it, by those names, and each skill's
+manifest lists its files.
 
 Two things such a run does not produce, and never claims: a frontend built from the shipped `app/`
 code (that needs a build), and a release of one. Everything else the kit does to a site, it does
