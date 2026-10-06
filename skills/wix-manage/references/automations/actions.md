@@ -10,7 +10,7 @@ description: "Configure app-defined automation actions from their input schemas 
 - An action is `appId` + `actionKey`. Find real ones with **Resolve Actions** (site catalog), then read the version active on the site with **Get Runtime Action**. Never invent keys.
 - The configuration is `appDefinedInfo.inputMapping`: an object keyed ONLY by input-schema property names, with values of the schema's type — literals, or `{{…}}` formulas in fields the UI schema marks as dynamic.
 - Fields marked `updateSchemaOnChange: true` reveal more inputs once set → **Get Action Dynamic Input Schema**. Output that depends on configuration → **Get Action Dynamic Output Schema** after the mapping is final.
-- **Send an email** (`triggered-emails`) can't be configured through the public APIs: never add one — save the rest and tell the user to add the email in the builder (§5.1, [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3).
+- **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Existing content-only edits do not initialize another email.
 - Entity-selector fields take **ids**, never display names ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
 - Before accepting any action, prove its side effect and its recipient (§6).
 
@@ -46,7 +46,7 @@ Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions 
 - `outputSchema` — fields downstream steps read as `var("<namespace>.<field>")`. Empty and no dynamic output → later steps must not reference its namespace.
 - `implementedMethods` — `validateConfiguration` (the app validates your mapping on Validate Automation), `getQuotaInfo`. It does **not** tell you about dynamic schemas — decide by `updateSchemaOnChange` and by calling the dynamic-output API.
 
-**`WIDGET_COMPONENT` actions.** The widget owns the mapping; the builder's form rules don't apply to it. If `inputSchema` fully describes what the user asked for (e.g. `addLabelsToContact`: `contactId` + `labelKeys`), hand-author it (§5.2) and tell the user to review the step; otherwise it can't be configured here (§5.1). If the widget can't load (its app is uninstalled), the builder shows an "app not installed" state with a Replace button instead of the settings.
+**`WIDGET_COMPONENT` actions.** The widget owns the mapping; the builder's form rules don't apply to it. If `inputSchema` fully describes what the user asked for (e.g. `addLabelsToContact`: `contactId` + `labelKeys`), hand-author it (§5.2) and tell the user to review the step; otherwise use its dedicated provider API if available (§5.1), or explain the manual setup. If the widget can't load (its app is uninstalled), the builder shows an "app not installed" state with a Replace button instead of the settings.
 
 Conditional fields (`if`/`then`/`dependencies`, e.g. a due date shown only when "add a due date" is true): set the toggle and the dependent field together, or leave both out.
 
@@ -65,35 +65,35 @@ UI-schema keys that change what you may write:
 
 ## 5. Building the input mapping
 
-### 5.1 Actions you can't configure here — Send an email and opaque widgets
+### 5.1 Provider-owned mappings — email and opaque widgets
 
-Some `WIDGET_COMPONENT` actions keep their configuration in the app, created through the app's own
-editor in the builder: **Send an email** (`triggered-emails` — the email's subject, body, design and
-recipients) always, and any other widget action whose `inputSchema` doesn't describe what the user
-asked for (opaque/empty schema, or config in fields you can't see). The public APIs can't author it:
-an email step without its app-created email is `INVALID` (`CRITICAL` `MAPPING_MISSING_REQUIRED_FIELD`
-on `messageId` / `templateId` / `uniqueRuleId`), and a hand-written one is a fabrication.
+Check the **provider APIs registry** ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3) before treating an opaque
+widget as unavailable. **Send an email** has a dedicated **Generate Action Input Mapping** API:
 
-- NEVER add such a step, and never write, copy or reuse its app-owned keys (`messageId`,
-  `templateId`, `uniqueRuleId`, `selectedAudience`, `actionConfigVersion`…).
-- Don't call Generate Input Mapping From Intent — it is AI-backed and outside this skill.
-- Check the **provider APIs registry** ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3) first: a component with a
-  dedicated public configuration API is configured through it instead.
-- Build and save everything else (INACTIVE). If nothing else is left (the email is the only step),
-  save nothing: Create requires at least one step (Validate alone accepts an empty tree — don't
-  rely on it). Give the user the full builder recipe instead (trigger, filters with the ids you
-  verified, then the email), and you may offer a step you _can_ save (e.g. a dashboard task) —
-  only with their OK, never as a silent substitute.
-- Tell the user exactly what to add in the builder: the action ("Send an email"), where (after
-  which step / in which branch — every branch copy separately), the recipient (the trigger contact,
-  the site owner, or an existing contact), and draft subject and body text from their request
-  (placeholders such as the contact's first name are picked in the email editor). Attachments are
-  added there too.
-- Existing email / widget steps in an automation you update: keep them and their `inputMapping`
-  byte-for-byte (sole exception: the site-owner audience replacement, [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)
-  §3), never duplicate them into another branch. An email's subject / preview text / body
-  can be changed with Set Email Content ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3); recipient and design
-  changes are made by the user in the builder ([limitations-and-planning.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4).
+- For every new email action, whether creating an automation or inserting into an existing one,
+  call the email initializer with the requested recipient/type settings. Use its returned
+  `appId`, `actionKey`, and opaque `inputMapping` without modifying the mapping. Supply a fresh
+  action ID, normal APP_DEFINED namespace and graph connections.
+- Persist through Create (INACTIVE) or the normal Get → merge → Validate → Update flow; use the
+  returned automation ID and new action ID for Get / Set Email Content. Read back content and
+  automation, validate, and check recipient lineage before reporting completion.
+- Each initializer call creates new draft email content. One returned mapping belongs to ONE
+  action only. For duplicated branch tails initialize each new email separately; never copy
+  `messageId`, `templateId`, `uniqueRuleId` or the existing email's mapping.
+- Editing an EXISTING email's subject/preheader/body uses Get / Set Email Content in place:
+  no initializer, no replacement node, no changed mapping. Preserve other email/widget steps
+  byte-for-byte (existing site-owner audience exception: provider reference §3).
+- **Generate Action Input Mapping** is the email provider's initializer, not the action
+  catalog's AI-backed **Generate Input Mapping From Intent**, which remains outside this skill.
+- If the initializer is unavailable in the caller's environment during rollout, report the
+  actual failure. Never fabricate the mapping. With the user's agreement save only supported
+  parts INACTIVE and provide the exact builder steps still needed. For an email-only request,
+  save nothing rather than an empty or fabricated automation. Do not retry a timed-out initializer
+  blindly: it creates resources and the outcome may be unknown.
+
+Other opaque widgets with no public configuration API remain manual: do not invent their
+app-owned keys. Tell the user which action to add, where, and its intended configuration.
+Email attachments, preview and mapping-copy workflows remain outside this skill's API flow.
 
 ### 5.2 Hand-authored mapping
 

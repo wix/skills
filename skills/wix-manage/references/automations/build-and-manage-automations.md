@@ -23,6 +23,8 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | [references/triggers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)                    | Choosing and configuring the trigger and its filters.                                                                                                                                                                             |
 | [references/actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)                     | Choosing an app action and writing its `inputMapping`.                                                                                                                                                                            |
 | [references/entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)    | A field needs an id (form, label, service, email…), or the component has special handling (**provider APIs registry**: triggered emails, webhooks, scheduled, custom trigger…).                                                   |
+| [references/item-selection.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) | Query selectable items by provider or tag, with dependencies, pagination and vertical API alternatives. |
+| [references/email-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
 | [references/bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)         | Writing ANY `{{ … }}` value (mappings, filters, delays, variables).                                                                                                                                                               |
 | [references/conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
 | [references/special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)             | DELAY, RATE_LIMIT, SET_VARIABLES, SPLIT, node naming (CODE_CONDITION spec: [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).                                                                                                                                      |
@@ -37,7 +39,7 @@ sweeps and multi-schema reads into a subagent and keep only its conclusions.
 ## Prerequisites
 
 - **Site + auth.** A token with the **Set Up Automations** scope (plus **Manage Email Marketing**
-  to change an existing email's content) and the target `metaSiteId` (see [api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §1). Lock one site for the whole task; confirm it before the first write.
+  to initialize an email or change its content) and the target `metaSiteId` (see [api-catalog.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §1). Lock one site for the whole task; confirm it before the first write.
   Never print tokens or auth headers.
 - **What the user wants**, concretely enough to pick a trigger and each side effect. Ask only
   what you can't find out from the site's catalog or data.
@@ -88,11 +90,12 @@ For each step load only the matching reference, then:
 2. **Action input.** Map every required field yourself, following the field-type rules in
    [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) / [bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions). Check the **provider APIs registry** in
    [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) first — some components have a dedicated configuration API.
-   **Send an email** (`triggered-emails`) and any `WIDGET_COMPONENT` action whose `inputSchema`
-   doesn't describe the needed configuration can't be configured through these APIs: never add
-   them — save the rest and tell the user what to add in the builder ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
+   **Send an email** (`triggered-emails`): initialize EACH new action with Generate Action Input
+   Mapping, persist its returned mapping, then use Get / Set Email Content. This also applies
+   when adding an email during Update. Existing email content edits do not reinitialize it.
+   Other opaque widgets require their provider API or manual setup ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
 3. **Entity ids.** Fields backed by an entity selector take **ids**, never display names. Get
-   them from the owning vertical's public API or ask the user ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
+   them through Item Selection or the owning vertical's public API, or ask the user ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
    A failed lookup means _unknown_, not _doesn't exist_.
 4. **Expressions.** Self-check every `{{ … }}` against [bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) /
    [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) — builder-renderable functions and operators only; anything the condition

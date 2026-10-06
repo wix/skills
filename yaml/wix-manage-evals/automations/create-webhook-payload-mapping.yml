@@ -1,0 +1,64 @@
+{
+  "name": "automations/create-webhook-payload-mapping",
+  "description": "Custom webhook schema is retained and supplies task input mapping.",
+  "triggerPrompt": "On the provided test site, create an inactive automation named Incoming lead webhook. My system will post JSON with leadName (string) and score (number). When score is greater than 70, create an unassigned task whose title includes leadName. Give me the webhook URL but do not call it. I approve saving the automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Use supported webhook trigger, fresh webhook identifier and override schema retaining mandatory webhookId plus leadName:string and score:number. Read back with OVERRIDE_SCHEMA; field paths must exist. Strict >70 condition, task title uses leadName, no invented contact ID. Report actual generated webhook URL, never invoke it or activate. Validate and verify saved override schema. Score 0 for any missing mandatory result or unsupported success claim. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

@@ -11,7 +11,7 @@ description: "Assess automation feasibility, supported action configuration, upd
 - For an unfulfillable ask: state the limit accurately, offer the real alternatives, let the user choose. Don't force one scripted outcome.
 - Check limitations WHILE planning, not after building.
 - Updates: read `origin` + `settings` first; ACTIVE automations change live; email content is changed with Set Email Content (§4), recipients and design by the user in the email editor.
-- Ask the user only about business meaning (which form? who receives it? what's the goal?). Resolve availability, ids and paths yourself from the catalogs and vertical APIs.
+- Ask the user only about business meaning (which form? who receives it? what's the goal?). Resolve availability, ids and paths yourself from the catalogs, Item Selection and vertical APIs.
 
 ---
 
@@ -27,16 +27,16 @@ description: "Assess automation feasibility, supported action configuration, upd
 - **Generate site actions / "API integration" steps** (`wix_automations-wix_api_integration`) →
   not public; don't create them. Offer an existing app action, a webhook action, or "Generate or analyze
   text" (`wix_automations-llm_call`). An existing one in an automation you update: leave it untouched, don't rename it.
-- **Create a new Send an email step** → waiting for the non-AI default-input-mapping API.
-  Existing email content can already be edited with Get / Set Email Content. Until initialization
-  is available, save the rest and tell the user what to add in the builder, with draft text; an email-only
-  automation can't be saved at all ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
-  Never save an email step without its app-created email.
+- **New Send an email steps** have a dedicated Generate Action Input Mapping API
+  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3). Use it for new automations and for new email nodes in
+  updates, then persist before Get / Set Email Content. Availability during rollout must be
+  checked through the documented method; a missing binding or permission is a concrete blocker,
+  not permission to invent a mapping. Never save an email step without its app-created email.
 - **Code variables** (`wix_automations-data_manipulation_code`) → Create refuses them; use the
   alternatives in [special-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4.
-- **Generic "list options for this selector" API** → not public. Learn WHICH entity from the
-  field's metadata, then fetch ids from that vertical's public API or ask the user
-  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1–§2). A failed fetch = unknown, never "doesn't exist".
+- **Item Selection** is PUBLIC/BETA: discover installed providers and query their items
+  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2). Vertical public APIs are also valid. Missing binding,
+  permission or provider means options are unknown; it does not mean the API is private.
 - **Create labels / coupons / forms / pipelines while building** → out of scope. They must exist
   first: tell the user, list what exists, and treat creation as a blocking prerequisite (create it
   via the vertical's API only if the user explicitly asks).
@@ -74,7 +74,7 @@ Say YES to these (common false-impossibilities):
 Email ("Send an email"):
 
 - Can't be configured from here: several ad-hoc recipients / CC / BCC, addresses from variables, distribution lists, conditional recipients (label/role audiences exist, but only the user sets them in the email editor). "CC accounting@…" → say the email can't CC; offer a second email to that address as its own contact. That needs an existing contact — create one via the public Contacts API (`POST /contacts/v4/contacts`) only with the user's explicit OK. Several recipients → one email action per recipient.
-- Gather recipient, goal/purpose and key content, so you can hand the user a ready draft (subject, body) to paste into the email editor.
+- Gather recipient, goal/purpose and key content. Initialize supported new recipients (trigger contact or site owner), persist the step, then configure subject/body through the content API. Other audiences need the email editor; don't alter an opaque generated mapping to invent them.
 - Embedded playable video: no — offer a link (ask first).
 - **Attachments**: supported by the email; only you can't configure them. Tell the user to add the files in the email editor; keep the email unchanged. Never say "not supported", never swap in links, never delete/recreate the email to carry files. Attachments-only request = no automation change.
 
@@ -121,8 +121,8 @@ Every update:
 - **Procedure** (builder edits published or discarded first → Get → merge → Validate → Update with the current `revision`, `origin`, `settings` → read-back; revision conflict → re-Get, re-merge, re-validate): [validation-and-verification.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
 - Touch only what was asked; keep untouched nodes, ids, namespaces and SPLIT paths exactly as they are. A new step's namespace number = 1 + the largest number among the steps that REMAIN ([automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §3): numbers of removed steps are not reserved, so removing the highest-numbered step frees its number for the next new step. Re-point or remove every `var()` that read a removed step before reusing its namespace. The single-parent tree rules still apply to any restructuring.
 - Re-verify every entity and field the change touches — they may have been renamed or deleted since creation.
-- **Email content of an existing step** (subject, preview text, body text — "add the phone number to the email") → edit it in place with Get / Set Email Content ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3), after the user's OK: it goes live immediately. Recipient or design changes → the user does them in the email editor (site-owner audience: the one allowed edit). Never delete and recreate an email step — a new one can't be added through the API.
-- **Deleting a node needs the user's explicit OK**: name the nodes you'll remove (an email step can't be re-added through the API — say so) and get a yes before the Update. Then connect its parent to its child and fix or ask about any downstream `var()` that read its outputs.
+- **Email content of an existing step** (subject, preview text, body text — "add the phone number to the email") → edit it in place with Get / Set Email Content ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3), after the user's OK: it goes live immediately. Recipient or design changes → the user does them in the email editor (site-owner audience: the one allowed edit). Do not initialize or recreate an existing step for content-only changes. Adding a distinct new email uses Generate Action Input Mapping, subject to the origin's new-node restrictions.
+- **Deleting a node needs the user's explicit OK**: name the nodes you'll remove (recreating an email creates a different content resource, not restoration) and get a yes before the Update. Then connect its parent to its child and fix or ask about any downstream `var()` that read its outputs.
 
 ## 5. Planning heuristics (recurring real failure modes)
 

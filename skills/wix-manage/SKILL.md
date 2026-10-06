@@ -481,7 +481,7 @@ Select and configure automation triggers, trigger filters and event payload sche
 Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
 
 ### [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
-Resolve entity identifiers and provider-owned configuration, including existing automation email content and pending email initialization support.
+Resolve entity identifiers using Item Selection or vertical APIs, and find provider-owned automation configuration workflows.
 
 ### [Automations Mapping Expressions](references/automations/bracket-expressions.md)
 Write builder-compatible automation mapping expressions, literals and data references.
@@ -503,5 +503,11 @@ Interpret automation runs and per-action logs against their historical configura
 
 ### [Automations Activation Status](references/automations/activation-status.md)
 Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
+
+### [Automations Item Selection](references/automations/item-selection.md)
+Resolve selectable entities by provider or tag with parent constraints, pagination, ambiguity handling and vertical API alternatives.
+
+### [Automations Email Actions](references/automations/email-actions.md)
+Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
 
 <!-- automations-builder-sync:end -->

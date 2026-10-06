@@ -1,0 +1,58 @@
+{
+  "name": "automations/create-llm-output-branch",
+  "description": "A typed LLM classification output drives the correct branch.",
+  "triggerPrompt": "On the provided test site, create an inactive automation named Order note routing. For every order, use AI to classify the buyer note as sales or support. Create a task titled Sales follow-up for sales and Support follow-up for support. I approve saving it, but do not activate or run the AI.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Use Generate or analyze text rather than autonomous assistant. Prompt references real buyer-note field, handles empty note explicitly, and output override schema declares a string classification enum sales/support. Condition references that action namespace and classification field. Correct two task branches, no arbitrary free-text output comparison or invented field. Get with OVERRIDE_SCHEMA proves the override persists. No AI invocation during setup. Score 0 for any missing mandatory result or unsupported success claim. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "stores-v3-editor"
+  }
+}

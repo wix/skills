@@ -215,7 +215,7 @@ this list is the union; run those too for the node types you used.
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
-   No new Send an email / opaque widget step ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); existing ones unchanged
+   New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
    (except the documented site-owner audience replacement).
 9. `inputMapping`: only schema keys (an existing email/widget step's mapping passes through unchanged), types and
    enums match, every required/visible field mapped, entity-selector fields hold ids, formulas

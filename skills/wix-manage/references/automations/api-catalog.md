@@ -7,7 +7,8 @@ description: "Discover site-specific triggers and actions, authenticate public A
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
 matching `@wix/automations` SDK method. Activation-log methods use the client bindings described
-in [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis); their service-relative paths are not assumed to share this REST base. Docs live under
+in [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis); their service-relative paths are not assumed to share this REST base.
+Item Selection (§8) likewise requires a verified client binding. Docs live under
 `https://dev.wix.com/docs/api-reference/business-management/automations/` — append `.md` to any
 docs URL to get raw markdown. When a field name here and the docs disagree, the docs win.
 
@@ -24,7 +25,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 ## 1. Authentication and transport
 
 - **Permission scope**: **Set Up Automations** (`SCOPE.CRM.SETUP-AUTOMATIONS`) for every
-  Automations method below. Get / Set Email Content (Automation Email Action API) needs **Manage
+  Automations method below. Generate Action Input Mapping and Get / Set Email Content (Automation Email Action API) need **Manage
   Email Marketing** (`SCOPE.DC-PROMOTE.EMAIL-MARKETING`) — a 403 there means that scope is missing.
   Entity lookups in other verticals need that vertical's read scope
   ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
@@ -50,12 +51,12 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 
 | Purpose  | REST                                                        | SDK                                       |
 | -------- | ----------------------------------------------------------- | ----------------------------------------- |
-| Validate | `POST /automations-service/v2/automations/validate`         | `validateAutomation(automation, options)` |
-| Create   | `POST /automations-service/v2/automations`                  | `createAutomation(automation)`            |
-| Get      | `GET /automations-service/v2/automations/{automationId}`    | `getAutomation(automationId)`             |
-| Update   | `PATCH /automations-service/v2/automations/{automation.id}` | `updateAutomation(_id, automation)`       |
-| Delete   | `DELETE /automations-service/v2/automations/{automationId}` | `deleteAutomation(automationId)`          |
-| Query    | `POST /automations-service/v2/automations/query`            | `queryAutomations(query)`                 |
+| Validate | `POST https://www.wixapis.com/automations-service/v2/automations/validate`         | `validateAutomation(automation, options)` |
+| Create   | `POST https://www.wixapis.com/automations-service/v2/automations`                  | `createAutomation(automation)`            |
+| Get      | `GET https://www.wixapis.com/automations-service/v2/automations/{automationId}`    | `getAutomation(automationId)`             |
+| Update   | `PATCH https://www.wixapis.com/automations-service/v2/automations/{automation.id}` | `updateAutomation(_id, automation)`       |
+| Delete   | `DELETE https://www.wixapis.com/automations-service/v2/automations/{automationId}` | `deleteAutomation(automationId)`          |
+| Query    | `POST https://www.wixapis.com/automations-service/v2/automations/query`            | `queryAutomations(query)`                 |
 
 - **Validate** (unsaved or saved): `{automation, validationSettings?{actionIds[],
 skipProviderValidations}}` → `{status: VALID|VALID_WITH_WARNINGS|INVALID,
@@ -94,11 +95,11 @@ configuration even where the docs omit it; use [triggers.md](https://dev.wix.com
 
 | Purpose                | REST                                              | SDK                                             |
 | ---------------------- | ------------------------------------------------- | ----------------------------------------------- |
-| Triggers on this site  | `POST /v1/triggers/resolve`                       | `resolveTriggers(options)`                      |
-| Global catalog         | `POST /v1/triggers/query`                         | `queryTriggers(query)`                          |
-| One trigger            | `GET /v1/triggers/apps/{appId}/keys/{triggerKey}` | `getTriggerByAppIdAndKey(identifiers, options)` |
-| Dynamic payload schema | `POST /v1/triggers/dynamic_schema`                | `getTriggerDynamicSchema(appId, options)`       |
-| Identity enrichment    | `POST /v1/triggers/identities_schema`             | `getIdentitiesSchema()`                         |
+| Triggers on this site  | `POST https://www.wixapis.com/v1/triggers/resolve`                       | `resolveTriggers(options)`                      |
+| Global catalog         | `POST https://www.wixapis.com/v1/triggers/query`                         | `queryTriggers(query)`                          |
+| One trigger            | `GET https://www.wixapis.com/v1/triggers/apps/{appId}/keys/{triggerKey}` | `getTriggerByAppIdAndKey(identifiers, options)` |
+| Dynamic payload schema | `POST https://www.wixapis.com/v1/triggers/dynamic_schema`                | `getTriggerDynamicSchema(appId, options)`       |
+| Identity enrichment    | `POST https://www.wixapis.com/v1/triggers/identities_schema`             | `getIdentitiesSchema()`                         |
 
 - **Resolve**: `{basicFieldsOnly?, appId?, query{filter, paging{limit, offset}, fields?}}` →
   `results[]`, `paging`. Installed apps only. `basicFieldsOnly: true` for browsing (drops payload
@@ -122,12 +123,12 @@ payload schema ([triggers.md](https://dev.wix.com/docs/api-reference/business-ma
 
 | Purpose                    | REST                                                   | SDK                                            |
 | -------------------------- | ------------------------------------------------------ | ---------------------------------------------- |
-| Actions on this site       | `POST /v1/actions/resolve`                             | `resolveActions(options)`                      |
-| Global catalog             | `POST /v1/actions/query` (and `/query-latest`)         | `queryActions(query)`, `queryLatestActions`    |
-| Version active on the site | `GET /v1/actions/apps/{appId}/keys/{actionKey}`        | `getRuntimeAction(identifiers)`                |
-| Latest version             | `GET /v1/actions/latest/apps/{appId}/keys/{actionKey}` | `getLatestAction(identifiers, options)`        |
-| Dynamic input schema       | `POST /v1/actions/dynamic-input-schema`                | `getActionDynamicInputSchema(appId, options)`  |
-| Dynamic output schema      | `POST /v1/actions/dynamic-output-schema`               | `getActionDynamicOutputSchema(appId, options)` |
+| Actions on this site       | `POST https://www.wixapis.com/v1/actions/resolve`                             | `resolveActions(options)`                      |
+| Global catalog             | `POST https://www.wixapis.com/v1/actions/query` (and `/query-latest`)         | `queryActions(query)`, `queryLatestActions`    |
+| Version active on the site | `GET https://www.wixapis.com/v1/actions/apps/{appId}/keys/{actionKey}`        | `getRuntimeAction(identifiers)`                |
+| Latest version             | `GET https://www.wixapis.com/v1/actions/latest/apps/{appId}/keys/{actionKey}` | `getLatestAction(identifiers, options)`        |
+| Dynamic input schema       | `POST https://www.wixapis.com/v1/actions/dynamic-input-schema`                | `getActionDynamicInputSchema(appId, options)`  |
+| Dynamic output schema      | `POST https://www.wixapis.com/v1/actions/dynamic-output-schema`               | `getActionDynamicOutputSchema(appId, options)` |
 
 - **Resolve**: `{query{filter, paging{limit, offset}, fields?}}` → `actions[]`, `paging`. Offset
   paging only (`cursorPaging` is rejected). Entries carry full `inputSchema`, `outputSchema`,
@@ -144,11 +145,15 @@ payload schema ([triggers.md](https://dev.wix.com/docs/api-reference/business-ma
   final. Safe for any action you place upstream of a step that reads its output (no public flag
   says which are dynamic); an error means "no dynamic output" — keep the static `outputSchema`.
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
-- **Generate Input Mapping From Intent** (`POST /v1/actions/generate-input-mapping-from-intent`)
+- **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
   is AI-backed — don't call it. Actions you can't map from their schema: [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
 - **Email content of an existing Send an email step** — Get / Set Email Content
   (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
-  Automation Email Action API, scope _Manage Email Marketing_): [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3.
+  Automation Email Action API, scope _Manage Email Marketing_): [email-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions).
+- **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
+  `POST https://www.wixapis.com/emails-automations/v1/email-actions/generate-action-input-mapping`.
+  Use returned `appId`, `actionKey`, and opaque `inputMapping` for one new action only.
+  Request and persistence flow: [email-actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions).
 
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
@@ -162,7 +167,7 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
   requirements and status interpretation are in [activation-logs.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Read logs to diagnose,
   without running the automation again.
 
-- **Test Automation** — `POST /automations/v1/events/test-automation`,
+- **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
   `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",
 automationIdentifier{automationId}, payload}` → `activationId`. **Runs every action for real**
   (skips delays, works on INACTIVE) — explicit user authorization only; payload, consent and
@@ -208,13 +213,31 @@ Discovery hints:
 Node N may read the trigger payload + each **ancestor**'s output (under its namespace) +
 variables + identity enrichment. Recipe and fetch order: [automation-model.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4.
 
-## 8. Not public — do not rely on
+## 8. Item Selection and APIs with limitations
+
+**Item Selection is PUBLIC (BETA)** and supports generic provider-based lookups. List Installed
+Providers returns the site's providers (optionally filtered by `tag`); Query Items searches a
+specific `providerKey`, returning item ids/names and paging metadata. The verified service-relative
+paths are `GET /v1/items-selection/installed-providers` and
+`POST /v1/items-selection/{providerKey}/items`; permissions are
+`ITEMS_SELECTION.LIST_INSTALLED_PROVIDERS` and `ITEMS_SELECTION.LIST_ITEMS`, respectively.
+Use a supported public client/MCP binding; the external gateway base and token access remain
+unverified, so do not prepend this catalog's REST base by assumption. Discovery, filters,
+pagination and dependent selections: [item-selection.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection). Vertical public APIs
+remain valid alternatives.
+
+**Not public or not available through the general Automations API:**
 
 - **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Generic entity-selector options** → the vertical's own public API, or ask
-  ([entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
-- **Site-action generation** and **new-email default mapping initialization** →
-  [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3, [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1. Existing email content editing is available.
+- **Site-action generation** → [entity-ids-and-providers.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3, [actions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
+  New email initialization is available through its dedicated public API above.
 - **Expression parsing/evaluation, code runner** → local checks ([bracket-expressions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
   [conditions.md](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)), then Validate Automation.
 - **Validate by id** → Get Automation, then Validate the returned object.
+
+## Related API references
+
+- [Automations V2](https://dev.wix.com/docs/api-reference/business-management/automations/automations/automations-v2/introduction)
+- [Resolve Triggers](https://dev.wix.com/docs/api-reference/business-management/automations/triggers/trigger-catalog/resolve-triggers)
+- [Resolve Actions](https://dev.wix.com/docs/api-reference/business-management/automations/actions/action-catalog/resolve-actions)
+- [Automation Email Action](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/introduction)
