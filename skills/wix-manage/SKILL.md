@@ -465,49 +465,54 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 ### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
 Create, update, activate or deactivate Wix Automations, and inspect their activation logs on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; use activation and action logs to explain individual runs.
 
-### [Automations API Catalog](references/automations/api-catalog.md)
-Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
+<details>
+<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
 
-### [Automations Feasibility and Planning](references/automations/limitations-and-planning.md)
-Assess automation feasibility, supported action configuration, update locks and planning constraints before promising or changing a workflow.
+- [Automations API Catalog](references/automations/api-catalog.md)
+  Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
 
-### [Automations Graph and Data Model](references/automations/automation-model.md)
-Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access.
+- [Automations Feasibility and Planning](references/automations/limitations-and-planning.md)
+  Assess automation feasibility, supported action configuration, update locks and planning constraints before promising or changing a workflow.
 
-### [Automations Trigger Configuration](references/automations/triggers.md)
-Select and configure automation triggers, trigger filters and event payload schemas using the site catalog.
+- [Automations Graph and Data Model](references/automations/automation-model.md)
+  Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access.
 
-### [Automations Action Configuration](references/automations/actions.md)
-Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
+- [Automations Trigger Configuration](references/automations/triggers.md)
+  Select and configure automation triggers, trigger filters and event payload schemas using the site catalog.
 
-### [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
-Resolve entity identifiers using Item Selection or vertical APIs, and find provider-owned automation configuration workflows.
+- [Automations Action Configuration](references/automations/actions.md)
+  Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
 
-### [Automations Mapping Expressions](references/automations/bracket-expressions.md)
-Write builder-compatible automation mapping expressions, literals and data references.
+- [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
+  Resolve entity identifiers using Item Selection or vertical APIs, and find provider-owned automation configuration workflows.
 
-### [Automations Conditions](references/automations/conditions.md)
-Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability.
+- [Automations Mapping Expressions](references/automations/bracket-expressions.md)
+  Write builder-compatible automation mapping expressions, literals and data references.
 
-### [Automations Delays Variables and Branches](references/automations/special-actions.md)
-Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata.
+- [Automations Conditions](references/automations/conditions.md)
+  Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability.
 
-### [Automations Schemas and Scheduling](references/automations/schemas-and-scheduling.md)
-Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior.
+- [Automations Delays Variables and Branches](references/automations/special-actions.md)
+  Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata.
 
-### [Automations Validation and Persistence](references/automations/validation-and-verification.md)
-Validate automation configuration, check builder compatibility, persist changes and verify the saved result.
+- [Automations Schemas and Scheduling](references/automations/schemas-and-scheduling.md)
+  Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior.
 
-### [Automations Run Diagnosis](references/automations/activation-logs.md)
-Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
+- [Automations Validation and Persistence](references/automations/validation-and-verification.md)
+  Validate automation configuration, check builder compatibility, persist changes and verify the saved result.
 
-### [Automations Activation Status](references/automations/activation-status.md)
-Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
+- [Automations Run Diagnosis](references/automations/activation-logs.md)
+  Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
 
-### [Automations Item Selection](references/automations/item-selection.md)
-Resolve selectable entities by provider or tag with parent constraints, pagination, ambiguity handling and vertical API alternatives.
+- [Automations Activation Status](references/automations/activation-status.md)
+  Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
 
-### [Automations Email Actions](references/automations/email-actions.md)
-Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
+- [Automations Item Selection](references/automations/item-selection.md)
+  Resolve selectable entities by provider or tag with parent constraints, pagination, ambiguity handling and vertical API alternatives.
+
+- [Automations Email Actions](references/automations/email-actions.md)
+  Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
+
+</details>
 
 <!-- automations-builder-sync:end -->
