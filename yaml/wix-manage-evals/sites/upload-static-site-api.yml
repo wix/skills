@@ -32,7 +32,7 @@ assertions:
       Pass if the response does ONE of these:
       - Publish into the user's account (the agent holds the user's identity): POST
         https://www.wixapis.com/headless-business-setup/v1/headless-business/provision (no
-        business solutions), then POST
+        business solutions, "origin": "drop"), then POST
         https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop as
         multipart/form-data with a `files` part named index.html; reports the `siteUrl` the drop
         returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}.
@@ -71,6 +71,7 @@ assertions:
         - an anonymous publish followed by a claim when the page could go straight into the account
           (the Wix MCP connected, or a CLI token in the shell): a longer path with a URL change
         - a template site-creation call, or a provision call with business solutions
+        - a provision call without "origin": "drop" in its body
         - a call to the site-import API or any crawl/migration tool
         - an upload attempted as JSON rather than multipart
         - calls made out of order, or release attempted without an uploadId

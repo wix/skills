@@ -57,12 +57,13 @@ perform; whenever a route fails partway, hand over the drop page.
 ### 1. Create the site
 
 The [Create Headless Site](create-headless-site.md) call with no Wix Business
-Solutions. Name it after the page's `<title>`.
+Solutions. Name it after the page's `<title>`, and keep `"origin": "drop"`: it marks
+the site as a dropped one, the same as the drop page and the anonymous route do.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
+  -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
        "synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
@@ -99,7 +100,7 @@ already in the conversation:
 async function run() {
   const created = await wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-    body: { newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+    body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
   const files = { 'index.html': html, 'assets/styles.css': css };   // path → text content
   const boundary = '----wixdropboundary';
