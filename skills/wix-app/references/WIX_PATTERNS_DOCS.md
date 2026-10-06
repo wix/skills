@@ -18,17 +18,20 @@ Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and
 
 ### 1 — The index
 
-**Probe `<pkgRoot>/dist/docs/index.json`; do not read it whole.** At ~80 KB a `Read` truncates part-way and reports nothing, so the tail goes silently missing. Pull what you need with one `grep`/`python3` call, resolving every symbol you plan to write in it.
+**Resolve every patterns name you plan to write in one call:**
 
-Start here rather than the bundle index: it carries every documented name *and* the guides.
+```bash
+node <this-skill-dir>/scripts/patterns-lookup.cjs Table useTableCollection stringsArrayFilter DateRangeFilter
+```
 
-- **Read each entry's `summary` before opening anything.** It is that page's opening paragraph, so for most questions the index *is* the answer and step 4 becomes no read.
-- **Resolve against the keys *and* each entry's `symbols` aliases.** The index is keyed by Storybook title: `ExportButton` lives under `ExportTo`, `CollectionToolbarFilters` under `ToolbarFilters`. Matching is exact — scan for something close before concluding a name isn't covered.
-- **`status: "deprecated"`** means use what `statusMessage` names. A deprecated component still renders, so nothing else stops you.
+For each name it prints:
+- the `summary`, which usually answers the question, so step 4 needs no read;
+- the `importPath` and the examples;
+- the **one** file for props: the `.d.ts` if the entry has a `bundle`, otherwise the doc's table. When the bundle stubs its parent, it names the files that hold the rest.
 
-**Not in the docs index? Check `dist/dts-bundle/index.json` before concluding it does not exist.** It curates names with no page of their own — hooks, prop and query types, names re-exported from another package — and carries `importPath` and `file`, so step 4 still applies with no page to read.
+It checks both indices, resolves `symbols` aliases (`CollectionToolbarFilters` is under `ToolbarFilters`) and flags `deprecated` entries with their replacement. A name in neither index makes it exit 1, with near matches. `--templates` lists the page templates. **List the names first.** Each name you add later costs another round trip, and those round trips are this step's whole cost.
 
-**For that whole namespace cheaply, `Read <pkgRoot>/dist/dts-bundle/index.txt`** — ~9 KB, one read, every curated name with `kind`, `importPath` and file. From 1.469.0 it adds `bytes`, `props` (`5/63` — what the file declares against what the symbol has) and `stubs`: step 5's triage for every symbol at once, with the columns named in its header. Drop to the `.json` for `readWith`, `readWithBytes` and status prose.
+**Without the script**, probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol. Never `Read` it whole: at ~80 KB it truncates silently. Match keys and `symbols` aliases exactly. A name not in it may still be in `dist/dts-bundle/index.json`, which curates hooks, types and re-exports. `dist/dts-bundle/index.txt` (~9 KB) lists every curated name with `kind`, `importPath` and file, and from 1.469.0 adds `bytes`, `props` and `stubs`.
 
 ### 2 — Composition, once per session
 
