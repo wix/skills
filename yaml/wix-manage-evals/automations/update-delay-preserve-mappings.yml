@@ -1,7 +1,7 @@
 {
   "name": "automations/update-delay-preserve-mappings",
   "description": "A seeded update changes only delay timing, retaining existing action mappings and graph IDs.",
-  "triggerPrompt": "Change the wait in Welcome follow-up fixture from 24 hours to 2 days. Keep its name, trigger, task content, contact links, and everything else unchanged. I approve saving this edit. Keep it inactive and do not run it.",
+  "triggerPrompt": "Change the wait in Welcome follow-up fixture from 24 hours to 2 days. Keep its name, trigger, task content, contact links, and everything else unchanged. Please save this change.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize rediscovering and rebuilding the entire flow for a delay-only edit, or failed updates caused by skipping the initial Get and its current revision. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

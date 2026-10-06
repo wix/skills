@@ -1,7 +1,7 @@
 {
   "name": "automations/create-sequential-derived-variables",
   "description": "Derived variables read earlier steps and keep unique keys in the shared namespace.",
-  "triggerPrompt": "Create an automation named Order reserve variables. When an order is placed, store its total as a numeric variable named Order amount. In a later step, store 10 percent of Order amount as a numeric variable named Reserve amount. Wait 2 hours, then create a task whose title includes both saved values. I approve saving this automation. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Order reserve variables. When an order is placed, store its total as a numeric variable named Order amount. In a later step, store 10 percent of Order amount as a numeric variable named Reserve amount. Wait 2 hours, then create a task whose title includes both saved values. Go ahead and save this automation.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize attempting to read a variable in the same step that defines it, or recreating variable steps after namespace collisions instead of planning ancestor references. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

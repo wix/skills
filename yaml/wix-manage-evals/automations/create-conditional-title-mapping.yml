@@ -1,7 +1,7 @@
 {
   "name": "automations/create-conditional-title-mapping",
   "description": "Nested fallback expressions map missing and nonempty contact names correctly.",
-  "triggerPrompt": "Create an automation named Personal welcome task. When a new contact is created, create a task titled Welcome followed by their first name. If the first name is absent or empty, use Welcome new friend instead. I approve saving this automation. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Personal welcome task. When a new contact is created, create a task titled Welcome followed by their first name. If the first name is absent or empty, use Welcome new friend instead. Go ahead and save this automation.",
   "tags": [
     "automations"
   ],
@@ -38,7 +38,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize trial-and-error formulas caused by guessing unsupported conditional functions, or repeated repairs after failing to guard absent or empty first names. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

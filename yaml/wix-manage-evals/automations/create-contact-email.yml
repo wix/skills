@@ -1,7 +1,7 @@
 {
   "name": "automations/create-contact-email",
   "description": "New trigger-contact email uses the actual schema identity rather than owner defaults.",
-  "triggerPrompt": "Create an inactive automation named Contact welcome. Whenever a contact is created, send that contact a promotional email with subject Welcome and body Thanks for joining us. I approve creating its content and saving it. Do not activate or send a test.",
+  "triggerPrompt": "Create an automation named Contact welcome. Whenever a contact is created, send that contact a promotional email with subject Welcome and body Thanks for joining us. Please create its content and save it.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize generating content for a guessed contact path before schema discovery, or hand-editing the opaque initializer mapping and then regenerating it to repair failures. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

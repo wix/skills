@@ -1,7 +1,7 @@
 {
   "name": "automations/create-llm-output-branch",
   "description": "A typed LLM classification output drives the correct branch.",
-  "triggerPrompt": "Create an inactive automation named Order note routing. For every order, use AI to classify the buyer note as sales or support. Create a task titled Sales follow-up for sales and Support follow-up for support. I approve saving it, but do not activate or run the AI.",
+  "triggerPrompt": "Create an automation named Order note routing. For every order, use AI to classify the buyer note as sales or support. Create a task titled Sales follow-up for sales and Support follow-up for support. Go ahead and save it.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize selecting an autonomous assistant before the supported text-generation action, or invoking the AI during setup to infer an output shape that should be declared in the override schema. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-independent-branch-emails",
   "description": "Two mutually exclusive email branches own distinct initialized content.",
-  "triggerPrompt": "Create an inactive automation named Order email branches. When an order is placed, email its buyer: if the total is greater than 100 use subject Premium order and body Thank you for your large order; otherwise use subject Order received and body Thank you for your order. These are promotional messages. I approve saving the automation and both emails. Do not activate or send tests.",
+  "triggerPrompt": "Create an automation named Order email branches. When an order is placed, email its buyer: if the total is greater than 100 use subject Premium order and body Thank you for your large order; otherwise use subject Order received and body Thank you for your order. These are promotional messages. Please save the automation and both emails.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize sharing one initialized mapping between both branches and later repairing coupled content, or repeated content writes caused by confusing the two action IDs. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-branch-continuations",
   "description": "Conditional branches continue independently without shared nodes or doubled work.",
-  "triggerPrompt": "Create an automation named Order review follow-up. When an order is placed, if its total is greater than 100 create a task titled High value review, otherwise create a task titled Standard review. After either review task, wait 1 day and create a task titled Follow up. I approve saving this automation. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Order review follow-up. When an order is placed, if its total is greater than 100 create a task titled High value review, otherwise create a task titled Standard review. After either review task, wait 1 day and create a task titled Follow up. Go ahead and save this automation.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize attempting a MERGE or shared continuation node before duplicating each branch continuation with distinct IDs, or repairing avoidable orphan nodes after persistence. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

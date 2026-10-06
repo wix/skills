@@ -1,7 +1,7 @@
 {
   "name": "automations/create-month-end-task",
   "description": "The saved automation has a supported schedule plus month-end predicate in Europe/Berlin.",
-  "triggerPrompt": "Create an inactive automation named Month end books that creates a task titled Close monthly books at 23:30 on the last calendar day of each month in Europe/Berlin. I approve saving it. Do not activate it.",
+  "triggerPrompt": "Create an automation named Month end books that creates a task titled Close monthly books at 23:30 on the last calendar day of each month in Europe/Berlin. Go ahead and save it.",
   "tags": [
     "automations"
   ],
@@ -38,7 +38,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize guessing unsupported month-end cron syntax or iterating through fixed day numbers instead of using calendar-aware month-end logic in Europe/Berlin. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

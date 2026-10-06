@@ -1,7 +1,7 @@
 {
   "name": "automations/select-specific-form",
   "description": "A selected form scopes the trigger and drives the subsequent dynamic schema.",
-  "triggerPrompt": "Create an inactive automation named Consultation follow-up. Only when Consultation request is submitted, wait 1 day and create a task titled Review consultation. Do not run for Newsletter signup or any other form. I approve saving it.",
+  "triggerPrompt": "Create an automation named Consultation follow-up. Only when Consultation request is submitted, wait 1 day and create a task titled Review consultation. Do not run for Newsletter signup or any other form. Go ahead and save it.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize selecting a near-match or loading the dynamic schema before resolving the form ID and namespace; accept either verified Item Selection or the owning vertical public API. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

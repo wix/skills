@@ -1,7 +1,7 @@
 {
   "name": "automations/create-owner-email",
   "description": "New owner email initializes without a contact path, persists, and receives requested content.",
-  "triggerPrompt": "Create an inactive automation named Owner welcome notice. When a contact is created, email me as the site owner, with subject New contact and body A new contact joined our site. I approve creating the email content and saving this automation. Leave it off and do not send a test.",
+  "triggerPrompt": "Create an automation named Owner welcome notice. When a contact is created, email me as the site owner, with subject New contact and body A new contact joined our site. Go ahead and create the email content and save this automation.",
   "tags": [
     "automations"
   ],
@@ -44,7 +44,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize looking up or hardcoding an owner contact ID when the provider supports the owner audience, and repeated initializer calls for the same new email node. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

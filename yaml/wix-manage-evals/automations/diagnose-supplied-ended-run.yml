@@ -26,7 +26,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Judge the explanation and any tool trace against the supplied logs; no catalog discovery, site calls or persistence read-back are needed or authorized. Penalize fetching live site data despite the supplied-log-only request, or reasoning from current revision 9 before recognizing that the failed run used revision 7. Penalize treating ENDED as proof of action success or claiming unobserved delivery. Return only a JSON object with score and reason."
     }
   ]
 }

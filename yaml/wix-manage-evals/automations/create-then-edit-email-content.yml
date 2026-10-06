@@ -1,7 +1,7 @@
 {
   "name": "automations/create-then-edit-email-content",
   "description": "Content-only edits keep the persisted email action and mapping instead of generating again.",
-  "triggerPrompt": "Set up an inactive contact welcome automation named Welcome subject check with a promotional email to the new contact, subject Welcome, and body Thanks for joining us. After saving and checking it, change only its subject to Glad you joined. I approve these saves and content changes. Do not activate or send a test.",
+  "triggerPrompt": "Set up a contact welcome automation named Welcome subject check with a promotional email to the new contact, subject Welcome, and body Thanks for joining us. After saving and checking it, change only its subject to Glad you joined. Go ahead with those saves and content changes.",
   "tags": [
     "automations"
   ],
@@ -38,7 +38,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize a second initializer or replacement email node for the subject-only edit, and overwriting then restoring body/editor settings instead of preserving them from Get Email Content. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

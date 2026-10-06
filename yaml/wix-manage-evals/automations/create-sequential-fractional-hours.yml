@@ -1,7 +1,7 @@
 {
   "name": "automations/create-sequential-fractional-hours",
   "description": "Sequential delays preserve elapsed-time meaning using whole-number units.",
-  "triggerPrompt": "Create an automation named Two-stage contact follow-up. After a new contact is created, wait half an hour and create a task titled First follow-up. Then wait another hour and a half and create a task titled Second follow-up. I approve saving this automation. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Two-stage contact follow-up. After a new contact is created, wait half an hour and create a task titled First follow-up. Then wait another hour and a half and create a task titled Second follow-up. Go ahead and save this automation.",
   "tags": [
     "automations"
   ],
@@ -38,7 +38,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize failed fractional-duration requests instead of converting to supported integer units, or rebuilding the second wait after mistakenly measuring it from the trigger. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
