@@ -70,14 +70,13 @@ CI=1 npx skills@latest add wix/skills \
 Windows, PowerShell: `$env:CI = "1"; npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
 Windows, cmd: `set CI=1 && npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
 
-- **`wix-headless-kit`** — the build itself. It fetches the shipped code, the
-  `wix-headless-templates` skill, on first use.
+- **`wix-headless-kit`** — the build itself.
 - **`wix-docs`** — how to look up the Wix API and SDK docs, for any contract the playbooks don't cover.
 - **`wix-manage`** — REST recipes for managing the site after it exists.
 
 They land under `.agents/skills/`. When your host already carries them as installed skills (the
-Wix plugin for Claude Code, Codex, Cursor or VS Code ships them with the templates), use that copy:
-wherever the phases below say `.agents/skills/wix-headless-kit/…`, read the path from where it lives.
+Wix plugin for Claude Code, Codex, Cursor or VS Code ships them), use that copy: wherever the
+phases below say `.agents/skills/wix-headless-kit/…`, read the path from where it lives.
 
 ## Phase 2 — Run the bootstrap (deterministic, shared)
 
