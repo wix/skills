@@ -20,8 +20,8 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 ```
 
 Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
-guides the login. **Can't run commands at all?** Skip to [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one):
-this page tells you what to hand over instead, so the request still ends well.
+guides the login. Without a shell, see [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one)
+at the end. If `npx` can't reach npm or GitHub, Phase 1 says when the install can be skipped.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -37,18 +37,7 @@ owns that decision; this page does not interpret either. The bootstrap only veri
 and logs you in, so it's fine to run in every case (an existing session just reports
 `logged_in`).
 
-## Phase 0 — What you can do, the project's folder, and Node
-
-**First, find out what you can do here.** Run `node -v`. What happens decides your path:
-
-| What happens | Your path |
-|---|---|
-| It prints `v22.12` or higher | Continue with the folder and Phase 1. |
-| It prints a lower version, or "command not found" | Install or upgrade Node (below), then continue. |
-| You have no way to run a command | [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one). Don't try to build the site without one. |
-| Commands run, but `npx` can't reach npm or GitHub | If the skill is already installed where you are (Phase 1 says how to tell), skip the install and continue. Otherwise stop and say so; the [no-shell hand-off](#no-shell--hand-the-build-to-an-agent-that-has-one) works for this case too. |
-| Your shell is Windows (cmd or PowerShell) | Same phases; use the Windows forms of the commands given with each. |
-| The page you're reading looks summarized | Re-fetch it with `curl`, per the advisory at the top. |
+## Phase 0 — The project's folder, and Node
 
 **Work from the folder that holds the project, or that will.** An empty folder is the project for
 a new build; if the current folder holds unrelated things, make one named for the business and `cd`
@@ -140,9 +129,8 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 
 ## No shell — hand the build to an agent that has one
 
-This skill builds a project and releases it with the Wix CLI; that takes a shell. Without one you
-cannot run it, and hand-writing a Wix integration in its place is not a substitute: say plainly
-that this build needs a coding agent that can run commands, then hand over one of these.
+This skill builds a project and releases it with the Wix CLI, so it needs a shell. Without one,
+tell the user this build needs a coding agent that can run commands, and hand over one of these.
 
 - **The build the user asked for.** Give the user a prompt to paste into a coding agent that
   runs commands (Claude Code, Codex, Cursor, or any agent with a terminal), opened in an empty
@@ -167,5 +155,4 @@ that this build needs a coding agent that can run commands, then hand over one o
   route). When the files are the user's and not in the conversation, hand them the drop page it
   names instead.
 
-Never report a build you could not perform, and never leave the user with "go headless" and no
-way to get there.
+Either way the user leaves with a path, not with "go headless" and nowhere to go.
