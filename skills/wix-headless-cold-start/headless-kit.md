@@ -140,8 +140,8 @@ shipped code is readable in place.
 Fetch and follow these as a reference:
 - https://www.wix.com/skills/wix-headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site: what each step reads, decides and calls; its guides/reference-mode.md is the mechanics for a stack that can't run the shipped code
 - https://www.wix.com/skills/wix-headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
-- https://www.wix.com/skills/wix-docs/SKILL.md — the Wix API reference, for any contract the templates don't cover
-- https://www.wix.com/skills/wix-manage/SKILL.md — recipes for managing a site that exists, each a REST call
+- https://www.wix.com/skills/wix-docs/SKILL.md — how to look up the Wix API and SDK docs: find the right page, read it as markdown, and confirm an endpoint, body, field or enum before writing code; the kit's playbooks defer to it for any contract they don't cover
+- https://www.wix.com/skills/wix-manage/SKILL.md — REST recipes to configure and manage a site's business solutions (stores, bookings, payments, CMS and more), one recipe per operation with the exact endpoint and payload
 ```
 
 Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`
