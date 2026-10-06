@@ -16,7 +16,7 @@ Five ways to get the files live; what you have decides which are open to you.
 | Option | Needs | Carries | The user ends up with |
 | --- | --- | --- | --- |
 | **A.** `curl` + CLI token → [into the account](#publish-into-the-users-account) | A shell; a Wix CLI login | Anything on disk | A site in their account, final URL |
-| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Small text files already in the conversation | A site in their account, final URL |
+| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Files already in the conversation — text as is, small binaries as base64 — and anything downloaded from the site | A site in their account, final URL |
 | **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
 | **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
 | **E.** [The headless skill](#keep-building-add-a-backend-when-you-need-one) | A shell; Node; a Wix CLI login | A project folder, source included (built for you) | A site in their account as a Wix Headless project, released with the Wix CLI, ready for Wix Business Solutions |
@@ -30,10 +30,13 @@ What sets them apart:
   byte is written out inside the call. That costs nothing extra for a page you
   generated or the user pasted (it's already in the conversation); for files on
   disk it means reading them in and writing them back out, and each change
-  resends all of it. Text files travel in the tool's `files` param, raw, and
-  `wix.multipart()` builds the upload body (below). Binary files (PNG, JPG,
-  fonts) don't travel this way: upload them with `curl` from a shell, or link
-  images by absolute URL.
+  resends all of it. Files travel in the tool's `files` param — text raw, a
+  binary file (PNG, JPG, fonts) as base64 — and `wix.multipart()` builds the
+  upload body (below). Base64 costs about a third more than the file and every
+  byte is tokens, so it suits small assets (an icon, a logo, a font) and files
+  you downloaded from the site to change; a photo goes in by absolute URL
+  (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
+  4M characters.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -45,8 +48,8 @@ What sets them apart:
   the only one that takes framework source as is and leaves a project ready for a
   backend. A drop site can still move to it [later](#keep-building-add-a-backend-when-you-need-one).
 
-So: a small page already in the conversation, with the Wix MCP connected — B,
-shell or not. Static files on disk — A with a CLI login, else C (claimed through
+So: a site already in the conversation — pages, styles, a logo — with the Wix
+MCP connected — B, shell or not. Static files on disk — A with a CLI login, else C (claimed through
 the Wix MCP when it's connected). A framework project (a `package.json`), or a
 site that needs stores, bookings, a CMS or members from the start — E. Files out
 of your reach, or nothing above fits — D.
@@ -110,23 +113,27 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-Option B — the same two calls as one `ExecuteWixAPI` script, for text files
-already in the conversation. The files go in the tool's **`files` param**, not in
+Option B — the same two calls as one `ExecuteWixAPI` script, for files already
+in the conversation. The files go in the tool's **`files` param**, not in
 `code`: one bundle, each file introduced by a line `=== FILE: <path> ===` and
-followed by its raw text, `<path>` relative to the site root. Nothing in it is
-escaped, so quotes, backticks, `${}` and backslashes arrive as written.
+followed by its raw text, `<path>` relative to the site root. A binary file is
+introduced by `=== FILE: <path> base64 ===` and followed by its base64. Nothing
+in it is escaped, so quotes, backticks, `${}` and backslashes arrive as written.
 
 ```
 === FILE: index.html ===
 <!doctype html><html><head><title>Northwind Studio</title>
-<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1><img src="assets/logo.png"></body></html>
 === FILE: assets/styles.css ===
 body { font-family: sans-serif; margin: 0; padding: 4rem; }
+=== FILE: assets/logo.png base64 ===
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
 ```
 
-In `code`, the bundle is the `files` global (`[{ path, content }]`) and
-`wix.multipart()` turns it into the upload body: one part named `files` per
-file, the path as its filename, a content type guessed from the extension.
+In `code`, the bundle is the `files` global (`[{ path, content, encoding? }]`,
+`encoding: 'base64'` on the binary entries) and `wix.multipart()` turns it into
+the upload body: one part named `files` per file, the path as its filename, a
+content type guessed from the extension, base64 entries decoded to their bytes.
 
 ```javascript
 async function run() {
@@ -134,7 +141,7 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  const mp = wix.multipart();                                   // the `files` param; or pass [{ path, content }]
+  const mp = wix.multipart();                                   // the `files` param; or pass [{ path, content | base64 | bytes }]
   return await wix.request({ scope: 'account', method: 'POST',
     url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop`,
     headers: { 'Content-Type': mp.contentType },
@@ -146,8 +153,9 @@ async function run() {
 (`created.data.metaSiteId`). Don't build the multipart body by hand — a missing
 `\r\n` or a boundary mismatch is a bare `500` — and don't put file text inside
 `code` as string literals: that second layer of escaping is what corrupts
-backslashes and `${}`. The one thing `files` cannot carry is a file with a line
-that reads exactly `=== FILE: … ===`.
+backslashes and `${}`. Don't put image bytes in `code` either — they're a
+`base64` entry in `files`. The one thing `files` cannot carry is a file with a
+line that reads exactly `=== FILE: … ===`.
 
 `siteUrl` is the site's final address — it's already in the user's account. Give
 the user two links: `siteUrl`, and its dashboard at
@@ -175,32 +183,26 @@ unzip -o current.zip -d current      # the site's files + wix.config.json
 ```
 
 In an `ExecuteWixAPI` script, request the same URL with `responseType: 'base64'`
-and read the zip in memory. Entries are stored (method 0) or deflated (method 8):
+and unzip it in memory with `wix.unzip()`. Each entry is `{ path, bytes, text() }`:
+`bytes` is the file as stored, `text()` decodes it when it's text. Don't decode
+every entry — an image run through a text decoder is corrupted.
 
 ```javascript
 const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
   url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
-const z = Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0));
-const u16 = (o) => z[o] | (z[o + 1] << 8), u32 = (o) => (u16(o) | (u16(o + 2) << 16)) >>> 0;
-let e = z.length - 22; while (u32(e) !== 0x06054b50) e--;            // end of central directory
-const files = {};
-for (let i = 0, p = u32(e + 16); i < u16(e + 10); i++) {            // one central-directory entry each
-  const name = new TextDecoder().decode(z.slice(p + 46, p + 46 + u16(p + 28)));
-  const at = u32(p + 42), start = at + 30 + u16(at + 26) + u16(at + 28);
-  const raw = z.slice(start, start + u32(p + 20));
-  files[name] = u16(p + 10) === 0 ? new TextDecoder().decode(raw)
-    : await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
-  p += 46 + u16(p + 28) + u16(p + 30) + u16(p + 32);
-}
-// files: { 'index.html': '…', 'assets/styles.css': '…', 'wix.config.json': '…' }
+const entries = await wix.unzip(r.data);
+// entries: [{ path: 'index.html', bytes, text() }, { path: 'assets/logo.png', bytes, text() }, { path: 'wix.config.json', … }]
 ```
 
-Edit in memory, then drop the full set back in the same script, leaving
-`wix.config.json` out:
+Edit in memory — text through `text()`, binaries left as they are — then drop
+the full set back in the same script, leaving `wix.config.json` out. Entries go
+to `wix.multipart()` as they are; an edited file replaces its entry with
+`{ path, content }`:
 
 ```javascript
-const mp = wix.multipart(Object.entries(files).filter(([path]) => path !== 'wix.config.json')
-  .map(([path, content]) => ({ path, content })));
+const edited = entries.filter((e) => e.path !== 'wix.config.json').map((e) =>
+  e.path === 'index.html' ? { path: e.path, content: e.text().replace('Northwind Studio', 'Northwind Studio — Est. 1998') } : e);
+const mp = wix.multipart(edited);
 await wix.request({ scope: 'account', method: 'POST', headers: { 'Content-Type': mp.contentType }, body: mp.body,
   url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${metaSiteId}/drop` });
 ```
