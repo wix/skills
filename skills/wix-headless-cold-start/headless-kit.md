@@ -142,8 +142,11 @@ folder named for the business:
 <the user's brief, in their words>
 
 Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md
-Follow it exactly. It installs wix-headless-kit with its companions wix-docs and wix-manage
-(all at https://www.wix.com/skills/), signs in to Wix once, and builds and releases the site.
+Follow it exactly. It installs these skills from https://www.wix.com/skills/ and builds from them:
+- wix-headless-kit: the build itself, from a brief to a released Wix Headless site
+- wix-headless-templates: the shipped, verified code per Wix Business Solution the kit deploys and seeds
+- wix-docs: the Wix API reference, for any contract the templates don't cover
+- wix-manage: recipes for managing the site once it exists
 ```
 
 Tell them what will happen: that agent installs the skills, asks them once to sign in to Wix in
