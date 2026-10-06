@@ -17,8 +17,6 @@
   "files": [
     "skills/**",
     "!skills/wix-headless-cold-start/**",
-    "!skills/wix-headless-templates/*/project/**",
-    "!skills/wix-headless-templates/blank/**",
     "README.md",
     "LICENSE"
   ],
