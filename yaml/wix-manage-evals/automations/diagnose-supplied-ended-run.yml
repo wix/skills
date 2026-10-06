@@ -1,7 +1,7 @@
 {
   "name": "automations/diagnose-supplied-ended-run",
   "description": "The response distinguishes completion of run processing from successful actions, identifies the email action failure exactly as supplied, and says revision 7 is the relevant historical configuration rather than current revision 9.",
-  "triggerPrompt": "I exported the logs for my automation. The run status is ENDED and endedInfo.withFailedActions is true. Its automationRevision is 7. One action log has activationStatus FAILED, failedInfo.errorCode CONTENT_NOT_CONFIGURED, and errorDescription Email content is not configured. I edited the automation afterward and it is now revision 9. Explain what these logs establish and what to inspect next; do not access my site or change or rerun anything.",
+  "triggerPrompt": "Can you help me understand why this automation failed? Here are excerpts from the logs I exported.\n\nRun:\n```json\n{\n  \"status\": \"ENDED\",\n  \"endedInfo\": {\n    \"withFailedActions\": true\n  },\n  \"automationRevision\": 7\n}\n```\n\nAction:\n```json\n{\n  \"activationStatus\": \"FAILED\",\n  \"failedInfo\": {\n    \"errorCode\": \"CONTENT_NOT_CONFIGURED\"\n  },\n  \"errorDescription\": \"Email content is not configured\"\n}\n```\n\nI edited the automation afterward, and it is now revision 9. Explain what these logs tell us and what I should inspect next. Please use only what I pasted; do not access my site, change anything, or rerun it.",
   "tags": [
     "automations"
   ],
