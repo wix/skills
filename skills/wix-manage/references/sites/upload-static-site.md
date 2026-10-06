@@ -31,9 +31,9 @@ What sets them apart:
   generated or the user pasted (it's already in the conversation); for files on
   disk it means reading them in and writing them back out, and each change
   resends all of it. Text files travel in the tool's `files` param, raw, and
-  `wix.multipart()` builds the upload body (below). A binary file (PNG, JPG, a
-  font) goes as a `Uint8Array` body in its own request, or by `curl` from a
-  shell; a few images are simpler linked by absolute URL.
+  `wix.multipart()` builds the upload body (below). Binary files (PNG, JPG,
+  fonts) don't travel this way: upload them with `curl` from a shell, or link
+  images by absolute URL.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
