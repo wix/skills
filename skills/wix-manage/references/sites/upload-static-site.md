@@ -33,8 +33,9 @@ What sets them apart:
   resends all of it. A string body is sent as UTF-8, so binary files (PNG, JPG,
   fonts, zips) arrive corrupted; link images by absolute URL.
 - **A CLI login** is one approval by the user in the browser: run
-  `npx @wix/cli login`, have them approve, then `npx @wix/cli token` prints a
-  token. It also unlocks later changes from disk and
+  `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
+  token (see [Before the calls](#before-the-calls)). It also unlocks later
+  changes from disk and
   [Keep building](#keep-building-add-a-backend-when-you-need-one).
 - **Anonymous** needs no identity, but the record expires after an hour and the
   URL changes on claim.
@@ -52,17 +53,32 @@ Publishing yourself beats the drop page whenever an option fits — the user get
 live site without uploading anything. Never report an upload you couldn't
 perform; whenever a route fails partway, hand over the drop page.
 
+## Before the calls
+
+The `curl` examples here and in the anonymous route read shell variables.
+
+- **`$ACCESS_TOKEN`** is the user's access token, from wherever you have it. A
+  token from the Wix CLI (`npx @wix/cli token`) lasts 15 minutes; running the
+  command again returns a valid one, refreshed if needed, so set `$ACCESS_TOKEN`
+  again when it may have expired, and always after a `403`.
+- **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response; set each
+  one before the next call.
+
+In an `ExecuteWixAPI` script there is no token to handle, and the ids go into the
+URL as values; a `$NAME` there is sent as is.
+
 ## Publish into the user's account
 
 ### 1. Create the site
 
 The [Create Headless Site](create-headless-site.md) call with no Wix Business
-Solutions. Name it after the page's `<title>`.
+Solutions. Name it after the page's `<title>`, and keep `"origin": "drop"`: it marks
+the site as a dropped one, the same as the drop page and the anonymous route do.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
+  -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
        "synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
@@ -99,7 +115,7 @@ already in the conversation:
 async function run() {
   const created = await wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-    body: { newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+    body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
   const files = { 'index.html': html, 'assets/styles.css': css };   // path → text content
   const boundary = '----wixdropboundary';
@@ -115,6 +131,11 @@ async function run() {
 }
 ```
 
+Keep the body's shape exactly. It's a string; an object is sent as JSON and
+rejected. Lines end in `\r\n`, the body ends with `--<boundary>--`, and the
+header names the same boundary the body uses. Break any of these and the drop
+fails with a bare `500`.
+
 `siteUrl` is the site's final address — it's already in the user's account. Give
 the user two links: `siteUrl`, and its dashboard at
 `https://manage.wix.com/dashboard/{metaSiteId}`.
@@ -128,6 +149,41 @@ owns that was published this way, including one claimed from an
 [anonymous publish](#publish-anonymously). For a site from an earlier conversation,
 find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
 below, matching the site's name or `viewUrl`.
+
+**When you no longer have the files** (a small change to a site from an earlier
+conversation), download what the site serves, edit it, and drop the full set
+back. Leave out `wix.config.json`; the download adds it, and it isn't part of the
+site.
+
+```bash
+curl -sSL -o current.zip \
+  "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
+unzip -o current.zip -d current      # the site's files + wix.config.json
+```
+
+In an `ExecuteWixAPI` script, request the same URL with `responseType: 'base64'`
+and read the zip in memory. Entries are stored (method 0) or deflated (method 8):
+
+```javascript
+const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
+  url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
+const z = Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0));
+const u16 = (o) => z[o] | (z[o + 1] << 8), u32 = (o) => (u16(o) | (u16(o + 2) << 16)) >>> 0;
+let e = z.length - 22; while (u32(e) !== 0x06054b50) e--;            // end of central directory
+const files = {};
+for (let i = 0, p = u32(e + 16); i < u16(e + 10); i++) {            // one central-directory entry each
+  const name = new TextDecoder().decode(z.slice(p + 46, p + 46 + u16(p + 28)));
+  const at = u32(p + 42), start = at + 30 + u16(at + 26) + u16(at + 28);
+  const raw = z.slice(start, start + u32(p + 20));
+  files[name] = u16(p + 10) === 0 ? new TextDecoder().decode(raw)
+    : await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+  p += 46 + u16(p + 28) + u16(p + 30) + u16(p + 32);
+}
+// files: { 'index.html': '…', 'assets/styles.css': '…', 'wix.config.json': '…' }
+```
+
+The live URL itself (`*.wix-site-host.com`) can't be read from a script; this
+download is the way back to the files. Don't rebuild the site from memory.
 
 ## Publish anonymously
 
@@ -255,9 +311,16 @@ These apply to every route:
   upload the build output, or take the project to the headless skill (option E).
 
 Failures come back as HTTP 400 with a code in `details.applicationError.code`:
-`MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. A drop onto a site the
-caller doesn't own returns `PERMISSION_DENIED`. On the anonymous route, a `404`
-after step 1 means the hour passed or the site was claimed — start again.
+`MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. Beyond those:
+
+- **`403 PERMISSION_DENIED` on a drop** — the token expired or is missing (see
+  [Before the calls](#before-the-calls)), or the site isn't the caller's. A site
+  that's still anonymous is changed by upload + release, not by a drop.
+- **`500` on a drop or upload** — the multipart body is malformed (see the shape
+  above). Rebuild it from the example; sending it again unchanged fails the
+  same way.
+- **`404` on the anonymous route after step 1** — the hour passed or the site was
+  claimed; start again.
 
 **If publishing fails for any reason you can't quickly fix, hand the user the
 [drop page](#the-drop-page).** Never leave them with a failed publish and no way
