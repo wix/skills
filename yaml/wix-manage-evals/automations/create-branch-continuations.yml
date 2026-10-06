@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-small-order-task",
-  "description": "The agent saves and reads back an INACTIVE order automation using actual catalog components.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation on this site; leave it off.",
+  "name": "automations/create-branch-continuations",
+  "description": "Conditional branches continue independently without shared nodes or doubled work.",
+  "triggerPrompt": "Create an automation named Order review follow-up. When an order is placed, if its total is greater than 100 create a task titled High value review, otherwise create a task titled Standard review. After either review task, wait 1 day and create a task titled Follow up. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,31 +15,7 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
         "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
       }
     },
     {
@@ -51,13 +27,19 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
       }
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent saves and reads back an INACTIVE order automation using actual catalog components. The condition accepts below and equal to 100 and rejects above 100; swapping greater-than for strict less-than fails. It validates the full object and builds a single-parent graph with no orphans. The task title is correct. It does not run a test or activate. An unsupported or unverified claim of success fails. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Require complementary >100 and <=100 paths, each with its own one-day delay then Follow up task. Exactly one review and one follow-up execute for any order. Duplicated continuation node IDs must be distinct; no rejoin, MERGE, shared child, orphan or two unconditional review tasks. Every branch delay is one day from its own review task. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

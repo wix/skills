@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-small-order-task",
-  "description": "The agent saves and reads back an INACTIVE order automation using actual catalog components.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation on this site; leave it off.",
+  "name": "automations/create-sequential-derived-variables",
+  "description": "Derived variables read earlier steps and keep unique keys in the shared namespace.",
+  "triggerPrompt": "Create an automation named Order reserve variables. When an order is placed, store its total as a numeric variable named Order amount. In a later step, store 10 percent of Order amount as a numeric variable named Reserve amount. Wait 2 hours, then create a task whose title includes both saved values. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,25 +15,7 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
       }
     },
     {
@@ -45,19 +27,19 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
       }
     },
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
       }
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent saves and reads back an INACTIVE order automation using actual catalog components. The condition accepts below and equal to 100 and rejects above 100; swapping greater-than for strict less-than fails. It validates the full object and builds a single-parent graph with no orphans. The task title is correct. It does not run a test or activate. An unsupported or unverified claim of success fails. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Require two sequential SET_VARIABLES steps, both namespace setVariable, with different stable keys and unique titles Order amount and Reserve amount. First value converts the actual order total to number; second references the first step's key and multiplies by 0.1. Each outputMapping key matches outputSchema.properties, has type number and a title, and appears in required. No same-step reference or invented code-variable action. DELAY 2 HOURS then task references both ancestor keys. Read-back must preserve both setVariablesInfo objects. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

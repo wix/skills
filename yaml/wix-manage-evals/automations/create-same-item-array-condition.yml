@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-small-order-task",
-  "description": "The agent saves and reads back an INACTIVE order automation using actual catalog components.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation on this site; leave it off.",
+  "name": "automations/create-same-item-array-condition",
+  "description": "Array predicates must bind both tests to the same item, with strict boundaries.",
+  "triggerPrompt": "Create an automation named Bulk expensive item review. When an order is placed, create a task titled Review bulk line only if at least one individual line item has quantity at least 3 and unit price greater than 100. Do not use the order total or the line total. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,7 +15,13 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
       }
     },
     {
@@ -31,33 +37,9 @@
       }
     },
     {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
-      }
-    },
-    {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent saves and reads back an INACTIVE order automation using actual catalog components. The condition accepts below and equal to 100 and rejects above 100; swapping greater-than for strict less-than fails. It validates the full object and builds a single-parent graph with no orphans. The task title is correct. It does not run a test or activate. An unsupported or unverified claim of success fails. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Inspect discovered lineItems schema and the saved predicate. Both quantity >= 3 and unit price > 100 must hold on the SAME item. [(quantity 3, unit price 90),(quantity 1, unit price 150)] must fail; [(3,101)] passes; [(3,100)] fails; absent/empty items fail. Numeric strings must be converted safely. Use the actual catalog unit-price field, not total price divided by guessed fields, order total or independent some checks. CODE_CONDITION maps the whole array in dynamicVariableExpressions and guards missing values. If unit price cannot be resolved, do not invent it; this execution is not a pass. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",

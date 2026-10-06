@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-activate-deactivate",
-  "description": "The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE.",
-  "triggerPrompt": "On the provided test site, create an automation named Monthly status check that creates a task titled Monthly check at 23:30 on the last day of each month. Use the site timezone and start the schedule next month. I approve creating it, turning it on, and then immediately turning it off again on this test site. Do not execute a test run.",
+  "name": "automations/create-absolute-booking-reminder",
+  "description": "An immediate action stays immediate while a later step waits until the session date.",
+  "triggerPrompt": "Create an automation named Booking preparation. When any session is booked, create a task titled Check booking immediately, then create a task titled Prepare session one day before the session starts. Use the session start time for the reminder. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,19 +15,7 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
       }
     },
     {
@@ -37,9 +25,21 @@
       }
     },
     {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE. Deactivation does not require graph repair or revalidation. All fields other than intended status and server-managed revision/timestamps remain unchanged through the status cycle. It uses fresh revisions and returned IDs, does not redundantly ask for approval and does not trigger execution. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Require immediate createTask then absolute DELAY using subtractFromDate(actual session start;0;0;1), then Prepare session task. Discover the booking start payload field. Do not shift the entire trigger, use a relative 24-hour wait after booking, or populate both dueDateExpression and relative offsetExpression. Server-filled UNKNOWN_TIME_UNIT on read-back of an absolute delay is acceptable. Tasks must link to the actual booking contact identity if supported. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
@@ -53,6 +53,6 @@
     }
   ],
   "siteSetup": {
-    "templateId": "blank-editor"
+    "templateId": "bookings-editor"
   }
 }

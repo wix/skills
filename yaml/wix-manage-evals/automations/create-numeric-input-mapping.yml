@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-activate-deactivate",
-  "description": "The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE.",
-  "triggerPrompt": "On the provided test site, create an automation named Monthly status check that creates a task titled Monthly check at 23:30 on the last day of each month. Use the site timezone and start the schedule next month. I approve creating it, turning it on, and then immediately turning it off again on this test site. Do not execute a test run.",
+  "name": "automations/create-numeric-input-mapping",
+  "description": "Nested arithmetic and string composition use numeric conversion and live payload values.",
+  "triggerPrompt": "Create an automation named Order reserve estimate. For every order placed, create a task titled Reserve estimate for order followed by the order number and a colon, followed by 10 percent of the order total. This is just a numeric estimate; do not format it as money or round it. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,31 +15,25 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
       }
     },
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
       }
     },
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
       }
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE. Deactivation does not require graph repair or revalidation. All fields other than intended status and server-managed revision/timestamps remain unchanged through the status cycle. It uses fresh revisions and returned IDs, does not redundantly ask for approval and does not trigger execution. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Require the title to use the actual order-number field and 0.1 times the actual order-total amount with numeric conversion if the schema uses strings. For order number 42 and total 125, the title conveys Reserve estimate for order 42: 12.5. Adding 10, using 10 times the total, concatenating a percent sign, hardcoding 12.5, or using subtotal fails. Inspect nested expression syntax and field types in the saved inputMapping. No unnecessary code-variable step. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
@@ -53,6 +47,6 @@
     }
   ],
   "siteSetup": {
-    "templateId": "blank-editor"
+    "templateId": "stores-v3-editor"
   }
 }

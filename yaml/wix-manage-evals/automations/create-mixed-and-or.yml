@@ -1,7 +1,7 @@
 {
-  "name": "automations/create-small-order-task",
-  "description": "The agent saves and reads back an INACTIVE order automation using actual catalog components.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation on this site; leave it off.",
+  "name": "automations/create-mixed-and-or",
+  "description": "Mixed AND/OR, missing-value handling and distinct true/false outcomes.",
+  "triggerPrompt": "Create an automation named Education or urgent review. When an order is placed, create a task titled Review priority order if the buyer email contains .edu and the buyer left a nonempty note, or if the note contains urgent (case-insensitive). Otherwise create a task titled Standard order. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
@@ -15,19 +15,7 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
       }
     },
     {
@@ -39,25 +27,19 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
         "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
-      }
-    },
-    {
-      "tool": "ReadFullDocsArticle",
-      "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
       }
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The agent saves and reads back an INACTIVE order automation using actual catalog components. The condition accepts below and equal to 100 and rejects above 100; swapping greater-than for strict less-than fails. It validates the full object and builds a single-parent graph with no orphans. The task title is correct. It does not run a test or activate. An unsupported or unverified claim of success fails. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. Require ((email contains .edu AND nonempty note) OR note contains urgent), with case-insensitive urgent and missing email/note safely handled. Examples: .edu + ordinary note -> priority; .edu + empty note -> standard; other email + URGENT -> priority; other email + ordinary note -> standard. A CODE_CONDITION must declare every payload field it reads in dynamicVariableExpressions and return a boolean. Equivalent visual branches are acceptable only if each input produces exactly one correct task; no multi-group CONDITION, shared child or MERGE. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
