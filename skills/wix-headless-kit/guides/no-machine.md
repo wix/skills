@@ -14,8 +14,8 @@ through calls you can make.
 
 ## 0. Identity
 
-Every call below runs as the site owner. The Wix MCP carries the user's login; without it the
-user hands you a token (a site token from the Wix CLI, an API
+Every call below runs as the site owner. The Wix MCP's `ExecuteWixAPI` carries the user's login;
+without the MCP the user hands you a token (a site token from the Wix CLI, an API
 key, or an OAuth app from their account, per `<MANAGE>/SKILL.md`). A visitor token covers only what
 a visitor may see.
 
