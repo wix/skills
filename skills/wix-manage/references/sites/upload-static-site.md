@@ -161,10 +161,29 @@ curl -sSL -o current.zip \
 unzip -o current.zip -d current      # the site's files + wix.config.json
 ```
 
-This needs a shell. An `ExecuteWixAPI` script can't download the site, and it
-can't read the live URL either. Without a shell, edit the files you still have in
-the conversation; otherwise ask the user for them. Don't rebuild the site from
-memory.
+In an `ExecuteWixAPI` script, request the same URL with `responseType: 'base64'`
+and read the zip in memory. Entries are stored (method 0) or deflated (method 8):
+
+```javascript
+const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
+  url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
+const z = Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0));
+const u16 = (o) => z[o] | (z[o + 1] << 8), u32 = (o) => (u16(o) | (u16(o + 2) << 16)) >>> 0;
+let e = z.length - 22; while (u32(e) !== 0x06054b50) e--;            // end of central directory
+const files = {};
+for (let i = 0, p = u32(e + 16); i < u16(e + 10); i++) {            // one central-directory entry each
+  const name = new TextDecoder().decode(z.slice(p + 46, p + 46 + u16(p + 28)));
+  const at = u32(p + 42), start = at + 30 + u16(at + 26) + u16(at + 28);
+  const raw = z.slice(start, start + u32(p + 20));
+  files[name] = u16(p + 10) === 0 ? new TextDecoder().decode(raw)
+    : await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+  p += 46 + u16(p + 28) + u16(p + 30) + u16(p + 32);
+}
+// files: { 'index.html': '…', 'assets/styles.css': '…', 'wix.config.json': '…' }
+```
+
+The live URL itself (`*.wix-site-host.com`) can't be read from a script; this
+download is the way back to the files. Don't rebuild the site from memory.
 
 ## Publish anonymously
 
