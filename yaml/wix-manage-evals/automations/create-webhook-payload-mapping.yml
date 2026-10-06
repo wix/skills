@@ -1,7 +1,7 @@
 {
   "name": "automations/create-webhook-payload-mapping",
   "description": "Custom webhook schema is retained and supplies task input mapping.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Incoming lead webhook. My system will post JSON with leadName (string) and score (number). When score is greater than 70, create an unassigned task whose title includes leadName. Give me the webhook URL but do not call it. I approve saving the automation.",
+  "triggerPrompt": "Create an inactive automation named Incoming lead webhook. My system will post JSON with leadName (string) and score (number). When score is greater than 70, create an unassigned task whose title includes leadName. Give me the webhook URL but do not call it. I approve saving the automation.",
   "tags": [
     "automations"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-rate-limit-before-condition",
   "description": "Frequency is a root RATE_LIMIT and applies before downstream branching.",
-  "triggerPrompt": "Create an automation named Daily buyer review. When an order is placed, process at most one order per buyer contact every 24 hours. For that processed order, create a task titled High value buyer only if the order total is greater than 100. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Daily buyer review. When an order is placed, process at most one order per buyer contact every 24 hours. For that processed order, create a task titled High value buyer only if the order total is greater than 100. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

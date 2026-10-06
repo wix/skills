@@ -1,7 +1,7 @@
 {
   "name": "automations/create-same-item-array-condition",
   "description": "Array predicates must bind both tests to the same item, with strict boundaries.",
-  "triggerPrompt": "Create an automation named Bulk expensive item review. When an order is placed, create a task titled Review bulk line only if at least one individual line item has quantity at least 3 and unit price greater than 100. Do not use the order total or the line total. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Bulk expensive item review. When an order is placed, create a task titled Review bulk line only if at least one individual line item has quantity at least 3 and unit price greater than 100. Do not use the order total or the line total. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-delayed-variable-task",
   "description": "The agent discovers the real order-number payload path, preserves the shared setVariable namespace contract and references an ancestor variable from the task mapping.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Delayed order summary. When an order is placed, store its order number in a variable, wait 2 hours, and create a task whose title includes that saved order number. I approve saving on this site but not activation.",
+  "triggerPrompt": "Create an inactive automation named Delayed order summary. When an order is placed, store its order number in a variable, wait 2 hours, and create a task whose title includes that saved order number. I approve saving but not activation.",
   "tags": [
     "automations"
   ],

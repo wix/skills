@@ -1,7 +1,7 @@
 {
   "name": "automations/create-activate-deactivate",
   "description": "The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE.",
-  "triggerPrompt": "On the provided test site, create an automation named Monthly status check that creates a task titled Monthly check at 23:30 on the last day of each month. Use the site timezone and start the schedule next month. I approve creating it, turning it on, and then immediately turning it off again on this test site. Do not execute a test run.",
+  "triggerPrompt": "Create an automation named Monthly status check that creates a task titled Monthly check at 23:30 on the last day of each month. Use the site timezone and start the schedule next month. I approve creating it, turning it on, and then immediately turning it off again. Do not execute a test run.",
   "tags": [
     "automations"
   ],

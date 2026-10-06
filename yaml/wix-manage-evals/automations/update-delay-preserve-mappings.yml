@@ -1,7 +1,7 @@
 {
   "name": "automations/update-delay-preserve-mappings",
   "description": "A seeded update changes only delay timing, retaining existing action mappings and graph IDs.",
-  "triggerPrompt": "In the provided test site, change the wait in Welcome follow-up fixture from 24 hours to 2 days. Keep its name, trigger, task content, contact links, and everything else unchanged. I approve saving this edit. Keep it inactive and do not run it.",
+  "triggerPrompt": "Change the wait in Welcome follow-up fixture from 24 hours to 2 days. Keep its name, trigger, task content, contact links, and everything else unchanged. I approve saving this edit. Keep it inactive and do not run it.",
   "tags": [
     "automations"
   ],

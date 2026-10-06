@@ -1,7 +1,7 @@
 {
   "name": "automations/create-branch-continuations",
   "description": "Conditional branches continue independently without shared nodes or doubled work.",
-  "triggerPrompt": "Create an automation named Order review follow-up. When an order is placed, if its total is greater than 100 create a task titled High value review, otherwise create a task titled Standard review. After either review task, wait 1 day and create a task titled Follow up. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Order review follow-up. When an order is placed, if its total is greater than 100 create a task titled High value review, otherwise create a task titled Standard review. After either review task, wait 1 day and create a task titled Follow up. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

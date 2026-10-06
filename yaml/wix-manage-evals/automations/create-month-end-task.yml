@@ -1,7 +1,7 @@
 {
   "name": "automations/create-month-end-task",
   "description": "The saved automation has a supported schedule plus month-end predicate in Europe/Berlin.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Month end books that creates a task titled Close monthly books at 23:30 on the last calendar day of each month in Europe/Berlin. I approve saving it on this site. Do not activate it.",
+  "triggerPrompt": "Create an inactive automation named Month end books that creates a task titled Close monthly books at 23:30 on the last calendar day of each month in Europe/Berlin. I approve saving it. Do not activate it.",
   "tags": [
     "automations"
   ],

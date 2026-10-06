@@ -1,7 +1,7 @@
 {
   "name": "automations/select-existing-label-key",
   "description": "Named label selection saves a real non-UUID key and avoids similarly named labels.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named VIP contact follow-up. When a new contact is created, add the existing VIP follow-up label to that contact. Do not create or rename labels. I approve saving the automation only.",
+  "triggerPrompt": "Create an inactive automation named VIP contact follow-up. When a new contact is created, add the existing VIP follow-up label to that contact. Do not create or rename labels. I approve saving the automation only.",
   "tags": [
     "automations"
   ],

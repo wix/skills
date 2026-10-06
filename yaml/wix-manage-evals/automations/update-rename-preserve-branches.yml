@@ -1,7 +1,7 @@
 {
   "name": "automations/update-rename-preserve-branches",
   "description": "A rename preserves a seeded condition tree, branch delays, mappings and server settings.",
-  "triggerPrompt": "Rename Branched welcome fixture to Branched welcome renamed on the provided test site. Do not change its flow or any other setting. I approve saving the rename; leave it off.",
+  "triggerPrompt": "Rename Branched welcome fixture to Branched welcome renamed. Do not change its flow or any other setting. I approve saving the rename; leave it off.",
   "tags": [
     "automations"
   ],

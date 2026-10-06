@@ -1,7 +1,7 @@
 {
   "name": "automations/create-contact-email",
   "description": "New trigger-contact email uses the actual schema identity rather than owner defaults.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Contact welcome. Whenever a contact is created, send that contact a promotional email with subject Welcome and body Thanks for joining us. I approve creating its content and saving it. Do not activate or send a test.",
+  "triggerPrompt": "Create an inactive automation named Contact welcome. Whenever a contact is created, send that contact a promotional email with subject Welcome and body Thanks for joining us. I approve creating its content and saving it. Do not activate or send a test.",
   "tags": [
     "automations"
   ],

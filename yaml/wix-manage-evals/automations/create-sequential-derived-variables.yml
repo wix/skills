@@ -1,7 +1,7 @@
 {
   "name": "automations/create-sequential-derived-variables",
   "description": "Derived variables read earlier steps and keep unique keys in the shared namespace.",
-  "triggerPrompt": "Create an automation named Order reserve variables. When an order is placed, store its total as a numeric variable named Order amount. In a later step, store 10 percent of Order amount as a numeric variable named Reserve amount. Wait 2 hours, then create a task whose title includes both saved values. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Order reserve variables. When an order is placed, store its total as a numeric variable named Order amount. In a later step, store 10 percent of Order amount as a numeric variable named Reserve amount. Wait 2 hours, then create a task whose title includes both saved values. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

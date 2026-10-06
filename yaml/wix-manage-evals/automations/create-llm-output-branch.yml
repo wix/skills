@@ -1,7 +1,7 @@
 {
   "name": "automations/create-llm-output-branch",
   "description": "A typed LLM classification output drives the correct branch.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Order note routing. For every order, use AI to classify the buyer note as sales or support. Create a task titled Sales follow-up for sales and Support follow-up for support. I approve saving it, but do not activate or run the AI.",
+  "triggerPrompt": "Create an inactive automation named Order note routing. For every order, use AI to classify the buyer note as sales or support. Create a task titled Sales follow-up for sales and Support follow-up for support. I approve saving it, but do not activate or run the AI.",
   "tags": [
     "automations"
   ],

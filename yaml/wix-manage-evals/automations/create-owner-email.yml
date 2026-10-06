@@ -1,7 +1,7 @@
 {
   "name": "automations/create-owner-email",
   "description": "New owner email initializes without a contact path, persists, and receives requested content.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Owner welcome notice. When a contact is created, email me as the site owner, with subject New contact and body A new contact joined our site. I approve creating the email content and saving this automation. Leave it off and do not send a test.",
+  "triggerPrompt": "Create an inactive automation named Owner welcome notice. When a contact is created, email me as the site owner, with subject New contact and body A new contact joined our site. I approve creating the email content and saving this automation. Leave it off and do not send a test.",
   "tags": [
     "automations"
   ],

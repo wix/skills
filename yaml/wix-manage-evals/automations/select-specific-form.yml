@@ -1,7 +1,7 @@
 {
   "name": "automations/select-specific-form",
   "description": "A selected form scopes the trigger and drives the subsequent dynamic schema.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Consultation follow-up. Only when Consultation request is submitted, wait 1 day and create a task titled Review consultation. Do not run for Newsletter signup or any other form. I approve saving it.",
+  "triggerPrompt": "Create an inactive automation named Consultation follow-up. Only when Consultation request is submitted, wait 1 day and create a task titled Review consultation. Do not run for Newsletter signup or any other form. I approve saving it.",
   "tags": [
     "automations"
   ],
@@ -149,7 +149,7 @@
           }
         },
         {
-          "label": "seed a second form, disabled — invisible to a default listing",
+          "label": "seed a second form, enabled so it appears in a default listing",
           "method": "post",
           "url": "https://www.wixapis.com/form-schema-service/v4/forms",
           "body": {

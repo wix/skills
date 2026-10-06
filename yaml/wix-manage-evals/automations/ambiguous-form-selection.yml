@@ -1,7 +1,7 @@
 {
   "name": "automations/ambiguous-form-selection",
   "description": "Duplicate form names lead to a concrete question rather than arbitrary persistence.",
-  "triggerPrompt": "On the provided test site, make an automation that creates a follow-up task when Contact request is submitted. Use only that form; if the name is ambiguous, ask me which one before saving.",
+  "triggerPrompt": "Make an automation that creates a follow-up task when Contact request is submitted. Use only that form; if the name is ambiguous, ask me which one before saving.",
   "tags": [
     "automations"
   ],
@@ -144,7 +144,7 @@
           }
         },
         {
-          "label": "seed a second form, disabled — invisible to a default listing",
+          "label": "seed a second form, enabled so it appears in a default listing",
           "method": "post",
           "url": "https://www.wixapis.com/form-schema-service/v4/forms",
           "body": {

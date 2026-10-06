@@ -1,7 +1,7 @@
 {
   "name": "automations/create-sequential-fractional-hours",
   "description": "Sequential delays preserve elapsed-time meaning using whole-number units.",
-  "triggerPrompt": "Create an automation named Two-stage contact follow-up. After a new contact is created, wait half an hour and create a task titled First follow-up. Then wait another hour and a half and create a task titled Second follow-up. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Two-stage contact follow-up. After a new contact is created, wait half an hour and create a task titled First follow-up. Then wait another hour and a half and create a task titled Second follow-up. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

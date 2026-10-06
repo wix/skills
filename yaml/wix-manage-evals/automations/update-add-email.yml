@@ -1,7 +1,7 @@
 {
   "name": "automations/update-add-email",
   "description": "A new email added to an existing automation is initialized without rebuilding prior steps.",
-  "triggerPrompt": "In Welcome task fixture on the provided test site, add an email to the new contact immediately after the existing task. Subject: We received your details. Body: Our team will follow up. I approve saving this edit and email content. Keep all existing configuration and leave it inactive.",
+  "triggerPrompt": "In Welcome task fixture, add an email to the new contact immediately after the existing task. Subject: We received your details. Body: Our team will follow up. I approve saving this edit and email content. Keep all existing configuration and leave it inactive.",
   "tags": [
     "automations"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-small-order-task",
   "description": "The agent saves and reads back an INACTIVE order automation using actual catalog components.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation on this site; leave it off.",
+  "triggerPrompt": "Create an inactive automation named Small order review. When an order is placed and its total is not greater than 100, create a task titled Review small order. I approve saving this automation; leave it off.",
   "tags": [
     "automations"
   ],

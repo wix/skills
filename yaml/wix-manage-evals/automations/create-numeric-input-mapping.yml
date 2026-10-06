@@ -1,7 +1,7 @@
 {
   "name": "automations/create-numeric-input-mapping",
   "description": "Nested arithmetic and string composition use numeric conversion and live payload values.",
-  "triggerPrompt": "Create an automation named Order reserve estimate. For every order placed, create a task titled Reserve estimate for order followed by the order number and a colon, followed by 10 percent of the order total. This is just a numeric estimate; do not format it as money or round it. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Order reserve estimate. For every order placed, create a task titled Reserve estimate for order followed by the order number and a colon, followed by 10 percent of the order total. This is just a numeric estimate; do not format it as money or round it. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

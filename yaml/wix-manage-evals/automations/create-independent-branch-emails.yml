@@ -1,7 +1,7 @@
 {
   "name": "automations/create-independent-branch-emails",
   "description": "Two mutually exclusive email branches own distinct initialized content.",
-  "triggerPrompt": "On the provided test site, create an inactive automation named Order email branches. When an order is placed, email its buyer: if the total is greater than 100 use subject Premium order and body Thank you for your large order; otherwise use subject Order received and body Thank you for your order. These are promotional messages. I approve saving the automation and both emails. Do not activate or send tests.",
+  "triggerPrompt": "Create an inactive automation named Order email branches. When an order is placed, email its buyer: if the total is greater than 100 use subject Premium order and body Thank you for your large order; otherwise use subject Order received and body Thank you for your order. These are promotional messages. I approve saving the automation and both emails. Do not activate or send tests.",
   "tags": [
     "automations"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-absolute-booking-reminder",
   "description": "An immediate action stays immediate while a later step waits until the session date.",
-  "triggerPrompt": "Create an automation named Booking preparation. When any session is booked, create a task titled Check booking immediately, then create a task titled Prepare session one day before the session starts. Use the session start time for the reminder. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Booking preparation. When any session is booked, create a task titled Check booking immediately, then create a task titled Prepare session one day before the session starts. Use the session start time for the reminder. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

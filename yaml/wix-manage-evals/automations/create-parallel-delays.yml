@@ -1,7 +1,7 @@
 {
   "name": "automations/create-parallel-delays",
   "description": "Parallel branches retain independent timing and never become serial.",
-  "triggerPrompt": "Create an automation named Parallel contact follow-up. When a new contact is created, start two independent paths: one waits 1 hour then creates a task titled Quick follow-up; the other waits 3 hours then creates a task titled Later follow-up. Both paths should run for every contact. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Parallel contact follow-up. When a new contact is created, start two independent paths: one waits 1 hour then creates a task titled Quick follow-up; the other waits 3 hours then creates a task titled Later follow-up. Both paths should run for every contact. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

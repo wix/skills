@@ -1,7 +1,7 @@
 {
   "name": "automations/create-conditional-title-mapping",
   "description": "Nested fallback expressions map missing and nonempty contact names correctly.",
-  "triggerPrompt": "Create an automation named Personal welcome task. When a new contact is created, create a task titled Welcome followed by their first name. If the first name is absent or empty, use Welcome new friend instead. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Personal welcome task. When a new contact is created, create a task titled Welcome followed by their first name. If the first name is absent or empty, use Welcome new friend instead. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "automations/create-mixed-and-or",
   "description": "Mixed AND/OR, missing-value handling and distinct true/false outcomes.",
-  "triggerPrompt": "Create an automation named Education or urgent review. When an order is placed, create a task titled Review priority order if the buyer email contains .edu and the buyer left a nonempty note, or if the note contains urgent (case-insensitive). Otherwise create a task titled Standard order. I approve saving this automation on the provided test site. Leave it inactive and do not execute it.",
+  "triggerPrompt": "Create an automation named Education or urgent review. When an order is placed, create a task titled Review priority order if the buyer email contains .edu and the buyer left a nonempty note, or if the note contains urgent (case-insensitive). Otherwise create a task titled Standard order. I approve saving this automation. Leave it inactive and do not execute it.",
   "tags": [
     "automations"
   ],
