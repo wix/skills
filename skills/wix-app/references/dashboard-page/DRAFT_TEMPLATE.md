@@ -6,16 +6,13 @@ Go through [WIX_PATTERNS_DOCS.md § Prerequisites](../WIX_PATTERNS_DOCS.md#prere
 
 ## 1. Find the templates
 
-Templates are docs-index entries with `category: "Templates"`, and each lists every file of its page in `templateFiles` (relative to `dist/templates/`). One probe lists them all with the guide that chooses between them:
+Templates are docs-index entries with `category: "Templates"`, and each lists every file of its page in `templateFiles`. One call lists them all with their files, plus the guide that chooses between them:
 
 ```bash
-python3 -c "
-import json; i = json.load(open('<pkgRoot>/dist/docs/index.json'))
-for k, e in i.items():
-    if e.get('category') == 'Templates' or e.get('relatedTemplates'):
-        print(k, '|', e.get('templateFiles') or e.get('relatedTemplates'), '|', e.get('summary', '')[:200])
-"
+node <this-skill-dir>/scripts/patterns-lookup.cjs --templates
 ```
+
+It also takes names (`--templates Table useTableCollection …`), so the patterns names you already know you'll need can go in the same call ([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)).
 
 **No `Templates` entries means the install predates them — upgrade `@wix/patterns`.** Do not rebuild a page from memory or from an older copy of this skill instead: the templates exist so the shell, provider nesting and router wiring come from the package.
 

@@ -1,9 +1,8 @@
 # Finding the real SDK shape behind a dashboard page
 
-> **Scope.** [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) gives you the page. This file is the other half:
-> locating the method and the *field names* for the data it lists. Read it before Step 3's MCP
-> discovery — the installed package answers most of it faster and more accurately than a doc search,
-> because it is the version your code will compile against.
+> **Scope.** [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) gives you the page; this file finds the method
+> and *field names* for its data. Read it before Step 3's MCP discovery. The installed package is
+> the version your code compiles against.
 
 ## Where the types actually live
 
@@ -47,7 +46,14 @@ of them avoids an N+1 across the visible page.
 ## Confirming a field — the part that ships bugs
 
 Once you have the entity, read the declaration for **every field you map into a column**, not just
-the uncertain ones. Two failure modes recur:
+the uncertain ones, **in one pass**. List the types and fields first, then print them with one call
+per file. A grep per question is a round trip each:
+
+```bash
+awk '/^(interface|type) (Payment|RegularPaymentDetails)[ <{=]/,/^}/' $E/index.typings.d.mts
+```
+
+Failure modes that recur:
 
 **Deprecated fields still compile.** On `RegularPaymentDetails`, `paymentMethod` carries
 `@deprecated Use paymentMethodName.buyerLanguageName instead` — the deprecated one is a bare code,
@@ -93,15 +99,13 @@ a batch endpoint given `[]` is a wasted round trip at best.
 `searchOrders` takes a `CursorSearch`: `{ cursorPaging, filter, sort }`, where `filter` is a
 Mongo-shaped `Record<string, any>` — `{ paymentStatus: { $in: [...] } }`,
 `{ _createdDate: { $gte, $lte } }`, `{ number: { $startsWith } }`. Enum values come from the
-declaration, not from memory: order payment status is `FULLY_REFUNDED` / `PARTIALLY_REFUNDED` /
-`PAID` / `NOT_PAID` / `PENDING` / `PARTIALLY_PAID` / `PENDING_MERCHANT` / `CANCELED` / `DECLINED` /
-`UNSPECIFIED`.
+declaration, not from memory: order payment status has ten, `PENDING_MERCHANT` and
+`PARTIALLY_REFUNDED` among them.
 
 ## The SDK is not the REST API
 
 Docs search returns REST pages, and a dashboard page calls the **SDK**. Append `?apiView=SDK` to the
-URL of whatever page you landed on and read that view — it answers two of the four differences
-before you write a line.
+URL of whatever page you landed on and read that view — it answers two of the four differences.
 
 **1 and 2 — namespace and id naming. The SDK view states both.** It prints the package and namespace
 outright (`SDK Package: @wix/members`, `SDK Namespace: customFields`), and uses `_id` in its own
