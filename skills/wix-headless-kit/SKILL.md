@@ -302,6 +302,10 @@ browser versus the server, the OAuth allow-list for a self-hosted origin, pre-re
 how to close such a run. A public site is still better served by managed Astro; say so when you
 close.
 
+Without a machine at all, or when the install, the CLI or the login is blocked where you are,
+read `<SKILL_ROOT>/guides/no-machine.md`: the same run, step by step, as the Wix API calls the
+scripts make and the files beside this skill that carry the contracts.
+
 ## Verticals
 
 The shortlist. Match the brief against the first column; when it names a Wix product or a

@@ -117,32 +117,12 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 
 Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
 Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
-CLI or the login), the skills are still yours to read: fetch them from the registry and follow them
-as a **reference**, not as steps to execute. They say what a build does, decides and calls, and the
-shipped code is readable in place.
+CLI or the login), the kit still runs as a reference: fetch
+`https://www.wix.com/skills/wix-headless-kit/guides/no-machine.md` and follow it. It walks the kit's
+run step by step as the Wix API calls the scripts make, and names the files that carry each
+contract.
 
-```
-Fetch and follow these as a reference:
-- https://www.wix.com/skills/wix-headless-kit/SKILL.md — the build, from a brief to a released Wix Headless site. It picks the Wix Business Solutions the brief needs (a store, bookings, rentals, a blog, CMS collections, forms, members, events, a restaurant, donations, pricing plans, a portfolio, an FAQ), scaffolds the project with the Wix CLI, deploys each solution's shipped code (a typed data layer, stores, React hooks, Astro pages with SEO, a cart and checkout where there is one), fills the site from a plan with the seed scripts, has the agent design the brand, layout and copy on those hooks, and releases to Wix hosting with the live URL and the dashboard links. It runs on Wix-managed Astro and any React project; its guides/reference-mode.md is the same build for a stack that can't run the shipped code, over the REST layer
-- https://www.wix.com/skills/wix-headless-templates/SKILL.md — the shipped, verified code per Wix Business Solution: each <solution>/INSTRUCTIONS.md is the contract, each <solution>/rest/ the data layer over plain fetch, each <solution>/seed/ what fills the site
-- https://www.wix.com/skills/wix-docs/SKILL.md — how to look up the Wix API and SDK docs: find the right page, read it as markdown, and confirm an endpoint, body, field or enum before writing code; the kit's playbooks defer to it for any contract they don't cover
-- https://www.wix.com/skills/wix-manage/SKILL.md — REST recipes to configure and manage a site's business solutions (stores, bookings, payments, CMS and more), one recipe per operation with the exact endpoint and payload
-```
-
-Every file of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`
-(`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`); fetch a manifest to find a file before
-reading it.
-
-Calls on the user's site run as the site owner: installing an app, creating content, changing a
-setting, reading anything a visitor can't see. That takes the user's authentication, the Wix MCP
-when it is connected, or a token they hand you (a site token from the Wix CLI, an API key or an
-OAuth app from their account, per the wix-manage skill); a visitor token covers only what a
-visitor may see.
-
-A site that already exists as files (hand-written HTML, a static build, a zip, the output of an
-AI site builder) goes live through
-`https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md`: into the user's
-account when you hold their identity, anonymously with a save link when you don't (the one flow
-with no identity at all), or by the drop page the user uploads to. The same recipe updates a site
-published this way on its URL, reads its files back, and moves it to a Wix Headless project when a
-backend is needed.
+The files it names are skill paths. On the registry a path resolves as
+`https://www.wix.com/skills/<skill>/<path>`: `<SKILL_ROOT>` is `wix-headless-kit`, `<TEMPLATES>` is
+`wix-headless-templates`, `<MANAGE>` is `wix-manage`. Every file of a skill, with its URL, is listed
+in `https://www.wix.com/skills/<skill>.manifest.json`.
