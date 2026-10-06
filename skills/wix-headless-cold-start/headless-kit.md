@@ -155,8 +155,3 @@ OAuth app from their account, per the wix-manage skill); a visitor token covers 
 visitor may see. Publishing a static site is the one flow with no identity at all:
 `https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md` creates, uploads
 and releases anonymously, and publishes into the user's account when you hold their login.
-
-What the reference cannot give you is the part that needs the machine: installing, running the Wix
-CLI, logging in, releasing a project. Say so, and leave the user the brief with
-`Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md`
-to paste into a coding agent that runs commands.
