@@ -22,7 +22,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
 guides the login. If you can't run this — no shell, no file system, no machine for the CLI, a
 sandbox that blocks the install, the CLI or the login — see
-[Without a machine](#without-a-machine-the-skills-as-a-reference) at the end.
+[No machine, no shell, no CLI](#no-machine-no-shell-no-cli-the-skills-as-a-reference) at the end.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -95,7 +95,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 | `cli_ok` | Wix CLI reachable — continue. |
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
-| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, [read the skills as a reference](#without-a-machine-the-skills-as-a-reference). |
+| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, [read the skills as a reference](#no-machine-no-shell-no-cli-the-skills-as-a-reference). |
 
 On `awaiting_user`, run the script again once the user says they've logged in: it reports
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
@@ -113,7 +113,7 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 - You're already authenticated from Phase 2, so the skill's CLI auth step will pass without
   prompting again.
 
-## Without a machine: the skills as a reference
+## No machine, no shell, no CLI: the skills as a reference
 
 Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
 Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
