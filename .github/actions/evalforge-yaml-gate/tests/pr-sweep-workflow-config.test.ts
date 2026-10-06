@@ -84,10 +84,20 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
   it('runs the action from the base checkout, never from the PR', () => {
     const checkouts = job.steps.filter(s => s.uses?.startsWith('actions/checkout'));
     const base = checkouts.find(s => s.with?.path === '.action-src');
-    expect(base?.with?.ref).toBe('${{ github.event.pull_request.base.sha }}');
+    // main's head, the commit this workflow came from, so workflow and action always match.
+    expect(base?.with?.ref).toBe('${{ github.sha }}');
     for (const checkout of checkouts) expect(checkout.with?.['persist-credentials']).toBe(false);
     expect(action).toBeDefined();
     expect(job.steps.some(s => s.uses?.startsWith('./.github/'))).toBe(false);
+  });
+
+  // pull_request_target can start before GitHub rebuilds the merge ref for this push.
+  it('waits for the merge ref to include this head before running the action', () => {
+    const names = job.steps.map(s => (s as { name?: string }).name ?? s.uses ?? '');
+    const wait = names.indexOf('Wait for the merge ref to include this head');
+    const action = names.findIndex(n => n.endsWith('/evalforge-yaml-gate'));
+    expect(wait).toBeGreaterThan(-1);
+    expect(wait).toBeLessThan(action);
   });
 
   it('reports pending, then its verdict, as a status on the PR head', () => {

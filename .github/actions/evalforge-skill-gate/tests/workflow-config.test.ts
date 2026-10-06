@@ -48,6 +48,14 @@ describe('EvalForge wix-app gate workflow', () => {
     for (const checkout of checkouts) expect(checkout.with?.['persist-credentials']).toBe(false);
   });
 
+  it('waits for the merge ref to include this head before running the action', () => {
+    const steps = workflow.jobs.gate.steps as Array<{ name?: string; id?: string }>;
+    const wait = steps.findIndex(step => step.name === 'Wait for the merge ref to include this head');
+    const gate = steps.findIndex(step => step.id === 'gate');
+    expect(wait).toBeGreaterThan(-1);
+    expect(wait).toBeLessThan(gate);
+  });
+
   it('reports pending, then its verdict, as a status on the PR head', () => {
     expect(workflow.jobs.gate.permissions.statuses).toBe('write');
     const scripts = workflow.jobs.gate.steps.filter(step => step.uses?.startsWith('actions/github-script'));
@@ -78,10 +86,11 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(workflow.concurrency['cancel-in-progress']).toBe(true);
   });
 
-  it('checks the base SHA out into .action-src for the sync diff', () => {
+  it('checks main\'s head out into .action-src for the sync diff and the action source', () => {
     const baseCheckout = workflow.jobs.gate.steps.find(step => step.with?.path === '.action-src');
     expect(baseCheckout).toBeDefined();
-    expect(baseCheckout?.with?.ref).toContain('base.sha');
+    // main's head, the commit this workflow came from, not the PR's possibly older base.sha.
+    expect(baseCheckout?.with?.ref).toBe('${{ github.sha }}');
   });
 
   it('can write PR comments', () => {

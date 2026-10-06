@@ -91,6 +91,12 @@ describe('EvalForge YAML Gate Workflow', () => {
       expect(workflowContent).toContain('persist-credentials: false');
     });
 
+    it('takes the action from main\'s head and waits for the merge ref to include this head', () => {
+      expect(workflowContent).toContain('ref: ${{ github.sha }}');
+      expect(workflowContent).not.toContain('ref: ${{ github.event.pull_request.base.sha }}');
+      expect(workflowContent).toContain('name: Wait for the merge ref to include this head');
+    });
+
     it('reports its verdict as a status on the PR head', () => {
       expect(workflowContent).toContain('statuses: write');
       expect(workflowContent).toContain('sha: context.payload.pull_request.head.sha');

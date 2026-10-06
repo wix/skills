@@ -36,8 +36,19 @@ describe('EvalForge skill review workflow', () => {
 
   it('takes the action and the reviewer definition from the base checkout', () => {
     const base = job.steps.find(step => step.with?.path === '.action-src');
-    expect(base?.with?.ref).toBe('${{ github.event.pull_request.base.sha }}');
+    // main's head, the commit this workflow came from. base.sha could be an older action that
+    // still read the reviewer definition from the PR.
+    expect(base?.with?.ref).toBe('${{ github.sha }}');
     expect(job.steps.some(step => step.uses?.startsWith('./.github/'))).toBe(false);
+  });
+
+  // pull_request_target can start before GitHub rebuilds the merge ref for this push.
+  it('waits for the merge ref to include this head before running the action', () => {
+    const names = job.steps.map(s => (s as { name?: string }).name ?? s.uses ?? '');
+    const wait = names.indexOf('Wait for the merge ref to include this head');
+    const action = names.findIndex(n => n.endsWith('/evalforge-yaml-gate'));
+    expect(wait).toBeGreaterThan(-1);
+    expect(wait).toBeLessThan(action);
   });
 
   it('persists no credentials into any checkout', () => {
