@@ -150,6 +150,22 @@ owns that was published this way, including one claimed from an
 find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
 below, matching the site's name or `viewUrl`.
 
+**When you no longer have the files** (a small change to a site from an earlier
+conversation), download what the site serves, edit it, and drop the full set
+back. Leave out `wix.config.json`; the download adds it, and it isn't part of the
+site.
+
+```bash
+curl -sSL -o current.zip \
+  "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
+unzip -o current.zip -d current      # the site's files + wix.config.json
+```
+
+This needs a shell. An `ExecuteWixAPI` script can't download the site, and it
+can't read the live URL either. Without a shell, edit the files you still have in
+the conversation; otherwise ask the user for them. Don't rebuild the site from
+memory.
+
 ## Publish anonymously
 
 No identity needed: the site is created under a temporary owner and lives for one

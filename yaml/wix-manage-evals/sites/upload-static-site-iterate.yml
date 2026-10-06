@@ -69,6 +69,7 @@ assertions:
         - a drop or upload retried unchanged after a 500 or 403 (rebuild the body, or fetch a new
           token, before retrying)
         - a URL sent with an unfilled placeholder such as $META_SITE_ID
+        - an attempt to read the live site (its wix-site-host.com URL) from an API-execution script
 
       For each issue name the likely skill gap behind it.
 
