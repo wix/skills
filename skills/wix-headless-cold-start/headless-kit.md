@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. An agent without a shell, Node or network learns here what to hand over instead, so the request still ends with a built site or an honest answer."
 ---
 
 # Wix Headless Kit — cold start
@@ -19,8 +19,9 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
-Requires Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and guides the
-login.
+Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
+guides the login. **Can't run commands at all?** Skip to [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one):
+this page tells you what to hand over instead, so the request still ends well.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
@@ -36,7 +37,18 @@ owns that decision; this page does not interpret either. The bootstrap only veri
 and logs you in, so it's fine to run in every case (an existing session just reports
 `logged_in`).
 
-## Phase 0 — The project's folder, and Node
+## Phase 0 — What you can do, the project's folder, and Node
+
+**First, find out what you can do here.** Run `node -v`. What happens decides your path:
+
+| What happens | Your path |
+|---|---|
+| It prints `v22.12` or higher | Continue with the folder and Phase 1. |
+| It prints a lower version, or "command not found" | Install or upgrade Node (below), then continue. |
+| You have no way to run a command | [No shell](#no-shell--hand-the-build-to-an-agent-that-has-one). Don't try to build the site without one. |
+| Commands run, but `npx` can't reach npm or GitHub | If the skill is already installed where you are (Phase 1 says how to tell), skip the install and continue. Otherwise stop and say so; the [no-shell hand-off](#no-shell--hand-the-build-to-an-agent-that-has-one) works for this case too. |
+| Your shell is Windows (cmd or PowerShell) | Same phases; use the Windows forms of the commands given with each. |
+| The page you're reading looks summarized | Re-fetch it with `curl`, per the advisory at the top. |
 
 **Work from the folder that holds the project, or that will.** An empty folder is the project for
 a new build; if the current folder holds unrelated things, make one named for the business and `cd`
@@ -57,14 +69,23 @@ lower version, install or upgrade Node first — do **not** work around it:
 
 ## Phase 1 — Install the skills
 
-Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
-keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
-parsed:
+**Already installed? Skip this phase.** If your host lists `wix-headless-kit` as an installed
+skill (the Wix plugin for Claude Code, Codex, Cursor or VS Code ships it with its companions and
+the shipped code), or `.agents/skills/wix-headless-kit/SKILL.md` exists in the folder, use that
+copy: wherever the phases below say `.agents/skills/wix-headless-kit/…`, read the path from where
+your copy lives. Nothing needs to be downloaded.
+
+Otherwise install the skill and its two companions (`CI=1` forces plain non-interactive CLI
+output — keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is
+not parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills \
   --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
 ```
+
+Windows, PowerShell: `$env:CI = "1"; npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
+Windows, cmd: `set CI=1 && npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes`.
 
 - **`wix-headless-kit`** — the build itself.
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
@@ -99,6 +120,12 @@ On `awaiting_user`, run the script again once the user says they've logged in: i
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
 returns the same code rather than issuing a new one.
 
+The login does not depend on your tool keeping a process alive: the script exits at once and
+the device-code login finishes in the user's browser on its own. If your tool kills background
+processes or times out long commands, nothing is lost — re-run the script after the user says
+they're in, and it reports `logged_in`. If the user has no browser where they are, they can open
+`verificationUri` on any device; the code is what binds it.
+
 ## Phase 3 — Hand off
 
 **Open `.agents/skills/wix-headless-kit/SKILL.md` and follow it** — it owns the rest of the run:
@@ -110,3 +137,35 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
   page stops at *logged in*.
 - You're already authenticated from Phase 2, so the skill's CLI auth step will pass without
   prompting again.
+
+## No shell — hand the build to an agent that has one
+
+This skill builds a project and releases it with the Wix CLI; that takes a shell. Without one you
+cannot run it, and hand-writing a Wix integration in its place is not a substitute: say plainly
+that this build needs a coding agent that can run commands, then hand over one of these.
+
+- **The build the user asked for.** Give the user a prompt to paste into a coding agent that
+  runs commands (Claude Code, Codex, Cursor, or any agent with a terminal), opened in an empty
+  folder named for the business:
+
+  ```
+  <the user's brief, in their words>
+
+  Fetch and follow this skill: curl -fsSL https://www.wix.com/skills/headless-cold-start/headless-kit.md
+  Follow it exactly.
+  ```
+
+  Tell them what will happen: the agent installs the skill, asks them once to sign in to Wix in
+  the browser, builds and releases the site, and ends with the live URL and the dashboard link.
+  A site made this way is theirs; they can bring it back to you afterwards for anything the Wix
+  MCP does on a live site (content, settings, orders).
+
+- **A static site, when that is what they need.** If the request is a page or a set of files
+  with no store, bookings, CMS or members behind it, you may be able to publish it yourself
+  through the Wix MCP without a shell: follow
+  `https://www.wix.com/skills/manage/references/sites/upload-static-site.md` (the `ExecuteWixAPI`
+  route). When the files are the user's and not in the conversation, hand them the drop page it
+  names instead.
+
+Never report a build you could not perform, and never leave the user with "go headless" and no
+way to get there.
