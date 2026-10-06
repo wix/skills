@@ -105,12 +105,6 @@ On `awaiting_user`, run the script again once the user says they've logged in: i
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
 returns the same code rather than issuing a new one.
 
-The login does not depend on your tool keeping a process alive: the script exits at once and
-the device-code login finishes in the user's browser on its own. If your tool kills background
-processes or times out long commands, nothing is lost — re-run the script after the user says
-they're in, and it reports `logged_in`. If the user has no browser where they are, they can open
-`verificationUri` on any device; the code is what binds it.
-
 ## Phase 3 — Hand off
 
 **Open `.agents/skills/wix-headless-kit/SKILL.md` and follow it** — it owns the rest of the run:
