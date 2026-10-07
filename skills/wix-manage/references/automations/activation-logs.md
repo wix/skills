@@ -68,8 +68,9 @@ Summarize the supplied run ID/time when present, recorded revision, status, the 
 failing/waiting/skipped step, exact evidence and a next investigation step. Never fabricate
 missing IDs. An action's success does not prove inbox delivery without provider evidence.
 
-Keep the answer short: the conclusion first, then the supplied evidence behind it, then what to
-inspect next.
+Be concise but complete: lead with the conclusion, then the exact supplied evidence (status,
+error code and description), which revision ran versus the current one, and what the user
+should inspect next.
 
 ## 4. Follow-up and authorized tests
 
