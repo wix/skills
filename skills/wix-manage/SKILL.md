@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -31,6 +31,13 @@ Lists all apps installed on a site using Apps Installer API. Useful for verifyin
 
 ### [App Management Dashboard Navigation](references/app-installation/app-installation-dashboard-navigation.md)
 "Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+
+---
+
+## Custom Apps
+
+### [Use App Skills and App Tools](references/custom-apps/use-app-skills-and-app-tools.md)
+"Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
 
 ---
 
@@ -419,7 +426,7 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ### [Upload a Website or HTML Files](references/sites/upload-static-site.md)
-Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — handing the user the Wix Headless drop page, and calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 
 ---
 

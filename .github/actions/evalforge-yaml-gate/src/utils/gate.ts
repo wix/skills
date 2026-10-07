@@ -4,7 +4,7 @@ import { posix } from 'node:path';
 import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
 import { loadEvals, type LoadedScenario } from './evals';
-import { canonicalDocUrl } from './doc-url';
+import { canonicalDocUrl, docUrls } from './doc-url';
 import { changedDocsEntries, validateDocsEntries, slashedTitles } from './docs-entry-check';
 import { computeCoverage } from './coverage';
 import {
@@ -169,7 +169,7 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const cov = computeCoverage(classifiedChanges.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
+  const cov = computeCoverage(classifiedChanges.mdFiles, headScenarios, (f) => docUrls(f, workspace));
   if (cov.uncovered.length > 0) {
     await comment(formatUncovered(cov.uncovered));
     fail(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);

@@ -27,7 +27,8 @@ assertions:
       Pass if the response:
       - creates the site with the provision endpoint (POST .../headless-business-setup/v1/headless-business/provision), AND
       - shows a request body with a newMetasite target carrying a naming strategy (e.g.
-        metaSiteName "Acme Storefront") and a seedOptions entry installing STORES, AND
+        metaSiteName "Acme Storefront"), a seedOptions entry installing STORES, and an origin of
+        "agent-" followed by the agent's own identifier (e.g. "agent-claude-code"), AND
       - says the response's appId is the site's OAuth client ID (no separate OAuth app needs to be
         created).
       A response that additionally asks the user to confirm before creating still PASSES, as long
@@ -38,4 +39,5 @@ assertions:
         with or without a namespace: "HEADLESS" field, OR
       - instructs creating a standalone OAuth app as a separate step, OR
       - omits the provision endpoint or the request body shape, OR
-      - is generic with no specific endpoint.
+      - is generic with no specific endpoint, OR
+      - sends no origin, or an origin that doesn't start with "agent-".
