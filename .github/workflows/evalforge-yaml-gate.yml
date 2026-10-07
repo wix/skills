@@ -57,22 +57,34 @@ jobs:
           persist-credentials: false
       # pull_request_target can start before GitHub rebuilds refs/pull/N/merge for this push. Wait
       # until the merge commit's second parent is this head, so the gate never evaluates the
-      # previous push's tree. A PR with conflicts has no merge ref and fails here.
+      # previous push's tree. The rebuild usually takes seconds but can take minutes, so the waits
+      # back off to about three minutes in all. On giving up, the PR's `mergeable` tells a conflict,
+      # which needs a push, from a slow rebuild, which needs a re-run.
       - name: Wait for the merge ref to include this head
         env:
+          GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          depth=$([ -f .git/shallow ] && echo --depth=1)
-          for attempt in 1 2 3 4 5 6; do
+          # An `if`, not `[ ] && echo`: under the runner's `bash -e` a false test in a command
+          # substitution fails the assignment, and a full-history checkout would exit here.
+          depth=$(if [ -f .git/shallow ]; then echo --depth=1; fi)
+          for wait in 0 5 10 15 20 30 30 30 40; do
+            if [ "$wait" -gt 0 ]; then
+              echo "Merge ref is at head ${merged_head:-none}, waiting ${wait}s for $HEAD_SHA"
+              sleep "$wait"
+              git fetch --no-tags $depth origin "+refs/pull/$PR_NUMBER/merge:refs/remotes/pull/merge" \
+                && git checkout -q --detach refs/remotes/pull/merge
+            fi
             merged_head=$(git cat-file -p HEAD | awk '/^parent /{print $2}' | sed -n 2p)
             [ "$merged_head" = "$HEAD_SHA" ] && exit 0
-            echo "Merge ref is at head ${merged_head:-none}, waiting for $HEAD_SHA (attempt $attempt)"
-            sleep 10
-            git fetch --no-tags $depth origin "+refs/pull/$PR_NUMBER/merge:refs/remotes/pull/merge"
-            git checkout -q --detach refs/remotes/pull/merge
           done
-          echo "::error::refs/pull/$PR_NUMBER/merge does not include $HEAD_SHA. If the PR has conflicts, resolve them and push."
+          mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .mergeable || echo unknown)
+          if [ "$mergeable" = false ]; then
+            echo "::error::This PR has conflicts with main, so GitHub cannot build refs/pull/$PR_NUMBER/merge. Resolve them and push."
+          else
+            echo "::error::GitHub has not rebuilt refs/pull/$PR_NUMBER/merge for $HEAD_SHA after about three minutes. Re-run this job."
+          fi
           exit 1
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
