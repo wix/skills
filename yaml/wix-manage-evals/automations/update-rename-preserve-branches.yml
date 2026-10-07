@@ -122,7 +122,6 @@
                         "contactId": "{{var(\"contactId\")}}",
                         "title": "Welcome new friend"
                       },
-                      "skipConditionOrExpressionGroups": [],
                       "postActionIds": []
                     }
                   },
@@ -151,7 +150,6 @@
                         "contactId": "{{var(\"contactId\")}}",
                         "title": "Welcome {{var(\"contact.name.first\")}}"
                       },
-                      "skipConditionOrExpressionGroups": [],
                       "postActionIds": []
                     }
                   }
