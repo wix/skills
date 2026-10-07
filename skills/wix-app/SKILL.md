@@ -112,7 +112,7 @@ Whole pages are the package's too: the router wiring for a multi-page extension,
 as page templates. See [DRAFT_TEMPLATE.md](references/dashboard-page/DRAFT_TEMPLATE.md).
 
 The short version: list every patterns name you plan to write, and resolve them all in one
-`node <this-skill-dir>/scripts/patterns-lookup.cjs <name…>` call, not one index probe per name.
+`node <pkgRoot>/bin/patterns-lookup.cjs <name…>` call, not one index probe per name.
 Then read the guides it lists. From there the index answers per symbol: `importPath` is the import line (no read needed), `examples`
 names the worked call, and `bundle` says whether props live in a `.d.ts` or in the doc's own
 table. Read the one artifact your open question needs. Resolve `<pkgRoot>` once per session

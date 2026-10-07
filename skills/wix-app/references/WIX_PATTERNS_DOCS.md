@@ -21,17 +21,12 @@ Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and
 **Resolve every patterns name you plan to write in one call:**
 
 ```bash
-node <this-skill-dir>/scripts/patterns-lookup.cjs Table useTableCollection stringsArrayFilter DateRangeFilter
+node <pkgRoot>/bin/patterns-lookup.cjs Table useTableCollection stringsArrayFilter DateRangeFilter
 ```
 
-For each name it prints:
-- the `summary`, which usually answers the question, so step 4 needs no read;
-- the `importPath` and the examples;
-- the **one** file for props: the `.d.ts` if the entry has a `bundle`, otherwise the doc's table. When the bundle stubs its parent, it names the files that hold the rest.
+The package ships this script, so it matches the installed indices. For each name it prints the import, the examples and the **one** file for props. Its `summary` line usually answers the question, so step 4 needs no read. A name in neither index makes it exit 1, with near matches. `--templates` lists the page templates. **List the names first.** Each name you add later costs another round trip, and those round trips are this step's whole cost.
 
-It checks both indices, resolves `symbols` aliases (`CollectionToolbarFilters` is under `ToolbarFilters`) and flags `deprecated` entries with their replacement. A name in neither index makes it exit 1, with near matches. `--templates` lists the page templates. **List the names first.** Each name you add later costs another round trip, and those round trips are this step's whole cost.
-
-**Without the script**, probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol. Never `Read` it whole: at ~80 KB it truncates silently. Match keys and `symbols` aliases exactly. A name not in it may still be in `dist/dts-bundle/index.json`, which curates hooks, types and re-exports. `dist/dts-bundle/index.txt` (~9 KB) lists every curated name with `kind`, `importPath` and file, and from 1.469.0 adds `bytes`, `props` and `stubs`.
+**If `<pkgRoot>/bin/patterns-lookup.cjs` is missing** (an older `@wix/patterns`), probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol. Never `Read` it whole: at ~80 KB it truncates silently. Match keys and `symbols` aliases exactly. A name not in it may still be in `dist/dts-bundle/index.json`, which curates hooks, types and re-exports. `dist/dts-bundle/index.txt` (~9 KB) lists every curated name with `kind`, `importPath` and file, and from 1.469.0 adds `bytes`, `props` and `stubs`.
 
 ### 2 — Composition, once per session
 

@@ -9,10 +9,10 @@ Go through [WIX_PATTERNS_DOCS.md § Prerequisites](../WIX_PATTERNS_DOCS.md#prere
 Templates are docs-index entries with `category: "Templates"`, and each lists every file of its page in `templateFiles`. One call lists them all with their files, plus the guide that chooses between them:
 
 ```bash
-node <this-skill-dir>/scripts/patterns-lookup.cjs --templates
+node <pkgRoot>/bin/patterns-lookup.cjs --templates
 ```
 
-It also takes names (`--templates Table useTableCollection …`), so the patterns names you already know you'll need can go in the same call ([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)).
+It also takes names (`--templates Table useTableCollection …`), so the patterns names you already know you'll need can go in the same call ([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)). If the script is missing (an older `@wix/patterns`), list those entries from `<pkgRoot>/dist/docs/index.json` in one probe.
 
 **No `Templates` entries means the install predates them — upgrade `@wix/patterns`.** Do not rebuild a page from memory or from an older copy of this skill instead: the templates exist so the shell, provider nesting and router wiring come from the package.
 
