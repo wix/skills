@@ -12,7 +12,7 @@
           "url": "https://www.wixapis.com/automations-service/v2/automations",
           "body": {
             "automation": {
-              "name": "Welcome task fixture",
+              "name": "New Contact Welcome",
               "origin": "USER",
               "configuration": {
                 "status": "INACTIVE",
@@ -51,7 +51,7 @@
   },
   "name": "automations/inspect-inactive-status",
   "description": "Read back a seeded inactive automation without treating inactive status as run failure.",
-  "triggerPrompt": "Is Welcome task fixture currently turned on? Tell me whether that tells us if its past runs succeeded.",
+  "triggerPrompt": "Is New Contact Welcome currently turned on? Tell me whether that tells us if its past runs succeeded.",
   "assertions": [
     {
       "tool": "ReadFullDocsArticle",
@@ -62,7 +62,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 10 only when the agent locates Welcome task fixture by its exact name and successfully Gets its returned ID. The response must establish INACTIVE from configuration.status and explain that this prevents new triggered runs but does not establish success or failure of historical runs. An unresolvable fixture, unsupported success claim, or any write/activation/test fails with 0. Return only a JSON object with score and reason."
+      "prompt": "Score 10 only when the agent locates New Contact Welcome by its exact name and successfully Gets its returned ID. The response must establish INACTIVE from configuration.status and explain that this prevents new triggered runs but does not establish success or failure of historical runs. An unresolvable fixture, unsupported success claim, or any write/activation/test fails with 0. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
