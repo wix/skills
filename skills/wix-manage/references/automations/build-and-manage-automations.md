@@ -1,6 +1,6 @@
 ---
 name: "Build and Manage Wix Automations"
-description: "Create, update, activate or deactivate Wix Automations, and inspect their activation logs on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; use activation and action logs to explain individual runs."
+description: "Create, update, activate or deactivate Wix Automations on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; explain individual runs from activation and action logs the user supplies (this skill does not retrieve logs)."
 ---
 
 This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
