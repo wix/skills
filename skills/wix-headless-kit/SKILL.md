@@ -285,9 +285,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    (connect a payment method; "manual payments" is enough for free and pay-in-person flows) and
    **Upgrade the plan** `https://www.wix.com/upgrade/website?metaSiteId=<siteId>` (online payments
    need a premium plan). Both are the owner's steps, not a defect in the site. When the run started
-   from the owner's own pages (a dropped site, a brought-in design), name what those pages showed
-   that the released site does not do — a search box, an account link, a journal, a newsletter form
-   with nothing behind it — so the owner knows it is theirs to add or remove, not a working feature.
+   from the owner's own pages, name what those pages promised that the released site does not do.
    **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404). Before you sign off, run the feedback self-check over the whole session
