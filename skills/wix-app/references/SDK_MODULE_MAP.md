@@ -15,7 +15,7 @@ Data owned by an existing Wix business app is read and written through that app'
 | pricing plans / subscriptions | `@wix/pricing-plans` |
 | bookings / services / staff / time slots | `@wix/bookings` |
 | calendar events / schedules | `@wix/calendar` |
-| table reservations | `@wix/table-reservations` |
+| table reservations | `@wix/table-reservations` (namespace `reservations`) — not `@wix/restaurants` |
 | restaurant menus / online orders | `@wix/restaurants` |
 | blog posts | `@wix/blog` |
 | site events / tickets / RSVPs | `@wix/events` |

@@ -50,3 +50,11 @@ Run the exporter tests, inspect the generated diff, and follow
 [evaluation guidance](../../../docs/skill-evaluation.md). Commit source and public
 changes in linked PRs. The YAML content hash is a source-drift aid, not an execution
 result. Local structural checks do not establish that live evaluations passed.
+
+
+Initial publication uses four ordered PRs, each adding at most four reference documents.
+`publication-stage.json` records this checkout's cumulative stage (1–4). The canonical
+exporter reads it by default; advance explicitly with `--stage=N`. Later PRs remain drafts
+based on the preceding branch until that part merges. Evaluations run only after a part
+targets main. All 29 scenarios are retained in the completed export; early stages defer
+whole scenarios whose topic guides are not present, preserving their original assertions.

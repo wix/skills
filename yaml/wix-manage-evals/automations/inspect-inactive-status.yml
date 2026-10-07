@@ -1,0 +1,73 @@
+{
+  "tags": [
+    "automations"
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor",
+    "bootstrap": {
+      "steps": [
+        {
+          "label": "Seed inactive automation to update",
+          "method": "post",
+          "url": "https://www.wixapis.com/automations-service/v2/automations",
+          "body": {
+            "automation": {
+              "name": "Welcome task fixture",
+              "origin": "USER",
+              "configuration": {
+                "status": "INACTIVE",
+                "trigger": {
+                  "appId": "74bff718-5977-47f2-9e5f-a9fd0047fd1f",
+                  "triggerKey": "contacts-new_contact_was_created",
+                  "filters": []
+                },
+                "rootActionIds": [
+                  "650c6d61-0000-4000-8000-000000000001"
+                ],
+                "actions": {
+                  "650c6d61-0000-4000-8000-000000000001": {
+                    "id": "650c6d61-0000-4000-8000-000000000001",
+                    "type": "APP_DEFINED",
+                    "namespace": "createTask-1",
+                    "displayName": "Create follow-up task",
+                    "appDefinedInfo": {
+                      "appId": "146c0d71-352e-4464-9a03-2e868aabe7b9",
+                      "actionKey": "createTask",
+                      "inputMapping": {
+                        "contactId": "{{var(\"contactId\")}}",
+                        "title": "Welcome {{if(or(isEmpty(var(\"contact.name.first\"));isEmptyString(var(\"contact.name.first\")));\"new%20friend\";var(\"contact.name.first\"))}}"
+                      },
+                      "skipConditionOrExpressionGroups": [],
+                      "postActionIds": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "name": "automations/inspect-inactive-status",
+  "description": "Read back a seeded inactive automation without treating inactive status as run failure.",
+  "triggerPrompt": "Is Welcome task fixture currently turned on? Tell me whether that tells us if its past runs succeeded.",
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when the agent locates Welcome task fixture by its exact name and successfully Gets its returned ID. The response must establish INACTIVE from configuration.status and explain that this prevents new triggered runs but does not establish success or failure of historical runs. An unresolvable fixture, unsupported success claim, or any write/activation/test fails with 0. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the tool trace. Penalize inferring status from the name, checking unrelated automations, fetching individual logs when the user only asks what status proves, or redundant confirmation for a read-only inspection. Require bounded query and Get, public tools and no guessed IDs. Return only a JSON object with score and reason."
+    }
+  ]
+}

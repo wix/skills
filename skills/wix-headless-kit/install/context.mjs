@@ -19,6 +19,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
+const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
 // The variables the editor-to-headless migration writes into the child project's `prod`
 // environment (headless-bo, editorMigrations/environmentMetadata.ts), which `wix env pull` copies
@@ -57,7 +59,7 @@ export function readWixConfig(cwd) {
   try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
 }
 
-const ENV_PULL = ["-y", "@wix/cli@latest", "env", "pull"];
+const ENV_PULL = ["-y", WIX_CLI, "env", "pull"];
 const runPull = (dir) => spawnSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
 /**
@@ -70,7 +72,7 @@ export function pullEnv(cwd) {
   const envFile = join(cwd, ".env.local");
   const r = runPull(cwd);
   if (r.status === 0 && existsSync(envFile)) return { ok: true, via: "in place" };
-  return { ok: false, error: (r.stderr || r.stdout || "env pull produced no .env.local — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").trim().slice(-400) };
+  return { ok: false, error: (r.stderr || r.stdout || `env pull produced no .env.local — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).trim().slice(-400) };
 }
 
 /**
