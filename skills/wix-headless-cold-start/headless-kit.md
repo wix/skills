@@ -118,17 +118,26 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 
 Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
 Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
-CLI or the login), the kit still runs as a reference: fetch
-`https://www.wix.com/skills/wix-headless-kit/guides/no-machine.md` and follow it. It walks the kit's
-run step by step as the Wix API calls the scripts make, and names the files that carry each
-contract.
+CLI or the login), the kit still runs as a reference: the guide
+`wix-headless-kit/guides/no-machine.md` walks the kit's run step by step as the Wix API calls the
+scripts make, and names the files that carry each contract. Where to read it from depends on how far
+the phases got:
 
-Read the guide, and every file it names, in full. Web-fetch tools return a lossy summary of a page,
-and the summary drops the exact calls and shapes. `curl -fsSL <url>` returns the file itself; so
-does a tool that runs code and can fetch a URL (fetch the URL, return the body as text). If what
-came back reads as a summary, fetch it again that way.
+- **Phase 1 ran and Phase 2 failed** (a sandbox that reaches npm and GitHub but not Wix, so the
+  login's `403` is where it stops): the skills are already on disk under `.agents/skills/`. Read the
+  guide at `.agents/skills/wix-headless-kit/guides/no-machine.md`, and every file it names beside
+  it. Node is there too, so the guide's frontend step composes the kit's shipped code.
+- **Nothing could be installed:** fetch
+  `https://www.wix.com/skills/wix-headless-kit/guides/no-machine.md` and follow it. The same files
+  are in `https://github.com/wix/skills` under `skills/<skill>/`; a sandbox that reaches GitHub gets
+  the whole set from a clone of that repository, on disk.
 
-The files it names are skill paths. On the registry a path resolves as
-`https://www.wix.com/skills/<skill>/<path>`: `<SKILL_ROOT>` is `wix-headless-kit`, `<TEMPLATES>` is
-`wix-headless-templates`, `<MANAGE>` is `wix-manage`. Every file of a skill, with its URL, is listed
-in `https://www.wix.com/skills/<skill>.manifest.json`.
+Read the guide, and every file it names, in full. A copy on disk is read whole. Over the network, a
+fetch that returns the file's text does the same, and so does a tool that runs code and can fetch a
+URL (fetch the URL, return the body as text); a web-fetch tool that summarizes a page drops the
+exact calls and shapes. If what came back reads as a summary, read it again another way.
+
+The files the guide names are skill paths. On disk a path resolves under `.agents/skills/<skill>/`;
+on the registry as `https://www.wix.com/skills/<skill>/<path>`: `<SKILL_ROOT>` is
+`wix-headless-kit`, `<TEMPLATES>` is `wix-headless-templates`, `<MANAGE>` is `wix-manage`. Every file
+of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`.
