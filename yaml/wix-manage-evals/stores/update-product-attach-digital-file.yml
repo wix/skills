@@ -20,7 +20,6 @@ siteSetup:
             variantsInfo:
               variants:
                 - price: { actualPrice: { amount: "9.99" } }
-                  digitalProperties: {}
                   visible: true
                   inventoryItem: { inStock: true }
 assertions:
