@@ -199,6 +199,7 @@ this list is the union; run those too for the node types you used.
 4. [code] Each action has a known `type`, only its own type's `*Info`, `[]` (not omitted) for an
    ending successor list, and a builder-format `namespace`. Namespaces are unique except that
    SET_VARIABLES steps share `setVariable`; their output keys must be unique across steps.
+   For every action type, `skipActionExpression` is `"{{true}}"` or absent.
 
 **Trigger** — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §7
 
@@ -242,7 +243,7 @@ this list is the union; run those too for the node types you used.
     "only ever once" (no duration).
     SET_VARIABLES: matching keys, every property has a `title`, keys unique across all variable
     steps; preserve existing image-variable metadata per [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §3.
-    SPLIT: 2–10 paths. `skipActionExpression` is `"{{true}}"` or absent.
+    SPLIT: 2–10 paths.
 
 **Object and limits**
 

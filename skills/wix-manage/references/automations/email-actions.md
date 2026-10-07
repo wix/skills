@@ -14,7 +14,7 @@ in place; do not initialize, delete, recreate or replace that action.
 
 [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping)
 is **Developer Preview** and subject to change. It requires a Wix app or Wix user identity with
-**Manage Email Marketing** (`shoutout.manage`) and the target site context. Also retain the
+**Manage Email Marketing** (`SCOPE.DC-PROMOTE.EMAIL-MARKETING`) and the target site context. Also retain the
 Automations permissions needed to persist the step.
 
 ```http
