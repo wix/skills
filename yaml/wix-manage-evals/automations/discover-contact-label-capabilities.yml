@@ -6,7 +6,7 @@
     "templateId": "stores-v3-editor"
   },
   "name": "automations/discover-contact-label-capabilities",
-  "description": "Read-only site catalog discovery for a contact-created labeling workflow.",
+  "description": "Read-only site catalog discovery for a contact-created labeling workflow. Uses the stores-v3-editor template because its installed catalog was verified to expose the contact-created trigger and the add-label action; the Stores app itself is not under test.",
   "triggerPrompt": "Check whether my site supports adding a label when a contact is added. Show me the available trigger and action and what information I would need to configure them.",
   "assertions": [
     {
