@@ -6,8 +6,9 @@ typed end-to-end. **The presentation is yours**: you design and implement the ca
 campaigns index, the campaign page's layout around the shipped form, the home page and the brand. You
 never write checkout logic; you never skip designing.
 
-A donation is an eCom checkout with one line that references the campaign; Wix's hosted checkout takes
-the payment and the donor's details, and the eCom order is the receipt. The campaign entity carries
+A donation is an eCom cart (Cart V2) with one line that references the campaign; in V2 the cart IS the
+checkout, so the cart's id is the id the redirect session takes — there is no separate checkout entity.
+Wix's hosted checkout takes the payment and the donor's details, and the eCom order is the receipt. The campaign entity carries
 **no description and no slug**: the story on a campaign page is the site's own copy, and routes key by
 the campaign id (`/donate/<id>`).
 
@@ -29,7 +30,7 @@ Astro markup), your campaign page layout, and your home page.
 | `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes, ratio)` — every `<img>` attribute for a DTO image: `<img {...imgAttrs(c.imageUrl, "50vw", 9 / 16)} alt={c.name} />`; `imgSrc()` / `imgSrcSet()` underneath |
 | `wix/donations/types.ts` | the DTOs (`CampaignSummary`, `CampaignDetail`, `GoalProgress`, `DonationOptions`, `DonationReceipt`) — contracts inlined below |
 | `wix/donations/campaigns.ts` | `fetchCampaigns`, `fetchCampaign(id)`, `fetchDefaultCampaign` — the transport; the rules and DTO mappers are in `donations-core.ts` beside it (shared with the REST layer) |
-| `wix/donations/donate.ts` | `donationCheckoutUrl(campaignId, input)` — the checkout line + hosted redirect session; `fetchDonationReceipt(orderId)` — the thank-you page's order read; bodies in `donations-core.ts` |
+| `wix/donations/donate.ts` | `donationCheckoutUrl(campaignId, input)` — the donation cart + hosted redirect session; `fetchDonationReceipt(orderId)` — the thank-you page's order read; bodies in `donations-core.ts` |
 | `wix/donations/donation-store.ts` · `campaigns-store.ts` · `receipt-store.ts` | the form, listing and receipt state machines, framework-free (`createDonationStore(campaign)`, `createCampaignsStore()`, `createReceiptStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/donations/useDonation.ts` | React binding of `donation-store.ts`: the donate form's state and actions — contract below |
 | `hooks/donations/useCampaigns.ts` | React binding of `campaigns-store.ts`: the listing — contract below |
@@ -328,12 +329,12 @@ first real site and read the owning file if one bites.
   shows) and `options.currency` "" (the button reads "Donate" without an amount; preset labels still
   carry the API's own formatted amounts). If the campaign query itself is refused, the pages render
   their empty state.
-- **Direct Create Checkout vs the Wix widget's cart route.** The default creates the checkout directly
-  (a donation must never merge into a storefront visitor's cart); if the Donations catalog refuses to
-  price that line, `donationCheckoutUrl` falls back to the widget's own Create Cart → Create Checkout
-  (`channelType: OTHER_PLATFORM`), reachable by name as `createDonationCheckoutViaCart`. The cart route
-  can answer `CURRENT_CART_ALREADY_EXISTS` for a visitor who already holds a cart — surfaced as the
-  form's error.
+- **Create Cart is the whole path (Cart V2).** `donationCheckoutUrl` creates one fresh cart with the
+  donation line (`cart.source.channelType: WEB`, the donor note as `cart.note`) and hands that cart's
+  id straight to the redirect session — the cart is the checkout, so there is no separate Create
+  Checkout call and nothing merges into a storefront visitor's current cart. Whether the Donations
+  catalog plugin prices the line on a freshly-created V2 cart is unverified — confirm it on the
+  first real site.
 - **Site currency.** Comes from the metrics response ("returns only the site's default currency");
   On a campaign nobody has donated to yet the metrics carry no currency either, so the transports read the site's currency once from the eCommerce settings (BUSINESS_INFO); unknown → "".
 - **Reading the order on the thank-you page.** `GET /ecom/v1/orders/{id}` with the visitor's token is
