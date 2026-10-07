@@ -87,7 +87,6 @@
                         "contactId": "{{var(\"contactId\")}}",
                         "title": "Welcome {{if(or(isEmpty(var(\"contact.name.first\"));isEmptyString(var(\"contact.name.first\")));\"new%20friend\";var(\"contact.name.first\"))}}"
                       },
-                      "skipConditionOrExpressionGroups": [],
                       "postActionIds": [
                         "650c6d61-0000-4000-8000-000000000002"
                       ]
@@ -118,7 +117,6 @@
                         "contactId": "{{var(\"contactId\")}}",
                         "title": "Follow up with {{var(\"contact.name.first\")}}"
                       },
-                      "skipConditionOrExpressionGroups": [],
                       "postActionIds": []
                     }
                   }
