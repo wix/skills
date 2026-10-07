@@ -483,9 +483,6 @@ Inspect Wix automations and create inactive linear automations using installed a
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.
 
-- [Automations Run Diagnosis](references/automations/activation-logs.md)
-  Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence.
-
 - [Automations Activation Status](references/automations/activation-status.md)
   Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes.
 

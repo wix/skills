@@ -27,7 +27,6 @@ expression guide; it is not a condition node.
 | Check action semantics and effective schemas | [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) |
 | Type-safe input formulas, literal escaping and ancestor variables | [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) |
 | Inspect current status without changing it | [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) |
-| Interpret user-supplied run evidence | [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) |
 
 ## Create and verify
 
@@ -216,7 +215,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 Follow [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
 locks, preinstalled override ids and revision conflicts. Deactivation does not require repairing
-the configuration. Execution diagnosis is separate: [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis).
+the configuration.
 
 ### Reporting rules
 
@@ -319,6 +318,6 @@ automations. It is not a dry run.
 - Ask first, naming the concrete side effects; "go ahead and build it" is not authorization.
 - Build `payload` to match the trigger payload schema, with test data the user approves (e.g.
   their own contact), never real customers.
-- The response is an `activationId`: report "started", then ask the user for dashboard activity
-  results and interpret supplied details with [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Report completion/failure only from that evidence; an empty
-  or not-yet-visible log is not success, and do not rerun the test just to obtain a log.
+- The response is an `activationId`: report "started" — not completed or succeeded — and tell
+  the user to check the run's results in the automation's activity view in the Wix dashboard.
+  Do not rerun the test to confirm it ran.
