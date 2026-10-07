@@ -63,11 +63,9 @@ describe('EvalForge skill review workflow', () => {
     expect(install?.['working-directory']).toBe('${{ runner.temp }}');
   });
 
-  it('reports pending, then its verdict, as a status on the PR head', () => {
-    const scripts = job.steps.filter(step => step.uses?.startsWith('actions/github-script'));
-    expect(scripts).toHaveLength(2);
-    expect(String(scripts[0].with?.script)).toContain("state: 'pending'");
-    expect(scripts[1].if).toBe('always()');
+  // Its check run already lands on the PR head; a status of its own would show the review twice.
+  it('posts no commit status of its own', () => {
+    expect(JSON.stringify(job.steps)).not.toContain('createCommitStatus');
   });
 
   // A required check whose workflow is path-scoped is never reported on PRs outside those paths,
@@ -92,7 +90,7 @@ describe('EvalForge skill review workflow', () => {
   });
 
   it('grants exactly what it needs and no more', () => {
-    expect(job.permissions).toEqual({ 'contents': 'read', 'pull-requests': 'write', 'statuses': 'write' });
+    expect(job.permissions).toEqual({ 'contents': 'read', 'pull-requests': 'write' });
   });
 
   it('starts in soak mode so the reviewer reports before it can block', () => {

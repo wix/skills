@@ -155,29 +155,21 @@ jobs:
             // gates that has a run for this commit, so a PR touching two of them re-runs two and
             // one touching none is declined.
             const notes = [];
-            const RERUN_WINDOW_START = Date.now() - 30 * 24 * 60 * 60 * 1000;
             // Counted, not inferred from `notes`: three of the four branches below add a note
             // without having re-run anything, and a heading that claims otherwise is a lie the
             // requester has to read the whole comment to catch.
             let rerunCount = 0;
 
             for (const workflowId of command.gates) {
-              // A pull_request_target run is attached to the base commit, so `head_sha` cannot find
-              // it. Each gate puts the PR's head SHA at the end of its `run-name` instead, so this
-              // pages through the runs, newest first, until one matches. It stops at the first run
-              // past GitHub's 30-day re-run window: anything older could not be re-run anyway.
-              let run;
-              for (let page = 1; !run; page += 1) {
-                const { data: runs } = await github.rest.actions.listWorkflowRuns({
-                  owner, repo, workflow_id: workflowId,
-                  // The gates' own trigger, so a differently-triggered run of the same file is not
-                  // picked up.
-                  event: 'pull_request_target', per_page: 100, page,
-                });
-                run = runs.workflow_runs.find(r => (r.display_title ?? '').endsWith(pr.head.sha));
-                const last = runs.workflow_runs.at(-1);
-                if (runs.workflow_runs.length < 100 || Date.parse(last.created_at) < RERUN_WINDOW_START) break;
-              }
+              const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: workflowId,
+                // The gates' own trigger, so a differently-triggered run of the same file is not
+                // picked up. A pull_request_target run's `head_sha` is the PR head (only
+                // GITHUB_SHA inside the run is main's), so this finds the run for this commit. The
+                // API returns newest first.
+                event: 'pull_request_target', head_sha: pr.head.sha, per_page: 1,
+              });
+              const run = runs.workflow_runs[0];
               if (!run) continue;
 
               if (run.status !== 'completed') {
@@ -216,11 +208,11 @@ jobs:
             }
 
             if (notes.length === 0) {
-              // Runs from before the gates moved to pull_request_target have no head SHA in their
-              // title, so a PR last pushed before then has a run this lookup cannot see.
+              // A run from before the gates moved to pull_request_target has the old trigger, so a
+              // PR last pushed before then has a run this lookup does not see.
               return decline(
-                `${command.noRun}; a run from before the gates moved to \`pull_request_target\`, `
-                + 'or one more than 30 days old, cannot be found either — push a commit to produce one'
+                `${command.noRun}; a run from before the gates moved to \`pull_request_target\` `
+                + 'is not found either — push a commit to produce one'
               );
             }
 

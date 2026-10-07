@@ -1,6 +1,4 @@
 name: EvalForge wix-app Gate
-# `/re-eval` finds this run by the head SHA in its title (evalforge-re-eval.yml).
-run-name: EvalForge wix-app Gate · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
 # pull_request_target, not pull_request: this job holds secrets, and under pull_request the
 # workflow file and the action both come from the PR, so any branch could rewrite them. Here
@@ -34,23 +32,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      statuses: write
     outputs:
       analyze-run-id: ${{ steps.gate.outputs.analyze-run-id }}
     steps:
-      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
-      # the PR by itself. These two status steps put it there, under the workflow's name.
-      - name: Report pending on the PR head
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
-        with:
-          script: |
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.payload.pull_request.head.sha,
-              state: 'pending',
-              context: process.env.GITHUB_WORKFLOW,
-              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-            });
       # Two checkouts, as the yaml-gate workflows do:
       # 1) PR merge ref — the skill files and head scenario YAML, read as data only.
       # 2) main's head (github.sha, the commit this workflow file came from) into .action-src —
@@ -127,22 +111,6 @@ jobs:
           blocking: ${{ vars.WIX_APP_EVAL_BLOCK_MERGE || 'false' }}
           runs-per-scenario: ${{ vars.WIX_APP_EVAL_RUNS_PER_SCENARIO }}
           base-arm-grace-seconds: ${{ vars.WIX_APP_EVAL_BASE_GRACE_SECONDS }}
-
-      - name: Report the verdict on the PR head
-        if: always()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
-        env:
-          JOB_STATUS: ${{ job.status }}
-        with:
-          script: |
-            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.payload.pull_request.head.sha,
-              state,
-              context: process.env.GITHUB_WORKFLOW,
-              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-            });
 
   # The investigation runs here rather than in the gate job because a check finalises when its job
   # ends, not when a comment posts — sharing the job would hold the required check open for the

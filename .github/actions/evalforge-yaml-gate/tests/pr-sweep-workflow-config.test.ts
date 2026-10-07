@@ -29,8 +29,7 @@ const reEval = readFileSync(join(WORKFLOWS, 'evalforge-re-eval.yml'), 'utf-8');
 
 describe('EvalForge PR Sweep workflow — trigger', () => {
   // pull_request_target, so the workflow file and the action come from main: under pull_request a
-  // branch could rewrite either and run it with the sweep's secrets. Such a run is attached to the
-  // base commit, so the job reports its own status on the PR head (see the status steps below).
+  // branch could rewrite either and run it with the sweep's secrets.
   it('runs on pull_request_target events, and on nothing else', () => {
     expect(workflow.on.pull_request_target?.branches).toEqual(['main']);
     expect(workflow.on.pull_request).toBeUndefined();
@@ -100,12 +99,9 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
     expect(wait).toBeLessThan(action);
   });
 
-  it('reports pending, then its verdict, as a status on the PR head', () => {
-    const scripts = job.steps.filter(s => s.uses?.startsWith('actions/github-script'));
-    expect(scripts).toHaveLength(2);
-    expect(String(scripts[0].with?.script)).toContain("state: 'pending'");
-    expect(scripts[1].if).toBe('always()');
-    for (const step of scripts) expect(String(step.with?.script)).toContain('sha: context.payload.pull_request.head.sha');
+  // Its check run already lands on the PR head; a status of its own would show the sweep twice.
+  it('posts no commit status of its own', () => {
+    expect(JSON.stringify(job.steps)).not.toContain('createCommitStatus');
   });
 
   it('diffs the merge commit against its first parent, so only the PR\'s own changes count', () => {
@@ -144,8 +140,8 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
     expect(action?.with?.['evalforge-app-secret']).toBe('${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}');
   });
 
-  it('can comment on the PR, set statuses and read the repo, nothing more', () => {
-    expect(job.permissions).toEqual({ contents: 'read', 'pull-requests': 'write', statuses: 'write' });
+  it('can comment on the PR and read the repo, nothing more', () => {
+    expect(job.permissions).toEqual({ contents: 'read', 'pull-requests': 'write' });
   });
 
   it('allows a job budget above the worst-case three sequential 30-minute polls', () => {
