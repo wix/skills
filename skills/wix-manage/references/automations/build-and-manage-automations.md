@@ -9,7 +9,7 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 
 # Build Simple Wix Automations
 
-This publication supports inspection and creation of **inactive, immediate, linear**
+This skill supports inspection and creation of **inactive, immediate, linear**
 automations whose nodes are APP_DEFINED actions with schema-defined inputs. Configuration
 updates, activation/deactivation and Test Automation are not supported in this stage.
 Email/opaque widgets, entity pickers, schedules, condition nodes and special steps require
@@ -46,7 +46,7 @@ expression guide; it is not a condition node.
 5. Save only with the user's authorization. Report the returned ID, inactive status and
    verified content. Do not activate or execute a test as part of creation.
 
-The included procedure is shared with later publication stages. Its update, activation and
+The included procedure also describes workflows this skill does not support yet. Its update, activation and
 execution-test sections describe future workflows; the stage limits above take precedence.
 
 
