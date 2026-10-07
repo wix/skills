@@ -6,7 +6,7 @@
     "templateId": "stores-v3-editor"
   },
   "name": "automations/discover-contact-task-capabilities",
-  "description": "Read-only site catalog discovery for a contact-created task workflow, whether or not a task action is installed.",
+  "description": "Read-only site catalog discovery for a contact-created task workflow, whether or not a task action is installed. Uses the same stores-v3-editor template as the label scenario, whose catalog was verified to expose the contact-created trigger; the Stores app itself is not under test.",
   "triggerPrompt": "Check whether my site supports creating a task when a contact is added. Show me the available trigger and action and what information I would need to configure them.",
   "assertions": [
     {
