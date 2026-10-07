@@ -3,8 +3,6 @@ name: "Automations Mapping Expressions"
 description: "Write builder-compatible automation mapping expressions, literals and data references."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Bracket Expressions (Formulas) — `{{…}}`
 
 **TL;DR**

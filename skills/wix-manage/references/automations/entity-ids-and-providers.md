@@ -3,8 +3,6 @@ name: "Automations Entity and Provider Configuration"
 description: "Resolve entity identifiers using Item Selection or vertical APIs, and find provider-owned automation configuration workflows."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Entity IDs and Provider APIs
 
 Many trigger filters, action inputs and condition fields take the **id** of something that
@@ -73,7 +71,7 @@ The PUBLIC/BETA Item Selection service discovers installed providers and queries
 Use the concrete provider key or discover providers by the selector tag, apply fixed and parent
 filters, page results, and save returned ids unchanged. Vertical APIs below remain valid alternatives.
 
-Load Automations Item Selection (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) for request shapes, permissions, service-relative paths, public binding
+Load [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) for request shapes, permissions, service-relative paths, public binding
 limitations, search, cursor/offset paging and dependent selections. An inaccessible binding or
 failed lookup means options are unknown; never invent an id.
 

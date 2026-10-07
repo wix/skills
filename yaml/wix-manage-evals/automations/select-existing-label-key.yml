@@ -1,0 +1,86 @@
+{
+  "name": "automations/select-existing-label-key",
+  "description": "Named label selection saves a real non-UUID key and avoids similarly named labels.",
+  "triggerPrompt": "Create an automation named VIP contact follow-up. When a new contact is created, add the existing VIP follow-up label to that contact. Do not create or rename labels. Please save the automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Find exact VIP follow-up, not VIP follow-up old or Support. Saved addLabelsToContact inputMapping.labelKeys contains the real selected key; no displayName or fabricated UUID. Contact ID comes from trigger. No label creation/assignment now; only save the automation. Resolve items with the public Item Selection binding when available OR the owning vertical public API. Both are valid. If using Item Selection, derive provider key/tag from actual metadata, use installed providers for tags, query.filter with parent constraints and correct pagination, and persist returned items[].id unchanged. A vertical response uses its documented ID/key. No guessed dashboard/private endpoint or generated slug. Failed lookups are unknown, not empty. Score 0 for any missing mandatory result or unsupported success claim. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize guessing a slug/key from the label name or selecting VIP follow-up old before verifying the exact match; do not penalize the documented vertical labels API as an alternative to Item Selection. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor",
+    "bootstrap": {
+      "steps": [
+        {
+          "label": "Seed VIP follow-up",
+          "method": "post",
+          "url": "https://www.wixapis.com/contacts/v4/labels",
+          "body": {
+            "displayName": "VIP follow-up"
+          }
+        },
+        {
+          "label": "Seed VIP follow-up old",
+          "method": "post",
+          "url": "https://www.wixapis.com/contacts/v4/labels",
+          "body": {
+            "displayName": "VIP follow-up old"
+          }
+        },
+        {
+          "label": "Seed Support",
+          "method": "post",
+          "url": "https://www.wixapis.com/contacts/v4/labels",
+          "body": {
+            "displayName": "Support"
+          }
+        }
+      ]
+    }
+  }
+}

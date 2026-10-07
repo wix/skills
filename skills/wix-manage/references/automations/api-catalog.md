@@ -3,8 +3,6 @@ name: "Automations API Catalog"
 description: "Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
@@ -220,7 +218,7 @@ paths are `GET /v1/items-selection/installed-providers` and
 `ITEMS_SELECTION.LIST_INSTALLED_PROVIDERS` and `ITEMS_SELECTION.LIST_ITEMS`, respectively.
 Use a supported public client/MCP binding; the external gateway base and token access remain
 unverified, so do not prepend this catalog's REST base by assumption. Discovery, filters,
-pagination and dependent selections: Automations Item Selection (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)). Vertical public APIs
+pagination and dependent selections: [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection). Vertical public APIs
 remain valid alternatives.
 
 **Not public or not available through the general Automations API:**

@@ -3,8 +3,6 @@ name: "Automations Feasibility and Planning"
 description: "Assess automation feasibility, supported action configuration, update locks and planning constraints before promising or changing a workflow."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Limitations & Planning
 
 **TL;DR**

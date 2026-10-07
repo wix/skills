@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 77efde2e33b951fc2f928d0278f958279e4d47a4a86b1fb31467d68b52c4e0b8
+# Source content SHA-256: 718d69250da94cdbbe01b1e4e865d4a2f2b4e876f19ccd9444de380fd041135d
 apiDoc:
   title: Wix Automations Recipes
 
@@ -58,6 +58,10 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-status.md
       title: "Automations Activation Status"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/item-selection.md
+      title: "Automations Item Selection"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/email-actions.md

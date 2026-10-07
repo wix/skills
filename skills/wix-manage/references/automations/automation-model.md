@@ -3,8 +3,6 @@ name: "Automations Graph and Data Model"
 description: "Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Automation Model — Object, Graph Rules, Payload Scope
 
 **TL;DR**

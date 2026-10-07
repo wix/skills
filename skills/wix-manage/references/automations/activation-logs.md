@@ -3,8 +3,6 @@ name: "Automations Run Diagnosis"
 description: "Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Interpret supplied automation run logs
 
 Use this reference to explain logs, screenshots or exported run details supplied by the user.
