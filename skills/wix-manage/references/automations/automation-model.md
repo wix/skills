@@ -64,6 +64,8 @@ Action (common fields):
 
 ### Designing within the tree
 
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+
 - **Several independent actions** ("send an email and post a chat message") → chain them A → B → C, most time-sensitive first. Use SPLIT only when the user wants them to run at the same time. Never claim parallel execution is impossible.
 - **Branch, then continue** ("if A, also do A2; after 6h send Y to everyone") → DUPLICATE every later stage into BOTH branches with fresh ids and namespaces (variable steps keep `setVariable`, with fresh variable keys and updated downstream references). A **Send an email** in a duplicated stage is added by the user in each branch ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1) — never copy an existing step's `messageId` / `templateId` / `uniqueRuleId`: both steps would share one email, so editing one changes both and deleting one can delete the shared email. Never point both branches at the same action. Never use a "gate" where the TRUE branch does its side-action and stops while the timeline should continue.
 
@@ -77,6 +79,8 @@ initial > Check A?
 - **Repeated logic** after different conditions = separate actions with identical configuration but new ids and namespaces.
 
 ### Only model what the user asked for
+
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
 
 Add a condition/delay ONLY for explicit flow control ("if X, do a DIFFERENT step Y", "after 2 days"). Audience/copy framing is CONTENT, not a condition:
 
