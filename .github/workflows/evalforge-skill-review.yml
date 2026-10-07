@@ -1,4 +1,6 @@
 name: EvalForge Skill Review
+# `/review` finds this run by the head SHA in its title (evalforge-re-eval.yml).
+run-name: EvalForge Skill Review · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
 # Reviews the *content* of wix-manage skills and their eval scenarios, against the guide sections
 # named in .github/prompts/skill-review.md. The eval gates check wiring; nothing else reads the prose.
@@ -9,8 +11,14 @@ name: EvalForge Skill Review
 # The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
 # the tests covering this wiring, so a differently named file would silently skip them.
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
+#
+# The reviewer's own definition (.claude/agents/skill-review.md) is read from .action-src too,
+# so a PR cannot rewrite the instructions it is reviewed by.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     # No `paths:` filter, for the reason ci.yml gives at length: a required check whose workflow is
     # path-scoped is never reported on PRs outside those paths, and GitHub leaves it "Expected —
@@ -26,8 +34,9 @@ concurrency:
 
 jobs:
   review:
-    # The job name *is* the required-status-check name. Left implicit it would be `review`, and
-    # generic names collide in the picker — both eval gates already expose a job called `gate`.
+    # The job name only labels the check run inside this workflow run, which is attached to main's
+    # commit. The PR shows the commit status the report steps post under the workflow's name, and
+    # that is the name to require. Explicit so it is not the generic `review`.
     name: skill-review
     runs-on: ubuntu-latest
     # Comfortably over the reviewer's own 900-second ceiling, leaving room for checkout and install.
@@ -38,19 +47,79 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
     steps:
-      # Default `refs/pull/N/merge` — the tree as it will land, which is what's worth reviewing. Its
-      # first parent is the base, so the reviewer diffs `HEAD^1 HEAD`.
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
+
+      # The PR merge ref, `refs/pull/N/merge` — the tree as it will land, which is what's worth
+      # reviewing. Read as data only. Its first parent is the base, so the reviewer diffs `HEAD^1 HEAD`.
       # fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+          persist-credentials: false
+
+      # pull_request_target can start before GitHub rebuilds refs/pull/N/merge for this push. Wait
+      # until the merge commit's second parent is this head, so the gate never evaluates the
+      # previous push's tree. The rebuild usually takes seconds but can take minutes, so the waits
+      # back off to about three minutes in all. On giving up, the PR's `mergeable` tells a conflict,
+      # which needs a push, from a slow rebuild, which needs a re-run.
+      - name: Wait for the merge ref to include this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # An `if`, not `[ ] && echo`: under the runner's `bash -e` a false test in a command
+          # substitution fails the assignment, and a full-history checkout would exit here.
+          depth=$(if [ -f .git/shallow ]; then echo --depth=1; fi)
+          for wait in 0 5 10 15 20 30 30 30 40; do
+            if [ "$wait" -gt 0 ]; then
+              echo "Merge ref is at head ${merged_head:-none}, waiting ${wait}s for $HEAD_SHA"
+              sleep "$wait"
+              git fetch --no-tags $depth origin "+refs/pull/$PR_NUMBER/merge:refs/remotes/pull/merge" \
+                && git checkout -q --detach refs/remotes/pull/merge
+            fi
+            merged_head=$(git cat-file -p HEAD | awk '/^parent /{print $2}' | sed -n 2p)
+            [ "$merged_head" = "$HEAD_SHA" ] && exit 0
+          done
+          mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .mergeable || echo unknown)
+          if [ "$mergeable" = false ]; then
+            echo "::error::This PR has conflicts with main, so GitHub cannot build refs/pull/$PR_NUMBER/merge. Resolve them and push."
+          else
+            echo "::error::GitHub has not rebuilt refs/pull/$PR_NUMBER/merge for $HEAD_SHA after about three minutes. Re-run this job."
+          fi
+          exit 1
+
+      # The action source and the reviewer definition, from main's head (github.sha, the commit this
+      # workflow file came from). Not base.sha: on a PR opened before this change merged, that
+      # would be an older action that still read the reviewer definition from the PR.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.sha }}
+          path: .action-src
+          persist-credentials: false
 
       # Pinned exactly: this action parses the CLI's JSON envelope and depends on its flag surface,
-      # and both move between releases.
+      # and both move between releases. Installed from the runner's temp dir so an `.npmrc` in the
+      # PR checkout cannot redirect the registry.
       - run: npm install -g @anthropic-ai/claude-code@2.1.263
+        working-directory: ${{ runner.temp }}
 
-      - uses: ./.github/actions/evalforge-yaml-gate
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         with:
           mode: review
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -61,3 +130,19 @@ jobs:
           review-timeout-seconds: ${{ vars.SKILL_REVIEW_TIMEOUT_SECONDS }}
           blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}
           triggered-by: ${{ github.triggering_actor }}
+
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });

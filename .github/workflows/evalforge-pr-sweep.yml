@@ -1,4 +1,6 @@
 name: EvalForge PR Sweep
+# `/sweep` finds this run by the head SHA in its title (evalforge-re-eval.yml).
+run-name: EvalForge PR Sweep · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
 # Runs the merge-tag sweep against an open PR on request, so a regression in another area can be
 # found before merge rather than after. `evalforge-merge-tag-sweep.yml` runs the same sweep on every
@@ -8,8 +10,8 @@ name: EvalForge PR Sweep
 # Manual, like the skill review: a push does not spend. Every head commit gets a run that only
 # records whether the commit is unswept, and `/sweep` re-runs that run via the COMMANDS map in
 # evalforge-re-eval.yml. It has to be shaped this way because a required status check must be
-# reported on the PR head, and only a `pull_request` run is — a comment-triggered run is attached to
-# the default branch commit.
+# reported on the PR head, and only a PR-triggered run knows that head: its report steps post the
+# status there, under the workflow's name.
 #
 # Three repo variables, all off by default and independent: PR_SWEEP_REQUIRED makes an unswept
 # commit red, PR_SWEEP_BLOCK_MERGE makes a sweep that found a regression red, and PR_SWEEP_REMIND
@@ -19,8 +21,11 @@ name: EvalForge PR Sweep
 # The `evalforge-` prefix is load-bearing: ci.yml's detect step matches it to decide whether to run
 # the tests covering this wiring.
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     # No `paths:` filter, for the reason ci.yml gives at length: a required check whose workflow is
     # path-scoped is never reported on PRs outside those paths, and GitHub leaves it "Expected —
@@ -39,7 +44,9 @@ concurrency:
 
 jobs:
   pr-sweep:
-    # The job name *is* the required-status-check name.
+    # The job name only labels the check run inside this workflow run, which is attached to main's
+    # commit. The PR shows the commit status the report steps post under the workflow's name, and
+    # that is the name to require.
     name: pr-sweep
     runs-on: ubuntu-latest
     # Three sequential eval runs are possible (initial + two retries) and each may poll for up
@@ -56,12 +63,69 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
     steps:
-      # Default `refs/pull/N/merge` — the tree as it will land. Its first parent is the base, so
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
+
+      # The PR merge ref, `refs/pull/N/merge`, read as data only. Its first parent is the base, so
       # `HEAD^1 HEAD` is this PR's diff. fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+          persist-credentials: false
+
+      # pull_request_target can start before GitHub rebuilds refs/pull/N/merge for this push. Wait
+      # until the merge commit's second parent is this head, so the gate never evaluates the
+      # previous push's tree. The rebuild usually takes seconds but can take minutes, so the waits
+      # back off to about three minutes in all. On giving up, the PR's `mergeable` tells a conflict,
+      # which needs a push, from a slow rebuild, which needs a re-run.
+      - name: Wait for the merge ref to include this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # An `if`, not `[ ] && echo`: under the runner's `bash -e` a false test in a command
+          # substitution fails the assignment, and a full-history checkout would exit here.
+          depth=$(if [ -f .git/shallow ]; then echo --depth=1; fi)
+          for wait in 0 5 10 15 20 30 30 30 40; do
+            if [ "$wait" -gt 0 ]; then
+              echo "Merge ref is at head ${merged_head:-none}, waiting ${wait}s for $HEAD_SHA"
+              sleep "$wait"
+              git fetch --no-tags $depth origin "+refs/pull/$PR_NUMBER/merge:refs/remotes/pull/merge" \
+                && git checkout -q --detach refs/remotes/pull/merge
+            fi
+            merged_head=$(git cat-file -p HEAD | awk '/^parent /{print $2}' | sed -n 2p)
+            [ "$merged_head" = "$HEAD_SHA" ] && exit 0
+          done
+          mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .mergeable || echo unknown)
+          if [ "$mergeable" = false ]; then
+            echo "::error::This PR has conflicts with main, so GitHub cannot build refs/pull/$PR_NUMBER/merge. Resolve them and push."
+          else
+            echo "::error::GitHub has not rebuilt refs/pull/$PR_NUMBER/merge for $HEAD_SHA after about three minutes. Re-run this job."
+          fi
+          exit 1
+
+      # The action source, from main's head (github.sha, the commit this workflow file came from),
+      # so the workflow and the action always match.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.sha }}
+          path: .action-src
+          persist-credentials: false
 
       - name: Diff the PR against its base
         id: diff
@@ -72,7 +136,7 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/evalforge-yaml-gate
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         id: sweep
         with:
           mode: pr-sweep
@@ -87,3 +151,19 @@ jobs:
           required: ${{ vars.PR_SWEEP_REQUIRED || 'false' }}
           blocking: ${{ vars.PR_SWEEP_BLOCK_MERGE || 'false' }}
           remind: ${{ vars.PR_SWEEP_REMIND || 'false' }}
+
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });

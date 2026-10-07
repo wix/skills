@@ -28,7 +28,10 @@ const RE_EVAL_SCRIPT = (() => {
   return script;
 })();
 
-type WorkflowRun = { id: number; status: string; conclusion: string | null; html_url: string };
+type WorkflowRun = {
+  id: number; status: string; conclusion: string | null; html_url: string; display_title: string;
+  created_at?: string;
+};
 
 type PullRequest = {
   state: string;
@@ -46,11 +49,15 @@ const OPEN_PR: PullRequest = {
   head: { sha: 'abc1234def5678', repo: { full_name: 'wix/skills' } },
 };
 
+// Each gate's `run-name` ends with the PR head SHA; that is how the script finds the run.
+const TITLE_FOR_HEAD = `EvalForge gate · PR #42 · ${OPEN_PR.head.sha}`;
+
 const FAILED_RUN: WorkflowRun = {
   id: 900,
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/900',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const MANAGE_RUN: WorkflowRun = {
@@ -58,6 +65,7 @@ const MANAGE_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/901',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const REVIEW_RUN: WorkflowRun = {
@@ -65,6 +73,7 @@ const REVIEW_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'failure',
   html_url: 'https://github.com/wix/skills/actions/runs/902',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const SWEEP_RUN: WorkflowRun = {
@@ -72,6 +81,7 @@ const SWEEP_RUN: WorkflowRun = {
   status: 'completed',
   conclusion: 'success',
   html_url: 'https://github.com/wix/skills/actions/runs/903',
+  display_title: TITLE_FOR_HEAD,
 };
 
 const YAML_GATE = 'evalforge-yaml-gate.yml';
@@ -117,7 +127,10 @@ function harness(options: {
       [PR_SWEEP]: options.sweepRuns ?? [],
     };
     const workflowRuns = byWorkflow[String(query.workflow_id)] ?? options.runs ?? [FAILED_RUN];
-    return { data: { workflow_runs: workflowRuns } };
+    // Paged like the API: `page` is 1-based, and a page past the end comes back empty.
+    const perPage = Number(query.per_page ?? 30);
+    const page = Number(query.page ?? 1);
+    return { data: { workflow_runs: workflowRuns.slice((page - 1) * perPage, page * perPage) } };
   });
   const reRunWorkflow = vi.fn(async ({ run_id }: { run_id: number }) => {
     if (options.rerunError) throw options.rerunError;
@@ -298,17 +311,66 @@ describe('finding the run to re-run', () => {
     expect(test.runQueries).toEqual([
       expect.objectContaining({
         workflow_id: 'evalforge-wix-app-gate.yml',
-        event: 'pull_request',
-        head_sha: OPEN_PR.head.sha,
-        per_page: 1,
+        event: 'pull_request_target',
+        per_page: 100,
       }),
       expect.objectContaining({
         workflow_id: YAML_GATE,
-        event: 'pull_request',
-        head_sha: OPEN_PR.head.sha,
-        per_page: 1,
+        event: 'pull_request_target',
+        per_page: 100,
       }),
     ]);
+  });
+
+  // A pull_request_target run is attached to the base commit, so the head SHA in the run's title
+  // is the only link to this commit. A newer run for another commit must not be re-run instead.
+  it('picks the run whose title names this head sha, not the newest run', async () => {
+    const other = run({ id: 950, display_title: 'EvalForge gate · PR #42 · 0000000ffffffff' });
+    const mine = run({ id: 951 });
+    const test = harness({ runs: [other, mine] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([951]);
+  });
+
+  // Busy gates push a PR's run past the first page; the run is still there to re-run.
+  it('pages past the first 100 runs to find this head sha', async () => {
+    const recent = new Date().toISOString();
+    const others = Array.from({ length: 100 }, (_, i) =>
+      run({ id: 1000 + i, created_at: recent, display_title: 'EvalForge gate · PR #7 · 0000000ffffffff' }));
+    const test = harness({ runs: [...others, run({ id: 1200, created_at: recent })] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([1200]);
+  });
+
+  // A run past GitHub's 30-day re-run window could not be re-run, so there is no point paging to it.
+  it('stops paging at a run older than the 30-day re-run window', async () => {
+    const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+    const others = Array.from({ length: 100 }, (_, i) =>
+      run({ id: 1000 + i, created_at: old, display_title: 'EvalForge gate · PR #7 · 0000000ffffffff' }));
+    const test = harness({ runs: [...others, run({ id: 1200, created_at: old })] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([]);
+    expect(test.runQueries.filter(query => query.workflow_id === 'evalforge-wix-app-gate.yml')).toHaveLength(1);
+  });
+
+  // A run from before the trigger change has no SHA in its title; the reply has to say so, or the
+  // requester is told no run exists for a commit they can see was evaluated.
+  it('tells the requester a run from before the change cannot be found', async () => {
+    const test = harness({ runs: [] });
+    await test.execute();
+
+    expect(test.comments[0]).toContain('`pull_request_target`');
+    expect(test.comments[0]).toContain('push a commit to produce one');
+  });
+
+  it('re-runs nothing when no run names this head sha', async () => {
+    const test = harness({ runs: [run({ display_title: 'EvalForge gate · PR #42 · 0000000ffffffff' })] });
+    await test.execute();
+
+    expect(test.rerunIds).toEqual([]);
   });
 
   // The sweep is green in soak mode and manual after every push, so the run worth re-running is a

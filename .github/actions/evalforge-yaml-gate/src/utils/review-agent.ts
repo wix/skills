@@ -67,7 +67,13 @@ const OUTPUT_SCHEMA = JSON.stringify({
 });
 
 export type AgentInvocation = {
+  /** The PR checkout the reviewer reads. */
   cwd: string;
+  /**
+   * Where the reviewer's own definition is read from: the base checkout, never the PR, so a PR
+   * cannot rewrite the instructions it is reviewed by.
+   */
+  agentWorkspace: string;
   task: string;
   apiKey: string;
   baseUrl: string;
@@ -148,7 +154,7 @@ function buildArgs(invocation: AgentInvocation): string[] {
     '-p',
     ...SANDBOX_ARGS,
     '--tools', TOOLS,
-    '--agents', buildAgents(invocation.cwd),
+    '--agents', buildAgents(invocation.agentWorkspace),
     '--agent', REVIEW_AGENT,
     '--allowedTools', ALLOWED_TOOLS,
     '--json-schema', OUTPUT_SCHEMA,

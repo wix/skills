@@ -1,7 +1,9 @@
 name: Skill Eval Cleanup
 
+# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
+# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
 
 concurrency:

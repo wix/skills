@@ -1,7 +1,13 @@
 name: EvalForge YAML Gate
+# `/re-eval` finds this run by the head SHA in its title (evalforge-re-eval.yml): a
+# pull_request_target run is attached to the base commit, so `head_sha` cannot find it.
+run-name: EvalForge YAML Gate · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
+# pull_request_target, not pull_request: this job holds secrets, and under pull_request the
+# workflow file and the action both come from the PR, so any branch could rewrite them. Here
+# both come from main. The PR is checked out as data only: nothing from it is executed.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -24,16 +30,68 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+      statuses: write
     steps:
+      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
+      # the PR by itself. These two status steps put it there, under the workflow's name.
+      - name: Report pending on the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'pending',
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });
       # Two checkouts is intentional:
-      # 1) PR merge ref — reads head YAMLs, .md files, documentation.yaml, and provides the action source.
-      # 2) Base SHA into .action-src — base evals for diff computation only.
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      # 1) PR merge ref — head YAMLs, .md files and documentation.yaml, read as data only.
+      #    No credentials are persisted into it.
+      # 2) main's head (github.sha, the commit this workflow file came from) into .action-src —
+      #    base evals for the diff, and the action source. Not base.sha: on a PR opened before a
+      #    gate change merged, base.sha would pair this workflow with an older action.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
+      # pull_request_target can start before GitHub rebuilds refs/pull/N/merge for this push. Wait
+      # until the merge commit's second parent is this head, so the gate never evaluates the
+      # previous push's tree. The rebuild usually takes seconds but can take minutes, so the waits
+      # back off to about three minutes in all. On giving up, the PR's `mergeable` tells a conflict,
+      # which needs a push, from a slow rebuild, which needs a re-run.
+      - name: Wait for the merge ref to include this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # An `if`, not `[ ] && echo`: under the runner's `bash -e` a false test in a command
+          # substitution fails the assignment, and a full-history checkout would exit here.
+          depth=$(if [ -f .git/shallow ]; then echo --depth=1; fi)
+          for wait in 0 5 10 15 20 30 30 30 40; do
+            if [ "$wait" -gt 0 ]; then
+              echo "Merge ref is at head ${merged_head:-none}, waiting ${wait}s for $HEAD_SHA"
+              sleep "$wait"
+              git fetch --no-tags $depth origin "+refs/pull/$PR_NUMBER/merge:refs/remotes/pull/merge" \
+                && git checkout -q --detach refs/remotes/pull/merge
+            fi
+            merged_head=$(git cat-file -p HEAD | awk '/^parent /{print $2}' | sed -n 2p)
+            [ "$merged_head" = "$HEAD_SHA" ] && exit 0
+          done
+          mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .mergeable || echo unknown)
+          if [ "$mergeable" = false ]; then
+            echo "::error::This PR has conflicts with main, so GitHub cannot build refs/pull/$PR_NUMBER/merge. Resolve them and push."
+          else
+            echo "::error::GitHub has not rebuilt refs/pull/$PR_NUMBER/merge for $HEAD_SHA after about three minutes. Re-run this job."
+          fi
+          exit 1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.sha }}
           path: .action-src
-      - uses: ./.github/actions/evalforge-yaml-gate
+          persist-credentials: false
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
@@ -46,3 +104,19 @@ jobs:
           auto-approve: ${{ vars.EVAL_AUTO_APPROVE || 'false' }}
           eval-compare: ${{ vars.TRIGGER_EVAL_COMPARE || 'true' }}
           max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILL_AREAS || '1' }}
+
+      - name: Report the verdict on the PR head
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: process.env.GITHUB_WORKFLOW,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            });

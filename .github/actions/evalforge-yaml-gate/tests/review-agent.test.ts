@@ -47,6 +47,7 @@ const GATEWAY = 'https://www.wixapis.com/anthropic';
 
 const invocation = {
   cwd: join(process.cwd(), '../../..'),
+  agentWorkspace: join(process.cwd(), '../../..'),
   task: 'the task',
   apiKey: 'wix-sk-secret',
   baseUrl: GATEWAY,
