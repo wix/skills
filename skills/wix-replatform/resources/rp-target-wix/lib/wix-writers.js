@@ -1624,7 +1624,7 @@ function normalizeV5Contact(contact = {}) {
   return normalized;
 }
 // Legacy V4-style `info` payloads (pre-GA generated transforms) convert through this
-// STRICT whitelist: unknown keys throw instead of silently dropping source data.
+// STRICT allowlist: unknown keys throw instead of silently dropping source data.
 // `extendedFields` and `labelKeys` throw because they have no mechanical V5 equivalent —
 // V5 custom fields live under extendedFields.namespaces (Data Extension Schema) and
 // labels became tags (Tags API); both need a setup-time decision, not a converter guess.

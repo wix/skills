@@ -6,7 +6,7 @@ description: "Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FI
 
 > **Routing rule (READ FIRST).** This recipe is a sub-step of [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory). If you arrived here directly from the WixREADME index, load the goal recipe NOW before executing — it owns the velocity scoring, classification cues, and the per-recommendation presentation rules (including the **margin-floor guardrail** surfacing requirement).
 >
-> **Then** read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Then** read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-plausibility).
 
 Creates a discount targeting slow-moving inventory — products with high stock levels and low sales velocity. The discount depth is proportional to how overstocked the product is, with deeper discounts for the most stagnant items. Margin protection guardrails are especially important here since clearance discounts tend to push closer to cost.
 
@@ -99,7 +99,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 6: Run guardrail checks
 
-**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule** (conflict/stacking, %-sanity, margin floor). Clearance is the **most margin-sensitive** case: discounts push closest to cost, so the margin-floor check (effective margin ≥ 15% unless the merchant overrides) is the one most likely to fire here — verify it per candidate product.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule** (conflict/stacking, %-plausibility, margin floor). Clearance is the **most margin-sensitive** case: discounts push closest to cost, so the margin-floor check (effective margin ≥ 15% unless the merchant overrides) is the one most likely to fire here — verify it per candidate product.
 
 ---
 

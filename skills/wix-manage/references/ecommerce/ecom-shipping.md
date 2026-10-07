@@ -39,7 +39,7 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 
 ### Troubleshoot
 
-> - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Sanity guardrail, then correct the rate structure*
+> - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Plausibility guardrail, then correct the rate structure*
 
 ## Tag matching
 
@@ -53,7 +53,7 @@ The agent matches the merchant's natural-language query to an `intent:*` tag (cu
 | "How much should I charge for shipping?" | any | `ecom-shipping-setup-rates` via `[intent:setup-rates]` |
 | "I want customers to pick up from my shop" | any | `ecom-shipping-setup-pickup` via `[intent:setup-pickup]` |
 | "Some regions have no shipping option" | any | `ecom-shipping-fix-coverage` via `[intent:fix-coverage]` |
-| "A customer was charged the wrong shipping" | any | `ecom-shipping-optimize-rates` via `[intent:rate-incorrect]` (runs rate-sanity guardrail first) |
+| "A customer was charged the wrong shipping" | any | `ecom-shipping-optimize-rates` via `[intent:rate-incorrect]` (runs rate-plausibility guardrail first) |
 
 ## Base recipe (fallback)
 

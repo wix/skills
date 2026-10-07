@@ -21,7 +21,7 @@ export interface MenuItemLabel {
   iconUrl: string;
 }
 
-/** One price variant of an item ("Glass" / "Bottle"). An item has price OR variants. */
+/** One price variant of an item ("Small" / "Large"). An item has price OR variants. */
 export interface MenuItemVariant {
   variantId: string;
   name: string;
