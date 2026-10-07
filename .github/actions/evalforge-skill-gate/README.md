@@ -7,13 +7,18 @@ Four modes, in one action so they share one committed bundle:
 
 | Mode | Trigger | What it does |
 |---|---|---|
-| `gate` | `pull_request` opened / synchronize / reopened / ready_for_review | Derives which eval tags the PR affects, enforces coverage, creates a PR skill version, runs the covering scenarios against it, comments the result |
+| `gate` | `pull_request_target` opened / synchronize / reopened / ready_for_review | Derives which eval tags the PR affects, enforces coverage, creates a PR skill version, runs the covering scenarios against it, comments the result |
 | `analyze` | after `gate`, when it emits `analyze-run-id` | Requests EvalForge's AI investigation of that completed run and posts it as its own PR comment |
-| `cleanup` | `pull_request` closed | Deletes the PR's capability versions and restores or removes its draft scenarios |
-| `sync` | `pull_request` closed **and merged** | Reconciles the repo's scenario YAML into EvalForge, so EvalForge mirrors `main` |
+| `cleanup` | `pull_request_target` closed | Deletes the PR's capability versions and restores or removes its draft scenarios |
+| `sync` | `pull_request_target` closed **and merged** | Reconciles the repo's scenario YAML into EvalForge, so EvalForge mirrors `main` |
 
 All decision-making lives in [`packages/evalforge-core`](../../../packages/evalforge-core).
 This action reads inputs, calls core, comments, and sets the check status.
+
+The workflows use `pull_request_target`, not `pull_request`, because these jobs hold secrets:
+under `pull_request` the workflow file and this action both come from the PR, so any branch
+could rewrite them. Under `pull_request_target` both come from `main`, the action runs from the
+base checkout in `.action-src`, and the PR merge ref is checked out as data only.
 
 ## `gate` flow
 
@@ -60,8 +65,9 @@ and tell it to run them, so uploading only the docs would break those capabiliti
 time — and the resulting eval failure would read as a skill regression rather than a gate bug.
 Note this is a *different* question from `ignore-globs`, which only decides what **triggers** a
 run. The version is labelled
-`pr-<number>-<evaluated-sha7>`, where the evaluated SHA is `GITHUB_SHA`: on `pull_request`
-that is the **merge** commit the workflow checked out, not the PR head. Labelling by head
+`pr-<number>-<evaluated-sha7>`, where the evaluated SHA is the **merge** commit the workflow
+checked out (the `evaluated-sha` input, from `git rev-parse HEAD`), not the PR head. Under
+`pull_request_target`, `GITHUB_SHA` is `main`'s head, so the workflow must pass it. Labelling by head
 would not uniquely identify the content, since the same head yields different merge results
 as base advances — and `createOrReuseSkillVersion` would then reuse a version built from stale
 content. The `pr-<number>-` prefix is what PR-close cleanup sweeps.
