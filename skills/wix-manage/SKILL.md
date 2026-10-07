@@ -463,7 +463,7 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 ## Automations
 
 ### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
-Create, update, activate or deactivate Wix Automations, and inspect their activation logs on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; use activation and action logs to explain individual runs.
+Create, update, activate or deactivate Wix Automations on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; explain individual runs from activation and action logs the user supplies (this skill does not retrieve logs).
 
 <details>
 <summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
