@@ -122,6 +122,11 @@ CLI or the login), the kit still runs as a reference: fetch
 run step by step as the Wix API calls the scripts make, and names the files that carry each
 contract.
 
+Read the guide, and every file it names, in full. Web-fetch tools return a lossy summary of a page,
+and the summary drops the exact calls and shapes. `curl -fsSL <url>` returns the file itself; so
+does a tool that runs code and can fetch a URL (fetch the URL, return the body as text). If what
+came back reads as a summary, fetch it again that way.
+
 The files it names are skill paths. On the registry a path resolves as
 `https://www.wix.com/skills/<skill>/<path>`: `<SKILL_ROOT>` is `wix-headless-kit`, `<TEMPLATES>` is
 `wix-headless-templates`, `<MANAGE>` is `wix-manage`. Every file of a skill, with its URL, is listed
