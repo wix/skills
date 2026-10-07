@@ -5,6 +5,9 @@ name: Publish @wix/agent-skills to npm
 on:
   pull_request_target:
     types: [closed]
+  # Manual fallback: publishes whatever version main's package.json names. Needed on 2026-10-07 when
+  # the pull_request_target run's OIDC token was refused by npm trusted publishing (PUT 404).
+  workflow_dispatch:
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
@@ -13,8 +16,9 @@ permissions:
 jobs:
   publish:
     if: >
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'release')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'release'))
     runs-on: ubuntu-latest
 
     steps:
