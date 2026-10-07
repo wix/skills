@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -458,3 +458,25 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 "Builds direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com — products list, edit a specific product, categories, inventory, orders list, a specific order, abandoned checkouts, gift cards, shipping and tax settings. Pairs each main Stores/eCommerce entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+
+<!-- automations-builder-sync:begin -->
+## Automations
+
+### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
+Create, update, activate or deactivate Wix Automations, and inspect their activation logs on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; use activation and action logs to explain individual runs.
+
+<details>
+<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
+
+- [Automations API Catalog](references/automations/api-catalog.md)
+  Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
+
+- [Automations Run Diagnosis](references/automations/activation-logs.md)
+  Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
+
+- [Automations Activation Status](references/automations/activation-status.md)
+  Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
+
+</details>
+
+<!-- automations-builder-sync:end -->

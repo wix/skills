@@ -1,0 +1,29 @@
+{
+  "tags": [
+    "automations"
+  ],
+  "siteSetup": {
+    "templateId": "stores-v3-editor"
+  },
+  "name": "automations/discover-contact-task-capabilities",
+  "description": "Read-only site catalog discovery for a contact-created task workflow.",
+  "triggerPrompt": "Check whether my site supports creating a task when a contact is added. Show me the available trigger and action and what information I would need to configure them.",
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful site-scoped public catalog responses establish the contact-created trigger and task action, using their returned identities and schemas to explain required configuration. Do not accept guessed IDs, generic claims, or a blocker instead of successful discovery. No automation or other site data may be created, changed, activated or tested. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the actual tool path. Penalize broad repeated catalog requests, selecting a similarly named trigger without checking its schema, private calls, guessed endpoints or unnecessary mutation confirmation for this read-only request. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+    }
+  ]
+}
