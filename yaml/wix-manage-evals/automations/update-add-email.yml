@@ -1,7 +1,7 @@
 {
   "name": "automations/update-add-email",
   "description": "A new email added to an existing automation is initialized without rebuilding prior steps.",
-  "triggerPrompt": "In Welcome task fixture, add an email to the new contact immediately after the existing task. Subject: We received your details. Body: Our team will follow up. Go ahead and save this edit and email content. Keep all existing configuration.",
+  "triggerPrompt": "In Welcome follow-up, add an email to the new contact immediately after the existing task. Subject: We received your details. Body: Our team will follow up. Go ahead and save this edit and email content. Keep all existing configuration.",
   "tags": [
     "automations"
   ],
@@ -62,7 +62,7 @@
           "url": "https://www.wixapis.com/automations-service/v2/automations",
           "body": {
             "automation": {
-              "name": "Welcome task fixture",
+              "name": "Welcome follow-up",
               "origin": "USER",
               "configuration": {
                 "status": "INACTIVE",

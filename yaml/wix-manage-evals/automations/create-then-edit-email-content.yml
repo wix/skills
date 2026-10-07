@@ -1,7 +1,7 @@
 {
   "name": "automations/create-then-edit-email-content",
   "description": "Content-only edits keep the persisted email action and mapping instead of generating again.",
-  "triggerPrompt": "Set up a contact welcome automation named Welcome subject check with a promotional email to the new contact, subject Welcome, and body Thanks for joining us. After saving and checking it, change only its subject to Glad you joined. Go ahead with those saves and content changes.",
+  "triggerPrompt": "Set up a contact welcome automation named New contact welcome with a promotional email to the new contact, subject Welcome, and body Thanks for joining us. After saving and checking it, change only its subject to Glad you joined. Go ahead with those saves and content changes.",
   "tags": [
     "automations"
   ],

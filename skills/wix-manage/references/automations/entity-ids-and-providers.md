@@ -78,7 +78,8 @@ failed lookup means options are unknown; never invent an id.
 ### Vertical APIs — supported alternatives
 
 1. From the marker, identify the entity kind (provider name after `_`, field title, owning app).
-2. Call the vertical's list/query endpoint below with the same auth as the automations calls (the
+2. Use a confirmed lookup below, or verify a candidate's provider compatibility first. Call it
+   with the same auth as the automations calls (the
    vertical's read scope is needed too). Page small; keep only `{id, name}`.
 3. Match the user's wording to the names. One clear match → use its id. Several → ask the user to
    choose. None → say it wasn't found and ask (it may be named differently, or need creating).
@@ -86,40 +87,53 @@ failed lookup means options are unknown; never invent an id.
 5. Endpoint fails (401/403/404/5xx/timeout) or the kind isn't listed → options unknown: ask for
    the exact entity (or its id). Never fall back to the display name.
 
-REST base `https://www.wixapis.com`. ✅ endpoint confirmed · ⚠️ public API exists, mapping to this
-provider unconfirmed — verify returned ids against a known value, or ask · ❓ vertical lookup not
-confirmed here — try Item Selection with the supplied provider key, otherwise ask.
+### Confirmed lookup endpoints
 
-- ✅ **Wix Forms app forms** (`formAppSelectionProvider`, `formApp`) — `POST /form-schema-service/v4/forms/query`
+Use the following lookups with the site's authorized vertical read scope. Still inspect the
+returned entity and expected field type before saving an ID.
+
+- **Wix Forms app forms** (`formAppSelectionProvider`, `formApp`) — `POST https://www.wixapis.com/form-schema-service/v4/forms/query`
   with `{"query": {"filter": {"namespace": {"$eq": "wix.form_app.form"}}}}` (namespace filter required).
   Form fields for field-level filters come from the form's `fields`.
-- ❓ **Legacy Wix Forms** (`<appId>_forms`) — try its Item Selection provider; prefer the Wix Forms app trigger family when the site uses it.
-- ✅ **Contact labels** (`LabelsItemsSelection`, `labels`) — `POST /contacts/v4/labels/query` or `GET /contacts/v4/labels`. Use the label `key`, not `displayName`.
-- ❓ **Contact segments** (`ContactsSegmentsItemsSelection`).
-- ✅ **Bookings services** (`bookingsServices`) — `POST /bookings/v2/services/query` → service `id`.
-- ⚠️ **Pricing plans** (`PricingPlansSelectionProvider`) — `POST /pricing-plans/v3/plans/query` → plan `id`.
-- ⚠️ **Stores products** (`products`) — Catalog V3 `POST /stores/v3/products/query`; V1 `POST /stores-reader/v1/products/query`.
+- **Contact labels** (`LabelsItemsSelection`, `labels`) — `POST https://www.wixapis.com/contacts/v4/labels/query` or `GET https://www.wixapis.com/contacts/v4/labels`. Use the label `key`, not `displayName`.
+- **Bookings services** (`bookingsServices`) — `POST https://www.wixapis.com/bookings/v2/services/query` → service `id`.
+- **Events** (`eventId`) — `POST https://www.wixapis.com/events/v3/events/query`.
+- **Business locations** (`LocationsProvider`) — `POST https://www.wixapis.com/locations/v1/locations/query`.
+
+### Unverified provider mappings — confirm before use
+
+**The following are investigation candidates, not verified configuration recipes.** A public
+vertical API may exist without its IDs matching this selector provider. Before using any
+returned ID, verify the public method contract and the provider's expected ID against a known
+site entity or supported selector result. If that evidence is unavailable, ask for the exact ID
+or leave an optional field unconfigured with an explanation. Do not treat an endpoint's existence
+as proof of provider compatibility, and do not invent an Item Selection gateway.
+
+- **Legacy Wix Forms** (`<appId>_forms`) — try its Item Selection provider; prefer the Wix Forms app trigger family when the site uses it.
+- **Contact segments** (`ContactsSegmentsItemsSelection`).
+- **Pricing plans** (`PricingPlansSelectionProvider`) — `POST https://www.wixapis.com/pricing-plans/v3/plans/query` → plan `id`.
+- **Stores products** (`products`) — Catalog V3 `POST https://www.wixapis.com/stores/v3/products/query`; V1 `POST https://www.wixapis.com/stores-reader/v1/products/query`.
   Use the site's catalog version; order line items carry the product `id` as `rootCatalogItemId`.
-- ⚠️ **Coupons** (`couponsPicker`) — `POST /stores/v2/coupons/query` → coupon `id`.
-- ✅ **Events** (`eventId`) — `POST /events/v3/events/query`; ⚠️ **ticket definitions** (`ticketDefinitions`) —
-  `POST /events-ticket-definitions/v3/ticket-definitions/query`, filtered by the chosen event.
-- ✅ **Business locations** (`LocationsProvider`) — `POST /locations/v1/locations/query`.
-- ⚠️ **Table reservation locations** (`tableReservations`) — `POST /table-reservations/reservation-locations/v1/reservation-locations/query`.
-- ⚠️ **Online programs / steps** (`online_programs_provider`, `online_program_steps_provider`) —
-  `POST /online-programs/v3/programs/query`; `POST /online-programs/v3/steps/query` within the chosen program.
-- ⚠️ **Pipelines / stages** (`PipelinesItemSelectionProvider`, `PipelineStagesItemsSelectionProvider`) —
-  `POST /crm/pipelines/v1/pipelines/query` or one pipeline `GET /crm/pipelines/v1/pipelines/{pipelineId}`;
+- **Coupons** (`couponsPicker`) — `POST https://www.wixapis.com/stores/v2/coupons/query` → coupon `id`.
+- **Ticket definitions** (`ticketDefinitions`) — candidate `POST https://www.wixapis.com/events-ticket-definitions/v3/ticket-definitions/query`, filtered by the chosen event. Provider ID compatibility is unverified.
+- **Table reservation locations** (`tableReservations`) — `POST https://www.wixapis.com/table-reservations/reservation-locations/v1/reservation-locations/query`.
+- **Online programs / steps** (`online_programs_provider`, `online_program_steps_provider`) —
+  `POST https://www.wixapis.com/online-programs/v3/programs/query`; `POST https://www.wixapis.com/online-programs/v3/steps/query` within the chosen program.
+- **Pipelines / stages** (`PipelinesItemSelectionProvider`, `PipelineStagesItemsSelectionProvider`) —
+  `POST https://www.wixapis.com/crm/pipelines/v1/pipelines/query` or one pipeline `GET https://www.wixapis.com/crm/pipelines/v1/pipelines/{pipelineId}`;
   stages are `stages[].id` of the chosen pipeline.
-- ⚠️ **Member badges** — `POST /badges/v4/badges/query`. ⚠️ **Groups** (`GroupsItemSelectionProvider`) —
-  `POST /social-groups-proxy/groups/v2/groups/query`. ⚠️ **Loyalty tiers** (`TiersSelectionProvider`) — `GET /loyalty-tiers/v1/tiers`.
-- ⚠️ **CMS collections** (`CmsItemSelectionAutomationTrigger`, `cmsFormDatasetSelectionService`) — `GET /wix-data/v2/collections` → collection `id`.
-- ❓ Workflows/steps, assignees, invoices, price quotes, proposals, site pages, email campaigns,
+- **Member badges** — `POST https://www.wixapis.com/badges/v4/badges/query`. **Groups** (`GroupsItemSelectionProvider`) —
+  `POST https://www.wixapis.com/social-groups-proxy/groups/v2/groups/query`. **Loyalty tiers** (`TiersSelectionProvider`) — `GET https://www.wixapis.com/loyalty-tiers/v1/tiers`.
+- **CMS collections** (`CmsItemSelectionAutomationTrigger`, `cmsFormDatasetSelectionService`) — `GET https://www.wixapis.com/wix-data/v2/collections` → collection `id`.
+- Workflows/steps, assignees, invoices, price quotes, proposals, site pages, email campaigns,
   countries, reports, other app pickers — try their Item Selection provider, otherwise ask.
   For fixed-value lists the schema `enum` is authoritative.
+
 - **Task assignee for "me" / "the team" / "front desk"**: if neither the field's Item Selection
   provider nor a verified vertical API resolves the required user id, and the field is optional,
   leave it empty and tell the user to pick
   the assignee in the builder; never invent an id. If it is required, ask.
+
 
 Item Selection is a separate API from the Automations catalogs ([Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §8); use its
 verified client binding or a documented vertical endpoint. With near-duplicate triggers (two "form submitted"), the family whose entities you can
