@@ -99,9 +99,9 @@ to read, how a price or a duration is formatted, which slot is bookable, how an 
 the method's SDK page, and when the page and the package disagree, the package's own type
 declarations (the `@wix/auto_sdk_<solution>_<module>` package the solution package depends on,
 its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
-the kit's files already encode: SDK query methods return a query builder finished with `.find()`,
-even where a docs page shows an object argument and `result.items`; and an entity's id arrives as
-`_id` on some objects and `id` on others (the kit reads both, `rawId`). Dates travel as local
+the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
+and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
+`rawId`). Dates travel as local
 wall-clock strings in the business time zone. A page cannot be run here, so a wrong shape fails
 silently in the browser; the file beside the skill is the check that is available.
 
