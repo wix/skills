@@ -3,7 +3,7 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-**Deferred topic guides:** Automations Entity and Provider Configuration; Automations Delays Variables and Branches; Automations Feasibility and Planning; Automations Schemas and Scheduling; Automations Email Actions. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
+**Deferred topic guides:** Automations Email Actions; Automations Entity and Provider Configuration; Automations Delays Variables and Branches; Automations Feasibility and Planning; Automations Schemas and Scheduling. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
 This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
@@ -14,7 +14,7 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 - An action is `appId` + `actionKey`. Find real ones with **Resolve Actions** (site catalog), then read the version active on the site with **Get Runtime Action**. Never invent keys.
 - The configuration is `appDefinedInfo.inputMapping`: an object keyed ONLY by input-schema property names, with values of the schema's type — literals, or `{{…}}` formulas in fields the UI schema marks as dynamic.
 - Fields marked `updateSchemaOnChange: true` reveal more inputs once set → **Get Action Dynamic Input Schema**. Output that depends on configuration → **Get Action Dynamic Output Schema** after the mapping is final.
-- **Later stages only — email is outside stage 2:** **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, Automations Entity and Provider Configuration (deferred) §3). Existing content-only edits do not initialize another email.
+- **Later stages only — email is outside stage 2:** **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, Automations Email Actions (deferred)). Existing content-only edits do not initialize another email.
 - Entity-selector fields take **ids**, never display names (Automations Entity and Provider Configuration (deferred)).
 - Before accepting any action, prove its side effect and its recipient (§6).
 
