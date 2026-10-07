@@ -14,11 +14,15 @@ pending activation has stopped.
 1. Resolve the requested name within the selected site with Query Automations. If several
    match, ask which one; do not choose arbitrarily. If the ID is already supplied, go to Get.
 2. Get the matching returned ID with override schemas and read `configuration.status`.
-3. Answer briefly. Start with the automation's exact name, its returned ID and ACTIVE/INACTIVE
-   from that response, then say what it means for new trigger events.
-   Use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) when the user asks about a particular run's outcome.
+3. Answer briefly and completely in one reply. Start with the automation's exact name, its
+   returned ID and ACTIVE/INACTIVE from that response, then say what it means for new trigger
+   events. If the user asks whether the status says anything about past runs, answer it
+   directly: status does not show whether past runs succeeded. Do not fetch or request logs
+   for that; use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) only when the user wants a particular run diagnosed.
 
-Use the authentication and site context in [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
+Use an authorized site-scoped client with Set Up Automations permission. REST calls use
+`Authorization: <token>`. An API key also needs `wix-site-id: <metaSiteId>`; do not combine it
+with `wix-account-id`. Never print credentials.
 
 `POST https://www.wixapis.com/automations-service/v2/automations/query`
 
