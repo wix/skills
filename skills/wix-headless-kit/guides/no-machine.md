@@ -21,8 +21,10 @@ This skill is one of a set, and the guide reads from three of them:
   exact shape before writing a call.
 
 They install together and sit beside each other. When you are reading this skill online rather
-than from an install, the other two are published alongside it, by those names, and each skill's
-manifest lists its files.
+than from an install, the others are published alongside it, by those names, and each skill's
+manifest lists its files. Read each file in full: a fetch tool that summarizes drops the exact
+calls and shapes; a tool that returns the file's text, or one that runs code and can fetch a URL,
+does not.
 
 Two things such a run does not produce, and never claims: a frontend built from the shipped `app/`
 code (that needs a build), and a release of one. Everything else the kit does to a site, it does
