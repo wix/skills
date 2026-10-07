@@ -1,6 +1,6 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
+description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), editing existing descriptions while preserving formatting and links, and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
@@ -25,12 +25,16 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   -H "Authorization: <AUTH>" \
   -d '{
     "search": {
-      "expression": "Product name"
+      "search": {
+        "expression": "Product name",
+        "fields": ["name"],
+        "fuzzy": false
+      }
     }
   }'
 ```
 
-For product-name lookup, prefer Search Products before retrieving the product by ID. Search only resolves the product ID; it does not replace the Get Product call.
+Read `products` from the search response and choose the entry whose `name` exactly matches the requested name; the ranker may also return near-matches. If there is no exact match or more than one, ask the user which product they mean. Use the selected `products[].id` in Get Product; search only resolves the ID.
 
 ### Get the current revision
 
@@ -102,7 +106,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-Use `description` only when you intentionally need to send Rich Content. For valid Ricos node shapes, read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md):
+For a full replacement with node types beyond the paragraph below, read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md). Existing-document edits use the read-modify-write flow below:
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -144,34 +148,46 @@ Both fields replace the whole description. To keep any existing content, use **E
 
 #### Edit the Existing Description
 
-Edit an existing description as Rich Content so its formatting, links, images, and other nodes remain unchanged. Do not round-trip an edit through `plainDescription`: HTML cannot represent every Rich Content node.
+Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response. The requests and paragraph/text shapes below cover prepend, append, and text removal; use them directly for these cases. Read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) when creating other node types.
 
-1. Read the product with `?fields=DESCRIPTION` and use `product.revision` from that response.
-2. If `product.description` is missing or has no `nodes`, do not write. Tell the user that the existing description could not be read, and ask for confirmation before replacing it.
-3. Start with `product.description` exactly as returned — including `nodes`, `metadata`, and `documentStyle`. Change only the requested part: insert a new `PARAGRAPH` node at the start or end to prepend or append text; for a wording change, alter only the matching `TEXT` node's `textData.text`.
-4. To remove existing text, locate the matching `TEXT` run in the returned node tree. For a partial removal, trim only the requested substring from `textData.text` and keep the run's decorations unchanged. If the entire run or node is explicitly targeted for removal, remove that entry from its parent `nodes` array. Keep all other runs, sibling nodes, spacer paragraphs, and document properties intact. If the requested text spans multiple runs, remove only the matching portion from each run and preserve the decorations on any remaining text.
-5. PATCH the full edited `product.description` object with the current revision. Do not send `plainDescription` in this PATCH.
+1. Read [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) with `?fields=DESCRIPTION`. Its response wraps the document as `product.description` and the current revision as `product.revision`. If the description is missing or has no `nodes`, stop and ask before replacing it.
+2. Copy the complete returned `product.description`, including node IDs, decorations, `metadata`, and `documentStyle`. For prepend/append, insert one new `PARAGRAPH` at the beginning/end of its `nodes`. For a wording change, modify only the matching `TEXT` node's `textData.text`.
+3. For removal, trim only the requested substring from the matching TEXT run and keep its decorations. When the whole run or node is targeted, remove that entry from its parent `nodes` array. If text spans runs, trim the matching portion of each run. Preserve all other nodes, spacer paragraphs, and document properties. If the requested change is already present, report that state and finish without a write.
+4. Send [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `product.id`, the read revision, the full edited `product.description`, and top-level `fields: ["DESCRIPTION"]`. Leave other product fields out of this description-only update; `plainDescription` is for whole-description replacements.
+5. Verify `product.description` in the PATCH response: the requested change is present and untouched nodes, decorations, and document properties remain. Confirm completion from that response and finish. A successful PATCH has already performed the edit; verification does not require another PATCH. If the response is incomplete, read once with `?fields=DESCRIPTION` to verify. If a revision conflict rejects the write, read the latest document and reapply the requested change only if it is still needed.
 
-For example, to prepend text, add this node at index `0` of the returned `product.description.nodes` array and leave every other returned node intact:
+For a prepend, build the complete PATCH body from the Get Product response (`getResponse` below). For an append, use `push` instead of `unshift`:
 
-```json
-{
-  "type": "PARAGRAPH",
-  "nodes": [
-    {
-      "type": "TEXT",
-      "textData": {
-        "text": "New text.",
-        "decorations": []
-      }
-    }
-  ],
-  "paragraphData": {
-    "textStyle": {
-      "textAlignment": "AUTO"
-    }
-  }
-}
+```javascript
+const product = getResponse.product;
+const description = structuredClone(product.description);
+description.nodes.unshift({
+  type: "PARAGRAPH",
+  nodes: [{
+    type: "TEXT",
+    textData: { text: "New text.", decorations: [] }
+  }],
+  paragraphData: { textStyle: { textAlignment: "AUTO" } }
+});
+const patchBody = {
+  product: { id: product.id, revision: product.revision, description },
+  fields: ["DESCRIPTION"]
+};
+```
+
+Send `patchBody` as the JSON body of the PATCH above. The copy retains the returned document's other properties and existing nodes, including links and buttons; the response's `product.description` includes the edited document because the request projects `DESCRIPTION`.
+
+For example, if the first paragraph's second TEXT run is `read the guide` with BOLD and LINK decorations, removing only `read ` changes that run's text while keeping its decorations and siblings. Use this transformation instead of inserting a paragraph, then build the same `patchBody`:
+
+```javascript
+const product = getResponse.product;
+const description = structuredClone(product.description);
+const textData = description.nodes[0].nodes[1].textData;
+textData.text = textData.text.replace("read ", "");
+const patchBody = {
+  product: { id: product.id, revision: product.revision, description },
+  fields: ["DESCRIPTION"]
+};
 ```
 
 ### Update Options and Variants
