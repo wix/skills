@@ -28,10 +28,10 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | Automations Item Selection (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | Query selectable items by provider or tag, with dependencies, pagination and vertical API alternatives. |
 | Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
 | [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)         | Writing ANY `{{ … }}` value (mappings, filters, delays, variables).                                                                                                                                                               |
-| Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
-| Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))             | DELAY, RATE_LIMIT, SET_VARIABLES, SPLIT, node naming (CODE_CONDITION spec: Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).                                                                                                                                      |
-| Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))      | Dynamic schemas, override output schema, scheduled / date-based triggers, timezone.                                                                                                                                               |
-| Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | **Before every save** — the builder-renderability checklist (§4, a hard gate), Validate, fix loop, persistence + read-back, what the builder does on open, Test Automation. Also: **is it active? / activate / deactivate** (§3). |
+| [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
+| [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)             | DELAY, RATE_LIMIT, SET_VARIABLES, SPLIT, node naming (CODE_CONDITION spec: [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).                                                                                                                                      |
+| [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling)      | Dynamic schemas, override output schema, scheduled / date-based triggers, timezone.                                                                                                                                               |
+| [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) | **Before every save** — the builder-renderability checklist (§4, a hard gate), Validate, fix loop, persistence + read-back, what the builder does on open, Test Automation. Also: **is it active? / activate / deactivate** (§3). |
 | [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) | **What happened in a run / why did it fail or wait?** Read activation and per-action logs; distinguish execution results from active/inactive status. |
 | [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) | **Is it active / turn it on or off?** Status-only operations, locks, idempotence and read-back. |
 
@@ -79,7 +79,7 @@ Hard rules (the builder breaks otherwise):
 - every `postActionIds` / `truePostActionIds` / `falsePostActionIds` has **at most one** id;
 - a **single-parent tree** — no joins, cycles, orphans, or MERGE. To "continue after both
   branches", duplicate the downstream steps in each branch with fresh ids;
-- parallelism only through SPLIT (alpha — see Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
+- parallelism only through SPLIT (alpha — see [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
 
 ### 3. Configure one step at a time, top-down
 
@@ -100,10 +100,10 @@ For each step load only the matching reference, then:
    them through Item Selection or the owning vertical's public API, or ask the user (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
    A failed lookup means _unknown_, not _doesn't exist_.
 4. **Expressions.** Self-check every `{{ … }}` against [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) /
-   Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) — builder-renderable functions and operators only; anything the condition
+   [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) — builder-renderable functions and operators only; anything the condition
    panel can't render becomes a CODE_CONDITION.
 
-### 4. Validate → fix → loop — Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))
+### 4. Validate → fix → loop — [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)
 
 Run the **builder-renderability checklist** (§4 there — the single pre-save gate; script its
 [code] items: graph, ids, namespaces, `var()` paths, field limits), then **Validate Automation** on
@@ -138,7 +138,7 @@ Creation restrictions do not require changing existing builder-supported nodes o
   `automationConfigMapping` fields are described here even where the docs omit them; use the
   catalog's configuration schema and preserve the mapping on updates.
 - Builder renderability is part of correctness, not polish: the §4 checklist in
-  Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) gates Create, configuration edits and activation; deactivation
+  [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) gates Create, configuration edits and activation; deactivation
   uses its status-only procedure.
 - Real ids from the site; no display names in id fields; no invented content (addresses,
   coupon codes, template ids).

@@ -20,7 +20,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   Update do **not** validate.
 - Persist: Create `INACTIVE` → Get read-back; activate only when asked. Updates need the current
   `revision` and are **live** on an active automation. Procedures (create, update, activate, read-back
-  — builder drafts are invisible publicly): Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3.
+  — builder drafts are invisible publicly): [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
 - **Test Automation runs actions for real** — only with explicit user authorization.
 - Resolve responses are large: page small, filter by exact keys, never paste a raw catalog.
 
@@ -46,7 +46,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   write, and use it for every call, read-back and link. If anything points at another site, stop.
 - **Errors**: 401 = token expired/invalid (refresh, don't retry blindly). 403 = missing scope, app
   not installed, or — on Create/Update of an automation that validated — a step the public API
-  can't create (e.g. the code-variable step, Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4). A timeout or 5xx is
+  can't create (e.g. the code-variable step, [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4). A timeout or 5xx is
   **unknown**, not a verdict — retry a bounded number of times.
 
 ## 2. Automations V2 (`automationsV2`) — base `/automations-service/v2/automations`
@@ -63,7 +63,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 - **Validate** (unsaved or saved): `{automation, validationSettings?{actionIds[],
 skipProviderValidations}}` → `{status: VALID|VALID_WITH_WARNINGS|INVALID,
 triggerValidationErrors[], actionValidationErrors[]}`. The main oracle; send the full object.
-  Reading errors: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2.
+  Reading errors: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §2.
 - **Create**: `{automation}` with `name`, `origin: "USER"`, `configuration{status, trigger{appId,
 triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revision`). Does NOT
   validate. Always `status: "INACTIVE"`; don't send `settings`.
@@ -79,7 +79,7 @@ triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revis
   `configuration,name` (what the builder sends); it doesn't exempt you from sending `origin` /
   `settings`. A stale `revision` is rejected. Changes are LIVE when `status` is `ACTIVE`. A success
   response and a revision bump do **not** prove the change landed — merge, conflict handling and
-  read-back comparison: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3.
+  read-back comparison: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
   Capture the returned id: creating a site override of a preinstalled automation can change it.
 - **Delete**: → `{}`. Irreversible; only on explicit user request.
 - **Query**: `{query{filter, sort, cursorPaging{limit ≤ 500, cursor}}}` → `automations[]`,
@@ -91,7 +91,7 @@ triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revis
 Automation object fields and limits (`name` ≤ 100 for the builder, `description` ≤ 2000,
 `origin`, `settings`, `configuration`): [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §1.
 Create/Update accept `configuration.trigger.automationConfigMapping` for scheduled/custom/webhook
-configuration even where the docs omit it; use [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) / Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
+configuration even where the docs omit it; use [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) / [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
 
 ## 3. Trigger Catalog (`triggerCatalog`)
 
@@ -173,7 +173,7 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
   `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",
 automationIdentifier{automationId}, payload}` → `activationId`. **Runs every action for real**
   (skips delays, works on INACTIVE) — explicit user authorization only; payload, consent and
-  reporting: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5.
+  reporting: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §5.
 - **Run Automation / Report Event / Rerun Activation** — for the app that owns a trigger; never
   use them to build or "test".
 
@@ -234,7 +234,7 @@ remain valid alternatives.
 - **Site-action generation** → Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3, [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
   New email initialization is available through its dedicated public API above.
 - **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
-  Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))), then Validate Automation.
+  [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)), then Validate Automation.
 - **Validate by id** → Get Automation, then Validate the returned object.
 
 ## Related API references

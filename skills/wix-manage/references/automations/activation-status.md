@@ -29,8 +29,8 @@ Status is not evidence that an individual run succeeded; see [Automations Run Di
    or `settings.readonly` is true, stop and report the lock: the owning app doesn't allow it
    (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4).
 2. Already `ACTIVE` → report it and stop (idempotent; no write).
-3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) and full Validate — never activate
-   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) explains.
+3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) and full Validate — never activate
+   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) explains.
 4. Explicit activation instructions authorize this change; do not ask again. If the user only
    asked to build or inspect it, obtain authorization before making it eligible for real runs.
 5. Update Automation with the object exactly as fetched, `configuration.status: "ACTIVE"`, and
@@ -42,7 +42,7 @@ Status is not evidence that an individual run succeeded; see [Automations Run Di
 **Deactivate** (on explicit request): Get the complete object with override schemas; check
 `settings.disableStatusChange` and `settings.readonly`; already INACTIVE means no write.
 Otherwise change only `configuration.status` to `INACTIVE`, preserving origin, settings,
-revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) or
+revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) or
 Validate as a prerequisite**, and do not repair or remove unrelated invalid/legacy steps.
 An explicit request to turn it off is sufficient authorization. Deactivating prevents new
 triggered runs; it is not proof that every pending/running activation has stopped or will finish.

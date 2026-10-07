@@ -483,6 +483,18 @@ Create, update, activate or deactivate Wix Automations, and inspect their activa
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.
 
+- [Automations Conditions](references/automations/conditions.md)
+  Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability.
+
+- [Automations Delays Variables and Branches](references/automations/special-actions.md)
+  Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata.
+
+- [Automations Schemas and Scheduling](references/automations/schemas-and-scheduling.md)
+  Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior.
+
+- [Automations Validation and Persistence](references/automations/validation-and-verification.md)
+  Validate automation configuration, check builder compatibility, persist changes and verify the saved result.
+
 - [Automations Run Diagnosis](references/automations/activation-logs.md)
   Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
 

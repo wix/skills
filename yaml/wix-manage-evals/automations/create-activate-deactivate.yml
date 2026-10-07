@@ -1,0 +1,58 @@
+{
+  "name": "automations/create-activate-deactivate",
+  "description": "The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE.",
+  "triggerPrompt": "Create an automation named Monthly status check that creates a task titled Monthly check at 23:30 on the last day of each month. Use the site timezone and start the schedule next month. I approve creating it, turning it on, and then immediately turning it off again. Do not execute a test run.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The agent creates and reads back an inactive automation, validates the candidate ACTIVE configuration, activates and reads back ACTIVE, then deactivates and reads back INACTIVE. Deactivation does not require graph repair or revalidation. All fields other than intended status and server-managed revision/timestamps remain unchanged through the status cycle. It uses fresh revisions and returned IDs, does not redundantly ask for approval and does not trigger execution. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize unnecessary graph repair or validation before deactivation, and retries caused by reusing a stale revision between the two status updates. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

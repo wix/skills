@@ -29,7 +29,7 @@ Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions 
 3. Get Runtime Action for the 1–3 best candidates; build against that version's `inputSchema`, `outputSchema`, `interfaceConfiguration`.
 4. An action missing from Resolve Actions is not usable on this site. The builder shows such a step as "action not found" and blocks it.
 
-**Do not use** unsupported or deprecated actions — `send-mail` (→ `triggered-emails`), `send-coupon-action` (→ `wixcoupons-retrieve_coupon` + a delivery step that uses its code), `wix_automations-velo_action`, `wix_automations-data_manipulation_code` (code variable; public Create refuses it — Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4), `whatsapp-send-message` (WhatsApp), `forward-to-zapier` (Zapier), and site actions `wix_automations-wix_api_integration` (non-public). Match these by `actionKey` (+ `appId`), not by app or display name — other actions of the same app are fine. Reasons and replacements: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2 (site actions: §1).
+**Do not use** unsupported or deprecated actions — `send-mail` (→ `triggered-emails`), `send-coupon-action` (→ `wixcoupons-retrieve_coupon` + a delivery step that uses its code), `wix_automations-velo_action`, `wix_automations-data_manipulation_code` (code variable; public Create refuses it — [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4), `whatsapp-send-message` (WhatsApp), `forward-to-zapier` (Zapier), and site actions `wix_automations-wix_api_integration` (non-public). Match these by `actionKey` (+ `appId`), not by app or display name — other actions of the same app are fine. Reasons and replacements: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2 (site actions: §1).
 
 ### Selection rules
 
@@ -63,7 +63,7 @@ UI-schema keys that change what you may write:
 ## 4. Dynamic input and output schemas
 
 - **Input**: a property with `updateSchemaOnChange: true` (e.g. a template or form id) changes which inputs exist. Set it, then call Get Action Dynamic Input Schema with `{appId, actionKey, inputMapping}` (the mapping so far). The builder shows the static schema **merged** with the returned one (properties and `required` united), so keys from either are kept. Repeat if another controlling field is revealed. Never invent a field you expected but didn't get — it appears only after its controlling selection. The builder re-fetches this schema from your saved mapping every time the step is opened, so a dynamic key whose controlling value isn't in the mapping is dropped on the first edit.
-- **Output**: after the mapping is final, call Get Action Dynamic Output Schema (or the bulk variant) and use the returned `outputSchema` for downstream `var()` paths. A dynamic output is a _real_ schema — never replace it with an override (allowlist: Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3).
+- **Output**: after the mapping is final, call Get Action Dynamic Output Schema (or the bulk variant) and use the returned `outputSchema` for downstream `var()` paths. A dynamic output is a _real_ schema — never replace it with an override (allowlist: [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3).
 
 ## 5. Building the input mapping
 
@@ -136,7 +136,7 @@ Process: (1) fetch the effective schema (§4) → (2) classify required vs optio
 
 ### 5.3 Validation errors on actions
 
-Error shape, error type → fix, and how the builder shows each: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
+Error shape, error type → fix, and how the builder shows each: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
 
 ## 6. Side-effect and recipient review
 

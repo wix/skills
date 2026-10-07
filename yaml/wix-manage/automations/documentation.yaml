@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 226ca5e6ad6069d793fe5953d1970067106a286fa055520ccd55c53e1318f860
+# Source content SHA-256: 3ca385e34ada18dbd0c27ac540c9397701a5d9a163aa32f7565dda93eafbb778
 apiDoc:
   title: Wix Automations Recipes
 
@@ -26,6 +26,22 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/bracket-expressions.md
       title: "Automations Mapping Expressions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/conditions.md
+      title: "Automations Conditions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/special-actions.md
+      title: "Automations Delays Variables and Branches"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/schemas-and-scheduling.md
+      title: "Automations Schemas and Scheduling"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/validation-and-verification.md
+      title: "Automations Validation and Persistence"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-logs.md

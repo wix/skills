@@ -1,0 +1,58 @@
+{
+  "name": "automations/create-absolute-booking-reminder",
+  "description": "An immediate action stays immediate while a later step waits until the session date.",
+  "triggerPrompt": "Create an automation named Booking preparation. When any session is booked, create a task titled Check booking immediately, then create a task titled Prepare session one day before the session starts. Use the session start time for the reminder. Go ahead and save this automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Require immediate createTask then absolute DELAY using subtractFromDate(actual session start;0;0;1), then Prepare session task. Discover the booking start payload field. Do not shift the entire trigger, use a relative 24-hour wait after booking, or populate both dueDateExpression and relative offsetExpression. Server-filled UNKNOWN_TIME_UNIT on read-back of an absolute delay is acceptable. Tasks must link to the actual booking contact identity if supported. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize guessing session timestamp paths before resolving the booking schema, or trying a relative one-day delay before using the absolute session-start offset. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "bookings-editor"
+  }
+}
