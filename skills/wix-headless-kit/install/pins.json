@@ -1,8 +1,8 @@
 {
-  "@wix/cli": "1.1.257",
-  "@wix/create-new": "0.0.123",
+  "@wix/cli": "1.1.258",
+  "@wix/create-new": "0.0.124",
   "typescript": "5.8.3",
   "templates": {
-    "ref": "v1.28.0"
+    "ref": "v1.29.0"
   }
 }

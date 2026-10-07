@@ -8,7 +8,7 @@ import { delimiter, join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
 // The CLI version the fallback installs; equal to `@wix/cli` in wix-headless-kit/install/pins.json.
-const WIX_CLI_VERSION = "1.1.257";
+const WIX_CLI_VERSION = "1.1.258";
 
 export function resolveWixCli(cwd = process.cwd()) {
   const bin = process.platform === "win32" ? "wix.cmd" : "wix";
