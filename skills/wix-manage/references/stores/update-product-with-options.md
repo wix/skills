@@ -149,7 +149,8 @@ Edit an existing description as Rich Content so its formatting, links, images, a
 1. Read the product with `?fields=DESCRIPTION` and use `product.revision` from that response.
 2. If `product.description` is missing or has no `nodes`, do not write. Tell the user that the existing description could not be read, and ask for confirmation before replacing it.
 3. Start with `product.description` exactly as returned — including `nodes`, `metadata`, and `documentStyle`. Change only the requested part: insert a new `PARAGRAPH` node at the start or end to prepend or append text; for a wording change, alter only the matching `TEXT` node's `textData.text`.
-4. PATCH the full edited `product.description` object with the current revision. Do not send `plainDescription` in this PATCH.
+4. To remove existing text, locate the matching `TEXT` run in the returned node tree. For a partial removal, trim only the requested substring from `textData.text` and keep the run's decorations unchanged. If the entire run or node is explicitly targeted for removal, remove that entry from its parent `nodes` array. Keep all other runs, sibling nodes, spacer paragraphs, and document properties intact. If the requested text spans multiple runs, remove only the matching portion from each run and preserve the decorations on any remaining text.
+5. PATCH the full edited `product.description` object with the current revision. Do not send `plainDescription` in this PATCH.
 
 For example, to prepend text, add this node at index `0` of the returned `product.description.nodes` array and leave every other returned node intact:
 
