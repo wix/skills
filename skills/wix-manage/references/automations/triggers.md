@@ -5,7 +5,7 @@ description: "Select and configure automation triggers, trigger filters and even
 
 **Deferred topic guides:** Automations Conditions; Automations Feasibility and Planning; Automations Schemas and Scheduling; Automations Entity and Provider Configuration. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
 
 # Triggers — Discovery, Payload Schema, Filters
 

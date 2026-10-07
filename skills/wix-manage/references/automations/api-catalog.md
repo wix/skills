@@ -5,7 +5,7 @@ description: "Discover site-specific triggers and actions, authenticate public A
 
 **Deferred topic guides:** Automations Entity and Provider Configuration; Automations Delays Variables and Branches; Automations Schemas and Scheduling; Automations Email Actions; Automations Item Selection; Automations Conditions. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
 
 # API Catalog — the public Wix Automations APIs
 
@@ -21,7 +21,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 - Persist: Create `INACTIVE` → Get read-back; activate only when asked. Updates need the current
   `revision` and are **live** on an active automation. Procedures (create, update, activate, read-back
   — builder drafts are invisible publicly): [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3.
-- **Test Automation runs actions for real** — only with explicit user authorization.
+- **Later stages only — not in stage 2:** **Test Automation runs actions for real** — only with explicit user authorization.
 - Resolve responses are large: page small, filter by exact keys, never paste a raw catalog.
 
 ## 1. Authentication and transport
@@ -164,18 +164,16 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
 
 ## 5. Activations (`activations`)
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
-
 - **Interpret supplied execution results** — use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) for logs or activity
   details provided by the user. This skill does not expose run-log or historical-revision
   retrieval APIs. Ask for dashboard evidence instead of guessing a route.
 
-- **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
+- **Later stages only — not in stage 2:** **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
   `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",
 automationIdentifier{automationId}, payload}` → `activationId`. **Runs every action for real**
   (skips delays, works on INACTIVE) — explicit user authorization only; payload, consent and
   reporting: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §5.
-- **Run Automation / Report Event / Rerun Activation** — for the app that owns a trigger; never
+- **Later stages only — not in stage 2:** **Run Automation / Report Event / Rerun Activation** — for the app that owns a trigger; never
   use them to build or "test".
 
 ## 6. Catalog discovery without flooding your context

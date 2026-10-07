@@ -5,7 +5,7 @@ description: "Inspect Wix automations and create inactive linear automations usi
 
 **Deferred topic guides:** Automations Email Actions; Automations Feasibility and Planning; Automations Conditions; Automations Schemas and Scheduling; Automations Entity and Provider Configuration; Automations Delays Variables and Branches. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
 
 # Build Simple Wix Automations
 

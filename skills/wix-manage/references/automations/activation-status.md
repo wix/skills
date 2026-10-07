@@ -3,7 +3,7 @@ name: "Automations Activation Status"
 description: "Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes."
 ---
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
 
 # Inspect activation status
 
