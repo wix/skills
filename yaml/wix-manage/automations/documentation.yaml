@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 6c7c779fb7f870aec6232479dafbc6a362cf61a1164aa3cfa39ce4ea3139c48e
+# Source content SHA-256: 7e0250d5f48c6310774b7e7af587becc332cd19b7080a6da308a774a0751e524
 apiDoc:
   title: Wix Automations Recipes
 
@@ -32,6 +32,14 @@ apiDoc:
       title: "Automations Entity and Provider Configuration"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/item-selection.md
+      title: "Automations Item Selection"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/email-actions.md
+      title: "Automations Email Actions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/bracket-expressions.md
       title: "Automations Mapping Expressions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
@@ -58,13 +66,5 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-status.md
       title: "Automations Activation Status"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
-      tags: [automations]
-    - file: ../../../skills/wix-manage/references/automations/item-selection.md
-      title: "Automations Item Selection"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
-      tags: [automations]
-    - file: ../../../skills/wix-manage/references/automations/email-actions.md
-      title: "Automations Email Actions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
