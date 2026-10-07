@@ -34,7 +34,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
     For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent.
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
-  - [ ] **Dashboard page over Wix data:** located the method and verified every mapped field against the installed SDK's own declaration first — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
+  - [ ] **Dashboard page over Wix data:** found the method in the SDK docs (SDK view) — the module map names the package, never the method — then verified every mapped field against the installed SDK's own declaration — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
   - [ ] **Vertical SDK prerequisites — for every `@wix/*` vertical the page touches, including one added later:** confirmed the package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required). **A second vertical added during Step 4b needs this check too, and its failure must not take down the page** — see [A second vertical is a second scope](references/dashboard-page/DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
   - [ ] **Modelled the call on the SDK, not the REST page:** namespace name, `_id` vs `id`, no `ReturnType` on overloaded methods, no `hasNext` on `PagingMetadataV2` — see [The SDK is not the REST API](references/dashboard-page/DATA_SOURCES.md#the-sdk-is-not-the-rest-api).
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
@@ -356,6 +356,8 @@ Use the Extension Types Reference Table and decision content above. State extens
    - App Tools (AI assistant tools) → read `references/APP_TOOLS.md`; it links to `references/app-tools/TOOLS.md` (declaration) and `references/service-plugin/TOOLS_PROVIDER.md` (handler)
 4. **Verify the specific method/event exists** in references
 5. **ONLY use MCP discovery if NOT found** in reference files
+
+**A business app's method is always a gap.** The [module map](references/SDK_MODULE_MAP.md) names the package, and a package exports several namespaces for one entity — `@wix/crm` has both `contacts` and `contactsV5`. Find the method with an SDK docs search first, then verify its fields in the installed declaration. The declaration verifies a method; it does not choose one, and it never points from an older namespace to a newer one.
 
 **Platform APIs (never discover - in references):**
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs

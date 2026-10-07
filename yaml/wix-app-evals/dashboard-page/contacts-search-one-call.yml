@@ -24,6 +24,11 @@ assertions:
     minScore: 7
     prompt: |-
       Evaluate the quality of the search implementation path. Check: (1) The agent chose the search mechanism deliberately — it looked for a search method or a filter that ORs fields before it wrote `fetchData`, rather than settling on the first query builder it found. (2) If it used a query builder, it did not try to emulate an OR by running several builder queries. (3) The page tells the user what the search matches (for example in the search placeholder or `noResultsState`). Score 0-10, citing the tool calls in the trace and the generated code.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate how the agent found the contacts method. Check: (1) Before it chose a method, the agent searched the Wix SDK documentation for contacts (an SDK docs search or a method-schema read), and the method it used is one that search returned. (2) It read the installed package's declarations only to verify the fields of that method, not to choose between the package's namespaces. Many requests that grep, sed or awk through `@wix/crm` or `@wix/sdk-types` typings to look for a search method or an OR operator, before any docs lookup, score at most 4. Score 0-10, citing the tool calls in the trace.
   - type: time_limit
     maxDurationMs: 600000
   - type: cost
