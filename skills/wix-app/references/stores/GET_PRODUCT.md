@@ -4,12 +4,20 @@
 
 ```typescript
 if (v === 'V3_CATALOG') {
-  const product = await productsV3.getProduct(id);  // returns Product directly
+  const product = await productsV3.getProduct(id);  // returns V3Product directly
   return product;
 }
 const { product } = await products.getProduct(id);  // V1 wraps in { product }
 return product;
 ```
+
+The V3 entity type is `productsV3.V3Product`; `productsV3.Product` is an unrelated small interface.
+
+---
+
+## Product page URL
+
+V3 `product.url` is populated only when the request's `fields` includes `'URL'` — `getProduct(id, { fields: ['URL'] })`, or the direct-call `searchProducts` / `queryProducts(query, { fields: ['URL'] })` (the fluent builder's `.find()` takes no options). V1 `productPageUrl` is an object, `{ base, path }`, not a string.
 
 ---
 

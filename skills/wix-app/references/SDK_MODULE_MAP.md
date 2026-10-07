@@ -15,7 +15,7 @@ Data owned by an existing Wix business app is read and written through that app'
 | pricing plans / subscriptions | `@wix/pricing-plans` |
 | bookings / services / staff / time slots | `@wix/bookings` |
 | calendar events / schedules | `@wix/calendar` |
-| table reservations | `@wix/table-reservations` |
+| table reservations | `@wix/table-reservations` (namespace `reservations`) — not `@wix/restaurants` |
 | restaurant menus / online orders | `@wix/restaurants` |
 | blog posts | `@wix/blog` |
 | site events / tickets / RSVPs | `@wix/events` |
@@ -26,20 +26,26 @@ Data owned by an existing Wix business app is read and written through that app'
 | donations | `@wix/donations` |
 | portfolio | `@wix/portfolio` |
 | media files | `@wix/media` |
-| contacts / labels / tasks | `@wix/crm` |
+| contacts / labels / tasks | `@wix/crm` — contacts exist twice, as `contacts` (v4) and `contactsV5`; see below |
 | members | `@wix/members` |
 | inbox conversations | `@wix/inbox` |
 | forms / form submissions | `@wix/forms` |
 | loyalty points / rewards | `@wix/loyalty` |
 | email marketing | `@wix/email-marketing` |
 | notifications | `@wix/notifications` |
-| analytics | `@wix/analytics-data` |
+| analytics (daily site totals) | `@wix/analytics-data` — see below |
 | automations | `@wix/automations` |
 | SEO tags / redirects | `@wix/seo` |
 | site search | `@wix/search` |
 | secrets | `@wix/secrets` |
 | locations / site properties | `@wix/business-tools` |
 | app instances | `@wix/app-management` |
+
+**Contacts v4 vs v5.** `contacts` and `contactsV5` are different APIs with different shapes and scopes, and a docs search returns both. Use the namespace of the method page you read, and never mix them in one flow: v4 is `updateContact(contactId, info, revision: number, options?)`, v5 is `updateContact(_id, contact, options?)` with `revision` inside `contact`. Check the scope on that page — reading PII with the limited-read scope is `SCOPE.DC-CONTACTS.READ-CONTACTS_LIMITED`.
+
+**Analytics.** There is no page-view or hourly analytics API. `@wix/analytics-data` `getAnalyticsData(measurementTypes, { dateRange })` returns one value per day (`TOTAL_SALES`, `TOTAL_ORDERS`, `CLICKS_TO_CONTACT`, `TOTAL_SESSIONS`, `TOTAL_FORMS_SUBMITTED`, `TOTAL_UNIQUE_VISITORS`) and stores 62 days. `@wix/analytics` is unrelated: it is event tracking.
+
+**Bookings no-show.** `BookingStatus` is `CREATED`, `CONFIRMED`, `CANCELED`, `PENDING`, `DECLINED`, `WAITING_LIST` — there is no no-show status. A no-show is `attendance.status === 'NOT_ATTENDED'`, and `attendance` is returned only when the extended-bookings request sets `withBookingAttendanceInfo: true`. The docs list no server-side filter for it, so filter the returned rows.
 
 Types from these packages are accessed as `<namespace>.<TypeName>` — see [SDK types](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms).
 

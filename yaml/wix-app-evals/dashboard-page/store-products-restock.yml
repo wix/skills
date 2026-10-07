@@ -1,0 +1,30 @@
+name: dashboard-page/store-products-restock
+description: Dashboard page over Wix Stores V3 products and inventory — proves the agent uses the V3 entity type, asks for the product URL field, and only increments inventory for tracked items
+triggerPrompt: |-
+  Build a dashboard page for my app that lists my store's products with name, price, stock and a link to each product's page on my site, and lets me add stock to a product.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, stores, sdk-module-map]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      The page must be built on the Wix Stores SDK, handling the catalog version. For V3 (`productsV3`), check: (1) Row types come from `productsV3.V3Product`. `productsV3.Product` is an unrelated small interface with no `url`, so typing rows with it, or reading `url`/`slug` through it, is wrong. (2) The product page link is read from `url` and the request passes `fields` containing `'URL'` (via `getProduct`, `searchProducts`, or the direct-call `queryProducts(query, { fields: ['URL'] })`); the fluent builder's `.find()` takes no options, so a builder that never requests `'URL'` yields blank links. A V1 branch, if present, reads `productPageUrl.base` + `productPageUrl.path`, not a string. (3) Adding stock calls `inventoryItemsV3.bulkIncrementInventoryItems` with `{ inventoryItemId, incrementBy }` entries, finding the inventory item id through the inventory API, and the row action is not offered or fails visibly for items whose `trackQuantity` is false. (4) Paging does not assume a total count or an offset for V3. (5) The Stores read and inventory-write scopes are reported as manual steps. Score 0-10. Score 4 or below if rows are typed with `productsV3.Product`, if `'URL'` is never requested but a link column is rendered, or if increments are sent to items without checking `trackQuantity`.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the path the agent took. Check: (1) It read the Dashboard Page reference before building the UI and located the SDK method and its field names from the installed package's declarations or the SDK-view docs, rather than from the REST page or memory. (2) It checked the catalog version (V1 or V3) before choosing `products` or `productsV3`. (3) It did not model the data as a CMS data collection. (4) It reported the Dev Center permission scopes it relied on as manual steps instead of assuming they were granted. Score 0-10. Cite the specific tool calls behind your score, and for each friction you penalize, name what the docs or references failed to make available up front.
+  - type: time_limit
+    maxDurationMs: 900000
+  - type: cost
+    maxCostUsd: 2.5

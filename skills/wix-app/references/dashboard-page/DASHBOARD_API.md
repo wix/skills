@@ -45,6 +45,21 @@ dashboard.navigate(
 );
 ```
 
+## getSiteInfo(), getLanguage(), getAccessToken(), closeModal(), installApp(), requestFeedback()
+
+Other '@wix/dashboard' host methods, verified against the installed types:
+
+- `getSiteInfo(): SiteInfo | null` — **synchronous**, not a Promise. `SiteInfo` is `{ wixEditorAvailable: boolean; wixEditorActive: boolean; editorUrl?: string; siteUrl?: string; createSiteUrl?: string; published?: boolean }`.
+- `getLanguage(): Promise<string>`
+- `getAccessToken(): Promise<string>`
+- `closeModal(closeData?)` — called from inside a modal; `closeData` resolves the opener's `modalClosed`. See [DASHBOARD_MODAL.md](../DASHBOARD_MODAL.md).
+- `installApp({ appId, version?, avoidPostInstallation? }): Promise<{ status: 'SUCCESS' | 'UPGRADE_TO_PREMIUM' | 'CONNECT_DOMAIN' | 'CANCELED'; installedApps?: { appId: string; version?: string }[] }>`
+- `requestFeedback(options)` — opens the platform feedback form; returns a Promise.
+
+```typescript
+const siteUrl = dashboard.getSiteInfo()?.siteUrl;
+```
+
 ## Page IDs
 
 Common Wix dashboard page IDs useful for navigation. Use with `dashboard.navigate({ pageId })`.
@@ -163,8 +178,12 @@ Host Module '@wix/dashboard' 'observeState()' method to receive contextual state
 - `location`: PageLocation — Information about the location of the rendered page
 
 **Environment state:**
-- `locale` (string): User's locale (ISO 639-1)
+- `language` (string): User's language
+- `embedded` (boolean): Whether the page is rendered embedded
+- `locale` (string): Deprecated, use `language`
 - `pageLocation` (PageLocation): Deprecated. Information about the currently rendered page location
+
+**Returns:** `{ disconnect: () => void }` — call it to stop observing.
 
 **Page location:**
 - `pageId` (string): ID of the current page
@@ -181,9 +200,9 @@ dashboard.observeState((componentParams, environmentState) => {
   console.log(componentParams, environmentState);
 });
 
-// Receive user's locale
-dashboard.observeState((_, { locale }) => {
-  console.log('locale:', locale);
+// Receive user's language
+dashboard.observeState((_, { language }) => {
+  console.log('language:', language);
 });
 
 // Handle internal page routes
