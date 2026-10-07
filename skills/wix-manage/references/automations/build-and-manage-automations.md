@@ -7,7 +7,7 @@ description: "Discover installed automation triggers and actions, inspect curren
 
 Use this guide to discover installed automation capabilities, inspect whether an automation
 is active, and explain supplied activation logs. These are read-only workflows. Creation,
-configuration edits, activation and test execution are outside this publication's scope.
+configuration edits, activation and test execution are outside what this skill covers.
 Do not perform a write when the user asks only to inspect or explain.
 
 | Request | Load |
@@ -26,8 +26,8 @@ from that response. Current ACTIVE/INACTIVE status is separate from historical r
 For supplied run logs, apply the run-diagnosis guide to the supplied records first. Separate
 run-level completion from per-action failures, identify the recorded automation revision,
 and explain which additional evidence would resolve uncertainty. Do not refetch supplied
-records or execute a test to explain them. If logs are missing, ask the user for dashboard activity details; no log-retrieval
-API is included in this publication.
+records or execute a test to explain them. If logs are missing, ask the user for dashboard activity details; this skill does
+not provide a log-retrieval API.
 
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned or supplied data, and distinguish a missing record from proof of nonexistence.
