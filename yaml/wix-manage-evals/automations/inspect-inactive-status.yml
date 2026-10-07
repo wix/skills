@@ -37,7 +37,6 @@
                         "contactId": "{{var(\"contactId\")}}",
                         "title": "Welcome {{if(or(isEmpty(var(\"contact.name.first\"));isEmptyString(var(\"contact.name.first\")));\"new%20friend\";var(\"contact.name.first\"))}}"
                       },
-                      "skipConditionOrExpressionGroups": [],
                       "postActionIds": []
                     }
                   }
