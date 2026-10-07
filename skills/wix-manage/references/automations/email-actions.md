@@ -3,6 +3,8 @@ name: "Automations Email Actions"
 description: "Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Automation Email Actions
 
 Use the email provider's **Generate Action Input Mapping** for each NEW email action. It is a

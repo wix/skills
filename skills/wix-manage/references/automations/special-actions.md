@@ -3,6 +3,8 @@ name: "Automations Delays Variables and Branches"
 description: "Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Special Actions — Delay, Rate Limit, Code Condition, Set Variables, Split, Naming
 
 **TL;DR**

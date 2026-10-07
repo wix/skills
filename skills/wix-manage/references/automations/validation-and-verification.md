@@ -3,6 +3,8 @@ name: "Automations Validation and Persistence"
 description: "Validate automation configuration, check builder compatibility, persist changes and verify the saved result."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Validation and Verification
 
 How to prove an automation is correct, saved, and editable in the builder before you tell the

@@ -3,6 +3,8 @@ name: "Automations Activation Status"
 description: "Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Activation status and lifecycle
 
 **What the public API can see.** An automation's live state is `configuration.status` —

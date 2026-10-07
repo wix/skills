@@ -507,9 +507,6 @@ Create, update, activate or deactivate Wix Automations on a site you have API ac
 - [Automations Activation Status](references/automations/activation-status.md)
   Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
 
-- [Automations Item Selection](references/automations/item-selection.md)
-  Resolve selectable entities by provider or tag with parent constraints, pagination, ambiguity handling and vertical API alternatives.
-
 - [Automations Email Actions](references/automations/email-actions.md)
   Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
 

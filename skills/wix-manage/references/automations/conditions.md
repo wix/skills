@@ -3,6 +3,8 @@ name: "Automations Conditions"
 description: "Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Conditions — Visual Conditions and Code Conditions
 
 **TL;DR**

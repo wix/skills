@@ -3,6 +3,8 @@ name: "Build and Manage Wix Automations"
 description: "Create, update, activate or deactivate Wix Automations on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; explain individual runs from activation and action logs the user supplies (this skill does not retrieve logs)."
 ---
 
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+
 # Wix Automations Builder
 
 You build automations with the **public** Wix Automations APIs. The result is only done when it
@@ -23,7 +25,7 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)                    | Choosing and configuring the trigger and its filters.                                                                                                                                                                             |
 | [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)                     | Choosing an app action and writing its `inputMapping`.                                                                                                                                                                            |
 | [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)    | A field needs an id (form, label, service, email…), or the component has special handling (**provider APIs registry**: triggered emails, webhooks, scheduled, custom trigger…).                                                   |
-| [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) | Query selectable items by provider or tag, with dependencies, pagination and vertical API alternatives. |
+| Automations Item Selection (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | Query selectable items by provider or tag, with dependencies, pagination and vertical API alternatives. |
 | [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
 | [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)         | Writing ANY `{{ … }}` value (mappings, filters, delays, variables).                                                                                                                                                               |
 | [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
