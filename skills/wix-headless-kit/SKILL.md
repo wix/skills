@@ -21,8 +21,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The model
 
-- **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
-  the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
+- **Shipped code is the implementation.** Every vertical ships in the repository's
+  `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
+  folder: `node <SKILL_ROOT>/install/templates.mjs`
   fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
   script below fetches it itself when the folder is missing. The folder stays with the project
   (only the composed `project/` scaffolds are left out of its repository), so a later session
@@ -300,6 +301,10 @@ before step 3: it holds the mechanics (the `site/` layout and setup's part in it
 browser versus the server, the OAuth allow-list for a self-hosted origin, pre-rendered output) and
 how to close such a run. A public site is still better served by managed Astro; say so when you
 close.
+
+Without a machine at all, or when the install, the CLI or the login is blocked where you are,
+read `<SKILL_ROOT>/guides/no-machine.md`: the same run, step by step, as the Wix API calls the
+scripts make and the files beside this skill that carry the contracts.
 
 ## Verticals
 
