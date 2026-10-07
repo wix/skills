@@ -29,7 +29,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10 for the actual tool path. Penalize broad repeated catalog requests, selecting a similarly named trigger or action without checking its schema, private calls, guessed endpoints or unnecessary mutation confirmation for this read-only request. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10 for the actual tool path. Paging through the full action catalog once is expected when establishing that no task-creation action is installed, and is not a detour. Penalize re-fetching the same catalog page or schema, unbounded or repeated broad searches after the answer is established, selecting a similarly named trigger or action without checking its schema, private calls, guessed endpoints or unnecessary mutation confirmation for this read-only request. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
     }
   ]
 }
