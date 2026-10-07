@@ -85,7 +85,23 @@ More than one line is a bug that `tsc` and `wix build` both pass. Declared range
 
 On the hand-wired path the data file turns one search term into a filter over *several* fields — an OR. **This is where search ships broken**: it renders, it reaches the query, and still returns every row. (The CMS template's source does this itself.)
 
-There is no shared free-text operator; the shape differs per endpoint. Read its *Supported Filters* page ([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint)), then `$or` one clause per identity field it lists. Never route the term to a single field by its shape — a measured run shipped this, and one branch is always dead:
+There is no shared free-text operator; the shape differs per endpoint. Pick the first of these the entity offers — one request per page, paged by the server:
+
+1. **A search method with a free-text `search`.** Many entities have a `search*` method beside `query*`, sometimes in a newer namespace of the same package (`contactsV5` beside `contacts`, `productsV3` beside `products`). Its `search` takes the term and the fields to match, so the whole OR is one argument:
+
+   ```ts
+   const { contacts, pagingMetadata } = await contactsV5.searchContacts({
+     cursorPaging: { limit, cursor },
+     ...(term ? { search: { expression: term, mode: contactsV5.Mode.OR, fuzzy: true,
+       fields: ['name.full', 'email.email', 'phone.phone'] } } : {}),
+   });
+   ```
+
+   The method's SDK page lists its searchable fields; products are in [stores/QUERY.md](../stores/QUERY.md#search-products-by-name).
+2. **Otherwise, a `$or` filter** on a method that takes a filter object: read the endpoint's *Supported Filters* page ([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#the-filterable-fields-are-a-closed-list-published-per-endpoint)), then `$or` one clause per identity field it lists.
+3. **A query builder with no `.or()` is not a search path.** `contacts.queryContacts()` chains clauses with AND. Do not build the search on it: look for option 1 or 2 first, and if neither exists, search one field and say which in `noResultsState`.
+
+**Never run one query per field and merge the results in the client.** Each query needs a cap, every match past it disappears without an error, and the total is wrong — a measured run shipped four `startsWith` queries capped at 100 rows. Never route the term to a single field by its shape either — a measured run shipped this, and one branch is always dead:
 
 ```ts
 query = term.includes('@')

@@ -1,0 +1,30 @@
+name: contacts-search-one-call
+description: A contacts table with a search box searches name, email and phone in one server-paged call — the endpoint's own search method or one $or filter — never one capped query per field merged in the client
+triggerPrompt: |-
+  I want a page in my dashboard that shows my contacts in a table, with their name, email and phone. I need to be able to search the table to find a contact.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, sdk-module-map, draft-template, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the contacts search is correct. Check: (1) Contacts come from `@wix/crm` through the Wix SDK, not from a CMS data collection. (2) One search term is matched against name, email and phone in a single request per page — the endpoint's own search method (for example `contactsV5.searchContacts` with `search.fields` covering `name.full`, `email.email`, `phone.phone`) or one `$or` filter. (3) Paging is done by the server (a cursor or offset passed to the call), so every match is reachable. Running one query per field, capping each one (for example at 100 rows), and merging, sorting or paging the results in the client is an automatic fail (score 0-2), because matches past the cap disappear and the total is wrong. Routing the term to a single field by its shape (an email-looking term to email only) scores at most 4. Score 0-10, citing the generated code.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the quality of the search implementation path. Check: (1) The agent chose the search mechanism deliberately — it looked for a search method or a filter that ORs fields before it wrote `fetchData`, rather than settling on the first query builder it found. (2) If it used a query builder, it did not try to emulate an OR by running several builder queries. (3) The page tells the user what the search matches (for example in the search placeholder or `noResultsState`). Score 0-10, citing the tool calls in the trace and the generated code.
+  - type: time_limit
+    maxDurationMs: 600000
+  - type: cost
+    maxCostUsd: 4

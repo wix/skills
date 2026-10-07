@@ -26,7 +26,7 @@ Data owned by an existing Wix business app is read and written through that app'
 | donations | `@wix/donations` |
 | portfolio | `@wix/portfolio` |
 | media files | `@wix/media` |
-| contacts / labels / tasks | `@wix/crm` |
+| contacts / labels / tasks | `@wix/crm` — a contacts search box calls `contactsV5.searchContacts`, see [Turning `query.search` into a query](dashboard-page/DRAFT_TEMPLATE.md#turning-querysearch-into-a-query) |
 | members | `@wix/members` |
 | inbox conversations | `@wix/inbox` |
 | forms / form submissions | `@wix/forms` |
