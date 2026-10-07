@@ -3,7 +3,11 @@
 
 <sub>✅ Review job completed</sub>
 
-**No findings** · `abcdef1` · 3 files
+**Score: 8/10** · `abcdef1` · 3 files
+
+`stores/create-bundle` is clear and its scenario covers what it claims.
+
+**No findings**
 
 Nothing to raise against the reviewed sections of the contribution guide.
 
