@@ -3,7 +3,9 @@ name: "Automations Graph and Data Model"
 description: "Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access."
 ---
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
+**Deferred topic guides:** Automations Feasibility and Planning; Automations Delays Variables and Branches; Automations Schemas and Scheduling; Automations Conditions. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
+
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
 # Automation Model — Object, Graph Rules, Payload Scope
 
@@ -24,7 +26,7 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 | `id`, `revision`              | Read-only. `revision` MUST be sent back on Update Automation (§6).                                                                               |
 | `name`                        | Required, 1–100 chars (API allows 500; the builder holds 100); the business outcome ("Send welcome email to new subscribers").                   |
 | `description`                 | Optional, ≤2000 chars.                                                                                                                           |
-| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4). |
+| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks (Automations Feasibility and Planning (deferred) §4). |
 | `settings`                    | Locks for APPLICATION/PREINSTALLED (`readonly`, `actionSettings`, …). Never set it on create; on Update send it back exactly as fetched.         |
 | `configuration.status`        | Required, `ACTIVE` \| `INACTIVE`. Create `INACTIVE`; activate only on request.                                                                   |
 | `configuration.trigger`       | `{appId, triggerKey, filters[], scheduledEventOffset?, overrideSchema?, automationConfigMapping?}` — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration).                                |
@@ -36,7 +38,7 @@ Action (common fields):
 - `id` — uuid v4, equal to its map key.
 - `type` — `APP_DEFINED`, `CONDITION`, `CODE_CONDITION`, `DELAY`, `RATE_LIMIT`; alpha: `SET_VARIABLES`, `SPLIT`. NEVER `UNKNOWN_ACTION_TYPE`, NEVER `MERGE`.
 - `namespace` — 1–100 chars, unique except the shared `setVariable` namespace (§3). Outputs of this step appear under it.
-- `displayName` — optional but always set it: 1–60 chars, sentence case, purpose-specific (Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §7). Absent → the canvas shows the catalog name.
+- `displayName` — optional but always set it: 1–60 chars, sentence case, purpose-specific (Automations Delays Variables and Branches (deferred) §7). Absent → the canvas shows the catalog name.
 - `skipActionExpression` — absent (runs) or exactly `"{{true}}"` (skipped), the only value the builder writes. A skipped step adds NO outputs downstream (§4).
 - exactly one `*Info` matching `type`: `appDefinedInfo`, `conditionInfo`, `codeConditionInfo`, `delayInfo`, `rateLimitInfo`, `setVariablesInfo`, `splitInfo`.
 
@@ -48,7 +50,7 @@ Action (common fields):
 4. **No orphans.** An action unreachable from the root is deleted by the builder on the next save.
 5. **No cycles.** Forward only.
 6. **Empty array = the path ends** there. Use `[]`, never omit the field.
-7. **Parallel fan-out only via SPLIT** (Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5). Never two root ids, never two ids in one field.
+7. **Parallel fan-out only via SPLIT** (Automations Delays Variables and Branches (deferred) §5). Never two root ids, never two ids in one field.
 8. **No MERGE.** The API has a `MERGE` type and `conditionInfo.mergeActionId`, but the canvas cannot draw them (MERGE nodes never finish loading). Never create either; when you read an automation that has them, preserve them untouched and don't add more.
 
 ### Builder rendering MUSTs (graph level)
@@ -57,7 +59,7 @@ Action (common fields):
 - MUST: `actions[k].id === k` for every entry.
 - MUST: ids are unique across ALL of: action ids, SPLIT path ids, the `triggerKey` string (it is the trigger node's id), and the builder's synthetic ids `<id>true`, `<id>false`, `<id>-end`, `<id>true-end`. Duplicates crash the layout. Generate every id as a fresh uuid v4 in code; never reuse ids from these references.
 - MUST: each action carries ONLY its own type's `*Info`. The canvas ignores `type` when finding children and takes the first present of `appDefinedInfo → delayInfo → rateLimitInfo → setVariablesInfo → condition` — even an empty leftover `appDefinedInfo: {postActionIds: []}` on a CONDITION hides both branches.
-- MUST: at most one RATE_LIMIT, and only as the root (Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2). A non-root RATE_LIMIT node spins forever.
+- MUST: at most one RATE_LIMIT, and only as the root (Automations Delays Variables and Branches (deferred) §2). A non-root RATE_LIMIT node spins forever.
 - MUST: APP_DEFINED `appId` + `actionKey` match the site's action catalog, else the node shows "Action not available".
 
 ### Designing within the tree
@@ -92,7 +94,7 @@ Use the builder's own convention (it derives new indexes from the trailing numbe
 | APP_DEFINED                                      | `<actionKey>-<N>` (e.g. `triggered-emails-3`)            |
 | CONDITION and CODE_CONDITION                     | `CONDITION-<N>`                                          |
 | DELAY / SPLIT / RATE_LIMIT                       | `<TYPE>-<N>` (e.g. `DELAY-2`, `SPLIT-5`, `RATE_LIMIT-1`) |
-| SET_VARIABLES (and existing code-variable steps) | always the literal `setVariable` (Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4) |
+| SET_VARIABLES (and existing code-variable steps) | always the literal `setVariable` (Automations Delays Variables and Branches (deferred) §4) |
 
 `N` = 1 + the largest number after the last `-` among **all** the automation's namespaces (one counter shared across every step type — e.g. `DELAY-1` then `createTask-2`). A namespace with no trailing number (`setVariable`) doesn't count: if it is the only one, the next `N` is 1. A CODE_CONDITION keeps `CONDITION-<N>`. The builder never rewrites an existing namespace — on update keep every existing one as is. Variable and existing code-variable steps intentionally share `setVariable`; their distinct property keys are merged. For other output-producing actions, never reuse a namespace — the later output overwrites the earlier one.
 
@@ -100,10 +102,10 @@ Use the builder's own convention (it derives new indexes from the trailing numbe
 
 This section owns the rule. Build one JSON Schema object per node, in code, from the root down its own branch, from public schema APIs (calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §3–§4).
 
-1. **Trigger payload** — the trigger's `payloadDataSchema` (custom/webhook triggers: `trigger.overrideSchema` instead, Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3). If the trigger implements dynamic schema, call Get Trigger Dynamic Schema with the SELECTED (saved) filter options and MERGE its `properties` over the static ones ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5); before filters are chosen, dynamic fields are UNKNOWN, not absent. Trigger fields are un-prefixed: `var("orderId")`.
+1. **Trigger payload** — the trigger's `payloadDataSchema` (custom/webhook triggers: `trigger.overrideSchema` instead, Automations Schemas and Scheduling (deferred) §3). If the trigger implements dynamic schema, call Get Trigger Dynamic Schema with the SELECTED (saved) filter options and MERGE its `properties` over the static ones ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5); before filters are chosen, dynamic fields are UNKNOWN, not absent. Trigger fields are un-prefixed: `var("orderId")`.
 2. **Identity enrichment** — for every trigger-payload field (any object depth, not inside arrays) annotated `identityType: "contact"` or `"member"`, a root-level object is added, keyed by that field's `namespace` annotation when it has one, else its (deprecated) `name` annotation, else the identity type (`contact` / `member`). Shape: Get Identities Schema (`identitiesSchema.properties.contact` / `.member`). Both stay valid: `var("contactId")` and `var("contact.name.first")`; also e.g. `var("contact.email")`, `var("member.profile.nickname")`. A field annotated `name: "post_author_member"` (some Blog / File Share triggers) is enriched as `var("post_author_member.profile.nickname")` — two member ids on one trigger give two objects; use the key the field declares (`member.*` does not exist there). Other identity types (e.g. `visitor`) add no object; webhook/custom triggers (override schema) get none. The builder does not enrich identity fields of action outputs — don't read `contact.*` that only an action output would provide.
 3. **Ancestor action outputs** — for each non-skipped APP_DEFINED step ABOVE this node on its own path, under `properties[<namespace>]`: catalog `outputSchema`, with `overrideOutputSchema.properties` merged over it, and — when the action implements dynamic output — Get Action Dynamic Output Schema (called with that step's final `inputMapping`) merged over that: `var("triggered-emails-3.messageId")`.
-4. **Variables** — titled outputs (`outputSchema`) of non-skipped ancestor SET_VARIABLES / code-variable (`namespace: "setVariable"`) steps, merged under `setVariable`: `var("setVariable.<key>")` (Automations Delays Variables and Branches (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4).
+4. **Variables** — titled outputs (`outputSchema`) of non-skipped ancestor SET_VARIABLES / code-variable (`namespace: "setVariable"`) steps, merged under `setVariable`: `var("setVariable.<key>")` (Automations Delays Variables and Branches (deferred) §4).
 
 Scope rules:
 
@@ -116,6 +118,8 @@ Scope rules:
 Syntax of expressions and the allowed function list: [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions).
 
 ## 5. Minimal valid example (trigger → condition → two branches)
+
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
 
 All ids are placeholders; generate real uuid v4s. Resolve `appId`/`triggerKey`/`actionKey`/input keys from the catalogs.
 
@@ -185,11 +189,13 @@ All ids are placeholders; generate real uuid v4s. Resolve `appId`/`triggerKey`/`
 }
 ```
 
-Why it's valid: one parentless root; ≤1 id per connection; one parent each; ids = keys, unique; own `*Info` only; namespaces per §3; one renderable condition group (Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))); inputMapping keys from the input schema ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)); every `var()` path in that node's aggregated schema.
+Why it's valid: one parentless root; ≤1 id per connection; one parent each; ids = keys, unique; own `*Info` only; namespaces per §3; one renderable condition group (Automations Conditions (deferred)); inputMapping keys from the input schema ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)); every `var()` path in that node's aggregated schema.
 
 ## 6. Persistence & update lifecycle
 
-Create `INACTIVE` (your "draft"); activate only on request. Update = Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Full procedure and read-back: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3; locks: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+
+Create `INACTIVE` (your "draft"); activate only on request. Update = Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Full procedure and read-back: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3; locks: Automations Feasibility and Planning (deferred) §4; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
 
 ## 7. Pre-validate self-check (do in code)
 
