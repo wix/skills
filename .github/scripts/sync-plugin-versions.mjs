@@ -49,4 +49,14 @@ for (const rel of MANIFESTS) {
   changed++;
 }
 
+// The kit's pinned templates ref follows the release tag, so an install that fetches the shipped code gets the release it belongs to.
+const pinsFile = join(repoRoot, 'skills/wix-headless-kit/install/pins.json');
+const pins = JSON.parse(readFileSync(pinsFile, 'utf8'));
+if (pins.templates?.ref !== `v${version}`) {
+  pins.templates = { ...(pins.templates ?? {}), ref: `v${version}` };
+  writeFileSync(pinsFile, JSON.stringify(pins, null, 2) + '\n');
+  console.log(`skills/wix-headless-kit/install/pins.json: templates.ref → v${version}`);
+  changed++;
+}
+
 console.log(`Synced ${changed} manifest(s) to ${version}.`);

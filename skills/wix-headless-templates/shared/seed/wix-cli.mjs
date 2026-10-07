@@ -1,11 +1,14 @@
 // The Wix CLI the seeds call for a site token and for `wix env pull`.
 //
 // Order: the project's own copy (node_modules/.bin/wix, installed with the template's lock), then
-// a `wix` on PATH, then `npx -y @wix/cli@latest` — which installs the CLI before running it, 20 to
+// a `wix` on PATH, then `npx -y @wix/cli@<pinned>` — which installs the CLI before running it, 20 to
 // 60 s and a wall of npm output on a fresh machine. The first two take under two seconds.
 import { existsSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+
+// The CLI version the fallback installs; equal to `@wix/cli` in wix-headless-kit/install/pins.json.
+const WIX_CLI_VERSION = "1.1.257";
 
 export function resolveWixCli(cwd = process.cwd()) {
   const bin = process.platform === "win32" ? "wix.cmd" : "wix";
@@ -19,7 +22,7 @@ export function resolveWixCli(cwd = process.cwd()) {
   for (const dir of (process.env.PATH ?? "").split(delimiter)) {
     if (dir && existsSync(join(dir, bin))) return { file: join(dir, bin), prefix: [] };
   }
-  return { file: "npx", prefix: ["-y", "@wix/cli@latest"] };
+  return { file: "npx", prefix: ["-y", `@wix/cli@${WIX_CLI_VERSION}`] };
 }
 
 /**
@@ -33,7 +36,7 @@ export function wixToken(siteId, cwd = process.cwd()) {
   // An older CLI starts its "update available" box on the token's own line, so a line split is
   // not enough: the token is the first long run of token characters.
   const token = out.match(/[A-Za-z0-9._-]{40,}/)?.[0];
-  if (!token) throw new Error("The Wix CLI returned no token — run `wix login` (or `npx @wix/cli@latest login`) first.");
+  if (!token) throw new Error(`The Wix CLI returned no token — run \`wix login\` (or \`npx @wix/cli@${WIX_CLI_VERSION} login\`) first.`);
   return token;
 }
 
