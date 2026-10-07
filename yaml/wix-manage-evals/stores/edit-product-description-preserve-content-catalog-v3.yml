@@ -43,6 +43,17 @@ assertions:
       Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace,
       including query parameters and request bodies.
 
+      Required discovery is part of the direct path: one WixREADME call and one
+      ReadFullDocsArticle call for the recipe asserted above are expected and must not
+      lower the score. WixREADME supplies mandatory site/API guidance; ReadFullDocsArticle
+      supplies the recipe this scenario requires. Neither is a schema probe.
+      A schema probe is an actual SearchWixAPISpec or ReadFullDocsMethodSchema tool call.
+      A URL listed in ExecuteWixAPI.sourceDocUrls is a source citation, not a tool call.
+      Evaluate REST requests inside ExecuteWixAPI separately from these documentation calls.
+      For each deduction, cite the observed tool call or REST request and explain the
+      avoidable friction. Do not infer extra calls from source citations or invent a
+      docs gap when the trace contains only the required reads and a clean mutation path.
+
       Score 9-10: a direct path — the exact product was located, Get Product requested DESCRIPTION
       before the write, and one successful PATCH sent the current revision plus an edited Rich
       Content description. No non-2xx responses, no retries, and no unnecessary schema probes.
@@ -55,8 +66,8 @@ assertions:
       endpoint or catalog version.
 
       Do not deduct for reading the seeded store's other demo products. For each issue found, name
-      the likely MCP/docs gap. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
-      suspected MCP/docs gap, or 'clean path' if none>"}.
+      the MCP/docs gap supported by the trace, or state that its cause is unknown. Return ONLY {"score":<0-10>,"reason":"<terse list of frictions +
+      supported MCP/docs gap or unknown cause, or 'clean path' if none>"}.
 siteSetup:
   mode: template
   templateId: stores-v3-editor
