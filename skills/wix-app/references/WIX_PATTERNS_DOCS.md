@@ -12,7 +12,7 @@ Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and
 
 **If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
-**Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where `Reading the Doc Indices.md` says (step 4).
+**Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. That includes `dist/types/`: `tsc` reads it, but its files import their props from sibling files, so it answers no props question in one read.
 
 ## The Discovery Chain
 
@@ -44,7 +44,7 @@ Each guide's index entry carries `relatedComponents`; every name in it resolves,
 
 ### 4 — Read only what answers your question, then stop
 
-**`Read <pkgRoot>/dist/docs/Reading the Doc Indices.md` once per session**, before your first read past the lookup output. The package keeps it in step with its own indices. It says which file answers which question, what a one-line stub in a `.d.ts` means, and when `dist/types/` is the better source. The rules below are about how many reads you make:
+**`Read <pkgRoot>/dist/docs/Reading the Doc Indices.md` once per session**, before your first read past the lookup output. The package keeps it in step with its own indices. It says which file answers which question, what a one-line stub in a `.d.ts` means, and how to follow a stubbed prop to the file that declares it. The rules below are about how many reads you make:
 
 - **Read the one artifact your open question needs.** Check what you have already read first: a guide's prose often holds the call.
 - **Decide once, then batch.** When you need several files, read them in one message, one `Read` per file. Never hop one file per turn. Deciding is what costs, so a few deliberate reads beat dozens of just-in-case ones.
