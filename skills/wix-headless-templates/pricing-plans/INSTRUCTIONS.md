@@ -336,8 +336,10 @@ other road — an eCom checkout with one PLAN line item (`catalogItemId: plan.id
 must share one checkout with products (a cart holding a membership and a T-shirt). Both end on a
 Wix-hosted checkout with coupons, notes, and login handled there. The DTO carries
 `pricingVariantId` so the eCom path is reachable without touching the DTO if a brief needs it;
-building it means `@wix/ecom` `checkout.createCheckout` plus a redirect session with
-`ecomCheckout: { checkoutId }` — a new function beside `purchase.ts`, not a change to it.
+building it means adding the plan line (and any product lines) to the current cart with `@wix/ecom`
+`currentCartV2` — in Cart V2 the cart IS the checkout, so the cart's id is the id passed to a
+redirect session with `ecomCheckout: { checkoutId }` — a new function beside `purchase.ts`, not a
+change to it.
 
 ## Gated content — requires the `members` vertical
 
