@@ -12,7 +12,10 @@ The generated surfaces are:
 - `yaml/wix-manage/automations/documentation.yaml` and this README.
 - `yaml/wix-manage-evals/automations/*.yml`: public evaluation scenarios.
 
-The index exposes one entry point, **Build and Manage Wix Automations**. Its
+The index exposes one entry point: **Inspect Wix Automations** in stage 1,
+**Build Simple Wix Automations** in stage 2, and **Build and Manage Wix Automations**
+in stages 3–4. The stable `build-and-manage-automations.md` filename preserves the
+publication manifest across the stack; its frontmatter defines each stage’s scope. Its
 reference table selects the supporting pages on demand. Those pages stay registered
 in the documentation YAML so their article URLs remain available.
 
@@ -54,7 +57,7 @@ result. Local structural checks do not establish that live evaluations passed.
 
 Initial publication uses four ordered PRs, each adding at most four reference documents.
 `publication-stage.json` records this checkout's cumulative stage (1–4). The canonical
-exporter reads it by default; advance explicitly with `--stage=N`. Later PRs remain drafts
-based on the preceding branch until that part merges. Evaluations run only after a part
-targets main. All 29 scenarios are retained in the completed export; early stages defer
+exporter reads it by default; advance explicitly with `--stage=N`. Each later PR is based on its predecessor. All parts may be ready for review in a
+native GitHub stack. Check the current workflow: upper-layer evaluations can run, but
+shared scenario ownership may block them until predecessors merge. All 29 scenarios are retained in the completed export; early stages defer
 whole scenarios whose topic guides are not present, preserving their original assertions.

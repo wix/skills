@@ -3,7 +3,7 @@ name: "Automations Run Diagnosis"
 description: "Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
 # Interpret supplied automation run logs
 

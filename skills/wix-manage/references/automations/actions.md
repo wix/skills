@@ -3,7 +3,7 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
 # App-Defined Actions — Discovery, Schemas, Input Mapping
 
@@ -136,7 +136,7 @@ Process: (1) fetch the effective schema (§4) → (2) classify required vs optio
 
 ### 5.3 Validation errors on actions
 
-Error shape, error type → fix, and how the builder shows each: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
+Error shape, error type → fix, and how the builder shows each: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
 
 ## 6. Side-effect and recipient review
 

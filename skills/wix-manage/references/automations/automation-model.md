@@ -3,7 +3,7 @@ name: "Automations Graph and Data Model"
 description: "Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
 # Automation Model — Object, Graph Rules, Payload Scope
 
@@ -189,11 +189,11 @@ Why it's valid: one parentless root; ≤1 id per connection; one parent each; id
 
 ## 6. Persistence & update lifecycle
 
-Create `INACTIVE` (your "draft"); activate only on request. Update = Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Full procedure and read-back: Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3; locks: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
+Create `INACTIVE` (your "draft"); activate only on request. Update = Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Full procedure and read-back: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3; locks: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
 
 ## 7. Pre-validate self-check (do in code)
 
-Script the graph/id/namespace/`var()` items of Automations Validation and Persistence (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4 (items 1–4 and 11 — the rules of §2–§4 above: one parentless root, RATE_LIMIT only as that root, ≤1 id per connection, one parent each, no cycles/orphans/MERGE/`mergeActionId`/`UNKNOWN_ACTION_TYPE`, keys = ids, globally unique uuid v4s incl. SPLIT path ids, `triggerKey` and `<id>true/false/-end`, own `*Info` only, §3 namespaces unique except `setVariable`, every `var()` in THAT node's aggregated schema). Also check that only user-requested conditions/delays exist; then Validate Automation must return no trigger or action errors.
+Script the graph/id/namespace/`var()` items of [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §4 (items 1–4 and 11 — the rules of §2–§4 above: one parentless root, RATE_LIMIT only as that root, ≤1 id per connection, one parent each, no cycles/orphans/MERGE/`mergeActionId`/`UNKNOWN_ACTION_TYPE`, keys = ids, globally unique uuid v4s incl. SPLIT path ids, `triggerKey` and `<id>true/false/-end`, own `*Info` only, §3 namespaces unique except `setVariable`, every `var()` in THAT node's aggregated schema). Also check that only user-requested conditions/delays exist; then Validate Automation must return no trigger or action errors.
 
 ## 8. Anti-patterns (all wrong)
 
