@@ -44,7 +44,7 @@
 // business instead.
 //
 // Emits ONE JSON event per line (attached, scaffolded, deployed, install_started,
-// ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@latest whoami`)
+// ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@<pinned> whoami`, the version in pins.json)
 // whose account owns or co-manages the site.
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
@@ -53,6 +53,8 @@ import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
 import { frontendPresent, siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
+const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
+const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANAGE = "https://manage.wix.com";
@@ -135,9 +137,9 @@ emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cw
 
 // ---- http ---------------------------------------------------------------------------------------
 const cliToken = (site) => {
-  const r = spawnSync("npx", ["-y", "@wix/cli@latest", "token", ...(site ? ["--site", site] : [])], { encoding: "utf8", timeout: 120_000 });
+  const r = spawnSync("npx", ["-y", WIX_CLI, "token", ...(site ? ["--site", site] : [])], { encoding: "utf8", timeout: 120_000 });
   const t = (r.stdout || "").trim();
-  if (r.status !== 0 || !t) fail("auth", (r.stderr || r.stdout || "no token — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").slice(-400));
+  if (r.status !== 0 || !t) fail("auth", (r.stderr || r.stdout || `no token — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-400));
   return t;
 };
 async function call(base, path, { method = "POST", token, site, body, query } = {}) {

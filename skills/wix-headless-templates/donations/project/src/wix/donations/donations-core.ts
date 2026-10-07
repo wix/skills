@@ -1,7 +1,7 @@
 // Donation rules and DTO mapping — transport-agnostic, imported by BOTH transports: ./campaigns.ts
 // + ./donate.ts (the SDK, managed Astro and React) and the REST twins in templates/donations/rest/
 // (fetch, a static site or a port to another language). Every rule about amounts, fees, frequency,
-// goal math, validation, the checkout line and the redirect body lives HERE, once. A raw campaign
+// goal math, validation, the cart line and the redirect body lives HERE, once. A raw campaign
 // may come from the SDK (`_id`, coverImage as a `wix:image://` string) or from REST (`id`,
 // coverImage as { id, url }); the mappers accept both. Has its own formatMoney so it stands alone
 // when stripped. Imports are type-only so a strip to JS emits no imports.
@@ -351,10 +351,10 @@ export function toInput(options: DonationOptions, sel: DonationSelection): Donat
   return { amount, frequency: sel.frequency, coverFee: options.askCoverFee && sel.coverFee, note: sel.note.trim() };
 }
 
-// ---- checkout -------------------------------------------------------------------------------------
+// ---- cart -----------------------------------------------------------------------------------------
 
 /**
- * The one line item a donation checkout carries. `amount` is a NUMBER and `frequency` the enum
+ * The one catalog item a donation cart carries. `amount` is a NUMBER and `frequency` the enum
  * string; `donorCoveringFees` is sent only when the donor opted in (the Donations catalog plugin
  * prices the line from these options — never a customLineItem, never a computed price).
  */
@@ -370,27 +370,26 @@ export function donationLineItem(campaignId: string, input: DonationInput): Raw 
   };
 }
 
-/** Create Checkout body: the donation line, channelType WEB, the note as the checkout's buyerNote. */
-export function checkoutBody(campaignId: string, input: DonationInput): Raw {
-  return {
-    lineItems: [donationLineItem(campaignId, input)],
-    channelType: "WEB",
-    ...(input.note ? { checkoutInfo: { buyerNote: input.note } } : {}),
-  };
-}
-
-/** Create Cart body — the Wix widget's own route (fallback): the note as the cart's buyerNote. */
+/**
+ * Create Cart body (Cart V2): the single donation catalog item, the WEB channel on the cart's
+ * `source`, the donor note as the cart's `note`. In V2 the created cart IS the checkout — its id is
+ * the id the redirect session takes; there is no separate Create Checkout step.
+ */
 export function cartBody(campaignId: string, input: DonationInput): Raw {
   return {
-    lineItems: [donationLineItem(campaignId, input)],
-    ...(input.note ? { cartInfo: { buyerNote: input.note } } : {}),
+    cart: { source: { channelType: "WEB" }, ...(input.note ? { note: input.note } : {}) },
+    catalogItems: [donationLineItem(campaignId, input)],
   };
 }
 
-/** The checkout id out of either transport's response for either route. */
-export function checkoutIdOf(res: Raw | null | undefined): string {
-  const id = res?._id ?? res?.id ?? res?.checkoutId ?? res?.checkout?.id ?? res?.checkout?._id ?? "";
-  if (!id) throw new Error("Checkout couldn't start: no checkout id returned.");
+/**
+ * The cart id out of the Create Cart response — the id a V2 donation hands the redirect session
+ * (the cart is the checkout). The SDK returns a Cart directly (`_id`); REST wraps it as
+ * `{ cart: { id } }`.
+ */
+export function cartIdOf(res: Raw | null | undefined): string {
+  const id = res?._id ?? res?.id ?? res?.cart?._id ?? res?.cart?.id ?? "";
+  if (!id) throw new Error("Checkout couldn't start: no cart id returned.");
   return String(id);
 }
 

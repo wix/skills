@@ -11,9 +11,13 @@
 //   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
 //   3. a fetch: a sparse, shallow clone of `skills/wix-headless-templates/` from the repository the skill was installed
 //      from (skills-lock.json's `source`, default wix/skills), at the branch or tag the install
-//      named (its `ref`, falling back to the default branch when that ref no longer exists) or the
-//      repository's default branch. The lock records no commit, so there is nothing more exact to
-//      pin to; `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides the ref.
+//      named (its `ref`, falling back to the default branch when that ref no longer exists), else
+//      the repository's default branch: a skill installed from the repository tracks the repository,
+//      so the templates match the kit beside them. A kit that came from a package (no skills-lock.json
+//      above it) fetches at the release tag in `install/pins.json` (`templates.ref`, kept equal to the
+//      package version by the release flow), the code it was released with; the package carries the
+//      templates skill beside the kit anyway, so that fetch is the rare path.
+//      `WIX_HEADLESS_FAST_TEMPLATES_REF=<branch|tag|sha>` overrides all of it.
 // The cache stays with the project: its `.gitignore` leaves out only the composed `project/`
 // folders (the scaffolds with their lockfiles, read once, at create or attach) and the repository
 // tooling, so the code layers, playbooks, seeds and readers are committed at the commit the project
@@ -29,6 +33,8 @@ export const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 export const DEFAULT_REPO = "https://github.com/wix/skills.git";
 /** The templates skill's folder in the repository. */
 export const TEMPLATES_PATH = "skills/wix-headless-templates";
+/** Pinned versions, shared by the install scripts; `templates.ref` is the release tag the fetch defaults to. */
+export const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 
 const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", timeout: 180_000, ...opts });
 
@@ -46,7 +52,7 @@ export function installSource() {
         if (typeof entry?.source === "string" && entry.source) {
           const parsed = parseSource(entry.source);
           // `ref` is the branch or tag the install named (skills-lock.json v1 keeps it beside `source`)
-          return { ...parsed, ref: parsed.ref ?? (typeof entry.ref === "string" && entry.ref ? entry.ref : null) };
+          return { ...parsed, ref: parsed.ref ?? (typeof entry.ref === "string" && entry.ref ? entry.ref : null), fromLock: true };
         }
       } catch { /* fall through to the default */ }
       break;
@@ -55,7 +61,7 @@ export function installSource() {
     if (up === dir) break;
     dir = up;
   }
-  return { repo: DEFAULT_REPO, ref: null };
+  return { repo: DEFAULT_REPO, ref: null, fromLock: false };
 }
 
 function parseSource(src) {
@@ -112,15 +118,19 @@ export function templatesSource(dir) {
 }
 
 function fetchTemplates(cache) {
-  const { repo, ref: lockRef } = installSource();
+  const { repo, ref: lockRef, fromLock } = installSource();
   const envRef = process.env.WIX_HEADLESS_FAST_TEMPLATES_REF || null;
-  let ref = envRef || lockRef || null;
+  // Installed from the repository (a lock above the skill) and no ref named: the default branch, so
+  // the templates match the kit. No lock at all is a package install: the release tag it shipped with.
+  const pinnedRef = fromLock ? null : (PINS.templates?.ref || null);
+  let ref = envRef || lockRef || pinnedRef || null;
   let r = cloneSparse(repo, ref);
   // The branch the skill was installed from can be gone by the time the code is first needed
   // (merged and deleted). The lock's ref then falls back to the default branch; an explicit env
   // ref does not.
   let fellBack = false;
   if (r.status !== 0 && ref && !envRef && /not found|couldn't find remote ref|unknown revision/i.test(r.stderr || "")) {
+    // (the pinned tag, too: a fork or a pre-release checkout may not carry it)
     rmSync(r.tmp, { recursive: true, force: true });
     fellBack = true; ref = null;
     r = cloneSparse(repo, null);
@@ -141,7 +151,7 @@ function fetchTemplates(cache) {
   catch { cpSync(join(tmp, TEMPLATES_PATH), cache, { recursive: true }); }
   rmSync(tmp, { recursive: true, force: true });
   writeFileSync(join(cache, ".gitignore"), IGNORED.join("\n") + "\n");
-  writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? (fellBack ? `default branch (${lockRef} not found)` : "default branch"), commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
+  writeFileSync(join(cache, ".source"), JSON.stringify({ repo, ref: ref ?? (fellBack ? `default branch (${lockRef || pinnedRef} not found)` : "default branch"), commit, fetchedAt: new Date().toISOString() }, null, 2) + "\n");
 }
 
 // A sparse, shallow clone of the templates skill's folder at a ref (branch, tag, or commit id) into a temp dir.
