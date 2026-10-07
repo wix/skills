@@ -5,7 +5,7 @@ triggerPrompt: |-
   APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
   CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
 templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
-tags: [dashboard-page, business-manager-theme, business-manager-tokens, dashboard-modal, data-collection, wix-patterns-docs]
+tags: [dashboard-page, dashboard-page-boundary, business-manager-theme, business-manager-tokens, dashboard-modal, data-collection, wix-patterns-docs]
 assertions:
   - type: skill_was_called
     negate: false
