@@ -24,7 +24,7 @@ That is a documentation abridgement, not the declaration your code compiles agai
 `dist/types/index.d.ts`, which re-exports the **fully typed** `CollectionState` from
 `@wix/bex-core` — no index signature. So `state.collection.…` is properly typed, a wrong member is a
 compile error at the access, and reading `state.collection.status.status` to debug a stuck table is
-sound. See [WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong).
+sound. See `<pkgRoot>/dist/docs/Reading the Doc Indices.md` for what a stub means.
 
 Prefer a typed member on `TableState` itself anyway — it is the object the hook hands you, and the
 table's own view of the collection.

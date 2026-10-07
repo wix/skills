@@ -12,7 +12,7 @@ Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and
 
 **If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
-**Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where step 5 says: `package.json` points `types` at it, so it is what `tsc` enforces.
+**Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where `Reading the Doc Indices.md` says (step 4).
 
 ## The Discovery Chain
 
@@ -26,7 +26,7 @@ node <pkgRoot>/bin/patterns-lookup.cjs Table useTableCollection stringsArrayFilt
 
 The package ships this script, so it matches the installed indices. For each name it prints the import, the examples and the **one** file for props. Its `summary` line usually answers the question, so step 4 needs no read. A name in neither index makes it exit 1, with near matches. `--templates` lists the page templates. **List the names first.** Each name you add later costs another round trip, and those round trips are this step's whole cost.
 
-**If `<pkgRoot>/bin/patterns-lookup.cjs` is missing** (an older `@wix/patterns`), probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol. Never `Read` it whole: at ~80 KB it truncates silently. Match keys and `symbols` aliases exactly. A name not in it may still be in `dist/dts-bundle/index.json`, which curates hooks, types and re-exports. `dist/dts-bundle/index.txt` (~9 KB) lists every curated name with `kind`, `importPath` and file, and from 1.469.0 adds `bytes`, `props` and `stubs`.
+**If `<pkgRoot>/bin/patterns-lookup.cjs` is missing** (an older `@wix/patterns`), probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol, and match keys and `symbols` aliases exactly. Never `Read` it whole: it truncates silently. A name not in it may still be in `dist/dts-bundle/index.json`.
 
 ### 2 — Composition, once per session
 
@@ -44,48 +44,11 @@ Each guide's index entry carries `relatedComponents`; every name in it resolves,
 
 ### 4 — Read only what answers your question, then stop
 
-| Your question | Read | Path |
-| --- | --- | --- |
-| What is it, and how does it wire in? | **nothing** — the entry says | `summary` |
-| Where do I import it from? | **nothing** — the entry says | `importPath` |
-| How do I call it? | one **example**, or a call in a guide's prose | `dist/examples/<examples[i]>` · `dist/docs/<guide>.md` |
-| What props, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `dist/dts-bundle/<bundle>` · absent: `dist/docs/<file>` |
-| A setup requirement or gotcha? | the **doc's** prose | `dist/docs/<file>` |
+**`Read <pkgRoot>/dist/docs/Reading the Doc Indices.md` once per session**, before your first read past the lookup output. The package keeps it in step with its own indices. It says which file answers which question, what a one-line stub in a `.d.ts` means, and when `dist/types/` is the better source. The rules below are about how many reads you make:
 
-Prefix the index's bare values with their tree — `file` → `dist/docs/`, `examples` → `dist/examples/`, `bundle` → `dist/dts-bundle/`, `templateFiles` → `dist/templates/` — and never rebuild a path from a symbol name.
-
-**Those two middle rows are one question in practice.** You ask how to call it, start writing, and the question turns prop-shaped mid-call — where the second row sends you to a `.d.ts` that may be stubbed (step 5). Take the props off the example first; go to the `.d.ts` only for what it cannot show — optionality, union members, an exact callback signature.
-
-**A guide's prose often holds the call.** `PrimaryActions`' bundle stubs its own props type, while `usePatternsNavigate.md` carries `<PrimaryActions label="Add shift" onClick={…} />` verbatim. Check what you have already read before opening anything.
-
-**`bundle` and a doc props table are mutually exclusive.** With `bundle`, the page's `### Props` is only a pointer; without it, that table marks what is required. Reading both is one hop too many.
-
-**A `.d.ts` names props; it never says what they do.** Wiring and defaults live in prose: `CollectionSearch`'s bundle lists four optional props and no behaviour, while its page says the search term reaches your `fetchData` via `query.search`. When a behaviour question outlives the `summary`, open the page.
-
-**Artifact not listed?** No `examples` — a hook's usage is usually filed under the component it pairs with (`useEntityPage` → `EntityPage/basic.tsx`). No `importPath` — a guide, or documented but not exported. Nothing at all — a state object you receive rather than construct; its doc is the only source.
-
-### 5 — Traps that make a read wrong
-
-**Search inside the file an index named, never across the tree.** A shared shape is re-stubbed in every bundle referencing it, so a tree-wide `grep` returns mostly pointers, and the first hit is rarely the declaration.
-
-**Most bundles stub the parent holding the props — 70 of the 105 curated entries do** — and the index says so per entry. **`dist/dts-bundle/index.json` is the triage surface, not merely a fallback for names the docs index lacks:** a component entry carries `ownProps` / `inheritedProps` beside `bytes` and `readWith`, so "is this file the whole answer" is a lookup, not an inspection.
-
-- `Table` → `ownProps: 5, inheritedProps: 58`, `readWith` naming 3 files. Five of sixty-three.
-- `PrimaryActions` → `ownProps: 0, inheritedProps: 12`. A 470-byte file declaring none of them.
-- No `ownProps` on a component entry means no split — that file *is* the whole answer.
-
-A split is not a dead end: the parent is a real file, `readWith` names it, and from 1.469.0 so does the stub inside the file (`Full shape: types/Filter.d.ts`). **Read that one file — one hop, not N.** The rest of `readWith` is types referenced *inside* it, opened only if needed. Judge by the entry's own `bytes`, never `readWithBytes` — `Table`'s are 5,277 against 31,731 — since the combined figure talks you out of a read you should just do. A `…Params` type built from `Pick<>`/`Omit<>` is the same trap in another shape.
-
-**When you do need several `readWith` files, read them in one call** — one `Read` per file in a single message. Reads measure ~21 ms each, so ten is a fifth of a second and one round trip. Deciding is what costs: decide once, then batch, and never hop one file per turn. Batching is not a licence to skip the filter, though — a few deliberate reads beat dozens of just-in-case ones.
-
-**If the parent is large, take the declaration `tsc` uses.** `dist/types/components/CollectionTable/CollectionTable.d.ts` is 5,919 B against the bundle's 20,802 B, carries JSDoc, and states `columns: TableColumn<T>[]` (required) outright. Nothing there is stubbed, so a `grep` for a prop name is reliable. This case only.
-
-The generated files' conventions — which one-line stubs are answers rather than truncation, how entry-point files are scoped — are in `dist/docs/Reading the Doc Indices.md`, worth reading before your first `dist/dts-bundle/*.d.ts` of the session.
-
-### Rules for the reads themselves
-
-- **Use the exact `file`, `bundle` and `examples` values, prefixed per step 4.** Bundles nest one directory per kind, so `<Name>.d.ts` at the top level is wrong by construction, and an example slug is not derivable from a title.
-- **Extract from the file the index named.** A whole-file `Read` is safe (`bytes` gives the size first); a scoped `grep`/`sed` is cheaper. If an extraction is empty or ambiguous, read the whole file rather than guess.
+- **Read the one artifact your open question needs.** Check what you have already read first: a guide's prose often holds the call.
+- **Decide once, then batch.** When you need several files, read them in one message, one `Read` per file. Never hop one file per turn. Deciding is what costs, so a few deliberate reads beat dozens of just-in-case ones.
+- **Extract from the file the lookup named.** If an extraction is empty or ambiguous, read the whole file rather than guess.
 - **A `@wix/design-system` name is not yours to look up here.** Use the `wix-design-system` skill; never follow a deep `@wix/design-system/dist/...` path a bundle mentions.
 - **If a name is in neither index, stop and say so**, naming the path that dead-ended. A wrong guess compiles and breaks at runtime.
 
