@@ -14,7 +14,7 @@ The generated surfaces are:
 
 The index exposes one entry point: **Inspect Wix Automations** in stage 1,
 **Build Simple Wix Automations** in stage 2, and **Build and Manage Wix Automations**
-in stages 3–4. The stable `build-and-manage-automations.md` filename preserves the
+in stages 3–5. The stable `build-and-manage-automations.md` filename preserves the
 publication manifest across the stack; its frontmatter defines each stage’s scope. Its
 reference table selects the supporting pages on demand. Those pages stay registered
 in the documentation YAML so their article URLs remain available.
@@ -55,9 +55,11 @@ changes in linked PRs. The YAML content hash is a source-drift aid, not an execu
 result. Local structural checks do not establish that live evaluations passed.
 
 
-Initial publication uses four ordered PRs, each adding at most four reference documents.
-`publication-stage.json` records this checkout's cumulative stage (1–4). The canonical
+Initial publication uses five ordered PRs, each adding at most four reference documents.
+Stage 5 adds only Automations Item Selection; it is last because its public route is not
+ready, so it can never block stages 1–4.
+`publication-stage.json` records this checkout's cumulative stage (1–5). The canonical
 exporter reads it by default; advance explicitly with `--stage=N`. Each later PR is based on its predecessor. All parts may be ready for review in a
 native GitHub stack. Check the current workflow: upper-layer evaluations can run, but
-shared scenario ownership may block them until predecessors merge. All 29 scenarios are retained in the completed export; early stages defer
+shared scenario ownership may block them until predecessors merge. All 30 scenarios are retained in the completed export; early stages defer
 whole scenarios whose topic guides are not present, preserving their original assertions.
