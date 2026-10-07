@@ -91,7 +91,9 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+Every merge to `main` that touches `skills/**` (or the plugin's `.mcp.json`) opens a **patch** bump PR automatically via [`release-bump`](.github/workflows/release-bump.yml); while one release PR is open, further merges ride along with it. For a **minor** or **major** bump, run the same workflow from the **Actions** tab and pick a `version_strategy`. Either way the rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+
+The version matters beyond npm: the Claude Code, Codex, Cursor and Gemini plugins all read it from their manifests, and Claude Code in particular keeps users on a cached copy until the string changes — so an unreleased merge is invisible to plugin users.
 
 ## Serving (`www.wix.com/skills`)
 
