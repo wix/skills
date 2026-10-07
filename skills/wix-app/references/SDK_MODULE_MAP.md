@@ -41,7 +41,7 @@ Data owned by an existing Wix business app is read and written through that app'
 | locations / site properties | `@wix/business-tools` |
 | app instances | `@wix/app-management` |
 
-**Contacts v4 vs v5.** `contacts` and `contactsV5` are different APIs with different shapes and scopes, and a docs search returns both. Use the namespace of the method page you read, and never mix them in one flow: v4 is `updateContact(contactId, info, revision: number, options?)`, v5 is `updateContact(_id, contact, options?)` with `revision` inside `contact`. Check the scope on that page — reading PII with the limited-read scope is `SCOPE.DC-CONTACTS.READ-CONTACTS_LIMITED`.
+**Contacts v4 vs v5.** `contacts` and `contactsV5` are different APIs with different shapes and scopes, and a docs search returns both. Use the namespace of the method page you read, and never mix them in one flow: v4 is `updateContact(contactId, info, revision: number, options?)`, v5 is `updateContact(_id, contact, options?)` with `revision` inside `contact`. Check the scope on that page; the Dev Center permission picker lists both `SCOPE.DC-CONTACTS.READ-CONTACTS` and `SCOPE.DC-CONTACTS.READ-CONTACTS_LIMITED` (PII).
 
 **Analytics.** There is no page-view or hourly analytics API. `@wix/analytics-data` `getAnalyticsData(measurementTypes, { dateRange })` returns one value per day (`TOTAL_SALES`, `TOTAL_ORDERS`, `CLICKS_TO_CONTACT`, `TOTAL_SESSIONS`, `TOTAL_FORMS_SUBMITTED`, `TOTAL_UNIQUE_VISITORS`) and stores 62 days. `@wix/analytics` is unrelated: it is event tracking.
 
