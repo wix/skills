@@ -113,6 +113,30 @@ collide. A page with several filters hits this the moment two of them apply at o
 usually after the single-filter case has already been called working. The full operator set —
 including `$not`, `$nin`, `$exists`, `$isEmpty`, `$hasAll`, `$hasSome` — is in the [WQL article][wql].
 
+## A search over several fields is one call
+
+A search box that matches name, email or phone needs one request that ORs the fields. A query
+builder (`queryContacts()`) chains clauses with AND and has no `.or()`, so do not build the search
+on it. **Never split the search into one capped query per field and merge the results in the
+client:** every match past the cap disappears without an error, and the total is wrong. A measured
+run shipped exactly that.
+
+Use the method's own search when it has one, otherwise a `$or` filter. For contacts it is
+`contactsV5.searchContacts`, whose `search` covers `name.full`, `email.email` and `phone.phone`
+(distilled from a run that built a working contacts search; check the method's SDK page for the rest):
+
+```ts
+import { contactsV5 } from '@wix/crm';
+
+const { contacts, pagingMetadata } = await contactsV5.searchContacts({
+  cursorPaging: { limit, cursor },
+  sort: [{ fieldName: 'name.first', order: contactsV5.SortOrder.ASC }],
+  ...(term ? { search: { expression: term, mode: contactsV5.Mode.OR, fuzzy: true,
+    fields: ['name.full', 'email.email', 'phone.phone'] } } : {}),
+});
+const next = pagingMetadata?.hasNext ? pagingMetadata.cursors?.next : undefined;
+```
+
 ## A follow-up cursor page carries the cursor alone
 
 The cursor already encodes the filter and sort of the query that produced it, so re-sending them is

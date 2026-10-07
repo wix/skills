@@ -1,0 +1,30 @@
+name: contacts-search-one-call
+description: A contacts table with a search box finds its method in the SDK docs before reading package typings, and searches name, email and phone in one call instead of one capped query per field merged in the client
+triggerPrompt: |-
+  I want a page in my dashboard that shows my contacts in a table, with their name, email and phone. I need to be able to search the table to find a contact.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, sdk-module-map, draft-template, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/QUERY_AND_PAGING.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the contacts search is correct. Check: (1) Contacts come from `@wix/crm` through the Wix SDK, not from a CMS data collection. (2) One search term is matched against name, email and phone in a single request per page — the method's own search (for example `contactsV5.searchContacts` with `search.fields` covering `name.full`, `email.email`, `phone.phone`) or one `$or` filter. (3) Paging is done by the server (cursor or offset passed to the call), so every match is reachable. Running one query per field, capping each one (for example at 100 rows), and merging, sorting or paging the results in the client is an automatic fail (score 0-2), because matches past the cap disappear and the total is wrong. Score 0-10, citing the generated code.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate how the agent found the contacts method. Check: (1) Before it chose a method, the agent searched the Wix SDK documentation for contacts (an SDK docs search or a method-schema read), and the method it used is one that search returned. (2) It read the installed package's declarations only to verify the fields of that method, not to choose between the package's namespaces. Many requests that grep, sed or awk through `@wix/crm` or `@wix/sdk-types` typings to look for an OR operator or a search method, before any docs lookup, score at most 4. Score 0-10, citing the tool calls in the trace.
+  - type: time_limit
+    maxDurationMs: 600000
+  - type: cost
+    maxCostUsd: 4

@@ -1,9 +1,10 @@
 # Finding the real SDK shape behind a dashboard page
 
 > **Scope.** [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) gives you the page. This file is the other half:
-> locating the method and the *field names* for the data it lists. Read it before Step 3's MCP
-> discovery — the installed package answers most of it faster and more accurately than a doc search,
-> because it is the version your code will compile against.
+> confirming the method and the *field names* for the data it lists. Find the method with an SDK
+> docs search first; then confirm it here. The installed package answers the field names faster and
+> more accurately than a doc search, because it is the version your code will compile against — but
+> it does not say which of a package's namespaces to call.
 
 ## Where the types actually live
 
