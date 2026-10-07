@@ -34,7 +34,7 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   }'
 ```
 
-Read `products` from the search response and choose the entry whose `name` exactly matches the requested name; the ranker may also return near-matches. If there is no exact match or more than one, ask the user which product they mean. Use the selected `products[].id` in Get Product; search only resolves the ID.
+Read `products` from the search response. Prefer an exact name match; otherwise select a clear, unambiguous match, such as a name differing only in capitalization. If no result clearly identifies the requested product, or multiple products could match, ask the user which product they mean. Use the selected `products[].id` in Get Product; search only resolves the ID.
 
 ### Get the current revision
 
@@ -152,7 +152,7 @@ For prepend, append, and text removal, execute the documented calls directly: th
 
 | Call | Request | Response fields used next |
 |---|---|---|
-| Search Products, when given a name | Use [Find the product by name](#find-the-product-by-name); `search.search` contains `expression`, `fields: ["name"]`, and `fuzzy: false`. | `products[]` contains `id` and `name`; choose one exact name match. |
+| Search Products, when given a name | Use [Find the product by name](#find-the-product-by-name); `search.search` contains `expression`, `fields: ["name"]`, and `fuzzy: false`. | `products[]` contains `id` and `name`; select the product using the name-matching guidance above. |
 | Get Product | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION` | `product.id`, `product.revision`, and the full `product.description`. |
 | Update Product | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, description }, fields: ["DESCRIPTION"] }`, using the read ID/revision and complete edited document. | `product.description` verifies the edit; `product.revision` is the new revision. |
 
