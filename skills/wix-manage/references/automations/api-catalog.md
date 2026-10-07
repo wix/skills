@@ -60,7 +60,7 @@ A site may have Add label to contact without Create task; never substitute one f
 
 ### Bounded fallback
 
-Remove the exact-key filter to browse; use offset pages of at most25 entries, with no sort.
+Remove the exact-key filter to browse; use offset pages of at most 25 entries, with no sort.
 Resolve Actions has no `basicFieldsOnly` option and rejects displayName filters; search names
 locally. Compact each page to identities and display names before adding it to reasoning
 context. Cache results for this site and hydrate only a shortlist. Pages can overlap;
