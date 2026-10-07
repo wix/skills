@@ -14,7 +14,7 @@ you're already reading the raw text, don't fetch it again.
 ## The whole cold start (details in the phases below)
 
 ```bash
-CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
 node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
@@ -26,7 +26,7 @@ sandbox that blocks the install, the CLI or the login — see
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
-1. **Install (deterministic).** The skill and its two companions land under `.agents/skills/`.
+1. **Install (deterministic).** The skill and its three companions land under `.agents/skills/`.
 2. **Bootstrap (deterministic, scripted).** The installed script verifies the Wix CLI and
    handles login. You just run it and relay its events.
 3. **Hand off (agentic).** Open `wix-headless-kit/SKILL.md` and follow it — it resolves the
@@ -59,16 +59,17 @@ lower version, install or upgrade Node first — do **not** work around it:
 
 ## Phase 1 — Install the skills
 
-Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
+Install the skill and its three companions (`CI=1` forces plain non-interactive CLI output —
 keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
 parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills \
-  --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+  --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
 ```
 
 - **`wix-headless-kit`** — the build itself.
+- **`wix-headless-templates`** — the shipped, verified code per Wix Business Solution the build deploys.
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
 - **`wix-manage`** — management recipes, for admin work on the site after it exists.
 
