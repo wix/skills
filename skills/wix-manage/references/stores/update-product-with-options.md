@@ -416,8 +416,8 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 
 ```bash
 # A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
-# this exact shape is the one that succeeds; the two shortcuts (choices by name only, or a variant
-# without its choices/price) each 400.
+# keep the option and choice IDs when rebuilding the options array, and each variant
+# with its choices and price. Omitting those identities or required variant fields can reject the update.
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" -H "Authorization: <AUTH>" \
   -d '{ "product": { "id": "{productId}", "revision": "{currentRevision}",
@@ -434,9 +434,67 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
             "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId2}" } } ] } ] } } }'
 ```
 
+### Prepare a Price or SKU Update
+
+For an existing product's price or SKU, use the name lookup above, then Get Product. Request `?fields=VARIANT_OPTION_CHOICE_NAMES&fields=MERCHANT_DATA&fields=PRODUCT_CHOICES_MEDIA_REFERENCES&fields=PRODUCT_CHOICES_DISPLAY_IMAGE` so the same read supplies variant choice names, permitted cost data, and choice media to preserve. The response is `{ product: { id, revision, options, variantsInfo: { variants } } }`; search results cannot supply the variants.
+
+Build the complete writable options and variants from that response, then change only the requested field. **Every variants PATCH also includes the complete `options` array**, even for an SKU-only change; for a product without options, send `options: []`. Omitting options caused `428 MISSING_OPTIONS_ON_UPDATE_VARIANTS`. A variant retains its `id`, `choices`, price, and other writable fields. The example below copies the writable fields used by these flows and strips calculated monetary values; inventory status and variant media are read-only and are not part of this update.
+
+```javascript
+const product = getResponse.product;
+const pick = (source, keys) => Object.fromEntries(keys
+  .filter(key => source[key] !== undefined)
+  .map(key => [key, structuredClone(source[key])]));
+const amountOnly = value => ({ amount: value.amount });
+const options = (product.options ?? []).map(option => ({
+  ...pick(option, ["id", "name", "optionRenderType"]),
+  choicesSettings: { choices: option.choicesSettings.choices.map(choice =>
+    pick(choice, ["choiceId", "name", "choiceType", "colorCode", "media", "displayImage"])) }
+}));
+const variants = product.variantsInfo.variants.map(variant => {
+  const copy = pick(variant, ["id", "visible", "sku", "barcode", "physicalProperties"]);
+  copy.choices = (variant.choices ?? []).map(choice => ({
+    optionChoiceNames: pick(choice.optionChoiceNames, ["optionName", "choiceName", "renderType"])
+  }));
+  copy.price = { actualPrice: amountOnly(variant.price.actualPrice) };
+  if (variant.price.compareAtPrice) copy.price.compareAtPrice = amountOnly(variant.price.compareAtPrice);
+  if (variant.revenueDetails?.cost) copy.revenueDetails = { cost: amountOnly(variant.revenueDetails.cost) };
+  if (variant.digitalProperties) {
+    copy.digitalProperties = variant.digitalProperties.digitalFile
+      ? { digitalFile: { id: variant.digitalProperties.digitalFile.id } } : {};
+  }
+  if (copy.physicalProperties?.pricePerUnit) delete copy.physicalProperties.pricePerUnit.value;
+  return copy;
+});
+const variantPatchProduct = {
+  id: product.id, revision: product.revision, options,
+  variantsInfo: { variants }
+};
+```
+
+For the single-variant product case (a user asking to change a simple product's price), use the prepared body above:
+
+```javascript
+if (variants.length !== 1) throw new Error("Clarify which variants should receive the price change");
+variants[0].price.actualPrice.amount = "25"; // requested price
+const pricePatchBody = { product: variantPatchProduct };
+```
+
+For a named option choice such as `Size = Large`, use its returned choice names to select one variant, then change its SKU:
+
+```javascript
+const matches = variants.filter(variant => variant.choices.some(choice =>
+  choice.optionChoiceNames.optionName === "Size" && choice.optionChoiceNames.choiceName === "Large"));
+if (matches.length !== 1) throw new Error("Clarify which variant should receive the SKU change");
+matches[0].sku = "MUG-L-001"; // requested SKU
+const skuPatchBody = { product: variantPatchProduct };
+```
+
+Send the selected body to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` in the same ExecuteWixAPI invocation as the name lookup and Get Product. Its response is `{ product: { id, revision, variantsInfo: { variants } } }`; verify the changed variant by its retained ID and confirm from that response. These examples provide the request fields and response paths for price and SKU changes; proceed directly after reading this recipe. Discover further schemas only for fields not covered here or a documented call that fails.
+
 ### Update Variant Price Only
 
-Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it.
+Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it. The curl below is for a single-variant product without options. For an optioned product, use the complete options/variants body in **Prepare a Price or SKU Update**.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -446,10 +504,12 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
       "id": "{productId}",
       "revision": "{currentRevision}",
+      "options": [],
       "variantsInfo": {
         "variants": [
           {
             "id": "{existingVariantId}",
+            "choices": [],
             "price": {
               "actualPrice": {
                 "amount": "29.99"
@@ -464,7 +524,13 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Attach a Digital File
 
-A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
+First locate the existing product with the name lookup above, then Get Product for its revision and variants. If the requested product is absent or ambiguous, ask for the correct product or site and stop before discovering upload methods or creating media. Repairing an existing product does not authorize creating a replacement.
+
+A `DIGITAL` product is sellable only when its variant has both a digital file and stock. For a product already in stock, keep that stock unchanged and attach only the missing file. `digitalProperties` belongs to the variant.
+
+For a supplied external PDF URL, use [Upload Media to Wix](../media/upload-media-to-wix.md) → Import File from External URL: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "{suppliedPdfUrl}", "mimeType": "application/pdf", "displayName": "download.pdf", "private": true }`. Its response contains `file.id` and `file.operationStatus`. Import once. If `file.operationStatus` is `PENDING`, use `GET https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}`; that response also wraps the status as `file.operationStatus`. Wait for `READY`, stop on `FAILED`, and use the same `file.id` in the product update. Private import keeps the stored download private. For a local file, follow that recipe's Generate Upload URL flow instead. These are alternative upload paths; choose the one matching the source.
+
+Prepare the complete options/variants body as in **Prepare a Price or SKU Update**, retain every variant ID, choice and price, and set the requested variant's `digitalProperties.digitalFile.id` to the imported file ID. For one existing variant with no options:
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -474,22 +540,21 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
       "id": "{productId}",
       "revision": "{currentRevision}",
+      "options": [],
       "variantsInfo": {
-        "variants": [
-          {
-            "id": "{existingVariantId}",
-            "price": { "actualPrice": { "amount": "9.99" } },
-            "visible": true,
-            "inventoryItem": { "inStock": true },
-            "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
-          }
-        ]
+        "variants": [{
+          "id": "{existingVariantId}",
+          "choices": [],
+          "price": { "actualPrice": { "amount": "{existingPrice}" } },
+          "visible": true,
+          "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
+        }]
       }
     }
   }'
 ```
 
-Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in the response.
+Copy any other writable variant fields from the read product using the preparation example. Chain the product lookup, read, selected upload path, and one PATCH in one ExecuteWixAPI invocation. Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile.id` in the PATCH response; no extra product read is needed when that response supplies it.
 
 ## Important Notes
 
@@ -516,4 +581,4 @@ Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in 
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
 | `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
-| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Set `inventoryItem.inStock: true` on the variant |
+| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Update its stock through the Inventory API; inventory is separate from an Update Product PATCH |
