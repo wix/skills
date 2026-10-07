@@ -131,7 +131,7 @@ payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api
   `uiSchema` — large. Filter by `appId`/`actionKey`, page ≤ 25.
 - **Global catalog**: not site-scoped; "latest" may be newer than what the site runs.
 - **Runtime action**: → `action`. Use this schema when configuring for this site. Latest version
-  is diagnostic only.
+  is for reference only.
 - **Dynamic input**: `{appId, actionKey, inputMapping}` → `{inputSchema, uiSchema}`. Call when an
   input property has `updateSchemaOnChange: true` (no public `getDynamicInputSchema` flag);
   re-call after changing such a field.
@@ -157,10 +157,6 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
 `basicFieldsOnly` option (only Resolve Triggers does). Mapping rules: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration).
 
 ## 5. Activations (`activations`)
-
-- **Interpret supplied execution results** — use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) for logs or activity
-  details provided by the user. This skill does not expose run-log or historical-revision
-  retrieval APIs. Ask for dashboard evidence instead of guessing a route.
 
 - **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
   `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",

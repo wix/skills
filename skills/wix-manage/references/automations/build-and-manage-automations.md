@@ -1,6 +1,6 @@
 ---
 name: "Build and Manage Wix Automations"
-description: "Create, update, activate or deactivate Wix Automations on a site you have API access to. Build automations that validate and remain editable in the Wix dashboard builder; explain individual runs from activation and action logs the user supplies (this skill does not retrieve logs)."
+description: "Create, update, activate or deactivate Wix Automations, and check their current status, on a site you have API access to, using the public Wix Automations APIs. Build automations that validate and remain editable in the Wix dashboard builder."
 ---
 
 # Wix Automations Builder
@@ -30,7 +30,6 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)             | DELAY, RATE_LIMIT, SET_VARIABLES, SPLIT, node naming (CODE_CONDITION spec: [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).                                                                                                                                      |
 | [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling)      | Dynamic schemas, override output schema, scheduled / date-based triggers, timezone.                                                                                                                                               |
 | [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) | **Before every save** — the builder-renderability checklist (§4, a hard gate), Validate, fix loop, persistence + read-back, what the builder does on open, Test Automation. Also: **is it active? / activate / deactivate** (§3). |
-| [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) | **What happened in a run / why did it fail or wait?** Interpret user-supplied activation and per-action logs; distinguish execution results from active/inactive status. |
 | [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) | **Is it active / turn it on or off?** Status-only operations, locks, idempotence and read-back. |
 
 A typical build needs 4–6 of these. If your harness supports subagents, push broad catalog
@@ -46,8 +45,8 @@ sweeps and multi-schema reads into a subagent and keep only its conclusions.
 
 ## Workflow — keep the stages separate
 
-For status-only requests, go directly to [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status). For execution
-questions, go to [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Neither requires planning or rebuilding the automation.
+For status-only requests, go directly to [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status); it requires no planning or
+rebuilding of the automation.
 
 ### 0. Feasibility — [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning)
 
