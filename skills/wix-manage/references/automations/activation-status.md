@@ -10,7 +10,8 @@ description: "Inspect or change active status with lock checks, revision handlin
 Status is not evidence that an individual run succeeded; see [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). There is no separate
 "published" flag and no public draft API:
 
-- **Status check** = Get Automation → read `configuration.status`. Report exactly that value;
+- **Status check** = Get Automation → read `configuration.status`. Report exactly that value, in a
+  short answer that starts with the automation's name and returned ID;
   never infer it from the name or from your own earlier writes.
 - **Builder drafts are invisible to you**: if the user says "it doesn't show my latest changes",
   tell them to publish (or discard) in the builder first — don't reproduce their edits.
