@@ -29,7 +29,7 @@
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
-import { resolveItemImages } from "../../shared/seed/images.mjs";
+import { resolveItemImages, resolveItemImagesDetailed } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
 
@@ -686,7 +686,7 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   const planNames = new Set(products.map((p) => p.name));
   let all = [];
   try { all = await readAllProducts(ctx); } catch (e) { console.error(`catalog read failed (skipping the pre-existing check): ${String(e.message).slice(0, 120)}`); }
-  const preexisting = all.filter((p) => !planNames.has(p.name));
+  let preexisting = all.filter((p) => !planNames.has(p.name));
 
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
@@ -739,12 +739,13 @@ export async function setupStore(ctx, { products = [], categories = {}, category
         .map((c) => ({
           optionName: o.name,
           choiceName: c.name,
+          productName: pl.name,
           altText: c.altText ?? `${pl.name} — ${c.name}`,
           spec: { url: c.imageUrl, path: c.imagePath, prompt: c.imagePrompt, displayName: `${withNames[i].slug || "product"}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` },
         })),
     ));
   const flatChoiceSpecs = choiceSpecs.flat();
-  const files = await resolveItemImages(ctx, [
+  const resolved = await resolveItemImagesDetailed(ctx, [
     ...withNames.map((p, i) => ({
       url: products[i]?.imageUrl,
       path: products[i]?.imagePath,
@@ -753,7 +754,9 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     })),
     ...flatChoiceSpecs.map((c) => c.spec),
   ]);
+  const files = resolved.map((r) => r.file);
   const choiceFiles = files.slice(withNames.length);
+  const choiceResolved = resolved.slice(withNames.length);
   let cursor = 0;
   const choiceLinks = choiceSpecs.map((specs) =>
     specs.map((c) => ({ ...c, file: choiceFiles[cursor++] })).filter((c) => c.file));
@@ -774,6 +777,15 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   // the same plan reuses the products and attaches again.
   let imagesAttached = 0;
   const imageFailures = [];
+  // A product whose image never resolved (a bad path, an unsupported file type, a refused
+  // prompt, a timeout) is not in imageItems at all, so the attach step below never sees it:
+  // it is reported here with the resolver's reason, or it ships text-only in silence.
+  withNames.forEach((p, i) => {
+    const src = products[i] ?? {};
+    if ((src.imageUrl || src.imagePath || src.imagePrompt) && !files[i]) {
+      imageFailures.push({ name: p.name, error: resolved[i]?.error ?? "image did not resolve" });
+    }
+  });
   const nameOf = (id) => withNames.find((p) => p.id === id)?.name;
   try {
     if (imageItems.length) {
@@ -788,6 +800,9 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   // Pass 3 — link each choice's image to its choice, by the gallery item's id.
   let choiceImagesLinked = 0;
   const choiceImageFailures = [];
+  flatChoiceSpecs.forEach((c, j) => {
+    if (!choiceFiles[j]) choiceImageFailures.push({ name: c.productName, choice: c.choiceName, error: choiceResolved[j]?.error ?? "image did not resolve" });
+  });
   for (const [i, p] of withNames.entries()) {
     const links = choiceLinks[i];
     if (!links.length || !p.id || !imagesAttached) continue;
@@ -798,6 +813,17 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     } catch (e) {
       choiceImageFailures.push({ name: p.name, error: e?.message ?? String(e) });
     }
+  }
+
+  // The pre-existing list is read again now: on a fresh site the Stores app was installed moments
+  // before the first read, and Wix creates its sample catalog asynchronously after the install, so
+  // that read often came back empty and the closing message said nothing about a dozen samples the
+  // live shop lists. The early read still serves the idempotency check above; this one serves the report.
+  try {
+    const after = await readAllProducts(ctx);
+    preexisting = after.filter((p) => !planNames.has(p.name));
+  } catch (e) {
+    console.error(`catalog re-read failed (reporting the pre-existing list from the first read): ${String(e.message).slice(0, 120)}`);
   }
 
   // failures is part of the result, not an exception: a partial seed still leaves a usable
