@@ -115,7 +115,70 @@ Scope rules:
 
 Syntax of expressions and the allowed function list: [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions).
 
-## 5. Minimal valid example (trigger → condition → two branches)
+## 5. Minimal valid examples
+
+### 5.1 Linear (trigger → two app-defined actions)
+
+The simplest shape: one trigger and a chain of APP_DEFINED actions linked by `postActionIds`.
+The trigger and action identities below are the Contacts "new contact created" trigger and the
+Tasks "create task" action; confirm them, and each action's input keys, against the site's
+catalog before use. Generate fresh uuid v4 action ids.
+
+```json
+{
+  "automation": {
+    "name": "New contact welcome tasks",
+    "origin": "USER",
+    "configuration": {
+      "status": "INACTIVE",
+      "trigger": {
+        "appId": "74bff718-5977-47f2-9e5f-a9fd0047fd1f",
+        "triggerKey": "contacts-new_contact_was_created",
+        "filters": []
+      },
+      "rootActionIds": ["3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e01"],
+      "actions": {
+        "3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e01": {
+          "id": "3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e01",
+          "type": "APP_DEFINED",
+          "namespace": "createTask-1",
+          "displayName": "Create welcome task",
+          "appDefinedInfo": {
+            "appId": "146c0d71-352e-4464-9a03-2e868aabe7b9",
+            "actionKey": "createTask",
+            "inputMapping": {
+              "contactId": "{{var(\"contactId\")}}",
+              "title": "Welcome {{var(\"contact.name.first\")}}"
+            },
+            "postActionIds": ["3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e02"]
+          }
+        },
+        "3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e02": {
+          "id": "3f6c1d2e-8a4b-4c7d-9e1f-2a3b4c5d6e02",
+          "type": "APP_DEFINED",
+          "namespace": "createTask-2",
+          "displayName": "Create follow-up task",
+          "appDefinedInfo": {
+            "appId": "146c0d71-352e-4464-9a03-2e868aabe7b9",
+            "actionKey": "createTask",
+            "inputMapping": {
+              "contactId": "{{var(\"contactId\")}}",
+              "title": "Follow up with {{var(\"contact.name.first\")}}"
+            },
+            "postActionIds": []
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Why it's valid: one parentless root; each action has at most one successor and one parent; ids
+equal their keys; namespaces are unique per §3; inputMapping keys come from the input schema;
+every `var()` path is in that node's aggregated schema; status is INACTIVE.
+
+### 5.2 Branching (trigger → condition → two branches)
 
 All ids are placeholders; generate real uuid v4s. Resolve `appId`/`triggerKey`/`actionKey`/input keys from the catalogs.
 

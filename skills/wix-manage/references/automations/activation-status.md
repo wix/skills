@@ -14,10 +14,12 @@ Status is not evidence that an individual run succeeded; see [Automations Run Di
 
 - **Status check** = Get Automation → read `configuration.status`. Report exactly that value, in a
   short answer that starts with the automation's name and returned ID;
-  never infer it from the name or from your own earlier writes.
+  never infer it from the name or from your own earlier writes. If no automation matches the
+  supplied name, say so and ask the user to check the name or site; never guess an ID.
 - **Builder drafts are invisible to you**: if the user says "it doesn't show my latest changes",
   tell them to publish (or discard) in the builder first — don't reproduce their edits.
-- **NOT_FOUND is ambiguous.** Check the site/id first. A never-published builder draft is absent
+- **NOT_FOUND is ambiguous.** Say the status can't be determined and ask the user to confirm
+  the site and id. A never-published builder draft is absent
   from Get/Query, but deletion and a replaced preinstalled id can also explain a 404. The first
   update of a preinstalled automation can create an override with a new id; use the mutation's
   returned id, or Query to find the current automation and confirm its identity. Only diagnose
