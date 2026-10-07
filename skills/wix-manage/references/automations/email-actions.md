@@ -196,8 +196,11 @@ owner/team = `selectedAudience.contributorRoleIds: ["<role-id>"]` **and**
     "recipientEmails": [], "segmentIds": [], "userIds": [] }
   ```
 
-  (`6601492336091027458` = the site-owner role.) Then Validate and tell the user it's addressed to
-  the site owner. This is the only audience edit allowed. If the user didn't say who receives it, ask.
+  (`6601492336091027458` = the site-owner role. It is a fixed Wix role id, not a per-site value:
+  Wix's own owner-addressed email templates use it on every site. If an existing owner-addressed
+  email step on the same site uses a different owner role id, copy that one instead.) Then Validate
+  and tell the user it's addressed to the site owner; ask them to confirm in the builder's email
+  editor that the recipient reads "Site owner". This is the only audience edit allowed. If the user didn't say who receives it, ask.
 
 - Email content (subject, preview text, body) of an existing step: Set Email Content (above), after
   the user's OK. New email steps: initialized separately as above, then persisted ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
