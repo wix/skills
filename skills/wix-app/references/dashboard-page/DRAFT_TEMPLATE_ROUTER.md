@@ -12,7 +12,9 @@ Every snippet below is copied from the installed `dist/docs/*.md` this session r
 // {feature}.tsx — Case A, B or D
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
+import { Box, Loader } from '@wix/design-system';
 import { BusinessManagerTheme } from '../../BusinessManagerTheme';
+import { DashboardPageBoundary } from '../../DashboardPageBoundary';
 import { {Feature}App } from './{Feature}App';
 
 type PageLocation = Parameters<Parameters<typeof dashboard.observeState>[0]>[1]['pageLocation'];
@@ -29,7 +31,15 @@ const Page: FC = () => {
 
   return (
     <BusinessManagerTheme>
-      {location ? <{Feature}App location={location} /> : null}
+      <DashboardPageBoundary>
+        {location ? (
+          <{Feature}App location={location} />
+        ) : (
+          <Box align="center" verticalAlign="middle">
+            <Loader />
+          </Box>
+        )}
+      </DashboardPageBoundary>
     </BusinessManagerTheme>
   );
 };
@@ -39,7 +49,55 @@ export default Page;
 
 `BusinessManagerTheme` belongs here, not in `{Feature}App.tsx` — its default props must apply above `WixPatternsProvider`. Write it once per app: [BUSINESS_MANAGER_THEME.md](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
 
+**The pending branch is a loader, never `null`.** `observeState` has not fired on the first render, so `location` is `undefined` at least once on every open — but that branch is also the only thing between the user and a white page when the host's state never arrives at all. `null` renders nothing, which is indistinguishable from a broken page: CAIRO-4759 was reported as an Aria link opening a blank dashboard page that a manual refresh fixed. A loader makes a stalled handshake read as "still loading" instead.
+
 **Skipping either the theme or `location` is a runtime-only failure.** Per `PatternsReactRouter`'s own docs: "Nothing catches this before runtime — type checking and bundling both pass, because neither renders the page." Only a browser catches a missing `location` or an unthemed page, which is why [Step 5's Preview](../../SKILL.md#validation) is not optional.
+
+## 1b. `DashboardPageBoundary` — write this file once per app
+
+The entry file is the last place that can catch a render-time throw. Without a boundary, anything that throws while the page mounts unmounts the tree and leaves the iframe blank with the error only in the console — including `PatternsReactRouter` itself on `@wix/patterns` versions that throw when `location` is still `undefined`:
+
+```tsx
+// src/DashboardPageBoundary.tsx — one per app, beside BusinessManagerTheme.tsx
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button, EmptyState } from '@wix/design-system';
+
+interface DashboardPageBoundaryState {
+  hasError: boolean;
+}
+
+export class DashboardPageBoundary extends Component<
+  { children: ReactNode },
+  DashboardPageBoundaryState
+> {
+  state: DashboardPageBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): DashboardPageBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Dashboard page failed to render', error, errorInfo);
+  }
+
+  render() {
+    if (!this.state.hasError) {
+      return this.props.children;
+    }
+
+    return (
+      <EmptyState
+        title="This page didn't load"
+        subtitle="Reloading usually fixes it."
+      >
+        <Button onClick={() => window.location.reload()}>Reload</Button>
+      </EmptyState>
+    );
+  }
+}
+```
+
+A boundary has to be a class — `getDerivedStateFromError` has no hook equivalent. Keep it **outside** `{Feature}App` so it also catches a throw from the provider stack and the router, not only from the pages below them.
 
 ## 2. App shell — provider, router, routes
 
