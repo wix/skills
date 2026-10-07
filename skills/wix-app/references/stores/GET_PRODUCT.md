@@ -11,8 +11,6 @@ const { product } = await products.getProduct(id);  // V1 wraps in { product }
 return product;
 ```
 
-The V3 entity type is `productsV3.V3Product`; `productsV3.Product` is an unrelated small interface.
-
 ---
 
 ## Product page URL
