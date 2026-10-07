@@ -16,8 +16,7 @@ pending activation has stopped.
 3. Answer briefly and completely in one reply. Start with the automation's exact name, its
    returned ID and ACTIVE/INACTIVE from that response, then say what it means for new trigger
    events. If the user asks whether the status says anything about past runs, answer it
-   directly: status does not show whether past runs succeeded. Do not fetch or request logs
-   for that; use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) only when the user wants a particular run diagnosed.
+   directly: status does not show whether past runs succeeded.
 
 Use an authorized site-scoped client with Set Up Automations permission. REST calls use
 `Authorization: <token>`. An API key also needs `wix-site-id: <metaSiteId>`; do not combine it
@@ -41,8 +40,8 @@ an automation to answer this read-only request.
 If Get returns nothing (not found), say plainly that the status can't be determined and ask
 the user to confirm the site and the automation ID. Unpublished builder drafts do not appear
 through this API, but a 404 can also mean deletion or a changed ID after overriding a
-preinstalled automation. Only diagnose an unpublished draft when the user's history supports
-it. Ask the owner to publish or discard their builder draft when appropriate, rather than
+preinstalled automation. Only suggest an unpublished draft as the cause when the user's history
+supports it. Ask the owner to publish or discard their builder draft when appropriate, rather than
 reproducing its edits.
 
 Official contracts: [Query Automations](https://dev.wix.com/docs/api-reference/business-management/automations/automations-v2/query-automations),

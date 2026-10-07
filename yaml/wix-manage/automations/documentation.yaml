@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 880d1c5aedf598c733cd0af465593046f5367543ccc798e06003446788e29323
+# Source content SHA-256: 42320167e1ff01d2b7c2b1785e1f0dcdcd7d06fc8144b0382ee431a798771b2f
 apiDoc:
   title: Wix Automations Recipes
 
@@ -10,10 +10,6 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/api-catalog.md
       title: "Automations API Catalog"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
-      tags: [automations]
-    - file: ../../../skills/wix-manage/references/automations/activation-logs.md
-      title: "Automations Run Diagnosis"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-status.md

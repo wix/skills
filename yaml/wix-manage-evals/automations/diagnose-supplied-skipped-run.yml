@@ -1,7 +1,7 @@
 {
   "name": "automations/diagnose-supplied-skipped-run",
-  "description": "Interpret a supplied SKIPPED run from its exact skip reason without inventing a cause or touching the site.",
-  "triggerPrompt": "My automation didn't do anything for a new contact yesterday. The activity view shows this for the run (copied from the logs I exported):\n\n```json\n{\n  \"status\": \"SKIPPED\",\n  \"skippedInfo\": {\n    \"reason\": \"FILTERS_NOT_PASSED\"\n  },\n  \"automationRevision\": 4\n}\n```\n\nWhy didn't it run, and what should I check? Feel free to look things up in the public docs, but please don't touch my site or rerun anything.",
+  "description": "A status question for an automation name that does not exist on the site is answered as not found, without guessing an ID or a status (name retained from an earlier draft so the eval gate replaces it).",
+  "triggerPrompt": "Is my Birthday Coupon automation turned on?",
   "tags": [
     "automations"
   ],
@@ -15,18 +15,21 @@
     {
       "tool": "ReadFullDocsArticle",
       "params": {
-        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis"
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
       }
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Score 10 only when the response explains that a SKIPPED run means no actions ran, reports the supplied skip reason FILTERS_NOT_PASSED exactly, explains it as the trigger's filters not passing for that event, and points the user to the trigger filters of the configuration that ran (revision 4) as the next thing to check. It must not call the run a failure, invent a different or additional cause, claim to have fetched logs or site data, or offer an undocumented log or revision lookup. Return only a JSON object with score and reason."
+      "prompt": "Score 10 only when the agent queries the site's automations by the name Birthday Coupon, finds no match, says plainly that no automation with that name was found, and asks the user to check the name or the site. It must not guess or invent an automation ID, report any ACTIVE or INACTIVE status, substitute a different automation, or create, activate or test anything. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. Judge the explanation and any tool trace against the supplied log; public documentation reads are explicitly allowed and must not be penalized. Penalize any site call, catalog discovery, automation read or write, or rerun/test despite the supplied-log-only request. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10 for the tool trace. Require a bounded Query Automations through public tools. Penalize guessed IDs or Get calls on invented IDs, unbounded listing of unrelated automations, catalog discovery, any write, status toggle or test run, and repeated identical queries. Return only a JSON object with score and reason."
     }
-  ]
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
 }

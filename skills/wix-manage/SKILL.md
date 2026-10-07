@@ -463,16 +463,13 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 ## Automations
 
 ### [Inspect Wix Automations](references/automations/build-and-manage-automations.md)
-Discover installed automation triggers and actions, inspect current active status, and interpret supplied activation logs without changing site data.
+Discover installed automation triggers and actions and inspect an automation’s current active status without changing site data.
 
 <details>
 <summary>Internal skills (loaded on demand by Inspect Wix Automations — do NOT use directly)</summary>
 
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover installed automation triggers and actions and inspect their schemas through site-scoped public catalog APIs.
-
-- [Automations Run Diagnosis](references/automations/activation-logs.md)
-  Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence.
 
 - [Automations Activation Status](references/automations/activation-status.md)
   Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes.
