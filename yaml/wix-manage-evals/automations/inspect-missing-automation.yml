@@ -6,7 +6,7 @@
     "templateId": "blank-editor"
   },
   "name": "automations/inspect-missing-automation",
-  "description": "Status check for an automation ID that does not exist on the site: report not found and the possible causes without asserting one.",
+  "description": "Deliberate negative-path test: the ID intentionally resolves to nothing on the provisioned site, to check the skill's not-found handling. Report not found and the possible causes without asserting one.",
   "triggerPrompt": "Is my automation 0f3c2b1a-9e8d-4c7b-a6f5-1e2d3c4b5a69 currently turned on?",
   "assertions": [
     {
