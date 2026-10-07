@@ -148,7 +148,17 @@ Both fields replace the whole description. To keep any existing content, use **E
 
 #### Edit the Existing Description
 
-Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response. The requests and paragraph/text shapes below cover prepend, append, and text removal; use them directly for these cases. Read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) when creating other node types.
+For prepend, append, and text removal, execute the documented calls directly: the examples in this recipe and the request/response contract below provide the fields this flow needs. Reuse this contract rather than rediscovering the Search, Get, and Update schemas. Consult further API documentation when the request requires a field or node type not covered here, or when a documented call fails. Read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) when creating other node types.
+
+| Call | Request | Response fields used next |
+|---|---|---|
+| Search Products, when given a name | Use [Find the product by name](#find-the-product-by-name); `search.search` contains `expression`, `fields: ["name"]`, and `fuzzy: false`. | `products[]` contains `id` and `name`; choose one exact name match. |
+| Get Product | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION` | `product.id`, `product.revision`, and the full `product.description`. |
+| Update Product | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, description }, fields: ["DESCRIPTION"] }`, using the read ID/revision and complete edited document. | `product.description` verifies the edit; `product.revision` is the new revision. |
+
+The request-level `fields` array projects response data; it is separate from `search.search.fields`, which selects the fields searched. A description-only PATCH needs only the three product fields shown above; variant, option, price, and physical-property fields belong to other update flows.
+
+Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response.
 
 1. Read [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) with `?fields=DESCRIPTION`. Its response wraps the document as `product.description` and the current revision as `product.revision`. If the description is missing or has no `nodes`, stop and ask before replacing it.
 2. Copy the complete returned `product.description`, including node IDs, decorations, `metadata`, and `documentStyle`. For prepend/append, insert one new `PARAGRAPH` at the beginning/end of its `nodes`. For a wording change, modify only the matching `TEXT` node's `textData.text`.
