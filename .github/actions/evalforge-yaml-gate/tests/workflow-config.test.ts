@@ -97,9 +97,10 @@ describe('EvalForge YAML Gate Workflow', () => {
       expect(workflowContent).toContain('name: Wait for the merge ref to include this head');
     });
 
-    it('reports its verdict as a status on the PR head', () => {
-      expect(workflowContent).toContain('statuses: write');
-      expect(workflowContent).toContain('sha: context.payload.pull_request.head.sha');
+    // Its check run already lands on the PR head; a status of its own would show the gate twice.
+    it('posts no commit status of its own', () => {
+      expect(workflowContent).not.toContain('statuses: write');
+      expect(workflowContent).not.toContain('createCommitStatus');
     });
 
     it('passes evalforge credentials', () => {

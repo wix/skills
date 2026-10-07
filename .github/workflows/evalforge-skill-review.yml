@@ -1,6 +1,4 @@
 name: EvalForge Skill Review
-# `/review` finds this run by the head SHA in its title (evalforge-re-eval.yml).
-run-name: EvalForge Skill Review · PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.head.sha }}
 
 # Reviews the *content* of wix-manage skills and their eval scenarios, against the guide sections
 # named in .github/prompts/skill-review.md. The eval gates check wiring; nothing else reads the prose.
@@ -34,9 +32,8 @@ concurrency:
 
 jobs:
   review:
-    # The job name only labels the check run inside this workflow run, which is attached to main's
-    # commit. The PR shows the commit status the report steps post under the workflow's name, and
-    # that is the name to require. Explicit so it is not the generic `review`.
+    # The job name *is* the required-status-check name. Left implicit it would be `review`, and
+    # generic names collide in the picker — both eval gates already expose a job called `gate`.
     name: skill-review
     runs-on: ubuntu-latest
     # Comfortably over the reviewer's own 900-second ceiling, leaving room for checkout and install.
@@ -47,22 +44,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      statuses: write
     steps:
-      # A pull_request_target run is attached to main's commit, not the PR's, so it does not show on
-      # the PR by itself. These two status steps put it there, under the workflow's name.
-      - name: Report pending on the PR head
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
-        with:
-          script: |
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.payload.pull_request.head.sha,
-              state: 'pending',
-              context: process.env.GITHUB_WORKFLOW,
-              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-            });
-
       # The PR merge ref, `refs/pull/N/merge` — the tree as it will land, which is what's worth
       # reviewing. Read as data only. Its first parent is the base, so the reviewer diffs `HEAD^1 HEAD`.
       # fetch-depth: 0 because `HEAD^1` is not in a depth-1 clone.
@@ -130,19 +112,3 @@ jobs:
           review-timeout-seconds: ${{ vars.SKILL_REVIEW_TIMEOUT_SECONDS }}
           blocking: ${{ vars.SKILL_REVIEW_BLOCK_MERGE || 'false' }}
           triggered-by: ${{ github.triggering_actor }}
-
-      - name: Report the verdict on the PR head
-        if: always()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
-        env:
-          JOB_STATUS: ${{ job.status }}
-        with:
-          script: |
-            const state = { success: 'success', failure: 'failure' }[process.env.JOB_STATUS] ?? 'error';
-            await github.rest.repos.createCommitStatus({
-              ...context.repo,
-              sha: context.payload.pull_request.head.sha,
-              state,
-              context: process.env.GITHUB_WORKFLOW,
-              target_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-            });

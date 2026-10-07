@@ -56,12 +56,11 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(wait).toBeLessThan(gate);
   });
 
-  it('reports pending, then its verdict, as a status on the PR head', () => {
-    expect(workflow.jobs.gate.permissions.statuses).toBe('write');
-    const scripts = workflow.jobs.gate.steps.filter(step => step.uses?.startsWith('actions/github-script'));
-    expect(scripts).toHaveLength(2);
-    expect(String(scripts[0].with?.script)).toContain("state: 'pending'");
-    expect(scripts[1].if).toBe('always()');
+  // A pull_request_target run's check run already lands on the PR head; a status of its own would
+  // show every gate on the PR twice.
+  it('posts no commit status of its own', () => {
+    expect(workflow.jobs.gate.permissions.statuses).toBeUndefined();
+    expect(JSON.stringify(workflow.jobs.gate.steps)).not.toContain('createCommitStatus');
   });
 
   it('triggers on the PR events that change a PR head', () => {
