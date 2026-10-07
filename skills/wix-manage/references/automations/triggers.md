@@ -175,6 +175,8 @@ When `implementedMethods.getDynamicSchema` is `true`:
 
 ## 6. Webhook and custom triggers
 
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+
 **Webhook** (`wix_automations-webhook_trigger`, app `139ef4fa-c108-8f9a-c7be-d5f492a2c939`). The builder expects all three together. Create/Update support `automationConfigMapping` even where the public docs omit it. Include it and verify the complete trigger on read-back; do not reject this flow solely because the field is undocumented:
 
 ```json

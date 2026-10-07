@@ -21,6 +21,8 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 
 ## 1. The Automation object (public API)
 
+> In this stage you create only APP_DEFINED steps. The other step types below are documented so you can read and preserve existing automations, not to author them here.
+
 | Field                         | Rules                                                                                                                                            |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `id`, `revision`              | Read-only. `revision` MUST be sent back on Update Automation (§6).                                                                               |
