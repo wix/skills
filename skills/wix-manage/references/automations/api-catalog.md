@@ -89,9 +89,9 @@ triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revis
   a site with many automations, page unfiltered and filter locally.
 
 Automation object fields and limits (`name` ≤ 100 for the builder, `description` ≤ 2000,
-`origin`, `settings`, `configuration`): Automations Graph and Data Model (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §1.
+`origin`, `settings`, `configuration`): [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §1.
 Create/Update accept `configuration.trigger.automationConfigMapping` for scheduled/custom/webhook
-configuration even where the docs omit it; use Automations Trigger Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) / Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
+configuration even where the docs omit it; use [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) / Automations Schemas and Scheduling (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
 
 ## 3. Trigger Catalog (`triggerCatalog`)
 
@@ -114,12 +114,12 @@ configuration even where the docs omit it; use Automations Trigger Configuration
 - **Dynamic schema**: `{appId, triggerKey, selectedFilterOptions[{fieldKey, values[]}] (≤ 5)}` →
   `dynamicSchema`. Only when `implementedMethods.getDynamicSchema` is true, and only after the
   filters that drive it are chosen — no filter chosen ⇒ form answers are unknown, not absent
-  (request and merge: Automations Trigger Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5).
+  (request and merge: [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §5).
 - **Identities schema**: `{}` → `identitiesSchema{contact, member, …}` — shape of the `contact` /
   `member` objects added when payload fields carry `identityType`.
 
 Trigger objects have no free-text description and display names are ambiguous — decide by the
-payload schema (Automations Trigger Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2).
+payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §2).
 
 ## 4. Action Catalog (`actionCatalog`)
 
@@ -148,7 +148,7 @@ payload schema (Automations Trigger Configuration (topic guide not yet published
   says which are dynamic); an error means "no dynamic output" — keep the static `outputSchema`.
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
 - **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
-  is AI-backed — don't call it. Actions you can't map from their schema: Automations Action Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5.1.
+  is AI-backed — don't call it. Actions you can't map from their schema: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
 - **Email content of an existing Send an email step** — Get / Set Email Content
   (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
   Automation Email Action API, scope _Manage Email Marketing_): Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
@@ -160,7 +160,7 @@ payload schema (Automations Trigger Configuration (topic guide not yet published
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
 `implementedMethods{validateConfiguration, getQuotaInfo}` (public). Resolve Actions has **no**
-`basicFieldsOnly` option (only Resolve Triggers does). Mapping rules: Automations Action Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
+`basicFieldsOnly` option (only Resolve Triggers does). Mapping rules: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration).
 
 ## 5. Activations (`activations`)
 
@@ -213,7 +213,7 @@ Discovery hints:
 ## 7. Aggregated schema — computed locally (no API takes an unsaved graph)
 
 Node N may read the trigger payload + each **ancestor**'s output (under its namespace) +
-variables + identity enrichment. Recipe and fetch order: Automations Graph and Data Model (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4.
+variables + identity enrichment. Recipe and fetch order: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4.
 
 ## 8. Item Selection and APIs with limitations
 
@@ -231,9 +231,9 @@ remain valid alternatives.
 **Not public or not available through the general Automations API:**
 
 - **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Site-action generation** → Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3, Automations Action Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5.1.
+- **Site-action generation** → Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3, [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
   New email initialization is available through its dedicated public API above.
-- **Expression parsing/evaluation, code runner** → local checks (Automations Mapping Expressions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)),
+- **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
   Automations Conditions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))), then Validate Automation.
 - **Validate by id** → Get Automation, then Validate the returned object.
 

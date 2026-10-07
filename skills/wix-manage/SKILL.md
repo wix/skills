@@ -471,6 +471,18 @@ Create, update, activate or deactivate Wix Automations, and inspect their activa
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
 
+- [Automations Graph and Data Model](references/automations/automation-model.md)
+  Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access.
+
+- [Automations Trigger Configuration](references/automations/triggers.md)
+  Select and configure automation triggers, trigger filters and event payload schemas using the site catalog.
+
+- [Automations Action Configuration](references/automations/actions.md)
+  Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
+
+- [Automations Mapping Expressions](references/automations/bracket-expressions.md)
+  Write builder-compatible automation mapping expressions, literals and data references.
+
 - [Automations Run Diagnosis](references/automations/activation-logs.md)
   Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
 
