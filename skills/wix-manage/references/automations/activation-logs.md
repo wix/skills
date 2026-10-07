@@ -25,7 +25,15 @@ guessing one. Permissions are `AUTOMATIONS.ACTIVATION_LOG_READ` for run logs,
 | List Activation Logs        | `GET /v2/activation-logs`                     | Identifier, dates and paging below | `activationLogs[]`, `pagingMetadata` |
 | Get Activation Log          | `GET /v2/activation-logs/{activationId}`      | `{activationId}`                   | `activationLog`                      |
 | List Activation Action Logs | `GET /v2/activation-action-logs`              | `{activationId}`                   | `activationActionLogs[]`             |
-| Get Automation Revision     | `GET /v1/automation-revisions/{automationId}` | `{automationId, revision}`         | `automation`                         |
+
+
+Historical configuration uses a separate, verified public binding:
+
+`GET https://www.wixapis.com/automations-service/v1/automation-revisions/<automationId>?revision=<revision>`
+
+Supply the run's automation ID in the path and its revision in the query string; read
+`automation` from the response. This public route does not establish the external base for
+the activation-log or action-log methods above.
 
 For "recent runs of this automation", use:
 
