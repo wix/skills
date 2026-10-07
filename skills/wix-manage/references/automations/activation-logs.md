@@ -3,8 +3,6 @@ name: "Automations Run Diagnosis"
 description: "Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Activation logs and run diagnosis
 
 Use this reference for "what happened?", "why did it fail?" or a Test Automation result.
