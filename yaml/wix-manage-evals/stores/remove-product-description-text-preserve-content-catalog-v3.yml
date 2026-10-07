@@ -4,7 +4,6 @@ triggerPrompt: >
   Remove only "read " from "read the guide" in the description of my "Eval Gate Ricos Mug" product.
   Keep "the guide" and every other existing element exactly as they are, including formatting and links.
 tags: [stores]
-maxTokens: 450000
 assertions:
   - tool: ReadFullDocsArticle
     params:
