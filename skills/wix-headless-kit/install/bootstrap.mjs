@@ -3,6 +3,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
+const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
 // ── tiny event protocol (one JSON object per line) ───────────────────────────
 const emit = (event, extra = {}) =>
@@ -15,7 +17,7 @@ const fail = (event, extra = {}) => {
 // ── platform-safe binary names (npm/npx are .cmd on Windows) ─────────────────
 const isWin = process.platform === 'win32';
 const bin = (name) => (isWin ? `${name}.cmd` : name);
-const WIX = [bin('npx'), '-y', '@wix/cli@latest']; // run the CLI via npx — no global install/mutation
+const WIX = [bin('npx'), '-y', WIX_CLI]; // run the CLI via npx — no global install/mutation
 
 // Force the CLI into non-interactive "agent" mode. Without an agent signal in
 // the env, `wix login` renders an interactive Ink TUI (device code + keypress)
