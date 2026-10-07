@@ -3,7 +3,7 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-**Deferred topic guides:** Automations Entity and Provider Configuration; Automations Delays Variables and Branches; Automations Feasibility and Planning; Automations Schemas and Scheduling. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
+**Deferred topic guides:** Automations Entity and Provider Configuration; Automations Delays Variables and Branches; Automations Feasibility and Planning; Automations Schemas and Scheduling; Automations Email Actions. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
 This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
@@ -88,7 +88,7 @@ widget as unavailable. **Send an email** has a dedicated **Generate Action Input
   `messageId`, `templateId`, `uniqueRuleId` or the existing email's mapping.
 - Editing an EXISTING email's subject/preheader/body uses Get / Set Email Content in place:
   no initializer, no replacement node, no changed mapping. Preserve other email/widget steps
-  byte-for-byte (existing site-owner audience exception: provider reference §3).
+  byte-for-byte (existing site-owner audience exception: Automations Email Actions (deferred) §3).
 - **Generate Action Input Mapping** is the email provider's initializer, not the action
   catalog's AI-backed **Generate Input Mapping From Intent**, which remains outside this skill.
 - If the initializer is unavailable in the caller's environment during rollout, report the
@@ -150,7 +150,7 @@ This section owns the semantic review (you, not code) required for every action 
 - **Entity**: the affected entity has a matching input (e.g. a label picker for "add label").
 - **Identity input**: the id it acts on, with the right `identityType`.
 - **Recipient lineage** (email, chat, SMS, push): write down `{requestedAudience, resolvedAudienceKind (contact|visitor|owner|contributor|label|phone|device), resolvedIdentityPath}`. The trigger contact and a contact created upstream are different people even if both are `contactId`. Wording never proves the recipient.
-  - **Later stages only — email is outside stage 2:** Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in Automations Entity and Provider Configuration (deferred) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
+  - **Later stages only — email is outside stage 2:** Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in Automations Email Actions (deferred) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
   - Chat (`send-message`): only a schema-supported contact-id or visitor-id route; owner/team chat needs a different, proven component or a clarification.
   - SMS / push: prove the schema-supported contact, audience, phone or device route.
 

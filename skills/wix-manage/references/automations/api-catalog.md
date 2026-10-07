@@ -218,6 +218,8 @@ variables + identity enrichment. Recipe and fetch order: [Automations Graph and 
 
 ## 8. Item Selection and APIs with limitations
 
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+
 **Item Selection is PUBLIC (BETA)** and supports generic provider-based lookups. List Installed
 Providers returns the site's providers (optionally filtered by `tag`); Query Items searches a
 specific `providerKey`, returning item ids/names and paging metadata. The verified service-relative

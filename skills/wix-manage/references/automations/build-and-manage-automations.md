@@ -3,7 +3,7 @@ name: "Build Simple Wix Automations"
 description: "Inspect Wix automations and create inactive linear automations using installed actions with schema-defined mappings and the included validation checklist."
 ---
 
-**Deferred topic guides:** Automations Entity and Provider Configuration; Automations Feasibility and Planning; Automations Conditions; Automations Schemas and Scheduling; Automations Delays Variables and Branches. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
+**Deferred topic guides:** Automations Email Actions; Automations Feasibility and Planning; Automations Conditions; Automations Schemas and Scheduling; Automations Entity and Provider Configuration; Automations Delays Variables and Branches. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
 
 This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows from this publication. Validation and its numbered checklist are included in the entry guide.
 
@@ -78,7 +78,7 @@ Semantic review (you, not code) — required for every action before acceptance;
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails the audience fields decide (Automations Entity and Provider Configuration (deferred) §3).
+  it; for emails the audience fields decide (Automations Email Actions (deferred) §3).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -171,7 +171,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 4. Hand off: name, status (inactive), id, and the edit link
    `https://manage.wix.com/dashboard/<metaSiteId>/triggers/edit/<automationId>`. Ask the user to
    review it in the builder; its main button on an inactive automation, **Activate**, turns it on.
-5. Activate only on request — see "Activation status, activate, deactivate" below.
+5. Do not activate through the API in this stage, even if the user asks: tell them to click **Activate** in the builder (edit link above).
 
 ### Update
 
