@@ -50,6 +50,11 @@
       "type": "llm_judge",
       "minScore": 7,
       "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for how the month-end schedule was built. Score 10 only when the persisted configuration uses a daily schedule at 23:30 in the site timezone whose root is a CODE_CONDITION that passes only on the site's last day of the month, as the skill documents. Score 0 for a native last-day cron (`L`), a fixed day such as the 28th or 31st, or a schedule that runs on other days without the month-end guard. Return only a JSON object with score and reason."
     }
   ],
   "siteSetup": {
