@@ -267,6 +267,6 @@ automations. It is not a dry run.
 - Ask first, naming the concrete side effects; "go ahead and build it" is not authorization.
 - Build `payload` to match the trigger payload schema, with test data the user approves (e.g.
   their own contact), never real customers.
-- The response is an `activationId`: report "started", then use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) to read
-  the run and its action results. Report completion/failure only from that evidence; an empty
+- The response is an `activationId`: report "started", then ask the user for dashboard activity
+  results and interpret supplied details with [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Report completion/failure only from that evidence; an empty
   or not-yet-visible log is not success, and do not rerun the test just to obtain a log.

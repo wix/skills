@@ -496,7 +496,7 @@ Create, update, activate or deactivate Wix Automations, and inspect their activa
   Validate automation configuration, check builder compatibility, persist changes and verify the saved result.
 
 - [Automations Run Diagnosis](references/automations/activation-logs.md)
-  Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
+  Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence.
 
 - [Automations Activation Status](references/automations/activation-status.md)
   Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
