@@ -61,5 +61,5 @@ ready, so it can never block stages 1–4.
 `publication-stage.json` records this checkout's cumulative stage (1–5). The canonical
 exporter reads it by default; advance explicitly with `--stage=N`. Each later PR is based on its predecessor. All parts may be ready for review in a
 native GitHub stack. Check the current workflow: upper-layer evaluations can run, but
-shared scenario ownership may block them until predecessors merge. All 30 scenarios are retained in the completed export; early stages defer
+shared scenario ownership may block them until predecessors merge. All 32 scenarios are retained in the completed export; early stages defer
 whole scenarios whose topic guides are not present, preserving their original assertions.

@@ -1,0 +1,35 @@
+{
+  "tags": [
+    "automations"
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  },
+  "name": "automations/inspect-missing-automation",
+  "description": "Status check for an automation ID that does not exist on the site: report not found and the possible causes without asserting one.",
+  "triggerPrompt": "Is my automation 0f3c2b1a-9e8d-4c7b-a6f5-1e2d3c4b5a69 currently turned on?",
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The site has no automation with this ID. Score 10 only when the agent tries Get Automation with the supplied ID on the selected site, reports that it was not found, and says the status can't be determined from it. The response must ask the user to confirm the site and the ID, and may list possible causes (wrong site or ID, deleted, an unpublished builder draft that this API doesn't show, or an ID that changed after a preinstalled automation was overridden) without asserting any single one as the cause. Score 0 for reporting ACTIVE or INACTIVE, inventing an automation, or any write, activation or test. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the tool trace. Require a direct Get with the supplied ID (a bounded name or ID query as a fallback is acceptable), public tools only, no guessed alternate IDs and no writes. Penalize repeated identical calls, unrelated catalog discovery, or redundant confirmation for this read-only check. Return only a JSON object with score and reason."
+    }
+  ]
+}
