@@ -21,8 +21,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The model
 
-- **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
-  the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
+- **Shipped code is the implementation.** Every vertical ships in the repository's
+  `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
+  folder: `node <SKILL_ROOT>/install/templates.mjs`
   fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
   script below fetches it itself when the folder is missing. The folder stays with the project
   (only the composed `project/` scaffolds are left out of its repository), so a later session
@@ -84,7 +85,7 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The run
 
-Needed throughout: Node ≥ 20.11, git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
+Needed throughout: Node ≥ 22.12 (Astro 7; the Wix CLI alone runs on 20.11), git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
 `npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
 read tokens into context), and the two companion skills installed beside this one, `wix-docs`
 and `wix-manage`. `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login
@@ -157,7 +158,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    |---|---|
    | supplies the content in any form: a CSV, JSON or spreadsheet, a list in the prompt, a PDF price list, a folder of photos and a text file, a link to their current catalog, anything that names the content | that IS the plan: map it into `plan.json` per `templates/shared/SUPPLIED-CONTENT.md` and the vertical's `SEED.md` ("Supplied content"), every entry, names and prices verbatim, their images and no others |
    | describes the content without listing it ("a store for hand-poured candles, four of them", "a dozen FAQ questions in three groups") | draft a plan from the description per the vertical's `SEED.md` (read only that for this; save `INSTRUCTIONS.md` for step 4) |
-   | says nothing about content ("build me a store") | on a site this run makes (create, adopt) draft a plan per the vertical's `SEED.md` so the site opens with content, and say in the closing message that it is placeholder content and where to replace it; on a site that existed before the run (attach, iterate, published-static, migrate) no plan and no seed: the site holds what the owner put there |
+   | says nothing about content ("build me a store") | on a site made for this run (create, adopt, config-only) draft a plan per the vertical's `SEED.md` so the site opens with content — demo content the agent decides on, without being asked — and say in the closing message that it is placeholder content and where the owner edits it. On a site that existed before the run: seed nothing; its content is its own |
 
    **An existing site has no plan of its own**: when the brief names a site by its id, or the
    folder's config does, the site holds the content already; the frontend reads what is there
@@ -184,21 +185,30 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site | **yes**, from `--plan` |
    | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | **yes**, from `--plan` |
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
-   | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys | no |
+   | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys. That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
    | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
    | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
 
-   **Setup seeds only a site it created in this run** (create and adopt: the site is empty by
-   construction, so the plan from step 2 goes in with the one call). A site that existed before
-   the run holds content the run did not make: read it first with the vertical's
-   `seed/read-site.mjs`, then, when the brief supplies or describes content, run the vertical's
-   seed module yourself with a plan (from the project root:
-   `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`). Seeds are
-   additive and idempotent by name; nothing on a site is ever deleted or overwritten.
+   **Who decides the seed: where the site came from, never the brief's wording.** A site made
+   for this run is empty by construction, so it is always seeded — with the brief's content when
+   it supplies or describes any, otherwise with demo content the agent drafts per the vertical's
+   `SEED.md`, without being asked, so the site opens with something to see. Made for this run
+   means: setup created it (create, adopt), or the folder held only a `wix.config.json` and no
+   frontend (config-only — the config is what `init` leaves behind, and `init` always creates a
+   site; attach reports `siteOrigin: "init"`). A site that existed before the run — named by its
+   id in the brief or by `--site`, a project linked to it, a migration's parent (attach reports
+   `siteOrigin: "given"`) — holds content the run did not make: seed only what the brief
+   **supplies or asks to add** (`attach.mjs --plan plan.json`, or the vertical's seed module from
+   the project root: `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`),
+   and never invent content for it. "A new storefront for my toy store" describes the business,
+   not content to add: nothing is seeded. Read an existing site first either way
+   (`seed/read-site.mjs`). Seeds are additive and idempotent by name; nothing on a site is ever
+   deleted or overwritten, and the result's `preexisting[]` names what was already there.
 
    - The brief names a site by id → not this call: read `<SKILL_ROOT>/guides/existing-site.md`
      and follow it (read the site, then `attach.mjs`, which does what setup does against the
-     site given; self-hosting and a project already on disk are in there too).
+     site given and seeds only with `--plan`, which that guide says to pass only for content the
+     brief supplies or asks to add; self-hosting and a project already on disk are in there too).
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs. The
    `ready_for_brand_layer` event says `mode` (`create`, `adopt`, `migrate`, `published-static`),
@@ -267,7 +277,14 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    `https://manage.wix.com/dashboard/<siteId>` (the `siteId` of the `ready_for_brand_layer`
    event: on a migration preview that is the migrated site's dashboard, the release URL is the
    preview's, the original site is unchanged, and completing the migration is the user's next
-   step in the Wix CLI once they approve — say all three). **Copy the live URL verbatim from the
+   step in the Wix CLI once they approve — say all three). When the site takes money through
+   hosted checkout (a cart, a paid booking or rental, tickets, plans, donations) and nothing says
+   payments are already set up, say what a visitor meets at checkout until they are — "We
+   can't accept online payments. Contact us for help with your order." — and hand the two links
+   that fix it: **Accept payments** `https://manage.wix.com/dashboard/<siteId>/wix-cashier/payments`
+   (connect a payment method; "manual payments" is enough for free and pay-in-person flows) and
+   **Upgrade the plan** `https://www.wix.com/upgrade/website?metaSiteId=<siteId>` (online payments
+   need a premium plan). Both are the owner's steps, not a defect in the site. **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404). Before you sign off, run the feedback self-check over the whole session
    (`guides/feedback.md`): anything that cost more turns than it should have, including what you
@@ -284,6 +301,10 @@ before step 3: it holds the mechanics (the `site/` layout and setup's part in it
 browser versus the server, the OAuth allow-list for a self-hosted origin, pre-rendered output) and
 how to close such a run. A public site is still better served by managed Astro; say so when you
 close.
+
+Without a machine at all, or when the install, the CLI or the login is blocked where you are,
+read `<SKILL_ROOT>/guides/no-machine.md`: the same run, step by step, as the Wix API calls the
+scripts make and the files beside this skill that carry the contracts.
 
 ## Verticals
 

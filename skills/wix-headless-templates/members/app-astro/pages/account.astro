@@ -1,0 +1,9 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import AccountPage from "../components/members/AccountPage";
+---
+
+<SiteLayout title="My account">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">My account</h1>
+  <AccountPage client:only="react" />
+</SiteLayout>

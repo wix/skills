@@ -12,7 +12,7 @@ Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and
 
 **If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
-**Patterns API facts come from three published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where step 5 says: `package.json` points `types` at it, so it is what `tsc` enforces. Within those trees, `grep`/`sed` for one declaration usually beats a whole-file read.
+**Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. `dist/types/` is one narrow exception, used only where step 5 says: `package.json` points `types` at it, so it is what `tsc` enforces.
 
 ## The Discovery Chain
 
@@ -38,6 +38,7 @@ Start here rather than the bundle index: it carries every documented name *and* 
 
 | Building | Guide |
 | --- | --- |
+| A whole page | `dist/docs/Page Templates.md`, via [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) |
 | Anything collection-shaped — tables, filters, search, aggregates, row and bulk actions, empty states | `dist/docs/Collection Toolkit.md` |
 | The path from a listed row to one record, and its form | `dist/docs/Collection to Entity Flow.md` |
 
@@ -53,7 +54,7 @@ Each guide's index entry carries `relatedComponents`; every name in it resolves,
 | What props, and which are optional? | the **example** first; then the **`.d.ts`** *or* the doc — never both | `bundle` present: `dist/dts-bundle/<bundle>` · absent: `dist/docs/<file>` |
 | A setup requirement or gotcha? | the **doc's** prose | `dist/docs/<file>` |
 
-Prefix the index's bare values with their tree — `file` → `dist/docs/`, `examples` → `dist/examples/`, `bundle` → `dist/dts-bundle/` — and never rebuild a path from a symbol name.
+Prefix the index's bare values with their tree — `file` → `dist/docs/`, `examples` → `dist/examples/`, `bundle` → `dist/dts-bundle/`, `templateFiles` → `dist/templates/` — and never rebuild a path from a symbol name.
 
 **Those two middle rows are one question in practice.** You ask how to call it, start writing, and the question turns prop-shaped mid-call — where the second row sends you to a `.d.ts` that may be stubbed (step 5). Take the props off the example first; go to the `.d.ts` only for what it cannot show — optionality, union members, an exact callback signature.
 

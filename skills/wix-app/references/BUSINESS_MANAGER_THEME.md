@@ -71,8 +71,7 @@ A prop on a component still wins over the provider, so a one-off `size="medium"`
 
 | Surface | File | Section |
 | --- | --- | --- |
-| Page, Cases A/B/D (router-wired) | `{feature}.tsx` | [DRAFT_TEMPLATE_ROUTER.md § 1](dashboard-page/DRAFT_TEMPLATE_ROUTER.md#1-entry--location-is-manual-in-a-wix-cli-app-and-only-because-the-router-needs-it) |
-| Page, Case C (settings only) | `{feature}.tsx` | [DRAFT_TEMPLATE.md § 1](dashboard-page/DRAFT_TEMPLATE.md#1-entry--case-c-only-router-free-no-location-plumbing) |
+| Page, from any `@wix/patterns` page template | `{feature}.tsx`, holding the template's `page.tsx` | [DRAFT_TEMPLATE.md § 3](dashboard-page/DRAFT_TEMPLATE.md#3-copy-it-into-the-extension) |
 | Page with dynamic parameters | `withProviders.tsx` | [DYNAMIC_PARAMETERS.md](dashboard-page/DYNAMIC_PARAMETERS.md#provider-wrapper-implementation) |
 | Modal | the generated `<modal>.tsx` | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md#theme) |
 | Plugin | the generated plugin component | [DASHBOARD_PLUGIN.md](DASHBOARD_PLUGIN.md#theme) |

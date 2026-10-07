@@ -67127,14 +67127,16 @@ function computeCoverage(changedFiles, scenarios, canonicalUrlOf) {
         const area = areaOfDoc(f.filename);
         if (!area)
             continue;
-        const canonical = canonicalUrlOf(f.filename);
-        if (!canonical)
+        const resolved = canonicalUrlOf(f.filename);
+        // A file published under several docsEntry categories is covered by a scenario on any of them.
+        const canonicalUrls = (Array.isArray(resolved) ? resolved : resolved ? [resolved] : []);
+        if (canonicalUrls.length === 0)
             continue;
-        const norm = (0, url_normalize_1.normalizeUrl)(canonical);
+        const norms = canonicalUrls.map(url_normalize_1.normalizeUrl);
         const inArea = scenariosByArea.get(area) ?? [];
-        const matching = inArea.filter(s => s.urls.has(norm)).map(s => s.name);
+        const matching = inArea.filter(s => norms.some(n => s.urls.has(n))).map(s => s.name);
         if (matching.length === 0) {
-            uncovered.push({ file: f.filename, canonicalUrl: canonical, area });
+            uncovered.push({ file: f.filename, canonicalUrl: canonicalUrls.join('` or `'), area });
         }
         else {
             coveredBy.set(f.filename, matching);
@@ -67185,6 +67187,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.docUrls = docUrls;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
@@ -67210,7 +67213,8 @@ function buildDocIndex(workspace) {
         for (const e of parsed.apiDoc?.docs ?? []) {
             if (!e.file || !e.docsEntry || !e.title)
                 continue;
-            index.set((0, node_path_1.resolve)(yamlDir, e.file), { docsEntry: e.docsEntry, title: e.title });
+            const file = (0, node_path_1.resolve)(yamlDir, e.file);
+            index.set(file, [...(index.get(file) ?? []), { docsEntry: e.docsEntry, title: e.title }]);
         }
     }
     indexCache.set(workspace, index);
@@ -67228,14 +67232,17 @@ function slugify(displayName) {
     }
     return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
+/** Every doc URL a skill file is published at, in documentation.yaml order. */
+function docUrls(filePath, workspace) {
+    const entries = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath)) ?? [];
+    return entries.flatMap((info) => {
+        const slug = slugify(info.title);
+        return slug ? [`${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`] : [];
+    });
+}
+/** The first doc URL a skill file is published at, or null when it has none. */
 function canonicalDocUrl(filePath, workspace) {
-    const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
-    if (!info)
-        return null;
-    const slug = slugify(info.title);
-    if (!slug)
-        return null;
-    return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
+    return docUrls(filePath, workspace)[0] ?? null;
 }
 
 
@@ -67280,7 +67287,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.loadDocsEntryIndex = loadDocsEntryIndex;
+exports.loadDocsEntries = loadDocsEntries;
 exports.changedDocsEntries = changedDocsEntries;
 exports.validateDocsEntries = validateDocsEntries;
 exports.slashedTitles = slashedTitles;
@@ -67292,8 +67299,9 @@ const paths_1 = __nccwpck_require__(6621);
 const PORTALS_URL = 'https://dev.wix.com/docs/api/v1/available-portals';
 const menuUrl = (portalId) => `https://dev.wix.com/docs/api/v1/cache/get-cached-menu/public/${portalId}`;
 const DEV_WIX_PREFIX = 'https://dev.wix.com';
-function loadDocsEntryIndex(workspace) {
-    const index = new Map();
+/** Every doc entry in the workspace; a skill file may appear under several docsEntry categories. */
+function loadDocsEntries(workspace) {
+    const entries = [];
     const yamlPaths = glob_1.glob.sync(paths_1.DOC_YAML_GLOB, {
         cwd: workspace,
         nodir: true,
@@ -67307,7 +67315,7 @@ function loadDocsEntryIndex(workspace) {
                 continue;
             const skillFileAbsolutePath = (0, node_path_1.resolve)((0, node_path_1.dirname)(yamlAbsolutePath), entry.file);
             const skillFilePath = (0, node_path_1.relative)(workspace, skillFileAbsolutePath).split('\\').join('/');
-            index.set(skillFilePath, {
+            entries.push({
                 file: skillFilePath,
                 yamlPath,
                 title: entry.title,
@@ -67315,16 +67323,16 @@ function loadDocsEntryIndex(workspace) {
             });
         }
     }
-    return index;
+    return entries;
 }
 /**
  * Doc entries this PR introduces or repoints — exactly the entries the docs
  * pipeline will try to place in the menu after merge.
  */
 function changedDocsEntries(workspace, baseWorkspace) {
-    const headIndex = loadDocsEntryIndex(workspace);
-    const baseIndex = loadDocsEntryIndex(baseWorkspace);
-    return [...headIndex.values()].filter((target) => baseIndex.get(target.file)?.docsEntry !== target.docsEntry);
+    const placementKey = (target) => `${target.file}\n${target.docsEntry}`;
+    const basePlacements = new Set(loadDocsEntries(baseWorkspace).map(placementKey));
+    return loadDocsEntries(workspace).filter((target) => !basePlacements.has(placementKey(target)));
 }
 function stripTrailingSlashes(url) {
     return url.replace(/\/+$/, '');
@@ -67421,7 +67429,7 @@ async function validateDocsEntries(targets) {
  * gate's own URL (a slugify of the whole title). For a skill a slash is never wanted.
  */
 function slashedTitles(workspace) {
-    return [...loadDocsEntryIndex(workspace).values()].filter((target) => target.title.includes('/'));
+    return loadDocsEntries(workspace).filter((target) => target.title.includes('/'));
 }
 
 
@@ -67773,7 +67781,7 @@ async function runGate() {
         (0, github_1.fail)(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
         return;
     }
-    const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
+    const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.docUrls)(f, workspace));
     if (cov.uncovered.length > 0) {
         await comment((0, comment_1.formatUncovered)(cov.uncovered));
         (0, github_1.fail)(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);
@@ -68292,7 +68300,7 @@ function resolveSweepTags(changedFilesRaw, workspace, what, warn) {
     if (warn)
         for (const e of loadErrors)
             warn(`Scenario load issue (${e.path}): ${e.message}`);
-    const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
+    const cov = (0, coverage_1.computeCoverage)(classified.mdFiles, headScenarios, (f) => (0, doc_url_1.docUrls)(f, workspace));
     const changedEvalPaths = new Set([
         ...classified.evalsAdded.map(f => f.filename),
         ...classified.evalsModified.map(f => f.filename),

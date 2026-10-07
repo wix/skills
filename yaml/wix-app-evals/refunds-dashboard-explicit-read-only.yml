@@ -1,0 +1,30 @@
+name: refunds-dashboard-explicit-read-only
+description: An explicitly read-only refunds dashboard must keep the no-changes requirement over the editable-by-default rule — routed read-only details, no save or mutation actions
+triggerPrompt: |-
+  Build a read-only dashboard page around site refunds. Show all refunded orders in a table with the order number, customer name, refund amount, and refund date. Let me open an order to see its details, but do not allow any changes.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [data-collection, dashboard-page, draft-template, ux-success-model, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
+  - type: skill_was_called
+    negate: true
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DATA_COLLECTION.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      The user explicitly asked for read-only behavior and no changes. The generated table must open a routed read-only detail page using the Collection and Read-Only Detail Template, with a way back to the list. It must not expose an editable EntityPage, save button, create/delete action, refund-issuing action, or mutation handler. An editable page introduced by the default-edit rule scores at most 3 even if no save is performed during the run. A table with no drill-in, or a modal/side panel standing in for the requested details, scores at most 4. Judge the generated code and the template selection/copy in the trace, not merely a statement that the page is read-only. Score 0-10.
+  - type: time_limit
+    maxDurationMs: 180000
+  - type: cost
+    maxCostUsd: 1

@@ -46,6 +46,8 @@ import { fileURLToPath } from "node:url";
 import { templatesDir } from "./templates.mjs";
 import { syncLockRoot } from "./lock.mjs";
 import { siteContext } from "./context.mjs";
+const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
+const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The shipped code: the repository's templates/ (a checkout, the cache, or fetched now).
@@ -80,6 +82,8 @@ const CAPABILITY_DEPS = {
   "media-upload": {
     "@wix/media": "^1.0.271",
     "@wix/essentials": "^1.0.10",
+    // the endpoint reads the caller's own session for a members policy
+    "@wix/members": "^1.0.511",
   },
   "site-search": {
     "@wix/search": "^1.0.90",
@@ -273,7 +277,7 @@ if (stack === "static") {
   // .env.local (`wix env pull`; on a migration preview the parent site's app), else the config's appId.
   let clientId = clientIdFlag ?? (existsSync(join(PROJECT, "wix.config.json")) ? siteContext({ cwd: PROJECT }).content.clientId : null);
   if (!clientId) {
-    console.log(JSON.stringify({ error: "static stack needs the public OAuth client id — run `npm create @wix/new@latest init` here first, or pass --client-id" }));
+    console.log(JSON.stringify({ error: `static stack needs the public OAuth client id — run \`npm create @wix/new@${PINS["@wix/create-new"]} init\` here first, or pass --client-id` }));
     process.exit(1);
   }
   const missing = requested.filter((v) => !existsSync(join(REF, v, "rest")));
@@ -297,7 +301,8 @@ if (stack === "static") {
       // Every vertical has a types.ts; flat in one folder they would collide, so each lands as
       // <vertical>-types.ts and the vertical's own files are pointed at it below.
       if (f === "types.ts") cpSync(join(appWix, f), join(JS, `${vertical}-types.ts`), COPY);
-      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
+      // *.generated.ts: data a core file imports (the forms' per-country address templates).
+      else if (f.endsWith("-core.ts") || f.endsWith("-store.ts") || f.endsWith(".generated.ts")) cpSync(join(appWix, f), join(JS, f), COPY);
     }
     const own = new Set([...readdirSync(join(root, "rest")), ...readdirSync(appWix)].filter((f) => f.endsWith(".ts") && f !== "types.ts"));
     for (const f of own) {
@@ -333,7 +338,7 @@ if (stack === "static") {
   const sources = readdirSync(JS).filter((f) => f.endsWith(".ts")).map((f) => join(JS, f));
   const tsc = spawnSync(
     "npx",
-    ["-y", "-p", "typescript@5", "tsc", ...sources, "--outDir", JS, "--module", "esnext", "--target", "es2022",
+    ["-y", "-p", `typescript@${PINS.typescript}`, "tsc", ...sources, "--outDir", JS, "--module", "esnext", "--target", "es2022",
      "--moduleResolution", "bundler", "--lib", "es2022,dom", "--strict", "--skipLibCheck", "--removeComments", "false"],
     { encoding: "utf8", timeout: 180_000 },
   );
@@ -362,9 +367,10 @@ for (const policy of uploadPolicies) {
     !Array.isArray(policy.accept) ||
     !policy.accept.every((mime) => typeof mime === "string") ||
     !Number.isSafeInteger(policy.maxBytes) ||
-    policy.maxBytes < 1
+    policy.maxBytes < 1 ||
+    (policy.audience !== undefined && policy.audience !== "members" && policy.audience !== "visitors")
   ) {
-    console.log(JSON.stringify({ error: "each mediaUpload policy needs id, accept: string[], and positive integer maxBytes" }));
+    console.log(JSON.stringify({ error: 'each mediaUpload policy needs id, accept: string[], positive integer maxBytes, and optionally audience: "members" (default) | "visitors"' }));
     process.exit(1);
   }
 }

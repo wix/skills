@@ -7,7 +7,7 @@ import * as github from '@actions/github';
 import { EvalForgeClient, pollUntilDone, EvalRunTimeoutError, evalRunUrl, type EvalRunInput } from '@wix/evalforge-core';
 import { getMergeSweepConfig, type MergeSweepConfig, type PrSweepContext } from './config';
 import { loadEvals } from './evals';
-import { canonicalDocUrl } from './doc-url';
+import { docUrls } from './doc-url';
 import { computeCoverage } from './coverage';
 import { classifyChanges, parseChangedFiles } from './github';
 import { workspaceRoot } from './workspace';
@@ -177,7 +177,7 @@ export function resolveSweepTags(
   const classified = classifyChanges(parseChangedFiles(changedFilesRaw));
   const { scenarios: headScenarios, errors: loadErrors } = loadEvals(workspace);
   if (warn) for (const e of loadErrors) warn(`Scenario load issue (${e.path}): ${e.message}`);
-  const cov = computeCoverage(classified.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
+  const cov = computeCoverage(classified.mdFiles, headScenarios, (f) => docUrls(f, workspace));
   const changedEvalPaths = new Set<string>([
     ...classified.evalsAdded.map(f => f.filename),
     ...classified.evalsModified.map(f => f.filename),

@@ -1,12 +1,12 @@
 name: site-properties/change-site-timezone
 description: >-
   Verifies the agent reads the Site Properties regional-properties recipe and updates the
-  site's time zone in one direct field-mask PATCH, without a rejected mask path or a run of
-  probing calls to discover the field name.
+  site's time zone in one direct Update Business Region call, without a rejected mask path, a
+  lookup for a docs page that doesn't exist, or a run of probing calls to discover the field name.
 triggerPrompt: >-
   Change my site's time zone to America/New_York.
 tags: [site-properties]
-maxTokens: 30000
+maxTokens: 180000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -30,7 +30,7 @@ assertions:
     maxTokens: 2048
     prompt: |
       Rate how smoothly the agent reached the outcome. Examine the tool-call trace.
-      Score 0-10 (10 = direct: read the recipe, then one successful update call).
+      Score 0-10 (10 = direct: read the recipe, then one successful Update Business Region call).
 
       Penalize and LIST any of:
       - an update call rejected because the field mask named a nested path (for example
@@ -39,6 +39,8 @@ assertions:
       - API-spec or schema lookups made *after* a failed update in order to discover the correct
         field name or endpoint;
       - more than one attempt at the update call;
+      - a docs read that failed because the page doesn't exist (a URL the agent built rather than
+        one a tool returned);
       - probing calls that the recipe's content would have made unnecessary.
 
       For each issue, name the likely docs gap.

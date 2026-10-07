@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -31,6 +31,13 @@ Lists all apps installed on a site using Apps Installer API. Useful for verifyin
 
 ### [App Management Dashboard Navigation](references/app-installation/app-installation-dashboard-navigation.md)
 "Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+
+---
+
+## Custom Apps
+
+### [Use App Skills and App Tools](references/custom-apps/use-app-skills-and-app-tools.md)
+"Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
 
 ---
 
@@ -85,9 +92,6 @@ Creates and publishes blog posts using Blog Posts API. Covers resolving the requ
 ### [Booking Service Policy Setup](references/bookings/booking-service-policy-setup.md)
 Sets up booking policies, cancellation rules, and waitlist configuration using the Booking Policies API — query for the (default) bookingPolicy entity, then PATCH it with its revision. Covers cancellationPolicy, reschedulePolicy, booking-notice limits, waitlistPolicy, and participants limits — e.g. "customers can cancel up to 24 hours before".
 
-### [Booking System Integration Gaps](references/bookings/booking-system-integration-gaps.md)
-Documents undocumented API patterns for booking payments. Covers Bookings→Ecommerce integration, booking ID transformation to catalog items, and async payment confirmation flows.
-
 ### [Bookings Staff Setup](references/bookings/bookings-staff-setup.md)
 "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 
@@ -110,7 +114,7 @@ Full CRUD operations for Wix Bookings services using Services API. Covers servic
 "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
 
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
-Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
+Books and settles appointments, classes and courses with the site owner's credentials — an operator managing bookings, or server-side code booking as the owner. Covers service discovery, availability with Time Slots V2, creating the booking, and settling it by direct confirmation or by taking payment through eCommerce checkout. A visitor booking for themselves needs a visitor token instead; this recipe links that path.
 
 ### [External Calendar Integration](references/bookings/external-calendar-integration.md)
 OAuth-based integration with Google Calendar, Microsoft Outlook, and Apple Calendar. Covers authentication flows, sync configuration, and bidirectional event management.
@@ -391,7 +395,7 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 ## Site Properties
 
 ### [RECIPE: Change a Site's Regional Properties (Currency, Time Zone, Language) via Site Properties API](references/site-properties/change-payment-currency-site-properties.md)
-"Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language through the same call, whose field mask names top-level properties."
+"Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone and primary language; field masks name top-level properties."
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
@@ -422,7 +426,7 @@ Drive the Wix Site Import agent to migrate an existing store or site from anothe
 "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ### [Upload a Website or HTML Files](references/sites/upload-static-site.md)
-Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a new live Wix site. Covers both ways to get there — handing the user the Wix Headless drop page, and calling the Wix Headless instant-site REST API yourself when you can reach the files and make outbound HTTPS requests. When you also hold the user's identity, covers putting the published site straight into their Wix account and reading back its final live URL. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site already published this way (iterate on the same site instead of creating another). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 
 ---
 
