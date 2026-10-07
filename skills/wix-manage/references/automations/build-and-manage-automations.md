@@ -26,8 +26,8 @@ from that response. Current ACTIVE/INACTIVE status is separate from historical r
 For supplied run logs, apply the run-diagnosis guide to the supplied records first. Separate
 run-level completion from per-action failures, identify the recorded automation revision,
 and explain which additional evidence would resolve uncertainty. Do not refetch supplied
-records or execute a test to explain them. If logs must be retrieved, follow the supported
-public binding and permissions in the diagnosis guide; do not invent a REST host.
+records or execute a test to explain them. If logs are missing, ask the user for dashboard activity details; no log-retrieval
+API is included in this publication.
 
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned or supplied data, and distinguish a missing record from proof of nonexistence.
