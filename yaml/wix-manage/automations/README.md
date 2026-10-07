@@ -23,7 +23,7 @@ in the documentation YAML so their article URLs remain available.
 
 Contributors can propose a normal PR against these files. Explain the correction
 and update applicable scenarios following this repository's
-[contribution guide](../../../CONTRIBUTING.md). Before the next sync, the Automations
+[contribution guide](https://github.com/wix/skills/blob/main/CONTRIBUTING.md). Before the next sync, the Automations
 maintainer must port accepted public edits into the canonical source, publication
 manifest or scenario definitions. A direct public edit is not automatically imported:
 running the exporter with `--write` without reconciling it would overwrite it.
@@ -50,7 +50,7 @@ node serverless/create-automation-with-ai/.claude/skills/develop-wix-automations
 ```
 
 Run the exporter tests, inspect the generated diff, and follow
-[evaluation guidance](../../../docs/skill-evaluation.md). Commit source and public
+[evaluation guidance](https://github.com/wix/skills/blob/main/docs/skill-evaluation.md). Commit source and public
 changes in linked PRs. The YAML content hash is a source-drift aid, not an execution
 result. Local structural checks do not establish that live evaluations passed.
 
