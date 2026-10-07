@@ -68,6 +68,9 @@ Summarize the supplied run ID/time when present, recorded revision, status, the 
 failing/waiting/skipped step, exact evidence and a next investigation step. Never fabricate
 missing IDs. An action's success does not prove inbox delivery without provider evidence.
 
+Keep the answer short: the conclusion first, then the supplied evidence behind it, then what to
+inspect next.
+
 ## 4. Follow-up and authorized tests
 
 A Test Automation response containing an `activationId` proves only that the test started.
