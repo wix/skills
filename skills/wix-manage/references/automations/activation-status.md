@@ -12,7 +12,8 @@ pending activation has stopped.
 1. Resolve the requested name within the selected site with Query Automations. If several
    match, ask which one; do not choose arbitrarily. If the ID is already supplied, go to Get.
 2. Get the matching returned ID with override schemas and read `configuration.status`.
-3. Report ACTIVE/INACTIVE from that response, including what it means for new trigger events.
+3. Answer briefly. Start with the automation's exact name, its returned ID and ACTIVE/INACTIVE
+   from that response, then say what it means for new trigger events.
    Use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) when the user asks about a particular run's outcome.
 
 Use the authentication and site context in [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
