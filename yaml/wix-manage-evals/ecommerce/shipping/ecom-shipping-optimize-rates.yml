@@ -10,5 +10,5 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the optimize-rates recipe, reads the current rates via the Shipping Options API, analyzes catalog price distribution / AOV, and recommends a concrete restructure — flat↔tiered conversion, tier-gap closure, or per-item-penalty removal — with inlined rate-sanity reasoning.
+      Pass if the response loads the optimize-rates recipe, reads the current rates via the Shipping Options API, analyzes catalog price distribution / AOV, and recommends a concrete restructure — flat↔tiered conversion, tier-gap closure, or per-item-penalty removal — with inlined rate-plausibility reasoning.
       Fail if it proposes new rates without first reading the current state, omits AOV/catalog signals, or routes the task to Pricing & Promotions.

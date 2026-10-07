@@ -45,9 +45,9 @@ size, or a `modifierGroups` entry) when the restaurant takes orders, so the dish
         { "name": "Branzino", "description": "Whole roasted sea bass, lemon, herbs.",
           "price": 28, "imageUrl": "https://…" }
       ] },
-      { "name": "Vino", "items": [
-        { "name": "Chianti Classico", "description": "Sangiovese, Tuscany.",
-          "variants": [{ "name": "Glass", "price": 11 }, { "name": "Bottle", "price": 44 }], "imageUrl": "https://…" }
+      { "name": "Pizze", "items": [
+        { "name": "Margherita", "description": "San Marzano tomato, fior di latte, basil.",
+          "variants": [{ "name": "Small", "price": 14 }, { "name": "Large", "price": 22 }], "imageUrl": "https://…" }
       ] },
       { "name": "Dolci", "items": [
         { "name": "Tiramisù", "description": "Espresso-soaked ladyfingers, mascarpone.",
@@ -65,7 +65,7 @@ size, or a `modifierGroups` entry) when the restaurant takes orders, so the dish
 ```
 
 - `price` — a number; stored as a decimal string in the **site currency** (never send one per item).
-  An item has `price` OR `variants` (each `{ name, price }` — "Glass" / "Bottle"), never both; an
+  An item has `price` OR `variants` (each `{ name, price }` — "Small" / "Large"), never both; an
   item with neither renders as "Market price" and can't be ordered online.
 - `modifierGroups` — per item: `{ name, required?, min?, max?, modifiers: [{ name, price?, preSelected?, inStock? }] }`.
   `required: true, min: 1, max: 1` is a single choice (radios); `max` alone is "choose up to";
