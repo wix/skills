@@ -15,7 +15,7 @@ Build direct links into the settings pages of a site's dashboard. For the genera
 | Website settings | `settings/website-settings` | Site name, favicon, social sharing |
 | Language & region | `settings/language-and-region` | Language, currency, time zone |
 
-Older `manage-website...` links redirect to the current routes.
+Older `manage-website...` links still redirect to the current routes.
 
 ## Pairing Entities with Their Read APIs
 
