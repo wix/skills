@@ -332,9 +332,7 @@ first real site and read the owning file if one bites.
 - **Create Cart is the whole path (Cart V2).** `donationCheckoutUrl` creates one fresh cart with the
   donation line (`cart.source.channelType: WEB`, the donor note as `cart.note`) and hands that cart's
   id straight to the redirect session — the cart is the checkout, so there is no separate Create
-  Checkout call and nothing merges into a storefront visitor's current cart. Whether the Donations
-  catalog plugin prices the line on a freshly-created V2 cart is unverified — confirm it on the
-  first real site.
+  Checkout call and nothing merges into a storefront visitor's current cart.
 - **Site currency.** Comes from the metrics response ("returns only the site's default currency");
   On a campaign nobody has donated to yet the metrics carry no currency either, so the transports read the site's currency once from the eCommerce settings (BUSINESS_INFO); unknown → "".
 - **Reading the order on the thank-you page.** `GET /ecom/v1/orders/{id}` with the visitor's token is
