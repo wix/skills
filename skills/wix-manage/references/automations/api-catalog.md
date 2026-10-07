@@ -6,9 +6,7 @@ description: "Discover site-specific triggers and actions, authenticate public A
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
-matching `@wix/automations` SDK method. Activation-log methods use the client bindings described
-in [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis); their service-relative paths are not assumed to share this REST base.
-Item Selection (§8) likewise requires a verified client binding. Docs live under
+matching `@wix/automations` SDK method. Item Selection (§8) requires a verified client binding. Docs live under
 `https://dev.wix.com/docs/api-reference/business-management/automations/` — append `.md` to any
 docs URL to get raw markdown. When a field name here and the docs disagree, the docs win.
 
@@ -29,8 +27,6 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   Email Marketing** (`SCOPE.DC-PROMOTE.EMAIL-MARKETING`) — a 403 there means that scope is missing.
   Entity lookups in other verticals need that vertical's read scope
   ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
-  Run inspection additionally needs the log/revision permissions in [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis); do
-  not assume a token that can edit automations can read their execution data.
 - **Token**: `Authorization: <token>` header — an OAuth app access token (`client_credentials` via
   Create Access Token) or an account API key the site owner generated with the needed scopes.
 - **Site context**: with an **API key**, send `wix-site-id: <metaSiteId>` on every call (all calls
@@ -162,10 +158,9 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
 
 ## 5. Activations (`activations`)
 
-- **Read execution results** — List/Get Activation Logs, List Activation Action Logs, and Get
-  Automation Revision. These are public methods; exact requests, permissions, client-binding
-  requirements and status interpretation are in [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Read logs to diagnose,
-  without running the automation again.
+- **Interpret supplied execution results** — use [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis) for logs or activity
+  details provided by the user. This skill does not expose run-log or historical-revision
+  retrieval APIs. Ask for dashboard evidence instead of guessing a route.
 
 - **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
   `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",
