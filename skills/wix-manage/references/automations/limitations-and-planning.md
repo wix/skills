@@ -24,9 +24,8 @@ This publication is being released in stages. Where a topic guide is not yet pub
 - **Dry-run / simulate** → none exists. Test Automation runs the actions FOR REAL — only with
   explicit user consent ([Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §5). Validate checks shape, not runtime
   behavior; never claim runtime results from validation.
-- **Run diagnosis** uses logs or dashboard details supplied by the user; see
-  [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). Automated log and historical-revision retrieval are outside this skill.
-  Missing evidence is unknown, not a successful or absent run.
+- **Run logs and run diagnosis** are not covered by this skill. For what happened in a run,
+  point the user to the activity view in the Wix dashboard.
 - **Generate site actions / "API integration" steps** (`wix_automations-wix_api_integration`) →
   not public; don't create them. Offer an existing app action, a webhook action, or "Generate or analyze
   text" (`wix_automations-llm_call`). An existing one in an automation you update: leave it untouched, don't rename it.

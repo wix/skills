@@ -9,7 +9,7 @@ This publication is being released in stages. Where a topic guide is not yet pub
 
 **What the public API can see.** An automation's live state is `configuration.status` —
 `ACTIVE` (eligible for new trigger events) or `INACTIVE` (not eligible for new trigger events).
-Status is not evidence that an individual run succeeded; see [Automations Run Diagnosis](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-run-diagnosis). There is no separate
+Status does not show whether past runs succeeded. There is no separate
 "published" flag and no public draft API:
 
 - **Status check** = Get Automation → read `configuration.status`. Report exactly that value, in a
@@ -22,8 +22,8 @@ Status is not evidence that an individual run succeeded; see [Automations Run Di
   the site and id. A never-published builder draft is absent
   from Get/Query, but deletion and a replaced preinstalled id can also explain a 404. The first
   update of a preinstalled automation can create an override with a new id; use the mutation's
-  returned id, or Query to find the current automation and confirm its identity. Only diagnose
-  an unpublished draft when the user's builder history supports that explanation.
+  returned id, or Query to find the current automation and confirm its identity. Only suggest
+  an unpublished draft as the cause when the user's builder history supports that explanation.
 
 **Activate** (only when the user asks):
 
@@ -49,7 +49,6 @@ revision, schemas and all nodes, then Update and read back the returned id. **Do
 Validate as a prerequisite**, and do not repair or remove unrelated invalid/legacy steps.
 An explicit request to turn it off is sufficient authorization. Deactivating prevents new
 triggered runs; it is not proof that every pending/running activation has stopped or will finish.
-Inspect individual logs when that matters: pending runs can record `AUTOMATION_DEACTIVATED`.
 
 **Revision conflicts** (someone published from the builder meanwhile): re-Get and retry once;
 if the fresh object differs in ways that matter, tell the user instead of overwriting.
