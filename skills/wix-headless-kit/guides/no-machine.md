@@ -17,6 +17,8 @@ This skill is one of a set, and the guide reads from three of them:
   fetched to `<SKILL_ROOT>/templates/`.
 - `<MANAGE>` — `wix-manage`: REST recipes to configure and manage a site's business solutions, one
   recipe per operation with the exact endpoint and payload; its `SKILL.md` is the index.
+- `<DOCS>` — `wix-docs`: how to look up the Wix API and SDK documentation and confirm a method's
+  exact shape before writing a call.
 
 They install together and sit beside each other. When you are reading this skill online rather
 than from an install, the other two are published alongside it, by those names, and each skill's
@@ -71,14 +73,37 @@ need the Media Manager; without it, products and services stay text-only, say so
 
 ## 5. The frontend
 
-The shipped `app/` code cannot be built here, and the Astro pages cannot be released. What you
-can read: `<TEMPLATES>/<solution>/INSTRUCTIONS.md` for the contracts, `<TEMPLATES>/<solution>/rest/`
-and `<TEMPLATES>/shared/rest/` for the data layer over plain `fetch` (what a page asks of Wix and in
-which order). What you can ship: static files, written in the conversation, through
-`<MANAGE>/references/sites/upload-static-site.md`, which drops them onto the site from step 2 and
-releases them. A page written that way is a static site; the kit's own frontend for this site is
-a run with a machine, which attaches to this site (`guides/existing-site.md`) rather than making a
-new one.
+The shipped `app/` code cannot be built here, and the Astro pages cannot be released. A page can
+still be shipped: one self-contained `index.html` that loads the Wix SDK from a package CDN and
+talks to the site as a visitor, dropped onto the site from step 2 through
+`<MANAGE>/references/sites/upload-static-site.md`. The kit's own frontend for this site is a run
+with a machine, which attaches to this site (`guides/existing-site.md`) rather than making a new one.
+
+**The page.** One file, a few hundred lines, written in full before the first drop: the drop takes
+the complete file set in one call, and a response has a hard size limit, so there is no second
+pass. The SDK comes from a pinned package URL, `https://esm.sh/@wix/sdk@<version>` and the
+solution's package (`@wix/bookings`, `@wix/stores`, `@wix/blog`, …); the client is
+`createClient({ modules: { … }, auth: OAuthStrategy({ clientId }) })` with the `appId` the provision
+call returned, and the SDK mints and refreshes the visitor token itself. Markup, a render function
+per state, the event handlers: that is what you write. Keep what the page shows to what the site
+holds; nothing invented, as in SKILL.md step 4.
+
+**The calls.** Take every SDK call's shape from the kit's own transport for the solution,
+`<TEMPLATES>/<solution>/app/wix/<solution>/*.ts` (`services.ts`, `booking.ts`, `catalog.ts`, …,
+with `<TEMPLATES>/shared/app/wix/sdk.ts` for the client wiring): those files call the same SDK
+modules the page imports, and they are verified. Copy the form of the call, not the file. The
+cores beside them (`*-core.ts`) hold the rules the page needs and nothing else does: which fields
+to read, how a price or a duration is formatted, which slot is bookable, how an id is read.
+
+**A call those files don't cover** is confirmed before it is written, the way `<DOCS>` describes:
+the method's SDK page, and when the page and the package disagree, the package's own type
+declarations (the `@wix/auto_sdk_<solution>_<module>` package the solution package depends on,
+its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
+the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
+and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
+`rawId`). Dates travel as local
+wall-clock strings in the business time zone. A page cannot be run here, so a wrong shape fails
+silently in the browser; the file beside the skill is the check that is available.
 
 ## 6. Closing
 
