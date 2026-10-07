@@ -10,8 +10,8 @@ run-name: EvalForge PR Sweep · PR #${{ github.event.pull_request.number }} · $
 # Manual, like the skill review: a push does not spend. Every head commit gets a run that only
 # records whether the commit is unswept, and `/sweep` re-runs that run via the COMMANDS map in
 # evalforge-re-eval.yml. It has to be shaped this way because a required status check must be
-# reported on the PR head, and only a `pull_request` run is — a comment-triggered run is attached to
-# the default branch commit.
+# reported on the PR head, and only a PR-triggered run knows that head: its report steps post the
+# status there, under the workflow's name.
 #
 # Three repo variables, all off by default and independent: PR_SWEEP_REQUIRED makes an unswept
 # commit red, PR_SWEEP_BLOCK_MERGE makes a sweep that found a regression red, and PR_SWEEP_REMIND
@@ -44,7 +44,9 @@ concurrency:
 
 jobs:
   pr-sweep:
-    # The job name *is* the required-status-check name.
+    # The job name only labels the check run inside this workflow run, which is attached to main's
+    # commit. The PR shows the commit status the report steps post under the workflow's name, and
+    # that is the name to require.
     name: pr-sweep
     runs-on: ubuntu-latest
     # Three sequential eval runs are possible (initial + two retries) and each may poll for up

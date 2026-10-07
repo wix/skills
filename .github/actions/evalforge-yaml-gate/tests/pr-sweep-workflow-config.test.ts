@@ -60,7 +60,7 @@ describe('EvalForge PR Sweep workflow — pr-sweep job', () => {
   const job = workflow.jobs['pr-sweep'];
   const action = job.steps.find(s => s.uses === './.action-src/.github/actions/evalforge-yaml-gate');
 
-  it('names its job pr-sweep, which is the required-status-check name', () => {
+  it('names its job pr-sweep', () => {
     expect(job).toBeDefined();
     expect(job.name).toBe('pr-sweep');
   });

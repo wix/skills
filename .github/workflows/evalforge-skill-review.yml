@@ -34,8 +34,9 @@ concurrency:
 
 jobs:
   review:
-    # The job name *is* the required-status-check name. Left implicit it would be `review`, and
-    # generic names collide in the picker — both eval gates already expose a job called `gate`.
+    # The job name only labels the check run inside this workflow run, which is attached to main's
+    # commit. The PR shows the commit status the report steps post under the workflow's name, and
+    # that is the name to require. Explicit so it is not the generic `review`.
     name: skill-review
     runs-on: ubuntu-latest
     # Comfortably over the reviewer's own 900-second ceiling, leaving room for checkout and install.
