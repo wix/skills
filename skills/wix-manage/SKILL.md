@@ -472,7 +472,7 @@ Discover installed automation triggers and actions, inspect current active statu
   Discover installed automation triggers and actions and inspect their schemas through site-scoped public catalog APIs.
 
 - [Automations Run Diagnosis](references/automations/activation-logs.md)
-  Interpret automation runs and per-action logs against their historical configuration, distinguishing failed actions, pending work and missing evidence.
+  Interpret user-supplied run and action logs, distinguish processing completion from successful actions, and explain limits of historical evidence.
 
 - [Automations Activation Status](references/automations/activation-status.md)
   Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes.

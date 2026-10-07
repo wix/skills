@@ -21,7 +21,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10. The response distinguishes completion of run processing from successful actions, identifies the email action failure exactly as supplied, and says revision 7 is the relevant historical configuration rather than current revision 9. It does not infer delivery, fabricate an action ID or claim to have fetched logs. It explains the next read-only investigation using revision 7 and explaining that the actual run/action IDs, which are not in these excerpts, would be needed for any later authorized lookup and respects the explicit no-site-access/no-rerun constraint. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10. The response distinguishes completion of run processing from successful actions, identifies the email action failure exactly as supplied, and says revision 7 is the relevant historical configuration rather than current revision 9. It does not infer delivery, fabricate an action ID or claim to have fetched logs. It explains that the user should inspect the dashboard run and configuration for revision 7, asks for missing IDs or details only if needed, does not offer an undocumented log or historical-revision API lookup, and respects the explicit no-site-access/no-rerun constraint. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
