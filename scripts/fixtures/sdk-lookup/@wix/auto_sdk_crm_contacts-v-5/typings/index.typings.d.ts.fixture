@@ -1,0 +1,17 @@
+import { CursorSearch, SearchContactsOptions, SearchContactsResponse } from './contacts-v5-contact-contacts-v-5.universal-BJh2oKn7.js';
+import '@wix/sdk-types';
+
+/** @hidden */
+type ContactSearch = {};
+/**
+ * Retrieves a list of contacts using a free-text search combined with filtering and sorting.
+ * @param search - WQL search expression.
+ * @public
+ * @requiredField search
+ * @permissionId CONTACTS.CONTACT_READ
+ * @applicableIdentity APP
+ * @fqn wix.contacts.v5.Contacts.SearchContacts
+ */
+declare function searchContacts(search: CursorSearch, options: SearchContactsOptions): Promise<SearchContactsResponse>;
+
+export { type ContactSearch, CursorSearch, SearchContactsOptions, SearchContactsResponse, searchContacts };

@@ -1,0 +1,186 @@
+import { QuerySpec, SearchSpec, Query, Search, NonNullablePaths } from '@wix/sdk-types';
+
+/** A contact represents a person in a site's contact list. */
+interface Contact {
+    /**
+     * Contact ID.
+     * @format GUID
+     * @readonly
+     */
+    _id?: string | null;
+    /** Revision number, which increments by 1 each time the contact is updated. */
+    revision?: string | null;
+}
+interface UpdateContact {
+    _id?: string | null;
+    revision?: string | null;
+}
+interface UpdateContactOptions {
+    overwrite?: boolean;
+}
+interface ContactQuery {
+    filter?: Record<string, any> | null;
+}
+interface QueryContactsResponse {
+    contacts?: Contact[];
+}
+interface SearchContactsResponse {
+    /** Retrieved contacts. */
+    contacts?: Contact[];
+    /** Paging metadata. */
+    pagingMetadata?: CursorPagingMetadata;
+}
+interface CursorPagingMetadata {
+    /** Number of items returned in the response. */
+    count?: number | null;
+    /** Cursor strings that point to the next page, previous page, or both. */
+    cursors?: Cursors;
+    hasNext?: boolean | null;
+}
+interface Cursors {
+    /** Cursor string pointing to the next page in the list of results. */
+    next?: string | null;
+    prev?: string | null;
+}
+interface SearchContactsOptions {
+    nameFormat?: string;
+}
+interface CursorSearch {
+    filter?: Record<string, any> | null;
+    search?: SearchDetails;
+}
+interface SearchDetails {
+    expression?: string | null;
+}
+/**
+ * Retrieves a single contact by ID.
+ * @param contactId - ID of the contact to retrieve.
+ * @public
+ * @requiredField contactId
+ * @permissionId CONTACTS.CONTACT_READ
+ * @applicableIdentity APP
+ * @returns Retrieved contact.
+ * @fqn wix.contacts.v5.Contacts.GetContact
+ */
+declare function getContact(contactId: string): Promise<NonNullablePaths<Contact, `_id`, 2>>;
+/**
+ * Updates a contact.
+ * @param _id - Contact ID.
+ * @public
+ * @requiredField _id
+ * @requiredField contact
+ * @requiredField contact.revision
+ * @permissionId CONTACTS.CONTACT_UPDATE
+ * @permissionId CONTACTS.CONTACT_MEMBER_EMAIL_UPDATE
+ * @applicableIdentity APP
+ * @returns Updated contact.
+ * @fqn wix.contacts.v5.Contacts.UpdateContact
+ */
+declare function updateContact(_id: string, contact: NonNullablePaths<UpdateContact, `revision`, 0>, options?: UpdateContactOptions): Promise<NonNullablePaths<Contact, `_id`, 2>>;
+/**
+ * Retrieves a list of up to 100 contacts, given the provided filtering, sorting, and cursor paging.
+ * @public
+ * @permissionId CONTACTS.CONTACT_READ
+ * @applicableIdentity APP
+ * @fqn wix.contacts.v5.Contacts.QueryContacts
+ */
+declare function queryContacts(): ContactsQueryBuilder;
+interface ContactsQueryResult {
+    items: Contact[];
+    query: ContactsQueryBuilder;
+}
+interface ContactsQueryBuilder {
+    /** @param propertyName - Property whose value is compared with `value`.
+     * @param value - Value to compare against.
+     */
+    eq: (propertyName: '_id' | '_createdDate' | '_updatedDate' | 'externalId' | 'email.email' | 'phone.phone', value: any) => ContactsQueryBuilder;
+    /** @param propertyName - Property whose value is compared with `value`.
+     * @param value - Value to compare against.
+     */
+    gt: (propertyName: '_createdDate' | '_updatedDate', value: any) => ContactsQueryBuilder;
+    in: (propertyName: '_id' | 'externalId' | 'email.email' | 'phone.phone', value: any) => ContactsQueryBuilder;
+    exists: (propertyName: 'externalId' | 'email.email' | 'phone.phone', value: boolean) => ContactsQueryBuilder;
+    /** @param propertyNames - Properties used in the sort. To sort by multiple properties, pass properties as additional arguments. */
+    ascending: (...propertyNames: Array<'_createdDate' | '_updatedDate'>) => ContactsQueryBuilder;
+    /** @param limit - Number of items to return, which is also the `pageSize` of the results object. */
+    limit: (limit: number) => ContactsQueryBuilder;
+    find: () => Promise<ContactsQueryResult>;
+}
+/**
+ * @hidden
+ * @fqn wix.contacts.v5.Contacts.QueryContacts
+ * @requiredField query
+ */
+declare function typedQueryContacts(query: ContactQuery): Promise<NonNullablePaths<QueryContactsResponse, `contacts`, 4>>;
+type CommonSearchWithEntityContext = Search<Contact, ContactSearchSpec>;
+type ContactSearch = {
+    /**
+    Cursor paging options.
+    */
+    cursorPaging?: {
+        /**
+        Maximum number of items to return in the results.
+        @max: 100
+        */
+        limit?: NonNullable<CommonSearchWithEntityContext['cursorPaging']>['limit'] | null;
+        cursor?: NonNullable<CommonSearchWithEntityContext['cursorPaging']>['cursor'] | null;
+    };
+    /**
+    Filter object.
+    */
+    filter?: CommonSearchWithEntityContext['filter'] | null;
+    sort?: {
+        fieldName?: NonNullable<CommonSearchWithEntityContext['sort']>[number]['fieldName'];
+        order?: NonNullable<CommonSearchWithEntityContext['sort']>[number]['order'];
+    }[];
+    search?: {
+        mode?: NonNullable<CommonSearchWithEntityContext['search']>['mode'];
+        expression?: NonNullable<CommonSearchWithEntityContext['search']>['expression'];
+    };
+};
+interface ContactQuerySpec extends QuerySpec {
+    paging: 'cursor';
+    wql: [
+        {
+            fields: ['_id'];
+            operators: ['$eq', '$in'];
+            sort: 'NONE';
+        },
+        {
+            fields: ['_createdDate', '_updatedDate'];
+            operators: ['$eq', '$gt', '$gte', '$lt', '$lte'];
+            sort: 'ASC';
+        },
+        {
+            fields: ['email.email', 'externalId', 'phone.phone'];
+            operators: ['$eq', '$exists', '$in'];
+            sort: 'NONE';
+        }
+    ];
+}
+interface ContactSearchSpec extends SearchSpec {
+    searchable: [
+        'company.name',
+        'email.email',
+        'name.full',
+        'phone.phone'
+    ];
+    aggregatable: [
+        '_createdDate'
+    ];
+    paging: 'cursor';
+    wql: [
+        {
+            fields: ['company.name', 'email.email', 'phone.phone', 'name.first'];
+            operators: ['$eq', '$exists', '$in', '$ne', '$nin', '$startsWith'];
+            sort: 'BOTH';
+        },
+        {
+            fields: ['_createdDate'];
+            operators: ['$eq', '$gt', '$gte', '$lt', '$lte', '$ne'];
+            sort: 'BOTH';
+        }
+    ];
+}
+
+export { type Contact, type ContactQuerySpec, type ContactSearchSpec, type ContactsQueryBuilder, type CursorSearch, type SearchContactsOptions, type SearchContactsResponse, type UpdateContact, type UpdateContactOptions, getContact, queryContacts, typedQueryContacts, updateContact };

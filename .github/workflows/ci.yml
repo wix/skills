@@ -56,8 +56,9 @@ jobs:
           match() { echo "$changed" | grep -qE "$1"; }
 
           # The wix-app harness itself is included: a change to extract.mjs or its deps can
-          # break the typecheck just as a reference-doc change can.
-          if match '^skills/wix-app/|^\.github/wix-app-typecheck/'; then
+          # break the typecheck just as a reference-doc change can. So is the sdk-lookup
+          # test and its fixtures, which test a wix-app script.
+          if match '^skills/wix-app/|^\.github/wix-app-typecheck/|^scripts/test-sdk-lookup\.cjs$|^scripts/fixtures/sdk-lookup/'; then
             echo "wix_app=true" >> "$GITHUB_OUTPUT"
           else
             echo "wix_app=false" >> "$GITHUB_OUTPUT"
@@ -272,9 +273,21 @@ jobs:
             exit 1
           fi
 
+      # The skill's scripts ship without a build or an eval of their own (derive-tags
+      # gives scripts/** no tag), so this is what catches a broken sdk-lookup.cjs.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        if: ${{ needs.detect.outputs.wix_app == 'true' }}
+        with:
+          node-version: '22'
+
+      - name: wix-app — sdk-lookup tests
+        if: ${{ needs.detect.outputs.wix_app == 'true' }}
+        run: node --test scripts/test-sdk-lookup.cjs
+
       - name: Summary
         run: |
           echo "evalforge: ${{ needs.detect.outputs.evalforge }}"
-          if [ "${{ needs.detect.outputs.evalforge }}" = "false" ]; then
+          echo "wix-app sdk-lookup: ${{ needs.detect.outputs.wix_app }}"
+          if [ "${{ needs.detect.outputs.evalforge }}" = "false" ] && [ "${{ needs.detect.outputs.wix_app }}" = "false" ]; then
             echo "No tested areas changed — nothing to do."
           fi
