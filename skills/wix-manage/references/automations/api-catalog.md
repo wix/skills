@@ -6,7 +6,7 @@ description: "Discover site-specific triggers and actions, authenticate public A
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
-matching `@wix/automations` SDK method. Item Selection (§8) requires a verified client binding. Docs live under
+matching `@wix/automations` SDK method. List Selector Options (§8) has no public base URL yet. Docs live under
 `https://dev.wix.com/docs/api-reference/business-management/automations/` — append `.md` to any
 docs URL to get raw markdown. When a field name here and the docs disagree, the docs win.
 
@@ -209,18 +209,13 @@ Discovery hints:
 Node N may read the trigger payload + each **ancestor**'s output (under its namespace) +
 variables + identity enrichment. Recipe and fetch order: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4.
 
-## 8. Item Selection and APIs with limitations
+## 8. Selector options and APIs with limitations
 
-**Item Selection is PUBLIC (BETA)** and supports generic provider-based lookups. List Installed
-Providers returns the site's providers (optionally filtered by `tag`); Query Items searches a
-specific `providerKey`, returning item ids/names and paging metadata. The verified service-relative
-paths are `GET /v1/items-selection/installed-providers` and
-`POST /v1/items-selection/{providerKey}/items`; permissions are
-`ITEMS_SELECTION.LIST_INSTALLED_PROVIDERS` and `ITEMS_SELECTION.LIST_ITEMS`, respectively.
-Use a supported public client/MCP binding; the external gateway base and token access remain
-unverified, so do not prepend this catalog's REST base by assumption. Discovery, filters,
-pagination and dependent selections: [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection). Vertical public APIs
-remain valid alternatives.
+**List Selector Options** (Automations Skills API, `POST /v1/list-selector-options`) takes one
+trigger or action and returns its entity fields with the site's selectable ids, parent filters and
+paging already applied. Its public base URL is not listed yet, so do not prepend this catalog's
+REST base by assumption; use a binding your tools expose, a vertical public API, or ask the user.
+Request, statuses and value shapes: [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection).
 
 **Not public or not available through the general Automations API:**
 

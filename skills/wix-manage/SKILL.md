@@ -484,10 +484,10 @@ Create, update, activate or deactivate Wix Automations, and check their current 
   Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
 
 - [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
-  Resolve entity identifiers using Item Selection or vertical APIs, and find provider-owned automation configuration workflows.
+  Resolve entity identifiers using List Selector Options or vertical APIs, and find provider-owned automation configuration workflows.
 
 - [Automations Item Selection](references/automations/item-selection.md)
-  Resolve selectable entities by provider or tag with parent constraints, pagination, ambiguity handling and vertical API alternatives.
+  List the entity fields of a trigger or action and their selectable IDs with List Selector Options, including dependent fields, value shapes, incomplete or failed lookups and ambiguity handling.
 
 - [Automations Email Actions](references/automations/email-actions.md)
   Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
