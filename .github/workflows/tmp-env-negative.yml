@@ -1,0 +1,25 @@
+name: TMP env negative test
+
+# Throwaway. Checks that a workflow pushed on a branch cannot use the evalforge environment, and
+# whether it can still read the repository copy of a secret. Prints only SET/EMPTY, never a value.
+# Delete this branch once the result is recorded.
+
+on:
+  push:
+    branches: [test/env-negative]
+
+permissions: {}
+
+jobs:
+  with-env:
+    runs-on: ubuntu-latest
+    environment: evalforge
+    steps:
+      - run: echo "reached the step"
+
+  without-env:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          S: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+        run: '[ -n "$S" ] && echo "secret is SET" || echo "secret is EMPTY"'
