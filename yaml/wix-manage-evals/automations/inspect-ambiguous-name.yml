@@ -1,0 +1,117 @@
+{
+  "name": "automations/inspect-ambiguous-name",
+  "description": "Two automations share the name Lead Follow-up (one ACTIVE, one INACTIVE): the agent must ask which one the user means instead of picking one.",
+  "triggerPrompt": "Is Lead Follow-up currently turned on?",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/inspect-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The site has two automations named exactly Lead Follow-up: one ACTIVE and one INACTIVE. Score 10 only when the agent queries by that name, finds both, does not pick one arbitrarily or report a single status as the answer, and asks the user which automation they mean, identifying each by its returned ID (it may show each one's status from the returned data). Score 0 for reporting only one automation's status as if it were the answer, guessing an ID, or any write, activation, deactivation or test. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the tool trace. Require a bounded Query Automations by the exact name through public tools. Getting each matching ID is acceptable. Penalize catalog discovery, unrelated automations, guessed IDs, any write, status toggle or test run, and repeated identical calls. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor",
+    "bootstrap": {
+      "steps": [
+        {
+          "label": "Seed first automation named Lead Follow-up",
+          "method": "post",
+          "url": "https://www.wixapis.com/automations-service/v2/automations",
+          "body": {
+            "automation": {
+              "name": "Lead Follow-up",
+              "origin": "USER",
+              "configuration": {
+                "status": "ACTIVE",
+                "trigger": {
+                  "appId": "74bff718-5977-47f2-9e5f-a9fd0047fd1f",
+                  "triggerKey": "contacts-new_contact_was_created",
+                  "filters": []
+                },
+                "rootActionIds": [
+                  "650c6d61-0000-4000-8000-0000000000a1"
+                ],
+                "actions": {
+                  "650c6d61-0000-4000-8000-0000000000a1": {
+                    "id": "650c6d61-0000-4000-8000-0000000000a1",
+                    "type": "APP_DEFINED",
+                    "namespace": "createTask-1",
+                    "displayName": "Create follow-up task",
+                    "appDefinedInfo": {
+                      "appId": "146c0d71-352e-4464-9a03-2e868aabe7b9",
+                      "actionKey": "createTask",
+                      "inputMapping": {
+                        "contactId": "{{var(\"contactId\")}}",
+                        "title": "Welcome {{if(or(isEmpty(var(\"contact.name.first\"));isEmptyString(var(\"contact.name.first\")));\"new%20friend\";var(\"contact.name.first\"))}}"
+                      },
+                      "postActionIds": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "label": "Seed second automation named Lead Follow-up",
+          "method": "post",
+          "url": "https://www.wixapis.com/automations-service/v2/automations",
+          "body": {
+            "automation": {
+              "name": "Lead Follow-up",
+              "origin": "USER",
+              "configuration": {
+                "status": "INACTIVE",
+                "trigger": {
+                  "appId": "74bff718-5977-47f2-9e5f-a9fd0047fd1f",
+                  "triggerKey": "contacts-new_contact_was_created",
+                  "filters": []
+                },
+                "rootActionIds": [
+                  "650c6d61-0000-4000-8000-0000000000a2"
+                ],
+                "actions": {
+                  "650c6d61-0000-4000-8000-0000000000a2": {
+                    "id": "650c6d61-0000-4000-8000-0000000000a2",
+                    "type": "APP_DEFINED",
+                    "namespace": "createTask-1",
+                    "displayName": "Create follow-up task",
+                    "appDefinedInfo": {
+                      "appId": "146c0d71-352e-4464-9a03-2e868aabe7b9",
+                      "actionKey": "createTask",
+                      "inputMapping": {
+                        "contactId": "{{var(\"contactId\")}}",
+                        "title": "Welcome {{if(or(isEmpty(var(\"contact.name.first\"));isEmptyString(var(\"contact.name.first\")));\"new%20friend\";var(\"contact.name.first\"))}}"
+                      },
+                      "postActionIds": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

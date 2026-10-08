@@ -3,6 +3,8 @@ name: "Inspect Wix Automations"
 description: "Discover installed automation triggers and actions and inspect an automation’s current active status without changing site data."
 ---
 
+<!-- Maintainers: This file keeps the same name throughout the staged rollout; later stages expand it to cover building and managing automations. See yaml/wix-manage/automations/README.md. -->
+
 # Inspect Wix Automations
 
 Use this guide to discover installed automation capabilities and inspect whether an
@@ -48,6 +50,3 @@ for them. Query by the exact name with one bounded page before paging further.
 
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned data, and distinguish a missing record from proof of nonexistence.
-
-This file keeps the same name throughout the staged rollout; later stages expand it to cover
-building and managing automations.
