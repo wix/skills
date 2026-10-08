@@ -37,6 +37,8 @@ import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 import { folderShape, siteContext } from "./context.mjs";
+const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
+const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
 const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -134,14 +136,14 @@ if (mode === "create") {
       // commit" is noise here, and becomes a nested-repo (submodule gitlink) hazard
       // if the project is later placed inside an existing repo. --skip-install for the
       // same reason: deps install in a detached step below.
-      ["create", "@wix/new@latest", "--", "headless",
+      ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "headless",
        "--folder-name", folderName, "--business-name", businessName,
        "--site-template", "blank", ...(template ? ["--template-path", template] : []),
        "--skip-install", "--skip-git", "--no-publish"],
       { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
     );
     if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
-      fail("scaffold", (scaffold.stderr || scaffold.stdout || "scaffold produced no wix.config.json — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").slice(-600));
+      fail("scaffold", (scaffold.stderr || scaffold.stdout || `scaffold produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
     }
   }
 } else if (mode === "migrate") {
@@ -177,10 +179,10 @@ if (mode === "create") {
   // wix.config.json and .env.local, touches nothing else. Non-interactive under CI=1; the site is
   // named after the folder (rename it in the dashboard).
   emit("adopting", { folder: cwd });
-  const init = spawnSync("npm", ["create", "@wix/new@latest", "--", "init"],
+  const init = spawnSync("npm", ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "init"],
     { cwd, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 });
   if (init.status !== 0 || !has("wix.config.json")) {
-    fail("init", (init.stderr || init.stdout || "init produced no wix.config.json — is the Wix CLI logged in? (npx @wix/cli@latest whoami)").slice(-600));
+    fail("init", (init.stderr || init.stdout || `init produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
   }
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
@@ -296,10 +298,10 @@ if (planPath && madeTheSite) {
 
 // ---- done ----------------------------------------------------------------------------------------
 const release = {
-  astro: "npx @wix/cli@latest build, then npx @wix/cli@latest release",
-  react: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (what Wix hosting serves and how routes must be shaped: SKILL.md step 1)",
-  lib: "the project's own build, then npx @wix/cli@latest release of the build folder named in wix.config.json (SKILL.md step 1)",
-  static: `npx @wix/cli@latest release — no build; it uploads ${STATIC_OUT}/ whole (wix.config.json site.outputDirectory), so the pages, styles and assets move into ${STATIC_OUT}/ first and import the modules from ./js/wix/ there; the root keeps the config, the plan, the seed output and the skills`,
+  astro: `npx ${WIX_CLI} build, then npx ${WIX_CLI} release`,
+  react: `the project's own build, then npx ${WIX_CLI} release of the build folder named in wix.config.json (what Wix hosting serves and how routes must be shaped: SKILL.md step 1)`,
+  lib: `the project's own build, then npx ${WIX_CLI} release of the build folder named in wix.config.json (SKILL.md step 1)`,
+  static: `npx ${WIX_CLI} release — no build; it uploads ${STATIC_OUT}/ whole (wix.config.json site.outputDirectory), so the pages, styles and assets move into ${STATIC_OUT}/ first and import the modules from ./js/wix/ there; the root keeps the config, the plan, the seed output and the skills`,
 }[stack];
 // On a migration preview the links and `siteId` are the PARENT's — the site whose content the pages
 // show and whose dashboard manages it; `deploySiteId` is where `wix release` goes.

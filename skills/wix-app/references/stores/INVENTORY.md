@@ -18,6 +18,8 @@ if (v === 'V3_CATALOG') {
 }
 ```
 
+V3 increments work only for inventory items with `trackQuantity: true`; the entries are `{ inventoryItemId, incrementBy }` with `incrementBy` 1 to 99999.
+
 To find a V3 inventory item ID, use `inventoryItemsV3.searchInventoryItems` filtered by `productId` / `variantId`.
 
 ---

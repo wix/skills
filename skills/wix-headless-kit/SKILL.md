@@ -21,12 +21,15 @@ doesn't express — or once the site exists and the work turns to managing or ex
 
 ## The model
 
-- **Shipped code is the implementation.** Every vertical ships under `templates/<vertical>/` in
-  the skill's repository, not in the skill folder: `node <SKILL_ROOT>/install/templates.mjs`
-  fetches all of it once into `<SKILL_ROOT>/templates/` (a second) and prints the path; every
-  script below fetches it itself when the folder is missing. The folder stays with the project
-  (only the composed `project/` scaffolds are left out of its repository), so a later session
-  reads the version the project was built from. Each vertical holds:
+- **Shipped code is the implementation.** Every vertical ships in the repository's
+  `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
+  folder. `node <SKILL_ROOT>/install/templates.mjs` prints where that skill is: the sibling folder
+  `<SKILL_ROOT>/../wix-headless-templates/` when the install carried both skills (the cold start
+  does), else a one-time fetch into `<SKILL_ROOT>/templates/` (a second); every script below
+  resolves it the same way. **Every `templates/...` path in this document is relative to that
+  printed root** — there is no `templates/` folder inside this skill when the sibling exists.
+  The folder stays with the project (only the composed `project/` scaffolds are left out of its
+  repository), so a later session reads the version the project was built from. Each vertical holds:
   - `app/` — the framework-agnostic core (TypeScript): a data layer that returns **plain,
     serializable DTOs** (images resolved to https URLs, prices pre-formatted), React hooks, and
     routing-free headless components. Works in Astro islands, Vite SPAs, and Next.
@@ -250,9 +253,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    INSTRUCTIONS and the shared floors — `templates/shared/DESIGN.md` +
    `templates/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
    step on); the hook/DTO
-   contracts are inlined there, so don't open the shipped files themselves. **Author your
-   surfaces in as few messages as possible** — batch multiple Write calls in one message
-   (components are independent files); don't pay a round-trip per file.
+   contracts are inlined there, so don't open the shipped files themselves.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
@@ -283,7 +284,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    that fix it: **Accept payments** `https://manage.wix.com/dashboard/<siteId>/wix-cashier/payments`
    (connect a payment method; "manual payments" is enough for free and pay-in-person flows) and
    **Upgrade the plan** `https://www.wix.com/upgrade/website?metaSiteId=<siteId>` (online payments
-   need a premium plan). Both are the owner's steps, not a defect in the site. **Copy the live URL verbatim from the
+   need a premium plan). Both are the owner's steps, not a defect in the site. When the run started
+   from the owner's own pages, name what those pages promised that the released site does not do.
+   **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404). Before you sign off, run the feedback self-check over the whole session
    (`guides/feedback.md`): anything that cost more turns than it should have, including what you
@@ -300,6 +303,10 @@ before step 3: it holds the mechanics (the `site/` layout and setup's part in it
 browser versus the server, the OAuth allow-list for a self-hosted origin, pre-rendered output) and
 how to close such a run. A public site is still better served by managed Astro; say so when you
 close.
+
+Without a machine at all, or when the install, the CLI or the login is blocked where you are,
+read `<SKILL_ROOT>/guides/no-machine.md`: the same run, step by step, as the Wix API calls the
+scripts make and the files beside this skill that carry the contracts.
 
 ## Verticals
 

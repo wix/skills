@@ -4,7 +4,7 @@ description: "BUNDLE_AND_SAVE sub-flow — load [Goal: Drive Cross-Sells] FIRST 
 ---
 # Flow: Bundle & Save Campaign
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-plausibility).
 
 Creates a discount that rewards customers for purchasing multiple items, encouraging product discovery and cross-selling. The discount activates when the cart contains a minimum number of items, and targets categories or products where bundling makes strategic sense.
 

@@ -68884,7 +68884,7 @@ function buildArgs(invocation) {
         '-p',
         ...SANDBOX_ARGS,
         '--tools', TOOLS,
-        '--agents', buildAgents(invocation.cwd),
+        '--agents', buildAgents(invocation.agentWorkspace),
         '--agent', exports.REVIEW_AGENT,
         '--allowedTools', ALLOWED_TOOLS,
         '--json-schema', OUTPUT_SCHEMA,
@@ -69270,12 +69270,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runReview = runReview;
 const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const github_1 = __nccwpck_require__(6246);
 const workspace_1 = __nccwpck_require__(9620);
+const paths_1 = __nccwpck_require__(6621);
 const review_comment_1 = __nccwpck_require__(8333);
 const review_agent_1 = __nccwpck_require__(2969);
 /**
@@ -69351,13 +69353,15 @@ async function runReview() {
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
-    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(workspace))) {
+    const agentWorkspace = (0, node_path_1.join)(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
+    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(agentWorkspace))) {
         await reportUnavailable(`the reviewer definition \`.claude/agents/${review_agent_1.REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
         return;
     }
     core.info(`Reviewing ${files.length} file(s) at ${config.headSha.slice(0, 7)} with ${config.model} at ${config.effort} effort.`);
     const outcome = await (0, review_agent_1.runReviewAgent)({
         cwd: workspace,
+        agentWorkspace,
         task: buildTask(config, files),
         apiKey: config.anthropicApiKey,
         baseUrl: config.anthropicBaseUrl,

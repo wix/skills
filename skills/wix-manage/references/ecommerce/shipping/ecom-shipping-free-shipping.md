@@ -8,7 +8,7 @@ description: Creates a free shipping option with an AOV-calibrated threshold to 
 
 > **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
 
-## Rate pricing sanity (inline guardrail)
+## Rate pricing plausibility (inline guardrail)
 
 Validate every rate you create or update against the store's AOV; flag any that fail:
 
@@ -101,7 +101,7 @@ If the threshold needs adjustment, update the shipping option via PATCH (see Ste
 
 ---
 
-## Step 3: Run AOV sanity check
+## Step 3: Run AOV plausibility check
 
 Before calculating a threshold, validate that AOV is reliable by comparing it against catalog price distribution.
 
@@ -263,7 +263,7 @@ Report to the merchant:
 | `deliveryRegionId is not a valid GUID` | Used `deliveryRegionIds` (plural) instead of `deliveryRegionId` (singular) | Use the singular `deliveryRegionId` field |
 | `SHIPPING_OPTION_NOT_FOUND` | Option ID doesn't exist when trying to update | Re-query shipping options to get current IDs |
 | `REVISION_MISMATCH` | Revision doesn't match the current version when updating | Re-fetch the option for the latest revision, then retry |
-| Threshold seems unreasonable | AOV data is unreliable (too few orders, data anomaly) | Run the AOV sanity check (Step 3) and use `effective_aov` instead of raw AOV |
+| Threshold seems unreasonable | AOV data is unreliable (too few orders, data anomaly) | Run the AOV plausibility check (Step 3) and use `effective_aov` instead of raw AOV |
 | Free shipping not visible at checkout | Region linked to the option has `active=false` | Check region active status and activate if intended |
 
 ## References

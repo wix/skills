@@ -9,6 +9,7 @@ import {
   type ChangedFile,
 } from './github';
 import { workspaceRoot } from './workspace';
+import { BASE_WORKSPACE_SUBDIR } from './paths';
 import {
   formatReviewClean, formatReviewFindings, formatReviewPending, formatReviewServiceError,
   formatReviewSkipped,
@@ -106,7 +107,8 @@ export async function runReview(): Promise<void> {
   }
 
   const workspace = workspaceRoot();
-  if (!existsSync(agentPath(workspace))) {
+  const agentWorkspace = join(workspace, BASE_WORKSPACE_SUBDIR);
+  if (!existsSync(agentPath(agentWorkspace))) {
     await reportUnavailable(`the reviewer definition \`.claude/agents/${REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
     return;
   }
@@ -115,6 +117,7 @@ export async function runReview(): Promise<void> {
 
   const outcome = await runReviewAgent({
     cwd: workspace,
+    agentWorkspace,
     task: buildTask(config, files),
     apiKey: config.anthropicApiKey,
     baseUrl: config.anthropicBaseUrl,

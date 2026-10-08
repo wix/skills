@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. An agent without a shell, Node or network learns here what to hand over instead, so the request still ends with a built site or an honest answer."
 ---
 
 # Wix Headless Kit — cold start
@@ -14,17 +14,19 @@ you're already reading the raw text, don't fetch it again.
 ## The whole cold start (details in the phases below)
 
 ```bash
-CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
 node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
-Requires Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and guides the
-login.
+Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI — the bootstrap checks the CLI and
+guides the login. If you can't run this — no shell, no file system, no machine for the CLI, a
+sandbox that blocks the install, the CLI or the login — see
+[No machine, no shell, no CLI, or blocked](#no-machine-no-shell-no-cli-or-blocked-the-skills-as-a-reference) at the end.
 
 This page gets a cold environment to the point where the real skill can run, then hands off:
 
-1. **Install (deterministic).** The skill and its two companions land under `.agents/skills/`.
+1. **Install (deterministic).** The skill and its three companions land under `.agents/skills/`.
 2. **Bootstrap (deterministic, scripted).** The installed script verifies the Wix CLI and
    handles login. You just run it and relay its events.
 3. **Hand off (agentic).** Open `wix-headless-kit/SKILL.md` and follow it — it resolves the
@@ -57,16 +59,17 @@ lower version, install or upgrade Node first — do **not** work around it:
 
 ## Phase 1 — Install the skills
 
-Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
+Install the skill and its three companions (`CI=1` forces plain non-interactive CLI output —
 keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
 parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills \
-  --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
+  --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes
 ```
 
 - **`wix-headless-kit`** — the build itself.
+- **`wix-headless-templates`** — the shipped, verified code per Wix Business Solution the build deploys.
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
 - **`wix-manage`** — management recipes, for admin work on the site after it exists.
 
@@ -93,7 +96,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 | `cli_ok` | Wix CLI reachable — continue. |
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
-| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
+| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, [read the skills as a reference](#no-machine-no-shell-no-cli-or-blocked-the-skills-as-a-reference). |
 
 On `awaiting_user`, run the script again once the user says they've logged in: it reports
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
@@ -110,3 +113,31 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
   page stops at *logged in*.
 - You're already authenticated from Phase 2, so the skill's CLI auth step will pass without
   prompting again.
+
+## No machine, no shell, no CLI, or blocked: the skills as a reference
+
+Everything above needs a machine you can run commands on, with a file system, Node, npm reach and a
+Wix CLI login. Without that (a chat agent, an MCP-only host, a sandbox that blocks the install, the
+CLI or the login), the kit still runs as a reference: the guide
+`wix-headless-kit/guides/no-machine.md` walks the kit's run step by step as the Wix API calls the
+scripts make, and names the files that carry each contract. Where to read it from depends on how far
+the phases got:
+
+- **Phase 1 ran and Phase 2 failed** (a sandbox that reaches npm and GitHub but not Wix, so the
+  login's `403` is where it stops): the skills are already on disk under `.agents/skills/`. Read the
+  guide at `.agents/skills/wix-headless-kit/guides/no-machine.md`, and every file it names beside
+  it. Node is there too, so the guide's frontend step composes the kit's shipped code.
+- **Nothing could be installed:** fetch
+  `https://www.wix.com/skills/wix-headless-kit/guides/no-machine.md` and follow it. The same files
+  are in `https://github.com/wix/skills` under `skills/<skill>/`; a sandbox that reaches GitHub gets
+  the whole set from a clone of that repository, on disk.
+
+Read the guide, and every file it names, in full. A copy on disk is read whole. Over the network, a
+fetch that returns the file's text does the same, and so does a tool that runs code and can fetch a
+URL (fetch the URL, return the body as text); a web-fetch tool that summarizes a page drops the
+exact calls and shapes. If what came back reads as a summary, read it again another way.
+
+The files the guide names are skill paths. On disk a path resolves under `.agents/skills/<skill>/`;
+on the registry as `https://www.wix.com/skills/<skill>/<path>`: `<SKILL_ROOT>` is
+`wix-headless-kit`, `<TEMPLATES>` is `wix-headless-templates`, `<MANAGE>` is `wix-manage`. Every file
+of a skill, with its URL, is listed in `https://www.wix.com/skills/<skill>.manifest.json`.

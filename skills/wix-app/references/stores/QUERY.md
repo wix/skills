@@ -8,7 +8,7 @@ Both versions expose a fluent query builder, but the paging method differs:
 |--------|--------------------------------|----------------------------------|
 | API style | Fluent builder: `.skip().limit().find()` | Fluent builder: `.skipTo(cursor).limit().find()` |
 | Pagination | Offset (`.skip(n)`) | Cursor (`.skipTo(cursor)`) |
-| Result `items` | `res.items` (V1 `Product[]`) | `res.items` (V3 `Product[]`) |
+| Result `items` | `res.items` (V1 `Product[]`) | `res.items` (V3 `productsV3.V3Product[]`) |
 | Total count | `res.totalCount` | **None** — V3 only has `cursors.next` + `hasNext()` |
 | `hasNext` | `res.hasNext()` (method) | `res.hasNext()` (method) |
 | Next cursor | n/a | `res.cursors.next` (string) |
@@ -35,7 +35,7 @@ export async function listProductsPage(
   if (v === 'V3_CATALOG') {
     let builder = productsV3.queryProducts().limit(limit);
     if (typeof cursorOrSkip === 'string') builder = builder.skipTo(cursorOrSkip);
-    // Do NOT chain a sort — see OVERVIEW.md gotcha #10.
+    // Do NOT chain a sort — see [STORES_VERSIONING.md](../STORES_VERSIONING.md) gotcha #10.
     const res = await builder.find();
     return {
       products: res.items,

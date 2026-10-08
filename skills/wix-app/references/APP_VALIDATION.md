@@ -85,13 +85,17 @@ npx wix build
 
 ### Step 4: Preview Deployment
 
-`npx wix preview` is a one-shot command, not a server: it uploads a preview build, prints the preview URLs and **exits on its own**, in seconds. Run it in the foreground and read its output:
+`npx wix preview` is a one-shot command, not a server: it uploads a preview build, prints the preview URLs and **exits on its own**, in seconds. Run it in the foreground, exactly as written, and read its output:
 
 ```bash
 npx wix preview
 ```
 
+Don't pipe it (`| tail`, `| head`, `| grep`). The output is short, and a pipe holds back everything until the command exits, so a slow preview shows nothing at all.
+
 Don't wrap it in `timeout` (macOS has none, so the call fails before preview runs), background it, `sleep` or poll a log for it, or `kill` it afterwards. There is no process left to wait for or stop.
+
+**If it doesn't return:** your shell may move a long call to the background on its own (for example, after a 120s limit). That means the preview stalled, not that it's still working normally. Read the output it left and `.wix/debug.log` **once**. If neither has the preview URLs, report "preview did not complete" with whatever they show and stop validation. Don't sleep, poll, schedule a wake-up or start the preview again, and don't tell the user a URL is coming.
 
 **Success criteria:**
 - The command exits 0
