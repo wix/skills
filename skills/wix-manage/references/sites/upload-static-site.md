@@ -468,11 +468,13 @@ JSON
 `codeRevision` moves on every command that changed a file; `git log` on the
 machine shows one commit per such command, its message holding the execution id.
 
-Publish with the Wix CLI from a command: `CI=1 wix release`, with
-`timeoutSeconds` 900 and the poll above. It builds the project and releases it to
-the same `siteUrl`; a plain-files site builds and releases in under a minute.
-`CI=1 wix build` alone checks the build without releasing. Nothing is live
-until a release: pushing to the code store saves, it does not publish.
+Publish with the Wix CLI from a command: `CI=1 wix build && CI=1 wix release`,
+with `timeoutSeconds` 900 and the poll above. The build writes the output the
+release uploads; `wix release` on its own fails with `BuildOutputMissing`. The
+release goes to the same `siteUrl`; a plain-files site builds and releases in
+under a minute. `CI=1 wix build` alone checks the build without releasing.
+Nothing is live until a release: pushing to the code store saves, it does not
+publish.
 
 ### Later conversations
 
@@ -532,7 +534,7 @@ async function run() {
     await sleep(8000);
   }
   let execution = (await wix.request({ ...site, method: 'POST', url: `${base}/v1/dev-machines/execute-command`,
-    body: { command: "sed -i 's/Welcome to Bloom Cafe/Bloom Cafe — Now Open/' public/index.html && CI=1 wix release 2>&1 | tail -5",
+    body: { command: "sed -i 's/Welcome to Bloom Cafe/Bloom Cafe — Now Open/' public/index.html && CI=1 wix build > /dev/null && CI=1 wix release 2>&1 | tail -5",
             timeoutSeconds: 900, waitSeconds: 25 } })).data.execution;
   while (execution.status === 'RUNNING') {
     execution = (await wix.request({ ...site, method: 'GET', url: `${base}/v1/executions/${execution.id}?waitSeconds=25` })).data.execution;
@@ -577,7 +579,8 @@ there, and the skills are installed under `.agents/skills/` (`wix-headless-kit`,
 (`node .agents/skills/wix-headless-kit/install/context.mjs` reads the folder as a
 `wix-project`; `deploy.mjs <vertical> --stack astro` adds a solution's shipped
 code and installs its app), the pages you write go in as heredocs, and
-`CI=1 wix release` publishes. Nothing is downloaded and nothing is re-uploaded.
+`CI=1 wix build && CI=1 wix release` publishes. Nothing is downloaded and
+nothing is re-uploaded.
 
 ## Route the request correctly
 

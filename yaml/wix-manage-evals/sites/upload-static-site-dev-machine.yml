@@ -37,7 +37,9 @@ assertions:
       - the change was made on the Dev Machine: POST .../headless-remote-project/v1/dev-machines/get-or-create
         (repeated until the machine's status was READY), then POST
         .../v1/dev-machines/execute-command whose command edits public/index.html (sed, or a
-        heredoc rewriting the file) and runs `wix release` (in the same command or a later one),
+        heredoc rewriting the file) and runs `wix build` then `wix release` (in the same command
+        or later ones; a first `wix release` that failed with BuildOutputMissing and was followed
+        by build + release is fine),
         with the execution polled through GET .../v1/executions/{id} while RUNNING, AND
       - the agent read the result from shellResult.exitCode (0) and reported the site as updated
         at the SAME live URL only after a release command completed with exit code 0, AND
