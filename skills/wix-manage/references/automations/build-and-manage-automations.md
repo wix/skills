@@ -46,24 +46,26 @@ expression guide; it is not a condition node.
 5. Save only with the user's authorization. Report the returned ID, inactive status and
    verified content. Do not activate or execute a test as part of creation.
 
-The included procedure also describes workflows this skill does not support yet. Its update, activation and
-execution-test sections describe future workflows; the stage limits above take precedence.
+The included procedure keeps only the headings of its update, activation and execution-test
+sections; those workflows are published in a later stage, and the stage limits above take precedence.
+
+This file keeps the same name throughout the staged rollout; later stages expand it to cover
+updating, activating and managing automations.
 
 
 # Validation and Verification
 
 How to prove an automation is correct, saved, and editable in the builder before you tell the
-user it exists. This file owns the create / update / activate procedures. API shapes: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
+user it exists. This file owns the create procedure. API shapes: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog).
 
 **TL;DR**
 
-- Climb the ladder in order: **§4 renderability checklist → Validate Automation → Create/Update →
-  Get Automation read-back → (optional, authorized) Test Automation.**
-- **§4 gates Create, configuration edits and activation.** `VALID` alone does not prove the
-  builder can draw, edit and re-save the automation. Status-only deactivation follows §3 and
-  must not be blocked by unrelated configuration errors.
+- Climb the ladder in order: **§4 renderability checklist → Validate Automation → Create →
+  Get Automation read-back.**
+- **§4 gates Create.** `VALID` alone does not prove the
+  builder can draw, edit and re-save the automation.
 - Create and Update do not validate; an unvalidated or unsaved automation is **not created**.
-- Test Automation executes actions for real — only with explicit user authorization (§5).
+- **Later stages only — not in stage 2:** Test Automation executes actions for real.
 
 ## 1. Local checks and semantic review
 
@@ -155,8 +157,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 3. At most 2–3 attempts per class. If an error comes back unchanged, re-read the reference that
    owns that construct rather than trying variations.
 4. Still failing → stop. Tell the user exactly which node and why, and what you need from them.
-   Don't save an INVALID configuration or activate it. Status-only deactivation is still
-   allowed under §3; stopping future runs does not require repairing the automation first.
+   Don't save an INVALID configuration.
 
 ## 3. Persistence, read-back and honest reporting
 
@@ -175,25 +176,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 ### Update
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
-
-1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` so a complete-object update preserves
-   trigger/action override schemas. Check `origin` and `settings` locks
-   (§4 of Automations Feasibility and Planning (not yet published)) before planning any change.
-2. Change only what was asked, on the current object. Keep ids of untouched nodes.
-3. §4 checklist + full Validate on the merged object.
-4. If the automation is `ACTIVE`, the update goes live immediately — say so and get confirmation
-   first (consent rules: §4 of Automations Feasibility and Planning (not yet published)).
-5. Update with the whole merged automation, the `revision` you read, and `origin` + `settings`
-   exactly as fetched (else `INVALID_ORIGIN_TYPE`, even with a field mask — [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
-   On a revision conflict, re-Get, re-apply, re-validate.
-6. Capture the returned automation's `id` — the first override of a preinstalled automation
-   can have a new id. Read back that id and compare the **content** of every node you changed (and that untouched node ids
-   survived). A bumped `revision` with the old content means the update didn't apply — re-send
-   with `fieldMask: configuration,name` and verify again.
-7. If the change makes the automation's `name` or a step's `displayName` inaccurate (e.g. "…1
-   day…" after the wait became 2 hours; "Add VIP label" now adding another label), offer new
-   names; rename only with their OK.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.
 
 ### What happens when the user opens it in the builder
 
@@ -212,10 +195,7 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 ### Activation status, activate, deactivate
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
-
-Read or change status only as [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) describes; this guide adds no status
-procedure of its own. Deactivation does not require repairing the configuration.
+> **Later stages only:** activating and deactivating are not available in stage 2; this section is published in stage 3. To read the current status, use [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status).
 
 ### Reporting rules
 
@@ -228,7 +208,7 @@ procedure of its own. Deactivation does not require repairing the configuration.
 
 ## 4. Builder-renderability checklist — the single pre-save gate
 
-Use this gate before Create, configuration edits and activation, not status-only deactivation.
+Use this gate before Create.
 Creation restrictions ("never add", conservative feature support) do not require rewriting
 existing builder-supported nodes during an unrelated update. Preserve those nodes and their
 metadata; use the owning reference's preservation rules and full Validate. A failing item is a
@@ -266,7 +246,7 @@ this list is the union; run those too for the node types you used.
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
-   **Later stages only — email is outside stage 2:** New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
+   **Later stages only — email is outside stage 2:** New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping; unrelated existing ones unchanged
    (except the documented site-owner audience replacement).
 9. `inputMapping`: only schema keys (an existing email/widget step's mapping passes through unchanged), types and
    enums match, every required/visible field mapped, entity-selector fields hold ids, formulas
@@ -309,15 +289,4 @@ this list is the union; run those too for the node types you used.
 
 ## 5. Test Automation — only with explicit authorization
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
-
-Test Automation runs the automation **for real**: emails and messages are sent to real
-recipients, contacts/labels/orders change, webhooks fire. It skips delays and works on inactive
-automations. It is not a dry run.
-
-- Ask first, naming the concrete side effects; "go ahead and build it" is not authorization.
-- Build `payload` to match the trigger payload schema, with test data the user approves (e.g.
-  their own contact), never real customers.
-- The response is an `activationId`: report "started" — not completed or succeeded — and tell
-  the user to check the run's results in the automation's activity view in the Wix dashboard.
-  Do not rerun the test to confirm it ran.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.

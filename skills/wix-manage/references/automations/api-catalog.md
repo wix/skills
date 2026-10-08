@@ -17,7 +17,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 - Catalogs: Resolve Triggers / Resolve Actions. Oracle: **Validate Automation** — Create and
   Update do **not** validate.
 - Persist: Create `INACTIVE` → Get read-back; activate only when asked. Updates need the current
-  `revision` and are **live** on an active automation. Procedures (create, update, activate, read-back
+  `revision` and are **live** on an active automation. Procedures (create and read-back
   — builder drafts are invisible publicly): [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3.
 - **Later stages only — not in stage 2:** **Test Automation runs actions for real** — only with explicit user authorization.
 - Resolve responses are large: page small, filter by exact keys, never paste a raw catalog.
@@ -70,15 +70,7 @@ triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revis
   request them: `fields: ["OVERRIDE_SCHEMA"]` (REST `?fields=OVERRIDE_SCHEMA`). Without it their
   absence is not data loss (Create's response omits them too).
   Request overrides before complete-object updates and status changes too, not just creation read-back.
-- **Update**: `{automation}` incl. `id` and current `revision` → updated `automation` (revision
-  +1). Does NOT validate. Send the complete merged `name` + `configuration`, **plus `origin` and
-  `settings` exactly as fetched** — an Update without them fails `INVALID_ORIGIN_TYPE`. A
-  `fieldMask` (if your client exposes one) only selects what changes — set it to
-  `configuration,name` (what the builder sends); it doesn't exempt you from sending `origin` /
-  `settings`. A stale `revision` is rejected. Changes are LIVE when `status` is `ACTIVE`. A success
-  response and a revision bump do **not** prove the change landed — merge, conflict handling and
-  read-back comparison: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3.
-  Capture the returned id: creating a site override of a preinstalled automation can change it.
+- **Later stages only — not in stage 2:** **Update** — published in stage 3.
 - **Delete**: → `{}`. Irreversible; only on explicit user request.
 - **Query**: `{query{filter, sort, cursorPaging{limit ≤ 500, cursor}}}` → `automations[]`,
   `pagingMetadata.cursors.next`. Returns only automations of apps installed on the site (incl.
@@ -146,14 +138,9 @@ payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api
   says which are dynamic); an error means "no dynamic output" — keep the static `outputSchema`.
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
 - **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
-  is AI-backed — don't call it. Actions you can't map from their schema: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
-- **Later stages only — email is outside stage 2:** **Email content of an existing Send an email step** — Get / Set Email Content
-  (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
-  Automation Email Action API, scope _Manage Email Marketing_): Automations Email Actions (not yet published).
-- **Later stages only — email is outside stage 2:** **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
-  `POST https://www.wixapis.com/emails-automations/v1/email-actions/generate-action-input-mapping`.
-  Use returned `appId`, `actionKey`, and opaque `inputMapping` for one new action only.
-  Request and persistence flow: Automations Email Actions (not yet published).
+  is AI-backed — don't call it. Actions you can't map from their schema are outside this stage; explain the limit.
+- **Later stages only — email is outside stage 2:** **Email content of an existing Send an email step** — Get / Set Email Content; procedure in Automations Email Actions (not yet published).
+- **Later stages only — email is outside stage 2:** **New Send an email step** — Generate Action Input Mapping; procedure in Automations Email Actions (not yet published).
 
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
@@ -162,11 +149,7 @@ Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema
 
 ## 5. Activations (`activations`)
 
-- **Later stages only — not in stage 2:** **Test Automation** — `POST https://www.wixapis.com/automations/v1/events/test-automation`,
-  `testAutomation(identifierType, options)`: `{identifierType: "AUTOMATION",
-automationIdentifier{automationId}, payload}` → `activationId`. **Runs every action for real**
-  (skips delays, works on INACTIVE) — explicit user authorization only; payload, consent and
-  reporting: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §5.
+- **Later stages only — not in stage 2:** **Test Automation** — runs every action for real; published in stage 3.
 - **Later stages only — not in stage 2:** **Run Automation / Report Event / Rerun Activation** — for the app that owns a trigger; never
   use them to build or "test".
 
@@ -216,18 +199,9 @@ variables + identity enrichment. Recipe and fetch order: [Automations Graph and 
 
 ## 8. Selector options and APIs with limitations
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.
 
-**Entity ids** (forms, labels, services, pipeline stages…): resolve them with the owning vertical's public API, following that vertical's API reference, or ask the user for the exact entity. Never save a display name, invent an id or guess an endpoint.
-
-**Not public or not available through the general Automations API:**
-
-- **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Site-action generation** → §3 of Automations Entity and Provider Configuration (not yet published), [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
-  New email initialization is available through its dedicated public API above.
-- **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
-  Automations Conditions (not yet published)), then Validate Automation.
-- **Validate by id** → Get Automation, then Validate the returned object.
+**In this stage:** a "draft" is an automation created `INACTIVE` (builder drafts are invisible to the public API). To validate a saved automation, Get it and Validate the returned object. Check expressions locally, then with Validate Automation.
 
 ## Related API references
 

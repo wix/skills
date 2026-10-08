@@ -36,7 +36,7 @@ description: "Assemble builder-editable automation graphs with valid node relati
 Action (common fields):
 
 - `id` — uuid v4, equal to its map key.
-- `type` — `APP_DEFINED`, `CONDITION`, `CODE_CONDITION`, `DELAY`, `RATE_LIMIT`; alpha: `SET_VARIABLES`, `SPLIT`. NEVER `UNKNOWN_ACTION_TYPE`, NEVER `MERGE`.
+- `type` — `APP_DEFINED`, `CONDITION`, `CODE_CONDITION`, `DELAY`, `RATE_LIMIT`, `SET_VARIABLES`, `SPLIT` (the last two are not yet in the public API docs, but the builder supports them — Automations Delays Variables and Branches (not yet published)). NEVER `UNKNOWN_ACTION_TYPE`, NEVER `MERGE`.
 - `namespace` — 1–100 chars, unique except the shared `setVariable` namespace (§3). Outputs of this step appear under it.
 - `displayName` — optional but always set it: 1–60 chars, sentence case, purpose-specific (§7 of Automations Delays Variables and Branches (not yet published)). Absent → the canvas shows the catalog name.
 - `skipActionExpression` — absent (runs) or exactly `"{{true}}"` (skipped), the only value the builder writes. A skipped step adds NO outputs downstream (§4).
@@ -64,30 +64,15 @@ Action (common fields):
 
 ### Designing within the tree
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.
 
-- **Several independent actions** ("send an email and post a chat message") → chain them A → B → C, most time-sensitive first. Use SPLIT only when the user wants them to run at the same time. Never claim parallel execution is impossible.
-- **Branch, then continue** ("if A, also do A2; after 6h send Y to everyone") → DUPLICATE every later stage into BOTH branches with fresh ids and namespaces (variable steps keep `setVariable`, with fresh variable keys and updated downstream references). A **Send an email** in a duplicated stage is added by the user in each branch ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1) — never copy an existing step's `messageId` / `templateId` / `uniqueRuleId`: both steps would share one email, so editing one changes both and deleting one can delete the shared email. Never point both branches at the same action. Never use a "gate" where the TRUE branch does its side-action and stops while the timeline should continue.
-
-```text
-initial > Check A?
-  true  > doA > Delay(A) > finalStep(A)
-  false >       Delay(B) > finalStep(B)     // Delay/finalStep duplicated, never shared
-```
-
-- **Delay arithmetic when duplicating**: branches that share an absolute deadline anchored at the trigger must each sum to it. "Chat now; if price>100 wait 2h then email; at 24h remind everyone" ⇒ true: 2h delay > email > **22h** delay > reminder; false: 24h delay > reminder. Compute residuals explicitly — copying 24h into both branches double-delays the true branch.
-- **Repeated logic** after different conditions = separate actions with identical configuration but new ids and namespaces.
+**In this stage:** put independent actions ("create a task and add a label") in one linear chain A → B → C, most time-sensitive first.
 
 ### Only model what the user asked for
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.
 
-Add a condition/delay ONLY for explicit flow control ("if X, do a DIFFERENT step Y", "after 2 days"). Audience/copy framing is CONTENT, not a condition:
-
-- "a VIP follow-up email for high-value customers" → one email, VIP copy, no condition.
-- "if order > $200 mention priority packing" → email copy detail, no branch.
-- "if order > $200 ALSO create a task" → real flow control → condition.
-  Test: does a DIFFERENT step run based on the check? Yes → condition; no → one plain action.
+**In this stage:** add only the steps the user asked for. Audience or copy framing ("a VIP follow-up for high-value customers") is content inside one action, not a condition.
 
 ## 3. Namespaces
 
@@ -186,77 +171,7 @@ every `var()` path is in that node's aggregated schema; status is INACTIVE.
 
 ### 5.2 Branching (trigger → condition → two branches)
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
-
-All ids are placeholders; generate real uuid v4s. Resolve `appId`/`triggerKey`/`actionKey`/input keys from the catalogs.
-
-```json
-{
-  "automation": {
-    "name": "Thank big spenders, follow up with others",
-    "origin": "USER",
-    "configuration": {
-      "status": "INACTIVE",
-      "trigger": {
-        "appId": "<trigger-app-id>",
-        "triggerKey": "<trigger-key>",
-        "filters": []
-      },
-      "rootActionIds": ["<uuid-1>"],
-      "actions": {
-        "<uuid-1>": {
-          "id": "<uuid-1>",
-          "type": "CONDITION",
-          "namespace": "CONDITION-1",
-          "displayName": "Check if order is over 100",
-          "conditionInfo": {
-            "orExpressionGroups": [
-              {
-                "operator": "AND",
-                "booleanExpressions": [
-                  "{{numberGt(var(\"totals.total\");100)}}"
-                ]
-              }
-            ],
-            "truePostActionIds": ["<uuid-2>"],
-            "falsePostActionIds": ["<uuid-3>"]
-          }
-        },
-        "<uuid-2>": {
-          "id": "<uuid-2>",
-          "type": "APP_DEFINED",
-          "namespace": "<action-key-a>-2",
-          "displayName": "Send thank-you email",
-          "appDefinedInfo": {
-            "appId": "<action-app-id-a>",
-            "actionKey": "<action-key-a>",
-            "inputMapping": {
-              "<input-key>": "{{var(\"contact.name.first\")}}"
-            },
-            "postActionIds": []
-          }
-        },
-        "<uuid-3>": {
-          "id": "<uuid-3>",
-          "type": "APP_DEFINED",
-          "namespace": "<action-key-b>-3",
-          "displayName": "Create follow-up task",
-          "appDefinedInfo": {
-            "appId": "<action-app-id-b>",
-            "actionKey": "<action-key-b>",
-            "inputMapping": {
-              "<input-key>": "Follow up on order {{var(\"number\")}}"
-            },
-            "postActionIds": []
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-Why it's valid: one parentless root; ≤1 id per connection; one parent each; ids = keys, unique; own `*Info` only; namespaces per §3; one renderable condition group (Automations Conditions (not yet published)); inputMapping keys from the input schema ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)); every `var()` path in that node's aggregated schema.
+> **Later stages only:** not available in stage 2; this section is published in stage 3.
 
 ## 6. Persistence & update lifecycle
 

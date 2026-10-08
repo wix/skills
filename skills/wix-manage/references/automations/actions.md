@@ -12,7 +12,7 @@ description: "Configure app-defined automation actions from their input schemas 
 - An action is `appId` + `actionKey`. Find real ones with **Resolve Actions** (site catalog), then read the version active on the site with **Get Runtime Action**. Never invent keys.
 - The configuration is `appDefinedInfo.inputMapping`: an object keyed ONLY by input-schema property names, with values of the schema's type — literals, or `{{…}}` formulas in fields the UI schema marks as dynamic.
 - Fields marked `updateSchemaOnChange: true` reveal more inputs once set → **Get Action Dynamic Input Schema**. Output that depends on configuration → **Get Action Dynamic Output Schema** after the mapping is final.
-- **Later stages only — email is outside stage 2:** **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, Automations Email Actions (not yet published)). Existing content-only edits do not initialize another email.
+- **Later stages only — email is outside stage 2:** **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (Automations Email Actions (not yet published)). Existing content-only edits do not initialize another email.
 - Entity-selector fields take **ids**, never display names (Automations Entity and Provider Configuration (not yet published)).
 - Before accepting any action, prove its side effect and its recipient (§6).
 
@@ -48,7 +48,7 @@ Site-scoped (`wix-site-id` header), SDK module `actionCatalog`: Resolve Actions 
 - `outputSchema` — fields downstream steps read as `var("<namespace>.<field>")`. Empty and no dynamic output → later steps must not reference its namespace.
 - `implementedMethods` — `validateConfiguration` (the app validates your mapping on Validate Automation), `getQuotaInfo`. It does **not** tell you about dynamic schemas — decide by `updateSchemaOnChange` and by calling the dynamic-output API.
 
-**`WIDGET_COMPONENT` actions.** The widget owns the mapping; the builder's form rules don't apply to it. If `inputSchema` fully describes what the user asked for (e.g. `addLabelsToContact`: `contactId` + `labelKeys`), hand-author it (§5.2) and tell the user to review the step; otherwise use its dedicated provider API if available (§5.1), or explain the manual setup. If the widget can't load (its app is uninstalled), the builder shows an "app not installed" state with a Replace button instead of the settings.
+**`WIDGET_COMPONENT` actions.** The widget owns the mapping; the builder's form rules don't apply to it. If `inputSchema` fully describes what the user asked for (e.g. `addLabelsToContact`: `contactId` + `labelKeys`), hand-author it (§5.2) and tell the user to review the step; otherwise explain that configuring it is outside this stage. If the widget can't load (its app is uninstalled), the builder shows an "app not installed" state with a Replace button instead of the settings.
 
 Conditional fields (`if`/`then`/`dependencies`, e.g. a due date shown only when "add a due date" is true): set the toggle and the dependent field together, or leave both out.
 
@@ -56,7 +56,7 @@ UI-schema keys that change what you may write:
 
 - `dynamicValuesOptions.enabled: true` → the field accepts `{{…}}` formulas. `strict: true` → the formula must return the field's exact type/format. **A field without it is static: literal only.**
 - `"ui:widget": "EntitySelector"` + `entitySelectorOptions` (`selectorId`/`tag`, `filters`, `dynamicFiltersMapping`) → entity picker; value = id or array of ids (§1 of Automations Entity and Provider Configuration (not yet published)). Same for input properties carrying `itemsSelectionConfiguration`.
-- `"ui:field": "AudienceSelector"` → an audience object owned by the app's picker; don't hand-author it — the user sets it in the builder (§5.1).
+- `"ui:field": "AudienceSelector"` → an audience object owned by the app's picker; don't hand-author it — the user sets it in the builder.
 - `"ui:field": "TextSectionField"` → display-only text; never map it.
 - `"ui:widget": "hidden"`, `ui:readonly` → keep the schema `default`. Other `ui:*` keys are presentation only.
 
@@ -69,35 +69,9 @@ UI-schema keys that change what you may write:
 
 ### 5.1 Provider-owned mappings — email and opaque widgets
 
-> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
+> **Later stages only:** email and other opaque-widget configuration is not available in stage 2; this section is published in stage 4.
 
-Check the **provider APIs registry** (§3 of Automations Entity and Provider Configuration (not yet published)) before treating an opaque
-widget as unavailable. **Send an email** has a dedicated **Generate Action Input Mapping** API:
-
-- For every new email action, whether creating an automation or inserting into an existing one,
-  call the email initializer with the requested recipient/type settings. Use its returned
-  `appId`, `actionKey`, and opaque `inputMapping` without modifying the mapping. Supply a fresh
-  action ID, normal APP_DEFINED namespace and graph connections.
-- Persist through Create (INACTIVE) or the normal Get → merge → Validate → Update flow; use the
-  returned automation ID and new action ID for Get / Set Email Content. Read back content and
-  automation, validate, and check recipient lineage before reporting completion.
-- Each initializer call creates new draft email content. One returned mapping belongs to ONE
-  action only. For duplicated branch tails initialize each new email separately; never copy
-  `messageId`, `templateId`, `uniqueRuleId` or the existing email's mapping.
-- Editing an EXISTING email's subject/preheader/body uses Get / Set Email Content in place:
-  no initializer, no replacement node, no changed mapping. Preserve other email/widget steps
-  byte-for-byte (existing site-owner audience exception: §3 of Automations Email Actions (not yet published)).
-- **Generate Action Input Mapping** is the email provider's initializer, not the action
-  catalog's AI-backed **Generate Input Mapping From Intent**, which remains outside this skill.
-- If the initializer is unavailable in the caller's environment during rollout, report the
-  actual failure. Never fabricate the mapping. With the user's agreement save only supported
-  parts INACTIVE and provide the exact builder steps still needed. For an email-only request,
-  save nothing rather than an empty or fabricated automation. Do not retry a timed-out initializer
-  blindly: it creates resources and the outcome may be unknown.
-
-Other opaque widgets with no public configuration API remain manual: do not invent their
-app-owned keys. Tell the user which action to add, where, and its intended configuration.
-Email attachments, preview and mapping-copy workflows remain outside this skill's API flow.
+**In this stage:** never invent an opaque widget's mapping or its app-owned keys; tell the user which action to add in the builder and how it should be configured.
 
 ### 5.2 Hand-authored mapping
 

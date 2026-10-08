@@ -3,7 +3,7 @@ name: "Automations Mapping Expressions"
 description: "Write builder-compatible automation mapping expressions, literals and data references."
 ---
 
-> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform any workflow that needs a guide marked "not yet published".
 
 # Bracket Expressions (Formulas) — `{{…}}`
 
