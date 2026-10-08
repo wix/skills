@@ -3,9 +3,7 @@ name: "Automations Trigger Configuration"
 description: "Select and configure automation triggers, trigger filters and event payload schemas using the site catalog."
 ---
 
-**Deferred topic guides:** Automations Conditions; Automations Feasibility and Planning; Automations Schemas and Scheduling; Automations Entity and Provider Configuration. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
-
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
+> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # Triggers — Discovery, Payload Schema, Filters
 
@@ -13,7 +11,7 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 
 - A trigger is `appId` (GUID) + `triggerKey` (string). Find real ones with **Resolve Triggers** (installed apps only); never invent a key or reuse one from an example.
 - There is no trigger `description` field. Choose by `displayName` + `triggerKey` + **payload schema** + available **filters** — names are ambiguous.
-- Only filters listed in the trigger's `filters` array can be used. A payload field without a filter definition is NOT filterable (use a condition step instead — see Automations Conditions (deferred)).
+- Only filters listed in the trigger's `filters` array can be used. A payload field without a filter definition is NOT filterable (use a condition step instead — see Automations Conditions (not yet published)).
 - A saved filter is `{ id, fieldKey, filterExpression }` with one of exactly two builder-readable expression shapes (§4.2). Values are always a literal array. Entity values are **ids**, never names.
 - Required filters, and required follow-ups of any filter you set, must be present. The builder writes BOOLEAN (and defaulted NUMBER) filters itself — save them too (§4.1).
 - Triggers with `implementedMethods.getDynamicSchema: true` expose more payload fields once their schema-changing filters are chosen — fetch the dynamic schema (§5) before mapping anything downstream.
@@ -31,13 +29,13 @@ Site-scoped (`wix-site-id` header), SDK module `triggerCatalog`: Resolve Trigger
 3. **Search locally** over `displayName` and `triggerKey`: the user's phrase → the domain noun ("booking", "form", "order", "member") → synonyms ("appointment"/"session", "purchase"/"order placed"). Keys usually start with the app prefix (`wix_bookings-`, …).
 4. **Fetch details** for the 1–3 best candidates only: Get Trigger By App Id And Key.
 5. **Disambiguate by schema, not name** ("Session booked" vs "Appointment request approved" for "booking confirmed"): read `payloadDataSchema` titles and `filters` to confirm the event and that the downstream data exists. If two remain equally plausible and it matters, ask.
-6. Only in Query Triggers, not Resolve Triggers → its app isn't installed (tell the user to install it) or, with `maturity` `CREATED` / not GA, it isn't available to sites yet (§5 of Automations Feasibility and Planning (deferred)).
+6. Only in Query Triggers, not Resolve Triggers → its app isn't installed (tell the user to install it) or, with `maturity` `CREATED` / not GA, it isn't available to sites yet (§5 of Automations Feasibility and Planning (not yet published)).
 
 Selection guidance for overlapping families:
 
 - Compare, in order: which trigger offers the filters you need → which exposes the payload (or dynamic schema) you need → site context → default to the newer/standard family.
 - Forms: default to the **Wix Forms App** family — app `225dd912-7dea-4738-8688-4b8c6955ffc2`, key `wix_form_app-form_submitted`. Use the older app `14ce1214-b278-a7e4-1373-00cebd1bef7c`, key `wix_forms-form_submit` only when the site's forms live there (check which app the form id comes from). For a named form or choice value, prefer the trigger whose filter expresses it over a generic trigger + condition.
-- Scheduled trigger → §4 of Automations Schemas and Scheduling (deferred). Webhook / custom trigger → §6 here and §3 of Automations Schemas and Scheduling (deferred).
+- Scheduled trigger → §4 of Automations Schemas and Scheduling (not yet published). Webhook / custom trigger → §6 here and §3 of Automations Schemas and Scheduling (not yet published).
 
 ## 3. Reading the trigger object
 
@@ -53,9 +51,9 @@ Payload schema annotations you will meet:
 
 - `format`: `uuid`, `date-time`, `date`, `email`, `uri`, `number` (a numeric string — wrap it in `toNumber()` in numeric functions).
 - `identityType: "contact" | "member"` on an id field → the aggregated payload also contains a root-level `contact` / `member` object (keys and rules: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). `visitor` ids stay plain fields with no enrichment.
-- `itemsSelectionConfiguration.providerKey` / `.tag` → the field holds an **entity id** (service, form, label, product, …). Compare it only to ids (see Automations Entity and Provider Configuration (deferred)).
+- `itemsSelectionConfiguration.providerKey` / `.tag` → the field holds an **entity id** (service, form, label, product, …). Compare it only to ids (see Automations Entity and Provider Configuration (not yet published)).
 - `wixCustomType` fixed shapes: `MONEY` `{value: string, currency: string}` · `ORDER_ID`/`ORDER_PAYMENT_ID`/`RECEIPT_ID`/`RECEIPT_PRESET_ID` uuid strings · `ATTACHMENT` `{fileName, downloadUrl}` · `IMAGE_URL` uri string · `FIELDS` array of `{label, value}` · `RECEIPT` complex object.
-- `futureDate: true` on a date-time field → the trigger supports a "before the event" offset (§5 of Automations Schemas and Scheduling (deferred)).
+- `futureDate: true` on a date-time field → the trigger supports a "before the event" offset (§5 of Automations Schemas and Scheduling (not yet published)).
 - `hidden: true` → not shown in pickers but still referenceable. `examples` show real value shapes.
 
 ## 4. Filters
@@ -85,7 +83,7 @@ Payload schema annotations you will meet:
 
 Values you put in the expression, by `valueInput.type` (anything else is dropped or rewritten when the panel opens):
 
-- `ENTITY_SELECTOR`: entity ids as **quoted strings**, of the kind named by `entitySelector.id` / the field's `itemsSelectionConfiguration` — from List Selector Options, the vertical's public API, or the user (Automations Entity and Provider Configuration (deferred)). `multiSelect: false` → one id.
+- `ENTITY_SELECTOR`: entity ids as **quoted strings**, of the kind named by `entitySelector.id` / the field's `itemsSelectionConfiguration` — from List Selector Options, the vertical's public API, or the user (Automations Entity and Provider Configuration (not yet published)). `multiSelect: false` → one id.
 - `STATIC_ITEMS`: quoted strings equal to a `staticValues[].value` that has a `displayName` (not the `displayName`, not the item `id`, never bare numbers).
 - `USER_INPUT` `NUMBER`: exactly ONE bare number within `numberInputOptions.minValue`/`maxValue`. `BOOLEAN`: exactly ONE bare `true`/`false`.
 
@@ -197,7 +195,7 @@ MUST persist exactly this:
 - On update, keep the existing `webhookId`: a new one changes the URL the external system calls.
 
 - Otherwise the builder rebuilds a missing/foreign-id filter from `webhookId` on load; a missing `webhookId` gets a new one when the panel opens (unsaved change, URL the user never received).
-- The webhook trigger is exempt from required-filter rules. Its payload schema is `overrideSchema` (§3 of Automations Schemas and Scheduling (deferred)). Get Automation returns `overrideSchema` only with `fields: ["OVERRIDE_SCHEMA"]` (same for the custom trigger) — request it on read-back.
+- The webhook trigger is exempt from required-filter rules. Its payload schema is `overrideSchema` (§3 of Automations Schemas and Scheduling (not yet published)). Get Automation returns `overrideSchema` only with `fields: ["OVERRIDE_SCHEMA"]` (same for the custom trigger) — request it on read-back.
 
 **Custom trigger** (`wix_automations-custom_trigger`, same app) — fired from the site's own code: persist `automationConfigMapping: {"hookId": "<new-uuid>"}` and `filters: []`, payload in `overrideSchema`. Keep `hookId` on update (the site code references it). Hand-off: give the user the `hookId` (the builder shows it as "Trigger ID"; the catalog calls this trigger "Velo code trigger") and tell them nothing runs until their site code calls it — with the snippet the builder itself shows (below), or REST (scope _Access Verticals by Automations_) `POST https://www.wixapis.com/_serverless/crm-automations-utils/v1/trigger-custom` with `{triggerId, payload}`. The payload must match `overrideSchema`; `hookId` itself is not a payload field. Missing `hookId` → the builder generates one when the panel opens and replaces `automationConfigMapping` and `filters`.
 

@@ -3,9 +3,9 @@ name: "Build Simple Wix Automations"
 description: "Inspect Wix automations and create inactive linear automations using installed actions with schema-defined mappings and the included validation checklist."
 ---
 
-**Deferred topic guides:** Automations Email Actions; Automations Feasibility and Planning; Automations Conditions; Automations Schemas and Scheduling; Automations Entity and Provider Configuration; Automations Delays Variables and Branches. References marked “deferred” refer to sections that are not published in this stage; the general API reference does not contain those procedures. Do not attempt a workflow that requires one of them.
+**Topic guides not yet published:** Automations Feasibility and Planning; Automations Entity and Provider Configuration; Automations Item Selection; Automations Email Actions; Automations Conditions; Automations Delays Variables and Branches; Automations Schemas and Scheduling. References marked “not yet published” refer to procedures that are not in this stage; the general API reference does not contain them. Do not attempt a workflow that requires one of them.
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
+This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in this guide.
 
 # Build Simple Wix Automations
 
@@ -78,7 +78,7 @@ Semantic review (you, not code) — required for every action before acceptance;
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails (later stages only — email is outside stage 2) the audience fields decide (§3 of Automations Email Actions (deferred)).
+  it; for emails (later stages only — email is outside stage 2) the audience fields decide (§3 of Automations Email Actions (not yet published)).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -133,7 +133,7 @@ field to silence an error):
 - `NOT_FOUND`, `INVALID_ACTION_KEY`, `APP_NOT_INSTALLED`, `MODERATION_MISMATCH` — not available
   on this site → re-resolve; pick another action or tell the user.
 - `DEPRECATED` — the builder shows "Action will be removed soon" → use its replacement
-  (§2 of Automations Feasibility and Planning (deferred)).
+  (§2 of Automations Feasibility and Planning (not yet published)).
 - `INVALID_MAPPING` → remove keys not in the effective schema; re-fetch the dynamic input schema.
 - `MAPPING_TYPE_MISMATCH` → convert (`toString`, `toNumber`), map another field, or build the
   object shape (e.g. MONEY).
@@ -141,7 +141,7 @@ field to silence an error):
 - `MAPPING_SCHEMA_MISMATCH` (enum, uuid, email format…) → a legal enum value / real id.
 - `MAPPING_VARIABLE_MISSING_FROM_SCHEMA` → fix the path against the aggregated schema, or reorder
   so the source is an ancestor.
-- `SAMPLE_CODE_RUN_FAILED` → fix the code step (guard missing fields — §5 of Automations Conditions (deferred)).
+- `SAMPLE_CODE_RUN_FAILED` → fix the code step (guard missing fields — §5 of Automations Conditions (not yet published)).
 - `POST_ACTION_NOT_FOUND` → a successor id doesn't exist; fix the graph.
 
 Create/Update can also fail with `ON_BEFORE_SAVE_ACTION_EXCEPTION`: the owning app's save hook (e.g. for Send an email) rejected the step. Treat it like a provider error — read the message, fix the mapping or tell the user; don't retry the same write blindly.
@@ -179,11 +179,11 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` so a complete-object update preserves
    trigger/action override schemas. Check `origin` and `settings` locks
-   (§4 of Automations Feasibility and Planning (deferred)) before planning any change.
+   (§4 of Automations Feasibility and Planning (not yet published)) before planning any change.
 2. Change only what was asked, on the current object. Keep ids of untouched nodes.
 3. §4 checklist + full Validate on the merged object.
 4. If the automation is `ACTIVE`, the update goes live immediately — say so and get confirmation
-   first (consent rules: §4 of Automations Feasibility and Planning (deferred)).
+   first (consent rules: §4 of Automations Feasibility and Planning (not yet published)).
 5. Update with the whole merged automation, the `revision` you read, and `origin` + `settings`
    exactly as fetched (else `INVALID_ORIGIN_TYPE`, even with a field mask — [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
    On a revision conflict, re-Get, re-apply, re-validate.
@@ -260,9 +260,9 @@ this list is the union; run those too for the node types you used.
    filter present, plus required follow-ups of every set parent. Webhook trigger: exactly its
    `webhookId` shape.
 7. Scheduled / future-date configuration and `scheduledEventOffset` match
-   Automations Schemas and Scheduling (deferred).
+   Automations Schemas and Scheduling (not yet published).
 
-**Actions** — [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), Automations Entity and Provider Configuration (deferred), §2 of Automations Feasibility and Planning (deferred)
+**Actions** — [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), Automations Entity and Provider Configuration (not yet published), §2 of Automations Feasibility and Planning (not yet published)
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
@@ -275,7 +275,7 @@ this list is the union; run those too for the node types you used.
     an `identityType: "contact"` field — the builder marks it "can't create a contact" and blocks
     activation.
 
-**Expressions and conditions** — [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §9, §6 of Automations Conditions (deferred)
+**Expressions and conditions** — [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) §9, §6 of Automations Conditions (not yet published)
 
 11. [code] Every `var()` path exists in that node's aggregated schema
     — trigger + ancestor outputs only — with a compatible type.
@@ -284,15 +284,15 @@ this list is the union; run those too for the node types you used.
 13. CONDITION: exactly one expression group with `AND`/`OR` and 1–20 panel-renderable expressions;
     not both branches empty; otherwise a CODE_CONDITION.
 
-**Special steps** — Automations Delays Variables and Branches (deferred)
+**Special steps** — Automations Delays Variables and Branches (not yet published)
 
 14. DELAY: exactly one mode — relative (`offsetExpression` a `{{N}}` literal + unit) or absolute
     (`dueDateExpression`). RATE_LIMIT: `{{1}}`, a trigger identifier allowed by
-    §2 of Automations Delays Variables and Branches (deferred) (preserve existing supported member/user/UUID identifiers), and a
+    §2 of Automations Delays Variables and Branches (not yet published) (preserve existing supported member/user/UUID identifiers), and a
     duration (`{{24}} HOURS`, never `{{1440}} MINUTES`) unless the user explicitly wants
     "only ever once" (no duration).
     SET_VARIABLES: matching keys, every property has a `title`, keys unique across all variable
-    steps; preserve existing image-variable metadata per §3 of Automations Delays Variables and Branches (deferred).
+    steps; preserve existing image-variable metadata per §3 of Automations Delays Variables and Branches (not yet published).
     SPLIT: 2–10 paths.
 
 **Object and limits**

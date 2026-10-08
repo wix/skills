@@ -3,7 +3,7 @@ name: "Automations Activation Status"
 description: "Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes."
 ---
 
-This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in the entry guide.
+> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # Inspect activation status
 
@@ -44,9 +44,8 @@ an automation to answer this read-only request.
 
 Not-found causes (step 4): unpublished builder drafts do not appear
 through this API, but a 404 can also mean deletion or a changed ID after overriding a
-preinstalled automation. Only suggest an unpublished draft as the cause when the user's history
-supports it. Ask the owner to publish or discard their builder draft when appropriate, rather than
-reproducing its edits.
+preinstalled automation. When the user's history supports an unpublished builder draft as the
+cause, ask the owner to publish or discard it rather than reproducing its edits.
 
 Official contracts: [Query Automations](https://dev.wix.com/docs/api-reference/business-management/automations/automations-v2/query-automations),
 [Get Automation](https://dev.wix.com/docs/api-reference/business-management/automations/automations-v2/get-automation).
