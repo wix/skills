@@ -1,20 +1,20 @@
 ---
 name: wix-cli-light
-description: "The Wix CLI's headless-project operations as plain Node scripts, no install: device-code login that completes across two short calls, whoami, account and site tokens, env pull, site and app provisioning (init, create), release of a static or Astro build, and `call`, a Wix API request made with the session so the token never leaves the process. For hosts where a long-running or detached process cannot finish, or where installing @wix/cli is slow or blocked. Node 18 or later, network, a file system."
+description: "The Wix CLI's headless-project commands as Node scripts with no dependencies: login, whoami, token, call (any Wix API with the session), env pull, init and create (a headless site, its app and hosting project), and release of a static or Astro build. Reads and writes the Wix CLI's own session and project files."
 ---
 
 # Wix CLI light
 
-The commands a headless project asks of the Wix CLI, as scripts that each finish inside one call.
-Same endpoints, same request bodies, same files: a session saved here is the CLI's own session
-file, a project made here is a project the CLI releases, and the other way round.
+The Wix CLI's headless-project commands as Node scripts. Same endpoints, same request bodies,
+same files: a session saved here is the CLI's own session file, a project made here is a project
+the CLI releases, and the other way round. Node 18 or later, nothing to install.
 
 ```
 node scripts/wix-light.mjs <command> [flags]
 ```
 
-Every command prints one JSON object per line and exits with 0, or with 1 after a line whose
-`ok` is false. Event names follow the Wix CLI's agent mode where it has one: `awaiting_user`,
+Every command returns when its work is done, prints one JSON object per line, and exits with 0,
+or with 1 after a line whose `ok` is false. Event names follow the Wix CLI's agent mode where it has one: `awaiting_user`,
 `logged_in`, `login_required`, `<command>_failed`.
 
 ## login
@@ -23,13 +23,13 @@ Every command prints one JSON object per line and exits with 0, or with 1 after 
 node scripts/wix-light.mjs login
 ```
 
-The first run requests a device code, saves it, prints `awaiting_user` with `verificationUri` and
-`userCode`, and exits. Show the owner the URL and the code. After the owner approves, run the same
-command again: it exchanges the saved code, saves the session, and prints `logged_in`. A run before
-the owner has approved prints `awaiting_user` again with the same code.
+Requests a device code, saves it, prints `awaiting_user` with `verificationUri` and `userCode`,
+and exits. Show the owner the URL and the code. Once the owner has approved, the same command
+exchanges the saved code, saves the session, and prints `logged_in`. Run before the approval, it
+prints `awaiting_user` again with the same code.
 
-`--wait <seconds>` polls inside the call instead of exiting, for a host that keeps a call open while
-the owner acts. `--force` discards a pending code and requests a new one.
+`--wait <seconds>` keeps polling for that long instead of exiting. `--force` discards a pending
+code and requests a new one.
 
 ## whoami
 

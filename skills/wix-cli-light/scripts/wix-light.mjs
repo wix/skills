@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// `node wix-light.mjs <command> [flags]`. Every command finishes inside one call and prints one JSON
-// object per line, in the Wix CLI's agent-mode vocabulary where the CLI has one.
+// `node wix-light.mjs <command> [flags]`. Every command returns when its work is done and prints one
+// JSON object per line, in the Wix CLI's agent-mode vocabulary where the CLI has one.
 import { appendFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -34,8 +34,8 @@ const awaiting = (p) => emit("awaiting_user", {
   message: `To connect your Wix account, open ${p.verificationUri} and enter the code ${p.userCode}. Then run this command again.`,
 });
 
-// Run 1 mints a code and returns; run 2, after the owner approved, exchanges it. `--wait <sec>`
-// polls inside the call instead of returning; `--force` discards a pending code.
+// Mints a device code and returns; once the owner approved, the same command exchanges the saved
+// code. `--wait <sec>` keeps polling for that long; `--force` discards a pending code.
 async function login() {
   const existing = await session();
   if (existing) { clearPending(); return emit("logged_in", { email: existing.userInfo.email, userId: existing.userInfo.userId, reused: true }); }
