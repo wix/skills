@@ -61,8 +61,16 @@ const OUTPUT_SCHEMA = JSON.stringify({
         additionalProperties: false,
       },
     },
+    score: {
+      type: 'integer',
+      description: 'The PR as a whole, from 0 to 10',
+    },
+    verdict: {
+      type: 'string',
+      description: 'One sentence: the skills and the problems that set the score',
+    },
   },
-  required: ['findings'],
+  required: ['findings', 'score', 'verdict'],
   additionalProperties: false,
 });
 
@@ -83,7 +91,7 @@ export type AgentInvocation = {
 };
 
 export type AgentOutcome =
-  | { ok: true; findings: ReviewFinding[]; discarded: number }
+  | { ok: true; findings: ReviewFinding[]; discarded: number; score: number; verdict: string }
   | { ok: false; reason: string };
 
 type CliResult =
@@ -238,7 +246,7 @@ function runCli(invocation: AgentInvocation): Promise<CliResult> {
 }
 
 type Envelope = {
-  structured_output?: { findings?: ReviewFinding[] };
+  structured_output?: { findings?: ReviewFinding[]; score?: unknown; verdict?: unknown };
   terminal_reason?: unknown;
   result?: unknown;
   errors?: unknown;
@@ -297,14 +305,25 @@ function isReportable(finding: ReviewFinding): boolean {
   return isSeverity(finding.severity);
 }
 
+// The schema cannot carry the range, so it is checked here.
+function isScore(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10;
+}
+
 function parseFindings(
   output: Envelope['structured_output'],
-): { findings: ReviewFinding[]; discarded: number } | undefined {
+): { findings: ReviewFinding[]; discarded: number; score: number; verdict: string } | undefined {
   const list = output?.findings;
   if (!Array.isArray(list)) return undefined;
 
+  const score = output?.score;
+  if (!isScore(score)) return undefined;
+
+  const verdict = output?.verdict;
+  if (typeof verdict !== 'string' || verdict.trim() === '') return undefined;
+
   const findings = list.filter(isReportable);
-  return { findings, discarded: list.length - findings.length };
+  return { findings, discarded: list.length - findings.length, score, verdict };
 }
 
 function describeFailure(result: CliResult): string {

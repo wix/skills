@@ -36,7 +36,8 @@ function fakeChild(): FakeChild {
 }
 
 /** The shape the CLI emits under `--output-format json` with `--json-schema`. */
-function envelope(output: unknown): string {
+function envelope(findings: object): string {
+  const output = { score: 8, verdict: 'stores/a: fine.', ...findings };
   return JSON.stringify({
     type: 'result', subtype: 'success', is_error: false,
     result: JSON.stringify(output), structured_output: output,
@@ -193,8 +194,18 @@ describe('reading the answer', () => {
 
   it('reads the findings the schema tool returned', async () => {
     const outcome = await runWith(envelope({ findings: [good] }));
-    expect(outcome).toMatchObject({ ok: true, discarded: 0 });
+    expect(outcome).toMatchObject({ ok: true, discarded: 0, score: 8, verdict: 'stores/a: fine.' });
     if (outcome.ok) expect(outcome.findings[0].file).toContain('stores/a.md');
+  });
+
+  it.each([
+    ['a score above 10', { score: 11 }],
+    ['a negative score', { score: -1 }],
+    ['a fractional score', { score: 7.5 }],
+    ['an empty verdict', { verdict: ' ' }],
+  ])('rejects %s', async (_label, over) => {
+    const outcome = await runWith(envelope({ findings: [good], ...over }));
+    expect(outcome).toMatchObject({ ok: false });
   });
 
   it.each([
@@ -235,7 +246,7 @@ describe('reading the answer', () => {
   // decoded by `parseEnvelope` before anything reads it, so it would pass whichever field fed the
   // neutralisation. This one fails if the source ever moves to `result`, the reviewer's own text.
   it('neutralises a marker the reviewer wrote as a unicode escape', async () => {
-    const answer = JSON.stringify({ findings: [{ ...good, quote: 'PLACEHOLDER' }] })
+    const answer = JSON.stringify({ findings: [{ ...good, quote: 'PLACEHOLDER' }], score: 8, verdict: 'stores/a: fine.' })
       .replace('PLACEHOLDER', '\\u003c!-- evalforge-yaml-gate-action --> tail');
     const outcome = await runWith(JSON.stringify({
       type: 'result', subtype: 'success', is_error: false,
@@ -283,6 +294,8 @@ describe('reading the answer', () => {
     // that strips them client-side.
     expect(finding.properties.line.type).toBe('integer');
     expect(finding.required).toContain('suggestion');
+    expect(schema.properties.score.type).toBe('integer');
+    expect(schema.required).toEqual(expect.arrayContaining(['score', 'verdict']));
   });
 
   it('reports a non-zero exit without echoing stderr onto the PR', async () => {

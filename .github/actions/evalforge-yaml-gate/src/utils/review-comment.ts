@@ -23,7 +23,7 @@ function jobLine(
   return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
 
-/** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
+/** Worst-first, and load-bearing: `severityRank` sorts on it. */
 export const REVIEW_SEVERITIES = ['blocking', 'advisory'] as const;
 
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
@@ -49,6 +49,8 @@ export type ReviewSummary = {
   filesReviewed: number;
   /** Findings that failed validation — counted rather than silently dropped. */
   discarded: number;
+  score: number;
+  verdict: string;
   triggeredBy?: string;
 };
 
@@ -128,8 +130,8 @@ function headline(findings: ReviewFinding[]): string {
 }
 
 /** Without the SHA, a comment left by an earlier push reads as a verdict on the current commit. */
-function verdictLine(verdict: string, summary: ReviewSummary): string {
-  return `**${verdict}** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
+function verdictLine(summary: ReviewSummary): string {
+  return `**Score: ${summary.score}/10** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
 }
 
 function completion(summary: ReviewSummary): [keyof typeof JOB_STATUS, string | undefined] {
@@ -144,7 +146,11 @@ export function formatReviewFindings(findings: ReviewFinding[], summary: ReviewS
   const overflow = findings.length - shown.length;
 
   const body = [
-    verdictLine(headline(findings), summary),
+    verdictLine(summary),
+    '',
+    summary.verdict.replace(/\n/g, ' '),
+    '',
+    `**${headline(findings)}**`,
     ...groupByFile(shown, summary.headSha),
   ];
 
@@ -160,7 +166,11 @@ export function formatReviewFindings(findings: ReviewFinding[], summary: ReviewS
 
 export function formatReviewClean(summary: ReviewSummary): string {
   return render(REVIEW_COMMENT_MARKER, ...completion(summary), [
-    verdictLine('No findings', summary),
+    verdictLine(summary),
+    '',
+    summary.verdict.replace(/\n/g, ' '),
+    '',
+    '**No findings**',
     '',
     'Nothing to raise against the reviewed sections of the contribution guide.',
     ...retryNote(),
