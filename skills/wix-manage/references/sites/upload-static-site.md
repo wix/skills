@@ -49,8 +49,12 @@ What sets them apart:
   means you are on such a host: do not retry it. There, drop the text files
   first, so the site is live, then bring images in by URL or one small file at
   a time through the site's [Dev Machine](#images-and-other-binary-files),
-  never by re-dropping the whole set per batch. The pages go live either way;
-  images that cannot be carried are handed over, not a reason to stop.
+  never by re-dropping the whole set per batch. The pages go live either way.
+  Images that cannot be carried are not a reason to stop, and the drop page is
+  not their hand-off (it makes another site): the user uploads them in the
+  site's Media Manager, `https://manage.wix.com/dashboard/<metaSiteId>/media-manager`,
+  and in the next turn the site's Dev Machine fetches each by its URL and
+  releases. Say exactly that, with the link, in the closing message.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
