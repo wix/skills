@@ -434,7 +434,7 @@ function loadRecord(name, dir) {
     return merged;
   });
   for (const [n, m] of byName) if (!methods.some((x) => x.name === n)) methods.push(m);
-  const merged = { ...derived, ...stripNull({ ...shipped, methods: undefined }), methods, source: 'shipped', warning };
+  const merged = { ...derived, ...stripNull({ ...shipped, methods: undefined }), methods, source: 'shipped', indexFile: file, warning };
   if (merged.type?.file && !path.isAbsolute(merged.type.file)) {
     merged.type = { ...merged.type, file: path.join(dir, merged.type.file) };
   }
@@ -652,6 +652,8 @@ function renderFilterable(filterable) {
   const byOps = new Map();
   for (const [k, f] of rows) {
     const ops = (f.ops ?? []).join(' ');
+    // A free-text-only field (contacts' `name.full`) has no operators: the free-text line covers it.
+    if (!ops) continue;
     byOps.set(ops, [...(byOps.get(ops) ?? []), k]);
   }
   const out = [];
@@ -723,14 +725,17 @@ function renderCandidate(c, intent, rel) {
     else if (m.fqn) out.push(`  ${''.padEnd(13)} fqn ${m.fqn}`);
   }
   const others = r.methods.filter((m) => !shown.includes(m)).map((m) => m.name);
-  if (others.length && intent !== 'all') out.push(`  other methods: ${others.join(', ')}`);
+  if (others.length && intent !== 'all') {
+    const next = intent === 'write' ? '--intent all' : '--intent write (or all)';
+    out.push(`  other methods (params, permission, scope: run again with ${next}): ${others.join(', ')}`);
+  }
   if (intent === 'event' || intent === 'all') {
     for (const e of r.events) out.push(`  event         ${ns ?? 'sdk'}.${e.name}(handler) · scope ${e.scopes.join(' | ') || '?'}`);
   } else if (r.events.length) {
     out.push(`  events: ${r.events.map((e) => e.name).join(', ')}`);
   }
   if (r.type) out.push(`  type ${r.type.name}  ${rel(r.type.file)}:${r.type.line}`);
-  out.push(`  source: ${r.source === 'shipped' ? INDEX_FILE : 'derived from .d.ts (no sdk-index.json)'} · ${r.package}@${r.version}`);
+  out.push(`  source: ${r.source === 'shipped' ? rel(r.indexFile) : 'derived from .d.ts (no sdk-index.json)'} · ${r.package}@${r.version}`);
   if (r.warning) out.push(`  warning: ${r.warning}`);
   return out;
 }
