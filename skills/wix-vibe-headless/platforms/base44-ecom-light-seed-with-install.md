@@ -112,7 +112,13 @@ fails. You can finish without waiting for those images or replacing their placeh
 
 **Never paste a Wix dashboard link or path.**
 
-**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders and inventory?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
+**Before writing your final text response, make one handoff call** — `search_base44_docs(query="how do I manage my store's products, orders, inventory and payments?", prefer_dashboard=true)`. Use its handoff guidance, note that the seeded catalog is mock data they can edit, replace or delete, and state any requested workflows that remain unfinished and what is needed to complete them.
+
+**A payment ask is a store ask.** The store carries its own checkout, in every region, so
+nothing separate connects payments and no payment provider is installed alongside it — send
+the user to the same dashboard page the handoff call names. A note that Base44 Payments /
+Wix Payments is unavailable in their region is about a provider installed into the app, and
+says nothing about their store's checkout.
 
 ## Additional Wix functionality
 
