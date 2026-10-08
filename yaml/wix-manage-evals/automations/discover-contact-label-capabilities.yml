@@ -24,7 +24,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 10 only when successful site-scoped public catalog responses establish the contact-created trigger and label action, using their returned identities and schemas to explain required configuration. Do not accept guessed IDs, generic claims, or a blocker instead of successful discovery. No automation or other site data may be created, changed, activated or tested. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10 for the correctness of the final answer, checked against these catalog facts. Trigger: contact created, appId 74bff718-5977-47f2-9e5f-a9fd0047fd1f, triggerKey contacts-new_contact_was_created. Action: add a label to a contact, appId 74bff718-5977-47f2-9e5f-a9fd0047fd1f, actionKey addLabelsToContact. Its input schema requires contactId (the contact to label, normally mapped from the trigger's contact) and takes labelKeys, an array of existing label keys with at least one item; labelIds is a legacy field and is not needed. Score 0 if the answer names a different trigger or action, gives a wrong appId, triggerKey or actionKey, invents required fields, omits contactId or the label keys, or claims the capability is unavailable. Score 10 only when the answer states both identities exactly as above and explains that configuration needs the contact ID plus one or more existing label keys, and the tool trace shows these facts came from successful site-scoped public catalog responses rather than memory. No automation or other site data may be created, changed, activated or tested. Return only a JSON object with score and reason."
     },
     {
       "type": "llm_judge",
