@@ -45,8 +45,6 @@ jobs:
     # The job name *is* the required-status-check name.
     name: pr-sweep
     runs-on: ubuntu-latest
-    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
-    # pushed on another branch cannot read them.
     environment: evalforge
     # Three sequential eval runs are possible (initial + two retries) and each may poll for up
     # to 30 minutes, so a 60-minute budget could kill the job mid-retry.

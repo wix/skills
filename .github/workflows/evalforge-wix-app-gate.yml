@@ -24,8 +24,6 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
-    # pushed on another branch cannot read them.
     environment: evalforge
     # Longer than the 30-minute eval poll window, with room for setup and the draft sync.
     timeout-minutes: 60
@@ -122,8 +120,6 @@ jobs:
   analyze:
     needs: gate
     runs-on: ubuntu-latest
-    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
-    # pushed on another branch cannot read them.
     environment: evalforge
     timeout-minutes: 5
     env:
