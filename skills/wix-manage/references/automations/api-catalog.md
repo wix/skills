@@ -8,7 +8,7 @@ description: "Discover site-specific triggers and actions, authenticate public A
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
-matching `@wix/automations` SDK method. List Selector Options (§8) has no public base URL yet. Docs live under
+matching `@wix/automations` SDK method. Docs live under
 `https://dev.wix.com/docs/api-reference/business-management/automations/` — append `.md` to any
 docs URL to get raw markdown. When a field name here and the docs disagree, the docs win.
 
@@ -217,11 +217,7 @@ variables + identity enrichment. Recipe and fetch order: [Automations Graph and 
 
 > **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
 
-**List Selector Options** (Automations Skills API, `POST /v1/list-selector-options`) takes one
-trigger or action and returns its entity fields with the site's selectable ids, parent filters and
-paging already applied. Its public base URL is not listed yet, so do not prepend this catalog's
-REST base by assumption; use a binding your tools expose, a vertical public API, or ask the user.
-Request, statuses and value shapes: Automations Item Selection (not yet published).
+**Entity ids** (forms, labels, services, pipeline stages…): resolve them with the owning vertical's public API, following that vertical's API reference, or ask the user for the exact entity. Never save a display name, invent an id or guess an endpoint.
 
 **Not public or not available through the general Automations API:**
 
