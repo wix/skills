@@ -1,0 +1,39 @@
+name: cms/cms-publishing-flow-remove-published-item
+description: >-
+  Verifies the agent uses Unpublish Data Item to remove an item from a published collection with
+  Draft Items enabled and distinguishes unpublishing from permanently deleting both versions.
+triggerPrompt: >-
+  I need to take an item out of the live site, but I may want to restore it later. Its collection
+  has the Draft Items plugin. What should I do, and how would I permanently delete it instead?
+tags: [cms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-publishing-flow-visible-hidden
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to remove an item from the live site in a CMS collection with Draft Items
+      enabled, while retaining the ability to restore it later, and asks how to permanently delete
+      it instead.
+
+      Pass if the response:
+      - recommends Unpublish Data Item with the published collection ID
+        to remove the item from the live collection, AND
+      - explains that the default `copyToDraft: true` keeps the item as a draft, and that
+        `copyToDraft: false` removes the live item without creating a draft, AND
+      - says to permanently delete the item by calling Unpublish Data Item with
+        `copyToDraft: false`, then deleting any remaining copy from the paired drafts collection.
+
+      Fail if the response recommends direct deletion as the way to take an item off the live site,
+      says unpublishing leaves the item live, or omits deleting a remaining draft when describing
+      permanent deletion.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: |
+      Judge the tool-call path for the user's request. Pass if the agent reads the CMS publishing
+      flow reference and then gives a direct answer grounded in it, without unnecessary exploratory
+      calls or calls that mutate site data. Fail if it skips the reference, probes unrelated APIs,
+      or attempts to change site data when the user asked for instructions.
