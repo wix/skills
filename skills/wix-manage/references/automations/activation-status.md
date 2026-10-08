@@ -42,9 +42,8 @@ an automation to answer this read-only request.
 
 Not-found causes (step 4): unpublished builder drafts do not appear
 through this API, but a 404 can also mean deletion or a changed ID after overriding a
-preinstalled automation. Only suggest an unpublished draft as the cause when the user's history
-supports it. Ask the owner to publish or discard their builder draft when appropriate, rather than
-reproducing its edits.
+preinstalled automation. When the user's history supports an unpublished builder draft as the
+cause, ask the owner to publish or discard it rather than reproducing its edits.
 
 Official contracts: [Query Automations](https://dev.wix.com/docs/api-reference/business-management/automations/automations-v2/query-automations),
 [Get Automation](https://dev.wix.com/docs/api-reference/business-management/automations/automations-v2/get-automation).

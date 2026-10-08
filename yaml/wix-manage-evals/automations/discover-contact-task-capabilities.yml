@@ -29,7 +29,7 @@
     {
       "type": "llm_judge",
       "minScore": 7,
-      "prompt": "Score 0-10 for the actual tool path. Paging through the full action catalog once is expected when establishing that no task-creation action is installed, and is not a detour. Penalize re-fetching the same catalog page or schema, unbounded or repeated broad searches after the answer is established, selecting a similarly named trigger or action without checking its schema, private calls, guessed endpoints or unnecessary mutation confirmation for this read-only request. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+      "prompt": "Score 0-10 for the actual tool path. Expected, never penalized: reading this skill's own documentation articles (ReadFullDocsArticle on the automations skill pages), and fetching each catalog page needed for one complete, de-duplicated scan — paging through the full action catalog once is expected when establishing that no task-creation action is installed, and is not a detour. Penalize only real waste: re-fetching an identical catalog page, schema or documentation article already retrieved, unbounded or repeated broad searches after the answer is established, and discovery unrelated to the contact-created trigger or a task-creation action. Also penalize selecting a similarly named trigger or action without checking its schema, private calls, guessed endpoints or unnecessary mutation confirmation for this read-only request. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
     }
   ]
 }
