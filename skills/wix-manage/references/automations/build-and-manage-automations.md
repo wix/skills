@@ -21,6 +21,8 @@ the action is installed. State missing prerequisites without offering an unverif
 If a requested action isn't found, write "not found in the installed catalog (scanned N
 distinct of `paging.total` N)". Say "not installed" only when that count matches; then list
 the closest related actions with their returned appId and actionKey.
+Resolve the trigger once and scan the action catalog once; answer from those results instead
+of repeating either call.
 
 For current status, find the exact automation, Get its returned ID, and report the status
 from that response. Every status answer names the automation and its returned ID. Current ACTIVE/INACTIVE status is separate from historical run results.
