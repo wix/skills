@@ -60,8 +60,9 @@ Request settings (omit only when the default matches the user's request):
 | `content` | Optional full email content in the Set Email Content shape. Omit for the provider's default template. Stored in the primary language; other site languages start from the default template. |
 
 For a site-owner email with the default type, keep the worked example's `action` wrapper and
-omit `triggerSchemaContactIdPath`: `{"action": {"emailType": "PROMOTIONAL"}}`. Request fields
-always go inside `action`, never at the body root. This initializes email content; it does not
+omit `triggerSchemaContactIdPath`: `{"action": {"emailType": "PROMOTIONAL"}}`. The `action.*`
+settings go inside `action`; optional initial `content` is the one top-level field, beside
+`action`. This initializes email content; it does not
 attach an action to an automation or send an email.
 
 Each call creates **new email content**, initially a draft until the automation is saved.
