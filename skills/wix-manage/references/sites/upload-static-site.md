@@ -38,9 +38,15 @@ What sets them apart:
   (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
   4M characters, but your own output is the real limit: a response that
   carries more than a few KB of base64 gets stopped by the client before the
-  call is sent (an 11 KB image did not get through in testing). Drop the
-  text files first, so the site is live, then bring images in by URL or one
-  small file at a time through the site's
+  call is sent (an 11 KB image did not get through in testing). **On a host
+  that attaches files to a tool call** (ChatGPT, and Codex over the same MCP),
+  the tool's `attachments` param takes the files themselves, any type, up to
+  10 MB per call: a zip of the whole folder, or the images beside a text
+  bundle. The platform resolves each into a download URL and fetches the
+  bytes; they land in the `files` global as base64 entries named by file
+  name, so nothing crosses your output. Pass every file in one call. On any
+  other host, drop the text files first, so the site is live, then bring
+  images in by URL or one small file at a time through the site's
   [Dev Machine](#images-and-other-binary-files), never by re-dropping the
   whole set per batch.
 - **A CLI login** is one approval by the user in the browser: run
@@ -161,6 +167,16 @@ async function run() {
     headers: { 'Content-Type': mp.contentType },
     body: mp.body });
 }
+```
+
+With `attachments`, the same script works unchanged when the files ride beside
+a text bundle: `wix.multipart()` takes the whole `files` global. A zip of the
+folder is one base64 entry, unpacked first:
+
+```javascript
+// attachments: [site.zip] → files = [{ path: 'site.zip', content: '<base64>', encoding: 'base64' }]
+const entries = await wix.unzip(files[0].content);     // [{ path, bytes, text() }], a wrapping folder stripped by the drop
+const mp = wix.multipart(entries);
 ```
 
 `wix.request` returns `{ status, data }`; read a response's fields from `data`
@@ -487,11 +503,12 @@ publish.
 
 ### Images and other binary files
 
-This is for a host with no shell to Wix. From a shell, `curl -F` streams any
-file from disk in the [drop](#2-drop-the-files--the-site-goes-live) itself and
-none of this applies. Without one, bytes on your side reach the site only
-through a call you write, so the rule is to move each file once and small, or
-not at all:
+This is for a host with no shell to Wix and no file attachments on its tool
+calls. From a shell, `curl -F` streams any file from disk in the
+[drop](#2-drop-the-files--the-site-goes-live) itself; on ChatGPT, the images go
+in the drop call's `attachments` and arrive as bytes; none of this applies to
+either. Without both, bytes on your side reach the site only through a call you
+write, so the rule is to move each file once and small, or not at all:
 
 - **A file that has a URL is fetched by the machine**, not carried: the machine
   reaches the public internet. `curl -sSL -o public/assets/hero.jpg "https://…"`
