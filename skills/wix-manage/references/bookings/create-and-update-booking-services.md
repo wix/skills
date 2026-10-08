@@ -1,465 +1,379 @@
 ---
 name: "Create and Update Booking Services"
-description: Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+description: "Creates and updates Wix Bookings services of every type — appointments, classes and courses — from a plain request such as 'a 60-minute consultation for $75', 'a yoga class for 12 people every Tuesday' or 'a 6-week photography course'. Covers choosing the service type, defaults for what the request leaves out, pricing (free, fixed, free-to-paid), staff, capacity, duration, categories, visibility, images, scheduling class and course sessions on the calendar, and changing existing services."
 ---
 
-# Technical Step-by-Step Instructions: Creating or Updating a Wix Bookings Service (Real-World, API-First)
+# Create and Update Booking Services
 
-## Description
+One recipe for every Bookings service: pick the type, fill in what the user didn't say, create it, schedule its sessions when it's a class or a course, and report back. The second half covers changing a service that already exists.
 
-Below are the recommended steps to successfully create or update a Wix Bookings service (or several at once) on Wix, with real-world troubleshooting and fixes for common API issues.
+All service types are created with the same call (`POST https://www.wixapis.com/bookings/v2/bulk/services/create`); the type decides which fields the body carries and what has to happen after it.
+
+Related recipes:
+- A service booked by room or equipment instead of (or as well as) staff — "a massage in whichever treatment room is free" → [Multi-Resource Service Creation](multi-resource-service-creation.md). It creates the resource types and resources and gives the service body (`serviceResources`, and `primaryResourceType` for an appointment with no staff); this recipe's staff rules don't apply to such a service.
+- Memberships, class packs or session bundles for a service → [Pricing Plans Bookings Integration](../pricing-plans/pricing-plans-bookings-integration.md).
+- Adding staff, or giving a staff member custom working hours → [Bookings Staff Setup](bookings-staff-setup.md).
+- Cancellation, booking-window or waitlist rules → [Booking Service Policy Setup](booking-service-policy-setup.md).
+
+If a Bookings call fails because the Wix Bookings app isn't installed on the site, install it with [Install Wix Apps](../app-installation/install-wix-apps.md) (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`) and retry. Don't check for the app before the first call — the error says so when it's missing.
 
 ---
 
-## Prerequisites
+## Part 1 — Create a service
 
-- **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
+### Step 1: Pick the service type
 
-> **Note:** If you receive errors from Bookings APIs, the Wix Bookings app may not be installed on the site. Use [List Installed Apps](../app-installation/list-installed-apps.md) to verify, and [Install Wix Apps](../app-installation/install-wix-apps.md) to install it if missing.
+| The user describes | Type | How customers book it |
+|---|---|---|
+| a consultation, appointment, meeting, 1-on-1, treatment, haircut, lesson at a time the customer picks | `APPOINTMENT` | The customer picks a free slot during the staff member's working hours. One customer per booking. |
+| a class, group session, drop-in, "yoga every Tuesday", bootcamp class | `CLASS` | The business sets the session times; many customers book each session, and a customer can book one, some or all sessions. |
+| a course, workshop series, program, "6-week course", "8 sessions", teacher training | `COURSE` | The business sets a fixed series with a start and an end; customers book the whole course, never a single session. |
 
-## Overview
+When the wording fits none of these, create an `APPOINTMENT`. When it's ambiguous between a class and a course, the deciding question is whether customers can join a single session (class) or must sign up for the whole series (course). See [About Service Types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types) for the full comparison.
 
-A Bookings service defines a time based offering and includes the following considerations:
+### Step 2: Fill in what the user didn't say
 
-- type - for detailed information about service type - refer to the [article](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types)
-- `APPOINTMENT` - Appointments allow customers to book services at their preferred time during the business hours. For example, a hair salon might offer different appointment-based hair cutting and styling services. Appointments appear in the booking calendar once they're booked by a customer. Not-yet-booked times during the business hours are displayed as available slots to potential customers while booking. The availability of the service is based on the availability of the staff member providing it
-- `CLASS` - A class is a single event or a series of recurring events that multiple customers can book. For example, a yoga studio might offer a twice-weekly vinyasa flow class. Classes may have a set end date or continue indefinitely. If a class includes more than a single event, customers can sign up for 1, several, or all of the events. Upon creation, classes are listed immediately in the booking calendar.
-- `COURSE` - A course starts and ends on pre-defined dates with a limited number of events that multiple customers can book. For example, a yoga studio might offer a teacher training course with 5 events. In contrast to classes, customers must book the entire course. Upon creation, courses are displayed immediately in the booking calendar.
-- Staff Member - a resource required in order to provide a service. [REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member) A staff member availability is defined by the schedule associated with the staff member, by default it is the main business schedule and cannot be modified by schedule APIs, but a staff member can have its own schedule by calling `assignWorkingHoursSchedule` which allows the staff member to have its own availability. The property `staffMember.usesDefaultWorkingHours` defines whether the default hours (business hours) are used.
-- Schedule (availability) - availability is defined by `Events` ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/introduction)) defined on a schedule.
-- The schedule which defines the service availability is based on the service type.
-- For appointment service, it is based on the schedule of staff members which provides it (`service.staffMemberIds` which is mapped to `staffMember.resourceId`). In order to fetch the staff schedule you should retrieve the staff member with `RESOURCE_DETAILS` fieldmask and read the schedule id from the `staffMember.resource.eventsSchedule.id` - This is needed if you wish to define the staff member's availability as part of the process
-- For classes and courses it is based on the schedule of the service itself (`service.schedule`)
-- When creating an APPOINTMENT service and specifying `staffMemberIds`, ensure you are using the staff member's resourceId, not their primary staff member id.
-- Service Images - the service may have several images - `service.media.mainMedia` - presented in the services list, `service.media.coverMedia` - presented in the service page and `service.media.items` - array of images presented as a gallery in the service page for site visitors.
-- In order to add a media (image) to a service, it should first be defined in Wix Media Manager - search existing ([REST](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files)) or new ([REST](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/bulk-import-file))
-- Set only the image **id**, but nest it inside the media item's `image` object: `service.media.mainMedia.image.id` (likewise `service.media.coverMedia.image.id` and `service.media.items[].image.id`). The `id` is the binding field; `url` and dimensions are descriptive and need not be set. ⚠️ Setting the id directly on the media item (`service.media.mainMedia.id`, without the `image` wrapper) returns HTTP 200 but **silently drops** it — the image reads back empty (`image.id: ""`). Because it's a silent 200, a success status is not proof: always nest under `.image` and confirm with a re-query.
+Use the user's values wherever they gave one. For the rest:
 
-### Service Type Selection Guide
+| Field | APPOINTMENT | CLASS | COURSE |
+|---|---|---|---|
+| `name` | the user's wording | the user's wording | the user's wording |
+| `description` | 1–2 sentences you write | 1–2 sentences, say it's a group class | 1–2 sentences, say it's a multi-session course (mention the session count if given) |
+| `defaultCapacity` | `1` (required, must be 1) | `10` (participants per session) | `10` (participants for the whole course) |
+| Duration | 60 minutes, via `schedule.availabilityConstraints.sessionDurations` | each session's start and end — only from the user (Step 5), never a default | each session's start and end — only from the user (Step 5), never a default |
+| Staff | one staff member, via `staffMemberIds` (required unless the service is booked by a resource — see Related recipes) | the instructor goes on the session events, not the service | the instructor goes on the session events, not the service |
+| `onlineBooking` | `{ "enabled": true }` | `{ "enabled": true }` | `{ "enabled": true }` |
+| `category` | an existing category that fits, or a new one (Step 3) | an existing category that fits, or a new one (Step 3) | an existing category that fits, or a new one (Step 3) |
 
-Choose based on these documented behaviors:
+**Price.** Never invent one.
+- The user gave a price → `rateType: "FIXED"` with that amount in `fixed.price.value`. For a class it's the price of one session; for a course it's the price of the whole course — don't divide it per session.
+- The user said "free" → `rateType: "NO_FEE"`.
+- The user gave no price → create the service free (`NO_FEE`), say so in the summary, and offer to set a price.
 
-- **APPOINTMENT**: Customer picks available time slot. Availability based on staff schedules. One customer (or dedicated group) per booking.
-- **CLASS**: Business sets recurring times. Multiple customers book same session. Customers can book 1, some, or all sessions in series.
-- **COURSE**: Business sets fixed series. Multiple customers book. Customers must book entire course (all sessions).
+**Session schedule** (CLASS / COURSE). Never invent one — no default days, times or start date. A schedule is the user's to give: "Tuesdays 6–7pm" or "Wednesdays at 19:00 starting the 14th" is one; "a 6-week course", "8 sessions" or "a weekly class" gives only the length or the count, not the days and times. Without days and times, create the service, create no sessions, and ask for them (Step 5, Step 7). This holds when you're working on your own and can't wait for an answer, too: an instruction to proceed on reasonable assumptions covers the service's other fields, never its schedule — sessions you pick are a timetable the owner didn't choose, published to customers.
 
-When unsure, refer to [About Service Types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types).
+**Currency.** Send only `fixed.price.value`; leave `price.currency` out. The service always takes the site's payment currency — a currency you send is replaced with it (a `"JPY"` price on a USD site is stored as USD). Don't look up the site currency first; read it from the create response when you report the price.
 
-### CRITICAL: Staff Assignment Behavior by Service Type
+**Visibility.** Services are visible by default. When the user asks for a hidden service ("a hidden test course"), add `"hidden": true` to the create body.
 
-**APPOINTMENT Services:**
+### Step 3: Read what the site already has
 
-- **Staff assignment WORKS**: Can specify `staffMemberIds` array with staff member `resourceId` values
-- **Behavior**: Service availability based on assigned staff schedules
-- **Example**: Personal training session assigned to specific trainer
+Run these reads before creating anything; they're independent, so run them together.
 
-**CLASS and COURSE Services:**
+**Staff members** — required for an APPOINTMENT, and the instructor for CLASS or COURSE sessions. For a CLASS or COURSE whose schedule the user didn't give, skip this read: no sessions are created yet, so no instructor is needed.
 
-- **Staff assignment IGNORED**: Setting `staffMemberIds` has no effect on service creation
-- **Behavior**: Service uses its own schedule (`service.schedule`), not staff schedules
-- **Workaround**: Staff association must be handled separately through calendar events or other mechanisms
-- **Example**: Yoga class where any qualified instructor can teach
+`POST https://www.wixapis.com/bookings/v1/staff-members/query`
 
-This is a critical API limitation that affects service planning and staff resource management.
+```json
+{ "query": {} }
+```
 
-### IMPORTANT NOTES
+Use each staff member's `resourceId` — not its `id` — everywhere this recipe asks for a staff ID. Pick the staff member the user named; otherwise the one with `default: true`; otherwise the first one. If the site has no staff members, create one with [Bookings Staff Setup](bookings-staff-setup.md) first.
 
-- I MUST read the full articles about [service types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types), [service payments](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-payments), [service location](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-locations) in order to fully understand how to set the service properties
-- If the service type is `CLASS` or `COURSE` I MUST read the full articles service's _schedule_ and _events_ mentioned before
-- If the service type is `APPOINTMENT` I MUST read the relevant full article about staff members ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/introduction)) in order to determine whether I should create a new staff member (or members)
-- For free service I MUST set `service.payment.rateType` as `"NO_FEE"` and `service.payment.options.inPerson` as `true` (at least one payment option must be true)
-- For paid service I MUST set the `service.payment.fixed.price.value` (must be above 0) as well as `service.payment.fixed.price.currency`
-- When changing a free service to a paid service, I MUST update `service.payment.rateType` from `"NO_FEE"` to `"FIXED"` in the same request where I set `service.payment.fixed.price`; patching only `fixed.price` on a `NO_FEE` service fails validation.
+**Categories:**
 
-### Payment Options Validation Rules
+`POST https://www.wixapis.com/bookings/v2/categories/query`
 
-| rateType | `options.online` | `options.inPerson` | Valid?                            |
-| -------- | ---------------- | ------------------ | --------------------------------- |
-| FIXED    | true             | false              | ✓                                 |
-| FIXED    | false            | true               | ✓                                 |
-| FIXED    | true             | true               | ✓                                 |
-| VARIED   | true             | false              | ✓                                 |
-| VARIED   | false            | true               | ✓                                 |
-| NO_FEE   | false            | true               | ✓                                 |
-| NO_FEE   | true             | false              | ✗ (online not allowed for NO_FEE) |
-| Any      | false            | false              | ✗ (at least one must be true)     |
+```json
+{ "query": {} }
+```
 
-- Always Prioritize Reading Full API Method Documentation: this overview article provides a general workflow. However, it repeatedly stresses the importance of reading the full documentation for each specific REST method you intend to use. This is critical for understanding detailed requirements.
-- I should pay close attention to all required fields, data types, enum values, and specific ID types (e.g., resourceId vs. id) as defined in the detailed schema of each API endpoint. The overview article serves as a guide but doesn't replace the need to consult these specifics.
+A service without a category isn't shown on the live site, and services aren't assigned one automatically, so every create body carries a `category.id`. Use the category the user named; otherwise an existing one that fits the service. A general one such as "Our Services" (a fresh Bookings install has it) fits anything, but a category meant for something else doesn't — a yoga class doesn't go under a template's "Styling". If no category fits, or the user named one that doesn't exist, create it — `POST https://www.wixapis.com/bookings/v2/categories` with `{ "category": { "name": "Yoga" } }` (the user's name for it, or a short name for the kind of service) — use the returned `category.id`, and mention the new category in the summary.
 
-### Service Categories - CRITICAL for UI Visibility
+**Existing services** (duplicate check):
 
-**IMPORTANT**: Services without categories may not appear in category-based UI filters, which are commonly used in booking interfaces.
+`POST https://www.wixapis.com/bookings/v2/services/query`
 
-**Service Category Considerations:**
+```json
+{ "query": { "paging": { "limit": 100 } } }
+```
 
-- **Default Behavior**: Services created without explicit category assignment may not be visible in filtered views
-- **UI Impact**: Many booking interfaces filter services by `category.id`, hiding uncategorized services
-- **Best Practice**: Always assign services to appropriate categories during creation
+A site with more than 100 services needs more pages: repeat with `"offset": 100`, `200`… inside `paging` until a page returns fewer than 100. If a service with the same or a very similar name exists, tell the user before creating another one.
 
-**Category Management Steps:**
+### Step 4: Create the service
 
-1. **Query existing categories** using [Query Categories](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories) to see available options
-2. **Create new category if needed** using [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category)
-3. **Assign category during service creation** by including `category.id` in the service object
-4. **Update existing services** using [Update Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service) to add missing categories
+`POST https://www.wixapis.com/bookings/v2/bulk/services/create` — one call creates up to 100 services. Always send `"returnEntity": true`: without it the response carries only `results[i].itemMetadata.id`, with no `schedule.id` to schedule sessions on.
 
-**Common Category Filter Patterns:**
+**APPOINTMENT** (60-minute paid consultation):
 
 ```json
 {
-  "filter": {
-    "category.id": {
-      "$exists": true
+  "returnEntity": true,
+  "services": [{
+    "name": "Strategy Consultation",
+    "description": "A one-on-one session to map out your next quarter.",
+    "type": "APPOINTMENT",
+    "defaultCapacity": 1,
+    "onlineBooking": { "enabled": true },
+    "staffMemberIds": ["<STAFF_RESOURCE_ID>"],
+    "schedule": { "availabilityConstraints": { "sessionDurations": [60] } },
+    "payment": {
+      "rateType": "FIXED",
+      "options": { "online": true, "inPerson": false },
+      "fixed": { "price": { "value": "75" } }
+    },
+    "category": { "id": "<CATEGORY_ID>" }
+  }]
+}
+```
+
+**CLASS or COURSE** (paid yoga class for 12 — for a course, change `type` to `"COURSE"`):
+
+```json
+{
+  "returnEntity": true,
+  "services": [{
+    "name": "Vinyasa Yoga",
+    "description": "A flowing group yoga class for all levels.",
+    "type": "CLASS",
+    "defaultCapacity": 12,
+    "onlineBooking": { "enabled": true },
+    "payment": {
+      "rateType": "FIXED",
+      "options": { "online": true, "inPerson": false },
+      "fixed": { "price": { "value": "25" } }
+    },
+    "category": { "id": "<CATEGORY_ID>" }
+  }]
+}
+```
+
+For a CLASS or COURSE, don't send `staffMemberIds` (it's read-only for these types — the API fills it from the staff on the service's recurring sessions, so staff on single, non-recurring sessions don't appear there; query the calendar events for the full list) or `sessionDurations`, and don't put sessions anywhere in this body (`course.sessions`, `CourseSession` and the like do not create sessions).
+
+**Free service** — replace `payment` with:
+
+```json
+"payment": { "rateType": "NO_FEE", "options": { "online": false, "inPerson": true } }
+```
+
+**Payment options** — at least one of `options.online` / `options.inPerson` must be `true`, even for a free service, and `online` is allowed only for paid rate types:
+
+| `rateType` | `online` | `inPerson` | Valid? |
+|---|---|---|---|
+| `FIXED` | true | false | ✓ |
+| `FIXED` | false | true | ✓ |
+| `FIXED` | true | true | ✓ |
+| `NO_FEE` | false | true | ✓ |
+| `NO_FEE` | true | false | ✗ online needs FIXED or VARIED |
+| any | false | false | ✗ one must be true |
+
+Price-by-variant (`VARIED`), custom-text (`CUSTOM`), deposits and pricing plans are described in [About Service Payments](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-payments).
+
+**Read the response.** A `200` can still carry a failed item, so check before reporting success:
+
+```json
+{
+  "results": [{
+    "itemMetadata": { "id": "<SERVICE_ID>", "originalIndex": 0, "success": true },
+    "item": {
+      "id": "<SERVICE_ID>",
+      "type": "CLASS",
+      "payment": { "rateType": "FIXED", "fixed": { "price": { "value": "25", "currency": "USD" } } },
+      "schedule": { "id": "<SERVICE_SCHEDULE_ID>" },
+      "revision": "1"
+    }
+  }],
+  "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0, "undetailedFailures": 0 }
+}
+```
+
+- The service is directly under `results[i].item` — there is no `item.service`. Match items to your request by `itemMetadata.originalIndex`.
+- `itemMetadata.success: false` comes with `itemMetadata.error` (code and description). Fix and resend only the failed services.
+- Keep `item.id` (the service ID) and, for a CLASS or COURSE, `item.schedule.id` for Step 5.
+
+**Optional fields:**
+- **Images** — the file must already be in the Wix Media Manager ([Search Files](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files), or [Bulk Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/bulk-import-file) for a URL). Set only its id, nested under `image`: `"media": { "mainMedia": { "image": { "id": "<FILE_ID>" } } }` (`mainMedia` shows in the services list, `coverMedia` on the service page, `items[]` is the page gallery). An id set directly on the media item (`mainMedia.id`) returns `200` but is silently dropped — read the service back to confirm the image stuck.
+- **Locations** — `"locations": [{ "type": "BUSINESS", "business": { "id": "<LOCATION_ID>" } }]` for a business location, `[{ "type": "CUSTOMER" }]` for an appointment at the customer's place (appointments only), or `[{ "type": "CUSTOM", "custom": { "address": { … } } }]`. All of a course's sessions take place at the same location. To change the locations of an existing service, use [Set Service Locations](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/set-service-locations), not Update Service. Details: [About Service Locations](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-locations).
+
+### Step 5: Schedule the sessions (CLASS and COURSE)
+
+A CLASS or COURSE has no sessions when it's created, so customers can't book it, and a course with no future sessions shows as ended on its service page. Sessions are Calendar events on the service's own schedule (`item.schedule.id` from Step 4).
+
+- **The user gave days and times** ("Tuesdays at 6pm", "8 Wednesday evenings from the 14th") → create the sessions now.
+- **They didn't** → create only the service, ask for the session days and times, and tell the user plainly that the service can't be booked until sessions exist. Don't make up a schedule — not even when you're told to proceed without asking; in that case finish with the service alone and name exactly what's missing.
+
+Create the sessions with `POST https://www.wixapis.com/calendar/v3/bulk/events/create` (up to 50 events per call). The instructor in each event's `resources` is a staff `resourceId` from Step 3 — if you skipped that read because the schedule came later, run it now.
+
+**Weekly CLASS** — every Tuesday 18:00–19:00 from the first Tuesday the user gave, no end date:
+
+```json
+{
+  "returnEntity": true,
+  "events": [{
+    "event": {
+      "scheduleId": "<SERVICE_SCHEDULE_ID>",
+      "type": "CLASS",
+      "start": { "localDate": "<FIRST_TUESDAY>T18:00:00" },
+      "end": { "localDate": "<FIRST_TUESDAY>T19:00:00" },
+      "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }],
+      "recurrenceRule": { "frequency": "WEEKLY", "interval": 1, "days": ["TUESDAY"] }
+    }
+  }]
+}
+```
+
+This creates one `MASTER` event, and the calendar generates a weekly `INSTANCE` for each Tuesday. To stop the series on a date, add `"until": { "localDate": "<LAST_SESSION_DATE>T19:00:00" }` to `recurrenceRule`.
+
+**COURSE** — one event per session, all in one call (here the first two of a weekly series):
+
+```json
+{
+  "returnEntity": true,
+  "events": [
+    { "event": {
+        "scheduleId": "<SERVICE_SCHEDULE_ID>",
+        "type": "COURSE",
+        "start": { "localDate": "<SESSION_1_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_1_DATE>T20:00:00" },
+        "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
+    } },
+    { "event": {
+        "scheduleId": "<SERVICE_SCHEDULE_ID>",
+        "type": "COURSE",
+        "start": { "localDate": "<SESSION_2_DATE>T18:00:00" },
+        "end": { "localDate": "<SESSION_2_DATE>T20:00:00" },
+        "resources": [{ "id": "<STAFF_RESOURCE_ID>", "permissionRole": "WRITER" }]
+    } }
+  ]
+}
+```
+
+Rules for every session event:
+- Wrap each one as `{ "event": { … } }`.
+- `scheduleId` is the **service's** `schedule.id` — not a staff member's schedule — and `type` matches the service type (`CLASS` or `COURSE`).
+- `resources` must hold at least one resource; without it the call fails with `400 resources must have at least 1 resource for class events`. Use the instructor's staff `resourceId`.
+- Every resource needs `"permissionRole": "WRITER"`. Without it the whole call fails with `400 resources.permissionRole must not be UNKNOWN_ROLE`.
+- `start.localDate` / `end.localDate` are local times without a `Z`, in the schedule's time zone (the site's, unless you set `event.timeZone`). A recurring event must start today or later — check the current date before you build the dates.
+- A `recurrenceRule` takes exactly one day. For "Tuesdays and Thursdays", send two events, one per day.
+- Leave `totalCapacity` out: sessions inherit the service's `defaultCapacity`, and setting it detaches that session from later capacity changes.
+
+**Read the response** the same way as Step 4: check `bulkActionMetadata.totalFailures` and each `results[i].itemMetadata.success`, and fix and resend only the failed events. A `400` (no `results` at all) means nothing was created.
+
+**Confirm the sessions exist** before you call the service bookable:
+
+`POST https://www.wixapis.com/calendar/v3/events/query`
+
+```json
+{
+  "fromLocalDate": "<TODAY>T00:00:00",
+  "toLocalDate": "<AFTER_LAST_SESSION>T00:00:00",
+  "query": { "filter": { "scheduleId": "<SERVICE_SCHEDULE_ID>" } }
+}
+```
+
+The result lists the generated sessions (`INSTANCE` events for a weekly class, the single events for a course). For a course, the service itself also reports the span: `GET https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` returns `schedule.firstSessionStart` and `schedule.lastSessionEnd` once sessions exist.
+
+**Change sessions later** with `POST https://www.wixapis.com/calendar/v3/bulk/events/update`, sending each event's `id`, its current `revision` and only the fields that change:
+
+```json
+{
+  "events": [{
+    "event": {
+      "id": "<EVENT_ID>",
+      "revision": "<EVENT_REVISION>",
+      "start": { "localDate": "<NEW_DATE>T19:00:00" },
+      "end": { "localDate": "<NEW_DATE>T20:00:00" }
+    }
+  }]
+}
+```
+
+For a weekly class, update the `MASTER` event (its id is in the create response, or query events with `"recurrenceType": ["MASTER"]`) to move every future session; updating one `INSTANCE` changes only that session. Details: [Bulk Update Event](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event).
+
+### Step 6: Appointment availability
+
+An APPOINTMENT has no events of its own: its free slots come from the working hours of the staff in `staffMemberIds`, which by default follow the business hours. If the user wants different hours for that staff member, follow [Bookings Staff Setup](bookings-staff-setup.md) — it detaches the staff member from the business hours and creates `WORKING_HOURS` events on the staff member's own schedule.
+
+### Step 7: Report back
+
+Base the summary on the API responses, not on what you sent:
+1. **What was created** — name, type, price as stored (amount and currency; "per session" for a class, "for the whole course" for a course; "free" if no price was given, with an offer to set one), capacity, duration or staff for an appointment, category, and hidden if it is.
+2. **Assumptions** — every default from Step 2 you applied ("I set capacity to 10 since you didn't say").
+3. **Sessions** (CLASS / COURSE) — the sessions you created and confirmed: list each session's date and time (for a weekly class with no end date, the weekday, time and first date). If none exist yet, say the service can't be booked until it has sessions, and end with a direct question for them: the weekday(s), start and end time, and first date — for a course, the date of each session or the weekly pattern and how many sessions.
+4. **What you can change** — offer to adjust price, capacity, duration, staff or schedule.
+
+---
+
+## Part 2 — Change an existing service
+
+### Find it and read its revision
+
+When the user gave a service ID, use it. Otherwise list the services and match the name the user used:
+
+`POST https://www.wixapis.com/bookings/v2/services/query`
+
+```json
+{ "query": { "paging": { "limit": 100 } } }
+```
+
+Page with `offset` as in Step 3 on a site with more than 100 services. If more than one service matches, ask the user which one; if none does, say so rather than creating one. Then read it to get its current `revision` and current values:
+
+`GET https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>`
+
+### Update it
+
+`PATCH https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` — send only the fields you're changing, with the current `revision` **inside** the `service` object (a `revision` at the top level fails with `revision must not be empty`):
+
+```json
+{
+  "service": {
+    "revision": "<REVISION_FROM_GET>",
+    "category": { "id": "<CATEGORY_ID>" }
+  }
+}
+```
+
+The same shape changes the name, description, capacity, `hidden` (`true` hides the service from the site's booking pages, `false` shows it again) or `onlineBooking`. Update the existing service — don't delete and recreate it, which loses its bookings and sessions.
+
+**Free → paid.** A `NO_FEE` service becomes paid only when one update sends the whole payment object — `rateType: "FIXED"`, `options` and `fixed.price` together. Send the `options` the GET returned (a free service usually has `inPerson: true`), so customers keep paying the way they already could; turn on `online` only when the user asks for online payment. Patching just `fixed.price` fails validation (`Payment of type FREE cannot be used with payment.rate`, or `payment.type Payment type must be set to FIXED`):
+
+```json
+{
+  "service": {
+    "revision": "<REVISION_FROM_GET>",
+    "payment": {
+      "rateType": "FIXED",
+      "options": { "online": false, "inPerson": true },
+      "fixed": { "price": { "value": "35" } }
     }
   }
 }
 ```
 
-This filter will only show services with assigned categories, making uncategorized services invisible to users.
+The price takes the site's currency, as on create. To change only the amount of a service that is already `FIXED`, send the same payment object with the new value.
 
-### Querying Existing Services
+**Several services at once.** [Bulk Update Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services) takes a list of services (each with its own `id` and `revision`); [Bulk Update Services By Filter](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter) applies one change to every service a filter matches ("make all my services 60 minutes").
 
-You can retrieve a list of existing booking services using the [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services) endpoint. This allows you to filter, sort, and page through up to 100 services at a time, making it easy to find and manage your current offerings.
+**Changing the type** (`"type": "COURSE"` in the same PATCH) deletes the service's schedule and sessions and creates a new schedule. Confirm with the user before doing it, then schedule the sessions again on the new `schedule.id` (Step 5).
+- An APPOINTMENT that already has future bookings can't change type — the update fails with `can't change a service of type appointment after it has been booked`. Tell the user; don't cancel their bookings to get around it.
+- Changing to or from COURSE resets the service's locations to the site's default business location; restore any other location the user needs with [Set Service Locations](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/set-service-locations). Changing an APPOINTMENT to a CLASS or COURSE also clears its `staffMemberIds` and session durations.
+
+**Deleting a service**: `DELETE https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>` cancels its future sessions. Confirm with the user first.
 
 ---
 
-## Steps
-
-### 0. Query and Setup Categories (CRITICAL FIRST STEP)
-
-1. **Query existing categories** using `queryCategories` API ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories)) to identify available categories
-2. **Create category if needed** using `createCategory` API ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category)) if no suitable category exists
-3. **Record category ID** for use in service creation - this prevents services from being hidden in UI filters
-
-**Query Categories:**
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/categories/query' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{ "query": {} }'
-```
-
-**Create Category (if none exist):**
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{ "category": { "name": "General" } }'
-```
-
-### 1. Define staff member to use (REQUIRED for APPOINTMENT)
-
-> **IMPORTANT:** For APPOINTMENT services, `staffMemberIds` is **required**. The API will return a 400 error without it. You must query staff members first to obtain a valid `resourceId`.
-
-1. **Query existing staff members** to get their `resourceId` values
-2. For new staff, create using `createStaffMember` API ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member)) and keep the response `staffMember.id` and `resourceId`
-3. If you wish to update working hours, call `getStaffMember` API ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/get-staff-member)) to get `resource.eventsSchedule.id`
-
-**Query Staff Members (to get resourceId):**
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v1/staff-members/query' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": {},
-    "fields": ["RESOURCE_DETAILS"]
-  }'
-```
-
-Use the `resourceId` from the response (not `id`) in `staffMemberIds` when creating APPOINTMENT services.
-
-**Staff Selection Strategy:**
-
-- If a staff member has `default: true` → use it
-- If only one staff member exists → use it
-- If multiple exist → pick the first or most appropriate
-- If none exist → create one using the [Staff Setup recipe](bookings-staff-setup.md)
-
-**Service Type Requirements:**
-
-- **APPOINTMENT**: `staffMemberIds` is **required** - API will fail without it
-- **CLASS/COURSE**: `staffMemberIds` is ignored; use `service.schedule` instead
-
-### 2. Creating or Updating a service
-
-Based on the information gathered above, use the relevant API based on the desired outcome.
-
-- **Create services**: `bulkCreateServices` endpoint ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services))
-- **Update single service**: `updateService` endpoint ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service))
-- **Update services (bulk)**: `bulkUpdateServices` ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services))
-- **Update by filter**: `bulkUpdateServicesByFilter` ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter))
-- **Get single service**: `getService` endpoint ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/get-service))
-
-**Create Service Example (paid APPOINTMENT, 60 minutes):**
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "returnEntity": true,
-    "services": [{
-      "name": "Consultation",
-      "type": "APPOINTMENT",
-      "onlineBooking": { "enabled": true },
-      "staffMemberIds": ["<RESOURCE_ID_FROM_STEP_1>"],
-      "schedule": {
-        "availabilityConstraints": {
-          "sessionDurations": [60]
-        }
-      },
-      "payment": {
-        "rateType": "FIXED",
-        "options": { "online": true, "inPerson": false },
-        "fixed": {
-          "price": { "value": "50", "currency": "USD" }
-        }
-      },
-      "category": {
-        "id": "<CATEGORY_ID_FROM_STEP_0>"
-      }
-    }]
-  }'
-```
-
-> **Note:** Currency may default to the site's business currency regardless of what you specify. Verify the response if currency is critical.
-
-**Create Service Example (free APPOINTMENT, 60 minutes):**
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "returnEntity": true,
-    "services": [{
-      "name": "Free Consultation",
-      "type": "APPOINTMENT",
-      "onlineBooking": { "enabled": true },
-      "staffMemberIds": ["<RESOURCE_ID_FROM_STEP_1>"],
-      "schedule": {
-        "availabilityConstraints": {
-          "sessionDurations": [60]
-        }
-      },
-      "payment": {
-        "rateType": "NO_FEE",
-        "options": { "online": false, "inPerson": true }
-      },
-      "category": {
-        "id": "<CATEGORY_ID_FROM_STEP_0>"
-      }
-    }]
-  }'
-```
-
-**Create Service Example (CLASS with capacity):**
-
-> **Note:** CLASS services do not use `staffMemberIds` or `sessionDurations`. After creation, you must create events via `bulkCreateEvents` using the returned `service.schedule.id` to define when the class occurs.
-
-```bash
-curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "returnEntity": true,
-    "services": [{
-      "name": "Yoga Class",
-      "type": "CLASS",
-      "onlineBooking": { "enabled": true },
-      "defaultCapacity": 20,
-      "payment": {
-        "rateType": "FIXED",
-        "options": { "online": true, "inPerson": false },
-        "fixed": {
-          "price": { "value": "25", "currency": "USD" }
-        }
-      },
-      "category": {
-        "id": "<CATEGORY_ID_FROM_STEP_0>"
-      }
-    }]
-  }'
-```
-
-After creation, use `results[0].item.schedule.id` from the response to create class events with `bulkCreateEvents` (see Step 3). This requires `returnEntity: true` on the request — without it the response carries only `results[0].itemMetadata.id`, which has no `schedule.id`; and the created service is directly under `item` (there is no `item.service`).
-
-**Required Fields:**
-
-- `name` - Service name
-- `type` - `APPOINTMENT`, `CLASS`, or `COURSE`
-- `onlineBooking: { enabled: true }` - Required for all services
-- `staffMemberIds` - **Required for APPOINTMENT only** (use `resourceId` values); ignored for CLASS/COURSE
-- `schedule.availabilityConstraints.sessionDurations` - Duration in minutes (APPOINTMENT only)
-- `defaultCapacity` - **Required for CLASS/COURSE** (max participants per session)
-- `payment.options` - At least one of `online` or `inPerson` must be `true` (required for all services, including free; see validation table above)
-
-**Service Type Specific Considerations:**
-
-- **APPOINTMENT**: Must include `staffMemberIds` with staff `resourceId` values
-- **CLASS/COURSE**: Omit `staffMemberIds`; configure `service.schedule` instead
-
-**Update Service Example (PATCH):**
-
-> **Note:** Updates require the current `revision` value (from a GET response) placed **inside** the `service` object, not at the top level.
-
-```bash
-# First, get current service to obtain revision
-curl -X GET 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
-  -H 'Authorization: <AUTH>'
-
-# Then update with revision inside service object
-curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "service": {
-      "revision": "<REVISION_FROM_GET>",
-      "category": {
-        "id": "<CATEGORY_ID>"
-      }
-    }
-  }'
-```
-
-**Update free service to fixed price:**
-
-When an existing service has `payment.rateType: "NO_FEE"` and the user asks to set a price, convert it to `FIXED` and set the price in the same update.
-
-```bash
-# First, get current service to obtain revision and current payment settings
-curl -X GET 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
-  -H 'Authorization: <AUTH>'
-
-curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "service": {
-      "revision": "<REVISION_FROM_GET>",
-      "payment": {
-        "rateType": "FIXED",
-        "options": { "online": false, "inPerson": true },
-        "fixed": {
-          "price": { "value": "200", "currency": "<SITE_CURRENCY>" }
-        }
-      }
-    }
-  }'
-```
-
-### 3. Set the availability of the service
-
-Once the service and staff member are available, you can define when the service is available:
-
-**3a. Determine the schedule to use** based on the service type:
-
-- **APPOINTMENT**: The staff member working hours determine the service availability. If the staff member needs different hours from the business defaults, call `assignWorkingHoursSchedule` (`POST https://www.wixapis.com/bookings/v1/staff-members/<STAFF_MEMBER_ID>/assign-working-hours-schedule`) ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/assign-working-hours-schedule)). Use the `resource.eventsSchedule.id` as the `scheduleId`.
-- **CLASS or COURSE**: Use the `service.schedule.id` from the service created/updated in Step 2.
-
-**3b. Create events** using `bulkCreateEvents` (`POST https://www.wixapis.com/calendar/v3/bulk/events/create`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)) or update existing ones with `bulkUpdateEvents` (`POST https://www.wixapis.com/calendar/v3/bulk/events/update`) ([REST](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event)).
-
-**Event requirements**:
-
-- `event.resources` array **must include at least one resource** (a staff member/room/etc.) using the `resourceId`. CLASS and COURSE events will fail with a 400 error if no resources are provided.
-- `event.scheduleId` — use the staff member's events schedule ID for APPOINTMENT availability, or `service.schedule.id` for CLASS/COURSE.
-- `event.type` — set to `WORKING_HOURS` for staff availability, `CLASS` for class sessions, or `COURSE` for course sessions.
-
-### Troubleshooting Common Issues
-
-**APPOINTMENT Service Creation Fails (staffMemberIds required):**
-
-- **Error**: `"service of type appointment requires at least one staff member id"`
-- **Cause**: APPOINTMENT services cannot be created without at least one staff member assigned
-- **Solution**: Query staff members first (Step 1) to get a valid `resourceId`, then include it in `staffMemberIds`
-
-**Service Creation Fails (payment.options required):**
-
-- **Error**: `INVALID_PAYMENT_OPTIONS - "It is mandatory to specify either payment.options.online or payment.options.inPerson as true"`
-- **Cause**: All services (including free) require at least one payment option to be `true`
-- **Solution**: Add `"options": { "online": true, "inPerson": false }` (or `inPerson: true` for free services) to the `payment` object
-
-**Free Service Fails with online=true:**
-
-- **Error**: `INVALID_PAYMENT_OPTIONS - "Specifying payment.paymentOptions.online as true is applicable only to payments of types FIXED or VARIED"`
-- **Cause**: `payment.options.online: true` is only valid for paid services (FIXED or VARIED)
-- **Solution**: For free services (NO_FEE), use `"options": { "online": false, "inPerson": true }`
-
-**Changing a free service price fails:**
-
-- **Error**: `"Payment of type FREE cannot be used with payment.rate"`
-- **Cause**: The service is still `NO_FEE` while the update tries to set `fixed.price`
-- **Solution**: Change `payment.rateType` to `"FIXED"` and include `payment.fixed.price` in the same update request
-
-**Services Not Appearing in UI Filters:**
-
-- **Problem**: Services created without category assignment are invisible in category-based filters
-- **Root Cause**: Many UI implementations filter by `category.id` existence or specific category values
-- **Solution**: Query all services, identify those missing categories, and update them using bulk update operations
-- **Prevention**: Always assign categories during service creation (Step 0)
-
-**Staff Assignment Not Working for CLASS/COURSE Services:**
-
-- **Problem**: Setting `staffMemberIds` in CLASS or COURSE services appears to be ignored
-- **Solution**: This is expected behavior; use service schedules instead of staff assignments
-- **Alternative**: Manage staff-to-class relationships through calendar events or custom data structures
-
-**App Not Installed Errors:**
-
-- **Problem**: 428 "App not installed" errors when creating services
-- **Solution**: Install Wix Bookings app using Apps Installer API before creating services
-- **Verification**: Query existing services to confirm app installation
-
-**Resource ID vs Staff ID Confusion:**
-
-- **Problem**: Using wrong ID type for `staffMemberIds` array
-- **Solution**: Always use `staffMember.resourceId`, not `staffMember.id`
-- **Verification**: Query staff with `RESOURCE_DETAILS` fieldMask to get correct IDs
-
-**Service Schedule vs Staff Schedule Confusion:**
-
-- **Problem**: Mixing up schedule IDs between service and staff schedules
-- **Solution**:
-  - APPOINTMENT: Use staff schedule ID (`staffMember.resource.eventsSchedule.id`)
-  - CLASS/COURSE: Use service schedule ID (`service.schedule.id`)
-
-**Update Service Fails with revision error:**
-
-- **Error**: `revision must not be empty` or `service.revision is required`
-- **Cause**: `revision` placed at top level of request body instead of inside `service` object
-- **Solution**: Structure as `{ "service": { "revision": "...", ...fields } }` - get revision value from GET response first
-
-### IMPORTANT NOTES
-
-- I MUST read the full article about the REST method I wish to use
-- `onlineBooking` Field: The onlineBooking object (e.g., {"enabled": true}) is a required field when creating services, even if not explicitly highlighted as mandatory in the high-level overview. This is a schema-level requirement.
-- Event Creation (BulkCreateEvents): When specifying recurrenceRule.days, I MUST use full day names (e.g., "TUESDAY", "FRIDAY")
-- The recurrenceRule.days field within an event object can only accept a single day of the week (e.g., ["TUESDAY"]).
-- If I need to set up recurring events for multiple days of the week (e.g., a staff member working every Tuesday and Friday), I MUST define a separate event for each day and send them as separate items for BulkCreateEvents.
-- Start Dates for Recurring Events: Recurring events must have a start.localDate that is today or in the future, relative to the server's current time. If I am not sure what the current date and time are I MUST check it.
-- When setting `event.type` as `WORKING_HOURS` (APPOINTMENT) I MUST call `assignWorkingHoursSchedule` BEFORE CREATING THE EVENTS so that the staff member is no longer linked to the business working hours
-- When setting `event.type` as `CLASS` or `COURSE` I MUST use the service schedule id, so the service has to exist (created/updated) before setting the availability of it
-
-## Booking REST API Documentation Reference
-
-- [Query Categories](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories)
-- [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category)
-- [Get Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/get-service)
-- [Update Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service)
-- [Create Staff Member](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member)
-- [Get Staff Member](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/get-staff-member)
-- [Query Staff Members](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members)
-- [Bulk Create Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services)
-- [Bulk Update Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services)
-- [Bulk Update Services By Filter](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter)
-- [Assign Working Hours Schedule](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/assign-working-hours-schedule)
-- [Bulk Create Events](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event)
-- [Bulk Update Events](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event)
-- [Media Manager: Search Files](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files)
-- [Media Manager: Bulk Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/bulk-import-file)
-- [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services)
-- [Apps Installer API](https://dev.wix.com/docs/api-reference/business-management/app-installation/install-app)
+## Errors
+
+| Error | Cause | Fix |
+|---|---|---|
+| `service of type appointment requires at least one staff member id` | APPOINTMENT without `staffMemberIds` | Query staff (Step 3) and send a `resourceId` |
+| `primary_resource_type is required for appointment services without staff members` | An APPOINTMENT booked by a room or equipment | Follow [Multi-Resource Service Creation](multi-resource-service-creation.md) for the body |
+| `INVALID_PAYMENT_OPTIONS` — "mandatory to specify either payment.options.online or payment.options.inPerson as true" | No payment option set | Set `inPerson: true` (free) or `online: true` (paid) |
+| `INVALID_PAYMENT_OPTIONS` — "online as true is applicable only to payments of types FIXED or VARIED" | `online: true` on a `NO_FEE` service | Free services use `online: false, inPerson: true` |
+| `Payment of type FREE cannot be used with payment.rate` | Price set on a `NO_FEE` service without changing `rateType` | Send `rateType: "FIXED"`, `options` and `fixed.price` in one update |
+| `revision must not be empty` / `service.revision is required` | `revision` missing or outside `service` | `{ "service": { "revision": "…", … } }`, revision from a fresh GET |
+| `resources.permissionRole must not be UNKNOWN_ROLE` | Session resource without `permissionRole` | `"resources": [{ "id": "…", "permissionRole": "WRITER" }]` |
+| `resources must have at least 1 resource for class events` | Session event without `resources` | Add the instructor's staff `resourceId` |
+| Course page says "Ended" or "This service is not available" | The course has no future sessions | Create the sessions (Step 5) and confirm them |
+| `428` app not installed | Wix Bookings isn't on the site | Install it with [Install Wix Apps](../app-installation/install-wix-apps.md) and retry |
+
+---
+
+## Reference
+
+- Services: [Bulk Create Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services) · [Create Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service) (field rules) · [Get Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/get-service) · [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services) · [Update Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/update-service) · [Bulk Update Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services) · [Bulk Update Services By Filter](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-update-services-by-filter) · [Delete Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/delete-service)
+- Concepts: [About Service Types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types) · [About Service Payments](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-payments) · [About Service Locations](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-locations)
+- Categories: [Query Categories](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/query-categories) · [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category)
+- Staff: [Query Staff Members](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members) · [Create Staff Member](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member) · [Assign Working Hours Schedule](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/assign-working-hours-schedule)
+- Sessions: [Bulk Create Event](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-create-event) · [Bulk Update Event](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/bulk-update-event) · [Query Events](https://dev.wix.com/docs/api-reference/business-management/calendar/events-v3/query-events)
+- Media: [Search Files](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files) · [Bulk Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/bulk-import-file)

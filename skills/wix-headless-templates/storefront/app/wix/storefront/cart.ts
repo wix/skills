@@ -167,8 +167,7 @@ export async function setNote(note: string): Promise<Cart> {
 /**
  * Start the Wix-hosted checkout for the current cart and return the URL to navigate to.
  * The cart's id IS the checkout id — no separate checkout-creation call (Wix's own storefront
- * does the same; `createCheckoutFromCurrentCart` is the alternative when a checkout must exist
- * before redirecting).
+ * does the same).
  * Call from the browser: the return origin must be the site's real https origin
  * (window.location.origin), never a server-derived request origin.
  */

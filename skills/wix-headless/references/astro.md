@@ -81,7 +81,7 @@ The **per-vertical values** — which `WIX_APPS.*PageMetadata` accessor + `seoTa
 
 ## 7 — Caveats (the gaps the docs don't mention)
 
-The heart of the file: tribal knowledge the docs won't surface. These are **guidance the model must follow when it writes the frontend** — not things this skill writes for it.
+The heart of the file: hard-won knowledge the docs won't surface. These are **guidance the model must follow when it writes the frontend** — not things this skill writes for it.
 
 | Caveat | What it says |
 |---|---|

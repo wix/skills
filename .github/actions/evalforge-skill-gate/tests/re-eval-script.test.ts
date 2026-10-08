@@ -298,17 +298,27 @@ describe('finding the run to re-run', () => {
     expect(test.runQueries).toEqual([
       expect.objectContaining({
         workflow_id: 'evalforge-wix-app-gate.yml',
-        event: 'pull_request',
+        event: 'pull_request_target',
         head_sha: OPEN_PR.head.sha,
         per_page: 1,
       }),
       expect.objectContaining({
         workflow_id: YAML_GATE,
-        event: 'pull_request',
+        event: 'pull_request_target',
         head_sha: OPEN_PR.head.sha,
         per_page: 1,
       }),
     ]);
+  });
+
+  // A run from before the trigger change has the old event, so the lookup cannot see it. The reply
+  // has to say so, or the requester is told no run exists for a commit they can see was evaluated.
+  it('tells the requester a run from before the trigger change is not found', async () => {
+    const test = harness({ runs: [] });
+    await test.execute();
+
+    expect(test.comments[0]).toContain('`pull_request_target`');
+    expect(test.comments[0]).toContain('push a commit to produce one');
   });
 
   // The sweep is green in soak mode and manual after every push, so the run worth re-running is a

@@ -326,7 +326,7 @@ async function enableOnlineReservations(ctx, reservationLocationId, revision) {
 }
 
 // ══ EXPERIENCES (setup-restaurant-experiences.md) ══════════════════════════════════════════════════
-// An experience is a reservation that IS a curated dining occasion (wine tasting, chef's table). Feature
+// An experience is a reservation that IS a curated dining occasion (chef's table, tasting menu). Feature
 // of the Table Reservations app — no separate install. Created against a reservationLocationId (from
 // listReservationLocations). The full create payload lives in the live docs (fields evolve) — build each
 // `experience` from the Create-Experience doc; this only wires the loop. Set configuration.visible:true.

@@ -3,7 +3,11 @@
 
 <sub>✅ Review job completed</sub>
 
-**1 blocking, 1 advisory** · `abcdef1` · 3 files
+**Score: 5/10** · `abcdef1` · 3 files
+
+`stores/create-bundle` tells the agent to call a tool not every client has, so those agents cannot follow it.
+
+**1 blocking, 1 advisory**
 
 ### `skills/wix-manage/references/stores/create-bundle.md`
 

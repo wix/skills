@@ -1,7 +1,9 @@
 name: Skill Eval Cleanup
 
+# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
+# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
 
 concurrency:
@@ -11,6 +13,9 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     # Disabled: skill-eval is superseded by the evalforge-yaml-* gate, and its own gate is already
     # off (skill-eval.yml `if: false`). With no gate creating MCP versions there is nothing to clean
     # up, and this job failed on every PR close — so turn it off instead of leaving a red check.

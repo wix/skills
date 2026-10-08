@@ -151,10 +151,13 @@ export async function importImage(ctx, url, displayName = "image.png") {
  * THE seed entry point. Resolves a batch of image specs to Wix Media files in ONE parallel
  * wave. Each spec: { path } (LOCAL file — the user's own asset, uploaded) OR { url }
  * (verified external URL — imported) OR { prompt } (generated, ~1 credit) — plus optional
- * displayName, width, height. Returns an array aligned with the input: { id, url } per
- * success, null per failure or empty spec. Never throws.
+ * displayName, width, height. Returns an array aligned with the input: { file, error } per
+ * spec — `file` is { id, url } on success and null otherwise; `error` is the reason it is null
+ * (the thrown message, "empty spec", or "timed out"). Never throws. Every failure is also
+ * printed to stderr, so a seed log names the image and the reason even when the seed's
+ * own report does not.
  */
-export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000 } = {}) {
+export async function resolveItemImagesDetailed(ctx, specs, { perImageBudgetMs = 120_000 } = {}) {
   // unref: the budget timer must never keep the seed process alive after the work is done —
   // a lingering timer delays the seed's exit (and the run's .seed-exit marker) by the budget.
   const deadline = new Promise((r) => {
@@ -179,5 +182,22 @@ export async function resolveItemImages(ctx, specs, { perImageBudgetMs = 120_000
       return Promise.race([resolve, deadline]);
     }),
   );
-  return results.map((r) => (r.status === "fulfilled" ? r.value : null));
+  return results.map((r, i) => {
+    const spec = specs?.[i] ?? {};
+    const label = spec.displayName ?? spec.path ?? spec.url ?? (spec.prompt ? "(prompt)" : "(empty)");
+    if (r.status === "fulfilled") {
+      if (r.value) return { file: r.value, error: null };
+      const error = !spec.path && !spec.url && !spec.prompt ? "empty spec" : `timed out after ${perImageBudgetMs} ms`;
+      if (error !== "empty spec") console.error(`image ${label}: ${error}`);
+      return { file: null, error };
+    }
+    const error = r.reason?.message ?? String(r.reason);
+    console.error(`image ${label}: ${error.slice(0, 200)}`);
+    return { file: null, error };
+  });
+}
+
+/** The plain array of { id, url } | null the seeds consume today; failures are still printed. */
+export async function resolveItemImages(ctx, specs, opts) {
+  return (await resolveItemImagesDetailed(ctx, specs, opts)).map((r) => r.file);
 }
