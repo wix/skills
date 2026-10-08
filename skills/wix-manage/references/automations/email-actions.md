@@ -3,8 +3,6 @@ name: "Automations Email Actions"
 description: "Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Automation Email Actions
 
 Use the email provider's **Generate Action Input Mapping** for each NEW email action. It is a

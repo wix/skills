@@ -3,8 +3,6 @@ name: "Automations Validation and Persistence"
 description: "Validate automation configuration, check builder compatibility, persist changes and verify the saved result."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Validation and Verification
 
 How to prove an automation is correct, saved, and editable in the builder before you tell the

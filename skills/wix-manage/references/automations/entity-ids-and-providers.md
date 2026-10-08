@@ -3,8 +3,6 @@ name: "Automations Entity and Provider Configuration"
 description: "Resolve entity identifiers with vertical public APIs or by asking the user, and find provider-owned automation configuration workflows."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Entity IDs and Provider APIs
 
 Many trigger filters, action inputs and condition fields take the **id** of something that

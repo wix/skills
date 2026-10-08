@@ -3,8 +3,6 @@ name: "Automations Feasibility and Planning"
 description: "Assess automation feasibility, supported action configuration, update locks and planning constraints before promising or changing a workflow."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Limitations & Planning
 
 **TL;DR**

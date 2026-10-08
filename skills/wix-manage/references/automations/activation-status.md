@@ -3,8 +3,6 @@ name: "Automations Activation Status"
 description: "Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Activation status and lifecycle
 
 **What the public API can see.** An automation's live state is `configuration.status` —

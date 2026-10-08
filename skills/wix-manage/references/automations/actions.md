@@ -3,8 +3,6 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # App-Defined Actions — Discovery, Schemas, Input Mapping
 
 **TL;DR**

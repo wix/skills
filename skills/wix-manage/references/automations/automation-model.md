@@ -3,8 +3,6 @@ name: "Automations Graph and Data Model"
 description: "Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # Automation Model — Object, Graph Rules, Payload Scope
 
 **TL;DR**
@@ -34,7 +32,7 @@ description: "Assemble builder-editable automation graphs with valid node relati
 Action (common fields):
 
 - `id` — uuid v4, equal to its map key.
-- `type` — `APP_DEFINED`, `CONDITION`, `CODE_CONDITION`, `DELAY`, `RATE_LIMIT`; alpha: `SET_VARIABLES`, `SPLIT`. NEVER `UNKNOWN_ACTION_TYPE`, NEVER `MERGE`.
+- `type` — `APP_DEFINED`, `CONDITION`, `CODE_CONDITION`, `DELAY`, `RATE_LIMIT`, `SET_VARIABLES`, `SPLIT` (the last two are not yet in the public API docs, but the builder supports them — [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)). NEVER `UNKNOWN_ACTION_TYPE`, NEVER `MERGE`.
 - `namespace` — 1–100 chars, unique except the shared `setVariable` namespace (§3). Outputs of this step appear under it.
 - `displayName` — optional but always set it: 1–60 chars, sentence case, purpose-specific ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §7). Absent → the canvas shows the catalog name.
 - `skipActionExpression` — absent (runs) or exactly `"{{true}}"` (skipped), the only value the builder writes. A skipped step adds NO outputs downstream (§4).
