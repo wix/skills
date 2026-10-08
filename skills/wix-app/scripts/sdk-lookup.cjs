@@ -194,6 +194,14 @@ function requiredOf(params) {
 }
 
 function paramList(params) {
+  return splitParams(params).map((p) => {
+    const m = p.match(/^(\w+\??)\s*:\s*([\s\S]*)$/);
+    return m ? `${m[1]}: ${shorten(m[2], 40)}` : shorten(p, 40);
+  });
+}
+
+// Splits a parameter list on its top-level commas.
+function splitParams(params) {
   const out = [];
   let depth = 0;
   let cur = '';
@@ -206,16 +214,70 @@ function paramList(params) {
     } else cur += c;
   }
   if (cur.trim()) out.push(cur);
-  return out
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const m = p.match(/^(\w+\??)\s*:\s*([\s\S]*)$/);
-      return m ? `${m[1]}: ${shorten(m[2], 40)}` : shorten(p, 40);
-    });
+  return out.map((p) => p.trim()).filter(Boolean);
 }
 
 const pascal = (s) => s.replace(/(^|[_-])(\w)/g, (_, __, c) => c.toUpperCase());
+
+// The body of `interface Name {…}` or `type Name = {…}`, skipping an empty `{}`.
+function typeBody(sources, name) {
+  const re = new RegExp(`^(?:interface ${name}\\b[^{\\n]*|type ${name}\\s*=\\s*)\\{`, 'gm');
+  for (const src of sources) {
+    for (const m of src.matchAll(re)) {
+      let depth = 0;
+      let i = m.index + m[0].length - 1;
+      for (; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}' && --depth === 0) break;
+      }
+      const body = src.slice(m.index + m[0].length, i);
+      if (body.trim()) return body;
+    }
+  }
+  return null;
+}
+
+// Top-level members of a type body: [{ name, type }], comments dropped.
+function membersOf(body) {
+  const clean = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\$\{[^}]*\}/g, '');
+  const out = [];
+  let depth = 0;
+  for (const line of clean.split('\n')) {
+    const m = depth === 0 && line.match(/^\s*(\w+)\??\s*:\s*(.*)$/);
+    if (m) out.push({ name: m[1], type: m[2] });
+    else if (out.length && depth > 0) out[out.length - 1].type += `\n${line}`;
+    depth += (line.match(/\{/g) ?? []).length - (line.match(/\}/g) ?? []).length;
+  }
+  return out;
+}
+
+// `{ a, b: { c, d }, e: [{ f }] }`: the keys of a type, two levels deep.
+// Named types are followed, except the entity type (its fields are in `type`).
+function typeShape(sources, name, skip, depth = 0) {
+  const body = typeBody(sources, name);
+  return body ? shapeOfBody(sources, body, skip, depth) : null;
+}
+
+function shapeOfBody(sources, body, skip, depth) {
+  const keys = membersOf(body).map(({ name, type }) => {
+    if (depth >= 2) return name;
+    const t = type.trim();
+    const list = /\[\]\s*;?\s*$/.test(t) || /^Array</.test(t);
+    let inner = null;
+    if (t.startsWith('{')) inner = shapeOfBody(sources, t.slice(1, t.lastIndexOf('}')), skip, depth + 1);
+    else {
+      const ref = t.match(/^(?:Array<)?(\w+)/)?.[1];
+      if (ref && !skip.has(ref) && /^[A-Z]/.test(ref)) inner = typeShape(sources, ref, skip, depth + 1);
+    }
+    if (!inner) {
+      const ref = t.match(/^(\w+)(\[\])?/);
+      return ref && skip.has(ref[1]) ? `${name}: ${ref[1]}${ref[2] ?? ''}` : name;
+    }
+    return `${name}: ${list ? `[${inner}]` : inner}`;
+  });
+  if (!keys.length) return null;
+  return `{ ${keys.length > 8 ? [...keys.slice(0, 8), '…'].join(', ') : keys.join(', ')} }`;
+}
 
 function deriveRecord(name, dir) {
   const pj = readJson(path.join(dir, 'package.json'));
@@ -225,6 +287,7 @@ function deriveRecord(name, dir) {
     ? fs.readdirSync(cjs).filter((f) => f.endsWith('.d.ts') && f !== 'meta.d.ts')
     : [];
   const methods = new Map();
+  const rawParams = new Map(); // name -> the declaration's full parameter text
   const events = [];
   let preview = 0;
   let typeAt = null;
@@ -274,8 +337,10 @@ function deriveRecord(name, dir) {
           : prev?.deprecated ?? null,
       };
       // Overloads: keep the richer signature (a query builder beats `other`).
-      if (!prev || (prev.kind === 'other' && kind !== 'other')) methods.set(fn, record);
-      else methods.set(fn, { ...prev, ...Object.fromEntries(Object.entries(record).filter(([, v]) => v != null)), kind: prev.kind, params: prev.params, returns: prev.returns });
+      if (!prev || (prev.kind === 'other' && kind !== 'other')) {
+        methods.set(fn, record);
+        rawParams.set(fn, params);
+      } else methods.set(fn, { ...prev, ...Object.fromEntries(Object.entries(record).filter(([, v]) => v != null)), kind: prev.kind, params: prev.params, returns: prev.returns });
     }
   }
 
@@ -291,6 +356,7 @@ function deriveRecord(name, dir) {
       if (!m) continue;
       const { params, ret } = readDeclaration(src, m.index + m[0].length - 1);
       meth.params = paramList(params);
+      rawParams.set(meth.name, params);
       meth.returns = shorten(ret);
       meth.required = [...new Set([...meth.required, ...requiredOf(params)])];
       break;
@@ -357,6 +423,25 @@ function deriveRecord(name, dir) {
       meth.builder = ops;
       break;
     }
+  }
+
+  // The keys of a search, query or list method's argument and response, so a
+  // caller does not have to find `ContactSearch` (an empty `{}` placeholder in
+  // index.typings.d.ts, the real `type ContactSearch = {` elsewhere).
+  for (const meth of methods.values()) {
+    if (!['search', 'query', 'list'].includes(meth.kind)) continue;
+    const skip = new Set([entityType]);
+    // The first parameter with an object type (`contactId: string` has no keys).
+    for (const p of splitParams(rawParams.get(meth.name) ?? '')) {
+      const m = p.match(/^(\w+)\??\s*:\s*(?:NonNullablePaths<\s*)?([A-Z]\w*)/);
+      const shape = m && typeShape(sources, m[2], skip);
+      if (shape) {
+        meth.arg = `${m[1]}: ${shape}`;
+        break;
+      }
+    }
+    const retType = meth.returns.match(/Promise<(\w+)/)?.[1];
+    if (retType) meth.result = typeShape(sources, retType, skip);
   }
 
   return {
@@ -673,6 +758,8 @@ function renderCandidate(c, intent, rel) {
     if (m.maturity !== 'GA') facts.push(m.maturity.toLowerCase());
     if (m.deprecated) facts.push(`DEPRECATED${m.deprecated.replacedBy ? ` → ${m.deprecated.replacedBy}` : ''}`);
     out.push(`  ${''.padEnd(13)} ${facts.join(' · ')}`);
+    if (m.arg) out.push(`  ${''.padEnd(13)} arg     ${m.arg}`);
+    if (m.result) out.push(`  ${''.padEnd(13)} returns ${m.result}`);
     if (m.filterable) out.push(...renderFilterable(m.filterable).map((l) => `  ${''.padEnd(13)} ${l}`));
     if (m.fqn) out.push(`  ${''.padEnd(13)} fqn ${m.fqn}`);
   }
