@@ -1,0 +1,123 @@
+# The kit's run as Wix API calls
+
+Read when the commands this skill is built on cannot run where you are, or stopped: no shell, no
+file system, a sandbox that blocks the install, the CLI or the login, or a host that only talks to
+Wix through the Wix MCP. It walks the run of SKILL.md step by step and names, for each, the Wix
+API call the CLI or the script performs and the file beside this skill that carries the contract;
+where a script can run where you are, it says so.
+
+## Where these skills are
+
+This skill is one of a set, and the guide reads from three of them:
+
+- `{SKILL_ROOT}` — this skill, `wix-headless-kit`: the run, its guides, the Verticals table.
+- `{TEMPLATES}` — `wix-headless-templates`: the shipped, verified code per Wix Business Solution,
+  one folder each, with its `INSTRUCTIONS.md` (the contracts), `seed/` (the seed script and
+  `SEED.md`) and `rest/` (the data layer over plain `fetch`). Installed beside this skill, or
+  fetched to `{SKILL_ROOT}/templates/`.
+- `{MANAGE}` — `wix-manage`: REST recipes to configure and manage a site's business solutions, one
+  recipe per operation with the exact endpoint and payload; its `SKILL.md` is the index.
+- `{DOCS}` — `wix-docs`: how to look up the Wix API and SDK documentation and confirm a method's
+  exact shape before writing a call.
+
+Installed, they sit beside each other under `.agents/skills/`. Online, they are published alongside
+each other under the same names, each with a manifest of its files, and in the `wix/skills`
+repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the whole set on
+disk from a clone.
+
+What such a run does not produce: the Astro build and its release. Those need a machine with the
+CLI. Everything else the kit does to a site, it does through calls you can make.
+
+## 0. Identity
+
+Every call below runs as the site owner, with whatever identity your host gives you: the Wix
+MCP's `ExecuteWixAPI` carries the user's login; an API key from the user's account goes in the
+`Authorization` header of any call, as `{MANAGE}/SKILL.md` describes; a site token from the Wix CLI
+works the same way when the user runs the CLI for you. The site's OAuth app (`client_id`) mints
+visitor tokens only, which cover what a visitor may see and nothing here.
+
+## 1. The brief → the solutions
+
+Unchanged from SKILL.md step 2 and its Verticals table: the brief names the business, the table
+names the solutions it needs. Read each solution's `{TEMPLATES}/{solution}/INSTRUCTIONS.md` for
+what it covers and `{TEMPLATES}/{solution}/seed/SEED.md` for what a seeded site holds.
+
+## 2. The site
+
+The CLI's `npm create @wix/new` is one call: `POST /headless-business-setup/v1/headless-business/provision`,
+with `origin: agent-<your-id>`, a name, and the solutions to install as `seedOptions`. The recipe
+is `{MANAGE}/references/sites/create-headless-site.md`; it returns the `metaSiteId` and the
+site's OAuth client `appId`. Do not create a site any other way: a project from Create Project or
+a template is neither headless nor publishable, and a later run with a machine cannot attach to it.
+
+A site that already exists (the brief names it) is read first, never seeded unasked: SKILL.md
+step 2 and `{SKILL_ROOT}/guides/existing-site.md` apply as written.
+
+## 3. The apps
+
+A solution the provision call did not install, or a capability's app (Members Area, Forms,
+Restaurants, Donations, FAQ), goes on with the Apps Installer:
+`{MANAGE}/references/app-installation/install-wix-apps.md`. The app ids are in each
+`seed-{solution}.mjs`, which installs them before seeding.
+
+## 4. The seed
+
+`seed-{solution}.mjs` is a sequence of REST calls, and `SEED.md` is its contract: the plan shape
+(what to create, how many, which images), the order the entities need, and the traps the script
+encodes (a Bookings service needs a category to be visible and takes resource ids, not staff ids;
+a Forms field is registered by its `validation` block; a product's choice photos are linked after
+the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
+calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
+the script's rules: create, never delete, and report what the site already held. Image prompts
+need the Media Manager; without it, products and services stay text-only, say so.
+
+## 5. The frontend
+
+The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
+attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
+is static files, dropped onto the site from step 2 through
+`{MANAGE}/references/sites/upload-static-site.md`. Which files depends on whether the compose can
+run.
+
+**When the compose can run** (the skills on disk and Node), the frontend is the kit's own shipped code. The compose
+`{SKILL_ROOT}/install/deploy.mjs {solution} --stack static --out site --client-id {appId}` fetches the
+templates and writes the solution's REST data layer and stores to `site/js/wix/` as plain ES modules
+(`guides/reference-mode.md`, the static site): the transport, the cores, the state machines, verified,
+with the `.ts` beside each `.js` for reading. You write the pages and the rendering on those stores,
+imported relative to `site/` in a `<script type="module">`, and nothing of the data layer. The drop
+takes the complete file set in one call and a response has a hard size limit; the recipe's "Change it
+later" section downloads what the site serves, so a later drop adds files to a live set without
+resending what is already there.
+
+**When it cannot**, a page that loads the Wix SDK from a package CDN and talks to the site as a
+visitor. A few files at most, each written in full before it is dropped; the same size limit and
+the same way to add files to a live set apply. The
+SDK comes from a pinned package URL, `https://esm.sh/@wix/sdk@{version}` and the solution's package
+(`@wix/bookings`, `@wix/stores`, `@wix/blog`, …); the client is
+`createClient({ modules: { … }, auth: OAuthStrategy({ clientId }) })` with the `appId` the provision
+call returned, and the SDK mints and refreshes the visitor token itself. Markup, a render function
+per state, the event handlers: that is what you write. Keep what the page shows to what the site
+holds; nothing invented, as in SKILL.md step 4.
+
+**The calls**, on that second path, take their shape from the kit's own transport for the solution,
+`{TEMPLATES}/{solution}/app/wix/{solution}/*.ts` (`services.ts`, `booking.ts`, `catalog.ts`, …,
+with `{TEMPLATES}/shared/app/wix/sdk.ts` for the client wiring): those files call the same SDK
+modules the page imports, and they are verified. Copy the form of the call, not the file. The
+cores beside them (`*-core.ts`) hold the rules the page needs and nothing else does: which fields
+to read, how a price or a duration is formatted, which slot is bookable, how an id is read.
+
+**A call those files don't cover** is confirmed before it is written, the way `{DOCS}` describes:
+the method's SDK page, and when the page and the package disagree, the package's own type
+declarations (the `@wix/auto_sdk_{solution}_<module>` package the solution package depends on,
+its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
+the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
+and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
+`rawId`). Dates travel as local wall-clock strings in the business time zone. A page cannot be run
+here, so a wrong shape fails silently in the browser; the file beside the skill is the check that is
+available.
+
+## 6. Closing
+
+SKILL.md step 5's closing, with two additions: the site id, so a run with a machine attaches to this
+site (`guides/existing-site.md`) instead of making a new one; and, when files were dropped, that a
+change re-drops the whole set.
