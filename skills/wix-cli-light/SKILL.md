@@ -80,7 +80,10 @@ node scripts/wix-light.mjs create --business-name <name> --folder <name> \
 
 A new folder with the template's files (a local folder, or a shallow git clone when `git` is on
 the machine), then `init` in it. Astro by default, `--static` or `--output` for a static site. No
-dependency install: `project_ready.next` says what to run. Template files are copied as they are.
+dependency install: `project_ready.next` says what to run. Template files are copied as they are,
+so an Astro template must already carry its Wix setup (`@wix/astro`, `@wix/astro-pages` and the
+`@wix/astro-wix-hosting-adapter` in `astro.config`), the way the `wix-headless-templates` skill's
+`<vertical>/project` folders do. The Wix CLI adds that setup to a bare template; this skill does not.
 
 ## release
 
