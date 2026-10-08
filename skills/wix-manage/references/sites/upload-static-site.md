@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL, or edit, build and release it from the site's Dev Machine, a remote shell Wix provides per headless site with the site's code and the Wix CLI logged in, which an agent with no file system of its own drives over HTTPS and keeps working on across conversations). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL, or edit, build and release it from the site's Dev Machine, the remote shell Wix provides per headless site, from a host with no file system of its own). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
@@ -33,28 +33,16 @@ What sets them apart:
   resends all of it. Files travel in the tool's `files` param — text raw, a
   binary file (PNG, JPG, fonts) as base64 — and `wix.multipart()` builds the
   upload body (below). Base64 costs about a third more than the file and every
-  byte is tokens, so it suits small assets (an icon, a logo, a font) and files
-  you downloaded from the site to change; a photo goes in by absolute URL
-  (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
-  4M characters, but your own output is the real limit: a response that
-  carries more than a few KB of base64 gets stopped by the client before the
-  call is sent (an 11 KB image did not get through in testing). **On ChatGPT**,
-  whose file-attachment extension other hosts do not have, the tool's
-  `attachments` param takes the files themselves, any type, up to 10 MB per
-  call: a zip of the whole folder, or the images beside a text
-  bundle. The platform resolves each into a download URL and fetches the
-  bytes; they land in the `files` global as base64 entries named by file
-  name, so nothing crosses your output. Pass every file in one call. Any other
-  host ignores that param, and an attachment that comes back "not resolved"
-  means you are on such a host: do not retry it. There, drop the text files
-  first, so the site is live, then bring images in by URL or one small file at
-  a time through the site's [Dev Machine](#images-and-other-binary-files),
-  never by re-dropping the whole set per batch. The pages go live either way.
-  Images that cannot be carried are not a reason to stop, and the drop page is
-  not their hand-off (it makes another site): the user uploads them in the
-  site's Media Manager, `https://manage.wix.com/dashboard/<metaSiteId>/media-manager`,
-  and in the next turn the site's Dev Machine fetches each by its URL and
-  releases. Say exactly that, with the link, in the closing message.
+  byte is tokens: text and small assets (an icon, a logo, a font) travel this
+  way, a photo goes in by absolute URL (`<img src="https://…">`), and image
+  files that exist only on your side follow the drop through the site's
+  [Dev Machine](#images-and-other-binary-files). The bundle is capped at 4M
+  characters. **On ChatGPT**, the tool's `attachments` param takes the files
+  themselves, any type, up to 10 MB per call, a zip of the folder or the
+  images beside the text bundle: the platform fetches them and they land in
+  the `files` global as base64 entries named by file name. Only ChatGPT
+  resolves that param; an attachment that comes back "not resolved" says the
+  host is another one, and the drop proceeds with the text files.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -76,13 +64,10 @@ Publishing yourself beats the drop page whenever an option fits — the user get
 live site without uploading anything. Never report an upload you couldn't
 perform; whenever a route fails partway, hand over the drop page.
 
-Once the site exists, there is a second way to work on it besides dropping the
-files again: its [Dev Machine](#work-on-the-site-from-its-dev-machine), a remote
-shell Wix provides per headless site, holding the site's code with the Wix CLI
-logged in. A drop resends the whole site; the Dev Machine takes a command. It is
-how a site whose files are no longer in the conversation gets changed, how a
-build or a `wix release` runs when you have no shell, and how an agent with no
-file system keeps working on the same site across conversations.
+Once the site exists, its [Dev Machine](#work-on-the-site-from-its-dev-machine)
+is the second way to work on it: a remote shell Wix provides per headless site,
+with the site's code and the Wix CLI logged in. A drop resends the whole site;
+the machine takes a command.
 
 ## Before the calls
 
@@ -199,10 +184,10 @@ the user two links: `siteUrl`, and its dashboard at
 
 ### Change it later
 
-Two ways to change a published site. **Drop again** (this section) when the full
-file set is at hand. **From the site's [Dev Machine](#work-on-the-site-from-its-dev-machine)**
-when it isn't, when the change is small next to the site, or when the site has
-already been released from there (see [A drop after the machine](#a-drop-after-the-machine)).
+Two ways to change a published site: drop again with the full file set (this
+section), or a command on its [Dev Machine](#work-on-the-site-from-its-dev-machine)
+when the files are not at hand, the change is small next to the site, the site
+needs a build, or it was already released from the machine.
 
 Re-run step 2 on the same `metaSiteId` with the **full** file set: each drop
 replaces the site's files (a file left out is gone), and `siteUrl` stays the same.
@@ -212,12 +197,8 @@ owns that was published this way, including one claimed from an
 find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
 below, matching the site's name or `viewUrl`.
 
-**When you no longer have the files** (a small change to a site from an earlier
-conversation) and the site has no Dev Machine release yet, download what the
-site serves, edit it, and drop the full set back. For adding images to a live
-site, or for a host with no shell, the machine's
-[one file per command](#images-and-other-binary-files) path moves each file once;
-this download-and-redrop pass moves the whole site every time. Leave out `wix.config.json`; the download adds it, and it isn't part of the
+**When you no longer have the files** and the site has no Dev Machine release
+yet, download what the site serves, edit it, and drop the full set back. Leave out `wix.config.json`; the download adds it, and it isn't part of the
 site.
 
 ```bash
@@ -401,22 +382,16 @@ forward.
 A Dev Machine is a remote machine Wix starts for a headless site. It holds the
 site's code and takes shell commands over HTTPS: you send a command line, it runs
 with `bash -c` in the code folder, and you read the exit code and the output.
-Nothing installs on your side. Every command that changes files ends with those
-changes committed and pushed to the site's code store, so the code outlives the
-machine: it ends 3.5 hours after it starts, or after 40 minutes without a call,
-and the next one starts from what the last one pushed.
+Every command that changes files ends with those changes committed and pushed
+to the site's code store, so the code outlives the machine: it ends 3.5 hours
+after it starts or after 40 minutes without a call, and the next one starts
+from what the last one pushed.
 
-For a site published with a drop, the machine starts from the dropped files. They
-sit under `public/` in a minimal Astro project bound to the site
+For a dropped site the machine starts from the dropped files, under `public/`
+in a minimal Astro project bound to the site
 (`wix.config.json` holds its `siteId` and `appId`), with Node, git, ripgrep, the
 Wix CLI logged in for the site, and the Wix Headless skills under
 `.agents/skills/`. `/` serves `public/index.html`, as the drop did.
-
-This is the second way to change a published site, next to a [drop](#change-it-later),
-and the one to take when the files are no longer in the conversation, when the
-change is small next to the site, when the site needs a build, or when you have
-no shell and the user wants to keep working on the site with you across
-conversations. A drop resends the whole site; the Dev Machine takes one command.
 
 Base URL: `https://www.wixapis.com/headless-remote-project`. Every call acts on
 the site the identity is scoped to; no request takes a site id.
@@ -426,7 +401,7 @@ the site the identity is scoped to; no request takes a site id.
 A **site-scoped** token: `npx @wix/cli token --site $META_SITE_ID` (15 minutes;
 run it again after a `403`). In an `ExecuteWixAPI` script, every request carries
 `scope: 'site'` and `siteId: metaSiteId`. The account token the provision and
-drop calls use is refused here (`403 PERMISSION_DENIED`).
+drop use answers `403` here.
 
 ### 1. Get the machine
 
@@ -500,79 +475,61 @@ JSON
 machine shows one commit per such command, its message holding the execution id.
 
 Publish with the Wix CLI from a command: `CI=1 wix build && CI=1 wix release`,
-with `timeoutSeconds` 900 and the poll above. The build writes the output the
-release uploads; `wix release` on its own fails with `BuildOutputMissing`. The
-release goes to the same `siteUrl`; a plain-files site builds and releases in
-under a minute. `CI=1 wix build` alone checks the build without releasing.
-Nothing is live until a release: pushing to the code store saves, it does not
-publish.
+with `timeoutSeconds` 900 and the poll above. The build writes what the release
+uploads, so the two run together; the release goes to the same `siteUrl`, in
+under a minute for a plain-files site. `CI=1 wix build` alone checks the build.
+Pushing to the code store saves; a release publishes.
 
 ### Images and other binary files
 
-This is for a host with no shell to Wix and no file attachments on its tool
-calls. From a shell, `curl -F` streams any file from disk in the
-[drop](#2-drop-the-files--the-site-goes-live) itself; on ChatGPT, the images go
-in the drop call's `attachments` and arrive as bytes; none of this applies to
-either. Without both, bytes on your side reach the site only through a call you
-write, so the rule is to move each file once and small, or not at all:
+From a shell, `curl -F` streams any file from disk in the
+[drop](#2-drop-the-files--the-site-goes-live) itself. On ChatGPT, the images go
+in the drop call's `attachments` and arrive as bytes. On any other host, an
+image reaches the site one of three ways:
 
-- **A file that has a URL is fetched by the machine**, not carried: the machine
-  reaches the public internet. `curl -sSL -o public/assets/hero.jpg "https://…"`
-  in a command, one line per file, then a release. This covers a designer's
-  export, stock photos, the user's current site and anything a Wix API returns
-  by URL (an image generated or imported through the Media Manager).
-- **A file that exists only in the conversation** goes in as base64 you write
-  into a command, and what you write is not reliable past a few KB: measured,
-  a 4 KB chunk arrives intact, a 5.5 KB chunk silently loses characters from
-  its middle, a long repetitive run can come back with two characters
-  swapped at the same length, and a response carrying more than about 10 KB
-  is stopped by the client before the call is sent. A length check does not
-  catch the second kind; a checksum catches all of them. So carry a file this
-  way only with every step of this, in order:
+- **By URL, fetched by the machine.** The machine reaches the public internet:
+  `curl -sSL -o public/assets/hero.jpg "https://…"` in a command, one line per
+  file, then a release. A designer's export, stock photos, the user's current
+  site, an image generated or imported through the Media Manager.
+- **As base64 you write into a command, in chunks, verified.** Base64 in your
+  own output arrives whole up to about 4,000 characters per call and loses or
+  swaps characters beyond that, so:
+  1. Compress when it pays: `gzip -9 -c file | base64 -w0 | wc -c` on your
+     side. A flat graphic shrinks several-fold, a photo barely moves; send the
+     smaller of raw and gzipped.
+  2. Split the base64 into chunks of at most 4,000 characters. Each chunk is
+     one command that appends and reports the file's length, which you check
+     against the total sent so far:
 
-  1. Compress first when it pays: `gzip -9 -c file | base64 -w0 | wc -c` on
-     your side. A flat graphic shrinks several-fold; a photo barely moves.
-     Send whichever is smaller, raw or gzipped.
-  2. Split the base64 into chunks of at most 4,000 characters and send each
-     as its own command that appends: `printf '%s' '<chunk>' >> public/assets/x.b64`.
-     Check the `wc -c` the command prints against the chunk's length before
-     the next one.
-  3. Decode once, `base64 -d public/assets/x.b64 | gunzip > public/assets/x.png`
-     (or without `gunzip`), and `sha256sum` it. Compare with the file's own
-     hash on your side. A mismatch is one chunk gone wrong: find it by
-     hashing prefixes, truncate the `.b64` to before it, resend from there.
-  4. Remove the `.b64` files, then release once at the end, not per file.
+     ```bash
+     curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
+       -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
+       -d @- <<'JSON'
+     {"command":"mkdir -p public/assets && printf '%s' 'H4sIAAAAAAAAA…' >> public/assets/hero.b64 && wc -c < public/assets/hero.b64","waitSeconds":25}
+     JSON
+     ```
+  3. Decode once, `base64 -d public/assets/hero.b64 | gunzip > public/assets/hero.png`
+     (plain `base64 -d` for a raw file), and `sha256sum` it against the file's
+     hash on your side. On a mismatch, find the bad chunk by hashing prefixes,
+     truncate the `.b64` before it and resend from there.
+  4. Remove the `.b64` files and release once at the end.
 
-  Budget it honestly: a 90 KB set of images is about 30 commands and half an
-  hour. That is worth it when the alternative is a shop with no product
-  photos, and the user has not said otherwise; it is not worth it for a
-  photo gallery.
-
-  ```bash
-  curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
-    -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
-    -d @- <<'JSON'
-  {"command":"mkdir -p public/assets && printf '%s' 'H4sIAAAAAAAAA…' >> public/assets/hero.b64 && wc -c < public/assets/hero.b64","waitSeconds":25}
-  JSON
-  ```
-
-- **A set too large to carry that way does not hold the site up.** Release
-  the pages as they are, say which files did not make it, and give the user
-  the way to add them that keeps this site: upload the images in the site's
-  Media Manager (`https://manage.wix.com/dashboard/<metaSiteId>/media-manager`),
-  then, in the next turn, fetch each one by its URL from the machine and
-  release. The [drop page](#the-drop-page) is not that way: it creates another
-  site. Do not retry a call that was cut off with the same payload, and do not
-  loop over download, add a batch, re-drop: each pass resends the whole site.
+  About 30 commands carry 90 KB. A shop's product photos are worth that; a
+  photo gallery is not.
+- **By the user, through the Media Manager**, for a set larger than that.
+  Release the pages as they are, name the files that are not on the site yet,
+  and link `https://manage.wix.com/dashboard/<metaSiteId>/media-manager` in
+  the closing message. In the next turn the machine fetches each by its URL
+  and releases. The drop page creates another site; the Media Manager keeps
+  this one.
 
 ### Later conversations
 
 Within the machine's life, `get-or-create` answers the same machine. After it
 ends, the same call starts a new one from the code store, `seed.origin:
-"CODE_STORE"`, with every change made so far. Nothing to keep on your side but
-the `metaSiteId`. `POST …/v1/code/generate-download-url` with `{}` returns a
-one-hour link to a zip of the code as last pushed (the source, not the built
-site), for a copy on disk.
+"CODE_STORE"`, with every change made so far; the `metaSiteId` is all you keep.
+`POST …/v1/code/generate-download-url` with `{}` returns a one-hour link to a
+zip of the source as last pushed.
 
 ### A drop after the machine
 
@@ -668,17 +625,14 @@ there, and the skills are installed under `.agents/skills/` (`wix-headless-kit`,
 (`node .agents/skills/wix-headless-kit/install/context.mjs` reads the folder as a
 `wix-project`; `deploy.mjs <vertical> --stack astro` adds a solution's shipped
 code and installs its app), the pages you write go in as heredocs, and
-`CI=1 wix build && CI=1 wix release` publishes. Nothing is downloaded and
-nothing is re-uploaded.
+`CI=1 wix build && CI=1 wix release` publishes.
 
 ## Route the request correctly
 
 - **A new site from the user's files** — [Choose the route](#choose-the-route).
 - **A change to a site published this way** — the same site: a
-  [drop](#change-it-later) with the full file set when it's in the user's account,
-  upload + release while it's anonymous, or a command on its
-  [Dev Machine](#work-on-the-site-from-its-dev-machine) when the files are not at
-  hand, the change is small, or the site was already released from there.
+  [drop](#change-it-later) with the full file set or a command on its Dev
+  Machine, as that section decides; upload + release while it's anonymous.
 - **The user wants to keep working on the site with you, from a host with no
   shell or file system** — the [Dev Machine](#work-on-the-site-from-its-dev-machine).
 - **An anonymous site the user wants to keep** — [claim](#claim-it-into-the-users-account)
