@@ -3,7 +3,7 @@ name: "Automations Delays Variables and Branches"
 description: "Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published".
 
 # Special Actions — Delay, Rate Limit, Code Condition, Set Variables, Split, Naming
 

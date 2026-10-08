@@ -144,14 +144,9 @@ payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api
   says which are dynamic); an error means "no dynamic output" — keep the static `outputSchema`.
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
 - **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
-  is AI-backed — don't call it. Actions you can't map from their schema: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
-- **Later stages only — email is outside stage 3:** **Email content of an existing Send an email step** — Get / Set Email Content
-  (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
-  Automation Email Action API, scope _Manage Email Marketing_): Automations Email Actions (not yet published; email configuration is outside stage 3).
-- **Later stages only — email is outside stage 3:** **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
-  `POST https://www.wixapis.com/emails-automations/v1/email-actions/generate-action-input-mapping`.
-  Use returned `appId`, `actionKey`, and opaque `inputMapping` for one new action only.
-  Request and persistence flow: Automations Email Actions (not yet published; email configuration is outside stage 3).
+  is AI-backed — don't call it. Actions you can't map from their schema are outside this stage; explain the limit.
+- **Later stages only — email is outside stage 3:** **Email content of an existing Send an email step** — Get / Set Email Content; procedure in Automations Email Actions (not yet published; email configuration is outside stage 3).
+- **Later stages only — email is outside stage 3:** **New Send an email step** — Generate Action Input Mapping; procedure in Automations Email Actions (not yet published; email configuration is outside stage 3).
 
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
@@ -219,7 +214,7 @@ variables + identity enrichment. Recipe and fetch order: [Automations Graph and 
 **Not public or not available through the general Automations API:**
 
 - **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Site-action generation** → §3 of Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)), [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
+- **Site-action generation** → §3 of Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
   New email initialization is available through its dedicated public API above.
 - **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
   [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)), then Validate Automation.

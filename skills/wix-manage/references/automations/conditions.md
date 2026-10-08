@@ -3,7 +3,7 @@ name: "Automations Conditions"
 description: "Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published".
 
 # Conditions — Visual Conditions and Code Conditions
 
