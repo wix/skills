@@ -10,7 +10,7 @@ This stage supports read-only inspection and creation of inactive, immediate, li
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
-matching `@wix/automations` SDK method. Item Selection (§8) requires a verified client binding. Docs live under
+matching `@wix/automations` SDK method. List Selector Options (§8) has no public base URL yet. Docs live under
 `https://dev.wix.com/docs/api-reference/business-management/automations/` — append `.md` to any
 docs URL to get raw markdown. When a field name here and the docs disagree, the docs win.
 
@@ -44,7 +44,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   write, and use it for every call, read-back and link. If anything points at another site, stop.
 - **Errors**: 401 = token expired/invalid (refresh, don't retry blindly). 403 = missing scope, app
   not installed, or — on Create/Update of an automation that validated — a step the public API
-  can't create (e.g. the code-variable step, Automations Delays Variables and Branches (deferred) §4). A timeout or 5xx is
+  can't create (e.g. the code-variable step, §4 of Automations Delays Variables and Branches (deferred)). A timeout or 5xx is
   **unknown**, not a verdict — retry a bounded number of times.
 
 ## 2. Automations V2 (`automationsV2`) — base `/automations-service/v2/automations`
@@ -215,25 +215,20 @@ Discovery hints:
 Node N may read the trigger payload + each **ancestor**'s output (under its namespace) +
 variables + identity enrichment. Recipe and fetch order: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4.
 
-## 8. Item Selection and APIs with limitations
+## 8. Selector options and APIs with limitations
 
 > **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
 
-**Item Selection is PUBLIC (BETA)** and supports generic provider-based lookups. List Installed
-Providers returns the site's providers (optionally filtered by `tag`); Query Items searches a
-specific `providerKey`, returning item ids/names and paging metadata. The verified service-relative
-paths are `GET /v1/items-selection/installed-providers` and
-`POST /v1/items-selection/{providerKey}/items`; permissions are
-`ITEMS_SELECTION.LIST_INSTALLED_PROVIDERS` and `ITEMS_SELECTION.LIST_ITEMS`, respectively.
-Use a supported public client/MCP binding; the external gateway base and token access remain
-unverified, so do not prepend this catalog's REST base by assumption. Discovery, filters,
-pagination and dependent selections: Automations Item Selection (deferred). Vertical public APIs
-remain valid alternatives.
+**List Selector Options** (Automations Skills API, `POST /v1/list-selector-options`) takes one
+trigger or action and returns its entity fields with the site's selectable ids, parent filters and
+paging already applied. Its public base URL is not listed yet, so do not prepend this catalog's
+REST base by assumption; use a binding your tools expose, a vertical public API, or ask the user.
+Request, statuses and value shapes: Automations Item Selection (deferred).
 
 **Not public or not available through the general Automations API:**
 
 - **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Site-action generation** → Automations Entity and Provider Configuration (deferred) §3, [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
+- **Site-action generation** → §3 of Automations Entity and Provider Configuration (deferred), [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
   New email initialization is available through its dedicated public API above.
 - **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
   Automations Conditions (deferred)), then Validate Automation.
