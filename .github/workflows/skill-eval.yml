@@ -17,6 +17,9 @@ concurrency:
 jobs:
   skill-eval:
     runs-on: ubuntu-latest
+    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
+    # pushed on another branch cannot read them.
+    environment: evalforge
     if: false
     permissions:
       contents: read

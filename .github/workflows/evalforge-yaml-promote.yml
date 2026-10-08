@@ -16,6 +16,9 @@ concurrency:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
+    # pushed on another branch cannot read them.
+    environment: evalforge
     if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository }}
     permissions:
       contents: read

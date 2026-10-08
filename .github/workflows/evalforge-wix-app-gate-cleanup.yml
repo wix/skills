@@ -15,6 +15,9 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    # The EvalForge secrets live in this environment, which only `main` may use, so a workflow
+    # pushed on another branch cannot read them.
+    environment: evalforge
     timeout-minutes: 15
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
