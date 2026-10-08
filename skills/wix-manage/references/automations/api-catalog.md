@@ -185,8 +185,11 @@ offset: N}}})`. Actions: `resolveActions` with small pages; keep only `appId`, `
 5. **Don't sort** — `sort: [{fieldName: "id"}]` fails with `SORT_PARSER_ERROR` on both Resolves.
    Unsorted offset pages can **overlap**: page until `paging.total`, de-duplicate by `appId`+key,
    and count distinct entries. An action or trigger is proven **missing** only after a complete,
-   de-duplicated scan (distinct count = `paging.total`) — otherwise say it wasn't found, not that
-   it doesn't exist. A shortcut: take the `appId` from a related action, then Resolve by `appId`.
+   de-duplicated scan (distinct count = `paging.total`). Report the evidence ("scanned N distinct
+   of `paging.total` N"); without that proof say it was "not found in the installed catalog",
+   never that it is not installed. Either way, list the closest related entries you did find with
+   their returned `appId` + key and what their schemas require — don't omit them. A shortcut:
+   take the `appId` from a related action, then Resolve by `appId`.
 
 Discovery hints:
 

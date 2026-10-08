@@ -165,9 +165,8 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 ### Activation status, activate, deactivate
 
-Follow [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
-locks, preinstalled override ids and revision conflicts. Deactivation does not require repairing
-the configuration.
+Read or change status only as [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) describes; this guide adds no status
+procedure of its own. Deactivation does not require repairing the configuration.
 
 ### Reporting rules
 
