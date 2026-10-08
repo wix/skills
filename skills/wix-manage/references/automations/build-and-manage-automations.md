@@ -94,7 +94,7 @@ For each step load only the matching reference, then:
    **Later stages only — email is outside stage 3:** **Send an email** (`triggered-emails`): initialize EACH new action with Generate Action Input
    Mapping, persist its returned mapping, then use Get / Set Email Content. This also applies
    when adding an email during Update. Existing email content edits do not reinitialize it.
-   Other opaque widgets require their provider API or manual setup ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
+   **Later stages only — not in stage 3:** Other opaque widgets require their provider API or manual setup ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
 3. **Entity ids.** Fields backed by an entity selector take **ids**, never display names. Get
    them through Item Selection or the owning vertical's public API, or ask the user (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
    A failed lookup means _unknown_, not _doesn't exist_.
