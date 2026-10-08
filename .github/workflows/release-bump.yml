@@ -27,6 +27,7 @@ permissions:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    environment: codegen
 
     steps:
       - name: Checkout main
