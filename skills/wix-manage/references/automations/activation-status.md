@@ -20,8 +20,9 @@ Status does not show whether past runs succeeded. There is no separate
   by asking the user to confirm the site and the automation ID. A never-published builder draft is absent
   from Get/Query, but deletion and a replaced preinstalled id can also explain a 404. The first
   update of a preinstalled automation can create an override with a new id; use the mutation's
-  returned id, or Query to find the current automation and confirm its identity. Only suggest
-  an unpublished draft as the cause when the user's builder history supports that explanation.
+  returned id, or Query to find the current automation and confirm its identity. When the
+  user's history supports an unpublished builder draft as the cause, ask the owner to publish or
+  discard it rather than reproducing its edits.
 
 **Activate** (only when the user asks):
 
