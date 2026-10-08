@@ -157,7 +157,7 @@ MUST:
 
 **Code variables are not available through the public API.** The builder's code-variable step (`APP_DEFINED` `wix_automations-data_manipulation_code`, `namespace: "setVariable"`) is not in Resolve Actions, and Create/Update refuse an automation containing a new one (PermissionDenied "Unauthorized automation creation or update") even when Validate says VALID. For a value the panel can't express (regex, splitting, day of year, joining a list, time between dates), in this order: a formula in the consuming field or a SET_VARIABLES step, if the §2 function list covers it; a CODE_CONDITION when the value only decides a branch (it creates fine); a "Generate or analyze text" (`wix_automations-llm_call`) step with an override output schema to extract or compute a text value; otherwise save without it and tell the user to add a code variable in the builder. An existing code variable in an automation you update: leave it untouched and keep its keys.
 
-Variables are transformation, not extraction: they can't pull one element out of an unindexable array — use an LLM text action or a code condition (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §5).
+Variables are transformation, not extraction: they can't pull one element out of an unindexable array — use an LLM text action or a code condition (§5 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
 
 ## 5. SPLIT (alpha) — parallel paths
 

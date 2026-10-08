@@ -24,7 +24,7 @@ This publication is being released in stages. Where a topic guide is not yet pub
 | `id`, `revision`              | Read-only. `revision` MUST be sent back on Update Automation (§6).                                                                               |
 | `name`                        | Required, 1–100 chars (API allows 500; the builder holds 100); the business outcome ("Send welcome email to new subscribers").                   |
 | `description`                 | Optional, ≤2000 chars.                                                                                                                           |
-| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4). |
+| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks ([Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)). |
 | `settings`                    | Locks for APPLICATION/PREINSTALLED (`readonly`, `actionSettings`, …). Never set it on create; on Update send it back exactly as fetched.         |
 | `configuration.status`        | Required, `ACTIVE` \| `INACTIVE`. Create `INACTIVE`; activate only on request.                                                                   |
 | `configuration.trigger`       | `{appId, triggerKey, filters[], scheduledEventOffset?, overrideSchema?, automationConfigMapping?}` — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration).                                |
@@ -254,7 +254,7 @@ Why it's valid: one parentless root; ≤1 id per connection; one parent each; id
 
 Create `INACTIVE` (your "draft"); activate only on request. Create procedure and read-back: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
 
-**Update:** Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Locks: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4.
+**Update:** Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Locks: [Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence).
 
 ## 7. Pre-validate self-check (do in code)
 

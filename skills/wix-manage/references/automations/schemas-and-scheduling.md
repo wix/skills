@@ -185,4 +185,4 @@ For triggers whose payload has a date-time field with `futureDate: true` (e.g. s
 
 ## 6. Custom API ("site") actions
 
-Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §1). Leave an existing one's `inputMapping` untouched.
+Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation (§1 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Leave an existing one's `inputMapping` untouched.

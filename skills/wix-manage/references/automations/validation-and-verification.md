@@ -33,7 +33,7 @@ Semantic review (you, not code) — required for every action before acceptance;
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails (later stages only — email is outside stage 3) the audience fields decide (Automations Email Actions (not yet published; email configuration is outside stage 3) §3).
+  it; for emails (later stages only — email is outside stage 3) the audience fields decide (§3 of Automations Email Actions (not yet published; email configuration is outside stage 3)).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -88,7 +88,7 @@ field to silence an error):
 - `NOT_FOUND`, `INVALID_ACTION_KEY`, `APP_NOT_INSTALLED`, `MODERATION_MISMATCH` — not available
   on this site → re-resolve; pick another action or tell the user.
 - `DEPRECATED` — the builder shows "Action will be removed soon" → use its replacement
-  (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2).
+  (§2 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
 - `INVALID_MAPPING` → remove keys not in the effective schema; re-fetch the dynamic input schema.
 - `MAPPING_TYPE_MISMATCH` → convert (`toString`, `toNumber`), map another field, or build the
   object shape (e.g. MONEY).
@@ -132,11 +132,11 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` so a complete-object update preserves
    trigger/action override schemas. Check `origin` and `settings` locks
-   (Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4) before planning any change.
+   ([Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)) before planning any change.
 2. Change only what was asked, on the current object. Keep ids of untouched nodes.
 3. §4 checklist + full Validate on the merged object.
 4. If the automation is `ACTIVE`, the update goes live immediately — say so and get confirmation
-   first (consent rules: Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §4).
+   first (consent rules: [Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)).
 5. Update with the whole merged automation, the `revision` you read, and `origin` + `settings`
    exactly as fetched (else `INVALID_ORIGIN_TYPE`, even with a field mask — [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2).
    On a revision conflict, re-Get, re-apply, re-validate.
@@ -213,7 +213,7 @@ this list is the union; run those too for the node types you used.
 7. Scheduled / future-date configuration and `scheduledEventOffset` match
    [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling).
 
-**Actions** — [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)), Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §2
+**Actions** — [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration), Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)), §2 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
@@ -270,3 +270,38 @@ automations. It is not a dry run.
 - The response is an `activationId`: report "started" — not completed or succeeded — and tell
   the user to check the run's results in the automation's activity view in the Wix dashboard.
   Do not rerun the test to confirm it ran.
+
+
+## Update restrictions
+
+Before any update: Get Automation, read `origin`, `settings`, `configuration.status`, `revision`.
+
+Locks apply only to `origin` `APPLICATION` / `PREINSTALLED` (a `USER` automation has none):
+
+- **Fully read-only** — `settings.readonly === true`: nothing can change; every action counts as
+  read-only and permanent.
+- **Trigger locked** — `settings.triggerSettings` absent, or
+  `.disableConfigurationModification === true`: no trigger or filter changes. These are internal
+  fields public responses may omit, so for these origins **assume the trigger is locked**.
+- **Read-only actions** — id ∈ `settings.actionSettings.readonlyActionIds`: can't edit them.
+- **Permanent actions** — id ∈ `settings.actionSettings.permanentActionIds`: can't delete them or
+  change their `skipActionExpression`.
+- **Last action** — always: can't delete the last remaining action.
+- **No new action nodes** — always for these origins: only new CONDITION and DELAY nodes may be
+  added — no new app actions, variables or splits. `actionSettings.disableConditionAddition` /
+  `disableDelayAddition` (internal, may be missing) forbid those too; if an Update or the builder
+  rejects a new condition/delay, report the lock instead of retrying.
+- **No status change** — `settings.disableStatusChange`: can't activate/deactivate.
+- **No delete** — `settings.disableDelete`: can't delete the automation.
+- Send `settings` back exactly as fetched; never edit it to lift a lock.
+
+Explain what's locked and why (installed by Wix or an app), say what IS editable, never work around a lock.
+
+Every update:
+
+- **Live edits**: if `status` is `ACTIVE`, Update Automation changes the running automation immediately. Tell the user and confirm before writing. (Or offer: deactivate, edit, re-activate.) If the request already contains that consent ("it's live, change it anyway"), don't ask again — record in your answer that it was a live edit made on their stated consent.
+- **Procedure** (builder edits published or discarded first → Get → merge → Validate → Update with the current `revision`, `origin`, `settings` → read-back; revision conflict → re-Get, re-merge, re-validate): [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3.
+- Touch only what was asked; keep untouched nodes, ids, namespaces and SPLIT paths exactly as they are. A new step's namespace number = 1 + the largest number among the steps that REMAIN ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §3): numbers of removed steps are not reserved, so removing the highest-numbered step frees its number for the next new step. Re-point or remove every `var()` that read a removed step before reusing its namespace. The single-parent tree rules still apply to any restructuring.
+- Re-verify every entity and field the change touches — they may have been renamed or deleted since creation.
+- **Later stages only — email is outside stage 3:** **Email content of an existing step** (subject, preview text, body text — "add the phone number to the email") → edit it in place with Get / Set Email Content (§3 of Automations Email Actions (not yet published; email configuration is outside stage 3)), after the user's OK: it goes live immediately. Recipient or design changes → the user does them in the email editor (site-owner audience: the one allowed edit). Do not initialize or recreate an existing step for content-only changes. Adding a distinct new email uses Generate Action Input Mapping, subject to the origin's new-node restrictions.
+- **Deleting a node needs the user's explicit OK**: name the nodes you'll remove (recreating an email creates a different content resource, not restoration) and get a yes before the Update. Then connect its parent to its child and fix or ask about any downstream `var()` that read its outputs.
