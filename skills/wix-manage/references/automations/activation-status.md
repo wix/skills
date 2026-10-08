@@ -9,9 +9,11 @@ An automation's current state is `configuration.status`: ACTIVE is eligible for 
 events; INACTIVE is not. Neither value proves that a historical run succeeded or that a
 pending activation has stopped.
 
-1. Resolve the requested name within the selected site with Query Automations. If several
-   match, ask which one; do not choose arbitrarily. If none match, say so and ask the user to
-   check the name or site; never guess an ID. If the ID is already supplied, go to Get.
+1. Resolve the requested name with one Query Automations call filtered by that exact name
+   (below); don't page through other automations. If the ID is already supplied, go to Get.
+   If several match, open your answer by listing each match's full returned ID and asking
+   which one the user means; don't report a single status. If none match, say so and ask the
+   user to check the name or site; never guess an ID.
 2. Get the matching returned ID and read `configuration.status`.
 3. Answer briefly and completely in one reply. Start with the automation's exact name, its
    returned ID and ACTIVE/INACTIVE from that response, then say what it means for new trigger
