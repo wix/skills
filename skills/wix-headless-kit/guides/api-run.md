@@ -69,7 +69,10 @@ a Forms field is registered by its `validation` block; a product's choice photos
 the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. Image prompts
-need the Media Manager; without it, products and services stay text-only, say so.
+need the Media Manager; without it, products and services stay text-only, say so. The scripts read
+a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
+is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
+a paid image.
 
 ## 5. The frontend
 
