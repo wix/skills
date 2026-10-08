@@ -52,8 +52,11 @@ describe('EvalForge YAML Gate Workflow', () => {
   });
 
   describe('Trigger Configuration', () => {
-    it('triggers on pull_request events', () => {
-      expect(workflowContent).toContain('on:\n  pull_request:');
+    // pull_request_target, so the workflow file and the action come from main: under pull_request
+    // a branch could rewrite either and run it with the gate's secrets.
+    it('triggers on pull_request_target, not pull_request', () => {
+      expect(workflowContent).toContain('on:\n  pull_request_target:');
+      expect(workflowContent).not.toMatch(/^  pull_request:$/m);
     });
 
     it('targets main branch', () => {
@@ -78,8 +81,26 @@ describe('EvalForge YAML Gate Workflow', () => {
   });
 
   describe('Action Invocation', () => {
-    it('uses evalforge-yaml-gate action', () => {
-      expect(workflowContent).toContain('./.github/actions/evalforge-yaml-gate');
+    it('runs the action from the base checkout, never the PR', () => {
+      expect(workflowContent).toContain('uses: ./.action-src/.github/actions/evalforge-yaml-gate');
+      expect(workflowContent).not.toContain('uses: ./.github/actions/');
+    });
+
+    it('checks out the PR merge ref as data, without persisting credentials', () => {
+      expect(workflowContent).toContain('ref: refs/pull/${{ github.event.pull_request.number }}/merge');
+      expect(workflowContent).toContain('persist-credentials: false');
+    });
+
+    it('takes the action from main\'s head and waits for the merge ref to include this head', () => {
+      expect(workflowContent).toContain('ref: ${{ github.sha }}');
+      expect(workflowContent).not.toContain('ref: ${{ github.event.pull_request.base.sha }}');
+      expect(workflowContent).toContain('name: Wait for the merge ref to include this head');
+    });
+
+    // Its check run already lands on the PR head; a status of its own would show the gate twice.
+    it('posts no commit status of its own', () => {
+      expect(workflowContent).not.toContain('statuses: write');
+      expect(workflowContent).not.toContain('createCommitStatus');
     });
 
     it('passes evalforge credentials', () => {

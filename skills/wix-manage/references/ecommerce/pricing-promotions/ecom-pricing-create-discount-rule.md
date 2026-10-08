@@ -129,10 +129,10 @@ These checks guard every discount creation (rule **or** coupon). Run them before
 - **Time overlap** — overlapping `activeTimeInfo` on the same scope (`existingStart < newEnd AND existingEnd > newStart`) → warn about the overlap window.
 - **Cross-mechanism (automatic + coupon)** — automatic discounts and coupons both apply at checkout. If creating a rule, query active coupons on overlapping scope (and vice-versa); warn with the combined effective discount. (Only one coupon per checkout, but automatic rules are unlimited.)
 
-**Margin / sanity:**
+**Margin / plausibility:**
 - **Global cap** — default max discount **25%**; flag anything higher (proceed only on explicit request).
 - **Minimum margin** — default floor **15%**; if cost data is available, `effective_margin = (price − cost − discount_amount) / price × 100` must stay ≥ 15% (block + explain otherwise).
-- **% sanity** — > 50% warn (show a $100 → $(100−pct) example); = 100% block unless confirmed ("makes the product free"); > 100% always block.
+- **% plausibility** — > 50% warn (show a $100 → $(100−pct) example); = 100% block unless confirmed ("makes the product free"); > 100% always block.
 - **Stacking margin** — when a new discount overlaps existing active ones, evaluate the *combined* discount against the cap and margin floor, not just the new one in isolation.
 
 | Scenario | Action |
