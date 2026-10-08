@@ -9,19 +9,16 @@
 // entity type's declaration (file:line) for checking fields, and any curated
 // rule from sdk-curated.json.
 //
-// Each @wix/auto_sdk_* package is one record. A package that ships
-// sdk-index.json supplies the record; otherwise it is derived from the
-// package's .d.ts JSDoc tags (@fqn, @permissionId, @applicableIdentity, ...),
-// which every generated package carries.
+// Each @wix/auto_sdk_* package is one record, derived from the package's .d.ts
+// files: the JSDoc tags (@fqn, @permissionId, @permissionScopeId, ...), the
+// public call signatures and the search and query specs, which every
+// generated package carries.
 //
 // Exit codes: 0 every entity found · 1 an entity matched nothing (near matches
 // printed) · 3 an entity's package is not installed (install command printed)
 // · 2 usage.
 const fs = require('fs');
 const path = require('path');
-
-const INDEX_FILE = 'sdk-index.json';
-const INDEX_SCHEMA = 1;
 
 const INTENTS = {
   search: ['search', 'query-builder', 'query', 'list'],
@@ -266,6 +263,8 @@ function deriveRecord(name, dir) {
         params: paramList(params),
         returns: shorten(ret),
         permission: tags(doc, 'permissionId')[0] ?? prev?.permission,
+        // Only events carry @permissionScopeId today; methods get it if the SDK adds it.
+        scopes: [...new Set([...(prev?.scopes ?? []), ...tags(doc, 'permissionScopeId')])],
         identities: [...new Set([...(prev?.identities ?? []), ...tags(doc, 'applicableIdentity')])],
         admin: /@adminMethod\b/.test(doc) || !!prev?.admin,
         required: [...new Set([...(prev?.required ?? []), ...requiredOf(params)])],
@@ -361,7 +360,6 @@ function deriveRecord(name, dir) {
   }
 
   return {
-    schemaVersion: INDEX_SCHEMA,
     package: name,
     version: pj.version,
     fqdn: dep.fqdn ?? null,
@@ -408,51 +406,6 @@ function httpOf(metaFile) {
   return out;
 }
 
-// A shipped sdk-index.json wins field by field; the derived record fills gaps,
-// so an older or partial index never hides what the .d.ts files say.
-function loadRecord(name, dir) {
-  const derived = deriveRecord(name, dir);
-  const file = path.join(dir, INDEX_FILE);
-  if (!fs.existsSync(file)) return { ...derived, source: 'derived' };
-  let shipped;
-  try {
-    shipped = readJson(file);
-  } catch {
-    return { ...derived, source: 'derived', warning: `${INDEX_FILE} is not valid JSON` };
-  }
-  const warning =
-    shipped.schemaVersion > INDEX_SCHEMA
-      ? `${INDEX_FILE} schemaVersion ${shipped.schemaVersion} is newer than this lookup (${INDEX_SCHEMA}); unknown fields ignored`
-      : undefined;
-  const byName = new Map((shipped.methods ?? []).map((m) => [m.name, m]));
-  const methods = derived.methods.map((m) => {
-    const s = byName.get(m.name);
-    const merged = { ...m, ...stripNull(s) };
-    // Field by field, so a field one source lacks (the docs omit `name.full`
-    // from contacts' searchable list) never hides one the other has.
-    if (m.filterable && s?.filterable) merged.filterable = mergeFilterable(m.filterable, s.filterable);
-    return merged;
-  });
-  for (const [n, m] of byName) if (!methods.some((x) => x.name === n)) methods.push(m);
-  const merged = { ...derived, ...stripNull({ ...shipped, methods: undefined }), methods, source: 'shipped', indexFile: file, warning };
-  if (merged.type?.file && !path.isAbsolute(merged.type.file)) {
-    merged.type = { ...merged.type, file: path.join(dir, merged.type.file) };
-  }
-  return merged;
-}
-
-function mergeFilterable(a, b) {
-  const out = {};
-  for (const [k, f] of [...Object.entries(a), ...Object.entries(b)]) {
-    const e = (out[k] ??= { ops: [], sort: false, search: false });
-    e.ops = [...new Set([...e.ops, ...(f.ops ?? [])])];
-    e.sort = e.sort || !!f.sort;
-    e.search = e.search || !!f.search;
-  }
-  return out;
-}
-
-const stripNull = (o) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v != null));
 
 // --- matching and ranking ----------------------------------------------------
 
@@ -525,7 +478,7 @@ function lookup(term, intent, pkgs, curated) {
     return { term, status: 'unknown', near: nearMatches(term, pkgs), related: related.map(label), rules };
   }
 
-  const candidates = primary.map((c) => ({ ...c, record: loadRecord(c.name, c.entry.dir) }));
+  const candidates = primary.map((c) => ({ ...c, record: deriveRecord(c.name, c.entry.dir) }));
   const reasons = new Map();
   const why = (c, r) => reasons.set(c, [...(reasons.get(c) ?? []), r]);
   for (const c of candidates) {
@@ -721,8 +674,7 @@ function renderCandidate(c, intent, rel) {
     if (m.deprecated) facts.push(`DEPRECATED${m.deprecated.replacedBy ? ` → ${m.deprecated.replacedBy}` : ''}`);
     out.push(`  ${''.padEnd(13)} ${facts.join(' · ')}`);
     if (m.filterable) out.push(...renderFilterable(m.filterable).map((l) => `  ${''.padEnd(13)} ${l}`));
-    if (m.docs) out.push(`  ${''.padEnd(13)} docs ${m.docs}`);
-    else if (m.fqn) out.push(`  ${''.padEnd(13)} fqn ${m.fqn}`);
+    if (m.fqn) out.push(`  ${''.padEnd(13)} fqn ${m.fqn}`);
   }
   const others = r.methods.filter((m) => !shown.includes(m)).map((m) => m.name);
   if (others.length && intent !== 'all') {
@@ -735,8 +687,7 @@ function renderCandidate(c, intent, rel) {
     out.push(`  events: ${r.events.map((e) => e.name).join(', ')}`);
   }
   if (r.type) out.push(`  type ${r.type.name}  ${rel(r.type.file)}:${r.type.line}`);
-  out.push(`  source: ${r.source === 'shipped' ? rel(r.indexFile) : 'derived from .d.ts (no sdk-index.json)'} · ${r.package}@${r.version}`);
-  if (r.warning) out.push(`  warning: ${r.warning}`);
+  out.push(`  package ${r.package}@${r.version}`);
   return out;
 }
 
@@ -786,4 +737,4 @@ function main(argv) {
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
 
-module.exports = { findPackages, deriveRecord, loadRecord, lookup, loadCurated, mergeFilterable, INDEX_FILE, INDEX_SCHEMA };
+module.exports = { findPackages, deriveRecord, lookup, loadCurated };
