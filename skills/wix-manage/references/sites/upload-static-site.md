@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL, or edit, build and release it from the site's Dev Machine, a remote shell Wix provides per headless site with the site's code and the Wix CLI logged in, which an agent with no file system of its own drives over HTTPS and keeps working on across conversations). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
@@ -57,6 +57,14 @@ of your reach, or nothing above fits — D.
 Publishing yourself beats the drop page whenever an option fits — the user gets a
 live site without uploading anything. Never report an upload you couldn't
 perform; whenever a route fails partway, hand over the drop page.
+
+Once the site exists, there is a second way to work on it besides dropping the
+files again: its [Dev Machine](#work-on-the-site-from-its-dev-machine), a remote
+shell Wix provides per headless site, holding the site's code with the Wix CLI
+logged in. A drop resends the whole site; the Dev Machine takes a command. It is
+how a site whose files are no longer in the conversation gets changed, how a
+build or a `wix release` runs when you have no shell, and how an agent with no
+file system keeps working on the same site across conversations.
 
 ## Before the calls
 
@@ -162,6 +170,11 @@ the user two links: `siteUrl`, and its dashboard at
 `https://manage.wix.com/dashboard/{metaSiteId}`.
 
 ### Change it later
+
+Two ways to change a published site. **Drop again** (this section) when the full
+file set is at hand. **From the site's [Dev Machine](#work-on-the-site-from-its-dev-machine)**
+when it isn't, when the change is small next to the site, or when the site has
+already been released from there (see [A drop after the machine](#a-drop-after-the-machine)).
 
 Re-run step 2 on the same `metaSiteId` with the **full** file set: each drop
 replaces the site's files (a file left out is gone), and `siteUrl` stays the same.
@@ -352,6 +365,188 @@ Failures come back as HTTP 400 with a code in `details.applicationError.code`:
 [drop page](#the-drop-page).** Never leave them with a failed publish and no way
 forward.
 
+## Work on the site from its Dev Machine
+
+A Dev Machine is a remote machine Wix starts for a headless site. It holds the
+site's code and takes shell commands over HTTPS: you send a command line, it runs
+with `bash -c` in the code folder, and you read the exit code and the output.
+Nothing installs on your side. Every command that changes files ends with those
+changes committed and pushed to the site's code store, so the code outlives the
+machine: it ends 3.5 hours after it starts, or after 40 minutes without a call,
+and the next one starts from what the last one pushed.
+
+For a site published with a drop, the machine starts from the dropped files. They
+sit under `public/` in a minimal Astro project bound to the site
+(`wix.config.json` holds its `siteId` and `appId`), with Node, git, ripgrep, the
+Wix CLI logged in for the site, and the Wix Headless skills under
+`.agents/skills/`. `/` serves `public/index.html`, as the drop did.
+
+This is the second way to change a published site, next to a [drop](#change-it-later),
+and the one to take when the files are no longer in the conversation, when the
+change is small next to the site, when the site needs a build, or when you have
+no shell and the user wants to keep working on the site with you across
+conversations. A drop resends the whole site; the Dev Machine takes one command.
+
+Base URL: `https://www.wixapis.com/headless-remote-project`. Every call acts on
+the site the identity is scoped to; no request takes a site id.
+
+### Identity
+
+A **site-scoped** token: `npx @wix/cli token --site $META_SITE_ID` (15 minutes;
+run it again after a `403`). In an `ExecuteWixAPI` script, every request carries
+`scope: 'site'` and `siteId: metaSiteId`. The account token the provision and
+drop calls use is refused here (`403 PERMISSION_DENIED`).
+
+### 1. Get the machine
+
+```bash
+curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/get-or-create" \
+  -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
+
+```json
+{ "devMachine": { "id": "48b50cf1-02c8-4a70-8088-ddd106e76519", "status": "PROVISIONING",
+    "seed": { "origin": "STATIC_SITE" }, "expirationDate": "2026-10-08T16:44:55.138Z",
+    "codeBehindLiveSite": false } }
+```
+
+Returns at once. While `status` is `PROVISIONING`, call again every 5 to 10
+seconds until it is `READY` (about a minute for a dropped site, up to 5).
+`seed.origin` says where the code came from: `STATIC_SITE` is the dropped files,
+`CODE_STORE` is what an earlier machine pushed. The site has one machine, shared
+by every caller; a `READY` answer with an id you already know is the machine you
+were using.
+
+### 2. Run a command
+
+```bash
+curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
+  -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"command":"ls public && git log --oneline | head -3","waitSeconds":25}'
+```
+
+```json
+{ "execution": { "id": "e7fafade-7617-4e81-8cef-f8dd59c63754", "status": "COMPLETED",
+    "shellResult": { "exitCode": 0, "timedOut": false, "stdout": "assets\nindex.html\n…", "stderr": "" },
+    "codeRevision": "955df0f45150daa45f4a5e12eb1715f54fa55ff2" } }
+```
+
+The body takes `command` (run with `bash -c` in the code folder), `cwd` (relative
+to it), `env`, `timeoutSeconds` (default 600, up to 1800), `waitSeconds` (0 to 25:
+how long the call waits for the command to end before answering) and
+`outputTailLength` (the last characters of each stream, default 20,000, up to
+250,000; `stdoutTruncated` says the beginning was cut).
+
+`status` says whether the command was handled to its end and its changes pushed;
+`shellResult` says what the command did. A non-zero exit and a timeout are both
+`COMPLETED`: read `exitCode` and `timedOut`, not `status`. A command still
+`RUNNING` when the wait runs out (a build, a release) is read by its id:
+
+```bash
+curl -sS "https://www.wixapis.com/headless-remote-project/v1/executions/$EXECUTION_ID?waitSeconds=25" \
+  -H "Authorization: $SITE_TOKEN"
+```
+
+Keep `execution.id`: nothing lists executions, and a lost id is a lost result.
+`POST …/v1/executions/$EXECUTION_ID/cancel` with `{}` stops a running one.
+
+### Edit, check, publish
+
+A change is a command that writes the file: `sed -i` for a line, a heredoc for a
+whole file, several files in one command when they belong together. Nothing is
+resent, and the files the command did not touch stay as they were:
+
+```bash
+curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
+  -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
+  -d @- <<'JSON'
+{"command":"cat > public/about.html <<'HTML'\n<!doctype html><html><head><title>About</title><link rel=\"stylesheet\" href=\"assets/styles.css\"></head>\n<body><h1>About Northwind Studio</h1></body></html>\nHTML\nsed -i 's|</body>|<p><a href=\"about.html\">About</a></p></body>|' public/index.html && grep -c about public/index.html",
+ "waitSeconds":25}
+JSON
+```
+
+`codeRevision` moves on every command that changed a file; `git log` on the
+machine shows one commit per such command, its message holding the execution id.
+
+Publish with the Wix CLI from a command: `CI=1 wix release`, with
+`timeoutSeconds` 900 and the poll above. It builds the project and releases it to
+the same `siteUrl`; a plain-files site builds and releases in under a minute.
+`CI=1 wix build` alone checks the build without releasing. Nothing is live
+until a release: pushing to the code store saves, it does not publish.
+
+### Later conversations
+
+Within the machine's life, `get-or-create` answers the same machine. After it
+ends, the same call starts a new one from the code store, `seed.origin:
+"CODE_STORE"`, with every change made so far. Nothing to keep on your side but
+the `metaSiteId`. `POST …/v1/code/generate-download-url` with `{}` returns a
+one-hour link to a zip of the code as last pushed (the source, not the built
+site), for a copy on disk.
+
+### A drop after the machine
+
+Once the site has been released from its Dev Machine, change it from there. A
+drop still works, and replaces the live site with the dropped files; the live
+machine keeps its own code, `get-or-create` then reports `codeBehindLiveSite:
+true`, and a release from it puts the machine's code back over the drop. A
+machine started after this one ends begins from the dropped files, with the
+earlier code kept in the git history. One path per site, and say which one when
+you hand over.
+
+### Errors
+
+A `428` carries its code in `details.applicationError.code`:
+
+| Code | Meaning |
+| --- | --- |
+| `DEV_MACHINE_NOT_READY`, `DEV_MACHINE_NOT_FOUND` (on a command) | The machine is still starting, or ended. Back to [get the machine](#1-get-the-machine). |
+| `DEV_MACHINE_SETUP_FAILED` | The last machine failed to set up; `data.retryDate` says when `get-or-create` starts a new one. |
+| `SITE_SOURCE_UNAVAILABLE` | Wix holds no code that matches the live site: a headless site released from a project elsewhere (a laptop, CI) with nothing in the code store. Work in that project. A dropped site always has its source. |
+| `SITE_CONNECTED_TO_GITHUB` | The site's code lives in a GitHub repository (`wix connect`). Work there. |
+| `COMPANION_APP_NOT_FOUND` | Not a headless site made by the provision call. |
+
+A `404 EXECUTION_NOT_FOUND` is an id the site does not have, or one older than 7
+days. A `503` is temporary: call again. An execution that ends `FAILED` with
+`error.code` `PERSIST_FAILED` ran its command but could not push: `error.reason`
+names the cause (`HISTORY_DIVERGED`, `NOT_ON_MAIN`, `GIT_OPERATION_IN_PROGRESS`
+are fixed with git from a command; `CREDENTIALS_EXPIRED`, `CODE_STORE_UNAVAILABLE`
+and `PERSIST_TIMEOUT` pass, and any command, even `true`, pushes what is pending).
+Leave the repository on `main` with nothing in progress after every command.
+
+### In an ExecuteWixAPI script
+
+One script does the whole loop; the only things that cross the conversation are
+the command and its output tail. `metaSiteId` is the id from the provision
+response, or from the [Query Sites](#claim-it-into-the-users-account) call for a
+site from an earlier conversation.
+
+```javascript
+async function run() {
+  const base = 'https://www.wixapis.com/headless-remote-project';
+  const site = { scope: 'site', siteId: metaSiteId };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let machine;
+  for (let i = 0; i < 40; i++) {
+    machine = (await wix.request({ ...site, method: 'POST', url: `${base}/v1/dev-machines/get-or-create`, body: {} })).data.devMachine;
+    if (machine.status === 'READY') break;
+    await sleep(8000);
+  }
+  let execution = (await wix.request({ ...site, method: 'POST', url: `${base}/v1/dev-machines/execute-command`,
+    body: { command: "sed -i 's/Welcome to Bloom Cafe/Bloom Cafe — Now Open/' public/index.html && CI=1 wix release 2>&1 | tail -5",
+            timeoutSeconds: 900, waitSeconds: 25 } })).data.execution;
+  while (execution.status === 'RUNNING') {
+    execution = (await wix.request({ ...site, method: 'GET', url: `${base}/v1/executions/${execution.id}?waitSeconds=25` })).data.execution;
+  }
+  return { machine: machine.id, status: execution.status, exitCode: execution.shellResult?.exitCode,
+           tail: execution.shellResult?.stdout, stderr: execution.shellResult?.stderr };
+}
+```
+
+A whole file goes in as a heredoc inside `command`, written out plainly: quotes,
+backticks and `${}` in it are shell text, not JavaScript. Keep `outputTailLength`
+at the default unless you need more of a log: the output comes back into the
+conversation.
+
 ## Keep building: add a backend when you need one
 
 The headless skill, `https://wix.com/headless/skill.md`, builds and releases a
@@ -373,15 +568,31 @@ unzip project.zip -d project      # the site's files + wix.config.json
 Then follow the headless skill from that folder: it turns the files into a
 headless project bound to the same site, released with the Wix CLI from then on.
 
+**Without a shell of your own**, the site's [Dev Machine](#work-on-the-site-from-its-dev-machine)
+is that folder: the dropped site is already a Wix project bound to the site
+there, and the skills are installed under `.agents/skills/` (`wix-headless-kit`,
+`wix-headless-templates`, `wix-docs`, `wix-manage`, `wix-headless`). Read
+`.agents/skills/wix-headless-kit/SKILL.md` from a command (`cat`, with a larger
+`outputTailLength`) and follow it with commands: its scripts run on the machine
+(`node .agents/skills/wix-headless-kit/install/context.mjs` reads the folder as a
+`wix-project`; `deploy.mjs <vertical> --stack astro` adds a solution's shipped
+code and installs its app), the pages you write go in as heredocs, and
+`CI=1 wix release` publishes. Nothing is downloaded and nothing is re-uploaded.
+
 ## Route the request correctly
 
 - **A new site from the user's files** — [Choose the route](#choose-the-route).
-- **A change to a site published this way** — the same site, full file set: a
-  [drop](#change-it-later) when it's in the user's account, upload + release while
-  it's anonymous.
+- **A change to a site published this way** — the same site: a
+  [drop](#change-it-later) with the full file set when it's in the user's account,
+  upload + release while it's anonymous, or a command on its
+  [Dev Machine](#work-on-the-site-from-its-dev-machine) when the files are not at
+  hand, the change is small, or the site was already released from there.
+- **The user wants to keep working on the site with you, from a host with no
+  shell or file system** — the [Dev Machine](#work-on-the-site-from-its-dev-machine).
 - **An anonymous site the user wants to keep** — [claim](#claim-it-into-the-users-account)
   it, else the save link.
-- **A site that now needs a backend** — [Keep building](#keep-building-add-a-backend-when-you-need-one).
+- **A site that now needs a backend** — [Keep building](#keep-building-add-a-backend-when-you-need-one),
+  on the Dev Machine when you have no shell.
 - **Migrating a live site/store from another platform by URL, or CSV/TSV
   exports** — [Site Import](site-import.md).
 - **Adding HTML, an embed, or code to an existing Wix site** — not this recipe

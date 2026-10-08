@@ -1,0 +1,88 @@
+name: sites/upload-static-site-dev-machine
+description: >-
+  Verifies that when a user wants a pasted page published and then kept editable from the
+  conversation without pasting the file again, the agent publishes it once (provision + drop on one
+  metaSiteId) and makes the follow-up change from the site's Dev Machine: get-or-create on
+  headless-remote-project with a site-scoped identity, polled to READY, the edit as a shell
+  command (sed or a heredoc), `CI=1 wix release` from a command, the execution polled to
+  COMPLETED and its exitCode read. Guards against a second site for the change, against
+  re-dropping the whole page when the user asked not to resend it, against treating a non-zero
+  exitCode as success because the execution is COMPLETED, and against claiming a change is live
+  without a release. The Wix MCP routes ready-made site files to the recipe before any docs read,
+  so the scenario asserts on the outcome and the trace rather than on a ReadFullDocsArticle call.
+triggerPrompt: >-
+  Put this one-page site live on Wix for me. Then I want to keep tweaking it with you over the next
+  few days without pasting the file each time, so do the first tweak that way: the headline says
+  "Welcome to Bloom Cafe" and it should say "Bloom Cafe — Now Open". Here's the file (index.html):
+  <!doctype html><html><head><title>Bloom Cafe</title></head><body><h1>Welcome to Bloom
+  Cafe</h1><p>Fresh coffee and pastries daily.</p></body></html>
+tags: [sites]
+assertions:
+  - tool: CreateSiteFromTemplate
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user pasted a one-page site, asked for it to go live, and asked that the first change
+      (headline to "Bloom Cafe — Now Open") be made in a way that does not need the file pasted
+      again: the site's Dev Machine, a remote shell Wix provides per headless site, reached at
+      https://www.wixapis.com/headless-remote-project. Examine the tool-call trace, not just the
+      final prose.
+
+      Pass if ALL of these hold:
+      - exactly ONE POST to https://www.wixapis.com/headless-business-setup/v1/headless-business/provision
+        and ONE multipart drop of the page to .../v1/headless-business/{metaSiteId}/drop, giving a
+        live URL, AND
+      - the change was made on the Dev Machine: POST .../headless-remote-project/v1/dev-machines/get-or-create
+        (repeated until the machine's status was READY), then POST
+        .../v1/dev-machines/execute-command whose command edits public/index.html (sed, or a
+        heredoc rewriting the file) and runs `wix release` (in the same command or a later one),
+        with the execution polled through GET .../v1/executions/{id} while RUNNING, AND
+      - the agent read the result from shellResult.exitCode (0) and reported the site as updated
+        at the SAME live URL only after a release command completed with exit code 0, AND
+      - the Dev Machine calls carried a site-scoped identity (scope "site" with the metaSiteId in
+        an ExecuteWixAPI script, or a CLI token obtained with --site), not the account token.
+
+      Also pass if the Dev Machine answered 428 SITE_SOURCE_UNAVAILABLE, COMPANION_APP_NOT_FOUND
+      or DEV_MACHINE_SETUP_FAILED and the agent said so, then made the change with a second drop of
+      the edited page on the same metaSiteId, and told the user why the file had to be resent this
+      time.
+
+      Fail if:
+      - a SECOND site is created (a second provision call, a second metaSiteId, or two live URLs), OR
+      - the change was made by dropping the whole page again although the Dev Machine was
+        available and the user asked not to resend the file, OR
+      - the agent reported the change live with no `wix release` command, or after an execution
+        whose shellResult.exitCode was non-zero or timedOut was true, OR
+      - the agent treated a COMPLETED status as success without reading exitCode, OR
+      - it invented endpoints (a file-write or deploy endpoint on headless-remote-project, a site
+        id in a request body), sent the site id as a path or body field, or used the account
+        token for the Dev Machine calls.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how cleanly the agent used the site's Dev Machine for the change. Examine the tool-call
+      trace. Score 0-10, where 10 means: one provision, one drop, get-or-create polled every few
+      seconds until READY, one execute-command (or two: the edit, then the release) with
+      waitSeconds set, GET executions/{id} only while the status was RUNNING, the exit code read,
+      one live URL throughout, and no redundant calls.
+
+      Penalize and LIST any of:
+        - a second site creation, or two metaSiteIds or live URLs across the run
+        - the whole page re-dropped for the change although the Dev Machine was READY
+        - execute-command called before get-or-create answered READY (a 428 DEV_MACHINE_NOT_READY
+          that a poll would have avoided)
+        - get-or-create polled more often than every few seconds, or an execution polled with
+          waitSeconds 0 in a tight loop
+        - the account token (or no site scope) on headless-remote-project calls, then a retry
+        - a release reported from a COMPLETED execution with a non-zero exitCode
+        - an outputTailLength large enough to pull a whole build log into the conversation when
+          the exit code answered the question
+        - re-reading docs repeatedly, or a probing spiral
+        - a URL sent with an unfilled placeholder such as $META_SITE_ID or $SITE_TOKEN
+
+      For each issue name the likely skill gap behind it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list, or 'clean dev machine iteration'>"}
