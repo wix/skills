@@ -69,7 +69,10 @@ a Forms field is registered by its `validation` block; a product's choice photos
 the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. Image prompts
-need the Media Manager; without it, products and services stay text-only, say so.
+need the Media Manager; without it, products and services stay text-only, say so. The scripts read
+a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
+is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
+a paid image.
 
 ## 5. The frontend
 
@@ -90,8 +93,10 @@ later" section downloads what the site serves, so a later drop adds files to a l
 resending what is already there.
 
 **When it cannot**, a page that loads the Wix SDK from a package CDN and talks to the site as a
-visitor. A few files at most, each written in full before it is dropped; the same size limit and
-the same way to add files to a live set apply. The
+visitor. One file per call, a few hundred lines, written in full inside that call: a response has a
+hard size limit, and a call that carries the whole frontend at once exceeds it. A second file joins
+the first the recipe's way, "Change it later": the same call downloads the live set and drops the
+union. The
 SDK comes from a pinned package URL, `https://esm.sh/@wix/sdk@{version}` and the solution's package
 (`@wix/bookings`, `@wix/stores`, `@wix/blog`, …); the client is
 `createClient({ modules: { … }, auth: OAuthStrategy({ clientId }) })` with the `appId` the provision
