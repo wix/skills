@@ -34,8 +34,9 @@ expression guide; it is not a condition node.
    trigger/action schemas. Resolve semantic capability first: an action that retrieves a
    task is not one that creates it. If no suitable installed action exists, report the gap.
 2. Map the user's values and compatible payload fields. Ask for missing required values;
-   never invent IDs or use a display name where an ID is required. If a field requires an
-   opaque widget or entity picker, stop at the scope limit above.
+   never invent IDs or use a display name where an ID is required. An ID or key the user
+   supplies (for example a label key for a trigger filter) may be used as given. If a field
+   requires an opaque widget, or an entity lookup by name, stop at the scope limit above.
 3. Construct a linear graph using the model and expression guides. Keep actions within
    45 nodes. Set `origin: "USER"`, no `settings`, and `configuration.status: "INACTIVE"`.
 4. Follow **Validation and Verification below**: its §4 checklist is the actual hard gate,
@@ -77,7 +78,7 @@ Semantic review (you, not code) — required for every action before acceptance;
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails the audience fields decide (Automations Email Actions (deferred) §3).
+  it; for emails (later stages only — email is outside stage 2) the audience fields decide (Automations Email Actions (deferred) §3).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -213,9 +214,8 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 > **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 2; the stage limit above takes precedence.
 
-Follow [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
-locks, preinstalled override ids and revision conflicts. Deactivation does not require repairing
-the configuration.
+Read or change status only as [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) describes; this guide adds no status
+procedure of its own. Deactivation does not require repairing the configuration.
 
 ### Reporting rules
 
@@ -266,7 +266,7 @@ this list is the union; run those too for the node types you used.
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
-   New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
+   **Later stages only — email is outside stage 2:** New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
    (except the documented site-owner audience replacement).
 9. `inputMapping`: only schema keys (an existing email/widget step's mapping passes through unchanged), types and
    enums match, every required/visible field mapped, entity-selector fields hold ids, formulas

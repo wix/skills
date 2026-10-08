@@ -19,6 +19,9 @@ pending activation has stopped.
    returned ID and ACTIVE/INACTIVE from that response, then say what it means for new trigger
    events. If the user asks whether the status says anything about past runs, answer it
    directly: status does not show whether past runs succeeded.
+4. If Get returns not found, do not state a status. Say it can't be determined, give the
+   possible causes below, and END the answer by asking the user to confirm the site and the
+   automation ID. This closing question is required.
 
 Use an authorized site-scoped client with Set Up Automations permission. REST calls use
 `Authorization: <token>`. An API key also needs `wix-site-id: <metaSiteId>`; do not combine it
@@ -39,8 +42,7 @@ Read `automation.configuration.status` from the Get response. Never infer status
 name or a previous mutation. Do not validate, change configuration, toggle status or test-run
 an automation to answer this read-only request.
 
-If Get returns nothing (not found), say plainly that the status can't be determined and ask
-the user to confirm the site and the automation ID. Unpublished builder drafts do not appear
+Not-found causes (step 4): unpublished builder drafts do not appear
 through this API, but a 404 can also mean deletion or a changed ID after overriding a
 preinstalled automation. Only suggest an unpublished draft as the cause when the user's history
 supports it. Ask the owner to publish or discard their builder draft when appropriate, rather than
