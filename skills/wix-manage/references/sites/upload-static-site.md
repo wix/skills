@@ -489,13 +489,15 @@ image reaches the site one of three ways. The user's files are what goes live:
 an image you cannot carry keeps its reference in the page and is named in the
 hand-off, never redrawn, swapped for a stand-in or dropped from the markup.
 
-- **By URL, fetched by the machine.** The machine reaches the public internet:
+- **By URL, fetched by the machine.** The machine reaches public URLs:
   `curl -sSL -o public/assets/hero.jpg "https://…"` in a command, one line per
   file, then a release. A designer's export, stock photos, the user's current
-  site, an image generated or imported through the Media Manager.
-- **As base64 you write into a command, in chunks, verified.** Base64 in your
-  own output arrives whole up to about 4,000 characters per call and loses or
-  swaps characters beyond that, so:
+  site, an image generated or imported through the Media Manager. Your own
+  sandbox's addresses are out of its reach.
+- **As base64 you write into a command, in chunks, verified.** This is the
+  path for a site's own images: a logo, a hero, a shop's product photos. Base64
+  in your own output arrives whole up to about 4,000 characters per call and
+  loses or swaps characters beyond that, so:
   1. Compress when it pays: `gzip -9 -c file | base64 -w0 | wc -c` on your
      side. A flat graphic shrinks several-fold, a photo barely moves; send the
      smaller of raw and gzipped.
@@ -516,14 +518,14 @@ hand-off, never redrawn, swapped for a stand-in or dropped from the markup.
      truncate the `.b64` before it and resend from there.
   4. Remove the `.b64` files and release once at the end.
 
-  About 30 commands carry 90 KB. A shop's product photos are worth that; a
-  photo gallery is not.
-- **By the user, through the Media Manager**, for a set larger than that.
-  Release the pages as they are, name the files that are not on the site yet,
-  and link `https://manage.wix.com/dashboard/<metaSiteId>/media-manager` in
-  the closing message. In the next turn the machine fetches each by its URL
-  and releases. The drop page creates another site; the Media Manager keeps
-  this one.
+  About 30 commands carry 90 KB.
+- **By the user, through the Media Manager**, for a set beyond that: a photo
+  gallery, a catalog of hundreds. Release the pages as they are, name the
+  files that are not on the site yet, and link
+  `https://manage.wix.com/dashboard/<metaSiteId>/media-manager` in the closing
+  message as the way to add them; in the next turn the machine fetches each by
+  its URL and releases. The drop page creates another site; the Media Manager
+  keeps this one.
 
 ### Later conversations
 
