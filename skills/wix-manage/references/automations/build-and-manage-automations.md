@@ -7,6 +7,8 @@ description: "Inspect Wix automations and create inactive linear automations usi
 
 This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in this guide.
 
+<!-- Maintainers: This file keeps the same name throughout the staged rollout; later stages expand it to cover updating, activating and managing automations. See yaml/wix-manage/automations/README.md. -->
+
 # Build Simple Wix Automations
 
 This skill supports inspection and creation of **inactive, immediate, linear**
@@ -48,9 +50,6 @@ expression guide; it is not a condition node.
 
 The included procedure keeps only the headings of its update, activation and execution-test
 sections; those workflows are published in a later stage, and the stage limits above take precedence.
-
-This file keeps the same name throughout the staged rollout; later stages expand it to cover
-updating, activating and managing automations.
 
 
 # Validation and Verification
