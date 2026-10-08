@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -37,7 +37,7 @@ Lists all apps installed on a site using Apps Installer API. Useful for verifyin
 ## Custom Apps
 
 ### [Use App Skills and App Tools](references/custom-apps/use-app-skills-and-app-tools.md)
-"Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
+"Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use every time a site has custom apps installed, before acting on the user's request: knowing which apps are installed doesn't tell what they can do, so only this skill's discovery calls show whether one of them handles the request. Also use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
 
 ---
 
@@ -96,19 +96,7 @@ Sets up booking policies, cancellation rules, and waitlist configuration using t
 "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
-Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
-
-### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
-"Create a booking service from a user prompt — e.g. 'create a yoga class for $50', 'set up consultations for $75', 'add a personal training appointment', 'create a 6-week photography workshop', 'create a hidden free test course with 8 online sessions'. Determines the service type (APPOINTMENT, CLASS, or COURSE) and delegates to the type-specific recipe. For COURSE services with session dates/counts, follow the course recipe's separate Calendar bulkCreateEvents step; Services V2 alone does not create bookable course sessions."
-
-### [Create Appointment Service](references/bookings/create-appointment-service.md)
-"Create an appointment booking service — e.g. 'set up consultations', 'create a 1-on-1 session', 'add a personal training appointment', 'create a meeting service for $25'. Handles staff assignment (required), session duration, pricing, and 1-on-1 capacity defaults via bulkCreateServices API."
-
-### [Create Class Service](references/bookings/create-class-service.md)
-"Create a class booking service — e.g. 'create a yoga class for $50', 'set up a pilates class', 'add a group fitness session', 'create a weekly meditation class'. Handles group capacity, recurring session defaults, and pricing via bulkCreateServices API. Staff assignment is not used for classes."
-
-### [Create Course Service](references/bookings/create-course-service.md)
-"Create a course booking service — e.g. 'create a 6-week photography workshop', 'set up a training program', 'add a bootcamp course for $300', 'create a hidden free test course with 8 sessions'. Handles group capacity, full-course pricing, bulkCreateServices, and separate course session events via bulkCreateEvents. Staff assignment is not used for courses."
+"Creates and updates Wix Bookings services of every type — appointments, classes and courses — from a plain request such as 'a 60-minute consultation for $75', 'a yoga class for 12 people every Tuesday' or 'a 6-week photography course'. Covers choosing the service type, defaults for what the request leaves out, pricing (free, fixed, free-to-paid), staff, capacity, duration, categories, visibility, images, scheduling class and course sessions on the calendar, and changing existing services."
 
 ### [Check Bookings Availability (and Diagnose Issues)](references/bookings/diagnose-availability-issues.md)
 "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
@@ -458,3 +446,22 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 
 ### [Stores Dashboard Navigation](references/stores/stores-dashboard-navigation.md)
 "Builds direct links to Wix Stores and eCommerce dashboard pages on manage.wix.com — products list, edit a specific product, categories, inventory, orders list, a specific order, abandoned checkouts, gift cards, shipping and tax settings. Pairs each main Stores/eCommerce entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+
+<!-- automations-builder-sync:begin -->
+## Automations
+
+### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
+Discover installed automation triggers and actions and inspect an automation’s current active status without changing site data.
+
+<details>
+<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
+
+- [Automations API Catalog](references/automations/api-catalog.md)
+  Discover installed automation triggers and actions and inspect their schemas through site-scoped public catalog APIs.
+
+- [Automations Activation Status](references/automations/activation-status.md)
+  Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes.
+
+</details>
+
+<!-- automations-builder-sync:end -->

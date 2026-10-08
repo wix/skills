@@ -32,7 +32,8 @@ assertions:
       arrive. The site has the "App with tools" app installed. It declares
       one app tool, getPackageTracking (required field: trackingNumber), and
       no app skills. The tool returns status "In Transit", location
-      "Distribution Center, New York" and estimatedDelivery "2026-07-30".
+      "Distribution Center, New York" and an estimatedDelivery date that
+      changes over time: take the date from the tool result in this run.
       Calls count whether the agent made them as separate tool calls or
       inside ExecuteWixAPI code (wix.request).
       Intent: answer from the app's tracking tool.
@@ -44,12 +45,13 @@ assertions:
         set to the app's appId, and payload {"trackingNumber":
         "1Z999AA10123456784"}, AND
       - told the user the package is in transit at the Distribution Center
-        in New York, with an estimated delivery of 2026-07-30.
+        in New York, with the estimated delivery date the tool returned in
+        this run.
 
       Fail if the agent:
       - calls Get App Skill, although List App Skills returned no skill, OR
       - answers without calling Invoke Tool, or invents a status, location
-        or date the tool did not return, OR
+        or date the tool did not return in this run, OR
       - says no app on the site can track the package.
   - type: llm_judge
     minScore: 7

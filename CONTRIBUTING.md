@@ -159,3 +159,17 @@ If you're unsure about where to place new content or how to structure it:
 - Review existing skills for patterns.
 - Ask a repository admin if you think a new top-level skill is required.
 - Refer to the [Agent Skills specification](https://agentskills.io/home) for base format requirements.
+
+<!-- automations-sync-maintenance -->
+## Synced skill areas
+
+**Files under `skills/wix-manage/references/automations/`, `yaml/wix-manage/automations/` and
+`yaml/wix-manage-evals/automations/` (and the marked Automations section of
+`skills/wix-manage/SKILL.md`) are generated from a source maintained by the Wix Automations
+team. The next sync replaces any file that differs from the generated output, so an accepted
+edit persists only once the maintainer ports it to that source.**
+
+Public fixes remain welcome. The Automations maintainer ports accepted changes back before
+syncing again, so they survive regeneration. See the
+[Automations maintenance guide](yaml/wix-manage/automations/README.md).
+<!-- /automations-sync-maintenance -->

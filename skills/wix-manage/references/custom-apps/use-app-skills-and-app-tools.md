@@ -1,6 +1,6 @@
 ---
 name: "Use App Skills and App Tools"
-description: "Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
+description: "Discovers and runs what the apps installed on a Wix site add for AI agents: app skills, which are an app's instructions for a task (for example pricing a product for customers in another country, or checking a property listing before it is published), and app tools, which are actions and lookups an app exposes. Use every time a site has custom apps installed, before acting on the user's request: knowing which apps are installed doesn't tell what they can do, so only this skill's discovery calls show whether one of them handles the request. Also use when the user asks for something an installed app provides rather than a built-in Wix feature, asks what their apps can do, or names an app, skill or tool. Covers reading a chosen skill's instructions and running the app tools it allows, or running a single app tool directly."
 ---
 # Use App Skills and App Tools
 
@@ -27,6 +27,8 @@ The `www.wixapis.com/_api/...` URLs below are these APIs' public endpoints; the 
 ## Step 1: Discover the site's skills and tools
 
 Make both calls. They are independent, so run them in parallel.
+
+Whenever the site has custom apps installed, make both calls before deciding how to handle the user's request, even if the request doesn't seem to involve an app: you can tell whether an app handles it only from what these calls return. Make them once per site in a conversation.
 
 **List App Skills**: `GET https://www.wixapis.com/_api/app-skills/v1/app-skills`
 
