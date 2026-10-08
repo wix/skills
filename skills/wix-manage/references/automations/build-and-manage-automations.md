@@ -27,6 +27,25 @@ of repeating either call.
 For current status, find the exact automation, Get its returned ID, and report the status
 from that response. Every status answer names the automation and its returned ID. Current ACTIVE/INACTIVE status is separate from historical run results.
 
+## Answer checklist
+
+Before you reply, check that your answer contains every item for its case:
+
+- **Automation found:** its exact name, its returned ID, ACTIVE or INACTIVE, and whether it
+  can start new runs. If asked about past runs: status doesn't show them; they are in the
+  automation's activity view in the site dashboard.
+- **ID not found (Get returns not found):** that the status can't be determined, the possible
+  causes (wrong site or ID, deleted, an unpublished builder draft, a replaced preinstalled
+  automation) without picking one, and, last, a request to confirm the site and the ID.
+- **No automation matches the name:** that none was found on this site, and a request to check
+  the name or the site. Never guess an ID or a status.
+- **Capability check, action not found:** "not found in the installed catalog (scanned N
+  distinct of `paging.total` N)" — say "not installed" only when N equals `paging.total` — plus
+  the closest related actions with their appId and actionKey.
+
+Status questions need only Query and Get Automation: don't call the trigger or action catalogs
+for them. Query by the exact name with one bounded page before paging further.
+
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned data, and distinguish a missing record from proof of nonexistence.
 
