@@ -39,6 +39,8 @@ Before you reply, check that your answer contains every item for its case:
 - **ID not found (Get returns not found):** that the status can't be determined, the possible
   causes (wrong site or ID, deleted, an unpublished builder draft, a replaced preinstalled
   automation) without picking one, and, last, a request to confirm the site and the ID.
+- **Several automations share the name:** don't pick one; list each match with its returned ID
+  (and its status if you fetched it) and ask which one the user means.
 - **No automation matches the name:** that none was found on this site, and a request to check
   the name or the site. Never guess an ID or a status.
 - **Capability check, action not found:** "not found in the installed catalog (scanned N
