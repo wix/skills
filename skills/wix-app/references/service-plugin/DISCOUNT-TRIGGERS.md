@@ -76,7 +76,7 @@ customTriggers.provideHandlers({
 1. **Trigger IDs must match** - The `customTriggerId` in `getEligibleTriggers` must match an `_id` from `listTriggers`
 2. **Both handlers required** - You must implement both `getEligibleTriggers` and `listTriggers`
 3. **Dynamic eligibility** - `getEligibleTriggers` is called during checkout to determine which triggers are currently active
-4. **Static list** - `listTriggers` provides the master list of all possible triggers for configuration in the Wix dashboard
+4. **Static list** - `listTriggers` provides the full list of all possible triggers for configuration in the Wix dashboard
 5. **Manual step required, every time** — this plugin only supplies *eligibility*. It has no visible effect until the merchant creates an Automatic Discount that uses your trigger. Tell the user this step is required; don't imply the discount is live just because the plugin is installed. Confirmed live, click-by-click in the dashboard:
    1. Go to **Catalog** (left sidebar) → **Discounts** → **Automatic Discounts**.
    2. Click **Create Discount**.

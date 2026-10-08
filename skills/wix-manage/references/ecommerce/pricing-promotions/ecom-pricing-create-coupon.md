@@ -68,7 +68,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
 
 - **Duplicate / conflicting code** — reject a code already in use.
 - **Cross-mechanism stacking** — coupons stack with automatic discount rules at checkout. Query active discount rules on overlapping scope; if found, warn with the combined effective discount ("a 20% coupon during a 20% automatic sale = ~36% off"). Only one coupon applies per checkout, but automatic rules are unlimited.
-- **% sanity** — > 50% warn (show a $100 → $(100−pct) example); = 100% block unless confirmed; > 100% always block.
+- **% plausibility** — > 50% warn (show a $100 → $(100−pct) example); = 100% block unless confirmed; > 100% always block.
 - **Margin** — if cost data is available, ensure the discount doesn't push price below cost; otherwise warn for > 40%.
 - **User override** — explicit merchant values override these caps; document the override in your reasoning.
 

@@ -9,6 +9,8 @@ const summary = (over: Partial<ReviewSummary> = {}): ReviewSummary => ({
   headSha: 'abcdef1234567890',
   filesReviewed: 3,
   discarded: 0,
+  score: 8,
+  verdict: '`stores/create-bundle` is clear and its scenario covers what it claims.',
   ...over,
 });
 
@@ -47,7 +49,10 @@ describe('the review comment', () => {
           consequence: 'An agent cannot tell which field the next call reads, so it guesses or goes back to the docs for it.',
           suggestion: 'The response returns `bundle.id`, which the publish call takes as `bundleId`.',
         }),
-      ], summary());
+      ], summary({
+        score: 5,
+        verdict: '`stores/create-bundle` tells the agent to call a tool not every client has, so those agents cannot follow it.',
+      }));
 
       await expect(body).toMatchFileSnapshot('./fixtures/review-comment-findings.md');
     });
@@ -104,7 +109,7 @@ describe('the review comment', () => {
 });
 
 describe('who triggered the review', () => {
-  const summary = { headSha: 'abcdef1234567890', filesReviewed: 3, discarded: 0 };
+  const summary = { headSha: 'abcdef1234567890', filesReviewed: 3, discarded: 0, score: 8, verdict: 'Fine.' };
 
   it('names the actor in the verdict line', () => {
     const body = formatReviewClean({ ...summary, triggeredBy: 'omerme' });

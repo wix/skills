@@ -6,7 +6,7 @@ description: Analyzes catalog price distribution and current rate structure to r
 
 > **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference). The Query Shipping Options and Update/Create Shipping Option endpoints used in Steps 2–4 live there. Do NOT query or modify any shipping options without loading it first.
 
-## Rate pricing sanity (inline guardrail)
+## Rate pricing plausibility (inline guardrail)
 
 Validate every rate you create or update against the store's AOV; flag any that fail:
 

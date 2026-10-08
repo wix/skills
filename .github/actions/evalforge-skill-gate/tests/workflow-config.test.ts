@@ -8,7 +8,8 @@ const loadWorkflow = (name: string) =>
 
 type Workflow = {
   on: {
-    pull_request: { types: string[]; paths?: string[]; branches: string[] };
+    pull_request?: unknown;
+    pull_request_target: { types: string[]; paths?: string[]; branches: string[] };
     /** Only the re-eval workflow has this one. */
     issue_comment?: { types: string[] };
   };
@@ -21,32 +22,60 @@ type Workflow = {
     outputs?: Record<string, string>;
     // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
     // typechecks — the gate gained one to capture the checked-out merge commit.
-    steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
+    steps: Array<{ id?: string; uses?: string; run?: string; if?: string; with?: Record<string, string | boolean> }>;
   }>;
 };
 
 describe('EvalForge wix-app gate workflow', () => {
   const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
-  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps.find(step => step.id === 'gate')!;
 
-  it('runs the action in gate mode', () => {
-    expect(gateStep.uses).toBe('./.github/actions/evalforge-skill-gate');
+  it('runs the action in gate mode, from the base checkout', () => {
+    expect(gateStep.uses).toBe('./.action-src/.github/actions/evalforge-skill-gate');
     expect(gateStep.with?.mode).toBe('gate');
   });
 
+  // pull_request_target, so the workflow file and the action come from main: under pull_request a
+  // branch could rewrite either and run it with the gate's secrets.
+  it('triggers on pull_request_target, not pull_request', () => {
+    expect(workflow.on.pull_request).toBeUndefined();
+    expect(workflow.on.pull_request_target.branches).toEqual(['main']);
+  });
+
+  it('checks the PR merge ref out as data, persisting no credentials anywhere', () => {
+    const checkouts = workflow.jobs.gate.steps.filter(step => step.uses?.startsWith('actions/checkout'));
+    expect(checkouts[0].with?.ref).toBe('refs/pull/${{ github.event.pull_request.number }}/merge');
+    for (const checkout of checkouts) expect(checkout.with?.['persist-credentials']).toBe(false);
+  });
+
+  it('waits for the merge ref to include this head before running the action', () => {
+    const steps = workflow.jobs.gate.steps as Array<{ name?: string; id?: string }>;
+    const wait = steps.findIndex(step => step.name === 'Wait for the merge ref to include this head');
+    const gate = steps.findIndex(step => step.id === 'gate');
+    expect(wait).toBeGreaterThan(-1);
+    expect(wait).toBeLessThan(gate);
+  });
+
+  // A pull_request_target run's check run already lands on the PR head; a status of its own would
+  // show every gate on the PR twice.
+  it('posts no commit status of its own', () => {
+    expect(workflow.jobs.gate.permissions.statuses).toBeUndefined();
+    expect(JSON.stringify(workflow.jobs.gate.steps)).not.toContain('createCommitStatus');
+  });
+
   it('triggers on the PR events that change a PR head', () => {
-    expect(workflow.on.pull_request.types).toEqual(
+    expect(workflow.on.pull_request_target.types).toEqual(
       expect.arrayContaining(['opened', 'synchronize', 'reopened']),
     );
   });
 
   it('also triggers on ready_for_review, since the job skips drafts', () => {
-    expect(workflow.on.pull_request.types).toContain('ready_for_review');
+    expect(workflow.on.pull_request_target.types).toContain('ready_for_review');
     expect(workflow.jobs.gate.if).toContain('draft');
   });
 
   it('watches both the skill dir and the scenario YAML', () => {
-    expect(workflow.on.pull_request.paths).toEqual(
+    expect(workflow.on.pull_request_target.paths).toEqual(
       expect.arrayContaining(['skills/wix-app/**', 'yaml/wix-app-evals/**']),
     );
   });
@@ -56,10 +85,11 @@ describe('EvalForge wix-app gate workflow', () => {
     expect(workflow.concurrency['cancel-in-progress']).toBe(true);
   });
 
-  it('checks the base SHA out into .action-src for the sync diff', () => {
+  it('checks main\'s head out into .action-src for the sync diff and the action source', () => {
     const baseCheckout = workflow.jobs.gate.steps.find(step => step.with?.path === '.action-src');
     expect(baseCheckout).toBeDefined();
-    expect(baseCheckout?.with?.ref).toContain('base.sha');
+    // main's head, the commit this workflow came from, not the PR's possibly older base.sha.
+    expect(baseCheckout?.with?.ref).toBe('${{ github.sha }}');
   });
 
   it('can write PR comments', () => {
@@ -114,7 +144,7 @@ describe('EvalForge wix-app gate workflow — analyze job', () => {
   const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
   const analyze = workflow.jobs.analyze;
   const analyzeStep = analyze.steps[analyze.steps.length - 1];
-  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
+  const gateStep = workflow.jobs.gate.steps.find(step => step.id === 'gate')!;
 
   it('exposes the gate job output the analyze job triggers on', () => {
     expect(workflow.jobs.gate.outputs?.['analyze-run-id'])
@@ -183,7 +213,9 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
 
   it('runs the action in cleanup mode on PR close', () => {
     expect(cleanupStep.with?.mode).toBe('cleanup');
-    expect(workflow.on.pull_request.types).toEqual(['closed']);
+    expect(workflow.on.pull_request_target.types).toEqual(['closed']);
+    // Under pull_request, closing a PR unmerged would run the PR's own copy of this workflow.
+    expect(workflow.on.pull_request).toBeUndefined();
   });
 
   it('runs on merge as well as close, since wix-app has no promote step to sweep versions', () => {
@@ -244,7 +276,7 @@ describe('EvalForge re-eval workflow', () => {
   // A workflow id that names no file finds no run, and the command then declines as if the gate
   // had never run for the commit — a silent scope loss no behavioural test can see.
   it('gives each command its own gates, and every one names a file that exists', () => {
-    const script = step.with?.script;
+    const script = step.with?.script as string | undefined;
     expect(script).toBeDefined();
 
     const commands = [...script!.matchAll(/\['(\/[a-z-]+)', \{/g)].map(match => match[1]);

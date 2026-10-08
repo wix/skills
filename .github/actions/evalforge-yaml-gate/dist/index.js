@@ -68824,8 +68824,16 @@ const OUTPUT_SCHEMA = JSON.stringify({
                 additionalProperties: false,
             },
         },
+        score: {
+            type: 'integer',
+            description: 'The PR as a whole, from 0 to 10',
+        },
+        verdict: {
+            type: 'string',
+            description: 'One sentence: the skills and the problems that set the score',
+        },
     },
-    required: ['findings'],
+    required: ['findings', 'score', 'verdict'],
     additionalProperties: false,
 });
 function buildAgentEnv(apiKey, baseUrl) {
@@ -68876,7 +68884,7 @@ function buildArgs(invocation) {
         '-p',
         ...SANDBOX_ARGS,
         '--tools', TOOLS,
-        '--agents', buildAgents(invocation.cwd),
+        '--agents', buildAgents(invocation.agentWorkspace),
         '--agent', exports.REVIEW_AGENT,
         '--allowedTools', ALLOWED_TOOLS,
         '--json-schema', OUTPUT_SCHEMA,
@@ -68995,12 +69003,22 @@ function isSeverity(value) {
 function isReportable(finding) {
     return isSeverity(finding.severity);
 }
+// The schema cannot carry the range, so it is checked here.
+function isScore(value) {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10;
+}
 function parseFindings(output) {
     const list = output?.findings;
     if (!Array.isArray(list))
         return undefined;
+    const score = output?.score;
+    if (!isScore(score))
+        return undefined;
+    const verdict = output?.verdict;
+    if (typeof verdict !== 'string' || verdict.trim() === '')
+        return undefined;
     const findings = list.filter(isReportable);
-    return { findings, discarded: list.length - findings.length };
+    return { findings, discarded: list.length - findings.length, score, verdict };
 }
 function describeFailure(result) {
     switch (result.kind) {
@@ -69073,7 +69091,7 @@ function jobLine(status, detail, triggeredBy) {
     const line = parts.join(' · ');
     return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
-/** Worst-first, and load-bearing: `severityRank` sorts on it and only `blocking` fails the check. */
+/** Worst-first, and load-bearing: `severityRank` sorts on it. */
 exports.REVIEW_SEVERITIES = ['blocking', 'advisory'];
 const SEVERITY_ICON = {
     blocking: '🔴',
@@ -69145,8 +69163,8 @@ function headline(findings) {
     return tally.join(', ');
 }
 /** Without the SHA, a comment left by an earlier push reads as a verdict on the current commit. */
-function verdictLine(verdict, summary) {
-    return `**${verdict}** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
+function verdictLine(summary) {
+    return `**Score: ${summary.score}/10** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
 }
 function completion(summary) {
     return summary.discarded === 0
@@ -69158,7 +69176,11 @@ function formatReviewFindings(findings, summary) {
     const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
     const overflow = findings.length - shown.length;
     const body = [
-        verdictLine(headline(findings), summary),
+        verdictLine(summary),
+        '',
+        summary.verdict.replace(/\n/g, ' '),
+        '',
+        `**${headline(findings)}**`,
         ...groupByFile(shown, summary.headSha),
     ];
     if (overflow > 0) {
@@ -69171,7 +69193,11 @@ function formatReviewFindings(findings, summary) {
 }
 function formatReviewClean(summary) {
     return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
-        verdictLine('No findings', summary),
+        verdictLine(summary),
+        '',
+        summary.verdict.replace(/\n/g, ' '),
+        '',
+        '**No findings**',
         '',
         'Nothing to raise against the reviewed sections of the contribution guide.',
         ...retryNote(),
@@ -69244,12 +69270,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runReview = runReview;
 const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const github_1 = __nccwpck_require__(6246);
 const workspace_1 = __nccwpck_require__(9620);
+const paths_1 = __nccwpck_require__(6621);
 const review_comment_1 = __nccwpck_require__(8333);
 const review_agent_1 = __nccwpck_require__(2969);
 /**
@@ -69258,6 +69286,7 @@ const review_agent_1 = __nccwpck_require__(2969);
  * run, so there has to be one. See evalforge-skill-review.yml.
  */
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
+const MIN_PASSING_SCORE = 7;
 /**
  * A re-run replays the original payload, so `action` alone cannot tell "someone asked again" from
  * the push that produced it. The attempt number can.
@@ -69324,13 +69353,15 @@ async function runReview() {
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
-    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(workspace))) {
+    const agentWorkspace = (0, node_path_1.join)(workspace, paths_1.BASE_WORKSPACE_SUBDIR);
+    if (!(0, node_fs_1.existsSync)((0, review_agent_1.agentPath)(agentWorkspace))) {
         await reportUnavailable(`the reviewer definition \`.claude/agents/${review_agent_1.REVIEW_AGENT}.md\` was not found`, pending, config.isBlocking);
         return;
     }
     core.info(`Reviewing ${files.length} file(s) at ${config.headSha.slice(0, 7)} with ${config.model} at ${config.effort} effort.`);
     const outcome = await (0, review_agent_1.runReviewAgent)({
         cwd: workspace,
+        agentWorkspace,
         task: buildTask(config, files),
         apiKey: config.anthropicApiKey,
         baseUrl: config.anthropicBaseUrl,
@@ -69346,6 +69377,8 @@ async function runReview() {
         headSha: config.headSha,
         filesReviewed: files.length,
         discarded: outcome.discarded,
+        score: outcome.score,
+        verdict: outcome.verdict,
         triggeredBy: config.triggeredBy || undefined,
     };
     const findings = outcome.findings;
@@ -69353,12 +69386,11 @@ async function runReview() {
         ? (0, review_comment_1.formatReviewClean)(summary)
         : (0, review_comment_1.formatReviewFindings)(findings, summary));
     await pending.clear();
-    const blocking = findings.filter(finding => finding.severity === 'blocking').length;
     const reasons = [];
-    if (blocking > 0)
-        reasons.push(`${blocking} blocking finding(s)`);
     if (outcome.discarded > 0)
         reasons.push(`${outcome.discarded} malformed finding(s)`);
+    if (outcome.score < MIN_PASSING_SCORE)
+        reasons.push(`a score of ${outcome.score}/10, below the ${MIN_PASSING_SCORE} required`);
     if (reasons.length > 0) {
         (0, github_1.fail)(`The skill review reported ${reasons.join(' and ')}. See the PR comment.`, config.isBlocking);
     }

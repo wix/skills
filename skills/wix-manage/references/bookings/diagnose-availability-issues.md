@@ -64,7 +64,7 @@ Interpret the result:
 
 > **The hidden-service trap.** A service that's **hidden** from the site, or has **online booking turned off**, can still list slots here — so bookable slots do **not** prove customers can book it. When the complaint is "customers can't book / can't find this service" (as opposed to "the calendar is empty"), **run [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking) before trusting the slot count** — it's the single most common cause and neither `ListAvailabilityTimeSlots` nor `DiagnoseAvailability` detects it.
 
-If **no slots come back at all**, also sanity-check the inputs before concluding "no availability": the queried window isn't entirely in the past, and any `locations` filter is actually offered by the service.
+If **no slots come back at all**, also double-check the inputs before concluding "no availability": the queried window isn't entirely in the past, and any `locations` filter is actually offered by the service.
 
 ---
 

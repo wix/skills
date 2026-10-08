@@ -1,10 +1,10 @@
 ---
 name: "Shipping: Set Up Rates"
-description: Configures shipping option rates — rate types (flat, tiered, free), condition types and operators, free shipping threshold calibration, AOV sanity check, per-item penalty avoidance, and tier gap detection.
+description: Configures shipping option rates — rate types (flat, tiered, free), condition types and operators, free shipping threshold calibration, AOV plausibility check, per-item penalty avoidance, and tier gap detection.
 ---
 # Shipping Rates
 
-## AOV Sanity Check
+## AOV Plausibility Check
 
 **MANDATORY before any threshold calculation that references AOV.** Raw AOV can be misleading due to data issues or bulk purchases.
 
@@ -80,6 +80,6 @@ When ALL of the following are true, flat rate is optimal and no change is needed
 
 Sort all conditions by value and look for gaps between ranges. Gaps mean some cart totals have no matching rate, which can cause checkout failures.
 
-## Shipping Cost Sanity Check
+## Shipping Cost Plausibility Check
 
 Any rate `amount > AOV x 0.15` (15% of average order value) should be flagged as a cart abandonment risk.
