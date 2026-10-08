@@ -72,7 +72,7 @@ npm install @wix/patterns-cms
 npm install @wix/patterns@$(node -p "require('@wix/patterns-cms/package.json').dependencies['@wix/patterns']")
 ```
 
-**If that pin is before 1.486.0, the install has no lookup script.** Upgrade `@wix/patterns-cms` to a release that pins 1.486.0 or later, then align again; never install a newer `@wix/patterns` past the pin, which makes two copies.
+**If that pin is before 1.486.0, the install has no lookup script**, so use the hand probe in [WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index). Never install a `@wix/patterns` newer than the pin to get the script: that makes two copies.
 
 **Either way, confirm a single copy:**
 
