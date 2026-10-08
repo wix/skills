@@ -3,7 +3,7 @@ name: "Automations Trigger Configuration"
 description: "Select and configure automation triggers, trigger filters and event payload schemas using the site catalog."
 ---
 
-> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # Triggers — Discovery, Payload Schema, Filters
 

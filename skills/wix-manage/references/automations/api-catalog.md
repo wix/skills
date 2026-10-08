@@ -3,7 +3,7 @@ name: "Automations API Catalog"
 description: "Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups."
 ---
 
-> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # API Catalog — the public Wix Automations APIs
 
@@ -18,7 +18,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   Update do **not** validate.
 - Persist: Create `INACTIVE` → Get read-back; activate only when asked. Updates need the current
   `revision` and are **live** on an active automation. Procedures (create and read-back
-  — builder drafts are invisible publicly): [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3.
+  — builder drafts are invisible publicly): [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) §3.
 - **Later stages only — not in stage 2:** **Test Automation runs actions for real** — only with explicit user authorization.
 - Resolve responses are large: page small, filter by exact keys, never paste a raw catalog.
 
@@ -61,7 +61,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
 - **Validate** (unsaved or saved): `{automation, validationSettings?{actionIds[],
 skipProviderValidations}}` → `{status: VALID|VALID_WITH_WARNINGS|INVALID,
 triggerValidationErrors[], actionValidationErrors[]}`. The main oracle; send the full object.
-  Reading errors: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §2.
+  Reading errors: [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) §2.
 - **Create**: `{automation}` with `name`, `origin: "USER"`, `configuration{status, trigger{appId,
 triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revision`). Does NOT
   validate. Always `status: "INACTIVE"`; don't send `settings`.

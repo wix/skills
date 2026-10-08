@@ -1,5 +1,5 @@
 ---
-name: "Build Simple Wix Automations"
+name: "Build and Manage Wix Automations"
 description: "Inspect Wix automations and create inactive linear automations using installed actions with schema-defined mappings and the included validation checklist."
 ---
 
@@ -7,9 +7,7 @@ description: "Inspect Wix automations and create inactive linear automations usi
 
 This stage supports read-only inspection and creation of inactive, immediate, linear APP_DEFINED automations with schema-defined inputs. Configuration updates, deletion, activation/deactivation, execution tests, email/opaque widgets, entity pickers, schedules, conditions and special steps are outside this stage. Do not perform those workflows with this skill. Validation and its numbered checklist are included in this guide.
 
-<!-- Maintainers: This file keeps the same name throughout the staged rollout; later stages expand it to cover updating, activating and managing automations. See yaml/wix-manage/automations/README.md. -->
-
-# Build Simple Wix Automations
+# Build and Manage Wix Automations
 
 This skill supports inspection and creation of **inactive, immediate, linear**
 automations whose nodes are APP_DEFINED actions with schema-defined inputs. Configuration

@@ -3,7 +3,7 @@ name: "Automations Graph and Data Model"
 description: "Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access."
 ---
 
-> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # Automation Model — Object, Graph Rules, Payload Scope
 
@@ -175,13 +175,13 @@ every `var()` path is in that node's aggregated schema; status is INACTIVE.
 
 ## 6. Persistence & update lifecycle
 
-Create `INACTIVE` (your "draft"); activate only on request. Create procedure and read-back: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §3; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
+Create `INACTIVE` (your "draft"); activate only on request. Create procedure and read-back: [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) §3; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
 
 **Later stages only — not in stage 2:** **Update:** Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Locks: §4 of Automations Feasibility and Planning (not yet published).
 
 ## 7. Pre-validate self-check (do in code)
 
-Script the graph/id/namespace/`var()` items of [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §4 (items 1–4 and 11 — the rules of §2–§4 above: one parentless root, RATE_LIMIT only as that root, ≤1 id per connection, one parent each, no cycles/orphans/MERGE/`mergeActionId`/`UNKNOWN_ACTION_TYPE`, keys = ids, globally unique uuid v4s incl. SPLIT path ids, `triggerKey` and `<id>true/false/-end`, own `*Info` only, §3 namespaces unique except `setVariable`, every `var()` in THAT node's aggregated schema). Also check that only user-requested conditions/delays exist; then Validate Automation must return no trigger or action errors.
+Script the graph/id/namespace/`var()` items of [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) §4 (items 1–4 and 11 — the rules of §2–§4 above: one parentless root, RATE_LIMIT only as that root, ≤1 id per connection, one parent each, no cycles/orphans/MERGE/`mergeActionId`/`UNKNOWN_ACTION_TYPE`, keys = ids, globally unique uuid v4s incl. SPLIT path ids, `triggerKey` and `<id>true/false/-end`, own `*Info` only, §3 namespaces unique except `setVariable`, every `var()` in THAT node's aggregated schema). Also check that only user-requested conditions/delays exist; then Validate Automation must return no trigger or action errors.
 
 ## 8. Anti-patterns (all wrong)
 

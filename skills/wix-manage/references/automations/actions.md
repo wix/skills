@@ -3,7 +3,7 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-> **Stage scope:** this stage covers only what [Build Simple Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
+> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only" or any workflow that needs a guide marked "not yet published".
 
 # App-Defined Actions — Discovery, Schemas, Input Mapping
 
@@ -112,7 +112,7 @@ Process: (1) fetch the effective schema (§4) → (2) classify required vs optio
 
 ### 5.3 Validation errors on actions
 
-Error shape, error type → fix, and how the builder shows each: [Build Simple Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-simple-wix-automations) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
+Error shape, error type → fix, and how the builder shows each: [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) §2. Must-know here: fix the field named by `configurationError.fieldKey` — never delete a field to silence it; `CRITICAL` blocks (status `INVALID`), `WARNING` doesn't but must be reported; a `var()` path that doesn't exist may NOT be reported — verify paths yourself.
 
 ## 6. Side-effect and recipient review
 

@@ -462,11 +462,11 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 <!-- automations-builder-sync:begin -->
 ## Automations
 
-### [Build Simple Wix Automations](references/automations/build-and-manage-automations.md)
+### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
 Inspect Wix automations and create inactive linear automations using installed actions with schema-defined mappings and the included validation checklist.
 
 <details>
-<summary>Internal skills (loaded on demand by Build Simple Wix Automations — do NOT use directly)</summary>
+<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
 
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
