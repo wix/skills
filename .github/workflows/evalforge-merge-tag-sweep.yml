@@ -26,7 +26,9 @@ jobs:
     # Slack, so it needs a dial that does not require a PR to turn.
     if: vars.MERGE_TAG_SWEEP_ENABLED != 'false'
     runs-on: ubuntu-latest
-    environment: evalforge
+    environment:
+      name: evalforge
+      deployment: false
     # Three sequential eval runs are possible (initial + two retries) and each may poll for up
     # to 30 minutes, so a 60-minute budget could kill the job mid-retry — with no notification,
     # since the sweep would never reach its reporting step.
