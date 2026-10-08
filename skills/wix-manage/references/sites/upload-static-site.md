@@ -45,10 +45,12 @@ What sets them apart:
   bundle. The platform resolves each into a download URL and fetches the
   bytes; they land in the `files` global as base64 entries named by file
   name, so nothing crosses your output. Pass every file in one call. Any other
-  host ignores that param: there, drop the text files first, so the site is live, then bring
-  images in by URL or one small file at a time through the site's
-  [Dev Machine](#images-and-other-binary-files), never by re-dropping the
-  whole set per batch.
+  host ignores that param, and an attachment that comes back "not resolved"
+  means you are on such a host: do not retry it. There, drop the text files
+  first, so the site is live, then bring images in by URL or one small file at
+  a time through the site's [Dev Machine](#images-and-other-binary-files),
+  never by re-dropping the whole set per batch. The pages go live either way;
+  images that cannot be carried are handed over, not a reason to stop.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -531,13 +533,16 @@ write, so the rule is to move each file once and small, or not at all:
   call is sent; do not try an 8 KB photo this way. Release once at the end, not per
   file, and compare the `sha256sum` the command prints with the file's own when
   it matters.
-- **A larger file is not carried.** Say which files did not make it,
-  and give the user a way to add them themselves: the
-  [drop page](#the-drop-page) for a site that is still only a drop, or an image
-  upload to the Media Manager (`<MANAGE>/references/media/upload-media-to-wix.md`)
-  whose URL the page then references. Do not retry a call that was cut off with
-  the same payload, and do not loop over download, add a batch, re-drop: each
-  pass resends the whole site.
+- **A larger file is not carried by you, and the site does not wait for it.**
+  Release the pages as they are, say which files did not make it, and give the
+  user the way to add them that keeps this site: upload the images in the
+  site's Media Manager (`https://manage.wix.com/dashboard/<metaSiteId>/media-manager`),
+  then, in the next turn, fetch each one by its URL from the machine and
+  release. The [drop page](#the-drop-page) is not that way: it creates another
+  site. A transfer whose `sha256sum` does not match is the same case: remove
+  the file, do not send the bytes again, hand over. Do not retry a call that
+  was cut off with the same payload, and do not loop over download, add a
+  batch, re-drop: each pass resends the whole site.
 
 ### Later conversations
 
