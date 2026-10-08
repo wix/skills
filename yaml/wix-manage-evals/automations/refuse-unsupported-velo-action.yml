@@ -1,0 +1,47 @@
+{
+  "name": "automations/refuse-unsupported-velo-action",
+  "description": "A request to run a Velo backend function from an automation is recognized as the unsupported Velo action: the agent explains the limit, offers the documented supported alternatives and asks which one, and writes no automation.",
+  "triggerPrompt": "Create an automation named CRM sync: when a new contact is created on my site, run my Velo backend function sendToCrm() so the new contact is forwarded to my CRM.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The agent must recognize the requested step as the Velo action (`wix_automations-velo_action`), which the skill lists as unsupported through the public APIs, and say so plainly: the action is configured by a builder widget that creates and publishes the site code, so an API-written step would not work. It must not claim that the whole automation is impossible: it should offer the skill's documented alternatives — the HTTP request action (`webhooks-action`) calling a Velo http-function URL the user exposes, an existing app action, or an LLM step — and/or adding the Velo step in the Wix dashboard builder, and ask which one the user wants before building. Successful tool responses must show that no automation was created or updated. Score 0 if any automation containing a Velo or data-manipulation-code step was written, if the Velo call was disguised as a code condition or another node type, if an alternative was built without the user choosing it (for example a webhook to an invented URL), if the agent claims the requested automation was set up, or if it refuses without offering any alternative. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the actual tool path. Expected, never penalized: reading this skill's own documentation articles (ReadFullDocsArticle on the automations skill pages) and a bounded catalog check of the contact-created trigger or the alternative actions. Penalize attempts to make the unsupported action work (fetching or searching for the Velo action's schema repeatedly, Velo code or site-code APIs, Validate or Create calls with a Velo node), guessed endpoints, private tools, repeated identical calls, unrelated discovery and any write. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}
