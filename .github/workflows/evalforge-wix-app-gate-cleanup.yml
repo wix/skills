@@ -1,7 +1,9 @@
 name: EvalForge wix-app Gate Cleanup
 
+# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
+# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [closed]
 
@@ -13,6 +15,9 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     timeout-minutes: 15
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

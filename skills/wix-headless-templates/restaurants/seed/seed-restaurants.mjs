@@ -166,7 +166,7 @@ export async function createModifierGroups(ctx, groups) {
 }
 
 /**
- * Bulk-create price variants (the reusable "Glass" / "Bottle" names; the price per item lives on
+ * Bulk-create price variants (the reusable "Small" / "Large" names; the price per item lives on
  * the item's priceVariants reference). Returns ids in input order.
  * docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-variants/bulk-create-variants.md
  */

@@ -1,7 +1,10 @@
 name: Skill Eval
 
+# pull_request_target, not pull_request: even disabled (`if: false`), a pull_request workflow runs
+# from the PR's own copy, so a branch could re-enable it with this job's secrets. pull_request_target
+# always runs main's. The PR is checked out as data only.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'skills/wix-manage/references/**'
@@ -14,16 +17,23 @@ concurrency:
 jobs:
   skill-eval:
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     if: false
     permissions:
       contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .action-src
+          persist-credentials: false
       - uses: ./.action-src/.github/actions/skill-eval
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

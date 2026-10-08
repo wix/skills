@@ -8,7 +8,7 @@
 ## Why guessing here always fails
 
 `useTableCollection()` returns a `TableState`. For the members themselves, read the declaration the
-index names — `Read <pkgRoot>/dist/dts-bundle/index.json`, then its `file`. Reading them is not the
+index names: `patterns-lookup.cjs TableState`, alongside the other names you need, then the file it prints. Reading them is not the
 hard part; the hard part is that several plausible members don't exist at all, and one that does
 means something other than its name suggests (see
 [Four that bite in practice](#four-that-bite-in-practice)).
@@ -24,7 +24,7 @@ That is a documentation abridgement, not the declaration your code compiles agai
 `dist/types/index.d.ts`, which re-exports the **fully typed** `CollectionState` from
 `@wix/bex-core` — no index signature. So `state.collection.…` is properly typed, a wrong member is a
 compile error at the access, and reading `state.collection.status.status` to debug a stuck table is
-sound. See [WIX_PATTERNS_DOCS.md § 5](../WIX_PATTERNS_DOCS.md#5--traps-that-make-a-read-wrong).
+sound. See `<pkgRoot>/dist/docs/Reading the Doc Indices.md` for what a stub means.
 
 Prefer a typed member on `TableState` itself anyway — it is the object the hook hands you, and the
 table's own view of the collection.
@@ -129,5 +129,6 @@ cursor: response.pagingMetadata?.cursors?.next || undefined,
 extend. Cursor mode also accepts a separate `fetchTotal`, since a cursor-paged response carries no
 total; build its filter exactly as the page's or the count disagrees with the rows it counts.
 
-Look any of these up yourself with `Read <pkgRoot>/dist/dts-bundle/index.json` and the `file` path it
-gives; the index is the single source of truth, and it moves between versions.
+Look any of these up yourself, all in one `patterns-lookup.cjs` call
+([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)), and read the file it names. The
+index is the single source of truth, and it moves between versions.

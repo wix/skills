@@ -1,7 +1,9 @@
 name: EvalForge YAML Gate Cleanup
 
+# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
+# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [closed]
 
@@ -12,6 +14,9 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     # Spec §8: cleanup is "On PR close without merge". On merge, promote handles MCP+state.
     # This prevents a race where cleanup deletes draft scenarios before promote can promote them.
     if: ${{ github.event.pull_request.merged != true && github.event.pull_request.head.repo.full_name == github.repository }}

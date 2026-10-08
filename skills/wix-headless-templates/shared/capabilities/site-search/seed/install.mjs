@@ -29,9 +29,9 @@ if (!siteId) {
   console.log(JSON.stringify({ error: "no site: pass --site <siteId> or run in a folder with wix.config.json" }));
   process.exit(1);
 }
-const token = execFileSync("npx", ["-y", "@wix/cli@1.1.257", "token", "--site", siteId], { encoding: "utf8" }).trim();
+const token = execFileSync("npx", ["-y", "@wix/cli@1.1.258", "token", "--site", siteId], { encoding: "utf8" }).trim();
 if (!token) {
-  console.log(JSON.stringify({ error: "the Wix CLI returned no token — run `npx @wix/cli@1.1.257 login` first" }));
+  console.log(JSON.stringify({ error: "the Wix CLI returned no token — run `npx @wix/cli@1.1.258 login` first" }));
   process.exit(1);
 }
 try {

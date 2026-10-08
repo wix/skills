@@ -4,7 +4,7 @@ description: "UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns
 ---
 # Flow: Upsell Boost Campaign
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-plausibility).
 
 Creates a discount that incentivizes customers to spend more per order by setting a minimum subtotal threshold above the store's current AOV. The discount percentage is scaled to the store's average profit margin, and the scope targets high-margin categories or products.
 
@@ -29,7 +29,7 @@ Catalog analytics and product data are already in conversation context — do NO
 - `siteData.aov` — site-level AOV (revenue / ordersCount). Loaded by eCommerce Load Context.
 
 Extract from context:
-- `effective_aov` — use `siteData.aov`; run AOV sanity check: if AOV < price_p25, override with price_p50 as effective AOV
+- `effective_aov` — use `siteData.aov`; run AOV plausibility check: if AOV < price_p25, override with price_p50 as effective AOV
 - `avg_profit_margin` — from the "All Products" group in `siteData.catalogAnalytics`
 - `price_p50`, `price_p75`, `price_p90` — from quantiles in `siteData.catalogAnalytics`
 - Top products by price and order volume — from `siteData.productCatalogData`
@@ -90,7 +90,7 @@ Max 3 categoryIds per discount rule.
 
 ## Step 6: Run guardrail checks
 
-**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule** — conflict/stacking (scope, time, coupon cross-stacking), the 25% cap, the 15% margin floor, and %-sanity. Present any warnings to the merchant and get confirmation before proceeding.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule** — conflict/stacking (scope, time, coupon cross-stacking), the 25% cap, the 15% margin floor, and %-plausibility. Present any warnings to the merchant and get confirmation before proceeding.
 
 ---
 
