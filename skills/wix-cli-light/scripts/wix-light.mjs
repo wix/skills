@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 // `node wix-light.mjs <command> [flags]`. Every command finishes inside one call and prints one JSON
 // object per line, in the Wix CLI's agent-mode vocabulary where the CLI has one.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { requestDeviceCode, exchangeDeviceCode, saveSession, session, accessToken } from "./lib/auth.mjs";
 import { readPending, writePending, clearPending, ACCOUNT_FILE } from "./lib/state.mjs";
-import { setCommandName } from "./lib/http.mjs";
+import { setCommandName, redact, request, API } from "./lib/http.mjs";
 import { readConfig, writeConfig, writeEnv, CONFIG, ENV_FILE } from "./lib/project.mjs";
 import { getAppProject, createAppProject, getEnvironmentVariables, upsertEnvironmentVariables, deploy } from "./lib/hosting.mjs";
 import { createSite, getOrCreateCompanionApp, setNamespace, installApp, getAppSecrets, configureOAuthApp, createComponentsOverride, release as releaseOverride, BACKEND_WORKER_COMPONENT_ID } from "./lib/devcenter.mjs";
 
 const emit = (event, extra = {}) => process.stdout.write(JSON.stringify({ event, ...extra }) + "\n");
-const fail = (event, extra = {}) => { emit(event, { ok: false, ...extra }); process.exit(1); };
+// Every failure line passes through `redact`: a token never reaches stdout by way of an error.
+const fail = (event, extra = {}) => { emit(event, { ok: false, ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, typeof v === "string" ? redact(v) : v])) }); process.exit(1); };
 
 const [, , command = "help", ...rest] = process.argv;
 const flags = {};
@@ -66,10 +67,28 @@ async function whoami() {
   emit("logged_in", { email: a.userInfo.email, userId: a.userInfo.userId });
 }
 
+// `token` exists for one use: a shell substitution straight into a request header. `call` below
+// makes the request without the token ever leaving this process; prefer it.
 async function token() {
   const t = await accessToken(flags.site ? { siteId: flags.site } : {});
   if (flags.json) emit("token", { accessToken: t, ...(flags.site ? { siteId: flags.site } : {}) });
   else process.stdout.write(t + (process.stdout.isTTY ? "\n" : ""));
+}
+
+// ── call: a Wix API request with the session's token, which stays inside this process ───────────
+// `call <METHOD> <url or /path on www.wixapis.com> [--site <siteId>] [--body '<json>' | --body-file <f>]`
+// Prints the response body; a non-2xx exits 1 with `call_failed` carrying the status and body.
+async function call() {
+  const [method, target] = positional;
+  if (!method || !target) fail("args", { detail: "call <GET|POST|PATCH|PUT|DELETE> <url or /path> [--site <siteId>] [--body <json> | --body-file <file>]" });
+  const url = /^https?:\/\//.test(target) ? target : `${API}${target.startsWith("/") ? "" : "/"}${target}`;
+  if (!/^https:\/\/[a-z0-9.-]+\.(wixapis\.com|wix\.com)(\/|$)/.test(url)) fail("args", { detail: "call only sends the session's token to *.wixapis.com and *.wix.com" });
+  let body;
+  if (flags["body-file"]) body = JSON.parse(readFileSync(resolve(flags["body-file"]), "utf8"));
+  else if (typeof flags.body === "string") body = JSON.parse(flags.body);
+  const t = await accessToken(flags.site ? { siteId: flags.site } : {});
+  const data = await request(url, { method: method.toUpperCase(), token: t, body });
+  process.stdout.write((typeof data === "string" ? data : JSON.stringify(data, null, 2)) + "\n");
 }
 
 // ── env pull ──────────────────────────────────────────────────────────────────────────────────
@@ -119,12 +138,22 @@ async function provision({ businessName, cloudProvider, siteTemplate }) {
   return { siteId, appId, baseUrl: project.baseUrl, variables };
 }
 
+// `.env.local` holds the app's secret; a project that has a .gitignore gets it listed there.
+function keepEnvOutOfGit(d) {
+  const gi = join(d, ".gitignore");
+  if (!existsSync(gi)) return;
+  const lines = readFileSync(gi, "utf8").split(/\r?\n/);
+  if (lines.some((l) => l.trim() === ENV_FILE || l.trim() === ".env*" || l.trim() === ".env.*")) return;
+  appendFileSync(gi, (lines.at(-1) === "" ? "" : "\n") + ENV_FILE + "\n");
+}
+
 function writeProject(d, { siteId, appId, variables }, { astro }) {
   const config = astro
     ? { appId, siteId }
     : { projectType: "Site", appId, siteId, site: { outputDirectory: flags.output || "./dist" } };
   writeConfig(d, config);
   writeEnv(d, variables);
+  keepEnvOutOfGit(d);
   return config;
 }
 
@@ -245,13 +274,14 @@ async function release() {
   emit("released", { url, releaseBaseUrl, deploymentBaseUrl: deployment.deploymentBaseUrl, overrideId, siteId: config.siteId, appId: config.appId });
 }
 
-const commands = { login, whoami, token, env, init, create, release };
+const commands = { login, whoami, token, call, env, init, create, release };
 if (command === "help" || !commands[command]) {
   process.stdout.write([
     "wix-light <command>",
     "  login [--wait <sec>] [--force]",
     "  whoami",
-    "  token [--site <siteId>] [--json]",
+    "  token [--site <siteId>] [--json]        (only for a shell substitution into a header; prefer call)",
+    "  call <METHOD> <url|/path> [--site <siteId>] [--body <json> | --body-file <file>]",
     "  env pull [--dir <project>]",
     "  init [--business-name <name>] [--astro] [--output <dir>] [--dir <folder>]",
     "  create --business-name <name> --folder <name> [--template-dir <path> | --template-repo <url> [--template-path <sub>] [--template-ref <ref>]] [--static] [--output <dir>] [--site-template <id>]",
@@ -264,5 +294,5 @@ setCommandName(command);
 commands[command]().catch((e) => {
   if (e.code === "LoginRequired") fail("login_required", { detail: "no Wix session: run `login`" });
   if (e.code === "NoProject") fail(`${command}_failed`, { detail: e.message });
-  fail(`${command}_failed`, { detail: String(e.message || e).slice(0, 600), ...(e.status ? { status: e.status } : {}) });
+  fail(`${command}_failed`, { detail: String(e.message || e).slice(0, 600), ...(e.status ? { status: e.status } : {}), ...(e.body ? { body: redact(typeof e.body === "string" ? e.body : JSON.stringify(e.body)).slice(0, 1500) } : {}) });
 });

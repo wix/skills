@@ -1,6 +1,6 @@
 ---
 name: wix-cli-light
-description: "The Wix CLI's headless-project operations as plain Node scripts, no install: device-code login that completes across two short calls, whoami, account and site tokens, env pull, site and app provisioning (init, create), and release of a static or Astro build. For hosts where a long-running or detached process cannot finish, or where installing @wix/cli is slow or blocked. Node 18 or later, network, a file system."
+description: "The Wix CLI's headless-project operations as plain Node scripts, no install: device-code login that completes across two short calls, whoami, account and site tokens, env pull, site and app provisioning (init, create), release of a static or Astro build, and `call`, a Wix API request made with the session so the token never leaves the process. For hosts where a long-running or detached process cannot finish, or where installing @wix/cli is slow or blocked. Node 18 or later, network, a file system."
 ---
 
 # Wix CLI light
@@ -42,8 +42,51 @@ node scripts/wix-light.mjs token                 # account access token
 node scripts/wix-light.mjs token --site <siteId> # site-scoped access token
 ```
 
-Prints the bare token; `--json` prints a `token` event instead. Tokens are refreshed when stale
-and site tokens are cached in the CLI's per-site file.
+Prints the bare token, for exactly one use: a shell substitution straight into a request header,
+in the same command, as in `-H "Authorization: $(node scripts/wix-light.mjs token)"`. For anything
+else use `call`, which makes the request without the token ever leaving the process.
+
+## call
+
+```
+node scripts/wix-light.mjs call <METHOD> <url or /path> [--site <siteId>] [--body '<json>' | --body-file <file>]
+```
+
+A Wix API request with the session's token. A bare path is on `https://www.wixapis.com`; a full
+URL must be on `*.wixapis.com` or `*.wix.com`, the only hosts the token is sent to. `--site`
+scopes the token to that site, for site-level APIs. Prints the response body; a non-2xx exits 1
+with `call_failed` carrying `status` and the body.
+
+The account's sites, headless ones included (the site list leaves them out unless asked):
+
+```
+node scripts/wix-light.mjs call POST /site-list/v2/sites/count \
+  --body '{"filter":{"namespace":{"$in":["WIX","HEADLESS"]}}}'
+node scripts/wix-light.mjs call POST /site-list/v2/sites/query \
+  --body '{"query":{"filter":{"namespace":{"$in":["WIX","HEADLESS"]}},"sort":[{"fieldName":"createdDate","order":"DESC"}],"cursorPaging":{"limit":20}}}'
+```
+
+Each site's `id` is its `siteId`. `namespace` is `HEADLESS` for a site made by `init` or `create`.
+Count before enumerating: an account can hold thousands, and the next page's cursor is at
+`metadata.cursors.next`.
+
+What a site is, in one call: its installed apps, namespace, URL, locale and currency, and its CMS
+collections. As JSON, or as one markdown document to read (returned as `{ "markdown": "..." }`):
+
+```
+node scripts/wix-light.mjs call POST /_api/dynamic-context/v1/dynamic-context --body '{"siteId":"<siteId>"}'
+node scripts/wix-light.mjs call POST /_api/dynamic-context/v1/dynamic-context/markdown --body '{"siteId":"<siteId>"}'
+```
+
+A site-level API, with the token scoped to the site:
+
+```
+node scripts/wix-light.mjs call GET /site-properties/v4/properties --site <siteId>
+```
+
+Every other Wix API works the same way. The `wix-manage` skill holds the operations and their
+request shapes; the `wix-docs` skill finds an endpoint and its method schema. Neither is needed
+for the calls above.
 
 ## env pull
 
@@ -98,6 +141,32 @@ Uploads the build and makes it the live version. A static project uploads `site.
 and uploads its client and server output with the app manifest. Events: `uploading`, `uploaded`
 with the deployment URL, `released` with `url` (the custom domain when one is connected, else the
 site's hosting URL).
+
+## Tokens
+
+Three tokens exist: the account access token (hours), the account refresh token that mints the
+others (long-lived), and a site token (minutes) scoped to one site. They live in the files below
+and in the `authorization` header of requests these scripts make. Nowhere else.
+
+Do:
+- `call` for any Wix API. The token is read, sent, and dropped inside the process.
+- `token` only as a shell substitution into a header, in the same command.
+- `--site <siteId>` for site-level APIs, so the token sent is the narrow one.
+- Leave `.env.local` where it is. It holds the app's secret; `init` adds it to the project's
+  `.gitignore` when there is one.
+
+Do not:
+- Print, echo, log or paste a token: not in the chat, not in a file, not in a commit, not in a
+  URL or a query string, not in an issue or a message to anyone.
+- Copy a token into a variable that outlives the command, into the project, or into notes.
+- Send a token anywhere but `*.wixapis.com` and `*.wix.com`. `call` refuses other hosts.
+- Copy `~/.wix/auth/` between machines, or read the files to "check" a token: `whoami` says
+  whether a session exists.
+- Paste `.env.local`, or its `WIX_CLIENT_SECRET`, anywhere. `WIX_CLIENT_ID` alone is public.
+
+Every failure line these scripts print passes through a redaction that masks token-shaped
+values, so an error can be shown as it is. If a token did reach a transcript, the owner logs the
+Wix CLI out (`wix logout`) and logs in again; that revokes the refresh token behind it.
 
 ## Files
 

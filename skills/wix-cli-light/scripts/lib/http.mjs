@@ -1,9 +1,16 @@
 // One fetch wrapper for every Wix call. The Wix CLI sends its token raw in `authorization`, no
 // Bearer prefix, with two XSRF headers and its own user agent; so does this.
+/** Masks anything shaped like a token or a secret, so no error, event or log can carry one. */
+export const redact = (text) => String(text ?? "")
+  .replace(/(OauthNG|JWS|JWE|JWT)\.[A-Za-z0-9._-]+/g, "$1.<redacted>")
+  .replace(/(authorization|access_token|accessToken|refresh_token|refreshToken|appSecret|WIX_CLIENT_SECRET|uploadAuthToken|jwt)("?\s*[:=]\s*"?)[^"\s,}]+/gi, "$1$2<redacted>")
+  .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer <redacted>")
+  .replace(/\b[A-Za-z0-9_-]{120,}\b/g, "<redacted>");
+
 export class HttpError extends Error {
   constructor(status, body, url) {
     const text = typeof body === "string" ? body : JSON.stringify(body);
-    super(`HTTP ${status} from ${url}: ${(text || "").slice(0, 300)}`);
+    super(`HTTP ${status} from ${url}: ${redact((text || "").slice(0, 300))}`);
     this.status = status;
     this.body = body;
     this.url = url;
