@@ -65,7 +65,10 @@ Resolve Actions has no `basicFieldsOnly` option and rejects displayName filters;
 locally. Compact each page to identities and display names before adding it to reasoning
 context. Cache results for this site and hydrate only a shortlist. Pages can overlap;
 de-duplicate by appId+key. Only a complete scan with distinct count equal to `paging.total`
-proves absence. Otherwise report that the component was not found in the inspected results.
+proves absence; state the evidence ("scanned N distinct of `paging.total` N"). Without that
+proof, say the component was "not found in the installed catalog", never that it is not
+installed. Either way, list the closest related actions you did find, as findings rather than
+substitutes, with their returned `appId`/`actionKey` and what their schemas require.
 
 Resolve is site-scoped; global Query catalogs can include uninstalled apps and do not prove
 availability. The method schemas below confirm the full public URLs; do not invent a private
