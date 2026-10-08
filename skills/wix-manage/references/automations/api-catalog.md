@@ -71,7 +71,7 @@ triggerKey}, rootActionIds, actions}` → created `automation` (has `id`, `revis
   absence is not data loss (Create's response omits them too).
   Request overrides before complete-object updates and status changes too, not just creation read-back.
 - **Later stages only — not in stage 2:** **Update** — published in stage 3.
-- **Delete**: → `{}`. Irreversible; only on explicit user request.
+- **Later stages only — not in stage 2:** **Delete** — published in stage 3.
 - **Query**: `{query{filter, sort, cursorPaging{limit ≤ 500, cursor}}}` → `automations[]`,
   `pagingMetadata.cursors.next`. Returns only automations of apps installed on the site (incl.
   overridden preinstalled ones), and never unpublished builder drafts. Full objects are large —
