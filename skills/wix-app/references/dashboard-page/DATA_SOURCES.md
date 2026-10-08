@@ -2,9 +2,8 @@
 
 > **Scope.** [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) gives you the page; this file finds the method
 > and *field names* for its data. The [SDK lookup](../../SKILL.md#sdk-lookup-one-call-for-every-vertical-entity)
-> gives the namespace, the method and the entity's declaration (`file:line`) in one call; this file is
-> for checking fields in that declaration, and for the cases the lookup does not cover. The installed
-> package is the version your code compiles against.
+> gives the namespace, the method and the entity's `file:line`; this file checks the fields there.
+> The installed package is the version your code compiles against.
 
 ## Where the types actually live
 
@@ -20,12 +19,10 @@ node_modules/@wix/auto_sdk_ecom_orders/build/es/
   ecom-v1-order-orders.universal-<hash>.d.mts        # the domain entities
 ```
 
-Three consequences worth knowing before you start grepping:
+Three consequences:
 
-1. **The directory name is not the namespace name.** Namespaces are camelCase, package directories
-   are kebab-case — `extendedBookings` lives in `auto_sdk_bookings_extended-bookings`, not
-   `auto_sdk_bookings_extendedBookings`. Don't derive one from the other; list them:
-   `ls node_modules/@wix | grep <vertical>`.
+1. **The directory name is not the namespace name.** `extendedBookings` lives in
+   `auto_sdk_bookings_extended-bookings`. Don't derive one from the other; the SDK lookup maps them.
 2. **The entity is not always in `index.typings.d.mts`.** `Order`, `Refund`, `Service` live in the
    hashed `*.universal-*.d.mts` when the package has one. The hash changes between versions, so glob
    for it, never hard-code it, and fall back to `index.typings.d.mts` when no universal file exists.
@@ -36,15 +33,8 @@ Three consequences worth knowing before you start grepping:
 
 ## Confirming a method
 
-The SDK lookup lists every method of the namespace it chooses (`other methods:` for the ones outside
-the intent). Use the grep below only when the lookup is not available:
-
-```bash
-E=node_modules/@wix/auto_sdk_ecom_order-transactions/build/es
-grep -oE "^declare function [a-zA-Z]+" $E/index.d.mts
-```
-
-Prefer this to recall: `listTransactionsForMultipleOrders(orderIds: string[])` and
+The SDK lookup lists every method of the namespace (`other methods:` outside the intent). Prefer
+its list to recall: `listTransactionsForMultipleOrders(orderIds: string[])` and
 `listTransactionsForSingleOrder` differ by exactly the shape a collection page needs, and only one
 of them avoids an N+1 across the visible page.
 
@@ -55,6 +45,7 @@ the uncertain ones, **in one pass**. List the types and fields first, then print
 per file. A grep per question is a round trip each:
 
 ```bash
+E=node_modules/@wix/auto_sdk_ecom_order-transactions/build/es
 awk '/^(interface|type) (Payment|RegularPaymentDetails)[ <{=]/,/^}/' $E/index.typings.d.mts
 ```
 
