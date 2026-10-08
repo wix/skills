@@ -36,7 +36,12 @@ What sets them apart:
   byte is tokens, so it suits small assets (an icon, a logo, a font) and files
   you downloaded from the site to change; a photo goes in by absolute URL
   (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
-  4M characters.
+  4M characters, but your own output is the real limit: a call that carries
+  more than about 20 KB of base64 is slow to write and gets cut off before it
+  is sent. Drop the text files first, so the site is live, and bring the
+  images in one at a time through the site's
+  [Dev Machine](#images-and-other-binary-files), never by re-dropping the
+  whole set per batch.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -185,8 +190,11 @@ find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) c
 below, matching the site's name or `viewUrl`.
 
 **When you no longer have the files** (a small change to a site from an earlier
-conversation), download what the site serves, edit it, and drop the full set
-back. Leave out `wix.config.json`; the download adds it, and it isn't part of the
+conversation) and the site has no Dev Machine release yet, download what the
+site serves, edit it, and drop the full set back. For adding images to a live
+site, or for a host with no shell, the machine's
+[one file per command](#images-and-other-binary-files) path moves each file once;
+this download-and-redrop pass moves the whole site every time. Leave out `wix.config.json`; the download adds it, and it isn't part of the
 site.
 
 ```bash
@@ -475,6 +483,38 @@ release goes to the same `siteUrl`; a plain-files site builds and releases in
 under a minute. `CI=1 wix build` alone checks the build without releasing.
 Nothing is live until a release: pushing to the code store saves, it does not
 publish.
+
+### Images and other binary files
+
+Bytes that are on your side reach the site only through a call you write, so
+the rule is to move each file once and small, or not at all:
+
+- **A file that has a URL is fetched by the machine**, not carried: the machine
+  reaches the public internet. `curl -sSL -o public/assets/hero.jpg "https://…"`
+  in a command, one line per file, then a release. This covers a designer's
+  export, stock photos, the user's current site and anything a Wix API returns
+  by URL (an image generated or imported through the Media Manager).
+- **A file that exists only in the conversation** goes in as a `base64 -d`
+  heredoc, one file per command, and arrives byte for byte:
+
+  ```bash
+  curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
+    -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
+    -d @- <<'JSON'
+  {"command":"mkdir -p public/assets && base64 -d > public/assets/logo.png <<'B64'\niVBORw0KGgoAAAANSUhEUgAA…\nB64\nsha256sum public/assets/logo.png","waitSeconds":25}
+  JSON
+  ```
+
+  Keep each call under about 20 KB of base64 (a 15 KB image) and release once
+  at the end, not per file. Compare the `sha256sum` the command prints with the
+  file's own when it matters.
+- **A file larger than that is not carried.** Say which files did not make it,
+  and give the user a way to add them themselves: the
+  [drop page](#the-drop-page) for a site that is still only a drop, or an image
+  upload to the Media Manager (`<MANAGE>/references/media/upload-media-to-wix.md`)
+  whose URL the page then references. Do not retry a call that was cut off with
+  the same payload, and do not loop over download, add a batch, re-drop: each
+  pass resends the whole site.
 
 ### Later conversations
 
