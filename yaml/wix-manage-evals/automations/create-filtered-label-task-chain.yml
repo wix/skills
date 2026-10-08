@@ -1,0 +1,76 @@
+{
+  "name": "automations/create-filtered-label-task-chain",
+  "description": "A static-key trigger filter and two chained app-defined actions persist in builder-readable shapes.",
+  "triggerPrompt": "Create an automation named VIP label follow-up. Run it only when the contact label with key custom.vip-follow-up (shown as VIP follow-up) is added to a contact, not for any other label. Then create a task titled Call new VIP for that contact, and after that a second task titled Send VIP welcome gift for the same contact. Go ahead and save this automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Judge the automation as returned by a successful Get read-back in the tool trace, not only the submitted request. Trigger: contacts-label_added_to_contact with exactly one saved filter whose id equals the filter id in that trigger's catalog response, whose fieldKey is exactly label.key, and whose filterExpression is the scalar shape {{contains([\"custom.vip-follow-up\"];var(\"label.key\"))}}: the value inside a literal array, double quotes, a semicolon between arguments, no spaces. Any other function, a value outside an array, a display name instead of the key, an empty filters array, or a missing or empty filterExpression fails. If the agent used a key returned by a successful public Labels API response for the seeded VIP follow-up label instead of the supplied key, accept that returned key. Actions: exactly two APP_DEFINED createTask nodes chained in order, Call new VIP then Send VIP welcome gift. rootActionIds holds only the first node id, the first node's postActionIds holds only the second node id, and the second node's postActionIds is empty. Node ids are unique, and namespaces are unique and follow <actionKey>-<N> numbering (for example createTask-1 and createTask-2); a reused namespace fails. Both tasks map contactId from the trigger contactId and use the exact requested titles. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize guessing the filter id or fieldKey instead of reading the trigger's catalog filters, trial-and-error filter expressions, repairing duplicated namespaces or broken postActionIds after a failed Validate, creating or renaming labels, and creating the automation more than once. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor",
+    "bootstrap": {
+      "steps": [
+        {
+          "label": "Seed VIP follow-up",
+          "method": "post",
+          "url": "https://www.wixapis.com/contacts/v4/labels",
+          "body": {
+            "displayName": "VIP follow-up"
+          }
+        }
+      ]
+    }
+  }
+}
