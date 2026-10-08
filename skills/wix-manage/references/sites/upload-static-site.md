@@ -521,32 +521,49 @@ write, so the rule is to move each file once and small, or not at all:
   in a command, one line per file, then a release. This covers a designer's
   export, stock photos, the user's current site and anything a Wix API returns
   by URL (an image generated or imported through the Media Manager).
-- **A file that exists only in the conversation** goes in as a `base64 -d`
-  heredoc, one file per command, and arrives byte for byte:
+- **A file that exists only in the conversation** goes in as base64 you write
+  into a command, and what you write is not reliable past a few KB: measured,
+  a 4 KB chunk arrives intact, a 5.5 KB chunk silently loses characters from
+  its middle, a long repetitive run can come back with two characters
+  swapped at the same length, and a response carrying more than about 10 KB
+  is stopped by the client before the call is sent. A length check does not
+  catch the second kind; a checksum catches all of them. So carry a file this
+  way only with every step of this, in order:
+
+  1. Compress first when it pays: `gzip -9 -c file | base64 -w0 | wc -c` on
+     your side. A flat graphic shrinks several-fold; a photo barely moves.
+     Send whichever is smaller, raw or gzipped.
+  2. Split the base64 into chunks of at most 4,000 characters and send each
+     as its own command that appends: `printf '%s' '<chunk>' >> public/assets/x.b64`.
+     Check the `wc -c` the command prints against the chunk's length before
+     the next one.
+  3. Decode once, `base64 -d public/assets/x.b64 | gunzip > public/assets/x.png`
+     (or without `gunzip`), and `sha256sum` it. Compare with the file's own
+     hash on your side. A mismatch is one chunk gone wrong: find it by
+     hashing prefixes, truncate the `.b64` to before it, resend from there.
+  4. Remove the `.b64` files, then release once at the end, not per file.
+
+  Budget it honestly: a 90 KB set of images is about 30 commands and half an
+  hour. That is worth it when the alternative is a shop with no product
+  photos, and the user has not said otherwise; it is not worth it for a
+  photo gallery.
 
   ```bash
   curl -sS -X POST "https://www.wixapis.com/headless-remote-project/v1/dev-machines/execute-command" \
     -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
     -d @- <<'JSON'
-  {"command":"mkdir -p public/assets && base64 -d > public/assets/logo.png <<'B64'\niVBORw0KGgoAAAANSUhEUgAA…\nB64\nsha256sum public/assets/logo.png","waitSeconds":25}
+  {"command":"mkdir -p public/assets && printf '%s' 'H4sIAAAAAAAAA…' >> public/assets/hero.b64 && wc -c < public/assets/hero.b64","waitSeconds":25}
   JSON
   ```
 
-  This is for files of a few KB: an icon, a favicon, a small logo. A response
-  that carries more base64 than that gets stopped by the client before the
-  call is sent; do not try an 8 KB photo this way. Release once at the end, not per
-  file, and compare the `sha256sum` the command prints with the file's own when
-  it matters.
-- **A larger file is not carried by you, and the site does not wait for it.**
-  Release the pages as they are, say which files did not make it, and give the
-  user the way to add them that keeps this site: upload the images in the
-  site's Media Manager (`https://manage.wix.com/dashboard/<metaSiteId>/media-manager`),
+- **A set too large to carry that way does not hold the site up.** Release
+  the pages as they are, say which files did not make it, and give the user
+  the way to add them that keeps this site: upload the images in the site's
+  Media Manager (`https://manage.wix.com/dashboard/<metaSiteId>/media-manager`),
   then, in the next turn, fetch each one by its URL from the machine and
   release. The [drop page](#the-drop-page) is not that way: it creates another
-  site. A transfer whose `sha256sum` does not match is the same case: remove
-  the file, do not send the bytes again, hand over. Do not retry a call that
-  was cut off with the same payload, and do not loop over download, add a
-  batch, re-drop: each pass resends the whole site.
+  site. Do not retry a call that was cut off with the same payload, and do not
+  loop over download, add a batch, re-drop: each pass resends the whole site.
 
 ### Later conversations
 
