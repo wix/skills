@@ -19,6 +19,7 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    environment: evalforge
     timeout-minutes: 60
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

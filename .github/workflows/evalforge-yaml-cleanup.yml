@@ -14,6 +14,7 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    environment: evalforge
     # Spec §8: cleanup is "On PR close without merge". On merge, promote handles MCP+state.
     # This prevents a race where cleanup deletes draft scenarios before promote can promote them.
     if: ${{ github.event.pull_request.merged != true && github.event.pull_request.head.repo.full_name == github.repository }}

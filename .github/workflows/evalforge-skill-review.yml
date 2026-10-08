@@ -36,6 +36,7 @@ jobs:
     # generic names collide in the picker — both eval gates already expose a job called `gate`.
     name: skill-review
     runs-on: ubuntu-latest
+    environment: evalforge
     # Comfortably over the reviewer's own 900-second ceiling, leaving room for checkout and install.
     timeout-minutes: 20
     env:
