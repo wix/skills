@@ -56,8 +56,8 @@ result. Local structural checks do not establish that live evaluations passed.
 
 
 Initial publication uses five ordered PRs, each adding at most four reference documents.
-Stage 5 adds only Automations Item Selection (the List Selector Options guide); it is last
-because that method's public route is not registered yet, so it can never block stages 1–4.
+Stage 5 adds only Automations Item Selection; it is last
+because the selection method's public route is not registered yet, so it can never block stages 1–4.
 Stage 3 inlines only the update restrictions (§4) of the planning guide into its validation
 page (`appendSections` in `stage-overrides.json`); stage 4 still publishes the whole guide.
 `publication-stage.json` records this checkout's cumulative stage (1–5). The canonical

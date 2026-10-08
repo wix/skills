@@ -163,7 +163,14 @@ If you're unsure about where to place new content or how to structure it:
 <!-- automations-sync-maintenance -->
 ## Synced skill areas
 
-The Automations area is maintained through a canonical external source and staged exporter.
+**Edits to `skills/wix-manage/references/automations/`, `yaml/wix-manage/automations/` and
+`yaml/wix-manage-evals/automations/` (and the marked Automations section of
+`skills/wix-manage/SKILL.md`) are regenerated from a canonical source: the next sync's
+`--write` replaces any file that differs from the generated output. `--check` lists those
+differing files without writing, so the maintainer can see an edit before syncing, but an
+accepted edit persists only once it is ported to the canonical source** (Wix contributors with
+access can open that PR there directly; see the maintenance guide below).
+
 Public fixes remain welcome. The Automations PR author/maintainer must port accepted changes
 back to that source before syncing again, so they survive regeneration. See the
 [Automations maintenance guide](yaml/wix-manage/automations/README.md) for the source,
