@@ -15,19 +15,16 @@ export function readConfig(dir) {
 
 export const writeConfig = (dir, config) => writeFileSync(join(dir, CONFIG), JSON.stringify(config, null, 2) + "\n");
 
-// dotenv's subset: KEY=value, optional export, optional quotes, comments dropped.
+// dotenv's subset: KEY=value, optional export, single or double quotes, a double-quoted value may
+// span lines (the CLI writes a PEM key that way), comments and blank lines dropped.
 export function readEnv(dir) {
   const file = join(dir, ENV_FILE);
   if (!existsSync(file)) return {};
   const out = {};
-  for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq === -1) continue;
-    let value = line.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
-    out[line.slice(0, eq).trim().replace(/^export\s+/, "")] = value;
+  const re = /^\s*(?:export\s+)?([\w.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^#\r\n]*))?/gm;
+  for (const m of readFileSync(file, "utf8").matchAll(re)) {
+    if (!m[1]) continue;
+    out[m[1]] = m[2] ?? m[3] ?? (m[4] ?? "").trim();
   }
   return out;
 }

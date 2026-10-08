@@ -212,11 +212,15 @@ function buildFiles(d, config) {
 }
 
 const noSlash = (s) => s.replace(/\/$/, "");
+// A static site's manifest is empty; an Astro build ships one with URL placeholders. Both get the
+// backend worker component that points the release at the deployment.
 function manifestFor(d, config, files, deployment) {
-  if (!files.manifest) return { appId: config.appId, components: [] };
-  let text = readFileSync(files.manifest.path, "utf8");
-  for (const key of [files.manifest.statics, files.manifest.server]) if (key && deployment.deploymentBaseUrl) text = text.replaceAll(noSlash(key), noSlash(deployment.deploymentBaseUrl));
-  const manifest = JSON.parse(text);
+  let manifest = { appId: config.appId, components: [] };
+  if (files.manifest) {
+    let text = readFileSync(files.manifest.path, "utf8");
+    for (const key of [files.manifest.statics, files.manifest.server]) if (key && deployment.deploymentBaseUrl) text = text.replaceAll(noSlash(key), noSlash(deployment.deploymentBaseUrl));
+    manifest = JSON.parse(text);
+  }
   if (deployment.deploymentId && deployment.deploymentBaseUrl) {
     const git = spawnSync("git", ["rev-parse", "HEAD"], { cwd: d, encoding: "utf8" });
     manifest.components.push({ compId: BACKEND_WORKER_COMPONENT_ID, compType: "BACKEND_WORKER", compData: { backendWorker: { deploymentId: deployment.deploymentId, deploymentUrl: deployment.deploymentBaseUrl, ...(git.status === 0 ? { commitHash: git.stdout.trim() } : {}) } } });
