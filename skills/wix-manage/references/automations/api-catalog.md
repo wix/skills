@@ -63,8 +63,8 @@ A site may have Add label to contact without Create task; never substitute one f
 Remove the exact-key filter to browse; use offset pages of at most 25 entries, with no sort.
 Resolve Actions has no `basicFieldsOnly` option and rejects displayName filters; search names
 locally. Compact each page to identities and display names before adding it to reasoning
-context. Fetch each page and each schema once, cache it for this site, and hydrate only a shortlist;
-never re-fetch a page, catalog or schema you already have. Pages can overlap;
+context. Fetch each catalog page and static schema once, cache it for this site, and hydrate only a
+shortlist; never re-fetch a page or schema you already have. Pages can overlap;
 de-duplicate by appId+key. Only a complete scan with distinct count equal to `paging.total`
 proves absence; state the evidence ("scanned N distinct of `paging.total` N"). Without that
 proof, say the component was "not found in the installed catalog", never that it is not

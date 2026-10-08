@@ -18,9 +18,12 @@ Do not perform a write when the user asks only to inspect.
 For a capability check, resolve the site's catalogs, retain the returned app/key identities,
 and inspect the selected schemas. A remembered action key is a search hint, not evidence that
 the action is installed. State missing prerequisites without offering an unverified substitute.
+If a requested action isn't found, write "not found in the installed catalog (scanned N
+distinct of `paging.total` N)". Say "not installed" only when that count matches; then list
+the closest related actions with their returned appId and actionKey.
 
 For current status, find the exact automation, Get its returned ID, and report the status
-from that response. Current ACTIVE/INACTIVE status is separate from historical run results.
+from that response. Every status answer names the automation and its returned ID. Current ACTIVE/INACTIVE status is separate from historical run results.
 
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned data, and distinguish a missing record from proof of nonexistence.
