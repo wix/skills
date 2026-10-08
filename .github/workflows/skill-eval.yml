@@ -17,7 +17,9 @@ concurrency:
 jobs:
   skill-eval:
     runs-on: ubuntu-latest
-    environment: evalforge
+    environment:
+      name: evalforge
+      deployment: false
     if: false
     permissions:
       contents: read
