@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "about": "Choices no SDK index can make. sdk-lookup.cjs prints a rule when one of its entities matches. `choice: site` means the namespace depends on the site, not on the install.",
+  "rules": [
+    {
+      "entities": ["product", "products", "catalog"],
+      "namespaces": ["products", "productsV3"],
+      "choice": "site",
+      "note": "Call catalogVersioning.getCatalogVersion() first: V3 sites use productsV3, V1 sites use products. Support both paths, and request both scope sets plus SCOPE.STORES.CATALOG_READ_LIMITED. To search by name, V3 has productsV3.searchProducts() (queryProducts cannot filter on name); V1 has no search method, and its builder takes name only with startsWith.",
+      "source": "SKILL.md (Stores), references/STORES_VERSIONING.md, references/stores/QUERY.md"
+    },
+    {
+      "entities": ["inventory"],
+      "namespaces": ["inventory", "inventoryItemsV3"],
+      "choice": "site",
+      "note": "Call catalogVersioning.getCatalogVersion() first: V3 sites use inventoryItemsV3, V1 sites use inventory. Request both scope sets.",
+      "source": "references/STORES_VERSIONING.md"
+    },
+    {
+      "entities": ["refund", "refunds"],
+      "namespaces": ["orders", "orderTransactions", "refunds"],
+      "choice": { "prefer": "orders", "intents": ["search", "read"] },
+      "note": "Refunded orders: orders.searchOrders with a paymentStatus filter, then orderTransactions.listTransactionsForMultipleOrders(ids) once for the visible page. Refund events are the exception: they live in @wix/payments (namespace refunds), not in @wix/ecom.",
+      "source": "references/dashboard-page/DATA_SOURCES.md, references/backend-event/COMMON-EVENTS.md"
+    },
+    {
+      "entities": ["location", "locations"],
+      "namespaces": ["locations"],
+      "note": "queryLocations is admin-only although its scope is SCOPE.DC-MULTILOCATION.READ-LOCATIONS: route it to a backend endpoint and elevate it there.",
+      "source": "SKILL.md (Identity and Elevation Requirement)"
+    },
+    {
+      "entities": ["member", "members"],
+      "namespaces": ["members"],
+      "note": "getMember and queryMembers withhold PRIVATE members from visitor and member callers. getCurrentMember (the docs page is get-my-member) needs visitor or member authentication.",
+      "source": "SKILL.md (Identity and Elevation Requirement)"
+    },
+    {
+      "entities": ["cart", "currentcart"],
+      "namespaces": ["currentCartV2", "cartV2"],
+      "note": "currentCartV2.addLineItemsToCurrentCart is visitor-callable although its scope is SCOPE.ECOM.MANAGE-ADMIN. Never elevate it.",
+      "source": "SKILL.md (Identity and Elevation Requirement)"
+    }
+  ]
+}

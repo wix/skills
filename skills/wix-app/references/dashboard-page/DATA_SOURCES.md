@@ -1,8 +1,10 @@
 # Finding the real SDK shape behind a dashboard page
 
 > **Scope.** [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md) gives you the page; this file finds the method
-> and *field names* for its data. Read it before Step 3's MCP discovery. The installed package is
-> the version your code compiles against.
+> and *field names* for its data. The [SDK lookup](../../SKILL.md#sdk-lookup-one-call-for-every-vertical-entity)
+> gives the namespace, the method and the entity's declaration (`file:line`) in one call; this file is
+> for checking fields in that declaration, and for the cases the lookup does not cover. The installed
+> package is the version your code compiles against.
 
 ## Where the types actually live
 
@@ -33,6 +35,9 @@ Three consequences worth knowing before you start grepping:
    `grep -oE "^declare (const|function) [a-zA-Z]+"` — or pipe any barrel grep through `cut -c1-200`.
 
 ## Confirming a method
+
+The SDK lookup lists every method of the namespace it chooses (`other methods:` for the ones outside
+the intent). Use the grep below only when the lookup is not available:
 
 ```bash
 E=node_modules/@wix/auto_sdk_ecom_order-transactions/build/es
