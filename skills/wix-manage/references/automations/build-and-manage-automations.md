@@ -1,9 +1,9 @@
 ---
 name: "Build and Manage Wix Automations"
-description: "Create, update, activate or deactivate Wix Automations, and check their current status, on a site you have API access to, using the public Wix Automations APIs. Build automations that validate and remain editable in the Wix dashboard builder."
+description: "Create, update, activate or deactivate Wix Automations with app actions, trigger filters, conditions, delays, variables, branches and schedules, and check their current status, using the public Wix Automations APIs. Email actions, entity-ID/provider configuration and planning-limit workflows are covered in a later guide."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # Wix Automations Builder
 
@@ -26,7 +26,7 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)                     | Choosing an app action and writing its `inputMapping`.                                                                                                                                                                            |
 | Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))    | A field needs an id (form, label, service, email…), or the component has special handling (**provider APIs registry**: triggered emails, webhooks, scheduled, custom trigger…).                                                   |
 | Automations Item Selection (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | Query selectable items by provider or tag, with dependencies, pagination and vertical API alternatives. |
-| Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
+| Automations Email Actions (not yet published; email configuration is outside stage 3) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
 | [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)         | Writing ANY `{{ … }}` value (mappings, filters, delays, variables).                                                                                                                                                               |
 | [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
 | [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)             | DELAY, RATE_LIMIT, SET_VARIABLES, SPLIT, node naming (CODE_CONDITION spec: [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)).                                                                                                                                      |
@@ -91,7 +91,7 @@ For each step load only the matching reference, then:
 2. **Action input.** Map every required field yourself, following the field-type rules in
    [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) / [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions). Check the **provider APIs registry** in
    Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) first — some components have a dedicated configuration API.
-   **Send an email** (`triggered-emails`): initialize EACH new action with Generate Action Input
+   **Later stages only — email is outside stage 3:** **Send an email** (`triggered-emails`): initialize EACH new action with Generate Action Input
    Mapping, persist its returned mapping, then use Get / Set Email Content. This also applies
    when adding an email during Update. Existing email content edits do not reinitialize it.
    Other opaque widgets require their provider API or manual setup ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).

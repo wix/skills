@@ -3,7 +3,7 @@ name: "Automations Trigger Configuration"
 description: "Select and configure automation triggers, trigger filters and event payload schemas using the site catalog."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # Triggers — Discovery, Payload Schema, Filters
 

@@ -3,7 +3,7 @@ name: "Automations Activation Status"
 description: "Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # Activation status and lifecycle
 
@@ -18,8 +18,8 @@ Status does not show whether past runs succeeded. There is no separate
   supplied name, say so and ask the user to check the name or site; never guess an ID.
 - **Builder drafts are invisible to you**: if the user says "it doesn't show my latest changes",
   tell them to publish (or discard) in the builder first — don't reproduce their edits.
-- **NOT_FOUND is ambiguous.** Say the status can't be determined and ask the user to confirm
-  the site and id. A never-published builder draft is absent
+- **NOT_FOUND is ambiguous.** Say the status can't be determined, and always END the answer
+  by asking the user to confirm the site and the automation ID. A never-published builder draft is absent
   from Get/Query, but deletion and a replaced preinstalled id can also explain a 404. The first
   update of a preinstalled automation can create an override with a new id; use the mutation's
   returned id, or Query to find the current automation and confirm its identity. Only suggest

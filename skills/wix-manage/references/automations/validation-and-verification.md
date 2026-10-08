@@ -3,7 +3,7 @@ name: "Automations Validation and Persistence"
 description: "Validate automation configuration, check builder compatibility, persist changes and verify the saved result."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # Validation and Verification
 
@@ -33,7 +33,7 @@ Semantic review (you, not code) — required for every action before acceptance;
   retrieval is not assignment; a message about a change is not the change.
 - **Recipient lineage** (email, chat, SMS, push): prove the recipient path — the trigger contact and
   an upstream-created contact differ even when both are `contactId`; copy never proves who receives
-  it; for emails the audience fields decide (Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3).
+  it; for emails (later stages only — email is outside stage 3) the audience fields decide (Automations Email Actions (not yet published; email configuration is outside stage 3) §3).
 - **No fabricated content:** every user-specific value (recipient, subject, entity, amount) comes
   from the user, the site, or the payload.
 
@@ -165,9 +165,8 @@ resource, finish setup). Report its `title`/`message` and the `ctaUrl`, and don'
 
 ### Activation status, activate, deactivate
 
-Follow [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status): status checks, activation validation, status-only deactivation,
-locks, preinstalled override ids and revision conflicts. Deactivation does not require repairing
-the configuration.
+Read or change status only as [Automations Activation Status](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-activation-status) describes; this guide adds no status
+procedure of its own. Deactivation does not require repairing the configuration.
 
 ### Reporting rules
 
@@ -218,7 +217,7 @@ this list is the union; run those too for the node types you used.
 
 8. Every APP_DEFINED `appId`+`actionKey` came from Resolve Actions on this site; no unsupported
    action added — including no new code-variable step (the public Create refuses it).
-   New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
+   **Later stages only — email is outside stage 3:** New email steps have a provider-generated mapping used once and persisted before content edits; no fabricated opaque-widget mapping ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1); unrelated existing ones unchanged
    (except the documented site-owner audience replacement).
 9. `inputMapping`: only schema keys (an existing email/widget step's mapping passes through unchanged), types and
    enums match, every required/visible field mapped, entity-selector fields hold ids, formulas

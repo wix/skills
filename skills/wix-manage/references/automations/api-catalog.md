@@ -3,7 +3,7 @@ name: "Automations API Catalog"
 description: "Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # API Catalog — the public Wix Automations APIs
 
@@ -145,13 +145,13 @@ payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
 - **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
   is AI-backed — don't call it. Actions you can't map from their schema: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
-- **Email content of an existing Send an email step** — Get / Set Email Content
+- **Later stages only — email is outside stage 3:** **Email content of an existing Send an email step** — Get / Set Email Content
   (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
-  Automation Email Action API, scope _Manage Email Marketing_): Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
-- **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
+  Automation Email Action API, scope _Manage Email Marketing_): Automations Email Actions (not yet published; email configuration is outside stage 3).
+- **Later stages only — email is outside stage 3:** **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
   `POST https://www.wixapis.com/emails-automations/v1/email-actions/generate-action-input-mapping`.
   Use returned `appId`, `actionKey`, and opaque `inputMapping` for one new action only.
-  Request and persistence flow: Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
+  Request and persistence flow: Automations Email Actions (not yet published; email configuration is outside stage 3).
 
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
@@ -185,8 +185,11 @@ offset: N}}})`. Actions: `resolveActions` with small pages; keep only `appId`, `
 5. **Don't sort** — `sort: [{fieldName: "id"}]` fails with `SORT_PARSER_ERROR` on both Resolves.
    Unsorted offset pages can **overlap**: page until `paging.total`, de-duplicate by `appId`+key,
    and count distinct entries. An action or trigger is proven **missing** only after a complete,
-   de-duplicated scan (distinct count = `paging.total`) — otherwise say it wasn't found, not that
-   it doesn't exist. A shortcut: take the `appId` from a related action, then Resolve by `appId`.
+   de-duplicated scan (distinct count = `paging.total`). Report the evidence ("scanned N distinct
+   of `paging.total` N"); without that proof say it was "not found in the installed catalog",
+   never that it is not installed. Either way, list the closest related entries you did find with
+   their returned `appId` + key and what their schemas require — don't omit them. A shortcut:
+   take the `appId` from a related action, then Resolve by `appId`.
 
 Discovery hints:
 

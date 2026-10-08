@@ -3,7 +3,7 @@ name: "Automations Action Configuration"
 description: "Configure app-defined automation actions from their input schemas and preserve supported existing action mappings."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
+This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract. Exception: Send an email and other opaque-widget (provider-owned) actions are outside stage 3 until Automations Email Actions is published; explain the limit instead of configuring them from the API reference.
 
 # App-Defined Actions — Discovery, Schemas, Input Mapping
 
@@ -12,7 +12,7 @@ This publication is being released in stages. Where a topic guide is not yet pub
 - An action is `appId` + `actionKey`. Find real ones with **Resolve Actions** (site catalog), then read the version active on the site with **Get Runtime Action**. Never invent keys.
 - The configuration is `appDefinedInfo.inputMapping`: an object keyed ONLY by input-schema property names, with values of the schema's type — literals, or `{{…}}` formulas in fields the UI schema marks as dynamic.
 - Fields marked `updateSchemaOnChange: true` reveal more inputs once set → **Get Action Dynamic Input Schema**. Output that depends on configuration → **Get Action Dynamic Output Schema** after the mapping is final.
-- **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Existing content-only edits do not initialize another email.
+- **Later stages only — email is outside stage 3:** **Send an email** (`triggered-emails`): initialize each NEW step with **Generate Action Input Mapping**, persist the returned mapping unchanged, then configure content with Get / Set Email Content (§5.1, Automations Email Actions (not yet published; email configuration is outside stage 3)). Existing content-only edits do not initialize another email.
 - Entity-selector fields take **ids**, never display names (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
 - Before accepting any action, prove its side effect and its recipient (§6).
 
@@ -69,6 +69,8 @@ UI-schema keys that change what you may write:
 
 ### 5.1 Provider-owned mappings — email and opaque widgets
 
+> **Later stages only:** this section is reference material for future publication stages. It does not authorize this workflow in stage 3; the stage limit above takes precedence.
+
 Check the **provider APIs registry** (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3) before treating an opaque
 widget as unavailable. **Send an email** has a dedicated **Generate Action Input Mapping** API:
 
@@ -84,7 +86,7 @@ widget as unavailable. **Send an email** has a dedicated **Generate Action Input
   `messageId`, `templateId`, `uniqueRuleId` or the existing email's mapping.
 - Editing an EXISTING email's subject/preheader/body uses Get / Set Email Content in place:
   no initializer, no replacement node, no changed mapping. Preserve other email/widget steps
-  byte-for-byte (existing site-owner audience exception: Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3).
+  byte-for-byte (existing site-owner audience exception: Automations Email Actions (not yet published; email configuration is outside stage 3) §3).
 - **Generate Action Input Mapping** is the email provider's initializer, not the action
   catalog's AI-backed **Generate Input Mapping From Intent**, which remains outside this skill.
 - If the initializer is unavailable in the caller's environment during rollout, report the
@@ -146,7 +148,7 @@ This section owns the semantic review (you, not code) required for every action 
 - **Entity**: the affected entity has a matching input (e.g. a label picker for "add label").
 - **Identity input**: the id it acts on, with the right `identityType`.
 - **Recipient lineage** (email, chat, SMS, push): write down `{requestedAudience, resolvedAudienceKind (contact|visitor|owner|contributor|label|phone|device), resolvedIdentityPath}`. The trigger contact and a contact created upstream are different people even if both are `contactId`. Wording never proves the recipient.
-  - Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in Automations Email Actions (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
+  - **Later stages only — email is outside stage 3:** Email: the audience fields decide — read `selectedAudience` / `contactId` exactly as in Automations Email Actions (not yet published; email configuration is outside stage 3) §3 ("Recipient encoding"). A root `contactId` or `triggerContactExcluded` alone doesn't prove who receives it.
   - Chat (`send-message`): only a schema-supported contact-id or visitor-id route; owner/team chat needs a different, proven component or a clarification.
   - SMS / push: prove the schema-supported contact, audience, phone or device route.
 
