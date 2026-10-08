@@ -38,14 +38,14 @@ What sets them apart:
   (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
   4M characters, but your own output is the real limit: a response that
   carries more than a few KB of base64 gets stopped by the client before the
-  call is sent (an 11 KB image did not get through in testing). **On a host
-  that attaches files to a tool call** (ChatGPT, and Codex over the same MCP),
-  the tool's `attachments` param takes the files themselves, any type, up to
-  10 MB per call: a zip of the whole folder, or the images beside a text
+  call is sent (an 11 KB image did not get through in testing). **On ChatGPT**,
+  whose file-attachment extension other hosts do not have, the tool's
+  `attachments` param takes the files themselves, any type, up to 10 MB per
+  call: a zip of the whole folder, or the images beside a text
   bundle. The platform resolves each into a download URL and fetches the
   bytes; they land in the `files` global as base64 entries named by file
-  name, so nothing crosses your output. Pass every file in one call. On any
-  other host, drop the text files first, so the site is live, then bring
+  name, so nothing crosses your output. Pass every file in one call. Any other
+  host ignores that param: there, drop the text files first, so the site is live, then bring
   images in by URL or one small file at a time through the site's
   [Dev Machine](#images-and-other-binary-files), never by re-dropping the
   whole set per batch.
