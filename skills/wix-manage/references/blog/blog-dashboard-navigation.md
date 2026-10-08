@@ -5,7 +5,7 @@ description: "Builds direct links to Wix Blog dashboard pages on manage.wix.com 
 
 # Blog Dashboard Navigation
 
-Build direct links into the Wix Blog pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
+Build direct links to the Wix Blog pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
 
 All Wix Blog (app ID `14bcded7-0066-7c35-14d7-466cb3f09103`) pages live under:
 
