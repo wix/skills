@@ -36,9 +36,9 @@ What sets them apart:
   byte is tokens, so it suits small assets (an icon, a logo, a font) and files
   you downloaded from the site to change; a photo goes in by absolute URL
   (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
-  4M characters, but your own output is the real limit: base64 is slow to
-  write and a call carrying more than a few KB of it tends to be cut off
-  before it is sent (an 11 KB image did not get through in testing). Drop the
+  4M characters, but your own output is the real limit: a response that
+  carries more than a few KB of base64 gets stopped by the client before the
+  call is sent (an 11 KB image did not get through in testing). Drop the
   text files first, so the site is live, then bring images in by URL or one
   small file at a time through the site's
   [Dev Machine](#images-and-other-binary-files), never by re-dropping the
@@ -509,9 +509,9 @@ not at all:
   JSON
   ```
 
-  This is for files of a few KB: an icon, a favicon, a small logo. Writing
-  base64 is slow and a call with more than that tends to be cut off before it
-  is sent; do not try an 8 KB photo this way. Release once at the end, not per
+  This is for files of a few KB: an icon, a favicon, a small logo. A response
+  that carries more base64 than that gets stopped by the client before the
+  call is sent; do not try an 8 KB photo this way. Release once at the end, not per
   file, and compare the `sha256sum` the command prints with the file's own when
   it matters.
 - **A larger file is not carried.** Say which files did not make it,
