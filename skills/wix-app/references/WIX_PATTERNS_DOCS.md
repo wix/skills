@@ -10,7 +10,7 @@ node <this-skill-dir>/scripts/pkg-root.cjs @wix/patterns
 
 Then check the install, two ways: `ls <pkgRoot>/dist/dts-bundle/index.json`, and — the one that matters — look for a **`Collection Toolkit`** key once step 1 has the docs index. The guides are *entries inside* that index rather than a directory, so no missing file reveals their absence.
 
-**If either fails, stop and upgrade `@wix/patterns`.** "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
+**If either fails, stop and upgrade `@wix/patterns` to 1.486.0 or later**, the first release that ships the lookup script below. "Which component serves this need" now lives in the package, so proceeding means guessing names; do not hunt elsewhere in `node_modules` for a substitute. Everything below degrades by version rather than breaking, so probe rather than version-check.
 
 **Patterns API facts come from four published trees only:** `dist/docs/` (pages), `dist/dts-bundle/` (types), `dist/examples/` (worked calls), `dist/templates/` (whole pages). Never take a component, prop or type from `src/`, `dist/esm/` or `dist/cjs/`, or a deep path a bundle mentions — internals change without notice. That includes `dist/types/`: `tsc` reads it, but its files import their props from sibling files, so it answers no props question in one read.
 
@@ -26,7 +26,7 @@ node <pkgRoot>/bin/patterns-lookup.cjs Table useTableCollection stringsArrayFilt
 
 The package ships this script, so it matches the installed indices. For each name it prints the import, the examples and the **one** file for props. Its `summary` line usually answers the question, so step 4 needs no read. A name in neither index makes it exit 1, with near matches. `--templates` lists the page templates. **List the names first.** Each name you add later costs another round trip, and those round trips are this step's whole cost.
 
-**If `<pkgRoot>/bin/patterns-lookup.cjs` is missing** (an older `@wix/patterns`), probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol, and match keys and `symbols` aliases exactly. Never `Read` it whole: it truncates silently. A name not in it may still be in `dist/dts-bundle/index.json`.
+**If `<pkgRoot>/bin/patterns-lookup.cjs` is missing** (a `@wix/patterns` before 1.486.0), probe `<pkgRoot>/dist/docs/index.json` with one `grep`/`python3` call covering every symbol, and match keys and `symbols` aliases exactly. Never `Read` it whole: it truncates silently. A name not in it may still be in `dist/dts-bundle/index.json`.
 
 ### 2 — Composition, once per session
 
