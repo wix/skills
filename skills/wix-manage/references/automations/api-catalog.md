@@ -190,7 +190,8 @@ offset: N}}})`. Actions: `resolveActions` with small pages; keep only `appId`, `
    de-duplicated scan (distinct count = `paging.total`). Report the evidence ("scanned N distinct
    of `paging.total` N"); without that proof say it was "not found in the installed catalog",
    never that it is not installed. Either way, list the closest related entries you did find with
-   their returned `appId` + key and what their schemas require — don't omit them. A shortcut:
+   their returned `appId` + key and display name — don't omit them, and don't fetch their schemas
+   unless the user asks. A shortcut:
    take the `appId` from a related action, then Resolve by `appId`.
 
 Discovery hints:
