@@ -486,8 +486,11 @@ publish.
 
 ### Images and other binary files
 
-Bytes that are on your side reach the site only through a call you write, so
-the rule is to move each file once and small, or not at all:
+This is for a host with no shell to Wix. From a shell, `curl -F` streams any
+file from disk in the [drop](#2-drop-the-files--the-site-goes-live) itself and
+none of this applies. Without one, bytes on your side reach the site only
+through a call you write, so the rule is to move each file once and small, or
+not at all:
 
 - **A file that has a URL is fetched by the machine**, not carried: the machine
   reaches the public internet. `curl -sSL -o public/assets/hero.jpg "https://…"`
