@@ -462,11 +462,11 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 <!-- automations-builder-sync:begin -->
 ## Automations
 
-### [Inspect Wix Automations](references/automations/build-and-manage-automations.md)
+### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
 Discover installed automation triggers and actions and inspect an automation’s current active status without changing site data.
 
 <details>
-<summary>Internal skills (loaded on demand by Inspect Wix Automations — do NOT use directly)</summary>
+<summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
 
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover installed automation triggers and actions and inspect their schemas through site-scoped public catalog APIs.

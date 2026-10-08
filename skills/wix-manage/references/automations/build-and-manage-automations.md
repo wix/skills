@@ -1,11 +1,9 @@
 ---
-name: "Inspect Wix Automations"
+name: "Build and Manage Wix Automations"
 description: "Discover installed automation triggers and actions and inspect an automation’s current active status without changing site data."
 ---
 
-<!-- Maintainers: This file keeps the same name throughout the staged rollout; later stages expand it to cover building and managing automations. See yaml/wix-manage/automations/README.md. -->
-
-# Inspect Wix Automations
+# Build and Manage Wix Automations
 
 Use this guide to discover installed automation capabilities and inspect whether an
 automation is active. These are read-only workflows. Creation, configuration edits,
