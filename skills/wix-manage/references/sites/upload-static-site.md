@@ -485,7 +485,9 @@ Pushing to the code store saves; a release publishes.
 From a shell, `curl -F` streams any file from disk in the
 [drop](#2-drop-the-files--the-site-goes-live) itself. On ChatGPT, the images go
 in the drop call's `attachments` and arrive as bytes. On any other host, an
-image reaches the site one of three ways:
+image reaches the site one of three ways. The user's files are what goes live:
+an image you cannot carry keeps its reference in the page and is named in the
+hand-off, never redrawn, swapped for a stand-in or dropped from the markup.
 
 - **By URL, fetched by the machine.** The machine reaches the public internet:
   `curl -sSL -o public/assets/hero.jpg "https://…"` in a command, one line per
