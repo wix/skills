@@ -280,6 +280,43 @@ function deriveRecord(name, dir) {
     }
   }
 
+  // The public call signature is `interface <Name>Signature { (params): Ret }`
+  // in index.d.ts. The `declare function` in index.typings.d.ts is the REST
+  // request shape (`search: CursorSearch` where the public call takes
+  // `ContactSearch`, and `options` required where it is optional), so the
+  // Signature wins whenever it exists.
+  for (const meth of methods.values()) {
+    const sig = `${meth.name[0].toUpperCase()}${meth.name.slice(1)}Signature`;
+    for (const src of sources) {
+      const m = new RegExp(`interface ${sig}\\s*\\{[\\s\\S]*?\\n\\s{4}\\(`).exec(src);
+      if (!m) continue;
+      const { params, ret } = readDeclaration(src, m.index + m[0].length - 1);
+      meth.params = paramList(params);
+      meth.returns = shorten(ret);
+      meth.required = [...new Set([...meth.required, ...requiredOf(params)])];
+      break;
+    }
+  }
+
+  // <Entity>SearchSpec / <Entity>QuerySpec declare what a search or query
+  // method accepts: the free-text fields and, per operator group, the fields
+  // and sort. A closed list, shipped in every generated package that has one.
+  const spec = (kind) => {
+    const names = entityType ? [`${entityType}${kind}Spec`] : [];
+    for (const src of sources) {
+      const all = [...src.matchAll(new RegExp(`interface (\\w+)${kind}Spec extends ${kind}Spec\\b`, 'g'))].map((x) => `${x[1]}${kind}Spec`);
+      const name = names.find((n) => all.includes(n)) ?? (all.length === 1 ? all[0] : null);
+      if (name) return parseSpec(src, name);
+    }
+    return null;
+  };
+  const searchSpec = spec('Search');
+  const querySpec = spec('Query');
+  for (const meth of methods.values()) {
+    const s = meth.kind === 'search' ? searchSpec : /^query/.test(meth.kind) ? querySpec : null;
+    if (s) meth.filterable = s;
+  }
+
   const http = httpOf(path.join(cjs, 'meta.js'));
   for (const meth of methods.values()) if (http[meth.name]) meth.http = http[meth.name];
 
@@ -287,9 +324,13 @@ function deriveRecord(name, dir) {
   // `search` member (SearchDetails); some search methods take a filter only.
   for (const meth of methods.values()) {
     if (meth.kind !== 'search') continue;
+    if (meth.filterable) {
+      meth.freeText = Object.values(meth.filterable).some((f) => f.search);
+      continue;
+    }
     const type = meth.params[0]?.match(/:\s*(\w+)/)?.[1];
     for (const src of sources) {
-      const m = new RegExp(`interface ${type}\\b[^{]*\\{([\\s\\S]*?)\\n\\}`).exec(src);
+      const m = new RegExp(`(?:interface ${type}\\b[^{]*|type ${type}\\s*=\\s*)\\{([\\s\\S]*?)\\n\\}`).exec(src);
       if (!m) continue;
       meth.freeText = /^\s{4}search\?\s*:/m.test(m[1]);
       break;
@@ -332,6 +373,31 @@ function deriveRecord(name, dir) {
   };
 }
 
+// interface XSearchSpec extends SearchSpec {
+//   searchable: ['a', 'b'];
+//   wql: [{ operators: ['$eq', …]; fields: ['c', …]; sort: 'BOTH' | 'ASC' | 'DESC' | 'NONE' }, …];
+// } → { field: { ops: [...], sort: bool, search: bool } }
+function parseSpec(src, name) {
+  const m = new RegExp(`interface ${name} extends \\w+Spec\\s*\\{([\\s\\S]*?)\\n\\}`).exec(src);
+  if (!m) return null;
+  const body = m[1];
+  const list = (s) => [...(s ?? '').matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  const out = {};
+  const field = (f) => (out[f] ??= { ops: [], sort: false, search: false });
+  for (const f of list(body.match(/searchable:\s*\[([\s\S]*?)\]/)?.[1])) field(f).search = true;
+  const wql = body.slice(body.indexOf('wql:'));
+  for (const block of wql.matchAll(/\{([^{}]*)\}/g)) {
+    const ops = list(block[1].match(/operators:\s*(\[[^\]]*\]|'[^']*')/)?.[1]);
+    const sort = block[1].match(/sort:\s*'(\w+)'/)?.[1] ?? 'NONE';
+    for (const f of list(block[1].match(/fields:\s*\[([^\]]*)\]/)?.[1])) {
+      const e = field(f);
+      e.ops = [...new Set([...e.ops, ...ops])];
+      e.sort = e.sort || sort !== 'NONE';
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function httpOf(metaFile) {
   if (!fs.existsSync(metaFile)) return {};
   const src = fs.readFileSync(metaFile, 'utf8');
@@ -359,13 +425,31 @@ function loadRecord(name, dir) {
       ? `${INDEX_FILE} schemaVersion ${shipped.schemaVersion} is newer than this lookup (${INDEX_SCHEMA}); unknown fields ignored`
       : undefined;
   const byName = new Map((shipped.methods ?? []).map((m) => [m.name, m]));
-  const methods = derived.methods.map((m) => ({ ...m, ...stripNull(byName.get(m.name)) }));
+  const methods = derived.methods.map((m) => {
+    const s = byName.get(m.name);
+    const merged = { ...m, ...stripNull(s) };
+    // Field by field, so a field one source lacks (the docs omit `name.full`
+    // from contacts' searchable list) never hides one the other has.
+    if (m.filterable && s?.filterable) merged.filterable = mergeFilterable(m.filterable, s.filterable);
+    return merged;
+  });
   for (const [n, m] of byName) if (!methods.some((x) => x.name === n)) methods.push(m);
   const merged = { ...derived, ...stripNull({ ...shipped, methods: undefined }), methods, source: 'shipped', warning };
   if (merged.type?.file && !path.isAbsolute(merged.type.file)) {
     merged.type = { ...merged.type, file: path.join(dir, merged.type.file) };
   }
   return merged;
+}
+
+function mergeFilterable(a, b) {
+  const out = {};
+  for (const [k, f] of [...Object.entries(a), ...Object.entries(b)]) {
+    const e = (out[k] ??= { ops: [], sort: false, search: false });
+    e.ops = [...new Set([...e.ops, ...(f.ops ?? [])])];
+    e.sort = e.sort || !!f.sort;
+    e.search = e.search || !!f.search;
+  }
+  return out;
 }
 
 const stripNull = (o) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v != null));
@@ -507,7 +591,7 @@ function shapeFor(record, ns, intent) {
   if (intent === 'search') {
     if (search && search.freeText !== false) {
       const fields = textFields(search);
-      out.push(`${call(search)}: one call, the user's term in search.search.expression${fields ? ` (matches ${fields.join(', ')})` : ''}; exact-match facets go in its filter`);
+      out.push(`${call(search)}({ search: { expression: term } }): one call${fields ? `; the term matches ${fields.join(', ')}` : ''}; exact-match facets go in filter`);
     } else if (search || query) {
       const m = search ?? query;
       out.push(`${call(m)}: no free text; one filter object with $or, one clause per field the term may match (operators from its filter list)`);
@@ -697,4 +781,4 @@ function main(argv) {
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
 
-module.exports = { findPackages, deriveRecord, loadRecord, lookup, loadCurated, INDEX_FILE, INDEX_SCHEMA };
+module.exports = { findPackages, deriveRecord, loadRecord, lookup, loadCurated, mergeFilterable, INDEX_FILE, INDEX_SCHEMA };

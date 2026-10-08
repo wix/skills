@@ -398,7 +398,7 @@ Run it from the app directory, after the vertical packages are installed, with *
 
 Take the namespace, the method and the call shape from its output; do not re-derive them from the typings. **Never run one query per field and merge the results in the client** — when the `shape` line says one call cannot match several fields, use the one field it names and tell the user. When the lookup prints `site`, the choice depends on the site (Stores: call `getCatalogVersion()` and support both). `not installed` prints the install command: install, then run the lookup again. A name it does not know exits 1 with near matches.
 
-The lookup does not print a method's **permission scope ID** or its **filterable fields** unless the package ships `sdk-index.json`; get them from the method's docs page (the next list).
+It prints each search and query method's closed filter list (free-text fields, operators per field, sort) from the package's own declarations. It does not print a method's **permission scope ID** unless the package ships `sdk-index.json`; get it from the method's docs page (the next list).
 
 **MCP Tools for discovery (for what the lookup does not print):**
 
