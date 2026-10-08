@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 4e67ac2f556f98da224ab299947f16b4d467ff770328c01179f5e251e32b2b2b
+# Source content SHA-256: 4c7979d7477ba0e50a6e529080762c5758bf27cb6985d51918fcf0059c12b86d
 apiDoc:
   title: Wix Automations Recipes
 
@@ -62,5 +62,17 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-status.md
       title: "Automations Activation Status"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/schema-annotations.md
+      title: "Automations Schema Annotations"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/schema-apis.md
+      title: "Automations Action Schema APIs"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/audience-selector.md
+      title: "Automations Audience Selector Inputs"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]

@@ -54,13 +54,15 @@ UI-schema keys that change what you may write:
 
 - `dynamicValuesOptions.enabled: true` → the field accepts `{{…}}` formulas. `strict: true` → the formula must return the field's exact type/format. **A field without it is static: literal only.**
 - `"ui:widget": "EntitySelector"` + `entitySelectorOptions` (`selectorId`/`tag`, `filters`, `dynamicFiltersMapping`) → entity picker; value = id or array of ids ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §1). Same for input properties carrying `itemsSelectionConfiguration`.
-- `"ui:field": "AudienceSelector"` → an audience object owned by the app's picker; don't hand-author it — the user sets it in the builder (§5.1).
+- `"ui:field": "AudienceSelector"` → a `{"providers": [...]}` audience value; build it from the site's audience providers and the field's `audienceSelectorOptions` ([Automations Audience Selector Inputs](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-audience-selector-inputs)).
 - `"ui:field": "TextSectionField"` → display-only text; never map it.
 - `"ui:widget": "hidden"`, `ui:readonly` → keep the schema `default`. Other `ui:*` keys are presentation only.
+- Any other annotation (`"ui:field": "fieldMapping"`, `_UIRequired`, `PropertyPicker`, `SchemaViewer`, `identityType` values…): the lookup table in [Automations Schema Annotations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schema-annotations).
 
 ## 4. Dynamic input and output schemas
 
 - **Input**: a property with `updateSchemaOnChange: true` (e.g. a template or form id) changes which inputs exist. Set it, then call Get Action Dynamic Input Schema with `{appId, actionKey, inputMapping}` (the mapping so far). The builder shows the static schema **merged** with the returned one (properties and `required` united), so keys from either are kept. Repeat if another controlling field is revealed. Never invent a field you expected but didn't get — it appears only after its controlling selection. The builder re-fetches this schema from your saved mapping every time the step is opened, so a dynamic key whose controlling value isn't in the mapping is dropped on the first edit.
+  Worked request, response and merge: [Automations Action Schema APIs](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-schema-apis).
 - **Output**: after the mapping is final, call Get Action Dynamic Output Schema (or the bulk variant) and use the returned `outputSchema` for downstream `var()` paths. A dynamic output is a _real_ schema — never replace it with an override (allowlist: [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3).
 
 ## 5. Building the input mapping
@@ -93,7 +95,7 @@ widget as unavailable. **Send an email** has a dedicated **Generate Action Input
 
 Other opaque widgets with no public configuration API remain manual: do not invent their
 app-owned keys. Tell the user which action to add, where, and its intended configuration.
-Email attachments, preview and mapping-copy workflows remain outside this skill's API flow.
+Email attachments and preview remain outside this skill's API flow. To duplicate a non-email step's mapping, use Copy Input Mapping ([Automations Action Schema APIs](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-schema-apis) §3).
 
 ### 5.2 Hand-authored mapping
 

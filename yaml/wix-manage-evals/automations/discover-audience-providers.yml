@@ -1,0 +1,41 @@
+{
+  "name": "automations/discover-audience-providers",
+  "description": "A read-only question about which audiences an automation can target is answered from List Audience Providers, with what each audience needs.",
+  "triggerPrompt": "Some automation actions let me choose an audience. Which contact audiences can automations on this site target, and what would I need to choose for each one? Don't change anything.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-audience-selector-inputs"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The answer must come from a successful List Audience Providers call for this site's contact audiences (scope SPECIFIC_SITE, participantTypes including CONTACT) and list the returned providers by display name, each with what its inputSchema requires (for example label ids for a labels provider). It may explain that such a field is saved as {\"providers\": [{\"providerId\", \"audienceParams\"}]}. Providers or parameters not present in the response, a claim that audiences cannot be read through the API, or any write fails. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the actual tool path. Expected: reading this skill's documentation articles and one List Audience Providers request with both required query parameters; optionally Count Participants for an illustrative audience. Penalize missing required parameters, guessed endpoints, private tools, repeated identical calls, creating or updating automations, and resolving participants the user did not ask about. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

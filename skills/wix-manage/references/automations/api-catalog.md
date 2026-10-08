@@ -199,6 +199,7 @@ Discovery hints:
   owner = `triggered-emails` (never the deprecated `send-mail` / "Get an email"); task =
   `createTask`; labels = `addLabelsToContact` / `remove_labels_to_contact`; create a contact =
   `contacts-create_contact` (for triggers whose payload has no contact, e.g. webhooks).
+  Its field mapping value: [Automations Schema Annotations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schema-annotations).
 - Near-duplicates exist (`booking_canceled` vs `bookings_canceled`; new Wix Forms app vs legacy
   "Form submitted"). Compare payload schemas and filters; prefer the one whose entities you can
   actually find on the site ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
