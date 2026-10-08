@@ -1,5 +1,23 @@
 name: Release - Bump Version and Open PR
 
+# Two ways in:
+#
+#   * `workflow_dispatch` — a human picks the strategy (minor for a new skill, major for a
+#     breaking rewrite; see README "Versioning").
+#   * `push` to main touching shipped skill content — an automatic *patch* bump, so a merged
+#     skill change never sits unreleased. Every distribution channel except
+#     www.wix.com/skills (npm, and the Claude Code / Codex / Cursor / Gemini plugins) is keyed
+#     by the version string in package.json and the plugin manifests: Claude Code in particular
+#     caches a plugin under its `version` and keeps users on that copy until the string changes,
+#     however many commits land on main. Before this trigger, batches of 25–30 merges shipped
+#     under one version because the bump was a manual step someone had to remember.
+#
+# The push trigger is path-scoped to what ships (`skills/**`, the Claude plugin's `.mcp.json`).
+# The release commit itself only touches package.json and the manifests, so it does not
+# re-trigger; the `gate` job guards against that anyway, and against piling up: while a release
+# PR is still open, a new push is a no-op — that PR squash-merges onto main *after* the push,
+# and `release.yml` publishes main as of the merge, so the pending release already carries it.
+
 on:
   workflow_dispatch:
     inputs:
@@ -19,19 +37,65 @@ on:
         required: false
         default: false
         type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - '.mcp.json'
+
+# Serialize bumps: two pushes in quick succession must not both compute the same next version.
+concurrency:
+  group: release-bump
+  cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  bump:
+  gate:
     runs-on: ubuntu-latest
+    # Belt and braces with the `paths` filter: never bump on the release commit itself.
+    if: >
+      github.event_name != 'push' ||
+      !startsWith(github.event.head_commit.message, 'chore: release @wix/agent-skills')
+    outputs:
+      proceed: ${{ steps.decide.outputs.proceed }}
+    steps:
+      - name: Decide whether a bump is needed
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Manual dispatch — proceeding."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          OPEN=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --label release --state open --json number --jq 'length')
+          if [ "$OPEN" != "0" ]; then
+            echo "A release PR is already open; it will carry this push when it merges. Skipping."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No open release PR — proceeding with an automatic patch bump."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  bump:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+
+    env:
+      # Push events carry no inputs: default to a patch bump, never a dry run.
+      STRATEGY: ${{ github.event.inputs.version_strategy || 'patch' }}
+      DRY_RUN: ${{ github.event.inputs.dry_run == 'true' }}
 
     steps:
       - name: Checkout main
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -46,23 +110,23 @@ jobs:
           git config user.name "github-actions[bot]"
 
       - name: Dry-run preview
-        if: ${{ github.event.inputs.dry_run == 'true' }}
+        if: env.DRY_RUN == 'true'
         run: |
           CURRENT=$(node -p "require('./package.json').version")
-          echo "Would bump @wix/agent-skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
+          echo "Would bump @wix/agent-skills from $CURRENT using strategy: $STRATEGY"
           echo "All plugin manifests (.claude-plugin, .codex-plugin, .cursor-plugin, plugin.json, gemini-extension.json) would be synced to the new version."
 
       - name: Bump version
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         id: bump
         run: |
-          npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version
+          npm version "$STRATEGY" --no-git-tag-version
           NEW_VERSION="v$(node -p "require('./package.json').version")"
-          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "branch=release/${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "branch=release/${NEW_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Create release branch and commit
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         run: |
           git checkout -b ${{ steps.bump.outputs.branch }}
           git add package.json
@@ -70,7 +134,7 @@ jobs:
           git push -u origin ${{ steps.bump.outputs.branch }}
 
       - name: Ensure release label exists
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -80,15 +144,24 @@ jobs:
             --force
 
       - name: Open release PR
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.bump.outputs.version }}
           BRANCH: ${{ steps.bump.outputs.branch }}
+          TRIGGER_SHA: ${{ github.sha }}
+          TRIGGER_TITLE: ${{ github.event.head_commit.message }}
         run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TRIGGER_LINE="Automatic patch bump: skill content changed on \`main\` in ${TRIGGER_SHA:0:7} (${TRIGGER_TITLE%%$'\n'*})."
+          else
+            TRIGGER_LINE="Opened by a manual \`release-bump\` dispatch (strategy: \`${STRATEGY}\`)."
+          fi
           BODY=$(cat <<EOF
           Automated release PR for **${VERSION}**.
+
+          ${TRIGGER_LINE}
 
           When required checks pass, this PR auto-merges and \`release.yml\` publishes to npm via Trusted Publishing and pushes the \`${VERSION}\` tag.
           EOF
@@ -99,10 +172,10 @@ jobs:
             --title "chore: release @wix/agent-skills ${VERSION}" \
             --body "${BODY}" \
             --label release)
-          echo "url=${PR_URL}" >> $GITHUB_OUTPUT
+          echo "url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Mint App token (used for approval + auto-merge so events propagate)
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
@@ -110,14 +183,14 @@ jobs:
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Approve the PR (App identity ≠ PR author)
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ steps.pr.outputs.url }}
         run: gh pr review --approve "${PR_URL}" --body "Automated approval for release PR."
 
       - name: Enable auto-merge
-        if: ${{ github.event.inputs.dry_run == 'false' }}
+        if: env.DRY_RUN != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ steps.pr.outputs.url }}
