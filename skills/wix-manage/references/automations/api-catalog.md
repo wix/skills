@@ -175,8 +175,9 @@ offset: N}}})`. Actions: `resolveActions` with small pages; keep only `appId`, `
    `triggerKey`, `displayName`, `description`, `interfaceConfiguration.type`. Field projection (`fields`) may
    be ignored — strip locally in code before anything reaches your reasoning context. Even with
    `basicFieldsOnly`, 100 triggers is ~100 KB: keep pages ≤ 25 when results land in your context.
-2. **Cache** that compact list per site for the session and search it locally. Fetch each page
-   and schema once; never re-fetch one you already have.
+2. **Cache** that compact list per site for the session and search it locally. Fetch each catalog
+   page and static schema once; never re-fetch one you already have. Dynamic schemas are the
+   exception: re-call them after changing an `updateSchemaOnChange` field.
 3. **Hydrate the shortlist** with exact keys (Get Trigger By App Id And Key / Get Runtime Action,
    or a Resolve filter `{"appId": "...", "actionKey": "..."}`). Full schemas only for the chosen few.
 4. **Filters that work**: exact `appId`, `triggerKey`/`actionKey`, and `$in` on the keys (both
