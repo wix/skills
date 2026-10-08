@@ -13,9 +13,13 @@ permissions: {}
 jobs:
   with-env:
     runs-on: ubuntu-latest
-    environment: evalforge
+    environment:
+      name: evalforge
+      deployment: false
     steps:
-      - run: echo "reached the step"
+      - env:
+          S: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+        run: '[ -n "$S" ] && echo "env secret is SET" || echo "env secret is EMPTY"'
 
   without-env:
     runs-on: ubuntu-latest
