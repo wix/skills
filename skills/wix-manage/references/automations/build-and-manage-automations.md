@@ -18,9 +18,9 @@ Do not perform a write when the user asks only to inspect.
 For a capability check, resolve the site's catalogs, retain the returned app/key identities,
 and inspect the selected schemas. A remembered action key is a search hint, not evidence that
 the action is installed. State missing prerequisites without offering an unverified substitute.
-If a requested action isn't found, write "not found in the installed catalog (scanned N
-distinct of `paging.total` N)". Say "not installed" only when that count matches; then list
-the closest related actions with their returned appId and actionKey.
+If a requested action isn't found, report it exactly as the "Bounded fallback" section of
+[Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) says (scan evidence, "not found" vs "not installed", closest
+related actions).
 Resolve the trigger once and scan the action catalog once; answer from those results instead
 of repeating either call.
 
@@ -29,3 +29,6 @@ from that response. Every status answer names the automation and its returned ID
 
 Keep the requested site context fixed. Do not expose tokens or credentials. Tie every claim
 to the returned data, and distinguish a missing record from proof of nonexistence.
+
+This file keeps the same name throughout the staged rollout; later stages expand it to cover
+building and managing automations.
