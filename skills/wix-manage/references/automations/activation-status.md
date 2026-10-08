@@ -16,11 +16,11 @@ pending activation has stopped.
 3. Answer briefly and completely in one reply. Start with the automation's exact name, its
    returned ID and ACTIVE/INACTIVE from that response, then say what it means for new trigger
    events. If the user asks whether the status says anything about past runs, answer it
-   directly: status does not show whether past runs succeeded, and finish by saying where
-   they are visible: the automation's activity view in the site dashboard.
-4. If Get returns not found, do not state a status. Say it can't be determined, give the
-   possible causes below, and END the answer by asking the user to confirm the site and the
-   automation ID. This closing question is required.
+   directly in the next sentence: status does not show whether past runs succeeded; they are
+   visible in the automation's activity view in the site dashboard.
+4. If Get returns not found, do not state a status. Open with: the automation wasn't found on
+   this site, so its status can't be determined, and ask the user to confirm the site and the
+   automation ID. This question is required. Then give the possible causes below.
 
 Use an authorized site-scoped client with Set Up Automations permission. REST calls use
 `Authorization: <token>`. An API key also needs `wix-site-id: <metaSiteId>`; do not combine it
