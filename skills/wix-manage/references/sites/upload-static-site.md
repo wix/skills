@@ -426,7 +426,7 @@ async function run() {
 
 A dropped site is static. Stores, payments, bookings, a CMS, members or forms
 need a **Wix Headless project**, built and released with the Wix CLI by the
-headless skill, `https://www.wix.com/skills/headless-cold-start`. The project takes over the
+headless skill, `https://wix.com/headless/skill.md`. The project takes over the
 same site, appId and URL.
 
 **A mock that shows a business solution: publish it, then ask before connecting.**
