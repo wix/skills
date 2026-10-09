@@ -428,7 +428,9 @@ provision the site (step 1 above), `get-or-create` its machine, and the first
 command writes the pages as heredocs, fetches every image that has a URL,
 removes `src/pages/index.astro` and adds `redirects: { "/": "/index.html" }`
 to `astro.config.mjs`. Then build and release. Images that have no URL follow
-the rules below.
+the rules below; a mock that shows a business solution continues into
+[Keep building](#keep-building-add-a-backend-when-you-need-one) on the same
+machine.
 
 ### Images
 
@@ -492,8 +494,19 @@ The headless skill, `https://wix.com/headless/skill.md`, builds and releases a
 `package.json`, or an `index.html` at its root) into a new site, or takes a
 dropped one. A dropped site is **static**; when it needs a real backend — stores,
 payments, bookings, a CMS, members, forms — it moves to a headless project,
-keeping the same site, appId and URL. This is a choice the user makes when the
-need appears; static changes never need it, they're a [drop](#change-it-later).
+keeping the same site, appId and URL.
+
+**A mock that shows a business solution gets it connected in the same run.**
+Buttons that add to a cart, a buy or checkout link, a booking or reservation
+form, a menu with an order flow, tickets, a members sign-in, a donation button:
+each names a Wix Business Solution the page is pretending to have, and "make
+this a real site" includes making those work. Publish the pages first, so the
+site is live, then connect the solution the markup shows (Stores for a cart,
+Bookings for appointments, Events for tickets, Restaurants for orders, Members
+for sign-in, Donations for giving) through the headless skill, and say in the
+closing message what is now real and what the mock still only shows. A plain
+brochure site, or a request that says static, stops at the pages; a mock with
+inert commerce handed over as "say the word" is the run stopping short.
 
 To move a dropped site, in a shell, once it's in the user's account:
 

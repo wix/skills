@@ -1,0 +1,76 @@
+name: sites/upload-static-site-store-mock
+description: >-
+  Verifies that when a user hands over a shop mock (product cards with Add to cart buttons) and
+  asks for it to be a real site on Wix, the agent publishes the pages and then connects the
+  business solution the markup shows, Wix Stores through the headless skill on the site's Dev
+  Machine, rather than publishing a static copy and offering the store as a follow-up. Guards
+  against the "say the word" ending on a page whose commerce is inert, against installing a store
+  without publishing the pages, and against inventing a cart. The Wix MCP routes ready-made site
+  files to the recipe before any docs read, so the scenario asserts on the trace and the outcome.
+triggerPrompt: >-
+  My designer sent me the mock of my little shop, Sable & Oak. I want this to be a real site on
+  Wix. Here is index.html: <!doctype html><html><head><title>Sable & Oak</title></head><body>
+  <h1>Sable & Oak</h1><p>Homeware made slowly.</p><section><article><h3>Oak Serving Board</h3>
+  <p>White oak, oiled. 40 × 24 cm.</p><span>$68</span><button>Add to cart</button></article>
+  <article><h3>Stoneware Mug</h3><p>Matte oatmeal glaze. 350 ml.</p><span>$34</span>
+  <button>Add to cart</button></article><article><h3>Linen Throw</h3><p>Stonewashed linen.
+  130 × 180 cm.</p><span>$145</span><button>Add to cart</button></article></section>
+  <a href="#cart">Cart (0)</a></body></html>
+tags: [sites]
+assertions:
+  - tool: CreateSiteFromTemplate
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user pasted a one-page shop mock with three products, prices and "Add to cart" buttons
+      and asked for a real site on Wix. The mock shows a business solution, so "real" means the
+      pages live AND the shop connected, not a static copy with inert buttons. Examine the
+      tool-call trace, not just the prose.
+
+      Pass if ALL hold:
+      - exactly ONE provision call (POST .../headless-business-setup/v1/headless-business/provision)
+        and the pages published to that site (a drop, or files written on the site's Dev Machine
+        and released), giving one live URL, AND
+      - the agent connected Wix Stores to that same site: through the site's Dev Machine
+        (headless-remote-project: get-or-create, then commands that run the headless kit, such as
+        `.agents/skills/wix-headless-kit/install/deploy.mjs storefront` or `setup.mjs`, and
+        `wix release`), or through an app install of Wix Stores plus the kit's storefront code,
+        AND the three products exist on the site (created through the Stores API or the kit's
+        seed), AND
+      - the closing message says what is now real (a store with these products) and what the
+        mock still only shows, with the live URL and the dashboard link.
+
+      Also pass if the agent published the pages, tried to connect Stores on the Dev Machine and
+      hit a platform error it reported verbatim with the site id, as long as it did not stop
+      at an offer before trying.
+
+      Fail if:
+      - the run ends with the pages live and the store offered as a follow-up ("say the word",
+        "if you want a working shop"), with no attempt to connect it, OR
+      - a second site was created, OR
+      - the agent claims the shop works with no Stores install or kit deploy in the trace, OR
+      - it invents a cart or checkout endpoint, or edits the mock's markup to fake a working
+        cart, OR
+      - it installs Stores without publishing the user's pages.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how cleanly the agent went from mock to working shop. Examine the tool-call trace.
+      Score 0-10, where 10 means: one provision, pages live first, Dev Machine READY, the kit's
+      storefront deployed and the three products seeded, one build and release, the live URL
+      verified, and a closing message that separates what is real from what is still a mock.
+
+      Penalize and LIST any of:
+        - stopping at the static publish and offering the store instead of connecting it
+        - a second site or two live URLs
+        - the store connected but the user's pages never published
+        - products with invented prices or names different from the mock's
+        - a probing spiral, or docs re-read repeatedly
+        - a release reported from an execution with a non-zero exitCode
+
+      For each issue name the likely skill gap behind it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list, or 'clean mock to shop'>"}
