@@ -3,8 +3,6 @@ name: "Automations Schemas and Scheduling"
 description: "Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published".
-
 # Schemas & Scheduling — Aggregated Schema, Override Schemas, Scheduled and Future-Date Triggers
 
 **TL;DR**
@@ -185,4 +183,4 @@ For triggers whose payload has a date-time field with `futureDate: true` (e.g. s
 
 ## 6. Custom API ("site") actions
 
-Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation (§1 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Leave an existing one's `inputMapping` untouched.
+Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §1). Leave an existing one's `inputMapping` untouched.

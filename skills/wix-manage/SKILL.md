@@ -451,13 +451,16 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 ## Automations
 
 ### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
-Create, update, activate or deactivate Wix Automations with app actions, trigger filters, conditions, delays, variables, branches and schedules, and check their current status, using the public Wix Automations APIs. Email actions, entity-ID/provider configuration and planning-limit workflows are covered in a later guide.
+Create, update, activate or deactivate Wix Automations, and check their current status, on a site you have API access to, using the public Wix Automations APIs. Build automations that validate and remain editable in the Wix dashboard builder.
 
 <details>
 <summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
 
 - [Automations API Catalog](references/automations/api-catalog.md)
   Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups.
+
+- [Automations Feasibility and Planning](references/automations/limitations-and-planning.md)
+  Assess automation feasibility, supported action configuration, update locks and planning constraints before promising or changing a workflow.
 
 - [Automations Graph and Data Model](references/automations/automation-model.md)
   Assemble builder-editable automation graphs with valid node relationships, namespaces and ancestor data access.
@@ -467,6 +470,12 @@ Create, update, activate or deactivate Wix Automations with app actions, trigger
 
 - [Automations Action Configuration](references/automations/actions.md)
   Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
+
+- [Automations Entity and Provider Configuration](references/automations/entity-ids-and-providers.md)
+  Resolve entity identifiers with vertical public APIs or by asking the user, and find provider-owned automation configuration workflows.
+
+- [Automations Email Actions](references/automations/email-actions.md)
+  Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
 
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.

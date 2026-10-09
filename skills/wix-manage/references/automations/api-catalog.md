@@ -3,8 +3,6 @@ name: "Automations API Catalog"
 description: "Discover site-specific triggers and actions, authenticate public Automation API calls, and choose the API for validation, persistence or catalog lookups."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform anything marked "Later stages only", and follow the instruction attached to each guide marked "not yet published".
-
 # API Catalog — the public Wix Automations APIs
 
 Every call this skill needs, as a public REST endpoint (base `https://www.wixapis.com`) and the
@@ -28,7 +26,7 @@ docs URL to get raw markdown. When a field name here and the docs disagree, the 
   Automations method below. Generate Action Input Mapping and Get / Set Email Content (Automation Email Action API) need **Manage
   Email Marketing** (`SCOPE.DC-PROMOTE.EMAIL-MARKETING`) — a 403 there means that scope is missing.
   Entity lookups in other verticals need that vertical's read scope
-  (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
+  ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
 - **Token**: `Authorization: <token>` header — an OAuth app access token (`client_credentials` via
   Create Access Token) or an account API key the site owner generated with the needed scopes.
 - **Site context**: with an **API key**, send `wix-site-id: <metaSiteId>` on every call (all calls
@@ -144,9 +142,14 @@ payload schema ([Automations Trigger Configuration](https://dev.wix.com/docs/api
   says which are dynamic); an error means "no dynamic output" — keep the static `outputSchema`.
   Merge into the static schema. A failed bulk item = unknown schema, not empty.
 - **Generate Input Mapping From Intent** (`POST https://www.wixapis.com/v1/actions/generate-input-mapping-from-intent`)
-  is AI-backed — don't call it. Actions you can't map from their schema are outside this stage; explain the limit.
-- **Later stages only — email is outside stage 3:** **Email content of an existing Send an email step** — Get / Set Email Content; procedure in Automations Email Actions (not yet published; email configuration is outside stage 3).
-- **Later stages only — email is outside stage 3:** **New Send an email step** — Generate Action Input Mapping; procedure in Automations Email Actions (not yet published; email configuration is outside stage 3).
+  is AI-backed — don't call it. Actions you can't map from their schema: [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
+- **Email content of an existing Send an email step** — Get / Set Email Content
+  (`/emails-automations/v1/automations/{automationId}/email-actions/{actionId}/email-content`,
+  Automation Email Action API, scope _Manage Email Marketing_): [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions).
+- **New Send an email step** — [Generate Action Input Mapping](https://dev.wix.com/docs/api-reference/business-management/marketing/emails/automation-email-action/generate-action-input-mapping),
+  `POST https://www.wixapis.com/emails-automations/v1/email-actions/generate-action-input-mapping`.
+  Use returned `appId`, `actionKey`, and opaque `inputMapping` for one new action only.
+  Request and persistence flow: [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions).
 
 Action objects: `appId`, `actionKey`, `displayName`, `description`, `inputSchema`, `outputSchema`,
 `interfaceConfiguration{type: GENERIC\|WIDGET_COMPONENT, genericOptions.uiSchema}`,
@@ -198,7 +201,7 @@ Discovery hints:
   `contacts-create_contact` (for triggers whose payload has no contact, e.g. webhooks).
 - Near-duplicates exist (`booking_canceled` vs `bookings_canceled`; new Wix Forms app vs legacy
   "Form submitted"). Compare payload schemas and filters; prefer the one whose entities you can
-  actually find on the site (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
+  actually find on the site ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
 - Enum-like fields often list legal values only in the field `description` (e.g. paymentStatus
   NOT_PAID / PAID). Read descriptions before mapping user words; never invent enum values.
 
@@ -209,12 +212,12 @@ variables + identity enrichment. Recipe and fetch order: [Automations Graph and 
 
 ## 8. Selector options and APIs with limitations
 
-**Entity ids** (forms, labels, services, pipeline stages…): resolve them with the owning vertical's public API, following that vertical's API reference, or ask the user for the exact entity. Never save a display name, invent an id or guess an endpoint.
+**Entity ids** (forms, labels, services, pipeline stages…): resolve them with the owning vertical's public API ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2), or ask the user for the exact entity. Never save a display name, invent an id or guess an endpoint.
 
 **Not public or not available through the general Automations API:**
 
 - **Draft automations** → create `INACTIVE`; the user activates. Builder drafts are invisible.
-- **Site-action generation** → §3 of Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations)).
+- **Site-action generation** → [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §3, [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1.
   New email initialization is available through its dedicated public API above.
 - **Expression parsing/evaluation, code runner** → local checks ([Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions),
   [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)), then Validate Automation.

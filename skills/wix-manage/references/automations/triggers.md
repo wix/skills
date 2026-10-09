@@ -3,8 +3,6 @@ name: "Automations Trigger Configuration"
 description: "Select and configure automation triggers, trigger filters and event payload schemas using the site catalog."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published".
-
 # Triggers — Discovery, Payload Schema, Filters
 
 **TL;DR**
@@ -29,7 +27,7 @@ Site-scoped (`wix-site-id` header), SDK module `triggerCatalog`: Resolve Trigger
 3. **Search locally** over `displayName` and `triggerKey`: the user's phrase → the domain noun ("booking", "form", "order", "member") → synonyms ("appointment"/"session", "purchase"/"order placed"). Keys usually start with the app prefix (`wix_bookings-`, …).
 4. **Fetch details** for the 1–3 best candidates only: Get Trigger By App Id And Key.
 5. **Disambiguate by schema, not name** ("Session booked" vs "Appointment request approved" for "booking confirmed"): read `payloadDataSchema` titles and `filters` to confirm the event and that the downstream data exists. If two remain equally plausible and it matters, ask.
-6. Only in Query Triggers, not Resolve Triggers → its app isn't installed (tell the user to install it) or, with `maturity` `CREATED` / not GA, it isn't available to sites yet (§5 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
+6. Only in Query Triggers, not Resolve Triggers → its app isn't installed (tell the user to install it) or, with `maturity` `CREATED` / not GA, it isn't available to sites yet ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §5).
 
 Selection guidance for overlapping families:
 
@@ -51,7 +49,7 @@ Payload schema annotations you will meet:
 
 - `format`: `uuid`, `date-time`, `date`, `email`, `uri`, `number` (a numeric string — wrap it in `toNumber()` in numeric functions).
 - `identityType: "contact" | "member"` on an id field → the aggregated payload also contains a root-level `contact` / `member` object (keys and rules: [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4). `visitor` ids stay plain fields with no enrichment.
-- `itemsSelectionConfiguration.providerKey` / `.tag` → the field holds an **entity id** (service, form, label, product, …). Compare it only to ids (see Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))).
+- `itemsSelectionConfiguration.providerKey` / `.tag` → the field holds an **entity id** (service, form, label, product, …). Compare it only to ids (see [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
 - `wixCustomType` fixed shapes: `MONEY` `{value: string, currency: string}` · `ORDER_ID`/`ORDER_PAYMENT_ID`/`RECEIPT_ID`/`RECEIPT_PRESET_ID` uuid strings · `ATTACHMENT` `{fileName, downloadUrl}` · `IMAGE_URL` uri string · `FIELDS` array of `{label, value}` · `RECEIPT` complex object.
 - `futureDate: true` on a date-time field → the trigger supports a "before the event" offset ([Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §5).
 - `hidden: true` → not shown in pickers but still referenceable. `examples` show real value shapes.
@@ -83,7 +81,7 @@ Payload schema annotations you will meet:
 
 Values you put in the expression, by `valueInput.type` (anything else is dropped or rewritten when the panel opens):
 
-- `ENTITY_SELECTOR`: entity ids as **quoted strings**, of the kind named by `entitySelector.id` / the field's `itemsSelectionConfiguration` — from the vertical's public API or the user (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). `multiSelect: false` → one id.
+- `ENTITY_SELECTOR`: entity ids as **quoted strings**, of the kind named by `entitySelector.id` / the field's `itemsSelectionConfiguration` — from the vertical's public API or the user ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)). `multiSelect: false` → one id.
 - `STATIC_ITEMS`: quoted strings equal to a `staticValues[].value` that has a `displayName` (not the `displayName`, not the item `id`, never bare numbers).
 - `USER_INPUT` `NUMBER`: exactly ONE bare number within `numberInputOptions.minValue`/`maxValue`. `BOOLEAN`: exactly ONE bare `true`/`false`.
 

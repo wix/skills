@@ -3,8 +3,6 @@ name: "Automations Conditions"
 description: "Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published".
-
 # Conditions — Visual Conditions and Code Conditions
 
 **TL;DR**
@@ -106,7 +104,7 @@ Semantics: `stringEq`/`stringHasSubString`/`stringContains` are case-insensitive
 
 ## 3. Entity-id fields
 
-A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the vertical's public API or the user (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
+A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the vertical's public API or the user ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)). Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
 
 - Scalar field `service_id`: `{{stringContains(["<service-id>"];var("service_id"))}}`
 - Property in an array of objects `lineItems[].rootCatalogItemId`: `{{arraySome(arrayMap(var("lineItems");"rootCatalogItemId");contains(["<product-id>"];$_))}}` — visual only when that property is the `defaultConditionedProperty`; else code: `(payload.lineItems || []).some(i => ids.includes(i.rootCatalogItemId))`
