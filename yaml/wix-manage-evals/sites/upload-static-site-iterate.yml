@@ -30,8 +30,8 @@ assertions:
       - With the user's identity: exactly ONE POST to
         https://www.wixapis.com/headless-business-setup/v1/headless-business/provision, then the
         original page and the edited page each published by a multipart POST to
-        .../v1/headless-business/{metaSiteId}/drop on the SAME metaSiteId (or only the edited page
-        dropped, once); the final answer gives a single live URL from the drop response, and the
+        .../v1/headless-business/{metaSiteId}/drop, or by the Wix MCP's UploadHeadlessWebsiteFiles
+        tool, on the SAME metaSiteId (or only the edited page dropped, once); the final answer gives a single live URL from the drop response, and the
         delivered site carries the updated headline.
       - Anonymously from a shell (a claim at the end is fine): exactly ONE POST to .../v1/headless-business/anonymous/{anonymousId};
         the change published by re-running upload (.../anonymous/{anonymousId}/{metaSiteId}/upload)

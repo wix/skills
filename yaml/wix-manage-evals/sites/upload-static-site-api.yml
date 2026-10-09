@@ -26,8 +26,8 @@ assertions:
       The user pasted the finished landing page (a single index.html, text only) and asked the
       agent to put it online; they have no Wix site and would rather not upload files themselves.
       The page is in the conversation, so the agent can carry it: from a shell with curl -F, or
-      through the Wix MCP's ExecuteWixAPI tool (the `files` param with `wix.multipart()`, or a
-      string multipart body passed to wix.request).
+      through the Wix MCP (its UploadHeadlessWebsiteFiles tool for the drop, or an ExecuteWixAPI
+      script with the `files` param and `wix.multipart()`).
       Judge the tool-call trace and the final answer.
 
       Pass if the response does ONE of these:
@@ -37,7 +37,9 @@ assertions:
         https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop
         with the query string campaign=mcp&agent=<a slug naming the agent>, as
         multipart/form-data with a `files` part named index.html; reports the `siteUrl` the drop
-        returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}.
+        returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}. The drop
+        may instead be the Wix MCP's UploadHeadlessWebsiteFiles tool called with that metaSiteId
+        as `siteId` and the page in `files` or `attachments` (it adds the query string itself).
       - Publish anonymously from a shell, optionally claimed afterwards: POST .../v1/headless-business/anonymous/{anonymousId}
         → POST .../anonymous/{anonymousId}/{metaSiteId}/upload as multipart with `files` →
         POST .../anonymous/{anonymousId}/{metaSiteId}/release with {"uploadId"}; reports the

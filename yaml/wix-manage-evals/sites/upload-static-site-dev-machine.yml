@@ -32,8 +32,9 @@ assertions:
 
       Pass if ALL of these hold:
       - exactly ONE POST to https://www.wixapis.com/headless-business-setup/v1/headless-business/provision
-        and ONE multipart drop of the page to .../v1/headless-business/{metaSiteId}/drop, giving a
-        live URL, AND
+        and ONE drop of the page to that site (a multipart POST to
+        .../v1/headless-business/{metaSiteId}/drop, or the Wix MCP's UploadHeadlessWebsiteFiles
+        tool with that metaSiteId), giving a live URL, AND
       - the change was made on the Dev Machine: POST .../headless-remote-project/v1/dev-machines/get-or-create
         (repeated until the machine's status was READY), then POST
         .../v1/dev-machines/execute-command whose command edits public/index.html (sed, or a

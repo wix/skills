@@ -18,7 +18,7 @@ The route follows from how the files' bytes can reach Wix.
 | --- | --- |
 | A shell with network access, files on disk | [Drop them](#publish-into-the-users-account) with `curl` and a Wix CLI token. Without a login, [publish anonymously](#publish-anonymously). The files stream from disk and never pass through you. |
 | A framework project — a `package.json`, sources that need a build | The [headless skill](#keep-building-connect-a-backend), which builds and releases it. |
-| The Wix MCP, and no shell with network access | [Drop through `ExecuteWixAPI`](#from-an-executewixapi-script), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
+| The Wix MCP, and no shell with network access | Create the site, then [drop with the Wix MCP's upload tool](#with-the-wix-mcps-upload-tool) (or an [`ExecuteWixAPI` script](#from-an-executewixapi-script) where the tool is missing), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
 | None of these | The [drop page](#the-drop-page): the user uploads the files. |
 
 Without a shell, every file you publish is text you write out inside a tool
@@ -101,6 +101,16 @@ curl -sS -X POST \
 `siteUrl` is final, and the site is already in the user's account. Give the user
 `siteUrl` and the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`.
 
+### With the Wix MCP's upload tool
+
+When the Wix MCP lists `UploadHeadlessWebsiteFiles`, it is step 2: create the site
+first (step 1, from a script or `curl`), then pass the tool the returned
+`metaSiteId` as `siteId` and the files, as a `files` text bundle in the format
+below or as `attachments` when you hold them as files. It replaces the whole
+file set, stamps the attribution itself, and returns `siteUrl` and the dashboard
+link. It creates no site and makes no other call; everything else in this recipe
+stays a script or a command. Without the tool, drop from a script.
+
 ### From an ExecuteWixAPI script
 
 Both calls in one script. The files go in the tool's **`files` param**, never
@@ -148,8 +158,8 @@ exactly `=== FILE: … ===`.
 
 On the same `metaSiteId`, never a new site:
 
-- **A drop** with the **full** file set: each drop replaces every file, and
-  `siteUrl` stays.
+- **A drop** with the **full** file set, through the upload tool or a script:
+  each drop replaces every file, and `siteUrl` stays.
 - **The [Dev Machine](#the-dev-machine)**: edit and release there. Once a site
   has been released from its machine, keep changing it there. A drop would
   replace the live site and leave the machine's code behind
@@ -260,8 +270,8 @@ tokens. An SVG is text and goes in like a page. Every other image reaches Wix
 one of four ways:
 
 1. **A shell with network access** uploads it in the drop, from disk.
-2. **ChatGPT** passes the file itself in the `ExecuteWixAPI` tool's
-   `attachments` param, up to 10 MB per call.
+2. **ChatGPT** passes the file itself in the `attachments` param of the upload
+   tool or of `ExecuteWixAPI`, up to 10 MB per call.
 3. **A public URL**: the page keeps the absolute URL, or the Dev Machine fetches
    the file into the site, `curl -sSL -o public/assets/hero.jpg "https://…"`.
 4. **The user uploads it** to the site's Media Manager. This is the way for
