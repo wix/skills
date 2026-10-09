@@ -162,14 +162,24 @@ a bare `500`), and don't put file text in `code` as string literals (the extra
 escaping corrupts backslashes and `${}`). The bundle can't carry a file with a
 line that reads exactly `=== FILE: … ===`.
 
-**When `ExecuteWixAPI` has no `files` param** (an older version of the tool,
-with no `files` global and no `wix.multipart()`), the file text goes in `code` as
-template literals and the body is a multipart string. Escape `\` as `\\` first,
+**When `ExecuteWixAPI` has no `files` param** (an older version of the tool),
+`wix.multipart()` is usually still there: pass it the entries written in `code`,
+`[{ path, content }]`, the text as template literals. Escape `\` as `\\` first,
 then `` ` `` as `` \` `` and `${` as `\${`; an unescaped `\` is dropped or
-reinterpreted (`/\d+/` would arrive as `/d+/`). Keep the body's shape exactly:
-lines end in `\r\n`, the body ends with `--<boundary>--`, and the header names
-the same boundary; break any of these and the drop is a bare `500`. This carries
-text files only.
+reinterpreted (`/\d+/` would arrive as `/d+/`).
+
+```javascript
+const mp = wix.multipart([
+  { path: 'index.html', content: `<!doctype html><html><head><title>Northwind Studio</title></head><body><h1>Northwind Studio</h1></body></html>` },
+  { path: 'assets/styles.css', content: `body { font-family: sans-serif; margin: 0; padding: 4rem; }` },
+]);
+// then the same drop call as above: headers { 'Content-Type': mp.contentType }, body mp.body
+```
+
+Only when `typeof wix.multipart !== 'function'` does the body become a multipart
+string you build yourself. Keep its shape exactly: lines end in `\r\n`, the body
+ends with `--<boundary>--`, and the header names the same boundary; break any of
+these and the drop is a bare `500`.
 
 ```javascript
 async function run() {
