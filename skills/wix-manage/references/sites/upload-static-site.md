@@ -38,9 +38,10 @@ What sets them apart:
   (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
   4M characters. On ChatGPT the tool's `attachments` param takes files
   themselves, up to 10 MB per call; they arrive in the `files` global as
-  base64 entries. Other hosts have no such param: there, the drop carries the
-  text files and the images follow through the site's
-  [Dev Machine](#images).
+  base64 entries. Other hosts have no such param: there, a site that is only
+  text goes in the drop, and a site with images
+  [starts at its Dev Machine](#starting-at-the-machine), where pages are
+  written as commands and images with a URL are fetched.
 - **A CLI login** is one approval by the user in the browser: run
   `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
   token (see [Before the calls](#before-the-calls)). It also unlocks later
@@ -102,7 +103,9 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 
 ### 2. Drop the files — the site goes live
 
-One multipart request uploads and releases. Each file is a part named `files`
+One multipart request uploads and releases. (A host with no shell and a site
+with images skips this step and [starts at the machine](#starting-at-the-machine)
+instead; step 1 is the same.) Each file is a part named `files`
 whose **filename is its path relative to the site root** — that is how
 subdirectories survive; with `curl`, set it with `;filename=` whenever it isn't
 just the basename. A single `.zip` part works too — it's unpacked server-side, a
@@ -376,9 +379,12 @@ to the site's code store, so the code outlives the machine. The machine ends
 3.5 hours after it starts or after 40 minutes without a call, and the next one
 starts from what was pushed.
 
-A dropped site's machine holds the dropped files under `public/` in a minimal
-Astro project bound to the site, with Node, git, the Wix CLI logged in for the
-site, and the Wix Headless skills under `.agents/skills/`.
+The machine is a minimal Astro project bound to the site, with Node, git, the
+Wix CLI logged in for the site, and the Wix Headless skills under
+`.agents/skills/`. A dropped site's machine holds the dropped files under
+`public/`. A site that has not been released yet gets the blank starter:
+`src/pages/index.astro` owns `/`, `public/` holds only a favicon, and there is
+no lockfile.
 
 Base URL `https://www.wixapis.com/headless-remote-project`. Every call acts on
 the site the identity is scoped to: a site token from the CLI,
@@ -415,6 +421,16 @@ a whole file. Publishing is `CI=1 wix build && CI=1 wix release`; the release
 goes to the same `siteUrl`. Once a site has been released from its machine, keep
 changing it there: a new drop replaces the live site with the dropped files and
 the machine's code falls behind (`codeBehindLiveSite: true`).
+
+### Starting at the machine
+
+For a host with no shell, the machine is where a site with images is built:
+provision the site (step 1 above), `get-or-create` its machine, and the first
+command writes the pages as heredocs, fetches every image that has a URL,
+removes `src/pages/index.astro`, adds `redirects: { "/": "/index.html" }` to
+`astro.config.mjs`, and runs `npm install --package-lock-only` so `wix build`
+finds its package manager. Then build and release. Images that have no URL
+follow the rules below.
 
 ### Images
 
@@ -500,7 +516,8 @@ command and follow it there.
 
 ## Route the request correctly
 
-- **A new site from the user's files** — [Choose the route](#choose-the-route).
+- **A new site from the user's files** — [Choose the route](#choose-the-route);
+  with no shell and images in the site, [start at the machine](#starting-at-the-machine).
 - **A change to a site published this way** — the same site: a
   [drop](#change-it-later) with the full file set, or its Dev Machine; upload +
   release while it's anonymous.
