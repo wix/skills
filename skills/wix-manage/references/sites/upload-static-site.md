@@ -443,8 +443,10 @@ promises nothing beyond its content stops at the pages.
 The headless skill starts at its entry page,
 `https://www.wix.com/skills/headless-cold-start/headless-kit.md`: read it from the
 skills you have installed when they are there, otherwise online (see
-[Reading the pages this recipe links](#before-the-calls)). It owns the run. Its
-commands run:
+[Reading the pages this recipe links](#before-the-calls)). It owns the run, and
+its steps are shell commands: the bootstrap that checks the Wix CLI, the folder
+check, the deploy of the solution's code, the seed, the build and the release.
+They run:
 
 - **With a shell that reaches the network**, in a folder holding the site.
 - **Without one**, on the site's [Dev Machine](#the-dev-machine), as
