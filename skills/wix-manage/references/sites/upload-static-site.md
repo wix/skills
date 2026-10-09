@@ -350,7 +350,7 @@ async function run() {
 | --- | --- |
 | `428 DEV_MACHINE_NOT_READY`, `DEV_MACHINE_NOT_FOUND` | Call `get-or-create` again. |
 | `428 DEV_MACHINE_SETUP_FAILED` | `data.retryDate` says when a new machine can start. |
-| `428 DEV_MACHINE_LIMIT_REACHED` | The account has `data.limit` machines running; each frees at its `expirationDate`. A site never released from a machine can take a drop meanwhile. |
+| `428 DEV_MACHINE_LIMIT_REACHED` | The account has `data.limit` machines running. A slot frees when a machine ends: 40 minutes after its last call, or at its `expirationDate`. A site never released from a machine can take a drop meanwhile. |
 | `428 SITE_SOURCE_UNAVAILABLE` | The site was released from a project elsewhere; work there. |
 | `428 SITE_CONNECTED_TO_GITHUB` | The code lives in the connected repository; work there. |
 | `428 COMPANION_APP_NOT_FOUND` | Not a headless site from the provision call. |
