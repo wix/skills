@@ -407,6 +407,9 @@ List, count, and find the sites in a Wix account. Covers the namespace filter fo
 ### [Read Account or Site Context](references/sites/read-site-context.md)
 Probe a Wix site or account for full context in one call — installed apps by display name, locale, currency, timezone, and status. Account token + siteId targets one site; account token alone returns up to 10; site-scoped token alone returns the site it is scoped to.
 
+### [Send Feedback to Wix](references/sites/send-feedback-to-wix.md)
+Relay the user's feedback about building with Wix — the APIs, docs, recipes, Wix MCP and tooling — to Wix, attributed to the authenticated user. Covers when to offer it, how to compose a message Wix can act on, and the call that sends it. Use when the user asks to report something to Wix, is frustrated with a Wix API or flow, or a recipe's flow fell short. Not a support channel, and not for the user's own site content.
+
 ### [Site Import](references/sites/site-import.md)
 Drive the Wix Site Import agent to migrate an existing store or site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix — as a brand-new site or into the user's existing one — or to import from CSV/TSV export files with no source site. Use this skill whenever the user wants to import, migrate, or clone a store/site into Wix, mentions moving off Shopify/WooCommerce/Magento, or gives a source store URL and asks to bring it into Wix. Covers starting the import, polling progress, answering the agent's mid-import questions, handling deploy/failure/auth-expiry states, and sending post-deploy follow-up changes.
 
