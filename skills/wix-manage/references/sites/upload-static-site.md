@@ -10,50 +10,48 @@ project an AI builder exported — and wants it live on Wix. Every route below e
 the same way: a headless site in the user's Wix account that serves those files
 at a `*.wix-site-host.com` URL.
 
-## Which environment you are in
+## What decides the route
 
-- **An open environment** has a shell whose network reaches the internet, and you
-  can install what you need: a coding agent on a developer's machine or in a
-  cloud workspace. Files on disk go to Wix as they are, with `curl` and a Wix CLI
-  token, and the headless skill runs where you are.
-- **A sandboxed environment** has a shell and a file system, but its network is
-  closed or limited to a few hosts, and installs are restricted: the code sandbox
-  of a chat product such as ChatGPT or Claude. Wix is reachable only through the
-  Wix MCP. A web fetch there opens only URLs the user gave or a web search
-  returned. The Wix skills are often installed with the client's Wix plugin.
+Three things about where you run decide it:
 
-In a sandboxed environment, a file on your disk reaches Wix only as text you
-write into a tool call, except on ChatGPT, where the Wix MCP's upload tool takes
-the files themselves as `attachments`. So move as little as possible, once, and
-do everything after that on the site's [Dev Machine](#the-dev-machine): a
-machine Wix runs for each headless site, with the site's code, open network,
-Node, the Wix CLI logged in and the Wix skills. It is the open environment your
-sandbox lacks.
+- **Does your shell reach Wix?** `curl -sI https://www.wixapis.com` answers with an
+  HTTP status line. When it fails, or there is no shell, it doesn't.
+- **Is the Wix MCP connected?** Its tools are in your tool list: `ExecuteWixAPI`,
+  and usually `UploadHeadlessWebsiteFiles`.
+- **Do your files travel as files?** Some clients resolve a tool's `attachments`
+  param themselves: a file the user attached, or one you wrote to disk, reaches
+  the upload tool as the file. Elsewhere `attachments` comes back unresolved, and
+  every file you send through the MCP is text you write into the call.
 
-## Choose the route
+| Your situation | Route |
+| --- | --- |
+| The shell reaches Wix | [Create the site](#create-the-site) and [drop the files with `curl`](#drop-with-curl) and a CLI token; without a login, [publish anonymously](#publish-anonymously). A site of text files can take the MCP route below instead, with no login. |
+| The shell doesn't reach Wix, or there is no shell, and the Wix MCP is connected | [Create the site](#create-the-site) and [drop through the MCP](#drop-through-the-wix-mcp): the files themselves when they travel as files, a text bundle when they don't. Later work goes to the site's [Dev Machine](#the-dev-machine). |
+| A project that needs a build (a `package.json`) | When the shell reaches Wix, the [headless skill](#connect-a-backend) builds and releases it. When it doesn't, the site's Dev Machine builds it: [a project that needs a build](#a-project-that-needs-a-build). |
+| None of these, or every route failed | The [drop page](#the-drop-page): the user uploads the files. |
 
-| You are in | You have | Route |
-| --- | --- | --- |
-| An open environment | static files | [Create the site](#create-the-site) and [drop the files](#drop-from-an-open-environment) with `curl` and a CLI token; without a login, [publish anonymously](#publish-anonymously). |
-| An open environment | a project that needs a build (a `package.json`) | The [headless skill](#connect-a-backend), run where you are; it builds and releases the project. |
-| A sandboxed environment | static files | [Create the site](#create-the-site), then [drop](#drop-from-a-sandboxed-environment) with the Wix MCP's upload tool, or a script where the tool is missing. Later work goes to the [Dev Machine](#the-dev-machine). |
-| A sandboxed environment | a project that needs a build | [Create the site](#create-the-site), and build and release it [on its Dev Machine](#a-project-that-needs-a-build). |
-| Neither, or every route failed | | The [drop page](#the-drop-page): the user uploads the files. |
+When files don't travel as files, writing them costs nothing for a page already
+in the conversation and a read and a rewrite for text files on disk; images never
+travel as text (see [Images](#images)). Publishing yourself beats the drop page
+whenever a route fits. Never report an upload you couldn't perform; when a route
+fails partway, hand over the drop page.
 
-Publishing yourself beats the drop page whenever a route fits. Never report an
-upload you couldn't perform; when a route fails partway, hand over the drop page.
+**Without a shell that reaches Wix, the site's [Dev Machine](#the-dev-machine) is
+where the work goes after the first drop**: a machine Wix runs for each headless
+site, with the site's code, open network, Node, the Wix CLI logged in and the Wix
+skills. A change there is one command, not the site written out again.
 
 ## Before the calls
 
-- **In an open environment**, `$ACCESS_TOKEN` is the user's token: run
+- **With a shell that reaches Wix**, `$ACCESS_TOKEN` is the user's token: run
   `npx @wix/cli@latest login` once (the user approves in the browser), then
   `npx @wix/cli@latest token` prints a token that lasts 15 minutes. Run it again
   when the token may have expired, and always after a `403`.
-- **In a sandboxed environment**, the Wix MCP's `ExecuteWixAPI` runs JavaScript
+- **Through the Wix MCP**, `ExecuteWixAPI` runs JavaScript
   whose `wix.request` calls carry the user's login: no token. Ids go into URLs as
   values; a `$NAME` there is sent as is. `wix.request` returns `{ status, data }`.
 - **`$AGENT`** is a short lowercase slug naming you (`claude-code`, `cursor`,
-  `codex-cli`, `chatgpt`; `unknown-agent` if you can't tell). Every drop and upload
+  `codex-cli`, `chatgpt`, `claude-ai`; `unknown-agent` if you can't tell). Every drop and upload
   carries `?campaign=mcp&agent=$AGENT`, which attributes the site to you in Wix's
   reports.
 - **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response.
@@ -89,7 +87,7 @@ const created = await wix.request({ scope: 'account', method: 'POST',
 The site is in the user's account. When it goes live, give the user its
 `siteUrl` and the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`.
 
-## Drop from an open environment
+## Drop with curl
 
 One multipart request uploads and releases. Each file is a part named `files`
 whose **filename is its path relative to the site root**; that is how
@@ -108,7 +106,7 @@ curl -sS -X POST \
 
 `siteUrl` is final.
 
-## Drop from a sandboxed environment
+## Drop through the Wix MCP
 
 ### With the Wix MCP's upload tool
 
@@ -117,10 +115,11 @@ When the Wix MCP lists `UploadHeadlessWebsiteFiles`, it is the drop: pass it the
 It replaces the whole file set, stamps the attribution itself, and returns
 `siteUrl` and the dashboard link. It creates no site and makes no other call.
 
-- **On ChatGPT**, pass the files themselves as `attachments`: zip the whole site
-  folder, images included, and pass the zip as one attachment. It is unpacked, a
-  wrapping folder stripped, up to 10 MB per call. Nothing is written out by you.
-- **Elsewhere**, pass a `files` text bundle: each file starts with a line
+- **When your files travel as files**, pass them as `attachments`: zip the whole
+  site folder, images included, and pass the zip as one attachment. It is
+  unpacked, a wrapping folder stripped, up to 10 MB per call. Nothing is written
+  out by you.
+- **When they don't**, pass a `files` text bundle: each file starts with a line
   `=== FILE: <path> ===` followed by its raw text, `<path>` relative to the site
   root. Nothing in it is escaped. It carries text files: HTML, CSS, JavaScript,
   SVG. Other images reach the site as [Images](#images) says.
@@ -182,7 +181,7 @@ what was pushed. A dropped site's machine holds the dropped files under
 `public/`, served as they are. A site never dropped or released gets a blank
 starter: `src/pages/index.astro` owns `/` and `public/` holds only a favicon.
 
-**When it pays, in a sandboxed environment:**
+**When it pays, without a shell that reaches Wix:**
 
 - the site needs a build, or a business solution the user agreed to connect;
 - the site will change again, in this conversation or a later one: a change is
@@ -190,9 +189,9 @@ starter: `src/pages/index.astro` owns `/` and `public/` holds only a favicon.
 - images come in by URL, from the web or from the user's Media Manager, and
   keep the paths the pages already use.
 
-A single pasted page with one change on the spot is cheaper as a second drop. In
-an open environment, work where you are; the machine matters there only when the
-files are gone or the site was last released from it.
+A single pasted page with one change on the spot is as cheap as a script edit.
+With a shell that reaches Wix, work where you are; the machine matters there only
+when the files are gone or the site was last released from it.
 
 ### The calls
 
@@ -271,8 +270,8 @@ the closing message what that left undone.
 
 ### A project that needs a build
 
-In a sandboxed environment, send the project's source to the machine and build
-it there: the source is small, the build output is not. Create the site without
+Without a shell that reaches Wix, send the project's source to the machine and
+build it there: the source is small, the build output is not. Create the site without
 a drop, so the machine starts from the blank starter; the first command writes
 the source into a folder of its own (heredocs built from the `files` param, one
 command for several files), and the next one builds it and serves the output as
@@ -291,18 +290,24 @@ paths, so a project with routes uses hash routes or one HTML file per route.
 
 ## Change it later
 
-On the same `metaSiteId`, never a new site:
+On the same `metaSiteId`, never a new site. Each drop replaces every file, and
+`siteUrl` stays.
 
-- **On the Dev Machine**: edit and release there. This is the way once the site
-  has been released from its machine, and the cheap way in a sandboxed
-  environment.
-- **A drop** with the **full** file set: each drop replaces every file, and
-  `siteUrl` stays.
+- **On the Dev Machine**, once the site has one: edit and release there. After a
+  release from the machine this is the only way; a drop would replace the live
+  site and leave the machine's code behind.
+- **With a shell that reaches Wix**, edit the files and drop the full set with
+  `curl`.
+- **Through the MCP**, change the site in one `ExecuteWixAPI` script: download
+  what it serves, edit in code, and drop the full set back. Only the edit is
+  written; images travel back as they are. When your files travel as files, a
+  new zip of the whole site through the upload tool works as well. A full
+  rewrite of the text bundle is for a site rewritten wholesale.
 
 For a site from an earlier conversation, find its `metaSiteId` with
 [Query Sites](#claim-it-into-the-users-account), matching the name or `viewUrl`.
-To drop again without the files at hand, download what the site serves, edit,
-and drop the full set back without `wix.config.json`:
+The download holds what the site serves plus a `wix.config.json`, which is left
+out of the drop:
 
 ```bash
 curl -sSL -o current.zip \
@@ -312,7 +317,18 @@ curl -sSL -o current.zip \
 In a script, request that URL with `responseType: 'base64'` and pass `r.data` to
 `wix.unzip()`. Each entry is `{ path, bytes, text() }`; call `text()` only on text
 files, since a decoded image is corrupted. Entries go back to `wix.multipart()` as
-they are, an edited one as `{ path, content }`. Never rebuild a site from memory.
+they are, an edited one as `{ path, content }`:
+
+```javascript
+const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
+  url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
+const entries = (await wix.unzip(r.data)).filter((e) => e.path !== 'wix.config.json').map((e) =>
+  e.path === 'index.html' ? { path: e.path, content: e.text().replace('Welcome', 'Bloom Cafe — Now Open') } : e);
+const mp = wix.multipart(entries);
+// then the drop call: headers { 'Content-Type': mp.contentType }, body mp.body
+```
+
+Never rebuild a site from memory.
 
 ## Connect a backend
 
@@ -338,21 +354,22 @@ bootstrap that checks the Wix CLI login, and hands off to the kit's `SKILL.md`,
 which reads the folder, deploys the solution's code, seeds, builds and releases.
 Its commands run:
 
-- **In an open environment**, in a folder holding the site, from the site's own
-  download:
+- **With a shell that reaches Wix**, in a folder holding the site, from the
+  site's own download:
 
   ```bash
   curl -sSL -o project.zip \
     "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
   unzip project.zip -d project
   ```
-- **In a sandboxed environment**, on the site's [Dev Machine](#the-dev-machine),
+- **Without a shell that reaches Wix**, on the site's [Dev Machine](#the-dev-machine),
   through `execute-command` in its code folder. The skills are installed there
   and the Wix CLI is logged in, so the install and the bootstrap pass at once,
   and the kit's commands run as written.
 - **When no machine can start**, the kit's API-call guide,
   `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md`, does the same
-  run as Wix API calls through the Wix MCP.
+  run as Wix API calls through the Wix MCP, with the frontend dropped as this
+  recipe says.
 
 ## Images
 
@@ -361,12 +378,12 @@ output corrupts them past a few thousand characters, and every byte costs tokens
 An SVG is text and goes in like a page. Every other image reaches Wix one of four
 ways:
 
-1. **From an open environment**, in the drop, from disk.
-2. **On ChatGPT**, inside the zip you pass the upload tool as an attachment.
+1. **With a shell that reaches Wix**, in the `curl` drop, from disk.
+2. **When your files travel as files**, inside the zip you pass the upload tool.
 3. **A public URL**: the page keeps the absolute URL, or the Dev Machine fetches
    the file into the site, `curl -sSL -o public/assets/hero.jpg "https://…"`.
 4. **The user uploads it** to the site's Media Manager. This is the way for images
-   on a sandbox disk with no attachment route. Publish the pages first, then name
+   that exist only as files you can't send. Publish the pages first, then name
    the missing files, give the user
    `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them to
    tell you once they're uploaded. Then [list the site's files](../media/upload-media-to-wix.md),
@@ -381,7 +398,7 @@ missing.
 
 ## Publish anonymously
 
-In an open environment with no login: the site belongs to a temporary owner and
+With a shell that reaches Wix and no login: the site belongs to a temporary owner and
 lives one hour unless the user keeps it. Generate `anonymousId` yourself, any
 UUID, once per site, and reuse it with the returned `metaSiteId` for every call.
 After one hour every call, claim included, returns `404`.
@@ -448,8 +465,8 @@ banner offers to keep it. Tell them the limits below first.
   than one, `index.html` must be among them.
 - **3 MB per file, 20 MB per site.**
 - **Static files only** in a drop. A project that needs a build is built first:
-  where you are in an open environment, [on the Dev Machine](#a-project-that-needs-a-build)
-  in a sandboxed one.
+  where you are when the shell reaches Wix, [on the Dev Machine](#a-project-that-needs-a-build)
+  when it doesn't.
 
 | Failure | Meaning |
 | --- | --- |
@@ -468,7 +485,7 @@ workaround.
 
 ## Route the request correctly
 
-- **A new site from the user's files**: [Choose the route](#choose-the-route).
+- **A new site from the user's files**: [Choose the route](#what-decides-the-route).
 - **A change to a site published this way**: the [same site](#change-it-later);
   upload and release while it's anonymous.
 - **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
