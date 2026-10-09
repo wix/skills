@@ -255,13 +255,11 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    `templates/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
    step on); the hook/DTO
    contracts are inlined there, so don't open the shipped files themselves.
-   **A frontend that exists already is the scope.** When the run wires pages that were there
-   before it (a dropped mock, an adopted site, a published static site), the vertical's surfaces
-   and floors apply to the pages and controls those pages have: connect each one to the shipped
-   code. Every item the pages list gets the vertical's detail page, styled from the existing
-   pages, so each item has its own address and a place to complete what its control starts.
-   Collection tools the pages don't show (filters, sorting, category or archive pages, paging)
-   are not added. The closing message names what the vertical offers beyond what the pages show.
+   **A frontend that already exists gets the minimum.** When the run wires pages that were
+   there before it (a dropped mock, an adopted site, a published static site), do the least that
+   makes them work: connect each control the pages show to the shipped code, and add only what a
+   control can't work without. Anything more the vertical offers is added only when the brief
+   asks for it; name it in the closing message.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
