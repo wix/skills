@@ -403,8 +403,8 @@ curl -sS -X POST "https://www.wixapis.com/mcp-serverless/v1/headless-feedback" \
   -d '{"message":"<the composed feedback>"}'
 ```
 
-In an `ExecuteWixAPI` script, pass the message in the `files` param as one
-text file, so it needs no escaping:
+In an `ExecuteWixAPI` script, with the message as one text file in the `files`
+param:
 
 ```javascript
 async function run() {
