@@ -445,8 +445,7 @@ promises nothing beyond its content stops at the pages.
   the project. Read `.agents/skills/wix-headless-kit/SKILL.md` from a command and
   follow it there.
 - **With a shell**, download the site and follow the headless skill,
-  `https://www.wix.com/skills/headless-cold-start` (read it with the Wix MCP's
-  `ReadFullDocsArticle`), from that folder:
+  `https://www.wix.com/skills/headless-cold-start`, from that folder:
 
 ```bash
 curl -sSL -o project.zip \
