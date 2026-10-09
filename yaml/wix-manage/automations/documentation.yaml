@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: 070918aee0f63a99f458b6e9e9438424a4e0fb062e87371268f545150d87f806
+# Source content SHA-256: 3951eed2aa8e4f9a4da6bafd3219fb5dc43170dcd74354e3eebb7e6248136e63
 apiDoc:
   title: Wix Automations Recipes
 
@@ -10,6 +10,22 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/api-catalog.md
       title: "Automations API Catalog"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/automation-model.md
+      title: "Automations Graph and Data Model"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/triggers.md
+      title: "Automations Trigger Configuration"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/actions.md
+      title: "Automations Action Configuration"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/bracket-expressions.md
+      title: "Automations Mapping Expressions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/activation-status.md
