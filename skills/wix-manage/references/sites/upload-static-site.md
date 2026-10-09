@@ -382,7 +382,7 @@ site, and the Wix Headless skills under `.agents/skills/`.
 
 Base URL `https://www.wixapis.com/headless-remote-project`. Every call acts on
 the site the identity is scoped to: a site token from the CLI,
-`npx @wix/cli token --site $META_SITE_ID`, or `scope: 'site', siteId` in an
+`npx @wix/cli@latest token --site $META_SITE_ID`, or `scope: 'site', siteId` in an
 `ExecuteWixAPI` script. No request takes a site id.
 
 ### The calls
