@@ -77,6 +77,32 @@ test('a query builder lists the fields per operator', () => {
   assert.deepEqual(method(r.candidates[0], 'queryContacts').builder.gt, ['_createdDate', '_updatedDate']);
 });
 
+test('a builder that also takes a query object prints that form, with its own paging key', () => {
+  const [r] = json('services', '--intent', 'read');
+  const q = method(r.candidates[0], 'queryServices').queryForm;
+  assert.deepEqual(q.params, ['query: ServiceQuery', 'options?: QueryServicesOptions']);
+  assert.deepEqual(q.keys, ['paging', 'filter', 'sort']);
+  const { out } = run('services', '--intent', 'read');
+  assert.match(out, /or {6}services\.queryServices\(query: ServiceQuery, options\?: QueryServicesOptions\) → Promise<QueryServicesResponse>/);
+  assert.match(out, /or one query object, services\.queryServices\(\{ paging, filter, sort \}\), whose filter also takes \$or/);
+});
+
+test('a query of another type in the namespace does not get the entity filter list', () => {
+  const [r] = json('services', '--intent', 'read');
+  assert.ok(method(r.candidates[0], 'queryServices').filterable, 'the builder keeps it');
+  assert.equal(method(r.candidates[0], 'queryPolicies').filterable, undefined);
+});
+
+test('a builder with no filter sends the call to the query object, and an empty spec points to the docs', () => {
+  const read = run('extendedBookings', '--intent', 'read').out;
+  assert.match(read, /^shape extendedBookings\.queryExtendedBookings\(\{ cursorPaging, filter, sort \}\): the builder has no filter or sort, so pass one query object$/m);
+  assert.match(read, /filter fields: not in the package \(the method docs page lists them\)/);
+  assert.doesNotMatch(read, /closed list/);
+  const search = run('extendedBookings', '--intent', 'search').out;
+  assert.match(search, /^shape extendedBookings\.queryExtendedBookings\(\{ cursorPaging, filter, sort \}\): no search method, and the builder has no or\(\): pass one query object instead$/m);
+  assert.doesNotMatch(search, /startsWith on ONE field/);
+});
+
 test('a write method needs the revision', () => {
   const [r] = json('contacts', '--intent', 'write');
   assert.deepEqual(method(r.candidates[0], 'updateContact').required, ['revision']);

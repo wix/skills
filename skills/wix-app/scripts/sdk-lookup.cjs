@@ -371,15 +371,29 @@ function deriveRecord(name, dir) {
     for (const src of sources) {
       const all = [...src.matchAll(new RegExp(`interface (\\w+)${kind}Spec extends ${kind}Spec\\b`, 'g'))].map((x) => `${x[1]}${kind}Spec`);
       const name = names.find((n) => all.includes(n)) ?? (all.length === 1 ? all[0] : null);
-      if (name) return parseSpec(src, name);
+      if (name) {
+        const fields = parseSpec(src, name);
+        return fields && { entity: name.slice(0, -`${kind}Spec`.length), fields };
+      }
     }
     return null;
   };
   const searchSpec = spec('Search');
   const querySpec = spec('Query');
+  // The spec is one entity's (`V3ProductSearchSpec` → V3Product), so a query
+  // or search returning another type in the same namespace
+  // (services.queryPolicies) does not get it. A builder is generated per
+  // entity, so it always does.
+  const returnsEntity = (meth, entity) => {
+    const body = typeBody(sources, meth.returns.match(/Promise<(\w+)/)?.[1] ?? '');
+    const list = new RegExp(`^(?:Array<\\s*${entity}\\b|${entity}\\s*\\[\\])`);
+    return !body || membersOf(body).some(({ type }) => list.test(type.trim()));
+  };
   for (const meth of methods.values()) {
     const s = meth.kind === 'search' ? searchSpec : /^query/.test(meth.kind) ? querySpec : null;
-    if (s) meth.filterable = s;
+    if (!s || (meth.kind !== 'query-builder' && !returnsEntity(meth, s.entity))) continue;
+    if (Object.keys(s.fields).length) meth.filterable = s.fields;
+    else meth.filterUnlisted = true;
   }
 
   const http = httpOf(path.join(cjs, 'meta.js'));
@@ -421,6 +435,26 @@ function deriveRecord(name, dir) {
         ops[mm[1]] = /propertyNames?\s*:\s*string/.test(params) ? ['*'] : fields;
       }
       meth.builder = ops;
+      break;
+    }
+    // Most builders also take one query object — `queryX({ filter, sort,
+    // cursorPaging })` — declared as the @hidden `typedQueryX`. Its filter is
+    // a WQL object, so it has $or where the builder has no or().
+    const typed = `typed${meth.name[0].toUpperCase()}${meth.name.slice(1)}`;
+    for (const src of sources) {
+      const m = new RegExp(`declare function ${typed}\\s*\\(`).exec(src);
+      if (!m) continue;
+      const { params, ret } = readDeclaration(src, m.index + m[0].length - 1);
+      const form = { params: paramList(params), returns: shorten(ret) };
+      const skip = new Set([entityType]);
+      const arg = params.match(/^\s*(\w+)\??\s*:\s*([A-Z]\w*)/);
+      const argShape = arg && typeShape(sources, arg[2], skip);
+      if (argShape) form.arg = `${arg[1]}: ${argShape}`;
+      // `cursorPaging` or `paging`, depending on the method.
+      form.keys = membersOf(typeBody(sources, arg?.[2] ?? '') ?? '').map((x) => x.name);
+      const retType = form.returns.match(/Promise<(\w+)/)?.[1];
+      if (retType) form.result = typeShape(sources, retType, skip);
+      meth.queryForm = form;
       break;
     }
   }
@@ -478,7 +512,9 @@ function parseSpec(src, name) {
       e.sort = e.sort || sort !== 'NONE';
     }
   }
-  return Object.keys(out).length ? out : null;
+  // `{}` when the spec is declared but lists no field (`wql: []`): the
+  // filter fields are on the method's docs page only.
+  return out;
 }
 
 function httpOf(metaFile) {
@@ -609,11 +645,13 @@ const label = (c) => (c.ns.namespace ? `${c.ns.namespace} (${c.ns.from})` : c.na
 //   search: a search method with free text → one call, the term in
 //           search.search.expression. Otherwise one filter object with $or,
 //           one clause per field. A query builder chains clauses with AND and
-//           has no or(), so it cannot match a term in any of several fields:
-//           one field with startsWith, never one query per field merged in
-//           the client.
+//           has no or(): when the method also takes a query object, its
+//           filter has $or; else one field with startsWith, never one query
+//           per field merged in the client.
 //   read:   the builder for filters, sort and paging, on the fields its
-//           operators list (a closed list), else the filter object.
+//           operators list (a closed list), else the filter object. A
+//           builder with no filter or sort (extendedBookings) → the query
+//           object.
 //   write:  a method that requires revision → read the entity first.
 function shapeFor(record, ns, intent) {
   const by = (k) => record.methods.filter((m) => m.kind === k && !m.deprecated);
@@ -624,6 +662,7 @@ function shapeFor(record, ns, intent) {
   const textFields = (m) =>
     m?.filterable ? Object.entries(m.filterable).filter(([, f]) => f.search).map(([k]) => k) : null;
   const builderFields = (op) => builder?.builder?.[op] ?? null;
+  const queryCall = (m) => `${call(m)}({ ${(m.queryForm.keys?.length ? m.queryForm.keys : ['filter', 'sort']).join(', ')} })`;
   const out = [];
 
   if (intent === 'search') {
@@ -635,6 +674,11 @@ function shapeFor(record, ns, intent) {
       out.push(`${call(m)}: no free text; one filter object with $or, one clause per field the term may match (operators from its filter list)`);
     } else if (builder?.builder?.or) {
       out.push(`${call(builder)}(): no search method; the builder has or(), so chain one .startsWith() per field inside .or()`);
+    } else if (builder?.queryForm) {
+      out.push(`${queryCall(builder)}: no search method, and the builder has no or(): pass one query object instead`);
+      out.push(`  its filter is WQL: $or with one clause per field the term may match (operators from ${builder.filterable ? 'its filter list' : 'its docs page'})`);
+      out.push('  an API may implement only part of WQL: if its docs page rules out $or, use ONE field and say so to the user');
+      out.push('  never run one query per field and merge the results in the client');
     } else if (builder) {
       const sw = builderFields('startsWith');
       out.push(`${call(builder)}(): no search method, and the builder chains clauses with AND and has no or()`);
@@ -644,8 +688,14 @@ function shapeFor(record, ns, intent) {
   } else if (intent === 'read') {
     if (builder) {
       const ops = Object.entries(builder.builder ?? {}).filter(([k, f]) => f.length && !['limit', 'skip', 'skipTo', 'find'].includes(k));
-      out.push(`${call(builder)}(): filters, sort and paging chained on the builder (AND only); fields per operator are a closed list:`);
-      for (const [op, f] of ops) out.push(`  .${op}(${f.includes('*') ? 'any field' : capped(f, 10)})`);
+      if (!ops.length && builder.queryForm) {
+        out.push(`${queryCall(builder)}: the builder has no filter or sort, so pass one query object`);
+        out.push(`  fields and operators: ${builder.filterable ? 'its filter list' : 'its docs page (the package does not list them)'}`);
+      } else {
+        out.push(`${call(builder)}(): filters, sort and paging chained on the builder (AND only); fields per operator are a closed list:`);
+        for (const [op, f] of ops) out.push(`  .${op}(${f.includes('*') ? 'any field' : capped(f, 10)})`);
+        if (builder.queryForm) out.push(`  or one query object, ${queryCall(builder)}, whose filter also takes $or`);
+      }
       if (search) out.push(`  a search box over several fields → ${call(search)} instead (--intent search)`);
     } else if (search || query) {
       out.push(`${call(search ?? query)}: one filter object (fields from its filter list or its docs page)`);
@@ -760,7 +810,14 @@ function renderCandidate(c, intent, rel) {
     out.push(`  ${''.padEnd(13)} ${facts.join(' · ')}`);
     if (m.arg) out.push(`  ${''.padEnd(13)} arg     ${m.arg}`);
     if (m.result) out.push(`  ${''.padEnd(13)} returns ${m.result}`);
+    if (m.queryForm) {
+      const q = m.queryForm;
+      out.push(`  ${''.padEnd(13)} or      ${ns ?? 'sdk'}.${m.name}(${q.params.join(', ')}) → ${q.returns}`);
+      if (q.arg) out.push(`  ${''.padEnd(13)} arg     ${q.arg}`);
+      if (q.result) out.push(`  ${''.padEnd(13)} returns ${q.result}`);
+    }
     if (m.filterable) out.push(...renderFilterable(m.filterable).map((l) => `  ${''.padEnd(13)} ${l}`));
+    else if (m.filterUnlisted) out.push(`  ${''.padEnd(13)} filter fields: not in the package (the method docs page lists them)`);
     if (m.fqn) out.push(`  ${''.padEnd(13)} fqn ${m.fqn}`);
   }
   const others = r.methods.filter((m) => !shown.includes(m)).map((m) => m.name);
