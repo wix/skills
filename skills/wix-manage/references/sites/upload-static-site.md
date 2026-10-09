@@ -18,7 +18,7 @@ The route follows from how the files' bytes can reach Wix.
 | --- | --- |
 | A shell with network access, files on disk | [Drop them](#publish-into-the-users-account) with `curl` and a Wix CLI token. Without a login, [publish anonymously](#publish-anonymously). The files stream from disk and never pass through you. |
 | A framework project — a `package.json`, sources that need a build | The [headless skill](#keep-building-connect-a-backend), which builds and releases it. |
-| The Wix MCP, and no shell with network access | Create the site, then [drop with the Wix MCP's upload tool](#with-the-wix-mcps-upload-tool) (or an [`ExecuteWixAPI` script](#from-an-executewixapi-script) where the tool is missing), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
+| The Wix MCP, and no shell with network access | Create the site, then [drop with the Wix MCP's upload tool](#with-the-wix-mcps-upload-tool) (or an [`ExecuteWixAPI` script](#from-an-executewixapi-script) where the tool is missing; on ChatGPT, a zip of the whole site as its attachment carries everything, images included), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
 | None of these | The [drop page](#the-drop-page): the user uploads the files. |
 
 Without a shell, every file you publish is text you write out inside a tool
@@ -110,6 +110,13 @@ below or as `attachments` when you hold them as files. It replaces the whole
 file set, stamps the attribution itself, and returns `siteUrl` and the dashboard
 link. It creates no site and makes no other call; everything else in this recipe
 stays a script or a command. Without the tool, drop from a script.
+
+**On ChatGPT, this tool is the drop.** ChatGPT resolves the tool's `attachments`
+itself: the files the user attached, or that you wrote in your sandbox, reach
+Wix without passing through your output, images included. Zip the whole site
+folder and pass the zip as one attachment; it is unpacked, a wrapping folder
+stripped, up to 10 MB per call. Nothing is written out by you, so nothing about
+the site's images needs another route.
 
 ### From an ExecuteWixAPI script
 
@@ -270,8 +277,8 @@ tokens. An SVG is text and goes in like a page. Every other image reaches Wix
 one of four ways:
 
 1. **A shell with network access** uploads it in the drop, from disk.
-2. **ChatGPT** passes the file itself in the `attachments` param of the upload
-   tool or of `ExecuteWixAPI`, up to 10 MB per call.
+2. **ChatGPT** passes the files themselves as `attachments` of the upload tool,
+   a zip of the whole site in one call (see [the upload tool](#with-the-wix-mcps-upload-tool)).
 3. **A public URL**: the page keeps the absolute URL, or the Dev Machine fetches
    the file into the site, `curl -sSL -o public/assets/hero.jpg "https://…"`.
 4. **The user uploads it** to the site's Media Manager. This is the way for
