@@ -59,6 +59,11 @@ upload you couldn't perform. When a route fails partway, hand over the drop page
 In an `ExecuteWixAPI` script there is no token: `wix.request` carries the user's
 login. Ids go into URLs as values; a `$NAME` there is sent as is.
 
+**Reading the pages this recipe links.** A `www.wix.com/skills/…` or
+`dev.wix.com/docs/…` page is read with the Wix MCP's `ReadFullDocsArticle` when
+the MCP is connected; it returns the page whole. A web fetch is the fallback,
+without the MCP or when that read fails.
+
 ## Publish into the user's account
 
 ### 1. Create the site
@@ -421,7 +426,7 @@ async function run() {
 
 A dropped site is static. Stores, payments, bookings, a CMS, members or forms
 need a **Wix Headless project**, built and released with the Wix CLI by the
-headless skill, `https://wix.com/headless/skill.md`. The project takes over the
+headless skill, `https://www.wix.com/skills/headless-cold-start`. The project takes over the
 same site, appId and URL.
 
 **A mock that shows a business solution: publish it, then ask before connecting.**
