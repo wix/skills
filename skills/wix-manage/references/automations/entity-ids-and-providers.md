@@ -1,6 +1,6 @@
 ---
 name: "Automations Entity and Provider Configuration"
-description: "Resolve entity identifiers with vertical public APIs or by asking the user, and find provider-owned automation configuration workflows."
+description: "Resolve entity identifiers using List Selector Options or vertical APIs, and find provider-owned automation configuration workflows."
 ---
 
 # Entity IDs and Provider APIs
@@ -12,8 +12,9 @@ them, and which components need special handling.
 
 **TL;DR**
 
-- The field's metadata tells you **what** entity it needs (§1). Look its ids up with the
-  owning vertical's public API (§2), or ask the user for the exact entity.
+- The field's metadata tells you **what** entity it needs (§1). **List Selector Options** returns
+  every entity field of a trigger or action with the site's options (§2). The vertical's own public
+  API is also a valid choice; neither route is mandatory when the other resolves the correct ids.
 - Put **ids** in the automation, never display names. A name validates as a string, never matches
   at runtime, and shows as a red "Item not found" tag in the builder.
 - A failed or unauthorized lookup means the options are **unknown**, not that the entity doesn't
@@ -64,11 +65,18 @@ label keys; `contactId` → map it from the payload, not a lookup. Can't tell �
 
 ## 2. Getting ids through public APIs
 
-Resolve ids with the vertical APIs below, or ask the user for the exact entity. A lookup
-you cannot make, a missing permission or a failed call means the options are unknown;
-never invent an id.
+### List Selector Options
 
-### Vertical APIs
+Call **List Selector Options** (Automations Skills API) once per trigger or action you configure:
+it returns each entity field's path, value shape and options, with fixed and parent filters
+already applied. Match the user's wording to option names and save the returned ids unchanged;
+pass a parent's id in `selectedValues` to list a dependent field. Vertical APIs below remain
+valid alternatives.
+
+Load [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) for the request, statuses, value shapes and permissions. A `FAILED` or
+`INCOMPLETE` field, or a call you cannot make, means the options are unknown; never invent an id.
+
+### Vertical APIs — supported alternatives
 
 1. From the marker, identify the entity kind (provider name after `_`, field title, owning app).
 2. Use a confirmed lookup below, or verify a candidate's provider compatibility first. Call it
@@ -102,7 +110,7 @@ site entity or supported selector result. If that evidence is unavailable, ask f
 or leave an optional field unconfigured with an explanation. Do not treat an endpoint's existence
 as proof of provider compatibility, and do not invent a gateway URL.
 
-- **Legacy Wix Forms** (`<appId>_forms`) — no verified lookup; prefer the Wix Forms app trigger family when the site uses it, otherwise ask the user for the exact form.
+- **Legacy Wix Forms** (`<appId>_forms`) — use List Selector Options for its trigger; prefer the Wix Forms app trigger family when the site uses it.
 - **Contact segments** (`ContactsSegmentsItemsSelection`).
 - **Pricing plans** (`PricingPlansSelectionProvider`) — `POST https://www.wixapis.com/pricing-plans/v3/plans/query` → plan `id`.
 - **Stores products** (`products`) — Catalog V3 `POST https://www.wixapis.com/stores/v3/products/query`; V1 `POST https://www.wixapis.com/stores-reader/v1/products/query`.
@@ -119,17 +127,18 @@ as proof of provider compatibility, and do not invent a gateway URL.
   `POST https://www.wixapis.com/social-groups-proxy/groups/v2/groups/query`. **Loyalty tiers** (`TiersSelectionProvider`) — `GET https://www.wixapis.com/loyalty-tiers/v1/tiers`.
 - **CMS collections** (`CmsItemSelectionAutomationTrigger`, `cmsFormDatasetSelectionService`) — `GET https://www.wixapis.com/wix-data/v2/collections` → collection `id`.
 - Workflows/steps, assignees, invoices, price quotes, proposals, site pages, email campaigns,
-  countries, reports, other app pickers — ask the user for the exact entity.
+  countries, reports, other app pickers — use List Selector Options, otherwise ask.
   For fixed-value lists the schema `enum` is authoritative.
 
-- **Task assignee for "me" / "the team" / "front desk"**: if no
+- **Task assignee for "me" / "the team" / "front desk"**: if neither List Selector Options nor a
   verified vertical API resolves the required user id, and the field is optional,
   leave it empty and tell the user to pick
   the assignee in the builder; never invent an id. If it is required, ask.
 
 
-Use a documented vertical endpoint, or ask the user. With near-duplicate triggers (two
-"form submitted"), the family whose entities you can actually find on the site is the live one.
+List Selector Options belongs to the Automations Skills API, not the Automations catalogs
+([Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §8); use it or a documented vertical endpoint. With near-duplicate triggers (two "form submitted"), the family whose entities you can
+actually find on the site is the live one.
 
 ## 3. Provider APIs registry
 

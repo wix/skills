@@ -3,8 +3,6 @@ name: "Build and Manage Wix Automations"
 description: "Create, update, activate or deactivate Wix Automations, and check their current status, on a site you have API access to, using the public Wix Automations APIs. Build automations that validate and remain editable in the Wix dashboard builder."
 ---
 
-This publication is being released in stages. Where a topic guide is not yet published, consult the official Automations API reference and method schemas before using that feature; do not guess its contract.
-
 # Wix Automations Builder
 
 You build automations with the **public** Wix Automations APIs. The result is only done when it
@@ -25,7 +23,7 @@ add label, create task…), conditions, delays, a rate limit, variables and para
 | [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)                    | Choosing and configuring the trigger and its filters.                                                                                                                                                                             |
 | [Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration)                     | Choosing an app action and writing its `inputMapping`.                                                                                                                                                                            |
 | [Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)    | A field needs an id (form, label, service, email…), or the component has special handling (**provider APIs registry**: triggered emails, webhooks, scheduled, custom trigger…).                                                   |
-| Automations Item Selection (topic guide not yet published; until it is published, resolve IDs with a vertical public API or ask the user) | List a trigger's or action's selectable entity ids: dependent fields, statuses, value shapes. |
+| [Automations Item Selection](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-item-selection) | List a trigger's or action's selectable entity ids with List Selector Options: dependent fields, statuses, value shapes. |
 | [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-email-actions) | Initialize each new email action, persist it, then edit content; preserve existing email mappings. |
 | [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions)         | Writing ANY `{{ … }}` value (mappings, filters, delays, variables).                                                                                                                                                               |
 | [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions)                  | Adding a CONDITION or CODE_CONDITION.                                                                                                                                                                                             |
@@ -97,7 +95,7 @@ For each step load only the matching reference, then:
    when adding an email during Update. Existing email content edits do not reinitialize it.
    Other opaque widgets require their provider API or manual setup ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1).
 3. **Entity ids.** Fields backed by an entity selector take **ids**, never display names. Get
-   them through the owning vertical's public API, or ask the user ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
+   them through List Selector Options or the owning vertical's public API, or ask the user ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration)).
    A failed lookup means _unknown_, not _doesn't exist_.
 4. **Expressions.** Self-check every `{{ … }}` against [Automations Mapping Expressions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions) /
    [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) — builder-renderable functions and operators only; anything the condition

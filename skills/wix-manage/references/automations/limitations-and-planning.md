@@ -11,7 +11,7 @@ description: "Assess automation feasibility, supported action configuration, upd
 - For an unfulfillable ask: state the limit accurately, offer the real alternatives, let the user choose. Don't force one scripted outcome.
 - Check limitations WHILE planning, not after building.
 - Updates: read `origin` + `settings` first; ACTIVE automations change live; email content is changed with Set Email Content (§4), recipients and design by the user in the email editor.
-- Ask the user only about business meaning (which form? who receives it? what's the goal?). Resolve availability, ids and paths yourself from the catalogs and vertical public APIs.
+- Ask the user only about business meaning (which form? who receives it? what's the goal?). Resolve availability, ids and paths yourself from the catalogs, List Selector Options and vertical APIs.
 
 ---
 
@@ -34,7 +34,7 @@ description: "Assess automation feasibility, supported action configuration, upd
   not permission to invent a mapping. Never save an email step without its app-created email.
 - **Code variables** (`wix_automations-data_manipulation_code`) → Create refuses them; use the
   alternatives in [Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4.
-- **Entity ids** come from a vertical public API or from the user
+- **Entity ids** come from List Selector Options or a vertical public API
   ([Automations Entity and Provider Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration) §2). A call you cannot make, a missing permission or a `FAILED`
   field means the options are unknown, not that the entity is absent.
 - **Create labels / coupons / forms / pipelines while building** → out of scope. They must exist
