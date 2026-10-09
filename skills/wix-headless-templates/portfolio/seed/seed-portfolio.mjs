@@ -9,12 +9,12 @@
 // project's gallery items, and imports+attaches cover images. Prints a JSON result to stdout.
 //
 // Plan shape (see SEED.md):
-//   { "collections": [{ "title", "description"?, "hidden"?, "coverImageUrl"? | "coverImagePrompt"? }],
+//   { "collections": [{ "title", "description"?, "hidden"?, "coverImageMediaId"? | "coverImageUrl"? | "coverImagePrompt"? }],
 //     "projects":    [{ "title", "description"?, "hidden"?,
 //                       "collection"? (title),        // resolved to that collection's id
 //                       "details"?: [{ "label", "text" }],
-//                       "coverImageUrl"? | "coverImagePrompt"?,
-//                       "items"?: [{ "sortOrder", "title"?, "imageUrl" | "imagePrompt" }] }] }
+//                       "coverImageMediaId"? | "coverImageUrl"? | "coverImagePrompt"?,
+//                       "items"?: [{ "sortOrder", "title"?, "imageMediaId" | "imageUrl" | "imagePrompt" }] }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. A fresh Portfolio
 // install ships its own sample content ("My Portfolio" + sample projects); removing it is the
@@ -186,13 +186,13 @@ export async function setupPortfolio(ctx, { collections = [], projects = [] } = 
   projects.forEach((p, pi) => {
     for (const it of p.items ?? []) {
       galleryRefs.push({ pi, it, spec: specs.length });
-      specs.push({ path: it.imagePath, url: it.imageUrl, prompt: it.imagePrompt, displayName: `${it.title || "item"}.png` });
+      specs.push({ mediaId: it.imageMediaId, path: it.imagePath, url: it.imageUrl, prompt: it.imagePrompt, displayName: `${it.title || "item"}.png` });
     }
   });
   const projCoverAt = specs.length;
-  projects.forEach((p) => specs.push({ path: p.coverImagePath, url: p.coverImageUrl, prompt: p.coverImagePrompt, displayName: `${p.title || "project"}-cover.png` }));
+  projects.forEach((p) => specs.push({ mediaId: p.coverImageMediaId, path: p.coverImagePath, url: p.coverImageUrl, prompt: p.coverImagePrompt, displayName: `${p.title || "project"}-cover.png` }));
   const colCoverAt = specs.length;
-  collections.forEach((c) => specs.push({ path: c.coverImagePath, url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
+  collections.forEach((c) => specs.push({ mediaId: c.coverImageMediaId, path: c.coverImagePath, url: c.coverImageUrl, prompt: c.coverImagePrompt, displayName: `${c.title || "collection"}-cover.png` }));
   const files = await resolveItemImages(ctx, specs);
   const dims = { height: 1024, width: 1024 };
 

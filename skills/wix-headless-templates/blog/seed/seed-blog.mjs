@@ -12,7 +12,7 @@
 // Plan shape (see SEED.md):
 //   { "categories"?: [name], "tags"?: [name],
 //     "posts": [{ "title", "content": [blocks] | "richContent"?, "category"?|"categories"?,
-//                 "tags"?, "coverImageUrl"? | "coverImagePrompt"? }] }
+//                 "tags"?, "coverImageMediaId"? | "coverImageUrl"? | "coverImagePrompt"? }] }
 //   content blocks: { type:"heading", text, level? } | { type:"paragraph", text }
 //     | { type:"quote", text } | { type:"bulleted"|"ordered", items:[text,…] }
 //
@@ -255,7 +255,7 @@ export async function setupBlog(ctx, { posts = [], categories = [], tags = [] } 
   // never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => (
     c?.id && c?.success
-      ? { path: posts[i]?.coverImagePath, url: posts[i]?.coverImageUrl, prompt: posts[i]?.coverImagePrompt, displayName: `post-${i}.png` }
+      ? { mediaId: posts[i]?.coverImageMediaId, path: posts[i]?.coverImagePath, url: posts[i]?.coverImageUrl, prompt: posts[i]?.coverImagePrompt, displayName: `post-${i}.png` }
       : null
   )));
   const covers = created

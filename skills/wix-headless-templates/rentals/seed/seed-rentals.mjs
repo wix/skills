@@ -17,7 +17,7 @@
 //     "resourceTypes": [{ "name": "Kayaks", "resources": ["Kayak 1", "Kayak 2"] }],
 //     "rentals": [{ "name", "description", "tagLine"?, "unit": "HOUR"|"DAY", "rate": 25, "min"?, "max"?,
 //                   "resourceType": "Kayaks", "resources"?: ["Kayak 1"], "free"?, "requireManualApproval"?,
-//                   "imageUrl"? | "imagePath"? | "imagePrompt"? }] }
+//                   "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"? }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; every call below carries a docs: line with its reference page.
@@ -268,6 +268,7 @@ export async function setupRentals(ctx, { resourceTypes = [], rentals = [], curr
   // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then attach.
   // Failures leave the rental text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => ({
+    mediaId: rentals[i]?.imageMediaId,
     url: rentals[i]?.imageUrl,
     path: rentals[i]?.imagePath,
     prompt: rentals[i]?.imagePrompt,
