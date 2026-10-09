@@ -451,7 +451,7 @@ Modifies existing products and variants using Catalog V3 Products API. Covers ad
 ## Automations
 
 ### [Build and Manage Wix Automations](references/automations/build-and-manage-automations.md)
-Inspect Wix automations and create inactive linear automations using installed actions with schema-defined mappings and the included validation checklist.
+Create, update, activate or deactivate Wix Automations with app actions, trigger filters, conditions, delays, variables, branches and schedules, and check their current status, using the public Wix Automations APIs. Email actions, entity-ID/provider configuration and planning-limit workflows are covered in a later guide.
 
 <details>
 <summary>Internal skills (loaded on demand by Build and Manage Wix Automations — do NOT use directly)</summary>
@@ -471,8 +471,20 @@ Inspect Wix automations and create inactive linear automations using installed a
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.
 
+- [Automations Conditions](references/automations/conditions.md)
+  Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability.
+
+- [Automations Delays Variables and Branches](references/automations/special-actions.md)
+  Configure delay, rate-limit, variable and parallel-branch steps, preserving supported existing step metadata.
+
+- [Automations Schemas and Scheduling](references/automations/schemas-and-scheduling.md)
+  Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior.
+
+- [Automations Validation and Persistence](references/automations/validation-and-verification.md)
+  Validate automation configuration, check builder compatibility, persist changes and verify the saved result.
+
 - [Automations Activation Status](references/automations/activation-status.md)
-  Read an automation’s current ACTIVE or INACTIVE status and distinguish it from historical run outcomes.
+  Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
 
 </details>
 

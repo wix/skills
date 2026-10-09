@@ -1,0 +1,52 @@
+{
+  "name": "automations/create-month-end-task",
+  "description": "The saved automation has a supported schedule plus month-end predicate in Europe/Berlin.",
+  "triggerPrompt": "Create an automation named Month end books that creates a task titled Close monthly books at 23:30 on the last calendar day of each month in Europe/Berlin. Go ahead and save it.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The saved automation has a supported schedule plus month-end predicate in Europe/Berlin. Calendar-day logic must include leap February and avoid adding 24 elapsed hours across DST. Invalid timezones do not silently use UTC. A daily schedule without a month-end guard fails. It validates and reads back INACTIVE configuration and does not execute actions. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize guessing unsupported month-end cron syntax or iterating through fixed day numbers instead of using calendar-aware month-end logic in Europe/Berlin. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

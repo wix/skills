@@ -1,0 +1,52 @@
+{
+  "name": "automations/create-sequential-fractional-hours",
+  "description": "Sequential delays preserve elapsed-time meaning using whole-number units.",
+  "triggerPrompt": "Create an automation named Two-stage contact follow-up. After a new contact is created, wait half an hour and create a task titled First follow-up. Then wait another hour and a half and create a task titled Second follow-up. Go ahead and save this automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Require DELAY 30 MINUTES -> First follow-up task -> DELAY 90 MINUTES -> Second follow-up task. The second task is two hours after the trigger, not 90 minutes after it. No decimal HOURS expressions, relative formulas, zero padding, or parallelization. Both task contact mappings use the trigger identity. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize failed fractional-duration requests instead of converting to supported integer units, or rebuilding the second wait after mistakenly measuring it from the trigger. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

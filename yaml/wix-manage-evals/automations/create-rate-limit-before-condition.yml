@@ -1,0 +1,58 @@
+{
+  "name": "automations/create-rate-limit-before-condition",
+  "description": "Frequency is a root RATE_LIMIT and applies before downstream branching.",
+  "triggerPrompt": "Create an automation named Daily buyer review. When an order is placed, process at most one order per buyer contact every 24 hours. For that processed order, create a task titled High value buyer only if the order total is greater than 100. Go ahead and save this automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Require exactly one root RATE_LIMIT, maxActivationsExpression {{1}}, window 24 HOURS (or an equivalent supported one-day window), and uniqueIdentifierExpression referencing the actual trigger contact identity field. Then the amount condition, then the task. Never put the limiter after the condition or identify by email/order ID/static text. This is at most one processed order, not at most one qualifying order. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize trying order IDs or email addresses as limiter keys before resolving the actual contact identity, or placing the limiter after the amount condition and then moving it. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "stores-v3-editor"
+  }
+}

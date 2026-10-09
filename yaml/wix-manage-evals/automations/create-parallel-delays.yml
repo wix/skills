@@ -1,0 +1,52 @@
+{
+  "name": "automations/create-parallel-delays",
+  "description": "Parallel branches retain independent timing and never become serial.",
+  "triggerPrompt": "Create an automation named Parallel contact follow-up. When a new contact is created, start two independent paths: one waits 1 hour then creates a task titled Quick follow-up; the other waits 3 hours then creates a task titled Later follow-up. Both paths should run for every contact. Go ahead and save this automation.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Require a persisted SPLIT with two unique path IDs, each leading to its own DELAY and task. Delays are 1 and 3 HOURS from the same trigger, not serial waits adding up to 4 hours, and not a condition choosing one path. No shared descendants or dangling edges. Get read-back must preserve splitInfo; a stripped alpha field is not a pass. All named requirements are mandatory: score 0 for a semantic mismatch even if the automation saved successfully. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. Inspect the actual tool trace. Require a direct path with bounded discovery, real catalog IDs, no guessed endpoints, no private tools and no unrequested side effects. Penalize recovered wrong-shaped requests, redundant confirmation after explicit authorization, repeated failed calls and claims unsupported by read-back. Penalize first building serial delays or exclusive conditions and later rebuilding them as parallel paths, or repeatedly saving after splitInfo is stripped without diagnosing that loss. Identify each friction and the likely docs or API gap. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the requested final configuration and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, schema-stripped required node info, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}
