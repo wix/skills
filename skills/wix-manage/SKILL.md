@@ -498,6 +498,15 @@ Create, update, activate or deactivate Wix Automations, and check their current 
 - [Automations Activation Status](references/automations/activation-status.md)
   Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation.
 
+- [Automations Schema Annotations](references/automations/schema-annotations.md)
+  Look up every trigger, filter, action input, UI and output schema annotation the builder interprets, the value shape it expects and where the skill explains it.
+
+- [Automations Action Schema APIs](references/automations/schema-apis.md)
+  Request an action's dynamic input schema and merge it the way the builder does, read a saved step's accumulated payload schema, and copy a step's input mapping, with worked requests and responses.
+
+- [Automations Audience Selector Inputs](references/automations/audience-selector.md)
+  Fill an action input that uses the AudienceSelector field: list audience providers, build provider entries and audience parameters, and verify participants.
+
 </details>
 
 <!-- automations-builder-sync:end -->

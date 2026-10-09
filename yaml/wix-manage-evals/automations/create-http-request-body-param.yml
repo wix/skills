@@ -1,0 +1,58 @@
+{
+  "name": "automations/create-http-request-body-param",
+  "description": "A contact-created automation sends an HTTP request whose custom body parameter sets both its key and its UI-required value.",
+  "triggerPrompt": "Create an automation named Notify CRM of new contacts. When a contact is created, send a POST HTTP request to https://example.com/hooks/new-contact with one custom body parameter named email whose value is the new contact's email address. Save it, but don't turn it on.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-entity-and-provider-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-mapping-expressions"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schema-annotations"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The agent uses the contact-created trigger and the HTTP request action (webhooks-action) with url https://example.com/hooks/new-contact, method POST, hasCustomParams true and customParams containing exactly one item whose key is email and whose value is a non-empty reference to the contact's email that exists in the step's aggregated schema (for example {{var(\"contact.email\")}} or the payload's own email field). The value is UI-required (`_UIRequired`), so an item with a missing or empty value fails, as do a different URL or method, extra parameters, a schemaPreview value, headers or auth that the schema does not offer, or an unsupported success claim. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the actual tool path. Require bounded discovery of the trigger and webhooks-action, its runtime schema read before mapping, Validate before Create and public tools only. Penalize sending the request, test runs, activation, repeated failed saves, guessed endpoints and unrelated writes. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains a webhooks-action step with the requested url, method POST, hasCustomParams true and one customParams item whose key is email and whose value is a non-empty contact email reference and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, a stripped or reshaped mapping, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

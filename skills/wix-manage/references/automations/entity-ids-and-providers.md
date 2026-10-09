@@ -168,6 +168,7 @@ See [Automations Email Actions](https://dev.wix.com/docs/api-reference/business-
   in the URL only if the receiving service supports that (e.g. a token query parameter) — otherwise
   tell the user it can't be configured here. `appDefinedInfo.overrideOutputSchema` only if a later
   step reads the response.
+  Body items marked `_UIRequired` must be mapped ([Automations Schema Annotations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schema-annotations)).
 - **Generate or analyze text** (`wix_automations-llm_call`) / **Custom AI agent**
   (`ai_custom_agent_bm-delegate_to_agent`) — `overrideOutputSchema` when a later step consumes the
   result, per the per-action rules in [Automations Schemas and Scheduling](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling) §3 (`enum` decision fields,
