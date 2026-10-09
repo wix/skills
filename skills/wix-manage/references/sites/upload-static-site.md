@@ -393,14 +393,25 @@ wanted, the route you took, and each friction point with its call, status,
 error text and request id, plus what you did instead and the site id. Confirm
 the wording first, and leave out tokens and credentials.
 
-- **With the Wix MCP**: its `SupportAndFeedback` tool.
-- **With a shell and a CLI login**: a user token from `npx @wix/cli@latest token`.
-  A site token is refused as anonymous. `200` with `{}` means it was sent.
+The call identifies the user, so it takes a user identity: a token from
+`npx @wix/cli@latest token`, or account scope in a script. A site token is
+refused as anonymous. `200` with `{}` means it was sent.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/mcp-serverless/v1/headless-feedback" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"message":"<the composed feedback>"}'
+```
+
+In an `ExecuteWixAPI` script, pass the message in the `files` param as one
+text file, so it needs no escaping:
+
+```javascript
+async function run() {
+  return await wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/mcp-serverless/v1/headless-feedback',
+    body: { message: files[0].content } });
+}
 ```
 
 ## Route the request correctly
