@@ -383,8 +383,7 @@ The machine is a minimal Astro project bound to the site, with Node, git, the
 Wix CLI logged in for the site, and the Wix Headless skills under
 `.agents/skills/`. A dropped site's machine holds the dropped files under
 `public/`. A site that has not been released yet gets the blank starter:
-`src/pages/index.astro` owns `/`, `public/` holds only a favicon, and there is
-no lockfile.
+`src/pages/index.astro` owns `/` and `public/` holds only a favicon.
 
 Base URL `https://www.wixapis.com/headless-remote-project`. Every call acts on
 the site the identity is scoped to: a site token from the CLI,
@@ -427,10 +426,9 @@ the machine's code falls behind (`codeBehindLiveSite: true`).
 For a host with no shell, the machine is where a site with images is built:
 provision the site (step 1 above), `get-or-create` its machine, and the first
 command writes the pages as heredocs, fetches every image that has a URL,
-removes `src/pages/index.astro`, adds `redirects: { "/": "/index.html" }` to
-`astro.config.mjs`, and runs `npm install --package-lock-only` so `wix build`
-finds its package manager. Then build and release. Images that have no URL
-follow the rules below.
+removes `src/pages/index.astro` and adds `redirects: { "/": "/index.html" }`
+to `astro.config.mjs`. Then build and release. Images that have no URL follow
+the rules below.
 
 ### Images
 
