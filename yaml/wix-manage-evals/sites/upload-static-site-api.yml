@@ -34,7 +34,8 @@ assertions:
       - Publish into the user's account (the agent holds the user's identity): POST
         https://www.wixapis.com/headless-business-setup/v1/headless-business/provision (no
         business solutions, "origin": "drop"), then POST
-        https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop as
+        https://www.wixapis.com/headless-business-setup/v1/headless-business/{metaSiteId}/drop
+        with the query string campaign=mcp&agent=<a slug naming the agent>, as
         multipart/form-data with a `files` part named index.html; reports the `siteUrl` the drop
         returned, plus the dashboard link https://manage.wix.com/dashboard/{metaSiteId}.
       - Publish anonymously from a shell, optionally claimed afterwards: POST .../v1/headless-business/anonymous/{anonymousId}
