@@ -6,89 +6,61 @@ description: Publish a user's ready-made website — an index.html, a static bui
 # Upload a Website or HTML Files
 
 The user has a finished website as files — hand-written HTML, a static build, a
-zip, or the output of an AI site builder — and wants it live on Wix as a static,
-Wix-hosted site.
+zip, or the output of an AI site builder — and wants it live on Wix. Every route
+below ends the same way: a headless site in Wix that serves those files at a
+`*.wix-site-host.com` URL.
 
 ## Choose the route
 
-Five ways to get the files live; what you have decides which are open to you.
+The route follows from how the files' bytes can reach Wix.
 
-| Option | Needs | Carries | The user ends up with |
-| --- | --- | --- | --- |
-| **A.** `curl` + CLI token → [into the account](#publish-into-the-users-account) | A shell; a Wix CLI login | Anything on disk | A site in their account, final URL |
-| **B.** `ExecuteWixAPI` → [into the account](#publish-into-the-users-account) | The Wix MCP | Files already in the conversation — text as is, small binaries as base64 — and anything downloaded from the site | A site in their account, final URL |
-| **C.** `curl` → [anonymous](#publish-anonymously) | A shell | Anything on disk | A live site for one hour; kept by a [claim](#claim-it-into-the-users-account) (through the Wix MCP or a CLI token) or the save link |
-| **D.** [The drop page](#the-drop-page) | Nothing | Whatever the user uploads | The same, after they upload it themselves |
-| **E.** [The headless skill](#keep-building-add-a-backend-when-you-need-one) | A shell; Node; a Wix CLI login | A project folder, source included (built for you) | A site in their account as a Wix Headless project, released with the Wix CLI, ready for Wix Business Solutions |
+| You have | Route |
+| --- | --- |
+| A shell with network access, files on disk | [Drop them](#publish-into-the-users-account) with `curl` and a Wix CLI token. Without a login, [publish anonymously](#publish-anonymously). The files stream from disk and never pass through you. |
+| A framework project — a `package.json`, sources that need a build | The [headless skill](#keep-building-connect-a-backend), which builds and releases it. |
+| The Wix MCP, and no shell with network access | [Drop through `ExecuteWixAPI`](#from-an-executewixapi-script), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
+| None of these | The [drop page](#the-drop-page): the user uploads the files. |
 
-What sets them apart:
+Without a shell, every byte you publish is written out by you inside a tool
+call. That is free for a page already in the conversation, costs a read and a
+rewrite for text files on disk, and is the hard part for images — see
+[Images](#images).
 
-- **`curl -F` streams files from disk** — the bytes never pass through you: any type, any
-  number, up to the [limits](#what-the-upload-accepts-and-how-it-fails).
-- **`ExecuteWixAPI` has no filesystem.** The Wix MCP's tool runs JavaScript whose
-  `wix.request` calls carry the user's login — no install, no token — but every
-  byte is written out inside the call. That costs nothing extra for a page you
-  generated or the user pasted (it's already in the conversation); for files on
-  disk it means reading them in and writing them back out, and each change
-  resends all of it. Files travel in the tool's `files` param — text raw, a
-  binary file (PNG, JPG, fonts) as base64 — and `wix.multipart()` builds the
-  upload body (below). Base64 costs about a third more than the file and every
-  byte is tokens, so it suits small assets (an icon, a logo, a font) and files
-  you downloaded from the site to change; a photo goes in by absolute URL
-  (`<img src="https://…">`) or with `curl` from a shell. The bundle is capped at
-  4M characters. On ChatGPT the tool's `attachments` param takes files
-  themselves, up to 10 MB per call; they arrive in the `files` global as
-  base64 entries. Other hosts have no such param: there, a site that is only
-  text goes in the drop, and a site with images
-  [starts at its Dev Machine](#starting-at-the-machine), where pages are
-  written as commands and images with a URL are fetched.
-- **A CLI login** is one approval by the user in the browser: run
-  `npx @wix/cli login` and have them approve; `npx @wix/cli token` then prints a
-  token (see [Before the calls](#before-the-calls)). It also unlocks later
-  changes from disk and
-  [Keep building](#keep-building-add-a-backend-when-you-need-one).
-- **Anonymous** needs no identity, but the record expires after an hour and the
-  URL changes on claim.
-- **The headless skill** is the heaviest — an install, a project, a build — and
-  the only one that takes framework source as is and leaves a project ready for a
-  backend. A drop site can still move to it [later](#keep-building-add-a-backend-when-you-need-one).
+**The Dev Machine is the shell for an agent that has none.** Wix runs one per
+headless site, holding the site's code with Node and the Wix CLI. Without a
+shell of your own, move to it once the drop has the site live and any of these
+holds:
 
-So: a site already in the conversation — pages, styles, a logo — with the Wix
-MCP connected — B, shell or not. Static files on disk — A with a CLI login, else C (claimed through
-the Wix MCP when it's connected). A framework project (a `package.json`), or a
-site that needs stores, bookings, a CMS or members from the start — E. Files out
-of your reach, or nothing above fits — D.
+- the site has images that are on your disk, or that have a URL and should be hosted on Wix;
+- the site will change again — later in this conversation or in another one —
+  so no change resends the whole site;
+- the site needs a build, or a business solution such as a store or bookings:
+  the machine carries the headless kit.
 
-Publishing yourself beats the drop page whenever an option fits — the user gets a
-live site without uploading anything. Never report an upload you couldn't
-perform; whenever a route fails partway, hand over the drop page.
+A single pasted page with one change on the spot is cheaper as a second drop.
+With a shell of your own, work locally; the machine matters only when the files
+are gone or the site was last released from the machine.
 
-A published site also has a [Dev Machine](#work-on-the-site-from-its-dev-machine):
-a remote shell Wix provides per headless site, with the site's code and the Wix
-CLI logged in, for changes without the files at hand or without a shell of your
-own.
+Publishing yourself beats the drop page whenever a route fits. Never report an
+upload you couldn't perform. When a route fails partway, hand over the drop page.
 
 ## Before the calls
 
-The `curl` examples here and in the anonymous route read shell variables.
+- **`$ACCESS_TOKEN`** is the user's access token. Run `npx @wix/cli login` once
+  (the user approves in the browser); `npx @wix/cli token` then prints a token
+  that lasts 15 minutes. Run it again whenever the token may have expired, and
+  always after a `403`.
+- **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response.
 
-- **`$ACCESS_TOKEN`** is the user's access token, from wherever you have it. A
-  token from the Wix CLI (`npx @wix/cli token`) lasts 15 minutes; running the
-  command again returns a valid one, refreshed if needed, so set `$ACCESS_TOKEN`
-  again when it may have expired, and always after a `403`.
-- **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response; set each
-  one before the next call.
-
-In an `ExecuteWixAPI` script there is no token to handle, and the ids go into the
-URL as values; a `$NAME` there is sent as is.
+In an `ExecuteWixAPI` script there is no token: `wix.request` carries the user's
+login. Ids go into URLs as values; a `$NAME` there is sent as is.
 
 ## Publish into the user's account
 
 ### 1. Create the site
 
 The [Create Headless Site](create-headless-site.md) call with no Wix Business
-Solutions. Name it after the page's `<title>`, and keep `"origin": "drop"`: it marks
-the site as a dropped one, the same as the drop page and the anonymous route do.
+Solutions. Name it after the page's `<title>` and keep `"origin": "drop"`.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
@@ -103,13 +75,10 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 
 ### 2. Drop the files — the site goes live
 
-One multipart request uploads and releases. (A host with no shell and a site
-with images skips this step and [starts at the machine](#starting-at-the-machine)
-instead; step 1 is the same.) Each file is a part named `files`
-whose **filename is its path relative to the site root** — that is how
-subdirectories survive; with `curl`, set it with `;filename=` whenever it isn't
-just the basename. A single `.zip` part works too — it's unpacked server-side, a
-single wrapping folder stripped.
+One multipart request uploads and releases. Each file is a part named `files`
+whose **filename is its path relative to the site root**; that is how
+subdirectories survive. A single `.zip` part works too: it is unpacked
+server-side, a single wrapping folder stripped.
 
 ```bash
 curl -sS -X POST \
@@ -125,12 +94,16 @@ curl -sS -X POST \
   "siteUrl": "https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com" }
 ```
 
-Option B — the same two calls as one `ExecuteWixAPI` script, for files already
-in the conversation. The files go in the tool's **`files` param**, not in
-`code`: one bundle, each file introduced by a line `=== FILE: <path> ===` and
-followed by its raw text, `<path>` relative to the site root. A binary file is
-introduced by `=== FILE: <path> base64 ===` and followed by its base64. Nothing
-in it is escaped, so quotes, backticks, `${}` and backslashes arrive as written.
+`siteUrl` is final, and the site is already in the user's account. Give the user
+`siteUrl` and the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`.
+
+### From an ExecuteWixAPI script
+
+Both calls in one script. The files go in the tool's **`files` param**, never
+in `code`: one bundle where each file starts with a line `=== FILE: <path> ===`
+followed by its raw text, `<path>` relative to the site root. A binary file
+starts with `=== FILE: <path> base64 ===` and is followed by its base64 (see
+[Images](#images) for what fits). Nothing in the bundle is escaped.
 
 ```
 === FILE: index.html ===
@@ -142,10 +115,8 @@ body { font-family: sans-serif; margin: 0; padding: 4rem; }
 iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
 ```
 
-In `code`, the bundle is the `files` global (`[{ path, content, encoding? }]`,
-`encoding: 'base64'` on the binary entries) and `wix.multipart()` turns it into
-the upload body: one part named `files` per file, the path as its filename, a
-content type guessed from the extension, base64 entries decoded to their bytes.
+In `code` the bundle is the `files` global, `[{ path, content, encoding? }]`,
+and `wix.multipart()` turns it into the upload body.
 
 ```javascript
 async function run() {
@@ -153,156 +124,83 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
             synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  const mp = wix.multipart();                                   // the `files` param; or pass [{ path, content | base64 | bytes }]
+  const mp = wix.multipart();              // from the `files` param; or pass [{ path, content | base64 | bytes }]
   return await wix.request({ scope: 'account', method: 'POST',
     url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop`,
-    headers: { 'Content-Type': mp.contentType },
-    body: mp.body });
+    headers: { 'Content-Type': mp.contentType }, body: mp.body });
 }
 ```
 
-A zip passed through `attachments` is one base64 entry; unpack it first:
-`const mp = wix.multipart(await wix.unzip(files[0].content));`.
-
-`wix.request` returns `{ status, data }`; read a response's fields from `data`
-(`created.data.metaSiteId`). Don't build the multipart body by hand — a missing
-`\r\n` or a boundary mismatch is a bare `500` — and don't put file text inside
-`code` as string literals: that second layer of escaping is what corrupts
-backslashes and `${}`. Don't put image bytes in `code` either — they're a
-`base64` entry in `files`. The one thing `files` cannot carry is a file with a
-line that reads exactly `=== FILE: … ===`.
-
-`siteUrl` is the site's final address — it's already in the user's account. Give
-the user two links: `siteUrl`, and its dashboard at
-`https://manage.wix.com/dashboard/{metaSiteId}`.
+`wix.request` returns `{ status, data }`. A zip passed through `attachments`
+is one entry; unpack it first: `wix.multipart(await wix.unzip(files[0].content))`.
+Don't build a multipart body by hand (a malformed one is a bare `500`), and
+don't put file text in `code` as string literals (the extra escaping corrupts
+backslashes and `${}`). The bundle can't carry a file with a line that reads
+exactly `=== FILE: … ===`.
 
 ### Change it later
 
-Drop again with the full file set, or change it from its
-[Dev Machine](#work-on-the-site-from-its-dev-machine) when the files are not
-at hand, the site needs a build, or it was already released from there.
+On the same `metaSiteId`, never a new site:
 
-Re-run step 2 on the same `metaSiteId` with the **full** file set: each drop
-replaces the site's files (a file left out is gone), and `siteUrl` stays the same.
-Never create another site for a change. The same call updates any site the user
-owns that was published this way, including one claimed from an
-[anonymous publish](#publish-anonymously). For a site from an earlier conversation,
-find its `metaSiteId` with the [Query Sites](#claim-it-into-the-users-account) call
-below, matching the site's name or `viewUrl`.
+- **A drop** with the **full** file set: each drop replaces every file, and
+  `siteUrl` stays.
+- **The [Dev Machine](#the-dev-machine)**: edit and release there. Once a site
+  has been released from its machine, keep changing it there. A drop would
+  replace the live site and leave the machine's code behind
+  (`codeBehindLiveSite: true`).
 
-**When you no longer have the files** and the site has no Dev Machine release
-yet, download what the site serves, edit it, and drop the full set back. Leave
-out `wix.config.json`; the download adds it, and it isn't part of the site.
+For a site from an earlier conversation, find its `metaSiteId` with
+[Query Sites](#claim-it-into-the-users-account), matching the name or
+`viewUrl`. To drop again without the files at hand, download what the site
+serves, edit, and drop the full set back without `wix.config.json`:
 
 ```bash
 curl -sSL -o current.zip \
   "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
-unzip -o current.zip -d current      # the site's files + wix.config.json
 ```
 
-In an `ExecuteWixAPI` script, request the same URL with `responseType: 'base64'`
-and unzip it in memory with `wix.unzip()`. Each entry is `{ path, bytes, text() }`:
-`bytes` is the file as stored, `text()` decodes it when it's text. Don't decode
-every entry — an image run through a text decoder is corrupted.
-
-```javascript
-const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
-  url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
-const entries = await wix.unzip(r.data);
-// entries: [{ path: 'index.html', bytes, text() }, { path: 'assets/logo.png', bytes, text() }, { path: 'wix.config.json', … }]
-```
-
-Edit in memory — text through `text()`, binaries left as they are — then drop
-the full set back in the same script, leaving `wix.config.json` out. Entries go
-to `wix.multipart()` as they are; an edited file replaces its entry with
-`{ path, content }`:
-
-```javascript
-const edited = entries.filter((e) => e.path !== 'wix.config.json').map((e) =>
-  e.path === 'index.html' ? { path: e.path, content: e.text().replace('Northwind Studio', 'Northwind Studio — Est. 1998') } : e);
-const mp = wix.multipart(edited);
-await wix.request({ scope: 'account', method: 'POST', headers: { 'Content-Type': mp.contentType }, body: mp.body,
-  url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${metaSiteId}/drop` });
-```
-
-The live URL itself (`*.wix-site-host.com`) can't be read from a script; this
-download is the way back to the files. Don't rebuild the site from memory.
+In a script, request that URL with `responseType: 'base64'` and pass `r.data` to
+`wix.unzip()`. Each entry is `{ path, bytes, text() }`; call `text()` only on
+text files, since a decoded image is corrupted. Entries go back to
+`wix.multipart()` as they are, an edited one as `{ path, content }`. The live URL
+itself can't be read from a script; never rebuild a site from memory.
 
 ## Publish anonymously
 
-No identity needed: the site is created under a temporary owner and lives for one
-hour unless the user keeps it.
-
-Generate `anonymousId` yourself — any UUID, **once per site, not once per
-request** — and reuse it, with the returned `metaSiteId`, for every call for that
-site. **Finish within one hour of step 1**: after that the record expires and
-every later call, claim included, returns `404`.
-
-### 1. Create the site
+No identity needed. The site belongs to a temporary owner and lives one hour
+unless the user keeps it. Generate `anonymousId` yourself, any UUID, once per
+site, and reuse it with the returned `metaSiteId` for every call. After one hour
+every call, claim included, returns `404`.
 
 ```bash
-curl -sS -X POST \
-  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID"
-```
+# 1. create
+curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID"
+# {"metaSiteId":"f0ad8672-…","projectId":"54528d34-…"}
 
-```json
-{ "metaSiteId": "f0ad8672-09e9-4111-b6fe-070c70bd2df5",
-  "projectId":  "54528d34-b23c-4fbe-b07d-2c522350abd7" }
-```
-
-Keep both: `metaSiteId` addresses the site, `projectId` builds the save link.
-
-### 2. Upload the files
-
-Same multipart shape as the [drop](#2-drop-the-files--the-site-goes-live), to the
-upload path, with the attribution parameters (in a script: `wix.multipart()` with
-the `files` param, posted to this URL):
-
-```bash
+# 2. upload: the drop's multipart shape; nothing is live yet
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp&agent=$AGENT" \
-  -F "files=@index.html;filename=index.html" \
-  -F "files=@assets/styles.css;filename=assets/styles.css"
-```
+  -F "files=@index.html;filename=index.html" -F "files=@assets/styles.css;filename=assets/styles.css"
+# {"uploadId":"03244542-…"}
 
-```json
-{ "uploadId": "03244542-d820-42f6-acfa-166c6658b1a6" }
-```
-
-Keep `campaign=mcp` (the referral tag — don't change it) and set `agent` to your
-own identifier: a short, stable, lowercase-hyphenated slug for the coding agent or
-tool you are (e.g. `claude-code`, `cursor`, `codex-cli`, `windsurf`,
-`github-copilot`, or your product's name; `unknown-agent` if you can't name
-yourself). Nothing is live yet; this only stages and validates.
-
-### 3. Release — the site goes live
-
-```bash
+# 3. release: the site goes live
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/release" \
   -H 'Content-Type: application/json' -d "{\"uploadId\":\"$UPLOAD_ID\"}"
+# {"siteUrl":"https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com"}
 ```
 
-```json
-{ "siteUrl": "https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com" }
-```
+Keep `campaign=mcp` and set `agent` to a short lowercase slug naming you
+(`claude-code`, `cursor`, `codex-cli`; `unknown-agent` if you can't tell). To
+change the site, repeat steps 2 and 3 with the full file set.
 
-**To change it**, re-run steps 2–3 with the same `anonymousId` and `metaSiteId` and
-the full file set; `siteUrl` stays the same. Never go back to step 1 for a change.
-Iterate first, claim last: after a claim, changes are a [drop](#change-it-later),
-which needs the user's identity — a CLI token for files on disk.
-
-**When it's final:** with the user's identity, [claim it](#claim-it-into-the-users-account).
-Without it, stop here — a finished result. Give the user `siteUrl` plus the save
-link, which is how the site survives:
+When it's final, claim it with the user's identity. Without one, give the user
+`siteUrl` and the save link, which signs them in to keep the site. Whoever opens
+the link while signed in to Wix gets the site, so give it only to the user:
 
 ```
 https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
 ```
-
-That page shows the site with a countdown and signs the user in to keep it. Treat
-the link as a secret — whoever opens it while signed in to Wix claims the site
-into *their* account — so give it only to the user who asked.
 
 ### Claim it into the user's account
 
@@ -312,14 +210,11 @@ curl -sS -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Returns `{}`. Claim after the release, never before — it consumes the anonymous
-record, so the anonymous endpoints stop working for this site; later changes go
-through the [drop](#change-it-later).
-
-**The URL changes on claim**: the step-3 host stops resolving. Read the new one
-with [Query Sites](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites),
-filtered to the `HEADLESS` namespace (the default query omits headless sites, and
-an `id` filter is rejected, so match the id yourself):
+Claim last: it ends the anonymous record, and later changes are
+[drops](#change-it-later). **The URL changes on claim.** Read the new `viewUrl`
+with Query Sites in the `HEADLESS` namespace; the default query omits headless
+sites and rejects an `id` filter, so match the id yourself, paging with
+`metadata.cursors.next`:
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
@@ -327,146 +222,107 @@ curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
   -d '{"query":{"filter":{"namespace":"HEADLESS"},"cursorPaging":{"limit":100}}}'
 ```
 
-Take `viewUrl` from the entry whose `id` is your `metaSiteId` (page with
-`metadata.cursors.next` if needed), and give the user it plus
-`https://manage.wix.com/dashboard/{metaSiteId}`.
-
 ## The drop page
 
 ```
 https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>
 ```
 
-Keep `utm_campaign=mcp` and set `agent` to your own identifier, as in the
-[upload](#2-upload-the-files). The user drags in their files (no login), Wix hosts
-them on a live URL at once, and a banner offers to sign in and keep the site. Tell
-them the [requirements](#what-the-upload-accepts-and-how-it-fails) so it doesn't
-fail on the first try.
+The user drags in the files without logging in, the site is live at once, and a
+banner offers to keep it. Tell them the limits below first.
 
-## What the upload accepts, and how it fails
+## Limits and failures
 
-These apply to every route:
+Every route:
 
-- **A top-level HTML file is required.** A lone top-level HTML of any name becomes
-  the homepage; with more than one, an `index.html` must be among them.
+- **A top-level HTML file.** A lone one of any name is the homepage; with more
+  than one, `index.html` must be among them.
 - **3 MB per file, 20 MB per site.**
-- **Static files only** — HTML, CSS, JS, images, fonts. Framework source that
-  needs a build step (a `package.json`, React/Vue sources) must be built first;
-  upload the build output, or take the project to the headless skill (option E).
+- **Static files only.** Sources that need a build go to the
+  [headless skill](#keep-building-connect-a-backend), or upload the build output.
 
-Failures come back as HTTP 400 with a code in `details.applicationError.code`:
-`MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE`. Beyond those:
+| Failure | Meaning |
+| --- | --- |
+| `400` `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | In `details.applicationError.code`; fix the files. |
+| `403 PERMISSION_DENIED` on a drop | The token expired or is missing, or the site isn't the caller's. An anonymous site takes upload and release, not a drop. |
+| `500` on a drop or upload | A malformed multipart body; rebuild it as shown. The same body fails again. |
+| `404` on the anonymous route | The hour passed or the site was claimed. |
 
-- **`403 PERMISSION_DENIED` on a drop** — the token expired or is missing (see
-  [Before the calls](#before-the-calls)), or the site isn't the caller's. A site
-  that's still anonymous is changed by upload + release, not by a drop.
-- **`500` on a drop or upload** — the multipart body was built by hand and is malformed (see the shape
-  above). Rebuild it from the example; sending it again unchanged fails the
-  same way.
-- **`404` on the anonymous route after step 1** — the hour passed or the site was
-  claimed; start again.
+## Images
 
-**If publishing fails for any reason you can't quickly fix, hand the user the
-[drop page](#the-drop-page).** Never leave them with a failed publish and no way
-forward.
+Each image's bytes reach Wix once. Use the first carrier you have:
 
-## Work on the site from its Dev Machine
+1. **A shell with network access**: in the drop, from disk.
+2. **ChatGPT**: the `ExecuteWixAPI` tool's `attachments` param takes files of up
+   to 10 MB per call; they arrive as base64 entries in the `files` global.
+3. **A public URL**: keep the absolute URL in the page, or host the file on Wix by
+   fetching it on the Dev Machine:
+   `curl -sSL -o public/assets/hero.jpg "https://…"`.
+4. **Only on your disk, without network access**: the base64 goes through your
+   own output. About 3,000 characters of base64 survive one call intact; longer
+   runs come back corrupted.
+   - A file whose base64 fits, such as an icon or a small logo, goes in the
+     drop's `files` bundle.
+   - A few larger files go to the Dev Machine in pieces. Split the base64 into
+     3,000-character chunks and append each with its own command,
+     `printf '%s' '<chunk>' >> /tmp/hero.b64 && wc -c < /tmp/hero.b64`, checking
+     the length. Then decode once, `base64 -d /tmp/hero.b64 > public/assets/hero.png`,
+     and compare its `sha256sum` with the original. On a mismatch, compare
+     prefix hashes to find the first bad chunk and resend from there.
+   - Beyond about 30,000 characters of base64 in all, the upload is the user's.
+     Publish the pages and give them the site's Media Manager,
+     `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`. Once they
+     have uploaded, [list the site's files](../media/upload-media-to-wix.md) and
+     point the pages at their `static.wixstatic.com` URLs.
 
-A Dev Machine is a remote machine Wix runs for a headless site, holding its
-code and taking shell commands over HTTPS. Each command runs with `bash -c` in
-the code folder; every command that changes files ends with the changes pushed
-to the site's code store, so the code outlives the machine. The machine ends
-3.5 hours after it starts or after 40 minutes without a call, and the next one
-starts from what was pushed.
+Never stand in drawings of your own for the user's images. An image that isn't
+on the site yet is named in the closing message.
 
-The machine is a minimal Astro project bound to the site, with Node, git, the
-Wix CLI logged in for the site, and the Wix Headless skills under
-`.agents/skills/`. A dropped site's machine holds the dropped files under
-`public/`. A site that has not been released yet gets the blank starter:
-`src/pages/index.astro` owns `/` and `public/` holds only a favicon.
+## The Dev Machine
 
-Base URL `https://www.wixapis.com/headless-remote-project`. Every call acts on
-the site the identity is scoped to: a site token from the CLI,
-`npx @wix/cli@latest token --site $META_SITE_ID`, or `scope: 'site', siteId` in an
-`ExecuteWixAPI` script. No request takes a site id.
+A Dev Machine is a remote machine Wix runs for a headless site. It holds the
+site's code as an Astro project, with Node, git, the Wix CLI logged in for the
+site, and the Wix Headless skills under `.agents/skills/`. A dropped site's
+files are under `public/` and served as they are. Each command runs with
+`bash -c` in the code folder, and every command that changes files ends with
+them pushed to the site's code store, so the code outlives the machine. A
+machine ends 3.5 hours after it starts, or after 40 minutes without a call; the
+next one starts from what was pushed.
 
-### The calls
+Start it after the first drop. A site that was never dropped or released gets a
+blank starter instead.
+
+Base URL `https://www.wixapis.com/headless-remote-project`. Calls act on the
+site that the identity is scoped to: a site token,
+`npx @wix/cli@latest token --site $META_SITE_ID`, or `scope: 'site', siteId` in
+a script. No request takes a site id.
 
 ```bash
 DM=https://www.wixapis.com/headless-remote-project
-# the machine: PROVISIONING until READY, poll every 5 to 10 s
+# the machine: PROVISIONING until READY; poll every 5 to 10 s
 curl -sS -X POST "$DM/v1/dev-machines/get-or-create" -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' -d '{}'
-# {"devMachine":{"id":"…","status":"READY","seed":{"origin":"STATIC_SITE","codeRevision":"…"},"expirationDate":"…","codeBehindLiveSite":false}}
+# {"devMachine":{"id":"…","status":"READY","seed":{"origin":"STATIC_SITE"},"expirationDate":"…","codeBehindLiveSite":false}}
 
-# a command; waitSeconds 0 to 25, timeoutSeconds up to 1800 (default 600), outputTailLength up to 250000 (default 20000)
+# a command; waitSeconds 0 to 25, timeoutSeconds up to 1800 (default 600), outputTailLength up to 250000
 curl -sS -X POST "$DM/v1/dev-machines/execute-command" -H "Authorization: $SITE_TOKEN" -H 'Content-Type: application/json' \
   -d '{"command":"sed -i \"s/Welcome/Hello/\" public/index.html && CI=1 wix build && CI=1 wix release 2>&1 | tail -3","timeoutSeconds":900,"waitSeconds":25}'
-# {"execution":{"id":"…","status":"COMPLETED","shellResult":{"exitCode":0,"timedOut":false,"stdout":"…","stderr":""},"codeRevision":"…"}}
+# {"execution":{"id":"…","status":"COMPLETED","shellResult":{"exitCode":0,"timedOut":false,"stdout":"…","stderr":""}}}
 
 # a command still RUNNING when the wait ran out
 curl -sS "$DM/v1/executions/$EXECUTION_ID?waitSeconds=25" -H "Authorization: $SITE_TOKEN"
 ```
 
-`status` is the service's: `COMPLETED` means the command ran to its end and its
-changes were pushed, a non-zero exit code included. The command's own result is
-`shellResult.exitCode` and `timedOut`. `seed.origin` is `STATIC_SITE` for the
-dropped files and `CODE_STORE` for what an earlier machine pushed. Keep
-`execution.id` while a command runs; `POST …/v1/executions/{id}/cancel` stops
-one. `POST …/v1/code/generate-download-url` returns a one-hour link to a zip of
-the source.
+- **`status`** is the service's. `COMPLETED` means the command ran to its end and
+  its changes were pushed, even with a non-zero exit. The command's own result
+  is `shellResult.exitCode` and `timedOut`.
+- **A change** is a command that writes the file: `sed -i` for a line, a heredoc
+  for a whole file.
+- **Publishing** is `CI=1 wix build && CI=1 wix release`, to the same `siteUrl`.
+- **Other calls**: `POST …/v1/executions/{id}/cancel` stops a command;
+  `POST …/v1/code/generate-download-url` returns a one-hour link to the source.
 
-A change is a command that writes the file: `sed -i` for a line, a heredoc for
-a whole file. Publishing is `CI=1 wix build && CI=1 wix release`; the release
-goes to the same `siteUrl`. Once a site has been released from its machine, keep
-changing it there: a new drop replaces the live site with the dropped files and
-the machine's code falls behind (`codeBehindLiveSite: true`).
-
-### Starting at the machine
-
-For a host with no shell, the machine is where a site with images is built:
-provision the site (step 1 above), `get-or-create` its machine, and the first
-command writes the pages as heredocs, fetches every image that has a URL,
-removes `src/pages/index.astro` and adds `redirects: { "/": "/index.html" }`
-to `astro.config.mjs`. Then build and release. Images that have no URL follow
-the rules below; a mock that shows a business solution continues into
-[Keep building](#keep-building-add-a-backend-when-you-need-one) on the same
-machine.
-
-### Images
-
-With a shell, images travel in the drop itself (`curl -F`). On ChatGPT they
-travel as `attachments`. Otherwise:
-
-- A file with a URL is fetched by the machine: `curl -sSL -o public/assets/hero.jpg "https://…"`
-  in a command. The machine reaches public URLs only.
-- A file that exists only on your side goes in as base64 written into
-  commands. Your output carries about 4,000 characters of base64 intact per
-  call and corrupts longer runs, so: gzip the file when that makes it smaller;
-  split the base64 into chunks of at most 4,000 characters; append each with
-  its own command, `printf '%s' '<chunk>' >> public/assets/x.b64`, checking
-  the `wc -c` the command prints; decode once (`base64 -d x.b64 | gunzip > x.png`)
-  and compare `sha256sum` with the original; on a mismatch, locate the bad
-  chunk by hashing prefixes and resend from there; remove the `.b64` files and
-  release once.
-- A set larger than that is the user's to add: release the pages, name the
-  missing files, and give the site's Media Manager,
-  `https://manage.wix.com/dashboard/<metaSiteId>/media-manager`; the machine
-  then fetches each by URL. The page keeps its image references as they are.
-
-### Errors
-
-| Code | Meaning |
-| --- | --- |
-| `428 DEV_MACHINE_NOT_READY`, `DEV_MACHINE_NOT_FOUND` | Call `get-or-create` again. |
-| `428 DEV_MACHINE_SETUP_FAILED` | `data.retryDate` says when a new machine can start. |
-| `428 DEV_MACHINE_LIMIT_REACHED` | The account has `data.limit` machines running; each frees at its `expirationDate`. A site with no release yet can publish by drop meanwhile. |
-| `428 SITE_SOURCE_UNAVAILABLE` | The site was released from a project elsewhere; work in that project. |
-| `428 SITE_CONNECTED_TO_GITHUB` | The code lives in the connected repository; work there. |
-| `428 COMPANION_APP_NOT_FOUND` | Not a headless site from the provision call. |
-| `404 EXECUTION_NOT_FOUND` | Unknown id, or older than 7 days. |
-| `FAILED` with `error.code: PERSIST_FAILED` | The command ran, the push did not; `error.reason` names the git state to fix from a command. |
-
-### In an ExecuteWixAPI script
+In an `ExecuteWixAPI` script, a whole file goes in through the `files` param as
+well, so its text is never escaped: build the command in `code` from the entry.
 
 ```javascript
 async function run() {
@@ -478,9 +334,11 @@ async function run() {
     if (machine.status === 'READY') break;
     await new Promise((r) => setTimeout(r, 8000));
   }
+  const page = files.find((f) => f.path === 'about.html');
+  const command = `cat > public/about.html <<'WIXEOF'\n${page.content}\nWIXEOF\n`
+    + 'CI=1 wix build > /dev/null && CI=1 wix release 2>&1 | tail -3';
   let execution = (await wix.request({ ...site, method: 'POST', url: `${base}/v1/dev-machines/execute-command`,
-    body: { command: "sed -i 's/Welcome/Hello/' public/index.html && CI=1 wix build > /dev/null && CI=1 wix release 2>&1 | tail -3",
-            timeoutSeconds: 900, waitSeconds: 25 } })).data.execution;
+    body: { command, timeoutSeconds: 900, waitSeconds: 25 } })).data.execution;
   while (execution.status === 'RUNNING') {
     execution = (await wix.request({ ...site, method: 'GET', url: `${base}/v1/executions/${execution.id}?waitSeconds=25` })).data.execution;
   }
@@ -488,60 +346,57 @@ async function run() {
 }
 ```
 
-## Keep building: add a backend when you need one
+| Error | Meaning |
+| --- | --- |
+| `428 DEV_MACHINE_NOT_READY`, `DEV_MACHINE_NOT_FOUND` | Call `get-or-create` again. |
+| `428 DEV_MACHINE_SETUP_FAILED` | `data.retryDate` says when a new machine can start. |
+| `428 DEV_MACHINE_LIMIT_REACHED` | The account has `data.limit` machines running; each frees at its `expirationDate`. A site never released from a machine can take a drop meanwhile. |
+| `428 SITE_SOURCE_UNAVAILABLE` | The site was released from a project elsewhere; work there. |
+| `428 SITE_CONNECTED_TO_GITHUB` | The code lives in the connected repository; work there. |
+| `428 COMPANION_APP_NOT_FOUND` | Not a headless site from the provision call. |
+| `404 EXECUTION_NOT_FOUND` | Unknown id, or older than 7 days. |
+| `FAILED` with `error.code: PERSIST_FAILED` | The command ran but the push did not; `error.reason` names the git state to fix. |
 
-The headless skill, `https://wix.com/headless/skill.md`, builds and releases a
-**Wix Headless project** with the Wix CLI: it adopts a project folder (a
-`package.json`, or an `index.html` at its root) into a new site, or takes a
-dropped one. A dropped site is **static**; when it needs a real backend — stores,
-payments, bookings, a CMS, members, forms — it moves to a headless project,
-keeping the same site, appId and URL.
+## Keep building: connect a backend
+
+A dropped site is static. Stores, payments, bookings, a CMS, members or forms
+need a **Wix Headless project**, built and released with the Wix CLI by the
+headless skill, `https://wix.com/headless/skill.md`. The project takes over the
+same site, appId and URL.
 
 **A mock that shows a business solution gets it connected in the same run.**
-Buttons that add to a cart, a buy or checkout link, a booking or reservation
-form, a menu with an order flow, tickets, a members sign-in, a donation button:
-each names a Wix Business Solution the page is pretending to have, and "make
-this a real site" includes making those work. Publish the pages first, so the
-site is live, then connect the solution the markup shows (Stores for a cart,
-Bookings for appointments, Events for tickets, Restaurants for orders, Members
-for sign-in, Donations for giving) through the headless skill, and say in the
-closing message what is now real and what the mock still only shows. A plain
-brochure site, or a request that says static, stops at the pages; a mock with
-inert commerce handed over as "say the word" is the run stopping short.
+Add-to-cart buttons, a buy or checkout link, a booking form, a menu with
+ordering, tickets, a sign-in, a donate button: each one names a Wix Business
+Solution the page pretends to have, and "make this a real site" includes making
+it work. Publish the pages first, then connect what the markup shows: Stores
+for a cart, Bookings for appointments, Events for tickets, Restaurants for
+orders, Members for sign-in, Donations for giving. The closing message says what
+is now real and what the mock still only shows. A brochure site, or a request
+for a static site, stops at the pages.
 
-To move a dropped site, in a shell, once it's in the user's account:
+- **Without a shell of your own**, the site's [Dev Machine](#the-dev-machine) is
+  the project. Read `.agents/skills/wix-headless-kit/SKILL.md` from a command and
+  follow it there.
+- **With a shell**, download the site and follow the headless skill from that folder:
 
 ```bash
 curl -sSL -o project.zip \
   "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
-unzip project.zip -d project      # the site's files + wix.config.json
+unzip project.zip -d project
 ```
-
-Then follow the headless skill from that folder: it turns the files into a
-headless project bound to the same site, released with the Wix CLI from then on.
-
-Without a shell of your own, the site's
-[Dev Machine](#work-on-the-site-from-its-dev-machine) is that folder: a Wix
-project bound to the site, with the headless skills installed under
-`.agents/skills/`. Read `.agents/skills/wix-headless-kit/SKILL.md` from a
-command and follow it there.
 
 ## Route the request correctly
 
-- **A new site from the user's files** — [Choose the route](#choose-the-route);
-  with no shell and images in the site, [start at the machine](#starting-at-the-machine).
-- **A change to a site published this way** — the same site: a
-  [drop](#change-it-later) with the full file set, or its Dev Machine; upload +
-  release while it's anonymous.
-- **An anonymous site the user wants to keep** — [claim](#claim-it-into-the-users-account)
-  it, else the save link.
-- **A site that now needs a backend** — [Keep building](#keep-building-add-a-backend-when-you-need-one).
-- **Migrating a live site/store from another platform by URL, or CSV/TSV
-  exports** — [Site Import](site-import.md).
-- **Adding HTML, an embed, or code to an existing Wix site** — not this recipe
-  (that's custom code in the editor).
-- **Images, videos, or documents for a site** —
-  [Upload Media to Wix](../media/upload-media-to-wix.md).
+- **A new site from the user's files**: [Choose the route](#choose-the-route).
+- **A change to a site published this way**: the [same site](#change-it-later);
+  upload and release while it's anonymous.
+- **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
+- **A site that now needs a backend**: [Keep building](#keep-building-connect-a-backend).
+- **Migrating a live site or store from another platform by URL, or CSV/TSV
+  exports**: [Site Import](site-import.md).
+- **HTML, an embed or code inside an existing Wix site**: not this recipe; that
+  is custom code in the editor.
+- **Images, videos or documents for a site's media**: [Upload Media to Wix](../media/upload-media-to-wix.md).
 
-Don't create the site from a template — that makes an empty site, not a published
-copy of the user's files.
+Don't create the site from a template: that makes an empty site, not a copy of
+the user's files.
