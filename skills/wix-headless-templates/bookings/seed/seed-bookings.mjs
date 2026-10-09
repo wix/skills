@@ -17,7 +17,7 @@
 //                    "price"? (number | { "from": number }), "priceText"?, "free"?, "deposit"?, "payInFull"?,
 //                    "duration"? (APPOINTMENT, minutes), "capacity"?, "waitlist"?, "maxParticipants"?,
 //                    "requireManualApproval"?, "conferencing"?, "staff"? (name | [names]), "location"? (name),
-//                    "category"? (name), "imageUrl"? | "imagePath"? | "imagePrompt"?,
+//                    "category"? (name), "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"?,
 //                    "sessions"?: [{ "start", "end", "capacity"? }],            // CLASS: one-off sessions, local "YYYY-MM-DDThh:mm:ss"
 //                    "weekly"?: { "days": ["MONDAY"], "time": "18:00", "duration": 60, "start", "end" } }] }  // CLASS or COURSE: recurring
 //
@@ -355,6 +355,7 @@ export async function setupBookings(ctx, { services = [], staff = [], locations 
   // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
   // attach. Failures leave the service text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => ({
+    mediaId: services[i]?.imageMediaId,
     url: services[i]?.imageUrl,
     path: services[i]?.imagePath,
     prompt: services[i]?.imagePrompt,

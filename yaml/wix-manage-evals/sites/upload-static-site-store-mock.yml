@@ -40,7 +40,7 @@ assertions:
         mock's names and prices, the store wired into these pages), and asks the user whether to
         go ahead, AND
       - nothing was connected before that answer: no Wix Stores install, no product created, no
-        storefront deploy on the site's Dev Machine.
+        storefront code deployed.
 
       Fail if:
       - the agent installs Wix Stores, creates products or deploys a storefront without asking

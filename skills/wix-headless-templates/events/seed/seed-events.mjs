@@ -14,7 +14,7 @@
 //                  "startDate", "endDate" (future ISO-8601 UTC), "timeZoneId",
 //                  "location" ({name,type:"VENUE",address} | {name,type:"ONLINE"} | {locationTbd:true,name}),
 //                  "ticketTiers"?: [{ "name" (≤30 chars), "price" (decimal STRING), "description"?, "initialLimit"?, "feeType"? }],
-//                  "category"? (name), "imageUrl"? | "imagePrompt"?, "rsvpResponseType"? }] }
+//                  "category"? (name), "imageMediaId"? | "imageUrl"? | "imagePrompt"?, "rsvpResponseType"? }] }
 //
 // Seeding is ADDITIVE — never deletes or overwrites existing content. Unexpected shapes →
 // read the live API reference; every call below
@@ -260,7 +260,7 @@ export async function setupEvents(ctx, { events = [], currency } = {}) {
       catch (err) { console.error(`guest control skipped for "${ev.title}": ${err.message}`); }
     }
     await publishEvent(ctx, e.id);
-    created.push({ ...e, category: ev.category, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length, feeTypes: tiers.map((t) => t.feeType), ...(ev.guests ? { guestControl } : {}) });
+    created.push({ ...e, category: ev.category, imageMediaId: ev.imageMediaId, imageUrl: ev.imageUrl, imagePrompt: ev.imagePrompt, ticketCount: tiers.length, feeTypes: tiers.map((t) => t.feeType), ...(ev.guests ? { guestControl } : {}) });
   }
 
   const names = [...new Set(created.map((e) => e.category).filter(Boolean))];
@@ -273,6 +273,7 @@ export async function setupEvents(ctx, { events = [], currency } = {}) {
   // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
   // attach. Failures leave the event text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((e) => ({
+    mediaId: e.imageMediaId,
     url: e.imageUrl,
     path: e.imagePath,
     prompt: e.imagePrompt,

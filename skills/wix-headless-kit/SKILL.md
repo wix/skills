@@ -166,9 +166,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    folder's config does, the site holds the content already; the frontend reads what is there
    (step 3's attach path), and only content the brief supplies or describes is added to it.
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
-   and for a project already on disk; **the folder decides** what it does, from five file facts:
+   and for a project already on disk; **the folder decides** what it does, from a few file facts:
    `wix.config.json`, its `site.outputDirectory`, the migration variables in `.env.local`,
-   `package.json`, `index.html`. `node <SKILL_ROOT>/install/context.mjs` prints the shape it reads
+   `package.json`, `index.html` (at the root or in `public/`), `src/pages/`. `node <SKILL_ROOT>/install/context.mjs` prints the shape it reads
    and the `next` for it. **The brief is the instruction**: what it asks to switch on is installed
    on the site the folder names, without asking again. Ask only when acting would create a second
    site for a folder that already has one, or when a cleanup seems needed.
@@ -189,6 +189,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
    | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys. That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
    | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
+   | a config, a `package.json`, `public/index.html` and no `src/pages/` (a site published through the drop flow, on its Wix Dev Machine) | **static-in-astro** → refuses | the pages stay plain files in `public/`: `deploy.mjs <vertical…> --stack static --out public` puts the REST layer in `public/js/wix/`, the pages are wired in place (reference mode), and no Astro pages are added; release with `build` then `release`, the URL stays | no |
    | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
 
    **Who decides the seed: where the site came from, never the brief's wording.** A site made
@@ -254,6 +255,11 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    `templates/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
    step on); the hook/DTO
    contracts are inlined there, so don't open the shipped files themselves.
+   **A frontend that already exists gets the minimum.** When the run wires pages that were
+   there before it (a dropped mock, an adopted site, a published static site), do the least that
+   makes them work: connect each control the pages show to the shipped code, and add only what a
+   control can't work without. Anything more the vertical offers is added only when the brief
+   asks for it; name it in the closing message.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.

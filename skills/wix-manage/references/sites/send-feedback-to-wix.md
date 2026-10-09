@@ -36,7 +36,7 @@ the whole run in four parts.
 Agent / model: <the agent and model you are>
 Wix tooling: <Wix MCP, Wix CLI, REST from a shell, ...>
 Recipes: <the recipes this run followed>
-Wix products and APIs: <Stores, headless drop, Dev Machines, ...>
+Wix products and APIs: <Stores, headless drop, the upload tool, ...>
 Site: <metaSiteId> · dashboard: <url> · live: <url>
 Other ids: <request ids, upload ids, execution ids>
 ```

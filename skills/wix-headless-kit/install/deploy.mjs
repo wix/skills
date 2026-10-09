@@ -18,8 +18,8 @@
 //                  <out>/js/wix/ — shared/rest/ (client, media, config) + each vertical's rest/ + the
 //                  vertical's transport-agnostic core files (types, *-core) from its app/ — writes
 //                  the client id, and strips it to browser-ready ESM with tsc (comments kept, the
-//                  .ts sources kept beside the .js). No package.json is touched. Storefront only
-//                  until other verticals ship a rest/. `--out <dir>` (default: the project root)
+//                  .ts sources kept beside the .js). No package.json is touched. Every vertical
+//                  with a rest/ folder is supported. `--out <dir>` (default: the project root)
 //                  is the folder the site is served from — the one wix.config.json's
 //                  site.outputDirectory points at — so the modules land where the pages import
 //                  them and nothing else in the project gets uploaded.

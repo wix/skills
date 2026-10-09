@@ -31,6 +31,12 @@ two transports: with `--plan` its REST twin and stores land in `js/wix/` beside 
   to it. Seed per the vertical's `SEED.md` (Node + the CLI token, no project dependencies).
   Release with `npx @wix/cli@latest release` — no build. Item-page tags come from the entity's
   `seoData`, set after the fetch (`document.title`, the meta description).
+- **A dropped site on its Wix Dev Machine** (shape `static-in-astro`). The machine holds the
+  dropped pages in `public/` of an Astro starter with no pages of its own, and its Astro config
+  redirects `/` to `/index.html`. The pages stay where they are: run
+  `deploy.mjs <vertical> --stack static --out public`, which writes `public/js/wix/`, and wire the
+  pages in place as above. The config is left as it is, so the release goes through Astro:
+  `npx @wix/cli@latest build && npx @wix/cli@latest release`, to the same URL.
 - **Server-rendered, another language (Flask, Laravel, Rails, …).** The same shape as managed
   Astro — pages rendered on the server, the interactive surfaces in the browser — with hosting and
   SEO plumbing theirs. `init` still runs in the project folder; run `deploy.mjs <vertical> --stack
