@@ -74,6 +74,10 @@ The call identifies the human account, so it needs a user-scoped bearer from the
 command, not the site-scoped one the seeds use (`token --site` carries a metaSiteId and the service
 rejects it as anonymous).
 
+On a Wix Dev Machine the Wix CLI is signed in with an API key (`~/.wix/auth/api-key.json`), not
+the user's login. There, send through the Wix MCP's `SupportAndFeedback` tool, which takes the same
+message.
+
 ```bash
 TOKEN=$(npx @wix/cli@latest token)
 curl -sS -w "\nHTTP_STATUS:%{http_code}" \
