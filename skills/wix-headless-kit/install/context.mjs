@@ -78,7 +78,9 @@ export function pullEnv(cwd) {
 /**
  * Whether a frontend exists in this folder: a `package.json` (a bundled project), an `index.html` at
  * the root (plain pages), or an `index.html` inside the folder the config's `site.outputDirectory`
- * names (a static site laid out for release, pages under site/). Nothing else counts — not this
+ * names (a static site laid out for release, pages under site/). `publicIndex` and `astroPages` tell
+ * a dropped site on its Wix Dev Machine apart from an Astro project: the machine copies the drop's
+ * pages into public/ of an Astro starter that has no src/pages/. Nothing else counts — not this
  * skill's code, not the skills folder, not AGENTS.md: those say who ran here, not what is here.
  */
 export function frontendPresent(cwd = process.cwd()) {
@@ -89,13 +91,16 @@ export function frontendPresent(cwd = process.cwd()) {
     rootIndex: has("index.html"),
     outputIndex: !!outDir && outDir !== "." && has(join(outDir, "index.html")),
     outputDirectory: outDir || null,
+    publicIndex: has(join("public", "index.html")),
+    astroPages: has(join("src", "pages")),
   };
 }
 
 /**
- * What the folder IS, from five file facts — the one classification every script and SKILL.md
+ * What the folder IS, from a few file facts — the one classification every script and SKILL.md
  * step 3 share: wix.config.json, its site.outputDirectory, the migration variables in .env.local,
- * package.json, index.html. `migrationActive` comes from siteContext (it needs `.env.local`).
+ * package.json, index.html (at the root or in public/), src/pages/. `migrationActive` comes from
+ * siteContext (it needs `.env.local`).
  *
  *   empty             nothing that reads as a project → setup CREATE: the run makes the site, seeds the plan
  *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new, empty site, seeds the plan
@@ -103,6 +108,9 @@ export function frontendPresent(cwd = process.cwd()) {
  *   migration         a config whose .env.local declares an ACTIVE editor migration, with or without the blank
  *                     Astro starter the download carries → setup MIGRATE; nothing seeded. Decided before the
  *                     frontend test: the starter's package.json must not read as a project to iterate on
+ *   static-in-astro   a config, a package.json, public/index.html and no src/pages/ (a site published
+ *                     through the drop flow, on its Wix Dev Machine) → the pages stay plain files in
+ *                     public/; the static REST layer deploys beside them; build and release
  *   wix-project       a config AND a frontend (package.json, or index.html in the output folder) → iterate:
  *                     never scaffold, init or reseed; deploy.mjs adds a solution, edits, release
  *   published-static  a config, index.html at the ROOT, no package.json, no laid-out output folder (a site
@@ -117,12 +125,14 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
     project: "setup.mjs --vertical <v> --stack <stack> [--plan]: init links the folder to a new, empty site, seeds the plan and deploys (ADOPT)",
     "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded; the vertical's seed module with a plan only when the brief supplies or describes content",
     migration: "setup.mjs (MIGRATE): the shipped code into the starter the download carries (or the composed template around a bare config); the site being migrated owns its content — guides/migration.md",
+    "static-in-astro": "a dropped site on its Dev Machine: the pages are plain files in public/, served as they are. deploy.mjs <vertical…> --stack static --out public puts the REST layer in public/js/wix/; wire the pages in place with <script type=\"module\">; add no Astro pages. Read the site (read-site.mjs); run the vertical's seed module with a plan only for content the brief supplies or describes. Release with npx @wix/cli@latest build && npx @wix/cli@latest release; the URL stays",
     "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then ONE npm install; file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
     "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
   };
   let shape;
   if (!config) shape = f.packageJson || f.rootIndex ? "project" : "empty";
   else if (migrationActive) shape = "migration";
+  else if (f.packageJson && f.publicIndex && !f.astroPages) shape = "static-in-astro";
   else if (f.packageJson || f.outputIndex) shape = "wix-project";
   else if (f.rootIndex) shape = "published-static";
   else shape = "config-only";
