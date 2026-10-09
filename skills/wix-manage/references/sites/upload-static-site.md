@@ -21,15 +21,15 @@ The route follows from how the files' bytes can reach Wix.
 | The Wix MCP, and no shell with network access | Create the site, then [drop with the Wix MCP's upload tool](#with-the-wix-mcps-upload-tool) (or an [`ExecuteWixAPI` script](#from-an-executewixapi-script) where the tool is missing; on ChatGPT, a zip of the whole site as its attachment carries everything, images included), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
 | None of these | The [drop page](#the-drop-page): the user uploads the files. |
 
-Without a shell, every file you publish is text you write out inside a tool
-call. That is free for a page already in the conversation and costs a read and
+Without a shell that reaches the network, every file you publish is text you
+write out inside a tool call. That is free for a page already in the conversation and costs a read and
 a rewrite for text files on disk. Images never travel that way; see
 [Images](#images).
 
-**The Dev Machine is the shell for an agent that has none.** Wix runs one per
-headless site, holding the site's code with Node and the Wix CLI. Without a
-shell of your own, move to it once the drop has the site live and any of these
-holds:
+**The Dev Machine is the network-connected shell an agent's own shell lacks.**
+Wix runs one per headless site, holding the site's code with Node and the Wix
+CLI. When your shell can't reach the network, move to it once the drop has the
+site live and any of these holds:
 
 - the site's images come in by URL, from the web or from the user's Media
   Manager, and should keep the paths the pages already use;
@@ -39,8 +39,8 @@ holds:
   the machine carries the headless kit.
 
 A single pasted page with one change on the spot is cheaper as a second drop.
-With a shell of your own, work locally; the machine matters only when the files
-are gone or the site was last released from the machine.
+With a shell that reaches the network, work locally; the machine matters only
+when the files are gone or the site was last released from the machine.
 
 Publishing yourself beats the drop page whenever a route fits. Never report an
 upload you couldn't perform. When a route fails partway, hand over the drop page.
@@ -425,9 +425,8 @@ async function run() {
 ## Keep building: connect a backend
 
 A dropped site is static. Stores, payments, bookings, a CMS, members or forms
-need a **Wix Headless project**, which the headless skill builds and releases:
-from a shell of your own, or on the site's [Dev Machine](#the-dev-machine) when
-you have none. The project takes over the same site, appId and URL.
+need a **Wix Headless project**, which the headless skill builds and releases.
+The project takes over the same site, appId and URL.
 
 **A mock that shows a business solution: publish it, then ask before connecting.**
 Any control on the page that promises what static files can't deliver —
@@ -441,11 +440,18 @@ yes; a request that already asks for it (a working shop, real bookings) is that
 yes. The headless skill names the solutions it connects and how. A page that
 promises nothing beyond its content stops at the pages.
 
-- **Without a shell of your own**, the site's [Dev Machine](#the-dev-machine) is
-  the project. Read `.agents/skills/wix-headless-kit/SKILL.md` from a command and
-  follow it there.
-- **With a shell**, download the site and follow the headless skill,
-  `https://www.wix.com/skills/headless-cold-start`, from that folder:
+The headless skill starts at its entry page,
+`https://www.wix.com/skills/headless-cold-start/headless-kit.md`: read it from the
+skills you have installed when they are there, otherwise online (see
+[Reading the pages this recipe links](#before-the-calls)). It owns the run. Its
+commands run:
+
+- **With a shell that reaches the network**, in a folder holding the site.
+- **Without one**, on the site's [Dev Machine](#the-dev-machine), as
+  `execute-command` calls in its code folder: the site's files, the skills and a
+  logged-in Wix CLI are already there.
+
+With a shell, the folder comes from the site's own download:
 
 ```bash
 curl -sSL -o project.zip \
