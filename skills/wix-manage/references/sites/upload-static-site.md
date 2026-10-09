@@ -51,6 +51,9 @@ upload you couldn't perform. When a route fails partway, hand over the drop page
   (the user approves in the browser); `npx @wix/cli token` then prints a token
   that lasts 15 minutes. Run it again whenever the token may have expired, and
   always after a `403`.
+- **`$AGENT`** is a short lowercase slug naming you (`claude-code`, `cursor`,
+  `codex-cli`; `unknown-agent` if you can't tell). Every drop and upload carries
+  `?campaign=mcp&agent=$AGENT`, which attributes the site to you in Wix's reports.
 - **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response.
 
 In an `ExecuteWixAPI` script there is no token: `wix.request` carries the user's
@@ -79,10 +82,7 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 One multipart request uploads and releases. Each file is a part named `files`
 whose **filename is its path relative to the site root**; that is how
 subdirectories survive. A single `.zip` part works too: it is unpacked
-server-side, a single wrapping folder stripped. Keep `campaign=mcp` and set
-`agent` to a short lowercase slug naming you (`claude-code`, `cursor`,
-`codex-cli`; `unknown-agent` if you can't tell); every drop and upload in this
-recipe carries both.
+server-side, a single wrapping folder stripped.
 
 ```bash
 curl -sS -X POST \
@@ -125,7 +125,7 @@ In `code` the bundle is the `files` global, `[{ path, content, encoding? }]`
 
 ```javascript
 async function run() {
-  const agent = 'your-agent-slug';         // a short lowercase slug naming you
+  const agent = 'your-agent-slug';         // $AGENT, see Before the calls
   const created = await wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
@@ -196,9 +196,7 @@ curl -sS -X POST \
 # {"siteUrl":"https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com"}
 ```
 
-Step 2 carries the same `campaign` and `agent` as the
-[drop](#2-drop-the-files--the-site-goes-live). To change the site, repeat steps 2
-and 3 with the full file set.
+To change the site, repeat steps 2 and 3 with the full file set.
 
 When it's final, claim it with the user's identity. Without one, give the user
 `siteUrl` and the save link, which signs them in to keep the site. Whoever opens
