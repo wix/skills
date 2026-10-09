@@ -237,6 +237,8 @@ const rows: orders.Order[] = [];              // ✅
 // import type { Order } from '@wix/ecom';    // ❌ has no exported member 'Order'
 ```
 
+**A map keyed by an SDK enum:** fields are typed `<Enum>WithLiterals` (the enum or its string values). `Partial<Record<bookings.BookingStatusWithLiterals, V>>` cannot be indexed by a status (TS7053). Use `Record<…WithLiterals, V>` with an entry for every value, or key a partial map by the string values: `` Partial<Record<`${bookings.BookingStatus}`, V>> ``.
+
 ---
 
 ## Data Collection Inference
