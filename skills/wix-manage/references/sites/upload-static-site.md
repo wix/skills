@@ -109,7 +109,8 @@ first (step 1, from a script or `curl`), then pass the tool the returned
 below or as `attachments` when you hold them as files. It replaces the whole
 file set, stamps the attribution itself, and returns `siteUrl` and the dashboard
 link. It creates no site and makes no other call; everything else in this recipe
-stays a script or a command. Without the tool, drop from a script.
+stays a script or a command. When the Wix MCP doesn't list the tool, drop from a
+[script](#from-an-executewixapi-script) or with `curl`.
 
 **On ChatGPT, this tool is the drop.** ChatGPT resolves the tool's `attachments`
 itself: the files the user attached, or that you wrote in your sandbox, reach
@@ -156,10 +157,42 @@ async function run() {
 
 `wix.request` returns `{ status, data }`. A zip passed through `attachments`
 is one entry; unpack it first: `wix.multipart(await wix.unzip(files[0].content))`.
-Don't build a multipart body by hand (a malformed one is a bare `500`), and
-don't put file text in `code` as string literals (the extra escaping corrupts
-backslashes and `${}`). The bundle can't carry a file with a line that reads
-exactly `=== FILE: … ===`.
+With the `files` param, don't build a multipart body by hand (a malformed one is
+a bare `500`), and don't put file text in `code` as string literals (the extra
+escaping corrupts backslashes and `${}`). The bundle can't carry a file with a
+line that reads exactly `=== FILE: … ===`.
+
+**When `ExecuteWixAPI` has no `files` param** (an older version of the tool,
+with no `files` global and no `wix.multipart()`), the file text goes in `code` as
+template literals and the body is a multipart string. Escape `\` as `\\` first,
+then `` ` `` as `` \` `` and `${` as `\${`; an unescaped `\` is dropped or
+reinterpreted (`/\d+/` would arrive as `/d+/`). Keep the body's shape exactly:
+lines end in `\r\n`, the body ends with `--<boundary>--`, and the header names
+the same boundary; break any of these and the drop is a bare `500`. This carries
+text files only.
+
+```javascript
+async function run() {
+  const agent = 'your-agent-slug';
+  const created = await wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
+    body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+            synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
+  const pages = {
+    'index.html': `<!doctype html><html><head><title>Northwind Studio</title>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>`,
+    'assets/styles.css': `body { font-family: sans-serif; margin: 0; padding: 4rem; }`,
+  };
+  const boundary = '----wixdropboundary';
+  const body = Object.entries(pages).flatMap(([path, text]) => [
+    '--' + boundary, `Content-Disposition: form-data; name="files"; filename="${path}"`, '', text,
+  ]).concat('--' + boundary + '--', '').join('\r\n');
+  return await wix.request({ scope: 'account', method: 'POST',
+    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop?campaign=mcp&agent=${agent}`,
+    headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary },
+    body });                                   // a string body is sent as is; an object is sent as JSON and rejected
+}
+```
 
 ### Change it later
 
