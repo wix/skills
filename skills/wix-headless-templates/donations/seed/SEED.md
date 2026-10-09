@@ -16,7 +16,7 @@ amount with a minimum, the note and the cover-fee prompt on. A second campaign (
 only when the brief lists several causes. Every campaign gets a cover image — the default is an
 `imagePrompt` (AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
 mood, palette, lighting — always ending "no text, no watermarks"; a real subject of the cause, not
-abstract decoration. For an asset the user supplied use `imagePath` (a file on this machine) or
+abstract decoration. For an asset the user supplied use `imageMediaId` (a file already in the site's Media Manager, such as one the user uploaded there: used as it is, no copy; a `static.wixstatic.com/media/<file id>` URL of a site file counts as one), `imagePath` (a file on this machine) or
 `imageUrl` (their own hosted URL; verify with `curl -sI` → 200) — never a stock or guessed URL.
 Images resolve in parallel and never block the seed; a failed image leaves the campaign text-only.
 
