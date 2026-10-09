@@ -264,9 +264,10 @@ one of four ways:
    the file into the site, `curl -sSL -o public/assets/hero.jpg "https://…"`.
 4. **The user uploads it** to the site's Media Manager. This is the way for
    images on your disk when you have no network access. Publish the pages
-   first, then name the missing files and give the user
-   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`. When they are
-   done, [list the site's files](../media/upload-media-to-wix.md) and match each
+   first, then name the missing files, give the user
+   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them
+   to tell you once they're uploaded, so you can put them on the site. When they
+   are done, [list the site's files](../media/upload-media-to-wix.md) and match each
    to the page's reference by `displayName`. On the Dev Machine, fetch each file
    to the path the page already uses and release. Without one, point the page's
    references at the files' `static.wixstatic.com` URLs and drop again.
@@ -379,6 +380,27 @@ nothing beyond its content, or a request for a static site, stops at the pages.
 curl -sSL -o project.zip \
   "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
 unzip project.zip -d project
+```
+
+## Send feedback to Wix
+
+When this flow didn't work well enough, offer to send it to Wix as feedback:
+a route failed and you fell back, a call errored or needed retries, images had
+to wait on the user, or the recipe left you guessing and you had to invent a
+workaround. Offer once per issue, invite the user to add their own words, and
+send only after they say yes. The message summarizes the run: what the user
+wanted, the route you took, and each friction point with its call, status,
+error text and request id, plus what you did instead and the site id. Confirm
+the wording first, and leave out tokens and credentials.
+
+- **With the Wix MCP**: its `SupportAndFeedback` tool.
+- **With a shell and a CLI login**: a user token from `npx @wix/cli@latest token`.
+  A site token is refused as anonymous. `200` with `{}` means it was sent.
+
+```bash
+curl -sS -X POST "https://www.wixapis.com/mcp-serverless/v1/headless-feedback" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"message":"<the composed feedback>"}'
 ```
 
 ## Route the request correctly
