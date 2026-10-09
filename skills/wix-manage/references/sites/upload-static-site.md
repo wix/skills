@@ -35,7 +35,7 @@ holds:
   Manager, and should keep the paths the pages already use;
 - the site will change again — later in this conversation or in another one —
   so no change resends the whole site;
-- the site needs a build, or a business solution such as a store or bookings:
+- the site needs a build, or a business solution the user agreed to connect:
   the machine carries the headless kit.
 
 A single pasted page with one change on the spot is cheaper as a second drop.
@@ -424,14 +424,17 @@ need a **Wix Headless project**, built and released with the Wix CLI by the
 headless skill, `https://wix.com/headless/skill.md`. The project takes over the
 same site, appId and URL.
 
-**A mock that shows a business solution gets it connected in the same run.**
+**A mock that shows a business solution: publish it, then ask before connecting.**
 Any control on the page that promises what static files can't deliver —
 something to buy, book, order, join, submit or pay — is a Wix Business Solution
-the page pretends to have, and "make this a real site" includes making it work.
-Publish the pages first, then connect the solution behind each such control;
-the headless skill names the solutions it connects and how. The closing message
-says what is now real and what the mock still only shows. A page that promises
-nothing beyond its content, or a request for a static site, stops at the pages.
+the page pretends to have. First get the site live from what the user gave you.
+Then, with the live URL, name each such control, the solution that would make it
+work, and what connecting it involves: what gets created from the page's own
+content (the products, services or form), and that the site's later changes move
+to its Dev Machine. Ask whether to go ahead, and connect only after the user says
+yes; a request that already asks for it (a working shop, real bookings) is that
+yes. The headless skill names the solutions it connects and how. A page that
+promises nothing beyond its content stops at the pages.
 
 - **Without a shell of your own**, the site's [Dev Machine](#the-dev-machine) is
   the project. Read `.agents/skills/wix-headless-kit/SKILL.md` from a command and
