@@ -450,10 +450,11 @@ function deriveRecord(name, dir) {
       const arg = params.match(/^\s*(\w+)\??\s*:\s*([A-Z]\w*)/);
       const argShape = arg && typeShape(sources, arg[2], skip);
       if (argShape) form.arg = `${arg[1]}: ${argShape}`;
+      const retType = form.returns.match(/Promise<(\w+)/)?.[1];
+      const result = retType && typeShape(sources, retType, skip);
+      if (result) form.result = result;
       // `cursorPaging` or `paging`, depending on the method.
       form.keys = membersOf(typeBody(sources, arg?.[2] ?? '') ?? '').map((x) => x.name);
-      const retType = form.returns.match(/Promise<(\w+)/)?.[1];
-      if (retType) form.result = typeShape(sources, retType, skip);
       meth.queryForm = form;
       break;
     }
