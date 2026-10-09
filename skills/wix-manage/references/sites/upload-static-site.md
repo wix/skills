@@ -440,18 +440,19 @@ yes; a request that already asks for it (a working shop, real bookings) is that
 yes. The headless skill names the solutions it connects and how. A page that
 promises nothing beyond its content stops at the pages.
 
-The headless skill starts at its entry page,
+The headless skill starts at its cold-start page,
 `https://www.wix.com/skills/headless-cold-start/headless-kit.md`: read it from the
 skills you have installed when they are there, otherwise online (see
-[Reading the pages this recipe links](#before-the-calls)). It owns the run, and
-its steps are shell commands: the bootstrap that checks the Wix CLI, the folder
-check, the deploy of the solution's code, the seed, the build and the release.
-They run:
+[Reading the pages this recipe links](#before-the-calls)). It installs the skills,
+runs a bootstrap that checks the Wix CLI login, and hands off to the kit's
+`SKILL.md`, which deploys the solution's code, seeds, builds and releases. All of
+that is shell commands, and they run:
 
 - **With a shell that reaches the network**, in a folder holding the site.
-- **Without one**, on the site's [Dev Machine](#the-dev-machine), as
-  `execute-command` calls in its code folder: the site's files, the skills and a
-  logged-in Wix CLI are already there.
+- **Without one**, on the site's [Dev Machine](#the-dev-machine), through
+  `execute-command` in its code folder. The skills are installed there and the
+  Wix CLI is logged in, so the install and the bootstrap pass at once. The
+  cold start's API-call guide is for an agent with no Dev Machine either.
 
 With a shell, the folder comes from the site's own download:
 
