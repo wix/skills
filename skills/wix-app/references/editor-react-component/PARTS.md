@@ -51,7 +51,7 @@ CSS driven by a data attribute, or disable it when it should remain visible.
 After generating the manifest, confirm that its `elements` include every
 intended named part.
 
-## Plausibility Check
+## Sanity Check
 
 For each candidate, ask:
 
