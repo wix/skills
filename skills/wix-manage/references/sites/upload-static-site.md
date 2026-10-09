@@ -349,7 +349,7 @@ workaround.
 
 ## Route the request correctly
 
-- **A new site from the user's files**: [Choose the route](#what-decides-the-route).
+- **A new site from the user's files**: [What decides the route](#what-decides-the-route).
 - **A change to a site published this way**: the [same site](#change-it-later);
   upload and release while it's anonymous.
 - **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
