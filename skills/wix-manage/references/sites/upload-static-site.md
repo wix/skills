@@ -384,35 +384,10 @@ unzip project.zip -d project
 
 ## Send feedback to Wix
 
-When this flow didn't work well enough, offer to send it to Wix as feedback:
-a route failed and you fell back, a call errored or needed retries, images had
-to wait on the user, or the recipe left you guessing and you had to invent a
-workaround. Offer once per issue, invite the user to add their own words, and
-send only after they say yes. The message summarizes the run: what the user
-wanted, the route you took, and each friction point with its call, status,
-error text and request id, plus what you did instead and the site id. Confirm
-the wording first, and leave out tokens and credentials.
-
-The call identifies the user, so it takes a user identity: a token from
-`npx @wix/cli@latest token`, or account scope in a script. A site token is
-refused as anonymous. `200` with `{}` means it was sent.
-
-```bash
-curl -sS -X POST "https://www.wixapis.com/mcp-serverless/v1/headless-feedback" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"message":"<the composed feedback>"}'
-```
-
-In an `ExecuteWixAPI` script, with the message as one text file in the `files`
-param:
-
-```javascript
-async function run() {
-  return await wix.request({ scope: 'account', method: 'POST',
-    url: 'https://www.wixapis.com/mcp-serverless/v1/headless-feedback',
-    body: { message: files[0].content } });
-}
-```
+When this flow didn't work well enough, offer to send it to Wix as feedback,
+following [Send Feedback to Wix](send-feedback-to-wix.md): a route failed and
+you fell back, a call errored or needed retries, images had to wait on the
+user, or the recipe left you guessing and you had to invent a workaround.
 
 ## Route the request correctly
 
