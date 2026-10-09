@@ -21,9 +21,9 @@ The route follows from how the files' bytes can reach Wix.
 | The Wix MCP, and no shell with network access | [Drop through `ExecuteWixAPI`](#from-an-executewixapi-script), then continue on the site's [Dev Machine](#the-dev-machine) for whatever the drop can't carry. |
 | None of these | The [drop page](#the-drop-page): the user uploads the files. |
 
-Without a shell, every byte you publish is written out by you inside a tool
-call. That is free for a page already in the conversation, costs a read and a
-rewrite for text files on disk, and is the hard part for images — see
+Without a shell, every file you publish is text you write out inside a tool
+call. That is free for a page already in the conversation and costs a read and
+a rewrite for text files on disk. Images never travel that way; see
 [Images](#images).
 
 **The Dev Machine is the shell for an agent that has none.** Wix runs one per
@@ -31,7 +31,8 @@ headless site, holding the site's code with Node and the Wix CLI. Without a
 shell of your own, move to it once the drop has the site live and any of these
 holds:
 
-- the site has images that are on your disk, or that have a URL and should be hosted on Wix;
+- the site's images come in by URL, from the web or from the user's Media
+  Manager, and should keep the paths the pages already use;
 - the site will change again — later in this conversation or in another one —
   so no change resends the whole site;
 - the site needs a build, or a business solution such as a store or bookings:
@@ -101,22 +102,23 @@ curl -sS -X POST \
 
 Both calls in one script. The files go in the tool's **`files` param**, never
 in `code`: one bundle where each file starts with a line `=== FILE: <path> ===`
-followed by its raw text, `<path>` relative to the site root. A binary file
-starts with `=== FILE: <path> base64 ===` and is followed by its base64 (see
-[Images](#images) for what fits). Nothing in the bundle is escaped.
+followed by its raw text, `<path>` relative to the site root. Nothing in the
+bundle is escaped. It carries text files only; images reach the site as
+described in [Images](#images).
 
 ```
 === FILE: index.html ===
 <!doctype html><html><head><title>Northwind Studio</title>
-<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1><img src="assets/logo.png"></body></html>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1><img src="assets/logo.svg"></body></html>
 === FILE: assets/styles.css ===
 body { font-family: sans-serif; margin: 0; padding: 4rem; }
-=== FILE: assets/logo.png base64 ===
-iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
+=== FILE: assets/logo.svg ===
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>
 ```
 
-In `code` the bundle is the `files` global, `[{ path, content, encoding? }]`,
-and `wix.multipart()` turns it into the upload body.
+In `code` the bundle is the `files` global, `[{ path, content, encoding? }]`
+(files from `attachments` arrive there with `encoding: 'base64'`), and
+`wix.multipart()` turns it into the upload body.
 
 ```javascript
 async function run() {
@@ -250,33 +252,28 @@ Every route:
 
 ## Images
 
-Each image's bytes reach Wix once. Use the first carrier you have:
+You never write an image's bytes yourself, as base64 or in any other form:
+model output corrupts them past a few thousand characters, and every byte costs
+tokens. An SVG is text and goes in like a page. Every other image reaches Wix
+one of four ways:
 
-1. **A shell with network access**: in the drop, from disk.
-2. **ChatGPT**: the `ExecuteWixAPI` tool's `attachments` param takes files of up
-   to 10 MB per call; they arrive as base64 entries in the `files` global.
-3. **A public URL**: keep the absolute URL in the page, or host the file on Wix by
-   fetching it on the Dev Machine:
-   `curl -sSL -o public/assets/hero.jpg "https://…"`.
-4. **Only on your disk, without network access**: the base64 goes through your
-   own output. About 3,000 characters of base64 survive one call intact; longer
-   runs come back corrupted.
-   - A file whose base64 fits, such as an icon or a small logo, goes in the
-     drop's `files` bundle.
-   - A few larger files go to the Dev Machine in pieces. Split the base64 into
-     3,000-character chunks and append each with its own command,
-     `printf '%s' '<chunk>' >> /tmp/hero.b64 && wc -c < /tmp/hero.b64`, checking
-     the length. Then decode once, `base64 -d /tmp/hero.b64 > public/assets/hero.png`,
-     and compare its `sha256sum` with the original. On a mismatch, compare
-     prefix hashes to find the first bad chunk and resend from there.
-   - Beyond about 30,000 characters of base64 in all, the upload is the user's.
-     Publish the pages and give them the site's Media Manager,
-     `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`. Once they
-     have uploaded, [list the site's files](../media/upload-media-to-wix.md) and
-     point the pages at their `static.wixstatic.com` URLs.
+1. **A shell with network access** uploads it in the drop, from disk.
+2. **ChatGPT** passes the file itself in the `ExecuteWixAPI` tool's
+   `attachments` param, up to 10 MB per call.
+3. **A public URL**: the page keeps the absolute URL, or the Dev Machine fetches
+   the file into the site, `curl -sSL -o public/assets/hero.jpg "https://…"`.
+4. **The user uploads it** to the site's Media Manager. This is the way for
+   images on your disk when you have no network access. Publish the pages
+   first, then name the missing files and give the user
+   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`. When they are
+   done, [list the site's files](../media/upload-media-to-wix.md) and match each
+   to the page's reference by `displayName`. On the Dev Machine, fetch each file
+   to the path the page already uses and release. Without one, point the page's
+   references at the files' `static.wixstatic.com` URLs and drop again.
 
-Never stand in drawings of your own for the user's images. An image that isn't
-on the site yet is named in the closing message.
+Never stand in drawings or placeholders of your own for the user's images, and
+never shrink or re-encode them. The closing message names every image still
+missing.
 
 ## The Dev Machine
 
