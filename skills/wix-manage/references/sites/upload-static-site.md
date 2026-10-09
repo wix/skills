@@ -362,14 +362,13 @@ headless skill, `https://wix.com/headless/skill.md`. The project takes over the
 same site, appId and URL.
 
 **A mock that shows a business solution gets it connected in the same run.**
-Add-to-cart buttons, a buy or checkout link, a booking form, a menu with
-ordering, tickets, a sign-in, a donate button: each one names a Wix Business
-Solution the page pretends to have, and "make this a real site" includes making
-it work. Publish the pages first, then connect what the markup shows: Stores
-for a cart, Bookings for appointments, Events for tickets, Restaurants for
-orders, Members for sign-in, Donations for giving. The closing message says what
-is now real and what the mock still only shows. A brochure site, or a request
-for a static site, stops at the pages.
+Any control on the page that promises what static files can't deliver —
+something to buy, book, order, join, submit or pay — is a Wix Business Solution
+the page pretends to have, and "make this a real site" includes making it work.
+Publish the pages first, then connect the solution behind each such control;
+the headless skill names the solutions it connects and how. The closing message
+says what is now real and what the mock still only shows. A page that promises
+nothing beyond its content, or a request for a static site, stops at the pages.
 
 - **Without a shell of your own**, the site's [Dev Machine](#the-dev-machine) is
   the project. Read `.agents/skills/wix-headless-kit/SKILL.md` from a command and
