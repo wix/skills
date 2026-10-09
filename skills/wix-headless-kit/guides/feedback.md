@@ -75,8 +75,16 @@ command, not the site-scoped one the seeds use (`token --site` carries a metaSit
 rejects it as anonymous).
 
 On a Wix Dev Machine the Wix CLI is signed in with an API key (`~/.wix/auth/api-key.json`), not
-the user's login. There, send through the Wix MCP's `SupportAndFeedback` tool, which takes the same
-message.
+the user's login. There, send the same request from the Wix MCP's `ExecuteWixAPI`, which carries
+the user's login, with the message as one text file in its `files` param:
+
+```javascript
+async function run() {
+  return await wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/mcp-serverless/v1/headless-feedback',
+    body: { message: files[0].content } });
+}
+```
 
 ```bash
 TOKEN=$(npx @wix/cli@latest token)
