@@ -203,14 +203,12 @@ A `200` on create is not proof the form is queryable or that the dashboard will 
    submits fine — **do not report success; fix the layout placement or the GUID casing and
    re-create.**
 
-   **⚠️ This step does NOT prove the `identifier`s are right, so check them in step 1.** An
-   unrecognized `identifier` is accepted and stored: it comes back in `formFields[]` and accepts
-   submissions, so every API-level check passes — but the **Wix Forms editor cannot render a field
-   it doesn't recognize**, so the owner can't see or edit it, and a form built entirely from
-   invented identifiers opens **empty** in the editor. Whether such a field is also omitted from
-   `formSummary.fields` is unverified, so don't rely on this count to catch it. Assert every
-   returned `formFields[].identifier` against the known values in About Form Fields — a plain string
-   comparison, no extra call.
+   **⚠️ An unrecognized `identifier` is accepted on create and dropped on read.** The create call
+   returns 200, but the field is missing from `formFields[]` and `formSummary.fields` when the form
+   is read back, so its values never reach the owner's dashboard and the editor can't show it. A
+   free-text message is `TEXT_AREA` (`inputType: STRING`, `componentType: TEXT_INPUT`), never an
+   invented `CUSTOM_*`. Use only identifiers listed in About Form Fields; the read-back count in
+   step 1 catches a dropped field.
 
 3. **⚠️ If the form has a multi-choice ARRAY field (`CHECKBOX_GROUP` / `TAGS`), the two checks above
    are NOT enough — send one real `createSubmission`.** A malformed `arrayOptions.validation.items`
