@@ -25,7 +25,7 @@
 // `need`; when a committed copy lacks it, that part is fetched at the same commit.
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -42,7 +42,7 @@ const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", time
 // skill folder, its entry for this skill. "wix/skills" → the default branch of that repository;
 // "https://github.com/owner/repo/tree/<ref>" → that ref.
 export function installSource() {
-  const skill = SKILL_ROOT.split("/").pop();
+  const skill = basename(SKILL_ROOT);
   let dir = SKILL_ROOT;
   for (let i = 0; i < 6; i++) {
     const p = join(dir, "skills-lock.json");

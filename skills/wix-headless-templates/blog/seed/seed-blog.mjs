@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 
 const API = "https://www.wixapis.com";
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
@@ -319,7 +320,7 @@ async function ensureLabelsPersisted(ctx, { cats, tgs, created, posts, catId, ta
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {
