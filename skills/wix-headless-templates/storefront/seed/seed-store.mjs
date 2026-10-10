@@ -29,7 +29,7 @@
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
-import { resolveItemImages, resolveItemImagesDetailed } from "../../shared/seed/images.mjs";
+import { resolveItemImagesDetailed } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
 import { isMain } from "../../shared/seed/main.mjs";
@@ -672,13 +672,52 @@ export function validateProducts(products) {
   if (problems.length) throw new Error(`invalid seed plan:\n  - ${problems.join("\n  - ")}`);
 }
 
+/** A Media Manager file name from a plan name, the way Wix slugs product names. */
+const fileSlug = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "product";
+
 /**
  * ONE-CALL seed: install → currency → create products → categories → attach images, ids
  * threaded in memory. This is the default path — call it once instead of the individual
- * functions.
+ * functions. Every image (products, choices, categories) starts resolving first, in one wave
+ * beside the install and the catalog's provisioning, which take half a minute on a fresh site:
+ * an image needs only its prompt or source, never the entity it ends up on.
  */
 export async function setupStore(ctx, { products = [], categories = {}, categoryDetails = {}, currency } = {}) {
   validateProducts(products);
+
+  // The image wave: products, then each product's choice images, then categories. A failed
+  // image resolves to an error entry, never a rejection (resolveItemImagesDetailed's contract).
+  const choiceSpecs = products.map((pl) =>
+    (pl.options ?? []).flatMap((o) =>
+      (o.choices ?? [])
+        .filter((c) => typeof c === "object" && c && (c.imageMediaId || c.imageUrl || c.imagePath || c.imagePrompt))
+        .map((c) => ({
+          optionName: o.name,
+          choiceName: c.name,
+          productName: pl.name,
+          altText: c.altText ?? `${pl.name} — ${c.name}`,
+          spec: { mediaId: c.imageMediaId, url: c.imageUrl, path: c.imagePath, prompt: c.imagePrompt, displayName: `${fileSlug(pl.name)}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` },
+        })),
+    ));
+  const flatChoiceSpecs = choiceSpecs.flat();
+  const names = Object.keys(categories);
+  const imageWave = resolveItemImagesDetailed(ctx, [
+    ...products.map((p) => ({
+      mediaId: p.imageMediaId,
+      url: p.imageUrl,
+      path: p.imagePath,
+      prompt: p.imagePrompt,
+      displayName: `${fileSlug(p.name)}.png`,
+    })),
+    ...flatChoiceSpecs.map((c) => c.spec),
+    ...names.map((n) => ({
+      url: categoryDetails[n]?.imageUrl,
+      path: categoryDetails[n]?.imagePath,
+      prompt: categoryDetails[n]?.imagePrompt,
+      displayName: `${n.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`,
+    })),
+  ]);
+
   await installStoresApp(ctx);
   // Before any product exists: a product's price is stored in the site currency at create time,
   // so switching afterwards leaves the catalog priced in the old one.
@@ -709,21 +748,14 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   });
   const idByName = new Map(withNames.map((p) => [p.name, p.id]));
 
-  // Category images resolve before the categories exist (the create call takes the image URL);
-  // a failed image leaves the category text-only, like a product.
-  const names = Object.keys(categories);
+  // The wave has been running since the start; the categories take their image URL at create
+  // time, so they wait for it here. A failed image leaves its entity text-only.
+  const resolved = await imageWave;
+  const catResolved = resolved.slice(products.length + flatChoiceSpecs.length);
   const details = {};
-  if (names.length) {
-    const catFiles = await resolveItemImages(ctx, names.map((n) => ({
-      url: categoryDetails[n]?.imageUrl,
-      path: categoryDetails[n]?.imagePath,
-      prompt: categoryDetails[n]?.imagePrompt,
-      displayName: `${n.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`,
-    })));
-    names.forEach((n, i) => {
-      details[n] = { description: categoryDetails[n]?.description, imageUrl: catFiles[i]?.url };
-    });
-  }
+  names.forEach((n, i) => {
+    details[n] = { description: categoryDetails[n]?.description, imageUrl: catResolved[i]?.file?.url };
+  });
   const cats = names.length ? await createCategories(ctx, names, details) : [];
   if (cats.length) {
     const mapping = {};
@@ -734,36 +766,12 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     if (Object.keys(mapping).length) await addProductsToCategories(ctx, mapping);
   }
 
-  // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
-  // bulk-attach. Failures leave the product text-only; the seed's exit never depends on images.
-  // A choice's image (`options[].choices[].imageUrl|imagePath|imagePrompt`) resolves in the same
-  // wave and joins the product's gallery; pass 3 links it to its choice.
-  const choiceSpecs = products.map((pl, i) =>
-    (pl.options ?? []).flatMap((o) =>
-      (o.choices ?? [])
-        .filter((c) => typeof c === "object" && c && (c.imageMediaId || c.imageUrl || c.imagePath || c.imagePrompt))
-        .map((c) => ({
-          optionName: o.name,
-          choiceName: c.name,
-          productName: pl.name,
-          altText: c.altText ?? `${pl.name} — ${c.name}`,
-          spec: { mediaId: c.imageMediaId, url: c.imageUrl, path: c.imagePath, prompt: c.imagePrompt, displayName: `${withNames[i].slug || "product"}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` },
-        })),
-    ));
-  const flatChoiceSpecs = choiceSpecs.flat();
-  const resolved = await resolveItemImagesDetailed(ctx, [
-    ...withNames.map((p, i) => ({
-      mediaId: products[i]?.imageMediaId,
-      url: products[i]?.imageUrl,
-      path: products[i]?.imagePath,
-      prompt: products[i]?.imagePrompt,
-      displayName: `${p.slug || "product"}.png`,
-    })),
-    ...flatChoiceSpecs.map((c) => c.spec),
-  ]);
-  const files = resolved.map((r) => r.file);
+  // Pass 2 — images: the wave resolved them (import by url / generate by prompt); bulk-attach
+  // them now. Failures leave the product text-only; the seed's exit never depends on images.
+  // A choice's image joins the product's gallery; pass 3 links it to its choice.
+  const files = resolved.slice(0, products.length + flatChoiceSpecs.length).map((r) => r.file);
   const choiceFiles = files.slice(withNames.length);
-  const choiceResolved = resolved.slice(withNames.length);
+  const choiceResolved = resolved.slice(withNames.length, products.length + flatChoiceSpecs.length);
   let cursor = 0;
   const choiceLinks = choiceSpecs.map((specs) =>
     specs.map((c) => ({ ...c, file: choiceFiles[cursor++] })).filter((c) => c.file));

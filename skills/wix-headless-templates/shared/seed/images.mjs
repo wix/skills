@@ -21,10 +21,14 @@ const API = "https://www.wixapis.com";
 // sizes), then bfl (strictest filter — refuses trademark-ish prompts). A refusal or failure
 // falls through to the next model.
 const MODELS = ["runware:400@1", "google:4@2", "bfl:5@1"];
+// runware answers in ~5s, but some requests hang until the timeout: a model that has not
+// answered by HEDGE_MS gets the next one started beside it, and the first image wins.
+const HEDGE_MS = 10_000;
 /** Allowed dimensions: 1024×1024 (square — entities), 1376×768 (16:9 hero), 1200×896 (4:3). */
 export const IMAGE_SIZES = { square: [1024, 1024], hero: [1376, 768], editorial: [1200, 896] };
 
-async function req(ctx, path, body, timeoutMs = 45_000) {
+async function req(ctx, path, body, timeoutMs = 45_000, signal) {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const res = await fetch(API + path, {
     method: "POST",
     headers: {
@@ -33,44 +37,79 @@ async function req(ctx, path, body, timeoutMs = 45_000) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal && AbortSignal.any ? AbortSignal.any([signal, timeout]) : timeout,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`POST ${path} -> ${res.status}: ${JSON.stringify(json).slice(0, 300)}`);
   return json;
 }
 
+async function generateWith(ctx, model, prompt, width, height, signal) {
+  const r = await req(ctx, "/runwareschemaless/v1/request", [
+    {
+      taskType: "imageInference",
+      taskUUID: randomUUID(), // must be a real UUIDv4 — slugs 400
+      outputType: "URL",
+      outputFormat: "PNG",
+      positivePrompt: prompt,
+      width,
+      height,
+      model,
+      numberResults: 1,
+    },
+  ], 45_000, signal);
+  const url = r?.data?.[0]?.imageURL;
+  if (!url) throw new Error(`no imageURL in response: ${JSON.stringify(r).slice(0, 200)}`);
+  return url;
+}
+
 /**
- * Generate one image; returns its short-lived URL (import it immediately). Tries each model
- * once — a per-model failure (bad params, 5xx, credit exhaustion, timeout) falls through to
- * the next; throws only after all models failed.
+ * Generate one image; returns its short-lived URL (import it immediately). Models are tried in
+ * order: a model that fails (bad params, 5xx, a refusal, credit exhaustion, a timeout) starts the
+ * next at once, and one still silent after HEDGE_MS gets the next started beside it; the first
+ * image wins and the others are aborted. Throws only after every model failed.
  * docs: no public reference page for /runwareschemaless/v1/request; the request shape is the one below, verified live
  */
-export async function generateImage(ctx, prompt, { width = 1024, height = 1024 } = {}) {
-  let lastErr;
-  for (const model of MODELS) {
-    try {
-      const r = await req(ctx, "/runwareschemaless/v1/request", [
-        {
-          taskType: "imageInference",
-          taskUUID: randomUUID(), // must be a real UUIDv4 — slugs 400
-          outputType: "URL",
-          outputFormat: "PNG",
-          positivePrompt: prompt,
-          width,
-          height,
-          model,
-          numberResults: 1,
+export function generateImage(ctx, prompt, { width = 1024, height = 1024, hedgeMs = HEDGE_MS } = {}) {
+  return new Promise((resolve, reject) => {
+    const running = new Set();
+    let next = 0;
+    let settled = false;
+    let lastErr;
+    let timer;
+    const finish = () => {
+      settled = true;
+      clearTimeout(timer);
+      for (const ac of running) ac.abort();
+    };
+    const launch = () => {
+      if (settled || next >= MODELS.length) return;
+      const model = MODELS[next++];
+      const ac = new AbortController();
+      running.add(ac);
+      clearTimeout(timer);
+      if (next < MODELS.length) timer = setTimeout(launch, hedgeMs);
+      generateWith(ctx, model, prompt, width, height, ac.signal).then(
+        (url) => {
+          running.delete(ac);
+          if (settled) return;
+          finish();
+          resolve(url);
         },
-      ]);
-      const url = r?.data?.[0]?.imageURL;
-      if (url) return url;
-      lastErr = new Error(`no imageURL in response: ${JSON.stringify(r).slice(0, 200)}`);
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr;
+        (e) => {
+          running.delete(ac);
+          if (settled) return;
+          lastErr = e;
+          if (next < MODELS.length) launch();
+          else if (!running.size) {
+            finish();
+            reject(lastErr);
+          }
+        },
+      );
+    };
+    launch();
+  });
 }
 
 const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".avif": "image/avif" };
