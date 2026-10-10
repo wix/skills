@@ -100,10 +100,13 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
   both is rejected.
-  The bulk create stocks a product through its variants' choices, so a product **without
-  options** is created `OUT_OF_STOCK` whatever its `inStock` or `quantity` says. The script
-  stocks those afterwards with one Bulk Create Inventory Items call (`productId`, its single
-  `variantId`, and `inStock: true` or the `quantity`); a seed made call by call does the same.
+  Right after the bulk create, a product's own stock summary can still read `OUT_OF_STOCK`
+  while its inventory items are already stocked; the items are what a buyer's add is checked
+  against. A product **without options** can still end up with no item (a create that ran while
+  the catalog was provisioning): the script stocks those afterwards with one Bulk Create
+  Inventory Items call (`productId`, its single `variantId`, and `inStock: true` or the
+  `quantity`), where `ALREADY_EXISTS` means the item is already there. A seed made call by call
+  reads the items (Query Inventory Items) and creates only the missing ones.
 - `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
   currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before
