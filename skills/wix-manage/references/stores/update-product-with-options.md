@@ -1,6 +1,6 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), and revision-based updates to prevent conflicts.
+description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, product visibility (hide, unhide, or show a product in the storefront — a product-level `visible` update, never a delete), editing existing descriptions while preserving formatting and links, and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
@@ -14,7 +14,8 @@ Every Catalog V3 product update is revision-based:
 - Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product, its `product.revision`, and its existing variants. Search Products and Query Products responses do not include `variantsInfo.variants`, so a variant or price update assembled from a search result sends an empty variants array and is rejected. Re-read the product before every variant-level update.
 - Include `product.id` and the current `product.revision` in every [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) PATCH body.
 - Update Product is a partial update: only `product`, `product.id`, and `product.revision` are required, and top-level fields you omit (for example `name`, `ribbon`, `brand`) are left unchanged. The full-array overwrite rule applies only to the repeated fields `options`, `modifiers`, and `variantsInfo.variants`.
-- For simple text/HTML description updates, prefer `plainDescription`. Use `description` only when sending a Rich Content object.
+- Get Product returns a default set of fields. When an update keeps or carries over existing projected data, request that data in `fields` before building the PATCH. For any edit that keeps part of the existing product description, request `DESCRIPTION`; a read without it has no Rich Content document to preserve.
+- For description changes, see [Update Description](#update-description): replacing the whole description uses `plainDescription`; editing any existing content uses the Rich Content `description` field.
 
 ### Find the product by name
 
@@ -24,12 +25,16 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   -H "Authorization: <AUTH>" \
   -d '{
     "search": {
-      "expression": "Product name"
+      "search": {
+        "expression": "Product name",
+        "fields": ["name"],
+        "fuzzy": false
+      }
     }
   }'
 ```
 
-For product-name lookup, prefer Search Products before retrieving the product by ID. Search only resolves the product ID; it does not replace the Get Product call.
+Read `products` from the search response. Prefer an exact name match; otherwise select a clear, unambiguous match, such as a name differing only in capitalization. If no result clearly identifies the requested product, or multiple products could match, ask the user which product they mean. Use the selected `products[].id` in Get Product; search only resolves the ID.
 
 ### Get the current revision
 
@@ -37,6 +42,15 @@ For product-name lookup, prefer Search Products before retrieving the product by
 curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Authorization: <AUTH>"
 ```
+
+To edit an existing description, request its Rich Content document in the same read:
+
+```bash
+curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION" \
+  -H "Authorization: <AUTH>"
+```
+
+`product.description` is returned only when `DESCRIPTION` is requested. Request every other projected field that you need to carry over with its documented `fields` value as well.
 
 ## Common Update Patterns
 
@@ -66,9 +80,16 @@ Visibility behaviour to report back accurately:
 - For a product **with** options, product and variant visibility are independent: setting `product.visible` to `false` leaves each `variantsInfo.variants[].visible` as it was.
 - Point-of-sale visibility is a separate field, `visibleInPos`. Only change it when the user asks about POS. It is always `false` for `productType: DIGITAL`.
 
-### Update Description Only
+### Update Description
 
-For a normal user request like "set the product description to X", use `plainDescription` with valid HTML. The API converts it to rich content.
+Choose the flow from the user's request:
+
+- "Set the description to X", "replace the description", or "write a new description": **Replace the Description**.
+- "Add", "append", "prepend", "insert", "fix a typo", or "remove" existing text: **Edit the Existing Description**. Any request that keeps part of the current description is an edit.
+
+#### Replace the Description
+
+For a request like "set the product description to X", use `plainDescription` with valid HTML. The API converts it to rich content.
 
 Do not send a plain string in `description`. `description` is a Rich Content object.
 
@@ -85,7 +106,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-Use `description` only when you intentionally need to send Rich Content:
+For a full replacement with node types beyond the paragraph below, read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md). Existing-document edits use the read-modify-write flow below:
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -121,6 +142,77 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
         }
     }
   }'
+```
+
+Both fields replace the whole description. To keep any existing content, use **Edit the Existing Description**.
+
+#### Edit the Existing Description
+
+For prepend, append, and text removal, execute the documented calls directly: the examples in this recipe and the request/response contract below provide the fields this flow needs. Reuse this contract rather than rediscovering the Search, Get, and Update schemas. Consult further API documentation when the request requires a field or node type not covered here, or when a documented call fails. Read [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) when creating other node types.
+
+| Call | Request | Response fields used next |
+|---|---|---|
+| Search Products, when given a name | Use [Find the product by name](#find-the-product-by-name); `search.search` contains `expression`, `fields: ["name"]`, and `fuzzy: false`. | `products[]` contains `id` and `name`; select the product using the name-matching guidance above. |
+| Get Product | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION` | `product.id`, `product.revision`, and the full `product.description`. |
+| Update Product | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, description }, fields: ["DESCRIPTION"] }`, using the read ID/revision and complete edited document. | `product.description` verifies the edit; `product.revision` is the new revision. |
+
+The request-level `fields` array projects response data; it is separate from `search.search.fields`, which selects the fields searched. A description-only PATCH needs only the three product fields shown above; variant, option, price, and physical-property fields belong to other update flows.
+
+Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response.
+
+1. Read [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) with `?fields=DESCRIPTION`. Its response wraps the document as `product.description` and the current revision as `product.revision`. If the description is missing or has no `nodes`, stop and ask before replacing it.
+2. Copy the complete returned `product.description`, including node IDs, decorations, `metadata`, and `documentStyle`, **before locating any nodes to edit**. Traverse the copy and keep references to its nodes; edit that same copy and send it in the PATCH. For prepend/append, insert one new `PARAGRAPH` at the beginning/end of its `nodes`. For a wording change, modify only the matching `TEXT` node's `textData.text`.
+3. For removal, trim only the requested substring from the matching TEXT run and keep its decorations. When the whole run or node is targeted, remove that entry from its parent `nodes` array. If text spans runs, trim the matching portion of each run. Preserve all other nodes, spacer paragraphs, and document properties. If the requested change is already present, report that state and finish without a write.
+4. Check the in-memory PATCH document before sending: the targeted text has the requested value and untouched content matches the read document. Then send [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `product.id`, the read revision, the full edited `product.description`, and top-level `fields: ["DESCRIPTION"]`. Leave other product fields out of this description-only update; `plainDescription` is for whole-description replacements.
+5. Verify `product.description` in the PATCH response: the requested change is present and untouched nodes, decorations, and document properties remain. Confirm completion from that response and finish. A successful PATCH has already performed the edit; verification does not require another PATCH. If the response is incomplete, read once with `?fields=DESCRIPTION` to verify. If a revision conflict rejects the write, read the latest document and reapply the requested change only if it is still needed.
+
+For a prepend, build the complete PATCH body from the Get Product response (`getResponse` below). For an append, use `push` instead of `unshift`:
+
+```javascript
+const product = getResponse.product;
+const description = structuredClone(product.description);
+description.nodes.unshift({
+  type: "PARAGRAPH",
+  nodes: [{
+    type: "TEXT",
+    textData: { text: "New text.", decorations: [] }
+  }],
+  paragraphData: { textStyle: { textAlignment: "AUTO" } }
+});
+const patchBody = {
+  product: { id: product.id, revision: product.revision, description },
+  fields: ["DESCRIPTION"]
+};
+```
+
+Send `patchBody` as the JSON body of the PATCH above. The copy retains the returned document's other properties and existing nodes, including links and buttons; the response's `product.description` includes the edited document because the request projects `DESCRIPTION`.
+
+For example, remove only `read ` from a TEXT run containing `read the guide`, retaining its BOLD and LINK decorations and siblings. Locate the run in the cloned document, including nested nodes, rather than assuming a paragraph/run index. This example handles a phrase within one TEXT run; a phrase spanning runs uses the per-run trimming in step 3, with all run references taken from the copy.
+
+```javascript
+const product = getResponse.product;
+const description = structuredClone(product.description);
+const target = "read the guide";
+const replacement = "the guide";
+const matches = [];
+function locate(node) {
+  if (node.type === "TEXT" && node.textData.text.includes(target)) matches.push(node.textData);
+  for (const child of node.nodes ?? []) locate(child);
+}
+locate(description);
+if (matches.length !== 1) throw new Error("Clarify which text occurrence to edit");
+const textData = matches[0];
+const originalText = textData.text;
+const start = originalText.indexOf(target);
+if (start !== originalText.lastIndexOf(target)) throw new Error("Clarify which text occurrence to edit");
+textData.text = originalText.slice(0, start) + replacement + originalText.slice(start + target.length);
+if (textData.text === originalText || textData.text.includes(target)) {
+  throw new Error("The PATCH document must contain the requested edit before writing");
+}
+const patchBody = {
+  product: { id: product.id, revision: product.revision, description },
+  fields: ["DESCRIPTION"]
+};
 ```
 
 ### Update Options and Variants
@@ -339,8 +431,8 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 
 ```bash
 # A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
-# this exact shape is the one that succeeds; the two shortcuts (choices by name only, or a variant
-# without its choices/price) each 400.
+# keep the option and choice IDs when rebuilding the options array, and each variant
+# with its choices and price. Omitting those identities or required variant fields can reject the update.
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" -H "Authorization: <AUTH>" \
   -d '{ "product": { "id": "{productId}", "revision": "{currentRevision}",
@@ -357,9 +449,67 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
             "choices": [ { "optionChoiceIds": { "optionId": "{optionId}", "choiceId": "{choiceId2}" } } ] } ] } } }'
 ```
 
+### Prepare a Price or SKU Update
+
+For an existing product's price or SKU, use the name lookup above, then Get Product. Request `?fields=VARIANT_OPTION_CHOICE_NAMES&fields=MERCHANT_DATA&fields=PRODUCT_CHOICES_MEDIA_REFERENCES&fields=PRODUCT_CHOICES_DISPLAY_IMAGE` so the same read supplies variant choice names, permitted cost data, and choice media to preserve. The response is `{ product: { id, revision, options, variantsInfo: { variants } } }`; search results cannot supply the variants.
+
+Build the complete writable options and variants from that response, then change only the requested field. **Every variants PATCH also includes the complete `options` array**, even for an SKU-only change; for a product without options, send `options: []`. Omitting options caused `428 MISSING_OPTIONS_ON_UPDATE_VARIANTS`. A variant retains its `id`, `choices`, price, and other writable fields. The example below copies the writable fields used by these flows and strips calculated monetary values; inventory status and variant media are read-only and are not part of this update.
+
+```javascript
+const product = getResponse.product;
+const pick = (source, keys) => Object.fromEntries(keys
+  .filter(key => source[key] !== undefined)
+  .map(key => [key, structuredClone(source[key])]));
+const amountOnly = value => ({ amount: value.amount });
+const options = (product.options ?? []).map(option => ({
+  ...pick(option, ["id", "name", "optionRenderType"]),
+  choicesSettings: { choices: option.choicesSettings.choices.map(choice =>
+    pick(choice, ["choiceId", "name", "choiceType", "colorCode", "media", "displayImage"])) }
+}));
+const variants = product.variantsInfo.variants.map(variant => {
+  const copy = pick(variant, ["id", "visible", "sku", "barcode", "physicalProperties"]);
+  copy.choices = (variant.choices ?? []).map(choice => ({
+    optionChoiceNames: pick(choice.optionChoiceNames, ["optionName", "choiceName", "renderType"])
+  }));
+  copy.price = { actualPrice: amountOnly(variant.price.actualPrice) };
+  if (variant.price.compareAtPrice) copy.price.compareAtPrice = amountOnly(variant.price.compareAtPrice);
+  if (variant.revenueDetails?.cost) copy.revenueDetails = { cost: amountOnly(variant.revenueDetails.cost) };
+  if (variant.digitalProperties) {
+    copy.digitalProperties = variant.digitalProperties.digitalFile
+      ? { digitalFile: { id: variant.digitalProperties.digitalFile.id } } : {};
+  }
+  if (copy.physicalProperties?.pricePerUnit) delete copy.physicalProperties.pricePerUnit.value;
+  return copy;
+});
+const variantPatchProduct = {
+  id: product.id, revision: product.revision, options,
+  variantsInfo: { variants }
+};
+```
+
+For the single-variant product case (a user asking to change a simple product's price), use the prepared body above:
+
+```javascript
+if (variants.length !== 1) throw new Error("Clarify which variants should receive the price change");
+variants[0].price.actualPrice.amount = "25"; // requested price
+const pricePatchBody = { product: variantPatchProduct };
+```
+
+For a named option choice such as `Size = Large`, use its returned choice names to select one variant, then change its SKU:
+
+```javascript
+const matches = variants.filter(variant => variant.choices.some(choice =>
+  choice.optionChoiceNames.optionName === "Size" && choice.optionChoiceNames.choiceName === "Large"));
+if (matches.length !== 1) throw new Error("Clarify which variant should receive the SKU change");
+matches[0].sku = "MUG-L-001"; // requested SKU
+const skuPatchBody = { product: variantPatchProduct };
+```
+
+Send the selected body to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` in the same ExecuteWixAPI invocation as the name lookup and Get Product. Its response is `{ product: { id, revision, variantsInfo: { variants } } }`; verify the changed variant by its retained ID and confirm from that response. These examples provide the request fields and response paths for price and SKU changes; proceed directly after reading this recipe. Discover further schemas only for fields not covered here or a documented call that fails.
+
 ### Update Variant Price Only
 
-Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it.
+Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it. The curl below is for a single-variant product without options. For an optioned product, use the complete options/variants body in **Prepare a Price or SKU Update**.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -369,10 +519,12 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
       "id": "{productId}",
       "revision": "{currentRevision}",
+      "options": [],
       "variantsInfo": {
         "variants": [
           {
             "id": "{existingVariantId}",
+            "choices": [],
             "price": {
               "actualPrice": {
                 "amount": "29.99"
@@ -387,7 +539,23 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Attach a Digital File
 
-A `DIGITAL` product is **sellable** only when its variant carries both a digital file and stock. Upload the file first ([Upload Media to Wix](../media/upload-media-to-wix.md) → Generate Upload URL, then `PUT` the bytes), then send its `file.id` on the variant — `digitalProperties` is a variant field, never a product field.
+For an existing digital product rejected at add-to-cart with `ITEM_NOT_FOUND_IN_CATALOG`, use this repair flow. For a supplied external PDF URL, the table below is the complete request/response contract; execute it directly after reading this recipe. Use its linked method URLs as source citations. Further schema discovery is needed only for a field not covered here or a documented call that fails.
+
+First locate the existing product with the name lookup above, then Get Product for its revision and variants. If the requested product is absent or ambiguous, ask for the correct product or site and stop before uploading media. Repairing an existing product does not authorize creating a replacement.
+
+A `DIGITAL` product is sellable only when its variant has both a digital file and stock. For a product already in stock, keep that stock unchanged and attach only the missing file. `digitalProperties` belongs to the variant.
+
+| Call | Request | Response fields used next |
+|---|---|---|
+| [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Use the `search.search` name lookup above. | `products[].id` and `name` select the existing product. |
+| [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=VARIANT_OPTION_CHOICE_NAMES&fields=MERCHANT_DATA&fields=PRODUCT_CHOICES_MEDIA_REFERENCES&fields=PRODUCT_CHOICES_DISPLAY_IMAGE` | `product.id`, `revision`, `productType`, `options`, and `variantsInfo.variants` supply the complete writable state. |
+| [Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file) | `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "{suppliedPdfUrl}", "mimeType": "application/pdf", "displayName": "download.pdf", "private": true }` | `file.id` and `file.operationStatus`. Import the exact supplied URL once; retain this ID. |
+| [Get File Descriptor](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor), only while PENDING | `GET https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}` | `file.operationStatus`: wait for `READY`, stop on `FAILED`. The response is wrapped in `file`. |
+| [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, options, variantsInfo: { variants } } }` | `product.variantsInfo.variants[].digitalProperties.digitalFile.id` confirms the attachment on the retained variant ID. |
+
+Chain these requests in one ExecuteWixAPI invocation; with `wix.request`, the REST response body is in `response.data`. Private import keeps the stored download private. For a local file rather than a supplied URL, read [Upload Media to Wix](../media/upload-media-to-wix.md) and use its Generate Upload URL flow instead.
+
+Prepare the complete options/variants body as in **Prepare a Price or SKU Update**, retain every variant ID, choice and price, and set the requested variant's `digitalProperties.digitalFile.id` to the imported file ID. For one existing variant with no options:
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -397,22 +565,21 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
       "id": "{productId}",
       "revision": "{currentRevision}",
+      "options": [],
       "variantsInfo": {
-        "variants": [
-          {
-            "id": "{existingVariantId}",
-            "price": { "actualPrice": { "amount": "9.99" } },
-            "visible": true,
-            "inventoryItem": { "inStock": true },
-            "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
-          }
-        ]
+        "variants": [{
+          "id": "{existingVariantId}",
+          "choices": [],
+          "price": { "actualPrice": { "amount": "{existingPrice}" } },
+          "visible": true,
+          "digitalProperties": { "digitalFile": { "id": "{fileId}" } }
+        }]
       }
     }
   }'
 ```
 
-Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in the response.
+Copy any other writable variant fields from the read product using the preparation example. Chain the product lookup, read, selected upload path, and one PATCH in one ExecuteWixAPI invocation. Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile.id` in the PATCH response; no extra product read is needed when that response supplies it.
 
 ## Important Notes
 
@@ -439,4 +606,4 @@ Confirm from `product.variantsInfo.variants[].digitalProperties.digitalFile` in 
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
 | `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
-| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Set `inventoryItem.inStock: true` on the variant |
+| `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Update its stock through the Inventory API; inventory is separate from an Update Product PATCH |
