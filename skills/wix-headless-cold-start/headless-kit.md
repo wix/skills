@@ -18,16 +18,23 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 ```
 
 Requires a shell whose network reaches Wix, Node ≥ 22.12 and a logged-in Wix CLI; the bootstrap
-checks the CLI and guides the login. **Check the network first:** `curl -sI https://www.wixapis.com`
-answers with an HTTP status line when your shell reaches Wix. When it doesn't, or you have no shell,
-the three commands can't work where you are: skip them, and do the run through the Wix MCP from the
-kit's API-call guide (the last row below).
+checks the CLI and guides the login. **Check two things first**, since a sandbox can allow one and
+not the other:
+
+- **Can your shell install skills?** `npm view skills version` prints a version, or
+  `curl -sI https://github.com` answers.
+- **Does it reach Wix?** `curl -sI https://www.wixapis.com` answers with an HTTP status line.
+
+Both: run the three commands. Install but not Wix: run the install (the first command), skip the
+bootstrap, and do the run through the Wix MCP from the kit's API-call guide on disk. Neither, or no
+shell: the guide from the skills you have, or online.
 
 | your situation | go to |
 |---|---|
 | the bootstrap reports `logged_in` | Phase 3: open `.agents/skills/wix-headless-kit/SKILL.md` and follow it |
 | the install ran, the bootstrap reports `cli_unreachable` or `login_failed` | show the user the `detail`, then the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` |
-| your shell can't reach Wix, or there is no shell, and the Wix MCP is connected | the guide: from the installed skills when you have them (a plugin, an earlier install), online at `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` otherwise |
+| the install ran, your shell can't reach Wix, and the Wix MCP is connected | the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` |
+| nothing can be installed, and the Wix MCP is connected | the guide from the skills you have (a plugin's folder), online at `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` otherwise |
 
 The guide is the same run as Wix API calls, step by step, with the file that carries each
 contract; the [last section](#the-guide-the-kits-run-as-wix-api-calls) says how its paths resolve.
@@ -54,7 +61,10 @@ into it. A project already on disk is its own folder — its root, where the `pa
 `index.html` or `wix.config.json` is. **Whatever the brief hands over as files goes into that folder
 first**, before Phase 1: a zip is extracted there, a URL is downloaded and extracted there, so that
 anything it carries — a `wix.config.json` included — sits at the root. Do not interpret what is
-there: the skill reads the folder and knows what it is. Everything below — the skills, the
+there: the skill reads the folder and knows what it is. Moving an existing Wix site to headless
+starts from the project the site's dashboard hands over (Headless settings, "Go Headless"): when
+the brief asks for it without that download, ask the user for the prompt the dashboard gives them,
+and its download goes into the folder like any other (`wix-headless-kit/guides/migration.md`). Everything below — the skills, the
 bootstrap, the scaffold — lands in this folder too, so a later session opened in the project finds
 all of it.
 
@@ -81,8 +91,10 @@ CI=1 npx skills@latest add wix/skills \
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
 - **`wix-manage`** — management recipes, for admin work on the site after it exists.
 
-They land under `.agents/skills/`. When the skills are already installed, by a plugin or an
-earlier install, skip this phase and use them where they are.
+They land under `.agents/skills/`. An earlier install in this folder is used as it is. A plugin's
+copy can be older than the kit this page describes (a missing `wix-headless-kit` is the sign), so
+install even when a plugin carries skills; when nothing can be installed, use the plugin's copy, and
+read online any file it lacks.
 
 ## Phase 2 — Run the bootstrap (deterministic, shared)
 

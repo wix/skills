@@ -45,6 +45,9 @@ Unchanged from SKILL.md step 2 and its Verticals table: the brief names the busi
 names the solutions it needs. Read each solution's `{TEMPLATES}/{solution}/INSTRUCTIONS.md` for
 what it covers and `{TEMPLATES}/{solution}/seed/SEED.md` for what a seeded site holds.
 
+A brief that needs no solution (a game, a landing page, a tool) is a run of two steps: the site
+(step 2, with no `seedOptions`) and the frontend (step 5). No apps, no seed.
+
 ## 2. The site
 
 The CLI's `npm create @wix/new` is one call: `POST /headless-business-setup/v1/headless-business/provision`,
@@ -73,7 +76,10 @@ the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` 
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. A photo already in
 the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
-`SEED.md`), as it is: an import by URL would copy it. Image prompts need the Media Manager; without
+`SEED.md`), as it is: an import by URL would copy it. A photo on a site the user dropped is served
+with the drop, not from the Media Manager: it goes in by its live URL, imported once through
+`{MANAGE}/references/media/upload-media-to-wix.md`, and the file id the import returns is what the
+product or service takes. Image prompts need the Media Manager; without
 it, products and services stay text-only, say so. The scripts read
 a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
 is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
