@@ -22,7 +22,7 @@ checks the CLI and guides the login. When your shell doesn't reach Wix, or you h
 bootstrap can't work where you are: skip it, and do the run through the Wix MCP from the kit's
 API-call guide. Skills already on disk (a plugin, an earlier install) are used where they are; with
 none, install them when your shell can, and read the guide online when it can't. The skills and the
-Wix MCP arrive separately: a plugin can put its skills on disk while its Wix connector is not yet
+Wix MCP might arrive separately: a plugin can put its skills on disk while its Wix connector is not yet
 connected. The MCP is connected when its tools (`ExecuteWixAPI`) are in your tool list.
 
 | your situation | go to |
