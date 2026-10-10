@@ -27,7 +27,9 @@ This skill is one of a set, and the guide reads from three of them:
   exact shape before writing a call.
 
 Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
-`npx skills add`, or in a plugin's folder. Read them from disk when they are there. Online, they are
+`npx skills add`, in `.claude/skills/` or `/mnt/skills/`, or in a plugin's folder; a skill your client
+offers you by name is one of these. Read them from disk when they are there, with no install, clone
+or online read. Online, they are
 published alongside each other under the same names (the registry also serves each without its
 `wix-` prefix, `headless-templates` for `wix-headless-templates`, which is the `base` its manifest
 shows; both forms resolve), each with a manifest of its files, and in the
@@ -98,8 +100,12 @@ the site's Media Manager, such as one the user uploaded, goes in by its file id 
 `SEED.md`), as it is: an import by URL would copy it. A photo on a site the user dropped is served
 with the drop, not from the Media Manager: it goes in by its live URL, imported once through
 `{MANAGE}/references/media/upload-media-to-wix.md`, and the file id the import returns is what the
-product or service takes. Image prompts need the Media Manager; without
-it, products and services stay text-only, say so. The scripts read
+product or service takes. An `imagePrompt` is generated through
+`{MANAGE}/references/media/generate-image-with-ai.md` (`POST /runwareschemaless/v1/request`, the body
+`generateImage` in `{TEMPLATES}/shared/seed/images.mjs` builds), then imported through
+`upload-media-to-wix.md`, and the file id goes on the entity, as for a dropped photo; this is the
+seed's default for every product and service. An entity stays text-only only when generation or the
+import fails; say which. The scripts read
 a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
 is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
 a paid image.
