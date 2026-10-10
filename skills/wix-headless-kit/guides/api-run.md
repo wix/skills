@@ -23,7 +23,9 @@ This skill is one of a set, and the guide reads from three of them:
 
 Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
 `npx skills add`, or in a plugin's folder. Read them from disk when they are there. Online, they are
-published alongside each other under the same names, each with a manifest of its files, and in the
+published alongside each other under the same names (the registry also serves each without its
+`wix-` prefix, `headless-templates` for `wix-headless-templates`, which is the `base` its manifest
+shows; both forms resolve), each with a manifest of its files, and in the
 `wix/skills` repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the
 whole set on disk from a clone. Online pages are read with the Wix MCP's `ReadFullDocsArticle`
 when it is connected: a client's web fetch may open only URLs the user gave or a search returned.
@@ -73,9 +75,9 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 (what to create, how many, which images), the order the entities need, and the traps the script
 encodes (a Bookings service needs a category to be visible and takes resource ids, not staff ids;
 a Forms field is registered by its `validation` block; a product's choice photos are linked after
-the gallery holds them; a product without options comes out of the bulk create `OUT_OF_STOCK`, even
-when its inventory reports a provisioning error, and is stocked by a second call, Bulk Create
-Inventory Items, as `SEED.md` says; stock that isn't counted, such as "made to order", is
+the gallery holds them; right after a bulk create a product's own stock summary can still read
+`OUT_OF_STOCK` while its inventory items are already stocked, so check the items (Query Inventory
+Items) and create only the missing ones, as `SEED.md` says, where `ALREADY_EXISTS` means stocked; stock that isn't counted, such as "made to order", is
 `inStock: true`, never a missing quantity, which leaves the product unbuyable). Read `SEED.md`
 before the first create call: it maps the brief's words to the fields. Those fields are the
 script's input, not the request: the body each create sends is built in the script (for products,
@@ -137,7 +139,12 @@ holds; nothing invented, as in SKILL.md step 4.
 **The calls**, on that second path, take their shape from the kit's own transport for the solution,
 `{TEMPLATES}/{solution}/app/wix/{solution}/*.ts` (`services.ts`, `booking.ts`, `catalog.ts`, …,
 with `{TEMPLATES}/shared/app/wix/sdk.ts` for the client wiring): those files call the same SDK
-modules the page imports, and they are verified. Copy the form of the call, not the file. The
+modules the page imports, and they are verified. Copy the form of the call, not the file. A page
+that talks to Wix over plain `fetch`, with no SDK, takes them from the REST twins instead:
+`{TEMPLATES}/shared/rest/client.ts` (the visitor token and the request) and
+`{TEMPLATES}/{solution}/rest/*.ts` (the calls; for a store, `storefront/rest/cart.ts` and
+`storefront/rest/catalog.ts`). Read those files by name; the manifest and the solution's whole
+`INSTRUCTIONS.md` are not needed to find them. The
 cores beside them (`*-core.ts`) hold the rules the page needs and nothing else does: which fields
 to read, how a price or a duration is formatted, which slot is bookable, how an id is read. Copy
 those core functions into the page as they are, with only the types removed (`cart-core.ts`'s
@@ -154,10 +161,12 @@ the kit's files already encode: SDK query methods return a query builder finishe
 and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
 `rawId`). Dates travel as local wall-clock strings in the business time zone. A page cannot be
 opened here, so a wrong shape fails silently in the browser. Check the data code before the upload:
-get a real response through `ExecuteWixAPI` for the calls the page makes (the product query; the
-cart's calls where your identity can make them), run the page's data code on it in your sandbox's
-Node, and look for names, prices and quantities in the output, not `[object Object]` or
-`undefined`.
+get a real response through `ExecuteWixAPI` for each call the page makes, run the page's data code
+on it in your sandbox's Node, and look for names, prices and quantities in the output, not
+`[object Object]` or `undefined`. The cart's calls run as a visitor, which `wix.request` (the
+owner) is not: in the script, mint a visitor token with the site's public client id as
+`shared/rest/client.ts` does (`POST https://www.wixapis.com/oauth2/token`, `grantType: "anonymous"`),
+send the cart calls with it through `fetch`, add one product and read the cart back.
 
 ## 6. Closing
 
