@@ -142,8 +142,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      `astro.config.mjs` `integrations: [wix(), react()]`, `adapter: wixHostingAdapter()`,
      `output: "server"`, `security: { checkOrigin: false }`, `image.domains` with
      `static.wixstatic.com`. An Astro project made without the CLI has none of that; add it
-     before deploying, and the site serves every route. The integration supports **Astro 5**: a
-     project on another major is pinned to 5 first, or connected as a React host.
+     before deploying, and the site serves every route. The integration's current major
+     (`@wix/astro` 3, as in this skill's templates) requires **Astro 7**: a project on an earlier
+     major moves to 7 first, or is connected as a React host.
    - **React and other bundlers** release their own build as files. So routes are hash routes,
      or one emitted HTML file per route linked by its file name — decided before the first route
      is written; any URL handed to Wix as a return target must be one the host serves. Verify by

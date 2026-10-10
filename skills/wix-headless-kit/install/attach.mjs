@@ -51,6 +51,7 @@ import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, r
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
+import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { frontendPresent, siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
@@ -281,9 +282,6 @@ if (stack === "astro" && mode === "scaffold") {
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   pkg.name = folderName;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-  const gi = join(projectDir, ".gitignore");
-  const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
-  if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
 }
 writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify({ appId, siteId }, null, 2) + "\n");
 // The env the CLI's build reads. Same content `wix env pull` writes; written here so the build
@@ -297,6 +295,7 @@ writeFileSync(join(projectDir, ".env.local"), [
   `WIX_CLIENT_SECRET=${quote(secrets.appSecret)}`,
   "",
 ].join("\n"));
+ignoreEnvLocal(projectDir); // in every mode: a linked project's own .gitignore may not cover it
 emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaffolded", { folder: folderName, stack, template: mode === "scaffold" && stack === "astro" ? join(TEMPLATES, verticals[0], "project") : null });
 // the agent config files `wix create` writes (attach never runs the CLI's scaffold at all); fill-only
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));

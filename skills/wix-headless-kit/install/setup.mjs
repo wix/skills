@@ -35,6 +35,7 @@ import { cpSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rm
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
+import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 import { folderShape, siteContext } from "./context.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
@@ -164,9 +165,6 @@ if (mode === "create") {
     scaffolded.name = basename(cwd).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "site";
     writeFileSync(pkgPath, JSON.stringify(scaffolded, null, 2) + "\n");
   }
-  const gi = join(cwd, ".gitignore");
-  const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
-  if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
 } else if (publishedStatic) {
   // ---- 1 · a published static site: the config came with the folder, the site exists -------------
   // No init: `wix.config.json` already names the site the pages are published on (and its app). The
@@ -243,7 +241,10 @@ if (mode === "create" && !subfolder && projectDir !== cwd) {
   }
 }
 
-// ---- 2d · the agent config files `wix create` would have written --------------------------------
+// ---- 2d · .env.local ignored, and the agent config files `wix create` would have written ---------
+// Every mode leaves a .env.local with the app secret (env pull, init, the migration download), and a
+// folder's own .gitignore may not cover it.
+ignoreEnvLocal(projectDir);
 // Skipped by the CLI because of --skip-install. Fill-only: a project that has its own AGENTS.md
 // keeps it (the event says `kept`).
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack, ...(migrating ? { migration: { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId } } : {}) }));
