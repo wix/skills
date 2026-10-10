@@ -1,0 +1,14 @@
+{
+  "name": "@wix/auto_sdk_bookings_extended-bookings",
+  "version": "1.0.136",
+  "main": "./build/cjs/index.js",
+  "types": "./build/cjs/index.d.ts",
+  "dependencies": {
+    "@wix/sdk-runtime": "^1.0.24",
+    "@wix/sdk-types": "^1.17.11"
+  },
+  "wix": {
+    "artifact": { "artifactId": "auto-sdk-bookings-extended-bookings", "groupId": "com.wixpress.public-sdk-dependencies" },
+    "sdkDependency": { "fqdnNamespace": "extendedBookings", "fqdn": "wix.bookings.reader.v2.extended_booking" }
+  }
+}

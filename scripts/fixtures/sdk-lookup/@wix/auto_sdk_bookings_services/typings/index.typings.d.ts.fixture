@@ -1,0 +1,93 @@
+// Trimmed from @wix/auto_sdk_bookings_services@1.0.289 build/cjs/bookings-services-v2-service-services.universal-C8fV-5oa.d.ts:
+// a builder that also takes a query object (offset `paging`), the entity's
+// query spec, and queryPolicies, a query of another type in the same namespace.
+interface Service {
+    _id?: string | null;
+    name?: string | null;
+}
+interface QueryServicesResponse {
+    services?: Service[];
+    pagingMetadata?: PagingMetadataV2;
+}
+interface PagingMetadataV2 {
+    count?: number | null;
+    offset?: number | null;
+}
+interface BookingPolicyWithServices {
+    bookingPolicy?: BookingPolicy;
+    connectedServices?: Service[];
+}
+interface BookingPolicy {
+    _id?: string | null;
+    name?: string | null;
+}
+interface QueryPoliciesResponse {
+    bookingPolicies?: BookingPolicyWithServices[];
+    pagingMetadata?: PagingMetadataV2;
+}
+interface CursorQuery {
+    filter?: Record<string, any> | null;
+}
+interface QueryServicesOptions {
+}
+/**
+ * Creates a query to retrieve a list of `service` objects.
+ * @public
+ * @permissionId BOOKINGS.SERVICES_READ
+ * @applicableIdentity APP
+ * @fqn wix.bookings.services.v2.ServicesService.QueryServices
+ */
+declare function queryServices(options?: QueryServicesOptions): ServicesQueryBuilder;
+interface ServicesQueryBuilder {
+    /** @param propertyName - Property whose value is compared with `value`.
+     * @param value - Value to compare against.
+     */
+    eq: (propertyName: '_id' | 'name' | 'category.id', value: any) => ServicesQueryBuilder;
+    /** @param limit - Number of items to return, which is also the `pageSize` of the results object. */
+    limit: (limit: number) => ServicesQueryBuilder;
+    find: () => Promise<ServicesQueryResult>;
+}
+interface ServicesQueryResult {
+    items: Service[];
+}
+/**
+ * @hidden
+ * @fqn wix.bookings.services.v2.ServicesService.QueryServices
+ * @requiredField query
+ */
+declare function typedQueryServices(query: ServiceQuery, options?: QueryServicesOptions): Promise<NonNullablePaths<QueryServicesResponse, `services` | `services.${number}.type`, 6>>;
+interface ServiceQuerySpec extends QuerySpec {
+    paging: 'offset';
+    wql: [
+        {
+            fields: ['_id', 'category._id', 'name'];
+            operators: '*';
+            sort: 'BOTH';
+        }
+    ];
+}
+type CommonQueryWithEntityContext = Query<Service, ServiceQuerySpec>;
+type ServiceQuery = {
+    /**
+    Paging options to limit and skip the number of items.
+    */
+    paging?: {
+        limit?: NonNullable<CommonQueryWithEntityContext['paging']>['limit'] | null;
+        offset?: NonNullable<CommonQueryWithEntityContext['paging']>['offset'] | null;
+    };
+    filter?: CommonQueryWithEntityContext['filter'] | null;
+    sort?: {
+        fieldName?: NonNullable<CommonQueryWithEntityContext['sort']>[number]['fieldName'];
+        order?: NonNullable<CommonQueryWithEntityContext['sort']>[number]['order'];
+    }[];
+};
+/**
+ * Retrieves a list of booking policies and how many services are connected to each policy.
+ * @param query - Information about filters, paging, and sorting.
+ * @public
+ * @requiredField query
+ * @permissionId BOOKINGS.BOOKING_POLICY_READ
+ * @applicableIdentity APP
+ * @fqn wix.bookings.services.v2.ServicesService.QueryPolicies
+ */
+declare function queryPolicies(query: CursorQuery): Promise<NonNullablePaths<QueryPoliciesResponse, `bookingPolicies`, 6>>;

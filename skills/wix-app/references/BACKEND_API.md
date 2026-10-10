@@ -227,7 +227,7 @@ caller before invoking an elevated method. Use `httpClient.fetchWithAuth()` to
 send caller identity; a bare `fetch` does not supply that identity. Authentication
 alone does not grant permission to perform the operation.
 
-Dashboard callers are Wix users. For site/editor callers, `members.getMyMember()`
+Dashboard callers are Wix users. For site/editor callers, `members.getCurrentMember()`
 identifies a logged-in member but does not prove site ownership. Owner-only
 operations belong in a dashboard extension; do not expose them to site visitors
 on the assumption that member authentication proves ownership.

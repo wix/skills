@@ -33,8 +33,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] **🛑 Component Docs Gate (MANDATORY, dashboard UI only):** For each patterns symbol you are about to write, decided **from the lookup output** which single artifact answers the question you actually have — the import line, an example, or the props file — and read only that one, per [Component Selection Order](#component-selection-order)'s "the short version". State which artifact you read per symbol, and why, before the first line of JSX. Reading a doc *and* its bundle for the same symbol, or opening a page for an import line the lookup already gave you, is the failure this gate exists to prevent.
 
     For the object `useTableCollection()` returns, read [TABLE_STATE.md](references/dashboard-page/TABLE_STATE.md) — a state object you receive rather than construct, whose members are unobvious and several plausible ones absent.
-- [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
-  - [ ] **Dashboard page over Wix data:** located the method and verified every mapped field against the installed SDK's own declaration first — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
+- [ ] **Step 3:** Checked API references; resolved every vertical entity in **one** `sdk-lookup.cjs` call ([SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity)); used the docs only for what it does not print
+  - [ ] **Dashboard page over Wix data:** took the method from the lookup and verified every mapped field against the declaration it points to (`type … file:line`) — see [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md), and [QUERY_AND_PAGING.md](references/dashboard-page/QUERY_AND_PAGING.md) before writing `fetchData`. A field marked `@deprecated` still compiles and renders something plausible and wrong.
   - [ ] **Vertical SDK prerequisites — for every `@wix/*` vertical the page touches, including one added later:** confirmed the package is actually a dependency (installed it if not), and noted the Dev Center permission scope the read needs — a missing scope produces a page that builds, mounts and shows nothing. Both in [DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#two-things-to-settle-before-you-write-the-page); the scope goes under [Manual Steps Required](#-manual-steps-required). **A second vertical added during Step 4b needs this check too, and its failure must not take down the page** — see [A second vertical is a second scope](references/dashboard-page/DATA_SOURCES.md#a-second-vertical-is-a-second-scope).
   - [ ] **Modelled the call on the SDK, not the REST page:** namespace name, `_id` vs `id`, no `ReturnType` on overloaded methods, no `hasNext` on `PagingMetadataV2` — see [The SDK is not the REST API](references/dashboard-page/DATA_SOURCES.md#the-sdk-is-not-the-rest-api).
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
@@ -227,7 +227,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 
 **CRITICAL:** Data owned by an existing Wix business app is read and written through that app's SDK module — NEVER modeled as a new CMS Data Collection. A custom collection for such data starts empty and stays disconnected from the real records (e.g., a "refunds dashboard" built on CMS shows an empty state while refunded orders exist in Wix eCommerce).
 
-Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package. If the entity isn't listed or you're unsure, run `SearchWixSDKDocumentation` for it — **never conclude CMS with zero MCP calls**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
+Find the entity the user mentioned in the [entity → SDK module map](references/SDK_MODULE_MAP.md) and use that package; the [SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity) then names the namespace and method. If the entity isn't listed and the lookup finds nothing, run `SearchWixSDKDocumentation` for it — **never conclude CMS without one of the two**. CMS is only for data your app itself introduces (configuration, rules, app-specific records) that no Wix app manages.
 
 **SDK types:** access them through the namespace you import, as `<namespace>.<TypeName>`, using any type name shown in the docs — never import a type by name from the `@wix/<pkg>` root.
 
@@ -236,6 +236,8 @@ import { orders } from '@wix/ecom';
 const rows: orders.Order[] = [];              // ✅
 // import type { Order } from '@wix/ecom';    // ❌ has no exported member 'Order'
 ```
+
+**A map keyed by an SDK enum:** fields are typed `<Enum>WithLiterals` (the enum or its string values). `Partial<Record<bookings.BookingStatusWithLiterals, V>>` cannot be indexed by a status (TS7053). Use `Record<…WithLiterals, V>` with an entry for every value, or key a partial map by the string values: `` Partial<Record<`${bookings.BookingStatus}`, V>> ``.
 
 ---
 
@@ -307,7 +309,7 @@ Who the extension runs as decides everything below — the Category column in [E
 
 **Default: call the SDK directly from the extension.** Routing a call that didn't need it is not a harmless extra hop — it is how working features break. Sort by who the call acts for, never by its scope name:
 
-- **Acts for the current visitor or member** — their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getMyMember`, and anything else operating on "my" or "the current" entity. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order with no buyer, a booking with no attendee.
+- **Acts for the current visitor or member** — their cart, checkout, booking, order, reservation, or profile: `currentCartV2.*`, `cartV2.placeOrder`, `bookings.createBooking`, `members.getCurrentMember` (REST *Get My Member*), and anything else operating on "my" or "the current" entity. These resolve the actor from the caller's session, so elevating runs them as the app and detaches the result from the person who asked — an order with no buyer, a booking with no attendee.
 - **The platform filters the result by caller** — an elevated call returns what the direct call withheld, so a "fix" for a sparse result becomes a leak. Wix Data `items.*` follows the collection's `dataPermissions` (scaffolded default: `itemRead: 'ANYONE'`, writes `'PRIVILEGED'` — fix writes with permissions, not routing; see [DATA_COLLECTION.md](references/DATA_COLLECTION.md)). Catalog reads return base fields to anyone, withholding `MERCHANT_DATA` and non-visible products unless the app holds `SCOPE.STORES.PRODUCT_READ_ADMIN`. `members.getMember`/`queryMembers` withhold `PRIVATE` members from visitor and member callers.
 
 **Route out only when the method acts on the business as a whole**, which a visitor or member genuinely cannot do: `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management. **When the method's docs show the call elevated, route it out and elevate there** — from any host, dashboard included, because `auth.elevate` only works in backend code, so the endpoint is the only place the documented pattern can run.
@@ -344,7 +346,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 ### Step 3: Read Extension Reference, Check API References, Then Discover (if needed)
 
-**Workflow: Read extension reference → Check API references → Use MCP only for gaps.**
+**Workflow: Read extension reference → Check API references → SDK lookup for vertical entities → docs only for what the lookup does not print.**
 
 1. **Read the extension reference file** for the chosen extension type from the table above
 2. **Identify required APIs** from user requirements
@@ -355,23 +357,23 @@ Use the Extension Types Reference Table and decision content above. State extens
    - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
    - App Tools (AI assistant tools) → read `references/APP_TOOLS.md`; it links to `references/app-tools/TOOLS.md` (declaration) and `references/service-plugin/TOOLS_PROVIDER.md` (handler)
 4. **Verify the specific method/event exists** in references
-5. **ONLY use MCP discovery if NOT found** in reference files
+5. **For vertical entities, run the [SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity)** once, with every entity; use MCP discovery only for what neither the references nor the lookup answer
 
 **Platform APIs (never discover - in references):**
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix eCommerce, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations — find the right `@wix/*` package in the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) module map first, then discover methods via MCP
+- Wix Stores (**⚠️ MUST use Stores Versioning reference** — V1/V3 catalog check required), Wix eCommerce, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations — find the right `@wix/*` package in the [SDK-First Rule](#sdk-first-rule-existing-wix-app-data-is-never-cms) module map first, install it, then get the namespace and method from the [SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity)
 
 **Decision table:**
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
-| "Display store products"             | ✅ YES (MCP discovery)               | Wix Stores API — **include Stores Versioning reference** |
-| "Dashboard for orders / refunds"     | ✅ YES (MCP discovery)               | Wix eCommerce API (`@wix/ecom`) — **NEVER a CMS collection** |
-| "Show booking calendar"              | ✅ YES (MCP discovery)               | Wix Bookings API not in reference files             |
-| "Send emails to users"               | ✅ YES (MCP discovery)               | Wix Triggered Emails not in reference files         |
-| "Get member info"                    | ✅ YES (MCP discovery)               | Wix Members API not in reference files              |
+| "Display store products"             | ✅ YES (SDK lookup)                  | Wix Stores API — **include Stores Versioning reference** |
+| "Dashboard for orders / refunds"     | ✅ YES (SDK lookup)                  | Wix eCommerce API (`@wix/ecom`) — **NEVER a CMS collection** |
+| "Show booking calendar"              | ✅ YES (SDK lookup)                  | Wix Bookings API (`@wix/bookings`); SPI leaves cover only service plugins |
+| "Send emails to users"               | ✅ YES (SDK lookup, then MCP)        | Wix Triggered Emails not in reference files         |
+| "Get member info"                    | ✅ YES (SDK lookup)                  | Wix Members API not in reference files              |
 | "Listen for cart events"             | Check `COMMON-EVENTS.md`             | MCP discovery only if event missing in reference    |
 | "Store data in collection"           | WIX_DATA.md ✅ Found                 | ❌ Skip discovery (covered by reference)             |
 | "Create CMS collections for my app"  | Data Collection reference            | ❌ Skip discovery (covered by dedicated reference)   |
@@ -381,7 +383,26 @@ Use the Extension Types Reference Table and decision content above. State extens
 | "Settings page with form inputs"     | N/A (UI only, no external API)       | ❌ Skip discovery                                   |
 | "Dashboard page with local state"    | N/A (no external API)                | ❌ Skip discovery                                   |
 
-**MCP Tools for discovery (when needed):**
+#### SDK lookup: one call for every vertical entity
+
+```bash
+node <this-skill-dir>/scripts/sdk-lookup.cjs contacts orders --intent search   # search | read | write | event | all
+```
+
+Run it from the app directory, after the vertical packages are installed, with **every entity the feature touches in one call**. Per entity it prints:
+
+- the namespace to use and why (a `search*` method for a search; the highest API version; a curated rule), and the other namespaces;
+- the import line;
+- `shape`: the one call to write for the intent, and why — a `search*` method with the term in `search.search.expression`; else one filter object with `$or`; a query builder only for filters on the fields its operators list, because builders chain clauses with AND and have no `or()` — most builder methods also take one query object (`queryX({ filter, sort, … })`, printed as `or`), which is the call when the builder has no filter at all (`extendedBookings`);
+- each method for the intent, with its call shape (`search`, `query-builder`, `query`, …), permission and required fields (`revision`); for a search, query or list method also `arg` and `returns`, the keys of its argument (`cursorPaging`, `filter`, `sort`, `search`) and of its response (`pagingMetadata.cursors.next`); a filter list only when the package declares one (otherwise the method docs page lists the fields) — not who may call it: that stays with [Identity and Elevation Requirement](#identity-and-elevation-requirement);
+- the entity type as `file:line` — the declaration to verify fields against ([DATA_SOURCES.md](references/dashboard-page/DATA_SOURCES.md#confirming-a-field--the-part-that-ships-bugs));
+- the curated rules for the entity (`note`), such as the Stores V1/V3 check.
+
+Take the namespace, the method and the call shape from its output; do not re-derive them from the typings. **Never run one query per field and merge the results in the client** — when the `shape` line says one call cannot match several fields, use the one field it names and tell the user. When the lookup prints `site`, the choice depends on the site (Stores: call `getCatalogVersion()` and support both). `not installed` prints the install command: install, then run the lookup again. A name it does not know exits 1 with near matches.
+
+It prints each search and query method's closed filter list (free-text fields, operators per field, sort) from the package's own declarations. It prints a method's **permission scope ID** only when the package declares it; when the output says `scope: not in the package`, get the scope from the method's docs page (the next list).
+
+**MCP Tools for discovery (for what the lookup does not print):**
 
 - `SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
 - `ReadFullDocsMethodSchema` - Full type schema for a specific SDK method (parameters, return type, permissions)
