@@ -1,0 +1,75 @@
+name: sites/upload-static-site-store-mock
+description: >-
+  Verifies that when a user hands over a shop mock (product cards with Add to cart buttons) and
+  asks for it to be a real site on Wix, the agent first gets the site live from the files, then
+  explains which controls are still inert, which business solution would make them work (Wix
+  Stores, seeded from the mock's own products) and what connecting it involves, and asks for
+  approval before connecting anything. Guards against connecting a store without asking, against
+  installing a store without publishing the pages, against ending with no offer on a page whose
+  commerce is inert, and against inventing a cart. The Wix MCP routes ready-made site files to
+  the recipe before any docs read, so the scenario asserts on the trace and the outcome.
+triggerPrompt: >-
+  My designer sent me the mock of my little shop, Sable & Oak. I want this to be a real site on
+  Wix. Here is index.html: <!doctype html><html><head><title>Sable & Oak</title></head><body>
+  <h1>Sable & Oak</h1><p>Homeware made slowly.</p><section><article><h3>Oak Serving Board</h3>
+  <p>White oak, oiled. 40 × 24 cm.</p><span>$68</span><button>Add to cart</button></article>
+  <article><h3>Stoneware Mug</h3><p>Matte oatmeal glaze. 350 ml.</p><span>$34</span>
+  <button>Add to cart</button></article><article><h3>Linen Throw</h3><p>Stonewashed linen.
+  130 × 180 cm.</p><span>$145</span><button>Add to cart</button></article></section>
+  <a href="#cart">Cart (0)</a></body></html>
+tags: [sites]
+assertions:
+  - tool: CreateSiteFromTemplate
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user pasted a one-page shop mock with three products, prices and "Add to cart" buttons
+      and asked for a real site on Wix. The right flow: get the site live from the files first,
+      then explain what is still only a mock and offer to connect it, and connect nothing until
+      the user agrees. Examine the tool-call trace, not just the prose.
+
+      Pass if ALL hold:
+      - exactly ONE provision call (POST .../headless-business-setup/v1/headless-business/provision)
+        and the pages published to that site (a drop through a script, curl or the Wix MCP's
+        UploadHeadlessWebsiteFiles tool), giving one live URL, AND
+      - the closing message gives the live URL and the dashboard link, names the controls that
+        do not work yet (the Add to cart buttons and the cart link), names Wix Stores as what
+        would make them work, says what connecting involves (the three products created from the
+        mock's names and prices, the store wired into these pages), and asks the user whether to
+        go ahead, AND
+      - nothing was connected before that answer: no Wix Stores install, no product created, no
+        storefront code deployed.
+
+      Fail if:
+      - the agent installs Wix Stores, creates products or deploys a storefront without asking
+        first, OR
+      - the run ends with the pages live and no mention that the cart is inert or of a way to make
+        it work, OR
+      - a second site was created, OR
+      - it claims the shop works, OR
+      - it invents a cart or checkout endpoint, or edits the mock's markup to fake a working
+        cart, OR
+      - it rebuilds the site from a template or a site-creation tool instead of publishing the
+        user's page.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how cleanly the agent went from mock to a live site with a clear, approval-seeking
+      offer. Examine the tool-call trace. Score 0-10, where 10 means: one provision, the pages
+      live in one drop, the live URL verified, and a closing message that separates what works
+      from what is still a mock, names the business solution and what it would create from the
+      page's content, and asks before connecting.
+
+      Penalize and LIST any of:
+        - connecting the store without asking
+        - an offer too vague to approve (no solution named, nothing said about what gets created)
+        - a second site or two live URLs
+        - docs re-read repeatedly, or a probing spiral before the drop
+        - a publish reported without a URL returned by the drop
+
+      For each issue name the likely skill gap behind it.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list, or 'clean publish and offer'>"}

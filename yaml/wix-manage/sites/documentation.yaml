@@ -34,3 +34,7 @@ apiDoc:
       title: Upload a Website or HTML Files
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/send-feedback-to-wix.md
+      title: Send Feedback to Wix
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]
