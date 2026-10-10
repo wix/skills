@@ -29,7 +29,8 @@ whole set on disk from a clone. Online pages are read with the Wix MCP's `ReadFu
 when it is connected: a client's web fetch may open only URLs the user gave or a search returned.
 
 What such a run does not produce: the Astro build and its release. Those need a machine with the
-CLI. Everything else the kit does to a site, it does through calls you can make.
+CLI. Everything else the kit does to a site, it does through calls you can make, the frontend
+included: step 5 ships it as static files.
 
 ## 0. Identity
 
@@ -74,7 +75,10 @@ encodes (a Bookings service needs a category to be visible and takes resource id
 a Forms field is registered by its `validation` block; a product's choice photos are linked after
 the gallery holds them; a product without options comes out of the bulk create `OUT_OF_STOCK`, even
 when its inventory reports a provisioning error, and is stocked by a second call, Bulk Create
-Inventory Items, as `SEED.md` says). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
+Inventory Items, as `SEED.md` says; stock that isn't counted, such as "made to order", is
+`inStock: true`, never a missing quantity, which leaves the product unbuyable). Read `SEED.md`
+before the first create call: it maps the brief's words to the fields. Then read the script for any
+call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. A photo already in
 the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
@@ -88,6 +92,10 @@ is `data`. A generated image is billed when it is generated, so a read of the wr
 a paid image.
 
 ## 5. The frontend
+
+The run is not done until the pages use what the backend holds: every control the page shows for
+it (add to cart, the cart, book, submit) works on the live site. A backend with untouched pages is
+half a run.
 
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
