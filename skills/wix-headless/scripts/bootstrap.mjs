@@ -2,7 +2,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // ── tiny event protocol (one JSON object per line) ───────────────────────────
 const emit = (event, extra = {}) =>
@@ -12,10 +12,17 @@ const fail = (event, extra = {}) => {
   process.exit(1);
 };
 
-// ── platform-safe binary names (npm/npx are .cmd on Windows) ─────────────────
+// ── npx on every platform ────────────────────────────────────────────────────
+// On Windows npx is a .cmd shim, which Node starts only through a shell; a detached shell opens its
+// own console, and the login's JSON events never reach the log. npm ships npx's JS entry beside
+// node.exe, and that starts directly with node: no shell, no window, and the pid is the CLI's.
+// A Node without npm beside it (a version manager's shim) keeps the .cmd through the shell.
 const isWin = process.platform === 'win32';
-const bin = (name) => (isWin ? `${name}.cmd` : name);
-const WIX = [bin('npx'), '-y', '@wix/cli@latest']; // run the CLI via npx — no global install/mutation
+const NPX_JS = isWin ? join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js') : null;
+const NPX = NPX_JS && existsSync(NPX_JS)
+  ? { file: process.execPath, pre: [NPX_JS], shell: false }
+  : { file: isWin ? 'npx.cmd' : 'npx', pre: [], shell: isWin };
+const WIX = [NPX.file, ...NPX.pre, '-y', '@wix/cli@latest']; // run the CLI via npx — no global install/mutation
 
 // Force the CLI into non-interactive "agent" mode. Without an agent signal in
 // the env, `wix login` renders an interactive Ink TUI (device code + keypress)
@@ -34,17 +41,26 @@ const PIDFILE = join(STATE_DIR, 'login.pid');
 
 // run a command, capture stdout+stderr (combined), return {status, out}
 function capture(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', shell: isWin, env: AGENT_ENV, ...opts });
+  const r = spawnSync(cmd, args, { encoding: 'utf8', shell: NPX.shell, windowsHide: true, env: AGENT_ENV, ...opts });
   return { status: r.status ?? 1, out: `${r.stdout || ''}${r.stderr || ''}`, error: r.error };
 }
 
 // ── 1. CLI reachable (via npx — no install) ──────────────────────────────────
+// A line holding only a version is the CLI's answer ("npm notice" lines carry versions too).
+const VERSION_LINE = /^\s*(\d+\.\d+\.\d+\S*)\s*$/m;
+const answered = (r) => r.status === 0 || VERSION_LINE.test(r.out);
+
 function checkCli() {
-  const r = capture(WIX[0], [...WIX.slice(1), '--version']);
-  if (r.status !== 0) fail('cli_unreachable', { detail: r.out.trim().slice(0, 400) });
+  let r = capture(WIX[0], [...WIX.slice(1), '--version']);
+  // On a cold npm cache npx can exit non-zero after the version, the install's warnings around
+  // it; a second run finds the cache warm.
+  if (!answered(r)) r = capture(WIX[0], [...WIX.slice(1), '--version']);
+  if (!answered(r)) {
+    fail('cli_unreachable', { detail: (r.out.trim() || String(r.error?.message || `exit ${r.status}`)).slice(0, 400) });
+  }
   // npx interleaves "npm notice …" lines with the version, so don't just take the
-  // last line — pick the first semver-looking token, falling back to the last line.
-  const version = (r.out.match(/\d+\.\d+\.\d+[^\s]*/) || [])[0] || r.out.trim().split('\n').pop();
+  // last line — pick the version line, else the first semver-looking token.
+  const version = r.out.match(VERSION_LINE)?.[1] || (r.out.match(/\d+\.\d+\.\d+[^\s]*/) || [])[0] || r.out.trim().split('\n').pop();
   emit('cli_ok', { version });
 }
 
@@ -106,7 +122,8 @@ function startLogin() {
     detached: true,
     stdio: ['ignore', out, out],
     env: AGENT_ENV,
-    shell: isWin,
+    shell: NPX.shell,
+    windowsHide: true,
   });
   child.on('error', (e) => fail('login_failed', { detail: String(e) }));
   writeFileSync(PIDFILE, JSON.stringify({ pid: child.pid, startedAt: Date.now() }));
@@ -125,7 +142,7 @@ async function waitForCode(timeoutMs = 60000) {
   }
   const detail = existsSync(LOG) ? readFileSync(LOG, 'utf8').trim().slice(-1500) : '';
   fail('login_failed', {
-    detail: detail || `wix login produced no device code within ${timeoutMs / 1000}s.`,
+    detail: detail || `wix login wrote nothing within ${timeoutMs / 1000}s; \`${['npx', '-y', WIX.at(-1), 'login'].join(' ')}\` run in the foreground prints the code.`,
   });
 }
 
