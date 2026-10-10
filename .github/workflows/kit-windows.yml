@@ -3,8 +3,10 @@ name: Kit scripts on Windows
 # The headless kit's install scripts and the template seeds run on users' Windows machines, where
 # npm, npx and wix are .cmd shims and there is no sh. Every other job here runs on Linux, so this one
 # checks the Windows-specific paths: a seed started directly runs (not a silent exit 0), npx starts
-# through install/proc.mjs, the detached seed job leaves its markers, and the static deploy strips
-# its TypeScript through npx. No Wix account or network call to Wix is involved.
+# through install/proc.mjs, the detached seed job leaves its markers, the static deploy strips
+# its TypeScript through npx, the bootstrap's login hands back a device code, and .env.local is
+# ignored in git. No Wix account is involved; the bootstrap step starts a device login and stops it
+# before anyone signs in.
 
 on:
   pull_request:
@@ -13,6 +15,14 @@ on:
       - 'skills/wix-headless-templates/*/seed/**'
       - 'skills/wix-headless-templates/shared/seed/**'
       - '.github/workflows/kit-windows.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'skills/wix-headless-kit/install/**'
+      - 'skills/wix-headless-templates/*/seed/**'
+      - 'skills/wix-headless-templates/shared/seed/**'
+      - '.github/workflows/kit-windows.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -66,3 +76,45 @@ jobs:
           node "$GITHUB_WORKSPACE/skills/wix-headless-kit/install/deploy.mjs" forms --stack static --out site | tee deploy.json
           ! grep -q '"error"' deploy.json
           test -f site/js/wix/forms.js
+
+      - name: The bootstrap hands back a login code from the detached login
+        run: |
+          # No session on the runner, so the bootstrap checks the CLI (a cold npx cache), starts the
+          # detached device login and returns its code. On Windows the login used to run in its own
+          # console: nothing reached login.log and the pidfile held cmd.exe.
+          mkdir -p "$RUNNER_TEMP/boot" && cd "$RUNNER_TEMP/boot"
+          node "$GITHUB_WORKSPACE/skills/wix-headless-kit/install/bootstrap.mjs" | tee events.ndjson
+          grep -q '"event":"cli_ok"' events.ndjson
+          grep -q '"event":"awaiting_user"' events.ndjson
+          grep -q '"userCode":"[^"]\+"' events.ndjson
+          pid=$(node -p "JSON.parse(require('fs').readFileSync(require('path').join(require('os').tmpdir(), 'wix-headless-kit-login', 'login.pid'), 'utf8')).pid")
+          image=$(tasklist //FI "PID eq $pid" //NH //FO CSV | cut -d, -f1 | tr -d '"\r')
+          echo "login pid $pid: $image"
+          test "$image" = "node.exe"
+          taskkill //PID "$pid" //T //F
+
+      - name: .env.local is ignored in git
+        run: |
+          node --input-type=module -e "
+            const { ignoreEnvLocal } = await import('./skills/wix-headless-kit/install/env-ignore.mjs');
+            const { mkdtempSync, writeFileSync, readFileSync } = await import('node:fs');
+            const { join } = await import('node:path');
+            const { tmpdir } = await import('node:os');
+            const cases = [
+              ['no .gitignore', null, true],
+              ['.env alone', 'node_modules\r\n.env\r\n', true],
+              ['.env.local, CRLF', 'node_modules\r\n.env.local\r\n', false],
+              ['.env*', '.env*\n', false],
+              ['*.local', '*.local\n', false],
+            ];
+            for (const [name, before, adds] of cases) {
+              const dir = mkdtempSync(join(tmpdir(), 'envignore-'));
+              if (before !== null) writeFileSync(join(dir, '.gitignore'), before);
+              const added = ignoreEnvLocal(dir);
+              const after = readFileSync(join(dir, '.gitignore'), 'utf8');
+              if (added !== adds || !/^\s*(\.env\.local|\.env\*|\*\.local)\s*$/m.test(after)) {
+                console.error('FAIL', name, { added, after }); process.exit(1);
+              }
+              console.log('ok', name, added ? '(added)' : '(already covered)');
+            }
+          "
