@@ -18,12 +18,10 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 ```
 
 Requires a shell whose network reaches Wix, Node ≥ 22.12 and a logged-in Wix CLI; the bootstrap
-checks the CLI and guides the login. **Check the network first:** `curl -sI https://www.wixapis.com`
-answers with an HTTP status line when your shell reaches Wix. When it doesn't, or you have no shell,
-the bootstrap can't work where you are: skip it, and do the run through the Wix MCP from the kit's
+checks the CLI and guides the login. When your shell doesn't reach Wix, or you have no shell, the
+bootstrap can't work where you are: skip it, and do the run through the Wix MCP from the kit's
 API-call guide. Skills already on disk (a plugin, an earlier install) are used where they are; with
-none, install them when your shell can (`npm view skills version` prints a version, or
-`curl -sI https://github.com` answers), and read the guide online when it can't.
+none, install them when your shell can, and read the guide online when it can't.
 
 | your situation | go to |
 |---|---|
@@ -56,10 +54,7 @@ into it. A project already on disk is its own folder — its root, where the `pa
 `index.html` or `wix.config.json` is. **Whatever the brief hands over as files goes into that folder
 first**, before Phase 1: a zip is extracted there, a URL is downloaded and extracted there, so that
 anything it carries — a `wix.config.json` included — sits at the root. Do not interpret what is
-there: the skill reads the folder and knows what it is. Moving an existing Wix site to headless
-starts from the project the site's dashboard hands over (Headless settings, "Go Headless"): when
-the brief asks for it without that download, ask the user for the prompt the dashboard gives them,
-and its download goes into the folder like any other (`wix-headless-kit/guides/migration.md`). Everything below — the skills, the
+there: the skill reads the folder and knows what it is. Everything below — the skills, the
 bootstrap, the scaffold — lands in this folder too, so a later session opened in the project finds
 all of it.
 
