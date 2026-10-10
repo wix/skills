@@ -11,11 +11,12 @@ commands.
 
 ## The whole cold start (details in the phases below)
 
-When `wix-headless-kit` is already among your skills, or under `.agents/skills` or similar, skip
-the install: use the kit from where it is.
+The skills `wix-headless-kit`, `wix-docs` and `wix-manage`: each one already among your skills, or
+under `.agents/skills` or similar, is used where it is, and the install below names only the missing
+ones.
 
 ```bash
-CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes   # skip when the kit is already among your skills
+CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes   # only the skills you don't already have
 node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
@@ -74,7 +75,7 @@ lower version, install or upgrade Node first — do **not** work around it:
 - **Linux:** `nvm install 22 && nvm use 22` (or your distro's Node 22+ package)
 - **Windows:** `winget install OpenJS.NodeJS.LTS` (or download from nodejs.org)
 
-## Phase 1 — Install the skills (skip when you already have them)
+## Phase 1 — Install the skills you don't have
 
 Install the skill and its three companions (`CI=1` forces plain non-interactive CLI output —
 keep it on every Wix CLI command). Repeat `--skill` per skill; a comma-separated list is not
