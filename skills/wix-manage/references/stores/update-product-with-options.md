@@ -161,9 +161,9 @@ The request-level `fields` array projects response data; it is separate from `se
 Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response.
 
 1. Read [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) with `?fields=DESCRIPTION`. Its response wraps the document as `product.description` and the current revision as `product.revision`. If the description is missing or has no `nodes`, stop and ask before replacing it.
-2. Copy the complete returned `product.description`, including node IDs, decorations, `metadata`, and `documentStyle`. For prepend/append, insert one new `PARAGRAPH` at the beginning/end of its `nodes`. For a wording change, modify only the matching `TEXT` node's `textData.text`.
+2. Copy the complete returned `product.description`, including node IDs, decorations, `metadata`, and `documentStyle`, **before locating any nodes to edit**. Traverse the copy and keep references to its nodes; edit that same copy and send it in the PATCH. For prepend/append, insert one new `PARAGRAPH` at the beginning/end of its `nodes`. For a wording change, modify only the matching `TEXT` node's `textData.text`.
 3. For removal, trim only the requested substring from the matching TEXT run and keep its decorations. When the whole run or node is targeted, remove that entry from its parent `nodes` array. If text spans runs, trim the matching portion of each run. Preserve all other nodes, spacer paragraphs, and document properties. If the requested change is already present, report that state and finish without a write.
-4. Send [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `product.id`, the read revision, the full edited `product.description`, and top-level `fields: ["DESCRIPTION"]`. Leave other product fields out of this description-only update; `plainDescription` is for whole-description replacements.
+4. Check the in-memory PATCH document before sending: the targeted text has the requested value and untouched content matches the read document. Then send [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `product.id`, the read revision, the full edited `product.description`, and top-level `fields: ["DESCRIPTION"]`. Leave other product fields out of this description-only update; `plainDescription` is for whole-description replacements.
 5. Verify `product.description` in the PATCH response: the requested change is present and untouched nodes, decorations, and document properties remain. Confirm completion from that response and finish. A successful PATCH has already performed the edit; verification does not require another PATCH. If the response is incomplete, read once with `?fields=DESCRIPTION` to verify. If a revision conflict rejects the write, read the latest document and reapply the requested change only if it is still needed.
 
 For a prepend, build the complete PATCH body from the Get Product response (`getResponse` below). For an append, use `push` instead of `unshift`:
@@ -187,13 +187,28 @@ const patchBody = {
 
 Send `patchBody` as the JSON body of the PATCH above. The copy retains the returned document's other properties and existing nodes, including links and buttons; the response's `product.description` includes the edited document because the request projects `DESCRIPTION`.
 
-For example, if the first paragraph's second TEXT run is `read the guide` with BOLD and LINK decorations, removing only `read ` changes that run's text while keeping its decorations and siblings. Use this transformation instead of inserting a paragraph, then build the same `patchBody`:
+For example, remove only `read ` from a TEXT run containing `read the guide`, retaining its BOLD and LINK decorations and siblings. Locate the run in the cloned document, including nested nodes, rather than assuming a paragraph/run index. This example handles a phrase within one TEXT run; a phrase spanning runs uses the per-run trimming in step 3, with all run references taken from the copy.
 
 ```javascript
 const product = getResponse.product;
 const description = structuredClone(product.description);
-const textData = description.nodes[0].nodes[1].textData;
-textData.text = textData.text.replace("read ", "");
+const target = "read the guide";
+const replacement = "the guide";
+const matches = [];
+function locate(node) {
+  if (node.type === "TEXT" && node.textData.text.includes(target)) matches.push(node.textData);
+  for (const child of node.nodes ?? []) locate(child);
+}
+locate(description);
+if (matches.length !== 1) throw new Error("Clarify which text occurrence to edit");
+const textData = matches[0];
+const originalText = textData.text;
+const start = originalText.indexOf(target);
+if (start !== originalText.lastIndexOf(target)) throw new Error("Clarify which text occurrence to edit");
+textData.text = originalText.slice(0, start) + replacement + originalText.slice(start + target.length);
+if (textData.text === originalText || textData.text.includes(target)) {
+  throw new Error("The PATCH document must contain the requested edit before writing");
+}
 const patchBody = {
   product: { id: product.id, revision: product.revision, description },
   fields: ["DESCRIPTION"]
@@ -524,11 +539,21 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ### Attach a Digital File
 
-First locate the existing product with the name lookup above, then Get Product for its revision and variants. If the requested product is absent or ambiguous, ask for the correct product or site and stop before discovering upload methods or creating media. Repairing an existing product does not authorize creating a replacement.
+For an existing digital product rejected at add-to-cart with `ITEM_NOT_FOUND_IN_CATALOG`, use this repair flow. For a supplied external PDF URL, the table below is the complete request/response contract; execute it directly after reading this recipe. Use its linked method URLs as source citations. Further schema discovery is needed only for a field not covered here or a documented call that fails.
+
+First locate the existing product with the name lookup above, then Get Product for its revision and variants. If the requested product is absent or ambiguous, ask for the correct product or site and stop before uploading media. Repairing an existing product does not authorize creating a replacement.
 
 A `DIGITAL` product is sellable only when its variant has both a digital file and stock. For a product already in stock, keep that stock unchanged and attach only the missing file. `digitalProperties` belongs to the variant.
 
-For a supplied external PDF URL, use [Upload Media to Wix](../media/upload-media-to-wix.md) → Import File from External URL: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "{suppliedPdfUrl}", "mimeType": "application/pdf", "displayName": "download.pdf", "private": true }`. Its response contains `file.id` and `file.operationStatus`. Import once. If `file.operationStatus` is `PENDING`, use `GET https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}`; that response also wraps the status as `file.operationStatus`. Wait for `READY`, stop on `FAILED`, and use the same `file.id` in the product update. Private import keeps the stored download private. For a local file, follow that recipe's Generate Upload URL flow instead. These are alternative upload paths; choose the one matching the source.
+| Call | Request | Response fields used next |
+|---|---|---|
+| [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Use the `search.search` name lookup above. | `products[].id` and `name` select the existing product. |
+| [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=VARIANT_OPTION_CHOICE_NAMES&fields=MERCHANT_DATA&fields=PRODUCT_CHOICES_MEDIA_REFERENCES&fields=PRODUCT_CHOICES_DISPLAY_IMAGE` | `product.id`, `revision`, `productType`, `options`, and `variantsInfo.variants` supply the complete writable state. |
+| [Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file) | `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "{suppliedPdfUrl}", "mimeType": "application/pdf", "displayName": "download.pdf", "private": true }` | `file.id` and `file.operationStatus`. Import the exact supplied URL once; retain this ID. |
+| [Get File Descriptor](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor), only while PENDING | `GET https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}` | `file.operationStatus`: wait for `READY`, stop on `FAILED`. The response is wrapped in `file`. |
+| [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, options, variantsInfo: { variants } } }` | `product.variantsInfo.variants[].digitalProperties.digitalFile.id` confirms the attachment on the retained variant ID. |
+
+Chain these requests in one ExecuteWixAPI invocation; with `wix.request`, the REST response body is in `response.data`. Private import keeps the stored download private. For a local file rather than a supplied URL, read [Upload Media to Wix](../media/upload-media-to-wix.md) and use its Generate Upload URL flow instead.
 
 Prepare the complete options/variants body as in **Prepare a Price or SKU Update**, retain every variant ID, choice and price, and set the requested variant's `digitalProperties.digitalFile.id` to the imported file ID. For one existing variant with no options:
 
