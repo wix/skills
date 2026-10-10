@@ -20,6 +20,7 @@
 // reference page.
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 import { readFileSync } from "node:fs";
 
 const API = "https://www.wixapis.com";
@@ -281,7 +282,7 @@ export async function setupFaq(ctx, { categories = [] } = {}) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

@@ -7,7 +7,8 @@
 //
 // Resolution, in order:
 //   1. the sibling skill folder, `<SKILL_ROOT>/../wix-headless-templates/`: a checkout of the repository,
-//      or a plugin install that carries both skills (every plugin manifest lists the templates skill).
+//      or an install that carries both skills (the cold start's `npx skills add`, the npm package,
+//      the Codex and Cursor plugins; the Claude plugin leaves it out, so there it is fetched).
 //   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
 //   3. a fetch: a sparse, shallow clone of `skills/wix-headless-templates/` from the repository the skill was installed
 //      from (skills-lock.json's `source`, default wix/skills), at the branch or tag the install
@@ -25,7 +26,7 @@
 // `need`; when a committed copy lacks it, that part is fetched at the same commit.
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -42,7 +43,7 @@ const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", time
 // skill folder, its entry for this skill. "wix/skills" → the default branch of that repository;
 // "https://github.com/owner/repo/tree/<ref>" → that ref.
 export function installSource() {
-  const skill = SKILL_ROOT.split("/").pop();
+  const skill = basename(SKILL_ROOT);
   let dir = SKILL_ROOT;
   for (let i = 0; i < 6; i++) {
     const p = join(dir, "skills-lock.json");

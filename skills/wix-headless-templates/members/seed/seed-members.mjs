@@ -15,6 +15,7 @@
 // Members Area app's App Market id; the identity/profile split is described beside it.
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 import { readFileSync } from "node:fs";
 
 const API = "https://www.wixapis.com";
@@ -77,7 +78,7 @@ export async function setupMembers(ctx, { installMembersArea = true } = {}) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   const plan = planPath ? JSON.parse(readFileSync(planPath, "utf8")) : {};

@@ -16,9 +16,9 @@
 // `env pull` runs here when `.env.local` is missing (or --refresh): it is the source of the content
 // identity, and the Astro build refuses to run without it. Non-interactive (CI=1); a failure is
 // reported in `pullError` and the config's ids stand in, so a caller can still work offline.
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { failure, npmSync } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -60,7 +60,7 @@ export function readWixConfig(cwd) {
 }
 
 const ENV_PULL = ["-y", WIX_CLI, "env", "pull"];
-const runPull = (dir) => spawnSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
+const runPull = (dir) => npmSync("npx", ENV_PULL, { cwd: dir, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 180_000 });
 
 /**
  * `wix env pull` into `cwd/.env.local`, in place. Every project shape gets the command since Wix CLI
@@ -72,7 +72,7 @@ export function pullEnv(cwd) {
   const envFile = join(cwd, ".env.local");
   const r = runPull(cwd);
   if (r.status === 0 && existsSync(envFile)) return { ok: true, via: "in place" };
-  return { ok: false, error: (r.stderr || r.stdout || `env pull produced no .env.local — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).trim().slice(-400) };
+  return { ok: false, error: failure(r, `env pull produced no .env.local — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).trim().slice(-400) };
 }
 
 /**

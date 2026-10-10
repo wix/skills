@@ -118,7 +118,8 @@ It replaces the whole file set, stamps the attribution itself, and returns
 - **When your files travel as files**, pass them as `attachments`: zip the whole
   site folder, images included, and pass the zip as one attachment. It is
   unpacked, a wrapping folder stripped, up to 10 MB per call. Nothing is written
-  out by you.
+  out by you. Where `attachments` doesn't resolve, a path passed in it fails:
+  your files don't travel as files, and they go in the bundle below.
 - **When they don't**, pass a `files` text bundle: each file starts with a line
   `=== FILE: <path> ===` followed by its raw text, `<path>` relative to the site
   root. Nothing in it is escaped. It carries text files: HTML, CSS, JavaScript,
@@ -347,6 +348,9 @@ to its Dev Machine. Ask whether to go ahead, and connect only after the user say
 yes; a request that already asks for it (a working shop, real bookings) is that
 yes. A page that promises nothing beyond its content stops at the pages.
 
+A site published anonymously is [claimed](#claim-it-into-the-users-account)
+before a backend: the headless skill works on a site in the user's account.
+
 The headless skill starts at its cold-start page,
 `https://www.wix.com/skills/headless-cold-start/headless-kit.md` (read it as
 [Before the calls](#before-the-calls) says). It installs the skills, runs a
@@ -458,6 +462,10 @@ https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>
 
 The user drags in the files without logging in, the site is live at once, and a
 banner offers to keep it. Tell them the limits below first.
+
+When no route reached Wix from where you are, say what would let you publish it
+yourself: a shell whose network reaches Wix, or the Wix MCP connected (the Wix
+plugin or connector in a chat client).
 
 ## Limits and failures
 

@@ -268,7 +268,7 @@ const siteSearchConfigSource = () =>
   `export const siteSearchPlan = ${JSON.stringify(siteSearch, null, 2)};\n`;
 // ---- static stack: the REST layer, composed flat and stripped ------------------------------------
 if (stack === "static") {
-  const { spawnSync } = await import("node:child_process");
+  const { npmSync } = await import("./proc.mjs");
   const { rmSync } = await import("node:fs");
   const OUT = outDir ? resolve(PROJECT, outDir) : PROJECT;
   const JS = join(OUT, "js", "wix");
@@ -336,14 +336,14 @@ if (stack === "static") {
   }
   // Strip to ESM with tsc — comments are the spec for whoever reads js/wix/, so they stay.
   const sources = readdirSync(JS).filter((f) => f.endsWith(".ts")).map((f) => join(JS, f));
-  const tsc = spawnSync(
+  const tsc = npmSync(
     "npx",
     ["-y", "-p", `typescript@${PINS.typescript}`, "tsc", ...sources, "--outDir", JS, "--module", "esnext", "--target", "es2022",
      "--moduleResolution", "bundler", "--lib", "es2022,dom", "--strict", "--skipLibCheck", "--removeComments", "false"],
     { encoding: "utf8", timeout: 180_000 },
   );
   if (tsc.status !== 0) {
-    console.log(JSON.stringify({ ...result, error: `tsc strip failed: ${(tsc.stdout || tsc.stderr || "").slice(-800)}` }));
+    console.log(JSON.stringify({ ...result, error: `tsc strip failed: ${(tsc.stdout || tsc.stderr || tsc.error?.message || `exit ${tsc.status}`).slice(-800)}` }));
     process.exit(1);
   }
   rmSync(join(JS, "tsconfig.json"), { force: true });
@@ -431,7 +431,7 @@ if (siteSearch) {
   result.capabilities = { ...result.capabilities, siteSearch: true };
   if (siteSearch.install) {
     // Indexing needs the Wix Site Search app on the site — a site mutation the deploy never makes.
-    result.note = [result.note, "siteSearch.install: run `node <SKILL_ROOT>/templates/shared/capabilities/site-search/seed/install.mjs` from the project root after the seed (results appear about half a minute later)"].filter(Boolean).join("; ");
+    result.note = [result.note, `siteSearch.install: run node ${join(REF, "shared", "capabilities", "site-search", "seed", "install.mjs")} from the project root after the seed (results appear about half a minute later)`].filter(Boolean).join("; ");
   }
 }
 
