@@ -133,7 +133,12 @@ holds; nothing invented, as in SKILL.md step 4.
 with `{TEMPLATES}/shared/app/wix/sdk.ts` for the client wiring): those files call the same SDK
 modules the page imports, and they are verified. Copy the form of the call, not the file. The
 cores beside them (`*-core.ts`) hold the rules the page needs and nothing else does: which fields
-to read, how a price or a duration is formatted, which slot is bookable, how an id is read.
+to read, how a price or a duration is formatted, which slot is bookable, how an id is read. Copy
+those core functions into the page as they are, with only the types removed (`cart-core.ts`'s
+`toLine` and `toCart`, the price formatter, `rawId`), and run every API response through them: a
+raw field read by hand is where a page breaks (a product name is a translatable object, a cart
+line's quantity is `quantityInfo.confirmedQuantity`). What you write is the markup, the rendering
+of what the cores return, and the event handlers.
 
 **A call those files don't cover** is confirmed before it is written, the way `{DOCS}` describes:
 the method's SDK page, and when the page and the package disagree, the package's own type
