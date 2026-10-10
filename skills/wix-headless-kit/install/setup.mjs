@@ -276,7 +276,7 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
 const madeTheSite = mode === "create" || mode === "adopt";
 let seed = null;
 if (planPath && !madeTheSite) {
-  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (templates/${vertical}/seed/read-site.mjs), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
+  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (${join(TEMPLATES, vertical, "seed", "read-site.mjs")}), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
 }
 if (planPath && madeTheSite) {
   const seedDir = join(TEMPLATES, vertical, "seed");
@@ -325,7 +325,7 @@ emit("ready_for_brand_layer", {
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
       : madeTheSite
       ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
-      : `nothing was seeded (setup seeds only a site it created): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
+      : `nothing was seeded (setup seeds only a site it created): read what the site holds with ${join(TEMPLATES, vertical, "seed", "read-site.mjs")}, then run ${join(TEMPLATES, vertical, "seed")}/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
     (others.length && mode !== "migrate"
       ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `
       : "") +

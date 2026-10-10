@@ -1,7 +1,9 @@
 # Reference mode: a static site, or a server-rendered app in another language
 
 Read when SKILL.md step 1 resolves to a stack that cannot run `app/`. `<SKILL_ROOT>` is the
-installed skill folder; the shipped code is under `<SKILL_ROOT>/templates/`. Steps 2 to 5 of
+installed skill folder; the shipped code is in the folder `node <SKILL_ROOT>/install/templates.mjs`
+prints (the `wix-headless-templates` skill beside this one, or a copy fetched into
+`<SKILL_ROOT>/templates/`), and every `templates/…` path here is relative to it. Steps 2 to 5 of
 SKILL.md still apply; this file is the mechanics that differ.
 
 The data layer ships a second time as a **REST layer**: `templates/shared/rest/` (the auth seam

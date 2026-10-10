@@ -431,7 +431,7 @@ if (siteSearch) {
   result.capabilities = { ...result.capabilities, siteSearch: true };
   if (siteSearch.install) {
     // Indexing needs the Wix Site Search app on the site — a site mutation the deploy never makes.
-    result.note = [result.note, "siteSearch.install: run `node <SKILL_ROOT>/templates/shared/capabilities/site-search/seed/install.mjs` from the project root after the seed (results appear about half a minute later)"].filter(Boolean).join("; ");
+    result.note = [result.note, `siteSearch.install: run node ${join(REF, "shared", "capabilities", "site-search", "seed", "install.mjs")} from the project root after the seed (results appear about half a minute later)`].filter(Boolean).join("; ");
   }
 }
 

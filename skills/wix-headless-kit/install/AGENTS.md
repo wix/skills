@@ -20,12 +20,14 @@ call is memory, and an empty or error reply to it says nothing about the site.
 Installed at `.agents/skills/` (by the Wix plugin, or by
 `npx skills add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage`).
 
-- `{{SKILL}}` — the code in this app and how to extend it. The shipped code sits in
+- `{{SKILL}}` — the code in this app and how to extend it. The shipped code is the
+  `wix-headless-templates` skill: `node .agents/skills/{{SKILL}}/install/templates.mjs` prints where it
+  is (`.agents/skills/wix-headless-templates/` when installed beside this skill, else
   `.agents/skills/{{SKILL}}/templates/`, fetched once from the skill's repository and kept with this
-  project at the commit it was built from (`templates/.source`); if that folder is missing,
-  `node .agents/skills/{{SKILL}}/install/templates.mjs` fetches it. Each business solution has a playbook at
-  `templates/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
-  adds one; `node .agents/skills/{{SKILL}}/templates/<solution>/seed/read-site.mjs` reads what the
+  project at the commit it was built from, `templates/.source`) and fetches it when neither exists;
+  `<templates>` below is that folder. Each business solution has a playbook at
+  `<templates>/<solution>/INSTRUCTIONS.md`; `node .agents/skills/{{SKILL}}/install/deploy.mjs <solution> --stack {{STACK}}`
+  adds one; `node <templates>/<solution>/seed/read-site.mjs` reads what the
   site holds for it, with the documentation URL of every call it made. A code change ends with a release; the live URL shows it, the dev server does not count.
   `node .agents/skills/{{SKILL}}/install/check.mjs` says whether the skill or its templates have a newer
   version and prints the update commands; an update touches the skill folder or `templates/`, never `src/`.
