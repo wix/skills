@@ -21,13 +21,16 @@ Requires a shell whose network reaches Wix, Node ≥ 22.12 and a logged-in Wix C
 checks the CLI and guides the login. When your shell doesn't reach Wix, or you have no shell, the
 bootstrap can't work where you are: skip it, and do the run through the Wix MCP from the kit's
 API-call guide. Skills already on disk (a plugin, an earlier install) are used where they are; with
-none, install them when your shell can, and read the guide online when it can't.
+none, install them when your shell can, and read the guide online when it can't. The skills and the
+Wix MCP arrive separately: a plugin can put its skills on disk while its Wix connector is not yet
+connected. The MCP is connected when its tools (`ExecuteWixAPI`) are in your tool list.
 
 | your situation | go to |
 |---|---|
 | the bootstrap reports `logged_in` | Phase 3: open `.agents/skills/wix-headless-kit/SKILL.md` and follow it |
 | the install ran, the bootstrap reports `cli_unreachable` or `login_failed` | show the user the `detail`, then the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` |
 | your shell can't reach Wix, or there is no shell, and the Wix MCP is connected | the guide from the skills on disk (a plugin's folder, an earlier install, or one you just ran), online at `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` when there are none |
+| your shell can't reach Wix, or there is no shell, and no Wix MCP tools are in your tool list | ask the user to connect Wix to this chat (the Wix connector or MCP server, in the client's settings; a plugin's connector included), then continue on the row above |
 
 The guide is the same run as Wix API calls, step by step, with the file that carries each
 contract; the [last section](#the-guide-the-kits-run-as-wix-api-calls) says how its paths resolve.

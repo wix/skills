@@ -17,8 +17,9 @@ call is memory, and an empty or error reply to it says nothing about the site.
 
 ## Skills
 
-Installed at `.agents/skills/` (by the Wix plugin, or by
-`npx skills add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage`).
+Installed at `.agents/skills/` by
+`npx skills add wix/skills --skill {{SKILL}} --skill wix-docs --skill wix-manage`; a Wix plugin keeps
+its copy, under the same names, in the client's own skills folder.
 
 - `{{SKILL}}` — the code in this app and how to extend it. The shipped code is the
   `wix-headless-templates` skill: `node .agents/skills/{{SKILL}}/install/templates.mjs` prints where it
