@@ -100,6 +100,10 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
   both is rejected.
+  The bulk create stocks a product through its variants' choices, so a product **without
+  options** is created `OUT_OF_STOCK` whatever its `inStock` or `quantity` says. The script
+  stocks those afterwards with one Bulk Create Inventory Items call (`productId`, its single
+  `variantId`, and `inStock: true` or the `quantity`); a seed made call by call does the same.
 - `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
   currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before

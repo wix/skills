@@ -72,7 +72,9 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 (what to create, how many, which images), the order the entities need, and the traps the script
 encodes (a Bookings service needs a category to be visible and takes resource ids, not staff ids;
 a Forms field is registered by its `validation` block; a product's choice photos are linked after
-the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
+the gallery holds them; a product without options comes out of the bulk create `OUT_OF_STOCK`, even
+when its inventory reports a provisioning error, and is stocked by a second call, Bulk Create
+Inventory Items, as `SEED.md` says). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. A photo already in
 the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
