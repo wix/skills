@@ -77,8 +77,14 @@ the gallery holds them; a product without options comes out of the bulk create `
 when its inventory reports a provisioning error, and is stocked by a second call, Bulk Create
 Inventory Items, as `SEED.md` says; stock that isn't counted, such as "made to order", is
 `inStock: true`, never a missing quantity, which leaves the product unbuyable). Read `SEED.md`
-before the first create call: it maps the brief's words to the fields. Then read the script for any
-call `SEED.md` only names, and make the same
+before the first create call: it maps the brief's words to the fields. Those fields are the
+script's input, not the request: the body each create sends is built in the script (for products,
+`bulkCreateProducts` in `seed-store.mjs`: the description as rich-text nodes from `mkDesc`,
+`productType` with `physicalProperties`, the stock as `inventoryItem`), so read that function before
+the first create. On a site this run created, the store's currency is `SEED.md`'s `currency` rule,
+the one the brief or the user's own pages state (a page priced "$68" is USD), set before the
+products and without asking; a confirmation before a currency change is for a store the user
+already runs. Then read the script for any call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
 the script's rules: create, never delete, and report what the site already held. A photo already in
 the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
@@ -146,9 +152,12 @@ declarations (the `@wix/auto_sdk_{solution}_<module>` package the solution packa
 its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
 the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
 and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
-`rawId`). Dates travel as local wall-clock strings in the business time zone. A page cannot be run
-here, so a wrong shape fails silently in the browser; the file beside the skill is the check that is
-available.
+`rawId`). Dates travel as local wall-clock strings in the business time zone. A page cannot be
+opened here, so a wrong shape fails silently in the browser. Check the data code before the upload:
+get a real response through `ExecuteWixAPI` for the calls the page makes (the product query; the
+cart's calls where your identity can make them), run the page's data code on it in your sandbox's
+Node, and look for names, prices and quantities in the output, not `[object Object]` or
+`undefined`.
 
 ## 6. Closing
 
