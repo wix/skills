@@ -3,7 +3,9 @@
 Read when the commands this skill is built on cannot run where you are, or stopped: your shell
 can't reach Wix, there is no shell, or the install, the
 CLI or the login is blocked. Wix is then reachable through the Wix MCP: every call below is an
-`ExecuteWixAPI` call, and files reach the site through the upload recipe. It walks the run of
+`ExecuteWixAPI` call, and files reach the site through the upload recipe. With no Wix MCP tools in
+your tool list (a plugin's skills can be on disk while its Wix connector is not connected), ask the
+user to connect Wix to this chat first. It walks the run of
 SKILL.md step by step and names, for each, the Wix API call the CLI or the script performs and the
 file beside this skill that carries the contract; where a script can run where you are, it says so.
 
