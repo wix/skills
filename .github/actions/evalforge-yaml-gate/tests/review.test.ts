@@ -99,7 +99,7 @@ beforeEach(() => {
   clearAck.mockResolvedValue(undefined);
   payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
-  runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0 });
+  runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
   existsSync.mockReturnValue(true);
   payload.action = 'opened';
   delete process.env.GITHUB_RUN_ATTEMPT;
@@ -186,15 +186,27 @@ describe('review mode — whether it spends', () => {
 describe('review mode — what may and may not fail the check', () => {
   it.each([
     ['a blocking finding while soaking', [finding()], undefined, false],
-    ['a blocking finding once blocking is on', [finding()], 'true', true],
+    ['a blocking finding with a passing score once blocking is on', [finding()], 'true', false],
     ['a finding that is not blocking', [finding({ severity: 'advisory' })], 'true', false],
     ['no findings at all', [], 'true', false],
   ])('%s', async (_label, findings, blocking, fails) => {
     if (blocking) process.env.INPUT_BLOCKING = blocking;
-    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded: 0 });
+    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded: 0, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
     await run();
     expect(setFailed).toHaveBeenCalledTimes(fails ? 1 : 0);
     expect(upsert).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['a score below 7', 6, true],
+    ['a score of 7', 7, false],
+  ])('%s once blocking is on', async (_label, score, fails) => {
+    process.env.INPUT_BLOCKING = 'true';
+    runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score, verdict: 'stores/a: the reason.' });
+    await run();
+    expect(setFailed).toHaveBeenCalledTimes(fails ? 1 : 0);
+    expect(upsert.mock.calls[0][0]).toContain(`**Score: ${score}/10**`);
+    expect(upsert.mock.calls[0][0]).toContain('stores/a: the reason.');
   });
 
   it.each([
@@ -202,7 +214,7 @@ describe('review mode — what may and may not fail the check', () => {
     ['a discarded finding and nothing else', [], 1],
   ])('reports the findings and the drop count, then fails, on %s', async (_label, findings, discarded) => {
     process.env.INPUT_BLOCKING = 'true';
-    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded });
+    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
     await run();
     expect(upsert).toHaveBeenCalledOnce();
     expect(upsert.mock.calls[0][0]).toContain('⚠️ Review job partly completed — 1 finding could not be read');

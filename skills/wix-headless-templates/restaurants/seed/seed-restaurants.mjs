@@ -14,7 +14,7 @@
 //                 "items": [{ "name", "description"?, "price"? | "variants"?: [{ "name", "price" }],
 //                             "modifierGroups"?: [{ "name", "required"?, "min"?, "max"?,
 //                               "modifiers": [{ "name", "price"?, "preSelected"?, "inStock"? }] }],
-//                             "acceptSpecialRequests"?, "imageUrl"? | "imagePath"? | "imagePrompt"? }] }] }],
+//                             "acceptSpecialRequests"?, "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"? }] }] }],
 //     "ordering"?: true | { "address"? },        // menu-first add-on; address is STEP 0
 //     "reservations"?: true | { "partySize"? { "min","max" }, "address"? } }
 //
@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 
 const API = "https://www.wixapis.com";
 const MENUS_APP_ID = "b278a256-2757-4f19-9313-c05c783bec92";
@@ -459,12 +460,13 @@ export async function setupRestaurants(ctx, plan) {
     const flat = m.sections.flatMap((s) => s.items || []);
     flat.forEach((it, i) => {
       const created = createdMenus[mi]?.items?.[i];
-      if ((it.imageUrl || it.imagePath || it.imagePrompt) && created?.id) {
-        imageItems.push({ ...created, imageUrl: it.imageUrl, imagePath: it.imagePath, imagePrompt: it.imagePrompt, name: it.name });
+      if ((it.imageMediaId || it.imageUrl || it.imagePath || it.imagePrompt) && created?.id) {
+        imageItems.push({ ...created, imageMediaId: it.imageMediaId, imageUrl: it.imageUrl, imagePath: it.imagePath, imagePrompt: it.imagePrompt, name: it.name });
       }
     });
   });
   const files = await resolveItemImages(ctx, imageItems.map((it) => ({
+    mediaId: it.imageMediaId,
     url: it.imageUrl,
     path: it.imagePath,
     prompt: it.imagePrompt,
@@ -559,7 +561,7 @@ export async function setupRestaurants(ctx, plan) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

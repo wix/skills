@@ -16,7 +16,7 @@
 //                     "customAmount"?: { "enabled", "min"?, "max"? },
 //                     "goal"?: { "target", "endDate"?, "acceptAfterGoal"?, "acceptAfterEndDate"? },
 //                     "comments"?: false, "askCoverFee"?: false,
-//                     "imageUrl"? | "imagePath"? | "imagePrompt"? }] }
+//                     "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"? }] }
 //
 // Seeding is ADDITIVE and idempotent — a non-archived campaign with the same name is reused, never
 // duplicated; nothing is deleted or overwritten. Unexpected shapes → read the live API reference;
@@ -25,6 +25,7 @@ import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
@@ -196,8 +197,9 @@ export async function setupDonations(ctx, { campaigns = [], currency } = {}) {
 
   // Pass 2 — images: resolve (upload a local file / import by url / generate by prompt) in one
   // parallel wave, then attach. Failures leave the campaign text-only; the exit never depends on them.
-  const wanted = created.filter((c) => c.created && (c.plan.imageUrl || c.plan.imagePath || c.plan.imagePrompt));
+  const wanted = created.filter((c) => c.created && (c.plan.imageMediaId || c.plan.imageUrl || c.plan.imagePath || c.plan.imagePrompt));
   const files = await resolveItemImages(ctx, wanted.map((c) => ({
+    mediaId: c.plan.imageMediaId,
     url: c.plan.imageUrl,
     path: c.plan.imagePath,
     prompt: c.plan.imagePrompt,
@@ -232,7 +234,7 @@ export async function setupDonations(ctx, { campaigns = [], currency } = {}) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

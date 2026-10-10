@@ -54,8 +54,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   `type: "color"` renders as real swatches (give every color choice a `colorCode`); anything
   else renders as text pills. Variants are expanded automatically (full cross-product, each
   carrying the product's price/compareAtPrice/quantity) — keep option counts small.
-  A choice may carry its own photo — `imageUrl` | `imagePath` | `imagePrompt` (+ `altText`), the
-  same three forms as a product image: it joins the product's gallery and the product page shows
+  A choice may carry its own photo — `imageMediaId` | `imageUrl` | `imagePath` | `imagePrompt`
+  (+ `altText`), the same forms as a product image: it joins the product's gallery and the product page shows
   it when that choice is picked (a colour's photo). Give it when the source has one per colour.
 - `variantPrices` — `{ "<choice name>": price }` when one option's choices are priced differently
   ("L": 74): every variant carrying that choice takes that price (the first priced choice wins);
@@ -76,9 +76,14 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - **Give every product an image** (a store without product images looks broken: gray boxes on
   tiles, PDP, and cart) — the default is an `imagePrompt` (AI-generated, ~1 Wix AI credit
   per image, account-billed): brand-contextual — subject, aesthetic/mood, palette, lighting —
-  always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use `imagePath` (a file on
-  this machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with
-  `curl -sI` → 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed; a failed image leaves
+  always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied use `imageMediaId` (a file
+  already in the site's Media Manager, such as one the user uploaded there: the product uses that
+  file as it is, no copy), `imagePath` (a file on this machine — uploaded to Wix Media) or
+  `imageUrl` (their own hosted URL; verify it with `curl -sI` → 200) — never a stock-photo or
+  guessed URL. A `static.wixstatic.com/media/<file id>` URL of a file on this site counts as its
+  `imageMediaId`. List the site's files to find an id: the
+  [Media Manager](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/list-files.md)
+  names each by the name it was uploaded under. Images resolve in parallel and never block the seed; a failed image leaves
   that product text-only. Seed text-only only when the user explicitly asks.
 - `digitalFilePath` (a file on this machine) or `digitalFileUrl` — makes the product a digital
   download, uploaded and created with both the file and stock (`quantity` is ignored). It's also the
@@ -95,6 +100,13 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
   both is rejected.
+  Right after the bulk create, a product's own stock summary can still read `OUT_OF_STOCK`
+  while its inventory items are already stocked; the items are what a buyer's add is checked
+  against. A product **without options** can still end up with no item (a create that ran while
+  the catalog was provisioning): the script stocks those afterwards with one Bulk Create
+  Inventory Items call (`productId`, its single `variantId`, and `inStock: true` or the
+  `quantity`), where `ALREADY_EXISTS` means the item is already there. A seed made call by call
+  reads the items (Query Inventory Items) and creates only the missing ones.
 - `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
   currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before

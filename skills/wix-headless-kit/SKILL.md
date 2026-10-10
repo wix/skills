@@ -24,8 +24,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 - **Shipped code is the implementation.** Every vertical ships in the repository's
   `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
   folder. `node <SKILL_ROOT>/install/templates.mjs` prints where that skill is: the sibling folder
-  `<SKILL_ROOT>/../wix-headless-templates/` when the install carried both skills (the cold start
-  does), else a one-time fetch into `<SKILL_ROOT>/templates/` (a second); every script below
+  `<SKILL_ROOT>/../wix-headless-templates/` when it was installed beside this skill (the cold start
+  installs both; a plugin may not), else a one-time fetch into `<SKILL_ROOT>/templates/` (a git
+  clone of the skill's repository, a second); every script below
   resolves it the same way. **Every `templates/...` path in this document is relative to that
   printed root** — there is no `templates/` folder inside this skill when the sibling exists.
   The folder stays with the project (only the composed `project/` scaffolds are left out of its
@@ -100,8 +101,8 @@ cases of step 3, with the `next` for each) and the two identities a project has 
 as and whose dashboard manages the business). They are one site, except on a **migration preview**
 (`guides/migration.md`), where the env names the site being migrated. Every script here reads that
 context; the site a call targets is never guessed from the config alone. Then fetch the shipped
-code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
-the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
+code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder; the `templates/…`
+paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
 and prints the update commands; it changes nothing.
 
@@ -142,8 +143,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      `astro.config.mjs` `integrations: [wix(), react()]`, `adapter: wixHostingAdapter()`,
      `output: "server"`, `security: { checkOrigin: false }`, `image.domains` with
      `static.wixstatic.com`. An Astro project made without the CLI has none of that; add it
-     before deploying, and the site serves every route. The integration supports **Astro 5**: a
-     project on another major is pinned to 5 first, or connected as a React host.
+     before deploying, and the site serves every route. The integration's current major
+     (`@wix/astro` 3, as in this skill's templates) requires **Astro 7**: a project on an earlier
+     major moves to 7 first, or is connected as a React host.
    - **React and other bundlers** release their own build as files. So routes are hash routes,
      or one emitted HTML file per route linked by its file name — decided before the first route
      is written; any URL handed to Wix as a return target must be one the host serves. Verify by
@@ -166,9 +168,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    folder's config does, the site holds the content already; the frontend reads what is there
    (step 3's attach path), and only content the brief supplies or describes is added to it.
 3. **Set up the project, in its folder** — one deterministic call, the same for an empty folder
-   and for a project already on disk; **the folder decides** what it does, from five file facts:
+   and for a project already on disk; **the folder decides** what it does, from a few file facts:
    `wix.config.json`, its `site.outputDirectory`, the migration variables in `.env.local`,
-   `package.json`, `index.html`. `node <SKILL_ROOT>/install/context.mjs` prints the shape it reads
+   `package.json`, `index.html` (at the root or in `public/`), `src/pages/`. `node <SKILL_ROOT>/install/context.mjs` prints the shape it reads
    and the `next` for it. **The brief is the instruction**: what it asks to switch on is installed
    on the site the folder names, without asking again. Ask only when acting would create a second
    site for a folder that already has one, or when a cleanup seems needed.
@@ -189,6 +191,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
    | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys. That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
    | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
+   | a config, a `package.json`, `public/index.html` and no `src/pages/` (a site published through the drop flow, on its Wix Dev Machine) | **static-in-astro** → refuses | the pages stay plain files in `public/`: `deploy.mjs <vertical…> --stack static --out public` puts the REST layer in `public/js/wix/`, the pages are wired in place (reference mode), and no Astro pages are added; release with `build` then `release`, the URL stays | no |
    | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
 
    **Who decides the seed: where the site came from, never the brief's wording.** A site made
@@ -201,7 +204,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    id in the brief or by `--site`, a project linked to it, a migration's parent (attach reports
    `siteOrigin: "given"`) — holds content the run did not make: seed only what the brief
    **supplies or asks to add** (`attach.mjs --plan plan.json`, or the vertical's seed module from
-   the project root: `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`),
+   the project root: `node <templates>/<vertical>/seed/seed-<vertical>.mjs plan.json`, `<templates>`
+   being the folder `install/templates.mjs` printed),
    and never invent content for it. "A new storefront for my toy store" describes the business,
    not content to add: nothing is seeded. Read an existing site first either way
    (`seed/read-site.mjs`). Seeds are additive and idempotent by name; nothing on a site is ever
@@ -253,9 +257,12 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    INSTRUCTIONS and the shared floors — `templates/shared/DESIGN.md` +
    `templates/shared/CONTENT.md` — now (not earlier — their contracts matter only from this
    step on); the hook/DTO
-   contracts are inlined there, so don't open the shipped files themselves. **Author your
-   surfaces in as few messages as possible** — batch multiple Write calls in one message
-   (components are independent files); don't pay a round-trip per file.
+   contracts are inlined there, so don't open the shipped files themselves.
+   **A frontend that already exists gets the minimum.** When the run wires pages that were
+   there before it (a dropped mock, an adopted site, a published static site), do the least that
+   makes them work: connect each control the pages show to the shipped code, and add only what a
+   control can't work without. Anything more the vertical offers is added only when the brief
+   asks for it; name it in the closing message.
    If the brief needs a core operation that shipped code does not cover, read
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
@@ -286,7 +293,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    that fix it: **Accept payments** `https://manage.wix.com/dashboard/<siteId>/wix-cashier/payments`
    (connect a payment method; "manual payments" is enough for free and pay-in-person flows) and
    **Upgrade the plan** `https://www.wix.com/upgrade/website?metaSiteId=<siteId>` (online payments
-   need a premium plan). Both are the owner's steps, not a defect in the site. **Copy the live URL verbatim from the
+   need a premium plan). Both are the owner's steps, not a defect in the site. When the run started
+   from the owner's own pages, name what those pages promised that the released site does not do.
+   **Copy the live URL verbatim from the
    `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
    a 404). Before you sign off, run the feedback self-check over the whole session
    (`guides/feedback.md`): anything that cost more turns than it should have, including what you
@@ -305,7 +314,7 @@ how to close such a run. A public site is still better served by managed Astro; 
 close.
 
 Without a machine at all, or when the install, the CLI or the login is blocked where you are,
-read `<SKILL_ROOT>/guides/no-machine.md`: the same run, step by step, as the Wix API calls the
+read `<SKILL_ROOT>/guides/api-run.md`: the same run, step by step, as the Wix API calls the
 scripts make and the files beside this skill that carry the contracts.
 
 ## Verticals

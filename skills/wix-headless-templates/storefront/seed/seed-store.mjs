@@ -12,13 +12,13 @@
 // Plan shape (see SEED.md):
 //   { "products": [{ "name", "description", "price", "compareAtPrice"?, "quantity",
 //                    "options"?: [{ "name", "type"?: "text"|"color",
-//                                   "choices": ["S","M"] | [{ "name", "colorCode"?, "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"? }] }],
+//                                   "choices": ["S","M"] | [{ "name", "colorCode"?, "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"? }] }],
 //                    "variantPrices"?: { "<choice name>": price },
 //                    "ribbon"?, "modifiers"?: [{ "name", "type"?: "choices"|"text", "mandatory"?,
 //                                              "choices"?: ["Gift wrap"], "maxChars"?, "minChars"? }],
 //                    "infoSections"?: [{ "title", "description" }],
 //                    "preorder"?: { "message"?, "limit"? },
-//                    "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"?,
+//                    "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"?, "altText"?,
 //                    "digitalFileUrl"? | "digitalFilePath"?, "digitalFileName"? }],
 //     "categories"?: { "<category name>": ["<product name>", ...] },
 //     "categoryDetails"?: { "<category name>": { "description"?, "imageUrl"? | "imagePath"? | "imagePrompt"? } } }
@@ -29,9 +29,10 @@
 import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { basename } from "node:path";
 import { readFileSync } from "node:fs";
-import { resolveItemImages } from "../../shared/seed/images.mjs";
+import { resolveItemImages, resolveItemImagesDetailed } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 
 const API = "https://www.wixapis.com";
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -472,9 +473,11 @@ export async function addProductsToCategories(ctx, mapping) {
   }
 }
 
-// Bulk image attach in ONE call. items: [{ id, url, altText }] — no revision to pass: the
+// Bulk image attach in ONE call. items: [{ id, url, mediaId?, altText }] — no revision to pass: the
 // current revision is read right before the update, so attach any number of times, any pass.
-// Wix re-hosts each url server-side; the media can take a little while to appear on read-back
+// An item with a mediaId (a file already in this site's Media Manager) is attached by that id and
+// reused as it is; a bare url is re-hosted by Wix server-side, a new file each time. The media can
+// take a little while to appear on read-back
 // (propagation) — normal, not a failure.
 // The bulk update returns 200 on PARTIAL failure, like the bulk create: each item's outcome is
 // in results[].itemMetadata (success, error, originalIndex). Seen live (runs 85 and 86,
@@ -491,7 +494,8 @@ export async function addProductsToCategories(ctx, mapping) {
 // whose choices were linked (by this seed or by the owner in the dashboard) gets those links put
 // back right after.
 const sameFile = (a, b) => a && b && basename(a) === basename(b);
-const galleryHas = (items, url) => items.some((it) => sameFile(it.image?.filename, url) || sameFile(it.image?.url, url));
+// A file attached by id keeps its own display name as the item's filename, so it is found by id.
+const galleryHas = (items, url, mediaId) => items.some((it) => (mediaId && it.id === mediaId) || sameFile(it.image?.filename, url) || sameFile(it.image?.url, url));
 
 export async function attachProductImages(ctx, items) {
   if (!items?.length) return { attached: [], failures: [] };
@@ -508,9 +512,10 @@ export async function attachProductImages(ctx, items) {
       const p = byId.get(it.id);
       const current = p?.media?.itemsInfo?.items ?? [];
       const wanted = it.images ?? [{ url: it.url, altText: it.altText }];
-      const fresh = wanted.filter(({ url }) => !galleryHas(current, url));
+      const fresh = wanted.filter(({ url, mediaId }) => !galleryHas(current, url, mediaId));
       if (!fresh.length) { ok.add(it.id); continue; } // every image is already there
-      toSend.push({ it, p, items: [...current.map(({ id }) => ({ id })), ...fresh.map(({ url, altText }) => ({ url, altText }))] });
+      // A file already in the Media Manager goes in by its id: set by url, Stores imports a copy.
+      toSend.push({ it, p, items: [...current.map(({ id }) => ({ id })), ...fresh.map(({ url, mediaId, altText }) => (mediaId ? { id: mediaId, altText } : { url, altText }))] });
     }
     if (toSend.length) {
       const r = await req(ctx, "/stores/v3/bulk/products/update", {
@@ -558,7 +563,8 @@ function choiceLinksOf(p) {
 
 // Per-choice images (the dashboard's "image per colour"): a choice points at an item of the
 // product's OWN gallery, so the image is attached to the gallery first (pass 2) and linked here by
-// the gallery item's id — the id of the uploaded file is a different id and 400s. Links are a
+// the gallery item's id — for a file imported by url that is a different id from the uploaded
+// file's and the file's 400s; a file attached by its Media Manager id is the item of that id. Links are a
 // product update, which the API only accepts with the variants re-sent beside the options, so the
 // current variants (id, choices, price) ride along unchanged. Wix derives a variant's own media
 // from its choice at creation only; the storefront reads the choice's image, so a link made here
@@ -686,7 +692,7 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   const planNames = new Set(products.map((p) => p.name));
   let all = [];
   try { all = await readAllProducts(ctx); } catch (e) { console.error(`catalog read failed (skipping the pre-existing check): ${String(e.message).slice(0, 120)}`); }
-  const preexisting = all.filter((p) => !planNames.has(p.name));
+  let preexisting = all.filter((p) => !planNames.has(p.name));
 
   // Idempotent by name: an errored bulk create (429/5xx) may still have applied server-side,
   // and SKILL.md tells the agent to re-run a failed seed — creating only the names that don't
@@ -735,17 +741,19 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   const choiceSpecs = products.map((pl, i) =>
     (pl.options ?? []).flatMap((o) =>
       (o.choices ?? [])
-        .filter((c) => typeof c === "object" && c && (c.imageUrl || c.imagePath || c.imagePrompt))
+        .filter((c) => typeof c === "object" && c && (c.imageMediaId || c.imageUrl || c.imagePath || c.imagePrompt))
         .map((c) => ({
           optionName: o.name,
           choiceName: c.name,
+          productName: pl.name,
           altText: c.altText ?? `${pl.name} — ${c.name}`,
-          spec: { url: c.imageUrl, path: c.imagePath, prompt: c.imagePrompt, displayName: `${withNames[i].slug || "product"}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` },
+          spec: { mediaId: c.imageMediaId, url: c.imageUrl, path: c.imagePath, prompt: c.imagePrompt, displayName: `${withNames[i].slug || "product"}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` },
         })),
     ));
   const flatChoiceSpecs = choiceSpecs.flat();
-  const files = await resolveItemImages(ctx, [
+  const resolved = await resolveItemImagesDetailed(ctx, [
     ...withNames.map((p, i) => ({
+      mediaId: products[i]?.imageMediaId,
       url: products[i]?.imageUrl,
       path: products[i]?.imagePath,
       prompt: products[i]?.imagePrompt,
@@ -753,7 +761,9 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     })),
     ...flatChoiceSpecs.map((c) => c.spec),
   ]);
+  const files = resolved.map((r) => r.file);
   const choiceFiles = files.slice(withNames.length);
+  const choiceResolved = resolved.slice(withNames.length);
   let cursor = 0;
   const choiceLinks = choiceSpecs.map((specs) =>
     specs.map((c) => ({ ...c, file: choiceFiles[cursor++] })).filter((c) => c.file));
@@ -763,8 +773,8 @@ export async function setupStore(ctx, { products = [], categories = {}, category
     .map((p, i) => {
       if (!p.id) return null;
       const images = [
-        ...(files[i] ? [{ url: files[i].url, altText: products[i]?.altText ?? p.slug }] : []),
-        ...choiceLinks[i].map((c) => ({ url: c.file.url, altText: c.altText })),
+        ...(files[i] ? [{ url: files[i].url, mediaId: files[i].existing ? files[i].id : undefined, altText: products[i]?.altText ?? p.slug }] : []),
+        ...choiceLinks[i].map((c) => ({ url: c.file.url, mediaId: c.file.existing ? c.file.id : undefined, altText: c.altText })),
       ];
       return images.length ? { id: p.id, images } : null;
     })
@@ -774,6 +784,15 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   // the same plan reuses the products and attaches again.
   let imagesAttached = 0;
   const imageFailures = [];
+  // A product whose image never resolved (a bad path, an unsupported file type, a refused
+  // prompt, a timeout) is not in imageItems at all, so the attach step below never sees it:
+  // it is reported here with the resolver's reason, or it ships text-only in silence.
+  withNames.forEach((p, i) => {
+    const src = products[i] ?? {};
+    if ((src.imageMediaId || src.imageUrl || src.imagePath || src.imagePrompt) && !files[i]) {
+      imageFailures.push({ name: p.name, error: resolved[i]?.error ?? "image did not resolve" });
+    }
+  });
   const nameOf = (id) => withNames.find((p) => p.id === id)?.name;
   try {
     if (imageItems.length) {
@@ -788,16 +807,31 @@ export async function setupStore(ctx, { products = [], categories = {}, category
   // Pass 3 — link each choice's image to its choice, by the gallery item's id.
   let choiceImagesLinked = 0;
   const choiceImageFailures = [];
+  flatChoiceSpecs.forEach((c, j) => {
+    if (!choiceFiles[j]) choiceImageFailures.push({ name: c.productName, choice: c.choiceName, error: choiceResolved[j]?.error ?? "image did not resolve" });
+  });
   for (const [i, p] of withNames.entries()) {
     const links = choiceLinks[i];
     if (!links.length || !p.id || !imagesAttached) continue;
     try {
-      const r = await linkChoiceImages(ctx, p.id, links.map((c) => ({ optionName: c.optionName, choiceName: c.choiceName, url: c.file.url })));
+      // a file attached by its Media Manager id is the gallery item of that id; an imported one is found by name
+      const r = await linkChoiceImages(ctx, p.id, links.map((c) => ({ optionName: c.optionName, choiceName: c.choiceName, ...(c.file.existing ? { mediaId: c.file.id } : { url: c.file.url }) })));
       choiceImagesLinked += r.linked;
       for (const m of r.missing) choiceImageFailures.push({ name: p.name, choice: m, error: "image not in the product gallery" });
     } catch (e) {
       choiceImageFailures.push({ name: p.name, error: e?.message ?? String(e) });
     }
+  }
+
+  // The pre-existing list is read again now: on a fresh site the Stores app was installed moments
+  // before the first read, and Wix creates its sample catalog asynchronously after the install, so
+  // that read often came back empty and the closing message said nothing about a dozen samples the
+  // live shop lists. The early read still serves the idempotency check above; this one serves the report.
+  try {
+    const after = await readAllProducts(ctx);
+    preexisting = after.filter((p) => !planNames.has(p.name));
+  } catch (e) {
+    console.error(`catalog re-read failed (reporting the pre-existing list from the first read): ${String(e.message).slice(0, 120)}`);
   }
 
   // failures is part of the result, not an exception: a partial seed still leaves a usable
@@ -821,7 +855,7 @@ export async function setupStore(ctx, { products = [], categories = {}, category
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

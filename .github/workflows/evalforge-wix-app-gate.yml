@@ -24,6 +24,9 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     # Longer than the 30-minute eval poll window, with room for setup and the draft sync.
     timeout-minutes: 60
     env:
@@ -119,6 +122,9 @@ jobs:
   analyze:
     needs: gate
     runs-on: ubuntu-latest
+    environment:
+      name: evalforge
+      deployment: false
     timeout-minutes: 5
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

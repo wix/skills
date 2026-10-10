@@ -24,6 +24,8 @@ import { runReviewAgent, agentPath, REVIEW_AGENT } from './review-agent';
  */
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
 
+const MIN_PASSING_SCORE = 7;
+
 /**
  * A re-run replays the original payload, so `action` alone cannot tell "someone asked again" from
  * the push that produced it. The attempt number can.
@@ -133,6 +135,8 @@ export async function runReview(): Promise<void> {
     headSha: config.headSha,
     filesReviewed: files.length,
     discarded: outcome.discarded,
+    score: outcome.score,
+    verdict: outcome.verdict,
     triggeredBy: config.triggeredBy || undefined,
   };
 
@@ -142,10 +146,9 @@ export async function runReview(): Promise<void> {
     : formatReviewFindings(findings, summary));
   await pending.clear();
 
-  const blocking = findings.filter(finding => finding.severity === 'blocking').length;
   const reasons: string[] = [];
-  if (blocking > 0) reasons.push(`${blocking} blocking finding(s)`);
   if (outcome.discarded > 0) reasons.push(`${outcome.discarded} malformed finding(s)`);
+  if (outcome.score < MIN_PASSING_SCORE) reasons.push(`a score of ${outcome.score}/10, below the ${MIN_PASSING_SCORE} required`);
   if (reasons.length > 0) {
     fail(`The skill review reported ${reasons.join(' and ')}. See the PR comment.`, config.isBlocking);
   }
