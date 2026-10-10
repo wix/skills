@@ -23,7 +23,7 @@ bootstrap can't work where you are: skip it, and do the run through the Wix MCP 
 API-call guide. Skills already on disk (a plugin, an earlier install) are used where they are; with
 none, install them when your shell can, and read the guide online when it can't. They are on disk
 when `wix-headless-kit` is among the skills your client offers you, or in a skills folder
-(`.claude/skills`, `.agents/skills`, `/mnt/skills`, a plugin's folder): the kit's guides and the
+(`.agents/skills` or similar, a plugin's folder): the kit's guides and the
 templates are read from that folder, without an install, a clone or an online read. The skills and the
 Wix MCP might arrive separately: a plugin can put its skills on disk while its Wix connector is not yet
 connected. The MCP is connected when its tools (`ExecuteWixAPI`) are in your tool list.

@@ -27,7 +27,7 @@ This skill is one of a set, and the guide reads from three of them:
   exact shape before writing a call.
 
 Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
-`npx skills add`, in `.claude/skills/` or `/mnt/skills/`, or in a plugin's folder; a skill your client
+`npx skills add` or a similar skills folder, or in a plugin's folder; a skill your client
 offers you by name is one of these. Read them from disk when they are there, with no install, clone
 or online read. Online, they are
 published alongside each other under the same names (the registry also serves each without its
