@@ -30,13 +30,14 @@
 // to recover one failed step. Emits ONE JSON event per line and exits in ~35s with the two long
 // steps — the dependency install and the seed — running detached in the background (logs and
 // completion markers in the final event), so the caller can build the brand layer while they finish.
-import { spawn, spawnSync } from "node:child_process";
-import { cpSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 import { folderShape, siteContext } from "./context.mjs";
+import { failure, npmSync, startBackground } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -129,7 +130,7 @@ if (mode === "create") {
     // a committed copy fetches it here, at the commit the rest came from.
     const template = stack === "astro" ? join(templatesDir({ need: `${vertical}/project` }), vertical, "project") : null;
     emit("scaffolding", { folder: folderName, template });
-    const scaffold = spawnSync(
+    const scaffold = npmSync(
       "npm",
       // --skip-git: this wrapper composes its own steps and leaves version control to
       // the caller / the enclosing repo; the scaffold's own `git init` + "Initial
@@ -143,7 +144,7 @@ if (mode === "create") {
       { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
     );
     if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
-      fail("scaffold", (scaffold.stderr || scaffold.stdout || `scaffold produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
+      fail("scaffold", failure(scaffold, `scaffold produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
     }
   }
 } else if (mode === "migrate") {
@@ -179,10 +180,10 @@ if (mode === "create") {
   // wix.config.json and .env.local, touches nothing else. Non-interactive under CI=1; the site is
   // named after the folder (rename it in the dashboard).
   emit("adopting", { folder: cwd });
-  const init = spawnSync("npm", ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "init"],
+  const init = npmSync("npm", ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "init"],
     { cwd, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 });
   if (init.status !== 0 || !has("wix.config.json")) {
-    fail("init", (init.stderr || init.stdout || `init produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
+    fail("init", failure(init, `init produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
   }
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
@@ -208,7 +209,7 @@ const deploy = spawnSync(
   [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
-if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
+if (deploy.status !== 0) fail("deploy", failure(deploy));
 let deployResult = {};
 try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going with raw output below */ }
 if (deployResult.error) fail("deploy", deployResult.error);
@@ -255,13 +256,7 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 let install = null;
 if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  const logFd = openSync(installLog, "a");
-  const child = spawn("sh", ["-c", existsSync(join(projectDir, "package-lock.json")) ? "npm ci --ignore-scripts || npm install --ignore-scripts" : "npm install --ignore-scripts"], {
-    cwd: projectDir,
-    detached: true,
-    stdio: ["ignore", logFd, logFd],
-  });
-  child.unref();
+  startBackground("install", [existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install"], { cwd: projectDir, log: installLog });
   install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
   emit("install_started", install);
 }
@@ -286,12 +281,7 @@ if (planPath && madeTheSite) {
   if (!seedName) fail("seed", `no seed module found under ${seedDir}`);
   const seedFile = join(seedDir, seedName);
   const planAbs = resolve(planPath);
-  const seedChild = spawn(
-    "sh",
-    ["-c", `node "${seedFile}" "${planAbs}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
-    { cwd: projectDir, detached: true, stdio: "ignore" },
-  );
-  seedChild.unref();
+  startBackground("seed", [seedFile, planAbs], { cwd: projectDir });
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
   emit("seeding_started", { vertical, ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${vertical}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 }

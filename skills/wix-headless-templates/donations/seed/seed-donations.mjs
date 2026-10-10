@@ -25,6 +25,7 @@ import { setSiteCurrency } from "../../shared/seed/site.mjs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
@@ -233,7 +234,7 @@ export async function setupDonations(ctx, { campaigns = [], currency } = {}) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

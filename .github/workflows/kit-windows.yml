@@ -1,0 +1,68 @@
+name: Kit scripts on Windows
+
+# The headless kit's install scripts and the template seeds run on users' Windows machines, where
+# npm, npx and wix are .cmd shims and there is no sh. Every other job here runs on Linux, so this one
+# checks the Windows-specific paths: a seed started directly runs (not a silent exit 0), npx starts
+# through install/proc.mjs, the detached seed job leaves its markers, and the static deploy strips
+# its TypeScript through npx. No Wix account or network call to Wix is involved.
+
+on:
+  pull_request:
+    paths:
+      - 'skills/wix-headless-kit/install/**'
+      - 'skills/wix-headless-templates/*/seed/**'
+      - 'skills/wix-headless-templates/shared/seed/**'
+      - '.github/workflows/kit-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 24
+
+      - name: A seed started directly runs its CLI entry
+        run: |
+          # With no plan argument a seed prints its usage and exits 1. Exit 0 with no output is
+          # the bug this guards: the entry check never matched a Windows path.
+          for seed in skills/wix-headless-templates/*/seed/seed-*.mjs; do
+            set +e
+            out=$(node "$(cygpath -w "$PWD/$seed")" 2>&1); code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then echo "::error::$seed exited 0 without a plan: its entry check did not run"; exit 1; fi
+            echo "$seed -> exit $code: ${out:0:80}"
+          done
+
+      - name: npx starts through proc.mjs
+        run: |
+          node --input-type=module -e "
+            const { npmSync, failure } = await import('./skills/wix-headless-kit/install/proc.mjs');
+            const r = npmSync('npx', ['--version'], { encoding: 'utf8' });
+            if (r.status !== 0) { console.error(failure(r)); process.exit(1); }
+            console.log('npx', r.stdout.trim());
+          "
+
+      - name: The detached seed job writes its markers
+        run: |
+          mkdir -p "$RUNNER_TEMP/seedjob" && cd "$RUNNER_TEMP/seedjob"
+          printf 'console.log(JSON.stringify({ plan: process.argv[2] }));\n' > fake-seed.mjs
+          node "$GITHUB_WORKSPACE/skills/wix-headless-kit/install/background.mjs" seed "$(cygpath -w "$PWD/fake-seed.mjs")" plan.json
+          test "$(tr -d '\r\n' < .seed-exit)" = "0"
+          grep -q '"plan":"plan.json"' seed-result.json
+
+      - name: The static deploy strips TypeScript through npx
+        run: |
+          mkdir -p "$RUNNER_TEMP/static" && cd "$RUNNER_TEMP/static"
+          echo '{"appId":"00000000-0000-0000-0000-000000000001","siteId":"00000000-0000-0000-0000-000000000002"}' > wix.config.json
+          node "$GITHUB_WORKSPACE/skills/wix-headless-kit/install/deploy.mjs" forms --stack static --out site | tee deploy.json
+          ! grep -q '"error"' deploy.json
+          test -f site/js/wix/forms.js
