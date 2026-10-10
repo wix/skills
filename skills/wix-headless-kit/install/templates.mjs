@@ -7,7 +7,8 @@
 //
 // Resolution, in order:
 //   1. the sibling skill folder, `<SKILL_ROOT>/../wix-headless-templates/`: a checkout of the repository,
-//      or a plugin install that carries both skills (every plugin manifest lists the templates skill).
+//      or an install that carries both skills (the cold start's `npx skills add`, the npm package,
+//      the Codex and Cursor plugins; the Claude plugin leaves it out, so there it is fetched).
 //   2. the cache `<SKILL_ROOT>/templates/`, filled by an earlier call (`--refresh` refetches).
 //   3. a fetch: a sparse, shallow clone of `skills/wix-headless-templates/` from the repository the skill was installed
 //      from (skills-lock.json's `source`, default wix/skills), at the branch or tag the install

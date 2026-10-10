@@ -7,7 +7,8 @@ is the create flow's job on a site made for the run — a folder holding only a 
 is that case too: `init` made the site; SKILL.md step 3). (A project downloaded from Wix whose `.env.local` declares a
 migration is the other way to arrive at an existing site: `guides/migration.md`; the reading
 part below applies there too, against the migrated site.) `<SKILL_ROOT>` is the installed skill folder; the shipped code is
-under `<SKILL_ROOT>/templates/` (SKILL.md, "The run").
+in the folder `node <SKILL_ROOT>/install/templates.mjs` prints (`<templates>` below; SKILL.md, "The
+model").
 
 **Read the site, then run attach.** First, one call tells you what
 the site is — its name, currency, and the Wix apps installed on it:
@@ -46,7 +47,7 @@ for: what the chosen verticals will render, roughly how much of it, and what it 
 six items in three groups design differently from six hundred. Run the vertical's reader:
 
 ```bash
-node <SKILL_ROOT>/templates/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
+node <templates>/<vertical>/seed/read-site.mjs --site <siteId> [--limit <n>]
 ```
 
 It prints one JSON: whether the vertical's app is installed, counts, one page of each entity

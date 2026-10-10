@@ -24,8 +24,9 @@ doesn't express — or once the site exists and the work turns to managing or ex
 - **Shipped code is the implementation.** Every vertical ships in the repository's
   `wix-headless-templates` skill (`skills/wix-headless-templates/<vertical>/`), not in this skill's
   folder. `node <SKILL_ROOT>/install/templates.mjs` prints where that skill is: the sibling folder
-  `<SKILL_ROOT>/../wix-headless-templates/` when the install carried both skills (the cold start
-  does), else a one-time fetch into `<SKILL_ROOT>/templates/` (a second); every script below
+  `<SKILL_ROOT>/../wix-headless-templates/` when it was installed beside this skill (the cold start
+  installs both; a plugin may not), else a one-time fetch into `<SKILL_ROOT>/templates/` (a git
+  clone of the skill's repository, a second); every script below
   resolves it the same way. **Every `templates/...` path in this document is relative to that
   printed root** — there is no `templates/` folder inside this skill when the sibling exists.
   The folder stays with the project (only the composed `project/` scaffolds are left out of its
@@ -100,8 +101,8 @@ cases of step 3, with the `next` for each) and the two identities a project has 
 as and whose dashboard manages the business). They are one site, except on a **migration preview**
 (`guides/migration.md`), where the env names the site being migrated. Every script here reads that
 context; the site a call targets is never guessed from the config alone. Then fetch the shipped
-code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder;
-the `templates/…` paths below are relative to `<SKILL_ROOT>`, where it lands.
+code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder; the `templates/…`
+paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
 and prints the update commands; it changes nothing.
 
@@ -202,7 +203,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    id in the brief or by `--site`, a project linked to it, a migration's parent (attach reports
    `siteOrigin: "given"`) — holds content the run did not make: seed only what the brief
    **supplies or asks to add** (`attach.mjs --plan plan.json`, or the vertical's seed module from
-   the project root: `node <SKILL_ROOT>/templates/<vertical>/seed/seed-<vertical>.mjs plan.json`),
+   the project root: `node <templates>/<vertical>/seed/seed-<vertical>.mjs plan.json`, `<templates>`
+   being the folder `install/templates.mjs` printed),
    and never invent content for it. "A new storefront for my toy store" describes the business,
    not content to add: nothing is seeded. Read an existing site first either way
    (`seed/read-site.mjs`). Seeds are additive and idempotent by name; nothing on a site is ever

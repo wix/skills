@@ -83,7 +83,9 @@ CI=1 npx skills@latest add wix/skills \
 
 They land under `.agents/skills/`. When the skills are already on disk, by a plugin or an earlier
 install, skip this phase and use them where they are; a file they lack (an older copy may not have
-`wix-headless-kit`) is read online.
+`wix-headless-kit`) is read online. A plugin may leave out `wix-headless-templates`: the kit's
+scripts fetch it themselves when they first need it (`install/templates.mjs`, a git clone), and
+without a shell its files are read online.
 
 ## Phase 2 — Run the bootstrap (deterministic, shared)
 

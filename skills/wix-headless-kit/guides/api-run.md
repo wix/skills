@@ -14,8 +14,11 @@ This skill is one of a set, and the guide reads from three of them:
 - `{SKILL_ROOT}` — this skill, `wix-headless-kit`: the run, its guides, the Verticals table.
 - `{TEMPLATES}` — `wix-headless-templates`: the shipped, verified code per Wix Business Solution,
   one folder each, with its `INSTRUCTIONS.md` (the contracts), `seed/` (the seed script and
-  `SEED.md`) and `rest/` (the data layer over plain `fetch`). Installed beside this skill, or
-  fetched to `{SKILL_ROOT}/templates/`.
+  `SEED.md`) and `rest/` (the data layer over plain `fetch`). Not every install carries it (a
+  plugin may leave it out): it is installed beside this skill, or fetched to
+  `{SKILL_ROOT}/templates/` by `node {SKILL_ROOT}/install/templates.mjs` (a git clone), or installed
+  with `npx skills@latest add wix/skills --skill wix-headless-templates`; with none of those, read
+  online at `https://www.wix.com/skills/wix-headless-templates/{path}`.
 - `{MANAGE}` — `wix-manage`: REST recipes to configure and manage a site's business solutions, one
   recipe per operation with the exact endpoint and payload; its `SKILL.md` is the index.
 - `{DOCS}` — `wix-docs`: how to look up the Wix API and SDK documentation and confirm a method's

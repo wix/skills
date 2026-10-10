@@ -304,7 +304,7 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, frontend, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
     next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack}${planPath ? ` --plan ${planPath}` : ""} (the client id is read from wix.config.json); ` +
-      (planPath ? `then seed with the plan: node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs ${planPath}` : `no plan given, so nothing seeds — the site owns its content`) +
+      (planPath ? `then seed with the plan: node ${join(TEMPLATES, verticals[0], "seed", `seed-${verticals[0]}.mjs`)} ${planPath}` : `no plan given, so nothing seeds — the site owns its content`) +
       (hosting === "self" ? `; you host it: origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}` : "") });
   process.exit(0);
 }
@@ -349,10 +349,10 @@ if (planPath) {
   emit("seeding_started", { vertical: verticals[0], ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${verticals[0]}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 } else {
   if (siteOrigin === "init") {
-    emit("note", { step: "seed", detail: `this site was made for this run (init) and is empty: draft a plan per templates/${verticals[0]}/seed/SEED.md — the brief's content, else demo content — and run node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs plan.json from the project root` });
+    emit("note", { step: "seed", detail: `this site was made for this run (init) and is empty: draft a plan per ${join(TEMPLATES, verticals[0], "seed", "SEED.md")} — the brief's content, else demo content — and run node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs plan.json from the project root` });
   }
   if (verticals.includes("members")) {
-    emit("note", { step: "seed", detail: "members: the Members Area app (the profile layer, no content) is installed by templates/members/seed/seed-members.mjs — run it unless the site already has the app" });
+    emit("note", { step: "seed", detail: `members: the Members Area app (the profile layer, no content) is installed by ${join(TEMPLATES, "members", "seed", "seed-members.mjs")} — run it unless the site already has the app` });
   }
 }
 
