@@ -1,10 +1,11 @@
 # The kit's run as Wix API calls
 
-Read when the commands this skill is built on cannot run where you are, or stopped: no shell, no
-file system, a sandbox that blocks the install, the CLI or the login, or a host that only talks to
-Wix through the Wix MCP. It walks the run of SKILL.md step by step and names, for each, the Wix
-API call the CLI or the script performs and the file beside this skill that carries the contract;
-where a script can run where you are, it says so.
+Read when the commands this skill is built on cannot run where you are, or stopped: your shell
+can't reach Wix, there is no shell, or the install, the
+CLI or the login is blocked. Wix is then reachable through the Wix MCP: every call below is an
+`ExecuteWixAPI` call, and files reach the site through the upload recipe. It walks the run of
+SKILL.md step by step and names, for each, the Wix API call the CLI or the script performs and the
+file beside this skill that carries the contract; where a script can run where you are, it says so.
 
 ## Where these skills are
 
@@ -20,10 +21,12 @@ This skill is one of a set, and the guide reads from three of them:
 - `{DOCS}` — `wix-docs`: how to look up the Wix API and SDK documentation and confirm a method's
   exact shape before writing a call.
 
-Installed, they sit beside each other under `.agents/skills/`. Online, they are published alongside
-each other under the same names, each with a manifest of its files, and in the `wix/skills`
-repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the whole set on
-disk from a clone.
+Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
+`npx skills add`, or in a plugin's folder. Read them from disk when they are there. Online, they are
+published alongside each other under the same names, each with a manifest of its files, and in the
+`wix/skills` repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the
+whole set on disk from a clone. Online pages are read with the Wix MCP's `ReadFullDocsArticle`
+when it is connected: a client's web fetch may open only URLs the user gave or a search returned.
 
 What such a run does not produce: the Astro build and its release. Those need a machine with the
 CLI. Everything else the kit does to a site, it does through calls you can make.
@@ -41,6 +44,9 @@ visitor tokens only, which cover what a visitor may see and nothing here.
 Unchanged from SKILL.md step 2 and its Verticals table: the brief names the business, the table
 names the solutions it needs. Read each solution's `{TEMPLATES}/{solution}/INSTRUCTIONS.md` for
 what it covers and `{TEMPLATES}/{solution}/seed/SEED.md` for what a seeded site holds.
+
+A brief that needs no solution (a game, a landing page, a tool) is a run of two steps: the site
+(step 2, with no `seedOptions`) and the frontend (step 5). No apps, no seed.
 
 ## 2. The site
 
@@ -68,8 +74,13 @@ encodes (a Bookings service needs a category to be visible and takes resource id
 a Forms field is registered by its `validation` block; a product's choice photos are linked after
 the gallery holds them). Read `SEED.md`, read the script for any call `SEED.md` only names, and make the same
 calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
-the script's rules: create, never delete, and report what the site already held. Image prompts
-need the Media Manager; without it, products and services stay text-only, say so. The scripts read
+the script's rules: create, never delete, and report what the site already held. A photo already in
+the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
+`SEED.md`), as it is: an import by URL would copy it. A photo on a site the user dropped is served
+with the drop, not from the Media Manager: it goes in by its live URL, imported once through
+`{MANAGE}/references/media/upload-media-to-wix.md`, and the file id the import returns is what the
+product or service takes. Image prompts need the Media Manager; without
+it, products and services stay text-only, say so. The scripts read
 a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
 is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
 a paid image.
@@ -79,10 +90,13 @@ a paid image.
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
 is static files, dropped onto the site from step 2 through
-`{MANAGE}/references/sites/upload-static-site.md`. Which files depends on whether the compose can
-run.
+`{MANAGE}/references/sites/upload-static-site.md`: the Wix MCP's upload tool, or a script that
+downloads what the site serves, edits it and drops it back, so only what changed is written. Which
+files depends on whether the compose can run, and on what writing them costs: when files reach the
+upload tool as files (its `attachments`), anything on your disk travels as it is; when they don't,
+every file you send is text you write, and the smallest set wins.
 
-**When the compose can run** (the skills on disk and Node), the frontend is the kit's own shipped code. The compose
+**When the compose can run** (the skills on disk, Node, and npm reachable, for the TypeScript compiler it fetches), the frontend is the kit's own shipped code. The compose
 `{SKILL_ROOT}/install/deploy.mjs {solution} --stack static --out site --client-id {appId}` fetches the
 templates and writes the solution's REST data layer and stores to `site/js/wix/` as plain ES modules
 (`guides/reference-mode.md`, the static site): the transport, the cores, the state machines, verified,
@@ -92,8 +106,8 @@ takes the complete file set in one call and a response has a hard size limit; th
 later" section downloads what the site serves, so a later drop adds files to a live set without
 resending what is already there.
 
-**When it cannot**, a page that loads the Wix SDK from a package CDN and talks to the site as a
-visitor. One file per call, a few hundred lines, written in full inside that call: a response has a
+**When it cannot**, or when its output would all have to be written out by hand, a page that loads
+the Wix SDK from a package CDN and talks to the site as a visitor. One file per call, a few hundred lines, written in full inside that call: a response has a
 hard size limit, and a call that carries the whole frontend at once exceeds it. A second file joins
 the first the recipe's way, "Change it later": the same call downloads the live set and drops the
 union. The

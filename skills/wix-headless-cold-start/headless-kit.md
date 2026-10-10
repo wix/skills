@@ -1,6 +1,6 @@
 ---
 name: wix-headless-kit-cold-start
-description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. An agent without a shell, Node or network learns here what to hand over instead, so the request still ends with a built site or an honest answer."
+description: "Build and release a Wix Headless site from a single prompt, on shipped, verified @wix/sdk code — this entry takes a cold environment (prerequisites, Wix sign-in) to the point where the wix-headless-kit skill runs the build. Verticals: storefront, bookings, rentals, blog, cms, events, forms, members, portfolio, pricing-plans, restaurants, faq, donations. Triggers: build me a store/blog/booking/events/portfolio/restaurant/FAQ/donation site fast, sell tickets or membership plans headless, collect donations headless, wix headless kit entry. An agent whose shell can't reach Wix, or that has no shell, does the same run through the Wix MCP, from the kit's API-call guide."
 ---
 
 # Wix Headless Kit — cold start
@@ -17,14 +17,17 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 # then open and follow: .agents/skills/wix-headless-kit/SKILL.md
 ```
 
-Requires a shell, Node ≥ 22.12 and a logged-in Wix CLI; the bootstrap checks the CLI and guides
-the login. Its answer routes you:
+Requires a shell whose network reaches Wix, Node ≥ 22.12 and a logged-in Wix CLI; the bootstrap
+checks the CLI and guides the login. When your shell doesn't reach Wix, or you have no shell, the
+bootstrap can't work where you are: skip it, and do the run through the Wix MCP from the kit's
+API-call guide. Skills already on disk (a plugin, an earlier install) are used where they are; with
+none, install them when your shell can, and read the guide online when it can't.
 
-| after the three commands | go to |
+| your situation | go to |
 |---|---|
 | the bootstrap reports `logged_in` | Phase 3: open `.agents/skills/wix-headless-kit/SKILL.md` and follow it |
-| the install ran, the bootstrap reports `cli_unreachable` or `login_failed` | the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` |
-| the install itself cannot run (no shell, no npm, no file system) | the guide online: `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` |
+| the install ran, the bootstrap reports `cli_unreachable` or `login_failed` | show the user the `detail`, then the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` |
+| your shell can't reach Wix, or there is no shell, and the Wix MCP is connected | the guide from the skills on disk (a plugin's folder, an earlier install, or one you just ran), online at `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` when there are none |
 
 The guide is the same run as Wix API calls, step by step, with the file that carries each
 contract; the [last section](#the-guide-the-kits-run-as-wix-api-calls) says how its paths resolve.
@@ -78,7 +81,9 @@ CI=1 npx skills@latest add wix/skills \
 - **`wix-docs`** — the API reference the playbooks defer to for any contract they don't cover.
 - **`wix-manage`** — management recipes, for admin work on the site after it exists.
 
-They land under `.agents/skills/`.
+They land under `.agents/skills/`. When the skills are already on disk, by a plugin or an earlier
+install, skip this phase and use them where they are; a file they lack (an older copy may not have
+`wix-headless-kit`) is read online.
 
 ## Phase 2 — Run the bootstrap (deterministic, shared)
 
@@ -101,7 +106,7 @@ node .agents/skills/wix-headless-kit/install/bootstrap.mjs
 | `cli_ok` | Wix CLI reachable — continue. |
 | `awaiting_user` (`verificationUri`, `userCode`, `message`) | The script has exited and the next step is the user's. Send them `message` as-is; the login keeps running on its own. |
 | `logged_in` / `success` | Login done — continue. |
-| `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` (the table at the top). |
+| `cli_unreachable` / `login_failed` (with `detail`) | Show the user the `detail`. **Do not** improvise a parallel setup by hand; if it can't be fixed where you are, the run continues from the guide on disk: `.agents/skills/wix-headless-kit/guides/api-run.md` (the table at the top). |
 
 On `awaiting_user`, run the script again once the user says they've logged in: it reports
 `logged_in` and you continue. Re-running while they're still in the browser is harmless — it
@@ -122,8 +127,8 @@ API reference through `wix-docs`, on the same project; SKILL.md says how.)
 ## The guide: the kit's run as Wix API calls
 
 `wix-headless-kit/guides/api-run.md` walks the kit's run step by step as the Wix API calls the
-scripts make, and names the file beside the skill that carries each contract. It is read from disk
-after an install, or online when nothing could be installed (the table at the top).
+scripts make, and names the file beside the skill that carries each contract. It is read from the
+installed skills when they are there, or online when nothing is installed (the table at the top).
 
 The files it names are skill paths. On disk a path resolves under `.agents/skills/{skill}/`; on the
 registry as `https://www.wix.com/skills/{skill}/{path}`: `{SKILL_ROOT}` is `wix-headless-kit`,
