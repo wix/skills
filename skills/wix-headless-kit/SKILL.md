@@ -111,8 +111,7 @@ only the site owner can take never hold a flow back: drafted content is live (po
 products on sale, services bookable, events open to sign-up), forms collect submissions, and
 anything that takes money reaches Wix's checkout before payments are connected. Those steps
 (connecting payments, upgrading the plan, replacing drafted content with their own, shipping rates,
-a domain) go in
-the closing with their links as next steps the user can take or ask for.
+a domain) go in the closing with their links as next steps the user can take or ask for.
 
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
 run hits friction of any kind: anything that cost more turns than it should have, whether or not
