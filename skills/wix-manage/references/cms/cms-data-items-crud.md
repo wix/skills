@@ -175,7 +175,7 @@ curl -X GET \
 
 **Endpoint**: `PUT https://www.wixapis.com/wix-data/v2/items/{itemId}`
 
-> **Warning**: PUT replaces the entire item. Any field not in `dataItem.data` is deleted. To change some fields, use [Patch Data Item](#patch-data-item-partial-update---single-item). Use PUT only when you send every field of the item. If the patch endpoint rejects the collection, get the item first, change the fields in the returned `data`, and send that whole `data` back with PUT.
+> **Warning**: This replaces the entire item — fields not in `dataItem.data` are deleted. To change only some fields, use [Patch Data Item](#patch-data-item-partial-update---single-item).
 
 **Request Body**:
 ```json
@@ -235,7 +235,7 @@ Unlike Update, this only modifies the specified fields — all other fields rema
 
 > There is no update-by-filter endpoint. To update the items matching a filter, query them first (see [Query Data Items](#query-data-items)), then send their ids to bulk update or bulk patch.
 
-> **Warning**: Like PUT, bulk update replaces each entire item. Any field not in its `data` is deleted. To change some fields, use [Bulk Patch Items](#bulk-patch-items-partial-update). Each `data` must be the item's complete data: read the items first, change the fields, and send every field back.
+> **Note**: This replaces the entire item. Include all fields you want to keep, not just the ones you're changing.
 
 > **Important**: Use `id` (not `_id`) at the element level. The `data` object should NOT contain `_id`.
 
