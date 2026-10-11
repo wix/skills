@@ -12,8 +12,8 @@ commands.
 ## The whole cold start (details in the phases below)
 
 The skills `wix-headless-kit`, `wix-docs` and `wix-manage`: each one already among your skills, or
-under `.agents/skills` or similar, is used where it is, and the install below names only the missing
-ones.
+under `.agents/skills` or similar, is used where it is (a skill your client serves rather than a file
+is read through its skill tool), and the install below names only the missing ones.
 
 ```bash
 CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-headless-templates --skill wix-docs --skill wix-manage --yes   # only the skills you don't already have
