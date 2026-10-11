@@ -44,8 +44,9 @@ it is connected: a client's web fetch may open only URLs the user gave or a sear
 
 Online, a skill's files are found through its manifest,
 `https://www.wix.com/skills/{skill}.manifest.json` (for the templates,
-`headless-templates.manifest.json`): every file it holds, by path, with its size in bytes. Open it
-once before the first file and take each path from it: the files this guide names by pattern
+`headless-templates.manifest.json`): every file it holds, by path, with its size in bytes. A
+folder's URL lists its files, and `<folder>/_content` returns them in one response. Open it once
+before the first file and take each path from it: the files this guide names by pattern
 (`{solution}/rest/*.ts`, `*-core.ts`), and the files an import points to. A path the manifest
 doesn't list is a wrong path; find the file there before writing anything in its place. A copy you
 hold, served or on disk, is current when its size in bytes matches the manifest's; a file whose size
@@ -178,9 +179,9 @@ and an entity's id arrives as `_id` on some objects and `id` on others (the kit 
 
 **The check**, before every upload: a page cannot be opened here, so a wrong shape fails silently in
 the browser. In one `ExecuteWixAPI` script, make each control's calls the way the page makes them,
-as a visitor, with the bodies from `{solution}/rest/*.ts`. Then open the solution's `*-core.ts`
-files (by path from the manifest, or from the folder) and run each response through them in your
-sandbox's Node, as the page does:
+as a visitor, with the bodies from `{solution}/rest/*.ts`. Then read the solution's cores,
+`{TEMPLATES}/{solution}/app/wix/{solution}/*-core.ts` (online, that folder's `_content` returns them
+in one response), and run each response through them in your sandbox's Node, as the page does:
 
 ```js
 async function () {
