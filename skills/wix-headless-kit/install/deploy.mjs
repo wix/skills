@@ -37,10 +37,13 @@
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   readFileSync,
+  renameSync,
   writeFileSync,
   readdirSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { templatesDir } from "./templates.mjs";
@@ -436,6 +439,46 @@ if (siteSearch) {
   if (siteSearch.install) {
     // Indexing needs the Wix Site Search app on the site — a site mutation the deploy never makes.
     result.note = [result.note, `siteSearch.install: run node ${join(REF, "shared", "capabilities", "site-search", "seed", "install.mjs")} from the project root after the seed (results appear about half a minute later)`].filter(Boolean).join("; ");
+  }
+}
+
+// ---- an older blank starter moves to the templates' major -------------------------------------
+// A machine or scaffold can hold an earlier release of the blank template (`wix-astro-blank` on
+// Astro 5, `@wix/astro` 2, the Cloudflare adapter). The shipped pages need the templates' major
+// (`@wix/astro` 3 on Astro 7): on the older one an item page's wixMetadata answers 500. That
+// starter carries no work of its own, so it takes the template's dependency ranges and config;
+// the old lock and node_modules move aside so the next install resolves fresh. Any other project
+// on an earlier major is left alone and reported.
+const BLANK = join(REF, "blank", "project");
+const majorOf = (range) => Number(String(range ?? "").match(/\d+/)?.[0] ?? NaN);
+if (stack === "astro" && result.verticals.length && existsSync(PKG_JSON) && existsSync(join(BLANK, "package.json"))) {
+  const pkg = JSON.parse(readFileSync(PKG_JSON, "utf8"));
+  const blank = JSON.parse(readFileSync(join(BLANK, "package.json"), "utf8"));
+  const have = majorOf(pkg.dependencies?.astro ?? pkg.devDependencies?.astro);
+  const want = majorOf(blank.dependencies?.astro);
+  if (have < want && pkg.name === blank.name) {
+    const OLD_ADAPTER = ["@astrojs/cloudflare", "@wix/cloud-provider-fetch-adapter"];
+    const cli = pkg.devDependencies?.["@wix/cli"];
+    for (const field of ["dependencies", "devDependencies"]) {
+      pkg[field] = { ...pkg[field], ...blank[field] };
+      for (const name of OLD_ADAPTER) delete pkg[field][name];
+    }
+    if (cli && majorOf(cli) >= majorOf(blank.devDependencies?.["@wix/cli"])) pkg.devDependencies["@wix/cli"] = cli;
+    writeFileSync(PKG_JSON, JSON.stringify(pkg, null, 2) + "\n");
+    const config = join(PROJECT, "astro.config.mjs");
+    if (!existsSync(config) || OLD_ADAPTER.some((name) => readFileSync(config, "utf8").includes(name))) {
+      cpSync(join(BLANK, "astro.config.mjs"), config);
+    }
+    const aside = join(tmpdir(), `wix-starter-${Date.now()}`);
+    const moved = [];
+    for (const name of ["package-lock.json", "node_modules"]) {
+      if (!existsSync(join(PROJECT, name))) continue;
+      try { mkdirSync(aside, { recursive: true }); renameSync(join(PROJECT, name), join(aside, name)); moved.push(name); }
+      catch { result.note = [result.note, `move ${name} out of the project before installing (it holds Astro ${have})`].filter(Boolean).join("; "); }
+    }
+    result.starterUpgraded = { from: `astro ${have}`, to: `astro ${want}`, movedAside: moved.length ? aside : null };
+  } else if (have < want) {
+    result.note = [result.note, `this project is on Astro ${have}; the shipped pages need Astro ${want} (@wix/astro ${majorOf(blank.dependencies?.["@wix/astro"])}): move it to ${want} first, or connect it as a React host (SKILL.md step 1)`].filter(Boolean).join("; ");
   }
 }
 
