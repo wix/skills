@@ -107,34 +107,19 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   Inventory Items call (`productId`, its single `variantId`, and `inStock: true` or the
   `quantity`), where `ALREADY_EXISTS` means the item is already there. A seed made call by call
   reads the items (Query Inventory Items) and creates only the missing ones.
-- `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
-  currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"),
-  in the brief or on the user's own pages. On a site this run created it is set without asking; a
-  store the user already runs is asked first. Do **not** infer it from a language, a country, or an address
-  — an unrequested switch silently reprices the whole catalog. The seed applies it before
-  creating anything, because a product's price is stored in the site currency at create time.
-  For a few seconds afterwards product reads can still report the old currency; that lag is
+- `currency` — 3-letter ISO code. Set it **only when the user names one**, in the brief or on their
+  own pages: a sentence about currency ("prices in euros") or a price written with its unit ("9
+  dollars", "$9", "€20"). On a site this run created it is set without asking; a store the user
+  already runs is asked first. Do **not** infer it from a language, a country, or an address — an
+  unrequested switch silently reprices the whole catalog. The seed applies it before creating
+  anything, because a product's price is stored in the site currency at create time. For a few
+  seconds afterwards product reads can still report the old currency; that lag is
   expected and self-resolves, so don't re-verify it or retry.
 
-A seed made call by call sends the body `bulkCreateProducts` builds
-(`POST /stores/v3/bulk/products-with-inventory/create`); the description is rich-text nodes, as
-`mkDesc` turns them out:
-
-```json
-{ "returnEntity": true, "products": [{
-    "name": "Hearth Candle", "productType": "PHYSICAL", "physicalProperties": {},
-    "description": { "nodes": [{ "type": "PARAGRAPH", "id": "d0", "paragraphData": {},
-      "nodes": [{ "type": "TEXT", "id": "", "textData": { "text": "Hand-poured soy wax.", "decorations": [] } }] }] },
-    "variantsInfo": { "variants": [{ "price": { "actualPrice": { "amount": "28" } },
-      "physicalProperties": {}, "inventoryItem": { "inStock": true } }] } }] }
-```
-
-Shipping, when the brief asks for it, follows `wix-manage`'s `references/ecommerce/ecom-shipping.md`.
-
 **Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
-full inventory; the owner adds the rest in the dashboard. Drafted products are on sale like real
-ones (`inStock: true`), and the closing names them as placeholders. **Make those 3 exercise the shipped
-UI**: give at least one product a color option and put one product on sale — truthfully to the
+full inventory; the owner adds the rest in the dashboard. Drafted products are stocked like real
+ones (a `quantity` or `inStock: true`), and the closing names them as placeholders. **Make those
+3 exercise the shipped UI**: give at least one product a color option and put one product on sale — truthfully to the
 business (a ceramics studio has glaze colors; a bakery doesn't). When the brief mentions gift
 wrap, engraving, a message card, pre-orders, or "coming soon" stock, seed ONE product with that
 modifier and ONE pre-order item so the surfaces exist to design against; never add them to a
@@ -180,6 +165,8 @@ duplicated. Never hand-patch ids to "fill the gap".
 
 Two things this module does not seed (dashboard-only — tell the merchant): **SKUs** and
 **subscription plans** (the storefront renders them when the merchant adds them).
+Shipping isn't seeded either; when the brief asks for it, `wix-manage`'s
+`references/ecommerce/ecom-shipping.md` sets it up.
 
 ## Escape hatch — individual functions
 
@@ -187,6 +174,19 @@ Two things this module does not seed (dashboard-only — tell the merchant): **S
 ordering: `installStoresApp`, `readAllProducts`, `bulkCreateProducts`,
 `createCategories(ctx, names, details?)`, `addProductsToCategories`, `attachProductImages` — plus
 `makeCtx()` for the auth context.
+
+A seed made call by call sends the body `bulkCreateProducts` builds
+(`POST /stores/v3/bulk/products-with-inventory/create`); the description is rich-text nodes, as
+`mkDesc` turns them out:
+
+```json
+{ "returnEntity": true, "products": [{
+    "name": "Hearth Candle", "productType": "PHYSICAL", "physicalProperties": {},
+    "description": { "nodes": [{ "type": "PARAGRAPH", "id": "d0", "paragraphData": {},
+      "nodes": [{ "type": "TEXT", "id": "", "textData": { "text": "Hand-poured soy wax.", "decorations": [] } }] }] },
+    "variantsInfo": { "variants": [{ "price": { "actualPrice": { "amount": "28" } },
+      "physicalProperties": {}, "inventoryItem": { "inStock": true } }] } }] }
+```
 
 ## Reference
 
