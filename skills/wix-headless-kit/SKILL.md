@@ -107,11 +107,9 @@ paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 and prints the update commands; it changes nothing.
 
 Throughout any run, keep the site working at every step so the user can try it as it grows. Steps
-only the site owner can take never hold a flow back. Drafted content is live: posts are published,
-products on sale, services bookable, events open to sign-up. Forms collect submissions, and anything
-that takes money reaches Wix's checkout before payments are connected. The owner's steps (connecting
-payments, upgrading the plan, replacing drafted content with their own, shipping rates, a domain) go
-in the closing with their links, as next steps the user can take or ask for.
+only the site owner can take never hold a flow back: drafted content is live, and anything that
+takes money reaches Wix's checkout before payments are connected. The owner's steps go in the
+closing with their links, as next steps the user can take or ask for.
 
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
 run hits friction of any kind: anything that cost more turns than it should have, whether or not
