@@ -108,11 +108,28 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   `quantity`), where `ALREADY_EXISTS` means the item is already there. A seed made call by call
   reads the items (Query Inventory Items) and creates only the missing ones.
 - `currency` — 3-letter ISO code. Set it **only when the brief names one**: a sentence about
-  currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"). Do **not** infer it from a language, a country, or an address
+  currency ("prices in euros") or a price written with its unit ("9 dollars", "$9", "€20"),
+  in the brief or on the user's own pages. On a site this run created it is set without asking; a
+  store the user already runs is asked first. Do **not** infer it from a language, a country, or an address
   — an unrequested switch silently reprices the whole catalog. The seed applies it before
   creating anything, because a product's price is stored in the site currency at create time.
   For a few seconds afterwards product reads can still report the old currency; that lag is
   expected and self-resolves, so don't re-verify it or retry.
+
+A seed made call by call sends the body `bulkCreateProducts` builds
+(`POST /stores/v3/bulk/products-with-inventory/create`); the description is rich-text nodes, as
+`mkDesc` turns them out:
+
+```json
+{ "returnEntity": true, "products": [{
+    "name": "Hearth Candle", "productType": "PHYSICAL", "physicalProperties": {},
+    "description": { "nodes": [{ "type": "PARAGRAPH", "id": "d0", "paragraphData": {},
+      "nodes": [{ "type": "TEXT", "id": "", "textData": { "text": "Hand-poured soy wax.", "decorations": [] } }] }] },
+    "variantsInfo": { "variants": [{ "price": { "actualPrice": { "amount": "28" } },
+      "physicalProperties": {}, "inventoryItem": { "inStock": true } }] } }] }
+```
+
+Shipping, when the brief asks for it, follows `wix-manage`'s `references/ecommerce/ecom-shipping.md`.
 
 **Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
 full inventory; the owner adds the rest in the dashboard. Drafted products are on sale like real
