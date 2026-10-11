@@ -34,7 +34,8 @@ This skill is one of a set, and the guide reads from three of them:
 Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
 `npx skills add` or a similar skills folder, or in a plugin's folder. A skill your client offers you
 by name is read from there, or through the client's skill tool when it is served rather than a file,
-with no install, clone or online read. Online, they are published alongside each other under the
+with no install, clone or online read. List them first, through that tool or the folder: a catalog
+shown at the start can leave skills out. Online, they are published alongside each other under the
 same names (the registry also serves each without its `wix-` prefix, `headless-templates` for
 `wix-headless-templates`, which is the `base` its manifest shows; both forms resolve), and in the
 `wix/skills` repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the
@@ -43,10 +44,12 @@ it is connected: a client's web fetch may open only URLs the user gave or a sear
 
 Online, a skill's files are found through its manifest,
 `https://www.wix.com/skills/{skill}.manifest.json` (for the templates,
-`headless-templates.manifest.json`): every file it holds, by path. Open it once before the first
-file and take each path from it: the files this guide names by pattern (`{solution}/rest/*.ts`,
-`*-core.ts`), and the files an import points to. A path the manifest doesn't list is a wrong path;
-find the file there before writing anything in its place.
+`headless-templates.manifest.json`): every file it holds, by path, with its size in bytes. Open it
+once before the first file and take each path from it: the files this guide names by pattern
+(`{solution}/rest/*.ts`, `*-core.ts`), and the files an import points to. A path the manifest
+doesn't list is a wrong path; find the file there before writing anything in its place. A copy you
+hold, served or on disk, is current when its size in bytes matches the manifest's; a file whose size
+differs is read online.
 
 What such a run does not produce: the Astro build and its release. Those need a machine with the
 CLI. Everything else the kit does to a site, it does through calls you can make, the frontend
