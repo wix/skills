@@ -106,6 +106,13 @@ paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
 and prints the update commands; it changes nothing.
 
+Throughout any run, the site is one the user can try: each step leaves it working on Wix's
+defaults, and the owner's own steps come as offers. A flow that waits on the owner still runs: the
+hosted checkout opens before payments are connected, and drafted content is live (on sale,
+bookable, open to sign-up). The owner's steps (payments, the
+plan, real products and prices, shipping rates, a domain) are named in the closing with their links
+and done when the user asks for them, one at a time.
+
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
 run hits friction of any kind: anything that cost more turns than it should have, whether or not
 it ended in an error (a confusing error, a doc gap, a seed that had to be re-run, a shipped file

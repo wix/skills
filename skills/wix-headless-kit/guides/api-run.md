@@ -83,9 +83,8 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 traps the script encodes. Read `SEED.md` before the first create: it maps the brief's words to the
 fields, and the script's builder functions turn those fields into each request, so the bodies you
 send are the ones they build. A call `SEED.md` only names is made through `{MANAGE}`'s recipe for
-it. Keep the script's rules: create, never delete, and report what the site already held. Entities
-you draft for the run, with no content from the user, go live like real ones (on sale, bookable,
-open to sign-up), and the closing names them as placeholders.
+it. Keep the script's rules: create, never delete, and report what the site already held. Entities you
+draft for the run are live like real ones, and the closing names them as placeholders.
 
 A photo already in the site's Media Manager, such as one the user uploaded, goes in by its file id
 (`imageMediaId` in `SEED.md`), as it is: an import by URL would copy it. A photo on a site the user
@@ -107,10 +106,8 @@ it (add to cart, the cart, book, submit) works on the live site. A backend with 
 half a run.
 
 A payment (a cart, a paid booking, a ticket, a plan, a donation) ends in Wix's hosted checkout,
-reached through a redirect session. It opens before the owner connects payments: the buyer sees the
-order and, at the pay step, "We can't accept online payments" until the owner connects a provider
-and a premium plan, which the closing links to. Wire checkout on the first pass, whatever the
-payment state.
+reached through a redirect session, and is wired on the first pass: the site is one the user can
+try, as SKILL.md's run says, payments connected or not.
 
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
