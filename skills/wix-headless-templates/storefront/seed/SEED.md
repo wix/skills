@@ -115,7 +115,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   expected and self-resolves, so don't re-verify it or retry.
 
 **Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
-full inventory; the owner adds the rest in the dashboard. **Make those 3 exercise the shipped
+full inventory; the owner adds the rest in the dashboard. Drafted products are on sale like real
+ones (`inStock: true`), and the closing names them as placeholders. **Make those 3 exercise the shipped
 UI**: give at least one product a color option and put one product on sale — truthfully to the
 business (a ceramics studio has glaze colors; a bakery doesn't). When the brief mentions gift
 wrap, engraving, a message card, pre-orders, or "coming soon" stock, seed ONE product with that
@@ -143,7 +144,8 @@ a new site (a dozen products: "Baseball Cap", "Ceramic Flower Vase", "Crew T-Shi
 live shop lists them next to the owner's, so they are never silent: the result's `preexisting[]` names
 every product the plan did not name (`{ id, name, slug }`), and the closing message says so with the
 Manage products link (`dashboardProductsUrl` in the result) so the owner removes them there if they
-want to. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
+want to. After a currency change their prices keep the same numbers in the new currency, and the
+closing says so. Categories are idempotent by name — a re-run reuses "Donuts" instead of creating a second one.
 
 **Images are confirmed, not assumed.** `imagesAttached` counts the attaches the API reported as
 successful; `imageFailures: [{ name, error }]` names the products left without an image and why.

@@ -82,39 +82,56 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 (what to create, how many, which images), the order the entities need, and the traps the script
 encodes (a Bookings service needs a category to be visible and takes resource ids, not staff ids;
 a Forms field is registered by its `validation` block; a product's choice photos are linked after
-the gallery holds them; right after a bulk create a product's own stock summary can still read
-`OUT_OF_STOCK` while its inventory items are already stocked, so check the items (Query Inventory
-Items) and create only the missing ones, as `SEED.md` says, where `ALREADY_EXISTS` means stocked; stock that isn't counted, such as "made to order", is
-`inStock: true`, never a missing quantity, which leaves the product unbuyable). Read `SEED.md`
-before the first create call: it maps the brief's words to the fields. Those fields are the
-script's input, not the request: the body each create sends is built in the script (for products,
-`bulkCreateProducts` in `seed-store.mjs`: the description as rich-text nodes from `mkDesc`,
-`productType` with `physicalProperties`, the stock as `inventoryItem`), so read that function before
-the first create. On a site this run created, the store's currency is `SEED.md`'s `currency` rule,
-the one the brief or the user's own pages state (a page priced "$68" is USD), set before the
-products and without asking; a confirmation before a currency change is for a store the user
-already runs. Then read the script for any call `SEED.md` only names, and make the same
-calls through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep
-the script's rules: create, never delete, and report what the site already held. A photo already in
-the site's Media Manager, such as one the user uploaded, goes in by its file id (`imageMediaId` in
-`SEED.md`), as it is: an import by URL would copy it. A photo on a site the user dropped is served
-with the drop, not from the Media Manager: it goes in by its live URL, imported once through
-`{MANAGE}/references/media/upload-media-to-wix.md`, and the file id the import returns is what the
-product or service takes. An `imagePrompt` is generated through
-`{MANAGE}/references/media/generate-image-with-ai.md` (`POST /runwareschemaless/v1/request`, the body
-`generateImage` in `{TEMPLATES}/shared/seed/images.mjs` builds), then imported through
+the gallery holds them). Read `SEED.md` before the first create call: it maps the brief's words to
+the fields. Those fields are the script's input; the request each create sends is built in the
+script, so read the function that builds it before the first create, and make the same calls
+through `{MANAGE}`'s recipe for each (services, products, posts, events, collections). Keep the
+script's rules: create, never delete, and report what the site already held.
+
+A product, as `bulkCreateProducts` in `seed-store.mjs` builds it
+(`POST /stores/v3/bulk/products-with-inventory/create`):
+
+```json
+{ "returnEntity": true, "products": [{
+    "name": "Hearth Candle", "productType": "PHYSICAL", "physicalProperties": {},
+    "description": { "nodes": [{ "type": "PARAGRAPH", "id": "d0", "paragraphData": {},
+      "nodes": [{ "type": "TEXT", "id": "", "textData": { "text": "Hand-poured soy wax.", "decorations": [] } }] }] },
+    "variantsInfo": { "variants": [{ "price": { "actualPrice": { "amount": "28" } },
+      "physicalProperties": {}, "inventoryItem": { "inStock": true } }] } }] }
+```
+
+The description is rich-text nodes (`mkDesc` turns HTML into them). Stock that isn't counted, made
+to order or drafted for this run, is `inStock: true`; counted stock is `quantity`. Right after the
+bulk create a product's own stock summary can still read `OUT_OF_STOCK` while its inventory items
+are stocked: check the items (Query Inventory Items) and create only the missing ones, where
+`ALREADY_EXISTS` means stocked. On a site this run created, the store's currency is `SEED.md`'s
+`currency` rule, the one the brief or the user's own pages state (a page priced "$68" is USD), set
+before the products and without asking; a confirmation before a currency change is for a store the
+user already runs. Shipping, when the brief asks for it, follows `{MANAGE}/references/ecommerce/ecom-shipping.md`.
+
+A photo already in the site's Media Manager, such as one the user uploaded, goes in by its file id
+(`imageMediaId` in `SEED.md`), as it is: an import by URL would copy it. A photo on a site the user
+dropped is served with the drop, not from the Media Manager: it goes in by its live URL, imported
+once through `{MANAGE}/references/media/upload-media-to-wix.md`, and the file id the import returns
+is what the product or service takes. An `imagePrompt` is generated through
+`{MANAGE}/references/media/generate-image-with-ai.md` (`POST /runwareschemaless/v1/request`, the
+body `generateImage` in `{TEMPLATES}/shared/seed/images.mjs` builds), then imported through
 `upload-media-to-wix.md`, and the file id goes on the entity, as for a dropped photo; this is the
 seed's default for every product and service. An entity stays text-only only when generation or the
-import fails; say which. The scripts read
-a response body directly; `ExecuteWixAPI`'s `wix.request` returns `{ status, data }`, and the body
-is `data`. A generated image is billed when it is generated, so a read of the wrong level discards
-a paid image.
+import fails; say which. The scripts read a response body directly; `ExecuteWixAPI`'s `wix.request`
+returns `{ status, data }`, and the body is `data`. A generated image is billed when it is
+generated, so a read of the wrong level discards a paid image.
 
 ## 5. The frontend
 
 The run is not done until the pages use what the backend holds: every control the page shows for
 it (add to cart, the cart, book, submit) works on the live site. A backend with untouched pages is
 half a run.
+
+A purchase ends in Wix's hosted checkout (a redirect session). It opens before the owner connects
+payments: the buyer sees the order and, at the pay step, "We can't accept online payments" until the
+owner connects a provider and a premium plan, which the closing links to. Wire checkout on the first
+pass, whatever the payment state.
 
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
@@ -156,7 +173,8 @@ that talks to Wix over plain `fetch`, with no SDK, takes them from the REST twin
 `{TEMPLATES}/{solution}/rest/*.ts` (the calls; for a store, `storefront/rest/cart.ts` and
 `storefront/rest/catalog.ts`). Read those files by name; the manifest and the solution's whole
 `INSTRUCTIONS.md` are not needed to find them. The
-cores beside them (`*-core.ts`) hold the rules the page needs and nothing else does: which fields
+cores, `{TEMPLATES}/{solution}/app/wix/{solution}/*-core.ts` (for a store,
+`storefront/app/wix/storefront/cart-core.ts`), hold the rules the page needs and nothing else does: which fields
 to read, how a price or a duration is formatted, which slot is bookable, how an id is read. Copy
 those core functions into the page as they are, with only the types removed (`cart-core.ts`'s
 `toLine` and `toCart`, the price formatter, `rawId`), and run every API response through them: a
@@ -170,14 +188,30 @@ declarations (the `@wix/auto_sdk_{solution}_<module>` package the solution packa
 its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
 the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
 and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
-`rawId`). Dates travel as local wall-clock strings in the business time zone. A page cannot be
-opened here, so a wrong shape fails silently in the browser. Check the data code before the upload:
-get a real response through `ExecuteWixAPI` for each call the page makes, run the page's data code
-on it in your sandbox's Node, and look for names, prices and quantities in the output, not
-`[object Object]` or `undefined`. The cart's calls run as a visitor, which `wix.request` (the
-owner) is not: in the script, mint a visitor token with the site's public client id as
-`shared/rest/client.ts` does (`POST https://www.wixapis.com/oauth2/token`, `grantType: "anonymous"`),
-send the cart calls with it through `fetch`, add one product and read the cart back.
+`rawId`). Dates travel as local wall-clock strings in the business time zone.
+
+**The check**, before every upload: a page cannot be opened here, so a wrong shape fails silently in
+the browser. Run each control's calls the way the page makes them, as a visitor (the site's public
+client id, the token `shared/rest/client.ts` mints), in one `ExecuteWixAPI` script, then run the
+page's own data code on the responses in your sandbox's Node. For a store:
+
+```js
+async function () {
+  const api = "https://www.wixapis.com", clientId = "<appId>", origin = "<live site URL>";
+  const post = (path, body, token) => fetch(api + path, { method: "POST",
+    headers: { "Content-Type": "application/json", ...(token && { Authorization: token }) },
+    body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, data: await r.json() }));
+  const { data: { access_token: token } } = await post("/oauth2/token", { clientId, grantType: "anonymous" });
+  const add = await post("/ecom/v2/carts/current/add-line-items", { catalogItems: [{ quantity: 1,
+    catalogReference: { appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e", catalogItemId: "<productId>" } }] }, token);
+  const redirect = await post("/headless/v1/redirect-session", { ecomCheckout: { checkoutId: add.data.cart?.id },
+    callbacks: { postFlowUrl: origin + "/", thankYouPageUrl: origin + "/" } }, token);
+  return { add: add.status, cart: add.data.cart, redirect: redirect.status, url: redirect.data.redirectSession?.fullUrl };
+}
+```
+
+Done when every call returns 200, the cart read through `toCart` shows each line's name, price and
+quantity, and the redirect returns a URL. The closing reports the check.
 
 ## 6. Closing
 

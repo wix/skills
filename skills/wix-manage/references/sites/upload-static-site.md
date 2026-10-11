@@ -176,7 +176,8 @@ On the same `metaSiteId`, never a new site. Each drop replaces every file, and
   what it serves, edit in code, and drop the full set back. Only the edit is
   written; images travel back as they are. When your files travel as files, a
   new zip of the whole site through the upload tool works as well. A full
-  rewrite of the text bundle is for a site rewritten wholesale.
+  rewrite of the text bundle is for a site rewritten wholesale, or for a client
+  that refuses the script: the whole set then goes through the upload tool.
 
 For a site from an earlier conversation, find its `metaSiteId` with
 [Query Sites](#claim-it-into-the-users-account), matching the name or `viewUrl`.
