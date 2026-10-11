@@ -172,12 +172,15 @@ On the same `metaSiteId`, never a new site. Each drop replaces every file, and
 
 - **With a shell that reaches Wix**, edit the files and drop the full set with
   `curl`.
-- **Through the MCP**, change the site in one `ExecuteWixAPI` script: download
-  what it serves, edit in code, and drop the full set back. Only the edit is
-  written; images travel back as they are. When your files travel as files, a
-  new zip of the whole site through the upload tool works as well. A full
-  rewrite of the text bundle is for a site rewritten wholesale, or for a client
-  that refuses the script: the whole set then goes through the upload tool.
+- **Through the MCP**, by the kind of change:
+  - **An edit to files the site serves** (a price, a line, a link): one
+    `ExecuteWixAPI` script downloads what it serves, edits in code, and drops the
+    full set back. Only the edit is written; images travel back as they are.
+  - **New or rewritten files**: when your files travel as files, zip the whole
+    site, images included, and send it through the upload tool. When they don't,
+    the script carries them in its `files` param and adds them to the download
+    before the drop.
+  - **A site rewritten wholesale**: a full text bundle through the upload tool.
 
 For a site from an earlier conversation, find its `metaSiteId` with
 [Query Sites](#claim-it-into-the-users-account), matching the name or `viewUrl`.
