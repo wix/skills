@@ -106,8 +106,8 @@ it (add to cart, the cart, book, submit) works on the live site. A backend with 
 half a run.
 
 A payment (a cart, a paid booking, a ticket, a plan, a donation) ends in Wix's hosted checkout,
-reached through a redirect session, and is wired on the first pass: the site is one the user can
-try, as SKILL.md's run says, payments connected or not.
+reached through a redirect session, and is wired on the first pass, payments connected or not
+(SKILL.md's run: the site keeps working at every step).
 
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
