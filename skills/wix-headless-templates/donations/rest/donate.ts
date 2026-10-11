@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in donations/app/wix/donations/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // The donation flow over REST — the twin of app/wix/donations/donate.ts. Same exports, same
 // signatures; the bodies and result readers come from donations-core (the SAME file the SDK
 // transport uses). A donation is an eCom cart with one catalog line; the hosted checkout takes

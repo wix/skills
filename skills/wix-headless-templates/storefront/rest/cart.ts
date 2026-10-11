@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in storefront/app/wix/storefront/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Cart + checkout over REST (Wix eCom Cart V2) — the twin of app/wix/storefront/cart.ts. Same
 // exports, same Cart/CartLine DTOs; rules and mappers from cart-core (the SAME file the SDK
 // transport uses, deployed flat next to this one). The request shapes are exact and rewriting

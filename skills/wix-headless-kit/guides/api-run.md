@@ -9,6 +9,11 @@ user to connect Wix to this chat first. It walks the run of
 SKILL.md step by step and names, for each, the Wix API call the CLI or the script performs and the
 file beside this skill that carries the contract; where a script can run where you are, it says so.
 
+As in SKILL.md's run, keep the site working at every step so the user can try it as it grows.
+Steps only the site owner can take never hold a flow back: drafted content is live, and anything
+that takes money reaches Wix's checkout before payments are connected. The owner's steps go in the
+closing with their links, as next steps the user can take or ask for.
+
 ## Where these skills are
 
 This skill is one of a set, and the guide reads from three of them:
@@ -83,8 +88,8 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 traps the script encodes. Read `SEED.md` before the first create: it maps the brief's words to the
 fields, and the script's builder functions turn those fields into each request, so the bodies you
 send are the ones they build. A call `SEED.md` only names is made through `{MANAGE}`'s recipe for
-it. Keep the script's rules: create, never delete, and report what the site already held. Entities you
-draft for the run are live like real ones, and the closing names them as placeholders.
+it. Keep the script's rules: create, never delete, and report what the site already held. The closing
+names entities you drafted as placeholders.
 
 A photo already in the site's Media Manager, such as one the user uploaded, goes in by its file id
 (`imageMediaId` in `SEED.md`), as it is: an import by URL would copy it. A photo on a site the user
@@ -106,8 +111,7 @@ it (add to cart, the cart, book, submit) works on the live site. A backend with 
 half a run.
 
 A payment (a cart, a paid booking, a ticket, a plan, a donation) ends in Wix's hosted checkout,
-reached through a redirect session, and is wired on the first pass, payments connected or not
-(SKILL.md's run: the site keeps working at every step).
+reached through a redirect session, and is wired on the first pass, payments connected or not.
 
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here

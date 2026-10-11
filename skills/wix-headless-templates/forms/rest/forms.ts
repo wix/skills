@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in forms/app/wix/forms/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Form-schema reads over REST — the twin of app/wix/forms/forms.ts. Same exports, same FormDto; the
 // flattening rules come from forms-core (the SAME file the SDK transport uses, deployed flat next
 // to this one by deploy.mjs --stack static), so this file is only the transport: one fetch per

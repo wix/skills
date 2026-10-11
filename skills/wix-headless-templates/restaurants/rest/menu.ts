@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in restaurants/app/wix/restaurants/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Menu reads over REST (Wix Restaurants Menus V1) — the twin of app/wix/restaurants/menu.ts. Same
 // exports, same MenuData tree; the rules and the id-array stitching come from menu-core (the SAME
 // file the SDK transport uses, deployed flat next to this one by deploy.mjs --stack static), so

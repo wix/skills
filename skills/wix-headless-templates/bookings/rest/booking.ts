@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in bookings/app/wix/bookings/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Availability, the calendar reads (sessions, offered days, course seats), add-ons, settings, the
 // booking form, and the createBooking → Cart V2 → checkout-or-place sequence over REST — the twin of
 // app/wix/bookings/booking.ts. Same exports, same DTOs; every body comes from booking-core (the SAME

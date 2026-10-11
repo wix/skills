@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in events/app/wix/events/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Ticket tiers, the reserve → hosted-checkout redirect, and RSVP over REST — the twin of
 // app/wix/events/registration.ts. Same exports, same DTOs; rules and mappers from
 // registration-core (the SAME file the SDK transport uses, deployed flat next to this one). The

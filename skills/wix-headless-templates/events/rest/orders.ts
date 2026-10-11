@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in events/app/wix/events/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // The ticket order behind the confirmation page over REST — the twin of app/wix/events/orders.ts.
 // Same export, same DTO; the mapper from orders-core (the SAME file the SDK transport uses,
 // deployed flat next to this one). Runs on the visitor token — the hosted checkout created the

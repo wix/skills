@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in members/app/wix/members/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Member authentication over REST — the twin of app/wix/members/auth.ts. Same exports, same
 // LoginResult; the state and error-code rules come from auth-core (the SAME file the SDK transport
 // uses). The custom credential flow, as the docs order it: login/register with the VISITOR token →

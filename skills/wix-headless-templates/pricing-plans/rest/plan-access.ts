@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in pricing-plans/app/wix/pricing-plans/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Plan access (paywall) over REST — the twin of app/wix/pricing-plans/plan-access.ts. Same export,
 // same signature; the rule comes from plan-access-core (the SAME file the SDK transport uses).
 // Member List Orders is a MEMBER call: it runs with whatever token ./client.js holds — a member's

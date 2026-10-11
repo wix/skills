@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in cms/app/wix/cms/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Wix Data reads/writes over REST — the twin of app/wix/cms/items.ts. Same exports, same DTOs; the
 // rules and mappers come from items-core (the SAME file the SDK transport uses, deployed flat next
 // to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with a

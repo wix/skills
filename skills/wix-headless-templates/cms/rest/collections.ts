@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in cms/app/wix/cms/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Collection schema reads over REST — the twin of app/wix/cms/collections.ts. Same export, same
 // DTO; the mapper comes from collections-core (the SAME file the SDK transport uses, deployed flat
 // next to this one by deploy.mjs --stack static), so this file is only the transport.

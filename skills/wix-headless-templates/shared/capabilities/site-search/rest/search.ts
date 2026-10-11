@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in shared/capabilities/site-search/app/wix/site-search/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Site Search reads over REST — the twin of app/wix/site-search/search.ts. Same exports, same DTOs;
 // the bodies and mappers come from search-core (the SAME file the SDK transport uses, deployed flat
 // next to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with

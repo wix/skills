@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in forms/app/wix/forms/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Submissions over REST — the twin of app/wix/forms/submissions.ts. Same exports, same
 // SubmissionDto; the rules come from submissions-core (the SAME file the SDK transport uses,
 // deployed flat next to this one). Every call runs with the visitor token: `CreateSubmission` is

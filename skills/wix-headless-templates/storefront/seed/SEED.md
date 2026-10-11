@@ -99,7 +99,7 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   create only; an existing category keeps what it has.
 - `quantity` — tracked stock, a non-negative integer. For stock that isn't counted (made to
   order, print on demand, unlimited) use `"inStock": true` **instead** of `quantity`; sending
-  both is rejected.
+  both is rejected. A product with no stock given, drafted or the user's own, is `"inStock": true`.
   Right after the bulk create, a product's own stock summary can still read `OUT_OF_STOCK`
   while its inventory items are already stocked; the items are what a buyer's add is checked
   against. A product **without options** can still end up with no item (a create that ran while
@@ -117,9 +117,8 @@ to a file if you want it later). `.seed-exit` and `seed-result.json` are written
   expected and self-resolves, so don't re-verify it or retry.
 
 **Default to 3 products** when you draft the catalog yourself — the seed shows the shape, not a
-full inventory; the owner adds the rest in the dashboard. Drafted products are stocked like real
-ones (a `quantity` or `inStock: true`), and the closing names them as placeholders. **Make those
-3 exercise the shipped UI**: give at least one product a color option and put one product on sale — truthfully to the
+full inventory; the owner adds the rest in the dashboard. The closing names drafted products as
+placeholders. **Make those 3 exercise the shipped UI**: give at least one product a color option and put one product on sale — truthfully to the
 business (a ceramics studio has glaze colors; a bakery doesn't). When the brief mentions gift
 wrap, engraving, a message card, pre-orders, or "coming soon" stock, seed ONE product with that
 modifier and ONE pre-order item so the surfaces exist to design against; never add them to a

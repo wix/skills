@@ -1,3 +1,6 @@
+// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
+// ./*-core.js and ./types.js in restaurants/app/wix/restaurants/,
+// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Online ordering over REST (Restaurants Orders + Wix eCom Cart V2) — the twin of
 // app/wix/restaurants/ordering.ts. Same exports, same OrderCart/OrderLine DTOs; rules and mappers
 // from ordering-core (the SAME file the SDK transport uses, deployed flat next to this one). The
