@@ -7,10 +7,6 @@ description: Mandatory first recipe for every Wix Stores Catalog V3 create-produ
 
 Use this recipe for one or multiple Catalog V3 products. Catalog V1 remains supported through [Create Product (Catalog V1)](create-product-catalog-v1.md).
 
-On a site the headless kit is building from a brief, the products come from the kit's run and its
-storefront `SEED.md`, where drafted products go on sale as placeholders. This recipe is for a store
-the user runs.
-
 > [!IMPORTANT]
 > **Apply the no-product gate first.** A vague request such as “I’d like to add a new product” does not identify a product. Respond only:
 >
