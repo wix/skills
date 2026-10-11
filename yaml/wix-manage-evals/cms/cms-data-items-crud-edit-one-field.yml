@@ -1,0 +1,118 @@
+name: cms/cms-data-items-crud-edit-one-field
+description: >-
+  Verifies the agent changes one field on an existing CMS item without erasing the item's other
+  fields — a partial edit through patch, or a full replace that sends back every field it read.
+triggerPrompt: >-
+  Change the price of the "Sea View Loft" listing in my Listings CMS collection to 1450. Go ahead
+  and make the change.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Listings
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Listings
+            displayName: Listings
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+              - key: price
+                displayName: Price
+                type: NUMBER
+              - key: location
+                displayName: Location
+                type: TEXT
+              - key: bedrooms
+                displayName: Bedrooms
+                type: NUMBER
+              - key: description
+                displayName: Description
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Seed listings
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/bulk/items/insert
+        body:
+          dataCollectionId: Listings
+          dataItems:
+            - data:
+                title: Sea View Loft
+                price: 1300
+                location: Haifa
+                bedrooms: 2
+                description: Top-floor loft with a balcony over the bay.
+            - data:
+                title: Garden Studio
+                price: 900
+                location: Tel Aviv
+                bedrooms: 1
+                description: Ground-floor studio with a private garden.
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to change the price of the "Sea View Loft" item in the Listings collection to
+      1450. Before the run the collection held two items:
+      - Sea View Loft: price 1300, location Haifa, bedrooms 2, description "Top-floor loft with a
+        balcony over the bay."
+      - Garden Studio: price 900, location Tel Aviv, bedrooms 1, description "Ground-floor studio
+        with a private garden."
+      Evaluate the tool calls and the final response.
+
+      Pass only if all of the following hold:
+      - The agent found the Sea View Loft item's ID with a tool call (it did not guess the ID).
+      - After the run Sea View Loft has price 1450 and still has its title, location (Haifa),
+        bedrooms (2), and description. Any write that achieves this is acceptable: a single-item
+        patch, a bulk patch, or a PUT / bulk update / save that sends every field of the item.
+      - Garden Studio is unchanged and no items were created or deleted.
+      - The final answer confirms the new price.
+
+      Fail if the agent:
+      - sent a PUT, bulk update, or save whose `data` held only the price (or any subset of the
+        fields), so that title, location, bedrooms, or description was erased — even if it noticed
+        and rewrote them afterwards, OR
+      - created a new item instead of editing the existing one, OR
+      - changed Garden Studio, OR
+      - only described the calls without executing them.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate the tool-call path 0-10 by arithmetic, then return the number. Start at 10.
+      Subtract 3 for each of these mistakes, which the skill exists to prevent: a non-2xx response
+      actually returned by a Wix API call, even if recovered (an error from the docs or search tools
+      is a detour, not a mistake); a full-item replace (PUT, bulk update, or save) that dropped
+      fields; `dataItems` sent to the patch endpoint or `patches` to the update endpoint; an
+      invented endpoint.
+      Subtract 1 for each of these inefficiencies, and cap the total of these deductions at 3
+      points however many there are: a docs or search call beyond the first skill read; listing the
+      whole collection to find the item instead of one filtered query; more than one verification
+      read after the write.
+      Reading the skill once, reading the schema or the item once, one lookup query, the write
+      call, and one verification read are the expected path and cost nothing.
+      LIST every deduction and apply the cap. A correct outcome reached with only inefficiencies
+      scores 7 or higher, never less.
+      Return ONLY {"score":<0-10>,"reason":"<deductions, or 'clean path'>"}.
