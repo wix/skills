@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in rentals/app/wix/rentals/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Rentals over REST — the twin of app/wix/rentals/rentals.ts. Same exports, same DTOs; every body
 // comes from rentals-core (the SAME file the SDK transport uses, deployed flat next to this one), so
 // this file is only the transport: literal paths, one fetch per step, all with the visitor token
@@ -13,8 +10,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   FALLBACK_FIELDS,
   RENTALS_APP_ID,
@@ -45,8 +42,8 @@ import {
   toSummary,
   type Raw,
   type StartWindow,
-} from "./rentals-core.js";
-import type { EndOption, RentalDetail, RentalFormField, RentalQuote, RentalResult, RentalSummary, StartOption } from "./types.js";
+} from "../app/wix/rentals/rentals-core.js";
+import type { EndOption, RentalDetail, RentalFormField, RentalQuote, RentalResult, RentalSummary, StartOption } from "../app/wix/rentals/types.js";
 
 export { RENTALS_APP_ID, RENTALS_FORM_ID, RENTALS_PAGE_SIZE, dailyEndOptions, defaultTimeZone };
 

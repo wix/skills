@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in storefront/app/wix/storefront/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Cart + checkout over REST (Wix eCom Cart V2) — the twin of app/wix/storefront/cart.ts. Same
 // exports, same Cart/CartLine DTOs; rules and mappers from cart-core (the SAME file the SDK
 // transport uses, deployed flat next to this one). The request shapes are exact and rewriting
@@ -9,11 +6,11 @@
 // All calls run with the visitor token: the cart is the token's (see ../shared/client).
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { EMPTY_TOTALS, WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, cartErrorMessage, rawId, summaryTotals, toCart } from "./cart-core.js";
-import type { Raw } from "./catalog-core.js";
-import type { Cart } from "./types.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { EMPTY_TOTALS, WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, cartErrorMessage, rawId, summaryTotals, toCart } from "../app/wix/storefront/cart-core.js";
+import type { Raw } from "../app/wix/storefront/catalog-core.js";
+import type { Cart } from "../app/wix/storefront/types.js";
 
 const CART = "/ecom/v2/carts/current";
 

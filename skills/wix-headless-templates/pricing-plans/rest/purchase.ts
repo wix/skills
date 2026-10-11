@@ -1,15 +1,12 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in pricing-plans/app/wix/pricing-plans/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // The purchase flow over REST — the twin of app/wix/pricing-plans/purchase.ts. Same export, same
 // signature; the body and the result reading come from purchase-core (the SAME file the SDK
 // transport uses). Purchasing is a MEMBER action, but the hosted flow handles login/signup, the
 // order form, and payment itself, so a visitor token starts it. Never create the order yourself,
 // never hand-build a checkout URL.
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
-import { purchaseBody, redirectUrl, type PurchaseOptions } from "./purchase-core.js";
-import type { Raw } from "./plans-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { purchaseBody, redirectUrl, type PurchaseOptions } from "../app/wix/pricing-plans/purchase-core.js";
+import type { Raw } from "../app/wix/pricing-plans/plans-core.js";
 
 export type { PurchaseOptions };
 

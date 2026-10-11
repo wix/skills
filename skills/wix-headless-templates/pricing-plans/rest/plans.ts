@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in pricing-plans/app/wix/pricing-plans/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Plan reads over REST — the twin of app/wix/pricing-plans/plans.ts. Same exports, same DTOs; the
 // rules and mappers come from plans-core (the SAME file the SDK transport uses, deployed flat next
 // to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with a
@@ -8,10 +5,10 @@
 // A plan without a numeric price is malformed and never returned (plans-core `planAmount`).
 // Porting: keep the path, keep the body, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/query-plans.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { plansQuery, toDetail, toSummaries, type FormatOptions, type Raw } from "./plans-core.js";
-import type { PlanDetail, PlanSummary } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { plansQuery, toDetail, toSummaries, type FormatOptions, type Raw } from "../app/wix/pricing-plans/plans-core.js";
+import type { PlanDetail, PlanSummary } from "../app/wix/pricing-plans/types.js";
 
 export type { FormatOptions };
 

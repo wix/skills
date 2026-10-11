@@ -1,14 +1,11 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in shared/capabilities/site-search/app/wix/site-search/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Site Search reads over REST — the twin of app/wix/site-search/search.ts. Same exports, same DTOs;
 // the bodies and mappers come from search-core (the SAME file the SDK transport uses, deployed flat
 // next to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with
 // a literal body per function. Every call here answers a visitor token (observed live). Porting:
 // keep the paths, keep the bodies, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/business-management/site-search/wix-site-search/search.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../../rest/client.js";
+import { imgSrc } from "../../../rest/media.js";
 import { siteSearchPlan } from "./site-search-config.generated.js";
 import {
   GROUP_LIMIT,
@@ -26,8 +23,8 @@ import {
   toSearchAll,
   toSuggestGroups,
   type Raw,
-} from "./search-core.js";
-import type { SearchAllResult, SearchOptions, SearchPage, SiteSearchConfig, SuggestGroup } from "./types.js";
+} from "../app/wix/site-search/search-core.js";
+import type { SearchAllResult, SearchOptions, SearchPage, SiteSearchConfig, SuggestGroup } from "../app/wix/site-search/types.js";
 
 /** The plan's siteSearch entry resolved — types in order, routes, labels. */
 export const config: SiteSearchConfig = resolveConfig(siteSearchPlan);

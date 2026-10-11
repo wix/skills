@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in blog/app/wix/blog/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Post reads over REST — the twin of app/wix/blog/posts.ts. Same exports, same DTOs; the rules and
 // mappers come from posts-core (the SAME file the SDK transport uses, deployed flat next to this one
 // by deploy.mjs --stack static), so this file is only the transport: one fetch with a literal body
@@ -9,8 +6,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post-metrics.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import { fetchAuthorsByIds } from "./authors.js";
 import {
   BLOG_APP_ID,
@@ -34,8 +31,8 @@ import {
   withAuthors,
   type FetchPostsOptions,
   type Raw,
-} from "./posts-core.js";
-import type { PostDetail, PostMetrics, PostPage, PostSummary } from "./types.js";
+} from "../app/wix/blog/posts-core.js";
+import type { PostDetail, PostMetrics, PostPage, PostSummary } from "../app/wix/blog/types.js";
 
 export { BLOG_APP_ID, categoryPath, formatCount, postMetaLine, postPath, relativeDateLabel, tagPath, type FetchPostsOptions };
 

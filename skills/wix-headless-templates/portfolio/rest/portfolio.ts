@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in portfolio/app/wix/portfolio/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Portfolio reads over REST — the twin of app/wix/portfolio/portfolio.ts. Same exports, same DTOs;
 // the rules and mappers come from portfolio-core (the SAME file the SDK transport uses, deployed
 // flat next to this one by deploy.mjs --stack static), so this file is only the transport: one
@@ -11,8 +8,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/list-projects.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/query-projects.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/list-project-items.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   galleryItems,
   visibleCollection,
@@ -21,8 +18,8 @@ import {
   visibleProjects,
   type Raw,
   type VideoSrc,
-} from "./portfolio-core.js";
-import type { CollectionSummary, GalleryItem, ProjectDetail, ProjectSummary } from "./types.js";
+} from "../app/wix/portfolio/portfolio-core.js";
+import type { CollectionSummary, GalleryItem, ProjectDetail, ProjectSummary } from "../app/wix/portfolio/types.js";
 
 // REST never returns the bare wix:video:// string — videoInfo arrives as { resolutions, posters },
 // which the core reads directly. A string here has no resolver on this transport → dropped.

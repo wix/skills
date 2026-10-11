@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in bookings/app/wix/bookings/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Service reads over REST — the twin of app/wix/bookings/services.ts. Same exports, same DTOs; the
 // rules and mappers come from services-core (the SAME file the SDK transport uses, deployed flat
 // next to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with
@@ -9,8 +6,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-categories.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-locations.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   BOOKINGS_APP_ID,
   CATEGORIES_QUERY,
@@ -28,8 +25,8 @@ import {
   toSummary,
   type Raw,
   type ServicesFilterOptions,
-} from "./services-core.js";
-import type { BookingCategory, LocationOption, ServiceDetail, ServiceSummary } from "./types.js";
+} from "../app/wix/bookings/services-core.js";
+import type { BookingCategory, LocationOption, ServiceDetail, ServiceSummary } from "../app/wix/bookings/types.js";
 
 export { BOOKINGS_APP_ID, OTHER_LOCATIONS_ID, SERVICES_PAGE_SIZE, STAFF_RESOURCE_TYPE_ID };
 

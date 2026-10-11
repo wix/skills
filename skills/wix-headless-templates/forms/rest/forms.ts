@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in forms/app/wix/forms/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Form-schema reads over REST — the twin of app/wix/forms/forms.ts. Same exports, same FormDto; the
 // flattening rules come from forms-core (the SAME file the SDK transport uses, deployed flat next
 // to this one by deploy.mjs --stack static), so this file is only the transport: one fetch per
@@ -9,10 +6,10 @@
 // Porting: keep the paths, keep the query, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "./forms-core.js";
-import type { FormDto } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "../app/wix/forms/forms-core.js";
+import type { FormDto } from "../app/wix/forms/types.js";
 
 export { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue };
 

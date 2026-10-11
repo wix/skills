@@ -1,16 +1,13 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in members/app/wix/members/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Current-member read over REST — the twin of app/wix/members/members.ts. Same export, same DTO;
 // the mapper comes from members-core (the SAME file the SDK transport uses, deployed flat next to
 // this one by deploy.mjs --stack static), so this file is only the transport: one GET. It runs with
 // whatever token ./client.js holds — a member's after a rest/auth.ts login → the profile; a
 // visitor's → 403 → null. Porting: keep the path and the fieldsets, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/get-my-member.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { MEMBER_FIELDSETS, memberId, toCurrentMember, type Raw } from "./members-core.js";
-import type { CurrentMember } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { MEMBER_FIELDSETS, memberId, toCurrentMember, type Raw } from "../app/wix/members/members-core.js";
+import type { CurrentMember } from "../app/wix/members/types.js";
 
 /**
  * The current member, or null: for a visitor (the call is refused — "Missing site member id"), for

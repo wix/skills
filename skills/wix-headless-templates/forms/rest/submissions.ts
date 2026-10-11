@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in forms/app/wix/forms/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Submissions over REST — the twin of app/wix/forms/submissions.ts. Same exports, same
 // SubmissionDto; the rules come from submissions-core (the SAME file the SDK transport uses,
 // deployed flat next to this one). Every call runs with the visitor token: `CreateSubmission` is
@@ -11,8 +8,8 @@
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/create-submission.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/get-media-upload-url.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
-import type { Raw } from "./forms-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import type { Raw } from "../app/wix/forms/forms-core.js";
 import {
   SUBMITTED_OK,
   formLevelError,
@@ -26,8 +23,8 @@ import {
   toSubmissionValues,
   uploadFilesWith,
   uploadMimeType,
-} from "./submissions-core.js";
-import type { FormFieldDto, FormValues, SubmissionDto, UploadedFile } from "./types.js";
+} from "../app/wix/forms/submissions-core.js";
+import type { FormFieldDto, FormValues, SubmissionDto, UploadedFile } from "../app/wix/forms/types.js";
 
 export { SUBMITTED_OK, formLevelError, normalizePhone, normalizeUrl, submissionErrors, toSubmissionValues };
 

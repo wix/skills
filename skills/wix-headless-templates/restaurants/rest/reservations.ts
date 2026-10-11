@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in restaurants/app/wix/restaurants/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Table reservations over REST — the twin of app/wix/restaurants/reservations.ts. Same exports,
 // same DTOs; rules and mappers from reservations-core (the SAME file the SDK transport uses,
 // deployed flat next to this one). The flow is location → AVAILABLE slots → (AUTOMATIC approval)
@@ -12,9 +9,9 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-held-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/reserve-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md
-import { wixRequest } from "./client.js";
-import { availableSlots, reservationBody, reserveeBody, toConfirmation, toHold, toLocations } from "./reservations-core.js";
-import type { Raw } from "./menu-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { availableSlots, reservationBody, reserveeBody, toConfirmation, toHold, toLocations } from "../app/wix/restaurants/reservations-core.js";
+import type { Raw } from "../app/wix/restaurants/menu-core.js";
 import type {
   ReservationConfirmation,
   ReservationFormConfig,
@@ -22,7 +19,7 @@ import type {
   ReservationLocationInfo,
   ReservationReservee,
   ReservationSlot,
-} from "./types.js";
+} from "../app/wix/restaurants/types.js";
 
 const RESERVATIONS = "/table-reservations/reservations/v1";
 

@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in restaurants/app/wix/restaurants/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Menu reads over REST (Wix Restaurants Menus V1) — the twin of app/wix/restaurants/menu.ts. Same
 // exports, same MenuData tree; the rules and the id-array stitching come from menu-core (the SAME
 // file the SDK transport uses, deployed flat next to this one by deploy.mjs --stack static), so
@@ -10,8 +7,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/list-menus.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   anyLabels,
   assembleMenus,
@@ -22,8 +19,8 @@ import {
   nextCursor,
   toSiteMoney,
   type Raw,
-} from "./menu-core.js";
-import type { MenuData, SiteMoney } from "./types.js";
+} from "../app/wix/restaurants/menu-core.js";
+import type { MenuData, SiteMoney } from "../app/wix/restaurants/types.js";
 
 const get = (path: string, query?: Record<string, string | readonly string[]>) => wixRequest<Raw>(path, { method: "GET", query });
 

@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in events/app/wix/events/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Ticket tiers, the reserve → hosted-checkout redirect, and RSVP over REST — the twin of
 // app/wix/events/registration.ts. Same exports, same DTOs; rules and mappers from
 // registration-core (the SAME file the SDK transport uses, deployed flat next to this one). The
@@ -12,7 +9,7 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/ticket-reservations/create-ticket-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
+import { wixRequest } from "../../shared/rest/client.js";
 import {
   availableTiersQuery,
   checkoutCallbacks,
@@ -28,9 +25,9 @@ import {
   type CheckoutPaths,
   type RsvpValues,
   type TierEvent,
-} from "./registration-core.js";
-import type { Raw } from "./events-core.js";
-import type { EventDetail, RegistrationResult, TicketSelection, TicketTier } from "./types.js";
+} from "../app/wix/events/registration-core.js";
+import type { Raw } from "../app/wix/events/events-core.js";
+import type { EventDetail, RegistrationResult, TicketSelection, TicketTier } from "../app/wix/events/types.js";
 
 export { type CheckoutPaths, type RsvpValues, type TierEvent };
 

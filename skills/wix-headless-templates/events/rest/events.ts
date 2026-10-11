@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in events/app/wix/events/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Event reads over REST — the twin of app/wix/events/events.ts. Same exports, same DTOs; the rules
 // and mappers come from events-core (the SAME file the SDK transport uses, deployed flat next to
 // this one by deploy.mjs --stack static), so this file is only the transport: one fetch with a
@@ -10,8 +7,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/query-categories.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   DEFAULT_PAGE_SIZE,
   DETAIL_FIELDS,
@@ -26,8 +23,8 @@ import {
   toSummary,
   type ListOptions,
   type Raw,
-} from "./events-core.js";
-import type { EventCategory, EventDetail, EventSummary } from "./types.js";
+} from "../app/wix/events/events-core.js";
+import type { EventCategory, EventDetail, EventSummary } from "../app/wix/events/types.js";
 
 export { EVENTS_APP_ID, type ListOptions };
 

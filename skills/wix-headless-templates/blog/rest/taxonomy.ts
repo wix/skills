@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in blog/app/wix/blog/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Category + tag reads over REST — the twin of app/wix/blog/taxonomy.ts. Same exports, same DTOs;
 // the mappers come from taxonomy-core (the SAME file the SDK transport uses, deployed flat next to
 // this one). Taxonomy queries page by OFFSET (`paging`), unlike posts (`cursorPaging`); a blog's
@@ -9,11 +6,11 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/get-category-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/get-tag-by-slug.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { TAG_SORT, TAXONOMY_LIMIT, categoriesQuery, inIdOrder, tagsByIdsQuery, toCategory, toTag, type FetchCategoriesOptions } from "./taxonomy-core.js";
-import type { Raw } from "./posts-core.js";
-import type { BlogCategory, BlogTag } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { TAG_SORT, TAXONOMY_LIMIT, categoriesQuery, inIdOrder, tagsByIdsQuery, toCategory, toTag, type FetchCategoriesOptions } from "../app/wix/blog/taxonomy-core.js";
+import type { Raw } from "../app/wix/blog/posts-core.js";
+import type { BlogCategory, BlogTag } from "../app/wix/blog/types.js";
 
 export { inIdOrder, type FetchCategoriesOptions };
 

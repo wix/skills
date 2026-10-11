@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in storefront/app/wix/storefront/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Catalog reads over REST — the twin of app/wix/storefront/catalog.ts. Same exports, same DTOs; the
 // rules and mappers come from catalog-core (the SAME file the SDK transport uses, deployed flat next
 // to this one by deploy.mjs --stack static), so this file is only the transport: one fetch with a
@@ -8,8 +5,8 @@
 // Porting: keep the paths, keep the bodies, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/get-category-by-slug.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc, mediaKey } from "./media.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc, mediaKey } from "../../shared/rest/media.js";
 import {
   CATALOG_SORTS,
   DETAIL_FIELDS,
@@ -32,9 +29,9 @@ import {
   type CatalogSort,
   type FacetSelection,
   type Raw,
-} from "./catalog-core.js";
-import { WIX_STORES_APP_ID } from "./cart-core.js";
-import type { Category, Facet, FacetData, ProductDetail, ProductSummary, VariantInventory } from "./types.js";
+} from "../app/wix/storefront/catalog-core.js";
+import { WIX_STORES_APP_ID } from "../app/wix/storefront/cart-core.js";
+import type { Category, Facet, FacetData, ProductDetail, ProductSummary, VariantInventory } from "../app/wix/storefront/types.js";
 
 export { CATALOG_SORTS, choiceAvailability, resolveVariant, sellingPrice, type CatalogSearchOptions, type CatalogSort, type FacetSelection };
 

@@ -34,13 +34,19 @@ This skill is one of a set, and the guide reads from three of them:
 Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
 `npx skills add` or a similar skills folder, or in a plugin's folder. A skill your client offers you
 by name is read from there, or through the client's skill tool when it is served rather than a file,
-with no install, clone or online read. Online, they are
-published alongside each other under the same names (the registry also serves each without its
-`wix-` prefix, `headless-templates` for `wix-headless-templates`, which is the `base` its manifest
-shows; both forms resolve), each with a manifest of its files, and in the
+with no install, clone or online read. Online, they are published alongside each other under the
+same names (the registry also serves each without its `wix-` prefix, `headless-templates` for
+`wix-headless-templates`, which is the `base` its manifest shows; both forms resolve), and in the
 `wix/skills` repository on GitHub under `skills/{skill}/`; a sandbox that reaches GitHub has the
-whole set on disk from a clone. Online pages are read with the Wix MCP's `ReadFullDocsArticle`
-when it is connected: a client's web fetch may open only URLs the user gave or a search returned.
+whole set on disk from a clone. Online pages are read with the Wix MCP's `ReadFullDocsArticle` when
+it is connected: a client's web fetch may open only URLs the user gave or a search returned.
+
+Online, a skill's files are found through its manifest,
+`https://www.wix.com/skills/{skill}.manifest.json` (for the templates,
+`headless-templates.manifest.json`): every file it holds, by path. Open it once before the first
+file and take each path from it: the files this guide names by pattern (`{solution}/rest/*.ts`,
+`*-core.ts`), and the files an import points to. A path the manifest doesn't list is a wrong path;
+find the file there before writing anything in its place.
 
 What such a run does not produce: the Astro build and its release. Those need a machine with the
 CLI. Everything else the kit does to a site, it does through calls you can make, the frontend
@@ -150,8 +156,8 @@ with `{TEMPLATES}/shared/app/wix/sdk.ts` for the client wiring): those files cal
 modules the page imports, and they are verified. Copy the form of the call, not the file. A page
 that talks to Wix over plain `fetch`, with no SDK, takes them from the REST twins instead:
 `{TEMPLATES}/shared/rest/client.ts` (the visitor token and the request) and
-`{TEMPLATES}/{solution}/rest/*.ts` (the calls). Read those files by name; the manifest and the
-solution's whole `INSTRUCTIONS.md` are not needed to find them. The cores,
+`{TEMPLATES}/{solution}/rest/*.ts` (the calls), each importing its helpers by their real paths.
+The cores,
 `{TEMPLATES}/{solution}/app/wix/{solution}/*-core.ts`, hold the rules the page needs and nothing else
 does: which fields to read, how a price or a duration is formatted, which slot is bookable, how an
 id is read. Copy those core functions into the page as they are, with only the types removed, and

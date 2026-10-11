@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in bookings/app/wix/bookings/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Availability, the calendar reads (sessions, offered days, course seats), add-ons, settings, the
 // booking form, and the createBooking → Cart V2 → checkout-or-place sequence over REST — the twin of
 // app/wix/bookings/booking.ts. Same exports, same DTOs; every body comes from booking-core (the SAME
@@ -17,8 +14,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary.md
-import { wixRequest } from "./client.js";
-import { DEFAULT_BOOKINGS_SETTINGS, toBookingsSettings } from "./services-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { DEFAULT_BOOKINGS_SETTINGS, toBookingsSettings } from "../app/wix/bookings/services-core.js";
 import {
   FALLBACK_FIELDS,
   addOnGroupsRequest,
@@ -52,8 +49,8 @@ import {
   type NextAvailableOptions,
   type Raw,
   type SlotsWindow,
-} from "./booking-core.js";
-import type { AddOnGroup, BookingFormField, BookingResult, BookingsSettings, CourseAvailability, ServiceDetail, Session, Slot, SlotsPage, Weekday } from "./types.js";
+} from "../app/wix/bookings/booking-core.js";
+import type { AddOnGroup, BookingFormField, BookingResult, BookingsSettings, CourseAvailability, ServiceDetail, Session, Slot, SlotsPage, Weekday } from "../app/wix/bookings/types.js";
 
 export { resolveDisplayTimeZone, toLocalDateString };
 

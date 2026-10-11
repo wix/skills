@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in members/app/wix/members/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Member authentication over REST — the twin of app/wix/members/auth.ts. Same exports, same
 // LoginResult; the state and error-code rules come from auth-core (the SAME file the SDK transport
 // uses). The custom credential flow, as the docs order it: login/register with the VISITOR token →
@@ -11,8 +8,8 @@
 // client id; nothing elevated. Porting: keep the paths and bodies; the exchange is three calls.
 // docs: https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-rest.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { WIX_CLIENT_ID } from "./config.js";
-import { WixApiError, clearTokens, loadTokens, mintTokens, setTokens, wixRequest, type Tokens } from "./client.js";
+import { WIX_CLIENT_ID } from "../../shared/rest/config.js";
+import { WixApiError, clearTokens, loadTokens, mintTokens, setTokens, wixRequest, type Tokens } from "../../shared/rest/client.js";
 import {
   NO_SESSION_ERROR,
   authOutcome,
@@ -23,7 +20,7 @@ import {
   type LoginResult,
   type LoginState,
   type RawAuth,
-} from "./auth-core.js";
+} from "../app/wix/members/auth-core.js";
 
 export type { LoginResult, LoginState };
 

@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in pricing-plans/app/wix/pricing-plans/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Plan access (paywall) over REST — the twin of app/wix/pricing-plans/plan-access.ts. Same export,
 // same signature; the rule comes from plan-access-core (the SAME file the SDK transport uses).
 // Member List Orders is a MEMBER call: it runs with whatever token ./client.js holds — a member's
@@ -8,9 +5,9 @@
 // visitor, so callers check the session first (the store does) and never call for a visitor.
 // Porting: keep the path and the query string; the rule is one line in the core.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/member-list-orders.md
-import { wixRequest } from "./client.js";
-import { hasPlanAccess, memberOrdersQuery, type MemberOrdersQuery } from "./plan-access-core.js";
-import type { Raw } from "./plans-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { hasPlanAccess, memberOrdersQuery, type MemberOrdersQuery } from "../app/wix/pricing-plans/plan-access-core.js";
+import type { Raw } from "../app/wix/pricing-plans/plans-core.js";
 
 export type { MemberOrdersQuery };
 

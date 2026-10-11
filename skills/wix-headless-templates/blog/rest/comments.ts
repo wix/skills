@@ -1,6 +1,3 @@
-// In the skill these imports live apart: ./client.js, ./media.js and ./config.js in shared/rest/,
-// ./*-core.js and ./types.js in blog/app/wix/blog/,
-// other ./*.js beside this file. install/deploy.mjs copies them into one folder.
 // Post comments over REST — the twin of app/wix/blog/comments.ts. Same exports, same DTOs; the
 // rules and mappers come from comments-core (the SAME file the SDK transport uses, deployed flat
 // next to this one). Every call runs as the calling identity — in a port, the viewer's session
@@ -8,7 +5,7 @@
 // docs: https://dev.wix.com/docs/api-reference/crm/community/comments/comments/list-comments-by-resource.md
 // docs: https://dev.wix.com/docs/api-reference/crm/community/comments/comments/create-comment.md
 // docs: https://dev.wix.com/docs/api-reference/crm/community/comments/comments/delete-comment.md
-import { wixRequest } from "./client.js";
+import { wixRequest } from "../../shared/rest/client.js";
 import { fetchAuthorsByIds } from "./authors.js";
 import {
   commentAuthorIds,
@@ -21,9 +18,9 @@ import {
   toCommentThread,
   type CreateCommentOptions,
   type ListCommentsOptions,
-} from "./comments-core.js";
-import type { Raw } from "./posts-core.js";
-import type { BlogComment, CommentPage, CommentThread } from "./types.js";
+} from "../app/wix/blog/comments-core.js";
+import type { Raw } from "../app/wix/blog/posts-core.js";
+import type { BlogComment, CommentPage, CommentThread } from "../app/wix/blog/types.js";
 
 export { type CreateCommentOptions, type ListCommentsOptions };
 

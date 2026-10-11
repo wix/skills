@@ -309,7 +309,11 @@ if (stack === "static") {
       const fp = join(JS, f);
       if (!existsSync(fp)) continue;
       const src = readFileSync(fp, "utf8");
-      const fixed = src.replace(/from\s+"\.\/types(?:\.js)?"/g, `from "./${vertical}-types.js"`);
+      // The rest/ files import their real paths in the templates (../../shared/rest/client.js,
+      // ../app/wix/<vertical>/cart-core.js); flat in one folder, every import is a sibling.
+      const fixed = src
+        .replace(/from\s+"\.{1,2}\/(?:[^"]*\/)([^"/]+)"/g, 'from "./$1"')
+        .replace(/from\s+"\.\/types(?:\.js)?"/g, `from "./${vertical}-types.js"`);
       if (fixed !== src) writeFileSync(fp, fixed);
     }
     if (VERTICALS.includes(vertical)) result.verticals.push(vertical);
