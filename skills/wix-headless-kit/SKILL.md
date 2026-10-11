@@ -107,8 +107,9 @@ paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 and prints the update commands; it changes nothing.
 
 Throughout any run, keep the site working at every step so the user can try it as it grows. Steps
-only the site owner can take never hold a flow back: the hosted checkout opens before payments are
-connected, and drafted content is live (on sale, bookable, open to sign-up). Those steps
+only the site owner can take never hold a flow back: drafted content is live (posts published,
+products on sale, services bookable, events open to sign-up), forms collect submissions, and
+anything that takes money reaches Wix's checkout before payments are connected. Those steps
 (connecting payments, upgrading the plan, real products and prices, shipping rates, a domain) go in
 the closing with their links as next steps the user can take or ask for.
 
