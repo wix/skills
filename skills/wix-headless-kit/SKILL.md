@@ -110,7 +110,8 @@ Throughout any run, keep the site working at every step so the user can try it a
 only the site owner can take never hold a flow back: drafted content is live (posts published,
 products on sale, services bookable, events open to sign-up), forms collect submissions, and
 anything that takes money reaches Wix's checkout before payments are connected. Those steps
-(connecting payments, upgrading the plan, real products and prices, shipping rates, a domain) go in
+(connecting payments, upgrading the plan, replacing drafted content with their own, shipping rates,
+a domain) go in
 the closing with their links as next steps the user can take or ask for.
 
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
