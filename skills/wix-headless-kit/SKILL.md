@@ -110,7 +110,7 @@ Throughout any run, keep the site working at every step so the user can try it a
 only the site owner can take never hold a flow back: the hosted checkout opens before payments are
 connected, and drafted content is live (on sale, bookable, open to sign-up). Those steps
 (connecting payments, upgrading the plan, real products and prices, shipping rates, a domain) go in
-the closing with their links, offered one at a time and done when the user asks.
+the closing with their links as next steps the user can take or ask for.
 
 Throughout any run: if the user asks to send feedback to Wix, complains or gets frustrated, or the
 run hits friction of any kind: anything that cost more turns than it should have, whether or not
