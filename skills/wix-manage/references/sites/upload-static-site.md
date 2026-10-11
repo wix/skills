@@ -232,7 +232,9 @@ The headless skill starts at its cold-start page,
 [Before the calls](#before-the-calls) says). It installs the skills, runs a
 bootstrap that checks the Wix CLI login, and hands off to the kit's `SKILL.md`,
 which reads the folder, deploys the solution's code, seeds, builds and releases.
-Its commands run:
+That run is the whole backend: it installs the apps, creates what the page shows
+(products, services, a form), seeds and wires the pages, so the backend starts
+at the cold start rather than with individual recipes. Its commands run:
 
 - **With a shell that reaches Wix**, in a folder holding the site, from the
   site's own download:

@@ -178,8 +178,9 @@ and an entity's id arrives as `_id` on some objects and `id` on others (the kit 
 
 **The check**, before every upload: a page cannot be opened here, so a wrong shape fails silently in
 the browser. In one `ExecuteWixAPI` script, make each control's calls the way the page makes them,
-as a visitor, with the bodies from `{solution}/rest/*.ts`; then run the page's core functions on the
-responses in your sandbox's Node:
+as a visitor, with the bodies from `{solution}/rest/*.ts`. Then open the solution's `*-core.ts`
+files (by path from the manifest, or from the folder) and run each response through them in your
+sandbox's Node, as the page does:
 
 ```js
 async function () {
@@ -195,9 +196,9 @@ async function () {
 }
 ```
 
-Done when every call returns 200, the cores turn each response into the names, prices, quantities
-or times the page shows, and a payment's redirect session returns a URL. The closing reports the
-check.
+Done when every call returns 200, the cores turn each response into the names, prices, quantities or
+times the page shows, and a payment's redirect session returns a URL. The upload waits for that: a
+failing call is fixed first, on the site or in the page. The closing reports the check.
 
 ## 6. Closing
 
