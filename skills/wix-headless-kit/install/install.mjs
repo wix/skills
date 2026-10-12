@@ -30,6 +30,20 @@ export function lockGaps(projectDir) {
   const entries = Object.entries(lock.packages ?? {}).filter(([path, e]) => path.startsWith("node_modules/") && !e.link && !e.optional && !e.devOptional);
   let missing = 0;
   const sample = [];
+  // A package.json dependency the lock's root entry does not declare (deploy's fill-only patch
+  // added it after the lock was written) is a gap too: the lock no longer describes the project.
+  try {
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8"));
+    const root = lock.packages?.[""] ?? {};
+    for (const field of ["dependencies", "devDependencies"]) {
+      for (const name of Object.keys(pkg[field] ?? {})) {
+        if (!(root[field]?.[name] ?? root.dependencies?.[name] ?? root.devDependencies?.[name])) {
+          missing++;
+          if (sample.length < 5) sample.push(`${name} (in package.json, not in the lock)`);
+        }
+      }
+    }
+  } catch { /* no package.json: the lock entries decide */ }
   for (const [path, e] of entries) {
     let version = null;
     try { version = JSON.parse(readFileSync(join(projectDir, path, "package.json"), "utf8")).version; } catch { /* absent */ }

@@ -170,6 +170,13 @@ async function call(base, path, { method = "POST", token, site, body, query } = 
 }
 
 const folderName = flag("folder-name") ?? (businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "site");
+const renamePackage = (dir, name) => {
+  const pkgPath = join(dir, "package.json");
+  if (!existsSync(pkgPath)) return;
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  pkg.name = name;
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+};
 const projectDir = subfolder ? resolve(cwd, folderName) : cwd;
 if (subfolder && existsSync(join(projectDir, "wix.config.json"))) fail("args", `${folderName}/ is already a Wix project — pick --folder-name, or run deploy.mjs there`);
 
@@ -284,10 +291,9 @@ if (stack === "astro" && mode === "scaffold") {
   // here because the CLI's create makes a new site and this folder gets an existing one. Further
   // verticals are deployed below.
   cpSync(join(templatesDir({ need: `${verticals[0]}/project` }), verticals[0], "project"), projectDir, { recursive: true, force: false, errorOnExist: false });
-  const pkgPath = join(projectDir, "package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-  pkg.name = folderName;
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+  // The blank starter keeps its name through deploy, which recognizes it by name and gives it the
+  // composed package.json and lockfile; the project takes the folder's name after that (below).
+  if (!starter) renamePackage(projectDir, folderName);
 }
 writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify({ appId, siteId }, null, 2) + "\n");
 // The env the CLI's build reads. Same content `wix env pull` writes; written here so the build
@@ -322,6 +328,7 @@ let deployResult = {};
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
   if (deployResult.error) fail("deploy", deployResult.error);
   emit("deployed", deployResult);
+  if (starter) renamePackage(projectDir, folderName);
 }
 
 // ---- 4 · dependency install, detached (any project with a package.json) --------------------------
