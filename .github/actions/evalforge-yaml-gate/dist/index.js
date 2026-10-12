@@ -67952,7 +67952,6 @@ exports.makeSweepCommenter = makeSweepCommenter;
 exports.makeReviewPendingCommenter = makeReviewPendingCommenter;
 exports.makeSweepPendingCommenter = makeSweepPendingCommenter;
 exports.makeReviewCommenter = makeReviewCommenter;
-exports.makeReviewThreadPoster = makeReviewThreadPoster;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
@@ -68074,134 +68073,24 @@ function makeSweepPendingCommenter(octokit, owner, repo, prNumber) {
     return makePendingCommenter(octokit, owner, repo, prNumber, { pending: comment_1.PR_SWEEP_PENDING_MARKER, ack: comment_1.PR_SWEEP_ACK_MARKER }, 'PR sweep');
 }
 function makeReviewCommenter(octokit, owner, repo, prNumber) {
-    const warn = (what, error) => core.warning(`Failed to ${what} the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
-    return {
-        async post(body) {
-            try {
-                const { data } = await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-                return data.id;
-            }
-            catch (error) {
-                warn('post', error);
-                await core.summary.addRaw(body).write();
-                return undefined;
-            }
-        },
-        async edit(id, body) {
-            await octokit.rest.issues.updateComment({ owner, repo, comment_id: id, body }).catch(error => warn('update', error));
-        },
-        async remove(id) {
-            await octokit.rest.issues.deleteComment({ owner, repo, comment_id: id }).catch(error => warn('delete', error));
-        },
-        retirePrior: keep => outdatePriorReviews(octokit, owner, repo, prNumber, keep).catch(error => warn('outdate', error)),
-    };
-}
-/**
- * One review per run, so a run notifies once. It is built as a draft a comment at a time, so a line
- * GitHub refuses falls back alone, to its file, then out; and it is submitted with no summary text,
- * since a review's text cannot be hidden as outdated. Nothing shows until it is submitted, so a
- * failed run only discards its draft, and the last run's comments are retired once the new ones are up.
- */
-function makeReviewThreadPoster(octokit, owner, repo, prNumber) {
-    return async function post(headSha, comments) {
-        const prior = await findPriorThreads(octokit, owner, repo, prNumber);
-        const unplaced = [];
-        if (comments.length > 0) {
-            let draft;
-            try {
-                await deleteOwnPendingReviews(octokit, owner, repo, prNumber);
-                ({ data: draft } = await octokit.rest.pulls.createReview({ owner, repo, pull_number: prNumber, commit_id: headSha }));
-                for (const comment of comments) {
-                    let placed = false;
-                    if (comment.line !== undefined)
-                        placed = await addThread(octokit, draft.node_id, comment.path, comment.body, comment.line);
-                    if (!placed)
-                        placed = await addThread(octokit, draft.node_id, comment.path, comment.fileBody);
-                    if (!placed)
-                        unplaced.push(comment);
-                }
-                if (unplaced.length === comments.length) {
-                    await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: draft.id });
-                }
-                else {
-                    await octokit.rest.pulls.submitReview({ owner, repo, pull_number: prNumber, review_id: draft.id, event: 'COMMENT' });
-                }
-            }
-            catch (error) {
-                core.warning(`Could not post the skill review on the changed lines: ${error instanceof Error ? error.message : String(error)}`);
-                if (draft)
-                    await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: draft.id }).catch(() => { });
-                return undefined;
-            }
-        }
-        await retireThreads(octokit, prior);
-        return unplaced;
-    };
-}
-/** No `line`: on the whole file. A line or path GitHub cannot resolve comes back as no thread, not as an error. */
-async function addThread(octokit, reviewId, path, body, line) {
-    const result = await octokit.graphql('mutation($reviewId: ID!, $path: String!, $line: Int, $subjectType: PullRequestReviewThreadSubjectType!, $body: String!) {'
-        + ' addPullRequestReviewThread(input: { pullRequestReviewId: $reviewId, path: $path, line: $line, side: RIGHT,'
-        + ' subjectType: $subjectType, body: $body }) { thread { id } } }', { reviewId, path, line: line ?? null, subjectType: line === undefined ? 'FILE' : 'LINE', body });
-    return result.addPullRequestReviewThread.thread !== null;
-}
-/** GitHub allows one pending review per user, and a run that died mid-post leaves one behind. */
-async function deleteOwnPendingReviews(octokit, owner, repo, prNumber) {
-    const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, { owner, repo, pull_number: prNumber, per_page: 100 });
-    for (const review of reviews.filter(candidate => candidate.state === 'PENDING')) {
-        await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: review.id });
-    }
-}
-/**
- * Only threads nobody has acted on. One someone resolved or replied to is theirs now, so it is
- * left as it is: not stamped outdated, and not folded away.
- */
-async function findPriorThreads(octokit, owner, repo, prNumber) {
-    const prior = [];
-    try {
-        let cursor = null;
-        do {
-            const page = await octokit.graphql('query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {'
-                + ' repository(owner: $owner, name: $repo) { pullRequest(number: $pr) {'
-                + ' reviewThreads(first: 100, after: $cursor) { pageInfo { hasNextPage endCursor }'
-                + ' nodes { id isResolved comments(first: 1) { totalCount nodes { id body isMinimized viewerDidAuthor } } } } } } }', { owner, repo, pr: prNumber, cursor });
-            const threads = page.repository.pullRequest.reviewThreads;
-            for (const thread of threads.nodes) {
-                const first = thread.comments.nodes[0];
-                if (!first?.viewerDidAuthor || !first.body.includes(review_comment_1.REVIEW_THREAD_MARKER))
-                    continue;
-                if (thread.isResolved || thread.comments.totalCount > 1)
-                    continue;
-                prior.push({ threadId: thread.id, commentId: first.id, isMinimized: first.isMinimized });
-            }
-            cursor = threads.pageInfo.hasNextPage ? threads.pageInfo.endCursor : null;
-        } while (cursor !== null);
-    }
-    catch (error) {
-        core.warning(`Could not find earlier skill review comments: ${String(error)}`);
-    }
-    return prior;
-}
-async function retireThreads(octokit, prior) {
-    for (const thread of prior) {
+    return async function post(body) {
         try {
-            if (!thread.isMinimized) {
-                await octokit.graphql('mutation($subjectId: ID!) { minimizeComment(input: { subjectId: $subjectId, classifier: OUTDATED }) { minimizedComment { isMinimized } } }', { subjectId: thread.commentId });
-            }
-            await octokit.graphql('mutation($threadId: ID!) { resolveReviewThread(input: { threadId: $threadId }) { thread { isResolved } } }', { threadId: thread.threadId });
+            await outdatePriorReviews(octokit, owner, repo, prNumber);
+            await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
         }
         catch (error) {
-            core.warning(`Could not mark an earlier skill review comment as outdated: ${String(error)}`);
+            core.warning(`Failed to post the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
+            await core.summary.addRaw(body).write();
         }
-    }
+    };
 }
-async function outdatePriorReviews(octokit, owner, repo, prNumber, keep) {
+async function outdatePriorReviews(octokit, owner, repo, prNumber) {
     const priorNodeIds = [];
     for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
         owner, repo, issue_number: prNumber, per_page: 100,
     })) {
         for (const comment of page.data) {
-            if (comment.id !== keep && comment.body?.includes(review_comment_1.REVIEW_COMMENT_MARKER))
+            if (comment.body?.includes(review_comment_1.REVIEW_COMMENT_MARKER))
                 priorNodeIds.push(comment.node_id);
         }
     }
@@ -68919,9 +68808,9 @@ const OUTPUT_SCHEMA = JSON.stringify({
                 properties: {
                     file: {
                         type: 'string',
-                        description: 'Path from the repository root. The changed file the finding is on, or the changed skill that should be unified with others.',
+                        description: 'Path from the repository root. The file the finding is on, or the skill that should be unified with others.',
                     },
-                    line: { type: 'integer', description: 'The line in that file, where the finding is about specific text — a line this PR added or changed' },
+                    line: { type: 'integer', description: 'The line in that file, where the finding is about specific text' },
                     section: {
                         type: 'string',
                         description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
@@ -69178,9 +69067,8 @@ exports.testables = { buildArgs };
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.REVIEW_SEVERITIES = exports.REVIEW_THREAD_MARKER = exports.REVIEW_ACK_MARKER = exports.REVIEW_PENDING_MARKER = exports.REVIEW_COMMENT_MARKER = void 0;
+exports.REVIEW_SEVERITIES = exports.REVIEW_ACK_MARKER = exports.REVIEW_PENDING_MARKER = exports.REVIEW_COMMENT_MARKER = void 0;
 exports.formatReviewFindings = formatReviewFindings;
-exports.formatFindingComment = formatFindingComment;
 exports.formatReviewClean = formatReviewClean;
 exports.formatReviewSkipped = formatReviewSkipped;
 exports.formatReviewPending = formatReviewPending;
@@ -69189,8 +69077,6 @@ exports.REVIEW_COMMENT_MARKER = '<!-- evalforge-skill-review-action -->';
 /** No marker may contain another: comments are matched by `includes`. */
 exports.REVIEW_PENDING_MARKER = '<!-- evalforge-skill-review-pending -->';
 exports.REVIEW_ACK_MARKER = '<!-- evalforge-skill-review-ack -->';
-/** On each finding posted as a review comment, so the next run can find and retire it. */
-exports.REVIEW_THREAD_MARKER = '<!-- evalforge-skill-review-thread -->';
 const HEADING = '## 🤖 Skill Review';
 const JOB_STATUS = {
     completed: '✅ Review job completed',
@@ -69198,118 +69084,124 @@ const JOB_STATUS = {
     failed: '❌ Review job failed',
     skipped: '⏭ Review job skipped',
 };
-function jobLine(status, detail, summary) {
+function jobLine(status, detail, triggeredBy) {
     const parts = [detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`];
-    if (summary)
-        parts.push(verdictLine(summary));
-    if (summary?.triggeredBy)
-        parts.push(`triggered by @${summary.triggeredBy}`);
+    if (triggeredBy)
+        parts.push(`triggered by @${triggeredBy}`);
     const line = parts.join(' · ');
     return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
-/** Worst-first, and load-bearing: the cap on posted findings keeps the first ones. */
+/** Worst-first, and load-bearing: `severityRank` sorts on it. */
 exports.REVIEW_SEVERITIES = ['blocking', 'advisory'];
 const SEVERITY_ICON = {
     blocking: '🔴',
     advisory: '🟡',
 };
-function render(marker, status, detail, body, summary) {
-    const heading = summary === undefined ? HEADING : `${HEADING} · ${scoreLabel(summary.score)}`;
-    return [marker, heading, '', jobLine(status, detail, summary), '', ...body].join('\n');
-}
-function scoreLabel(score) {
-    return `Score: ${score}/10`;
+/** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
+const MAX_RENDERED_FINDINGS = 40;
+function render(marker, status, detail, body, triggeredBy) {
+    return [marker, HEADING, '', jobLine(status, detail, triggeredBy), '', ...body].join('\n');
 }
 function count(quantity, noun) {
     return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
 }
+function severityRank(severity) {
+    return exports.REVIEW_SEVERITIES.indexOf(severity);
+}
 function retryNote() {
     return ['', '_Comment `/review` to review the current commit again._'];
 }
-/**
- * Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404.
- * `repoUrl` is absolute: a review comment also renders under Files changed, where a relative link
- * resolves one level too deep.
- */
-function sectionRef(section, repoUrl) {
+/** Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404. */
+function sectionRef(section) {
     const match = /^([\w./-]+\.md)#([\w-]+)$/.exec(section.trim());
-    return match ? `[${match[2]}](${repoUrl}/blob/main/${match[1]}#${match[2]})` : `\`${section}\``;
+    return match ? `[${match[2]}](../blob/main/${match[1]}#${match[2]})` : `\`${section}\``;
+}
+function location(finding, headSha) {
+    const href = `../blob/${headSha}/${finding.file}`;
+    return finding.line
+        ? `[line ${finding.line}](${href}#L${finding.line})`
+        : `[file](${href})`;
+}
+function findingLines(finding, headSha) {
+    const cite = finding.section ? ` · ${sectionRef(finding.section)}` : '';
+    const lines = [`- ${SEVERITY_ICON[finding.severity]} **${finding.severity}** — ${location(finding, headSha)}${cite}`];
+    const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
+    if (quote !== '')
+        lines.push(`  > ${quote}`);
+    lines.push('', `  ${String(finding.consequence ?? '')}`);
+    if (finding.suggestion) {
+        lines.push('', `  **Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
+    }
+    return lines;
+}
+function groupByFile(findings, headSha) {
+    const byFile = new Map();
+    for (const finding of findings) {
+        const bucket = byFile.get(finding.file);
+        if (bucket)
+            bucket.push(finding);
+        else
+            byFile.set(finding.file, [finding]);
+    }
+    const lines = [];
+    for (const [file, group] of byFile) {
+        lines.push('', `### \`${file}\``, '');
+        const sorted = group.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+        sorted.forEach((finding, index) => {
+            if (index > 0)
+                lines.push('');
+            lines.push(...findingLines(finding, headSha));
+        });
+    }
+    return lines;
 }
 function headline(findings) {
     const tally = exports.REVIEW_SEVERITIES
         .map(severity => ({ severity, n: findings.filter(f => f.severity === severity).length }))
         .filter(entry => entry.n > 0)
-        .map(entry => `${SEVERITY_ICON[entry.severity]} ${entry.n} ${entry.severity}`);
+        .map(entry => `${entry.n} ${entry.severity}`);
     return tally.join(', ');
 }
 /** Without the SHA, a comment left by an earlier push reads as a verdict on the current commit. */
 function verdictLine(summary) {
-    return `\`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
+    return `**Score: ${summary.score}/10** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
 }
 function completion(summary) {
     return summary.discarded === 0
         ? ['completed', undefined]
         : ['partial', `${count(summary.discarded, 'finding')} could not be read`];
 }
-/**
- * `unplaced` are findings GitHub had no line or file for. They only add a note: this comment is
- * posted before the findings and edited after.
- */
-function formatReviewFindings(findings, summary, unplaced, repoUrl, notPosted = 0) {
+function formatReviewFindings(findings, summary) {
+    const ranked = [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
+    const overflow = findings.length - shown.length;
     const body = [
+        verdictLine(summary),
+        '',
         summary.verdict.replace(/\n/g, ' '),
         '',
-        `**${headline(findings)}** — posted as review comments on the changed lines.`,
+        `**${headline(findings)}**`,
+        ...groupByFile(shown, summary.headSha),
     ];
-    if (notPosted > 0)
-        body.push('', `_${count(notPosted, 'further finding')} not posted: only the worst ${findings.length} are._`);
-    if (unplaced.length > 0) {
-        const note = [`**Not on the changed files** — this PR has no line or file to attach ${unplaced.length === 1 ? 'this finding' : 'these findings'} to.`];
-        for (const finding of unplaced) {
-            note.push('', `**\`${finding.file}\`**`, ...findingBody(finding, summary.headSha, repoUrl, false), '', `<sub>${findingTag(finding, repoUrl)}</sub>`);
-        }
-        // Per line, not per entry: a consequence that spans lines would otherwise end the note early.
-        const lines = note.flatMap(entry => entry.split('\n'));
-        body.push('', '> [!NOTE]', ...lines.map(line => (line === '' ? '>' : `> ${line}`)));
+    if (overflow > 0) {
+        body.push('', `_${count(overflow, 'further finding')} not shown._`);
     }
-    return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [...body, ...retryNote()], summary);
-}
-/** Off its line, nothing beside the comment shows what it is about, so it names the line and quotes it. */
-function findingBody(finding, headSha, repoUrl, onLine) {
-    const lines = [];
-    if (!onLine) {
-        if (finding.line)
-            lines.push(`[line ${finding.line}](${repoUrl}/blob/${headSha}/${finding.file}#L${finding.line})`);
-        const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
-        if (quote !== '')
-            lines.push(`> ${quote}`);
-        if (lines.length > 0)
-            lines.push('');
-    }
-    lines.push(String(finding.consequence ?? ''));
-    if (finding.suggestion)
-        lines.push('', `**Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
-    return lines;
-}
-function findingTag(finding, repoUrl) {
-    const cite = finding.section ? ` · ${sectionRef(finding.section, repoUrl)}` : '';
-    return `${SEVERITY_ICON[finding.severity]} **${finding.severity}**${cite}`;
-}
-function formatFindingComment(finding, headSha, repoUrl, onLine) {
-    return [
-        exports.REVIEW_THREAD_MARKER,
-        ...findingBody(finding, headSha, repoUrl, onLine),
-        '',
-        `<sub>${findingTag(finding, repoUrl)} · \`${headSha.slice(0, 7)}\`</sub>`,
-    ].join('\n');
+    return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
+        ...body,
+        ...retryNote(),
+    ], summary.triggeredBy);
 }
 function formatReviewClean(summary) {
     return render(exports.REVIEW_COMMENT_MARKER, ...completion(summary), [
+        verdictLine(summary),
+        '',
         summary.verdict.replace(/\n/g, ' '),
         '',
-        '**No findings** — nothing to raise against the reviewed sections of the contribution guide.',
+        '**No findings**',
+        '',
+        'Nothing to raise against the reviewed sections of the contribution guide.',
         ...retryNote(),
-    ], summary);
+    ], summary.triggeredBy);
 }
 function formatReviewSkipped(reason) {
     return render(exports.REVIEW_COMMENT_MARKER, 'skipped', reason, [
@@ -69395,7 +69287,6 @@ const review_agent_1 = __nccwpck_require__(2969);
  */
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
 const MIN_PASSING_SCORE = 7;
-const MAX_POSTED_FINDINGS = 20;
 /**
  * A re-run replays the original payload, so `action` alone cannot tell "someone asked again" from
  * the push that produced it. The attempt number can.
@@ -69432,7 +69323,6 @@ async function runReview() {
     const octokit = github.getOctokit(config.githubToken);
     const comment = (0, github_1.makeReviewCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const pending = (0, github_1.makeReviewPendingCommenter)(octokit, config.owner, config.repo, config.prNumber);
-    const postThreads = (0, github_1.makeReviewThreadPoster)(octokit, config.owner, config.repo, config.prNumber);
     let files;
     try {
         files = inScope(await (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber));
@@ -69451,7 +69341,7 @@ async function runReview() {
     if (!(0, evalforge_core_1.isSameRepoBranch)(config.headRepoFullName, config.owner, config.repo)) {
         const reason = 'the PR branch is not in this repository, so its author has no write access';
         core.info(`Skipping the skill review — ${reason}`);
-        await comment.retirePrior(await comment.post((0, review_comment_1.formatReviewSkipped)(reason)));
+        await comment((0, review_comment_1.formatReviewSkipped)(reason));
         await pending.clear();
         return;
     }
@@ -69491,31 +69381,10 @@ async function runReview() {
         verdict: outcome.verdict,
         triggeredBy: config.triggeredBy || undefined,
     };
-    const findings = [...outcome.findings]
-        .sort((a, b) => review_comment_1.REVIEW_SEVERITIES.indexOf(a.severity) - review_comment_1.REVIEW_SEVERITIES.indexOf(b.severity))
-        .slice(0, MAX_POSTED_FINDINGS);
-    const notPosted = outcome.findings.length - findings.length;
-    const repoUrl = `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${config.owner}/${config.repo}`;
-    const threads = findings.map(finding => ({
-        path: finding.file,
-        line: finding.line,
-        body: (0, review_comment_1.formatFindingComment)(finding, config.headSha, repoUrl, true),
-        fileBody: (0, review_comment_1.formatFindingComment)(finding, config.headSha, repoUrl, false),
-    }));
-    const summaryId = await comment.post(findings.length === 0
+    const findings = outcome.findings;
+    await comment(findings.length === 0
         ? (0, review_comment_1.formatReviewClean)(summary)
-        : (0, review_comment_1.formatReviewFindings)(findings, summary, [], repoUrl, notPosted));
-    const unplaced = await postThreads(config.headSha, threads);
-    if (unplaced === undefined) {
-        if (summaryId !== undefined)
-            await comment.remove(summaryId);
-        await reportUnavailable('the review could not be posted on the changed lines', pending, config.isBlocking);
-        return;
-    }
-    if (unplaced.length > 0 && summaryId !== undefined) {
-        await comment.edit(summaryId, (0, review_comment_1.formatReviewFindings)(findings, summary, findings.filter((_, index) => unplaced.includes(threads[index])), repoUrl, notPosted));
-    }
-    await comment.retirePrior(summaryId);
+        : (0, review_comment_1.formatReviewFindings)(findings, summary));
     await pending.clear();
     const reasons = [];
     if (outcome.discarded > 0)

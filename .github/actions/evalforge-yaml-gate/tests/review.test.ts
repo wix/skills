@@ -1,26 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as core from '@actions/core';
-import type { ChangedFile, ThreadComment } from '../src/utils/github';
+import type { ChangedFile } from '../src/utils/github';
 import type { ReviewFinding } from '../src/utils/review-comment';
 import type { AgentOutcome } from '../src/utils/review-agent';
 
 // `vi.hoisted` because `vi.mock` is hoisted above these declarations, and this file imports the
 // mocked modules at the top — so a factory would run before a plain `const` spy was initialised.
 const {
-  getChangedFiles, runReviewAgent, upsert, editSummary, removeSummary, retirePrior,
-  postPending, clearPending, clearAck, postThreads, existsSync,
+  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, clearAck,
+  existsSync,
 } =
   vi.hoisted(() => ({
     getChangedFiles: vi.fn<() => Promise<ChangedFile[]>>(),
     runReviewAgent: vi.fn<() => Promise<AgentOutcome>>(),
-    upsert: vi.fn<(body: string) => Promise<number | undefined>>(),
-    editSummary: vi.fn<(id: number, body: string) => Promise<void>>(),
-    removeSummary: vi.fn<(id: number) => Promise<void>>(),
-    retirePrior: vi.fn<(keep?: number) => Promise<void>>(),
+    upsert: vi.fn<(body: string) => Promise<void>>(),
     postPending: vi.fn<(body: string) => Promise<void>>(),
     clearPending: vi.fn<() => Promise<void>>(),
     clearAck: vi.fn<() => Promise<void>>(),
-    postThreads: vi.fn<(headSha: string, comments: ThreadComment[]) => Promise<ThreadComment[] | undefined>>(),
     existsSync: vi.fn<() => boolean>(),
   }));
 
@@ -28,11 +24,10 @@ vi.mock('../src/utils/github', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/utils/github')>();
   return {
     ...actual, getChangedFiles,
-    makeReviewCommenter: () => ({ post: upsert, edit: editSummary, remove: removeSummary, retirePrior }),
+    makeReviewCommenter: () => upsert,
     makeReviewPendingCommenter: () => ({
       post: postPending, clear: clearPending, clearAck,
     }),
-    makeReviewThreadPoster: () => postThreads,
   };
 });
 
@@ -98,14 +93,10 @@ async function run(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  upsert.mockResolvedValue(1);
-  editSummary.mockResolvedValue(undefined);
-  removeSummary.mockResolvedValue(undefined);
-  retirePrior.mockResolvedValue(undefined);
+  upsert.mockResolvedValue(undefined);
   postPending.mockResolvedValue(undefined);
   clearPending.mockResolvedValue(undefined);
   clearAck.mockResolvedValue(undefined);
-  postThreads.mockResolvedValue([]);
   payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
   runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
@@ -214,7 +205,7 @@ describe('review mode — what may and may not fail the check', () => {
     runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score, verdict: 'stores/a: the reason.' });
     await run();
     expect(setFailed).toHaveBeenCalledTimes(fails ? 1 : 0);
-    expect(upsert.mock.calls[0][0]).toContain(`## 🤖 Skill Review · Score: ${score}/10`);
+    expect(upsert.mock.calls[0][0]).toContain(`**Score: ${score}/10**`);
     expect(upsert.mock.calls[0][0]).toContain('stores/a: the reason.');
   });
 
@@ -284,76 +275,5 @@ describe('review mode — what may and may not fail the check', () => {
     await run();
     expect(setFailed).toHaveBeenCalledOnce();
     expect(setFailed.mock.calls[0][0]).toContain('/review');
-  });
-});
-
-describe('review mode — where the findings land', () => {
-  const withFindings = (findings: ReviewFinding[]) =>
-    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded: 0, score: 5, verdict: 'stores/create-bundle: a blocking note.' });
-
-  it('posts each finding on its line, or on its file when it has none, and only counts them here', async () => {
-    withFindings([
-      finding({ line: 12, consequence: 'on the line' }),
-      finding({ line: undefined, consequence: 'on the file' }),
-    ]);
-    await run();
-
-    const [headSha, comments] = postThreads.mock.calls[0];
-    expect(headSha).toBe('abcdef1234');
-    expect(comments.map(thread => [thread.path, thread.line])).toEqual([
-      ['skills/wix-manage/references/stores/create-bundle.md', 12],
-      ['skills/wix-manage/references/stores/create-bundle.md', undefined],
-    ]);
-
-    const body = upsert.mock.calls[0][0];
-    expect(body).toContain('**🔴 2 blocking** — posted as review comments on the changed lines.');
-    for (const where of ['on the line', 'on the file']) expect(body).not.toContain(where);
-  });
-
-  // The summary goes up first, so it reads above the findings; what GitHub refused is added after.
-  it('posts the summary before the findings, then adds the ones GitHub had no line or file for', async () => {
-    withFindings([
-      finding({ consequence: 'on the line' }),
-      finding({ file: 'skills/wix-manage/references/stores/create-product.md', consequence: 'not in this PR' }),
-    ]);
-    postThreads.mockImplementation(async (_headSha, comments) => comments.slice(1));
-    await run();
-
-    expect(upsert.mock.invocationCallOrder[0]).toBeLessThan(postThreads.mock.invocationCallOrder[0]);
-    expect(upsert.mock.calls[0][0]).not.toContain('not in this PR');
-    const [id, edited] = editSummary.mock.calls[0];
-    expect(id).toBe(1);
-    expect(edited.startsWith(upsert.mock.calls[0][0].replace(/\n_Comment[^]*$/, ''))).toBe(true);
-    expect(edited).toContain('not in this PR');
-    expect(edited).not.toContain('on the line');
-    expect(retirePrior).toHaveBeenCalledWith(1);
-  });
-
-  it('leaves the summary alone when GitHub placed every finding', async () => {
-    withFindings([finding()]);
-    await run();
-    expect(editSummary).not.toHaveBeenCalled();
-    expect(retirePrior).toHaveBeenCalledWith(1);
-  });
-
-  // As a run that could not review: the last verdict stands, and the commit counts as unreviewed.
-  it('takes its summary back down, leaves the last verdict standing and fails when the review could not be posted', async () => {
-    process.env.INPUT_BLOCKING = 'true';
-    postThreads.mockResolvedValue(undefined);
-    withFindings([finding()]);
-    await run();
-
-    expect(removeSummary).toHaveBeenCalledWith(1);
-    expect(retirePrior).not.toHaveBeenCalled();
-    expect(postPending.mock.calls[0][0]).toContain('Review job failed — the review could not be posted on the changed lines');
-    expect(clearAck).toHaveBeenCalledOnce();
-    expect(setFailed).toHaveBeenCalledOnce();
-  });
-
-  // The last run's comments are retired even when this run found nothing to replace them with.
-  it('still clears the last run off the diff when nothing is found', async () => {
-    await run();
-    expect(postThreads).toHaveBeenCalledOnce();
-    expect(postThreads.mock.calls[0][1]).toEqual([]);
   });
 });

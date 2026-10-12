@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import * as core from '@actions/core';
 import {
-  classifyChanges, makeReviewCommenter, makeReviewPendingCommenter, makeReviewThreadPoster, parseChangedFiles,
+  classifyChanges, makeReviewCommenter, makeReviewPendingCommenter, parseChangedFiles,
 } from '../src/utils/github';
-import type { ThreadComment } from '../src/utils/github';
-import { REVIEW_PENDING_MARKER, REVIEW_THREAD_MARKER } from '../src/utils/review-comment';
+import { REVIEW_PENDING_MARKER } from '../src/utils/review-comment';
 
 const f = (filename: string, status: 'added' | 'modified' | 'removed' | 'renamed') => ({ filename, status });
 
@@ -182,163 +180,33 @@ describe('makeReviewCommenter', () => {
     id, node_id: `node-${id}`, body: '<!-- evalforge-skill-review-action -->\n1 blocking',
   });
 
-  it('posts a new verdict rather than editing the last one, and hands back its id', async () => {
+  it('posts a new verdict rather than editing the last one', async () => {
     const { octokit, createComment, updateComment } = octokitWith([verdict(3)]);
-    expect(await makeReviewCommenter(octokit, 'wix', 'skills', 42).post('no findings')).toBe(99);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
     expect(createComment).toHaveBeenCalledOnce();
     expect(updateComment).not.toHaveBeenCalled();
   });
 
-  it('marks every earlier verdict outdated, but not the one it keeps', async () => {
-    const { octokit, graphql } = octokitWith([verdict(3), verdict(4), verdict(99)]);
-    await makeReviewCommenter(octokit, 'wix', 'skills', 42).retirePrior(99);
+  it('marks every earlier verdict outdated', async () => {
+    const { octokit, graphql } = octokitWith([verdict(3), verdict(4)]);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
     expect(graphql).toHaveBeenCalledTimes(2);
     expect(graphql.mock.calls[0][0]).toContain('classifier: OUTDATED');
     expect(graphql.mock.calls.map(call => call[1].subjectId)).toEqual(['node-3', 'node-4']);
   });
 
-  it('carries on when collapsing an old verdict is refused', async () => {
-    const { octokit, graphql } = octokitWith([verdict(3)]);
+  it('still posts when collapsing the old verdict is refused', async () => {
+    const { octokit, createComment, graphql } = octokitWith([verdict(3)]);
     graphql.mockRejectedValue(new Error('403'));
-    await expect(makeReviewCommenter(octokit, 'wix', 'skills', 42).retirePrior(99)).resolves.toBeUndefined();
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
+    expect(createComment).toHaveBeenCalledOnce();
   });
 
   it('leaves the pending reminder uncollapsed', async () => {
     const { octokit, graphql } = octokitWith([
       { id: 7, node_id: 'node-7', body: `${REVIEW_PENDING_MARKER}\nawaiting review` },
     ]);
-    await makeReviewCommenter(octokit, 'wix', 'skills', 42).retirePrior(99);
+    await makeReviewCommenter(octokit, 'wix', 'skills', 42)('no findings');
     expect(graphql).not.toHaveBeenCalled();
-  });
-});
-
-describe('makeReviewThreadPoster', () => {
-  type Thread = { id: string; isResolved: boolean; totalCount: number; body: string; isMinimized?: boolean; mine?: boolean };
-  type Added = { path: string; line: number | null; subjectType: 'LINE' | 'FILE'; body: string };
-
-  /** `fits` stands in for GitHub, which answers with no thread when it cannot attach one. */
-  const octokitWith = (
-    threads: Thread[] = [], fits: (added: Added) => boolean = () => true, pendingReviews: { id: number; state: string }[] = [],
-  ) => {
-    const graphql = vi.fn(async (query: string, variables: Added) => {
-      if (query.startsWith('query')) {
-        return { repository: { pullRequest: { reviewThreads: {
-          pageInfo: { hasNextPage: false, endCursor: null },
-          nodes: threads.map(thread => ({
-            id: thread.id, isResolved: thread.isResolved,
-            comments: { totalCount: thread.totalCount, nodes: [{
-              id: `c-${thread.id}`, body: thread.body, isMinimized: thread.isMinimized ?? false, viewerDidAuthor: thread.mine ?? true,
-            }] },
-          })),
-        } } } };
-      }
-      if (query.includes('addPullRequestReviewThread')) {
-        return { addPullRequestReviewThread: { thread: fits(variables) ? { id: 'thread' } : null } };
-      }
-      return {};
-    });
-    const createReview = vi.fn().mockResolvedValue({ data: { id: 5, node_id: 'review-5' } });
-    const submitReview = vi.fn().mockResolvedValue({});
-    const deletePendingReview = vi.fn().mockResolvedValue({});
-    return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      octokit: {
-        graphql,
-        paginate: vi.fn().mockResolvedValue(pendingReviews),
-        rest: { pulls: { listReviews: {}, createReview, submitReview, deletePendingReview } },
-      } as any,
-      graphql, createReview, submitReview, deletePendingReview,
-    };
-  };
-  const mutations = (graphql: ReturnType<typeof vi.fn>, name: string) =>
-    graphql.mock.calls.filter(call => String(call[0]).includes(name)).map(call => call[1]);
-  const added = (graphql: ReturnType<typeof vi.fn>) =>
-    mutations(graphql, 'addPullRequestReviewThread').map(({ path, line, subjectType, body }) => [path, line, subjectType, body]);
-  const prior = (over: Partial<Thread>): Thread => ({
-    id: 't1', isResolved: false, totalCount: 1, body: `${REVIEW_THREAD_MARKER}\n🔴 **blocking**`, ...over,
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const post = (octokit: any, comments: ThreadComment[]) =>
-    makeReviewThreadPoster(octokit, 'wix', 'skills', 42)('head1', comments);
-
-  it('posts one review with no summary text: each comment on its line, or on its file when it has none', async () => {
-    const { octokit, graphql, createReview, submitReview } = octokitWith();
-    const unplaced = await post(octokit, [
-      { path: 'a.md', line: 3, body: 'on a line', fileBody: 'unused' },
-      { path: 'b.md', body: 'unused', fileBody: 'on the file' },
-    ]);
-
-    expect(unplaced).toEqual([]);
-    expect(createReview).toHaveBeenCalledWith({ owner: 'wix', repo: 'skills', pull_number: 42, commit_id: 'head1' });
-    expect(added(graphql)).toEqual([['a.md', 3, 'LINE', 'on a line'], ['b.md', null, 'FILE', 'on the file']]);
-    expect(submitReview).toHaveBeenCalledWith({ owner: 'wix', repo: 'skills', pull_number: 42, review_id: 5, event: 'COMMENT' });
-  });
-
-  it('falls back from the line to the file, then hands back what GitHub could put nowhere', async () => {
-    const { octokit, graphql, submitReview } = octokitWith([], ({ path, subjectType }) => path === 'a.md' && subjectType === 'FILE');
-    const outside = { path: 'elsewhere.md', line: 3, body: 'not in this PR', fileBody: 'not in this PR, quoted' };
-    const unplaced = await post(octokit, [{ path: 'a.md', line: 99, body: 'past the diff', fileBody: 'line 99, quoted' }, outside]);
-
-    expect(added(graphql)).toEqual([
-      ['a.md', 99, 'LINE', 'past the diff'], ['a.md', null, 'FILE', 'line 99, quoted'],
-      ['elsewhere.md', 3, 'LINE', 'not in this PR'], ['elsewhere.md', null, 'FILE', 'not in this PR, quoted'],
-    ]);
-    expect(unplaced).toEqual([outside]);
-    expect(submitReview).toHaveBeenCalledOnce();
-  });
-
-  it('submits no empty review when GitHub could place none of them', async () => {
-    const { octokit, submitReview, deletePendingReview } = octokitWith([], () => false);
-    const comments = [{ path: 'elsewhere.md', body: 'not in this PR', fileBody: 'not in this PR' }];
-
-    expect(await post(octokit, comments)).toEqual(comments);
-    expect(submitReview).not.toHaveBeenCalled();
-    expect(deletePendingReview).toHaveBeenCalledWith(expect.objectContaining({ review_id: 5 }));
-  });
-
-  it('retires the last run\'s threads, but leaves alone the ones someone resolved or answered', async () => {
-    const { octokit, graphql, createReview } = octokitWith([
-      prior({ id: 'quiet' }),
-      prior({ id: 'answered', totalCount: 2 }),
-      prior({ id: 'human', mine: false }),
-      prior({ id: 'unmarked', body: 'a reviewer wrote this' }),
-      prior({ id: 'settled', isResolved: true }),
-    ]);
-    expect(await post(octokit, [])).toEqual([]);
-
-    expect(createReview).not.toHaveBeenCalled();
-    expect(mutations(graphql, 'minimizeComment')).toEqual([{ subjectId: 'c-quiet' }]);
-    expect(mutations(graphql, 'resolveReviewThread')).toEqual([{ threadId: 'quiet' }]);
-  });
-
-  it('retires the last run only once the new review is submitted', async () => {
-    const { octokit, graphql, submitReview } = octokitWith([prior({ id: 'last' })]);
-    await post(octokit, [{ path: 'a.md', line: 3, body: 'x', fileBody: 'x' }]);
-
-    const minimized = graphql.mock.invocationCallOrder[graphql.mock.calls.findIndex(call => String(call[0]).includes('minimizeComment'))];
-    expect(submitReview.mock.invocationCallOrder[0]).toBeLessThan(minimized);
-  });
-
-  it('clears a draft a crashed run left behind, since GitHub allows only one', async () => {
-    const { octokit, deletePendingReview, createReview } = octokitWith([], () => true, [{ id: 9, state: 'PENDING' }, { id: 8, state: 'COMMENTED' }]);
-    await post(octokit, [{ path: 'a.md', line: 3, body: 'x', fileBody: 'x' }]);
-
-    expect(deletePendingReview).toHaveBeenCalledOnce();
-    expect(deletePendingReview).toHaveBeenCalledWith(expect.objectContaining({ review_id: 9 }));
-    expect(createReview).toHaveBeenCalledOnce();
-  });
-
-  // Nothing shows until the review is submitted, so a failed run only throws its draft away.
-  it('discards its draft and leaves the last run standing when GitHub fails', async () => {
-    const { octokit, graphql, submitReview, deletePendingReview } = octokitWith([prior({ id: 'last' })]);
-    submitReview.mockRejectedValue(Object.assign(new Error('Server Error'), { status: 502 }));
-    const warning = vi.spyOn(core, 'warning').mockImplementation(() => {});
-
-    expect(await post(octokit, [{ path: 'a.md', line: 3, body: 'x', fileBody: 'x' }])).toBeUndefined();
-    expect(deletePendingReview).toHaveBeenCalledWith(expect.objectContaining({ review_id: 5 }));
-    expect(mutations(graphql, 'minimizeComment')).toEqual([]);
-    expect(mutations(graphql, 'resolveReviewThread')).toEqual([]);
-    expect(warning).toHaveBeenCalledOnce();
-    warning.mockRestore();
   });
 });

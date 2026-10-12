@@ -6,15 +6,14 @@ import { isSameRepoBranch } from '@wix/evalforge-core';
 import { getReviewConfig, type ReviewConfig } from './config';
 import {
   classifyChanges, fail, getChangedFiles, makeReviewCommenter, makeReviewPendingCommenter,
-  makeReviewThreadPoster,
   type ChangedFile,
 } from './github';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import {
-  formatFindingComment, formatReviewClean, formatReviewFindings, formatReviewPending,
-  formatReviewServiceError, formatReviewSkipped,
-  REVIEW_SEVERITIES, type ReviewFinding,
+  formatReviewClean, formatReviewFindings, formatReviewPending, formatReviewServiceError,
+  formatReviewSkipped,
+  type ReviewFinding,
 } from './review-comment';
 import { runReviewAgent, agentPath, REVIEW_AGENT } from './review-agent';
 
@@ -26,8 +25,6 @@ import { runReviewAgent, agentPath, REVIEW_AGENT } from './review-agent';
 const FIRST_LOOK_EVENTS = ['opened', 'reopened', 'ready_for_review'];
 
 const MIN_PASSING_SCORE = 7;
-
-const MAX_POSTED_FINDINGS = 20;
 
 /**
  * A re-run replays the original payload, so `action` alone cannot tell "someone asked again" from
@@ -73,7 +70,6 @@ export async function runReview(): Promise<void> {
 
   const comment = makeReviewCommenter(octokit, config.owner, config.repo, config.prNumber);
   const pending = makeReviewPendingCommenter(octokit, config.owner, config.repo, config.prNumber);
-  const postThreads = makeReviewThreadPoster(octokit, config.owner, config.repo, config.prNumber);
 
   let files: ChangedFile[];
   try {
@@ -94,7 +90,7 @@ export async function runReview(): Promise<void> {
   if (!isSameRepoBranch(config.headRepoFullName, config.owner, config.repo)) {
     const reason = 'the PR branch is not in this repository, so its author has no write access';
     core.info(`Skipping the skill review — ${reason}`);
-    await comment.retirePrior(await comment.post(formatReviewSkipped(reason)));
+    await comment(formatReviewSkipped(reason));
     await pending.clear();
     return;
   }
@@ -144,32 +140,10 @@ export async function runReview(): Promise<void> {
     triggeredBy: config.triggeredBy || undefined,
   };
 
-  const findings: ReviewFinding[] = [...outcome.findings]
-    .sort((a, b) => REVIEW_SEVERITIES.indexOf(a.severity) - REVIEW_SEVERITIES.indexOf(b.severity))
-    .slice(0, MAX_POSTED_FINDINGS);
-  const notPosted = outcome.findings.length - findings.length;
-  const repoUrl = `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${config.owner}/${config.repo}`;
-  const threads = findings.map(finding => ({
-    path: finding.file,
-    line: finding.line,
-    body: formatFindingComment(finding, config.headSha, repoUrl, true),
-    fileBody: formatFindingComment(finding, config.headSha, repoUrl, false),
-  }));
-  const summaryId = await comment.post(findings.length === 0
+  const findings: ReviewFinding[] = outcome.findings;
+  await comment(findings.length === 0
     ? formatReviewClean(summary)
-    : formatReviewFindings(findings, summary, [], repoUrl, notPosted));
-  const unplaced = await postThreads(config.headSha, threads);
-  if (unplaced === undefined) {
-    if (summaryId !== undefined) await comment.remove(summaryId);
-    await reportUnavailable('the review could not be posted on the changed lines', pending, config.isBlocking);
-    return;
-  }
-  if (unplaced.length > 0 && summaryId !== undefined) {
-    await comment.edit(summaryId, formatReviewFindings(
-      findings, summary, findings.filter((_, index) => unplaced.includes(threads[index])), repoUrl, notPosted,
-    ));
-  }
-  await comment.retirePrior(summaryId);
+    : formatReviewFindings(findings, summary));
   await pending.clear();
 
   const reasons: string[] = [];

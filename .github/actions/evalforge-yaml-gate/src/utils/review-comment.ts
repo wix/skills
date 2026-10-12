@@ -5,9 +5,6 @@ export const REVIEW_PENDING_MARKER = '<!-- evalforge-skill-review-pending -->';
 
 export const REVIEW_ACK_MARKER = '<!-- evalforge-skill-review-ack -->';
 
-/** On each finding posted as a review comment, so the next run can find and retire it. */
-export const REVIEW_THREAD_MARKER = '<!-- evalforge-skill-review-thread -->';
-
 const HEADING = '## 🤖 Skill Review';
 
 const JOB_STATUS = {
@@ -18,16 +15,15 @@ const JOB_STATUS = {
 } as const;
 
 function jobLine(
-  status: keyof typeof JOB_STATUS, detail: string | undefined, summary?: ReviewSummary,
+  status: keyof typeof JOB_STATUS, detail: string | undefined, triggeredBy?: string,
 ): string {
   const parts = [detail === undefined ? JOB_STATUS[status] : `${JOB_STATUS[status]} — ${detail}`];
-  if (summary) parts.push(verdictLine(summary));
-  if (summary?.triggeredBy) parts.push(`triggered by @${summary.triggeredBy}`);
+  if (triggeredBy) parts.push(`triggered by @${triggeredBy}`);
   const line = parts.join(' · ');
   return status === 'completed' ? `<sub>${line}</sub>` : line;
 }
 
-/** Worst-first, and load-bearing: the cap on posted findings keeps the first ones. */
+/** Worst-first, and load-bearing: `severityRank` sorts on it. */
 export const REVIEW_SEVERITIES = ['blocking', 'advisory'] as const;
 
 export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
@@ -58,47 +54,84 @@ export type ReviewSummary = {
   triggeredBy?: string;
 };
 
+/** GitHub rejects a body over 65536 characters, and a review that long is a runaway anyway. */
+const MAX_RENDERED_FINDINGS = 40;
+
 function render(
   marker: string, status: keyof typeof JOB_STATUS, detail: string | undefined, body: string[],
-  summary?: ReviewSummary,
+  triggeredBy?: string,
 ): string {
-  const heading = summary === undefined ? HEADING : `${HEADING} · ${scoreLabel(summary.score)}`;
-  return [marker, heading, '', jobLine(status, detail, summary), '', ...body].join('\n');
-}
-
-function scoreLabel(score: number): string {
-  return `Score: ${score}/10`;
+  return [marker, HEADING, '', jobLine(status, detail, triggeredBy), '', ...body].join('\n');
 }
 
 function count(quantity: number, noun: string): string {
   return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
 }
 
+function severityRank(severity: ReviewSeverity): number {
+  return REVIEW_SEVERITIES.indexOf(severity);
+}
+
 function retryNote(): string[] {
   return ['', '_Comment `/review` to review the current commit again._'];
 }
 
-/**
- * Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404.
- * `repoUrl` is absolute: a review comment also renders under Files changed, where a relative link
- * resolves one level too deep.
- */
-function sectionRef(section: string, repoUrl: string): string {
+/** Anything but a `path#anchor` renders verbatim: a URL guessed from it would be a confident 404. */
+function sectionRef(section: string): string {
   const match = /^([\w./-]+\.md)#([\w-]+)$/.exec(section.trim());
-  return match ? `[${match[2]}](${repoUrl}/blob/main/${match[1]}#${match[2]})` : `\`${section}\``;
+  return match ? `[${match[2]}](../blob/main/${match[1]}#${match[2]})` : `\`${section}\``;
+}
+
+function location(finding: ReviewFinding, headSha: string): string {
+  const href = `../blob/${headSha}/${finding.file}`;
+  return finding.line
+    ? `[line ${finding.line}](${href}#L${finding.line})`
+    : `[file](${href})`;
+}
+
+function findingLines(finding: ReviewFinding, headSha: string): string[] {
+  const cite = finding.section ? ` · ${sectionRef(finding.section)}` : '';
+  const lines = [`- ${SEVERITY_ICON[finding.severity]} **${finding.severity}** — ${location(finding, headSha)}${cite}`];
+  const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
+  if (quote !== '') lines.push(`  > ${quote}`);
+  lines.push('', `  ${String(finding.consequence ?? '')}`);
+  if (finding.suggestion) {
+    lines.push('', `  **Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
+  }
+  return lines;
+}
+
+function groupByFile(findings: ReviewFinding[], headSha: string): string[] {
+  const byFile = new Map<string, ReviewFinding[]>();
+  for (const finding of findings) {
+    const bucket = byFile.get(finding.file);
+    if (bucket) bucket.push(finding);
+    else byFile.set(finding.file, [finding]);
+  }
+
+  const lines: string[] = [];
+  for (const [file, group] of byFile) {
+    lines.push('', `### \`${file}\``, '');
+    const sorted = group.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    sorted.forEach((finding, index) => {
+      if (index > 0) lines.push('');
+      lines.push(...findingLines(finding, headSha));
+    });
+  }
+  return lines;
 }
 
 function headline(findings: ReviewFinding[]): string {
   const tally = REVIEW_SEVERITIES
     .map(severity => ({ severity, n: findings.filter(f => f.severity === severity).length }))
     .filter(entry => entry.n > 0)
-    .map(entry => `${SEVERITY_ICON[entry.severity]} ${entry.n} ${entry.severity}`);
+    .map(entry => `${entry.n} ${entry.severity}`);
   return tally.join(', ');
 }
 
 /** Without the SHA, a comment left by an earlier push reads as a verdict on the current commit. */
 function verdictLine(summary: ReviewSummary): string {
-  return `\`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
+  return `**Score: ${summary.score}/10** · \`${summary.headSha.slice(0, 7)}\` · ${count(summary.filesReviewed, 'file')}`;
 }
 
 function completion(summary: ReviewSummary): [keyof typeof JOB_STATUS, string | undefined] {
@@ -107,72 +140,41 @@ function completion(summary: ReviewSummary): [keyof typeof JOB_STATUS, string | 
     : ['partial', `${count(summary.discarded, 'finding')} could not be read`];
 }
 
-/**
- * `unplaced` are findings GitHub had no line or file for. They only add a note: this comment is
- * posted before the findings and edited after.
- */
-export function formatReviewFindings(
-  findings: ReviewFinding[], summary: ReviewSummary, unplaced: ReviewFinding[], repoUrl: string, notPosted = 0,
-): string {
+export function formatReviewFindings(findings: ReviewFinding[], summary: ReviewSummary): string {
+  const ranked = [...findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  const shown = ranked.slice(0, MAX_RENDERED_FINDINGS);
+  const overflow = findings.length - shown.length;
+
   const body = [
+    verdictLine(summary),
+    '',
     summary.verdict.replace(/\n/g, ' '),
     '',
-    `**${headline(findings)}** — posted as review comments on the changed lines.`,
+    `**${headline(findings)}**`,
+    ...groupByFile(shown, summary.headSha),
   ];
-  if (notPosted > 0) body.push('', `_${count(notPosted, 'further finding')} not posted: only the worst ${findings.length} are._`);
-  if (unplaced.length > 0) {
-    const note = [`**Not on the changed files** — this PR has no line or file to attach ${unplaced.length === 1 ? 'this finding' : 'these findings'} to.`];
-    for (const finding of unplaced) {
-      note.push(
-        '',
-        `**\`${finding.file}\`**`,
-        ...findingBody(finding, summary.headSha, repoUrl, false),
-        '',
-        `<sub>${findingTag(finding, repoUrl)}</sub>`,
-      );
-    }
-    // Per line, not per entry: a consequence that spans lines would otherwise end the note early.
-    const lines = note.flatMap(entry => entry.split('\n'));
-    body.push('', '> [!NOTE]', ...lines.map(line => (line === '' ? '>' : `> ${line}`)));
+
+  if (overflow > 0) {
+    body.push('', `_${count(overflow, 'further finding')} not shown._`);
   }
-  return render(REVIEW_COMMENT_MARKER, ...completion(summary), [...body, ...retryNote()], summary);
-}
 
-/** Off its line, nothing beside the comment shows what it is about, so it names the line and quotes it. */
-function findingBody(finding: ReviewFinding, headSha: string, repoUrl: string, onLine: boolean): string[] {
-  const lines: string[] = [];
-  if (!onLine) {
-    if (finding.line) lines.push(`[line ${finding.line}](${repoUrl}/blob/${headSha}/${finding.file}#L${finding.line})`);
-    const quote = String(finding.quote ?? '').replace(/\n/g, ' ');
-    if (quote !== '') lines.push(`> ${quote}`);
-    if (lines.length > 0) lines.push('');
-  }
-  lines.push(String(finding.consequence ?? ''));
-  if (finding.suggestion) lines.push('', `**Instead:** ${finding.suggestion.replace(/\n/g, ' ')}`);
-  return lines;
-}
-
-function findingTag(finding: ReviewFinding, repoUrl: string): string {
-  const cite = finding.section ? ` · ${sectionRef(finding.section, repoUrl)}` : '';
-  return `${SEVERITY_ICON[finding.severity]} **${finding.severity}**${cite}`;
-}
-
-export function formatFindingComment(finding: ReviewFinding, headSha: string, repoUrl: string, onLine: boolean): string {
-  return [
-    REVIEW_THREAD_MARKER,
-    ...findingBody(finding, headSha, repoUrl, onLine),
-    '',
-    `<sub>${findingTag(finding, repoUrl)} · \`${headSha.slice(0, 7)}\`</sub>`,
-  ].join('\n');
+  return render(REVIEW_COMMENT_MARKER, ...completion(summary), [
+    ...body,
+    ...retryNote(),
+  ], summary.triggeredBy);
 }
 
 export function formatReviewClean(summary: ReviewSummary): string {
   return render(REVIEW_COMMENT_MARKER, ...completion(summary), [
+    verdictLine(summary),
+    '',
     summary.verdict.replace(/\n/g, ' '),
     '',
-    '**No findings** — nothing to raise against the reviewed sections of the contribution guide.',
+    '**No findings**',
+    '',
+    'Nothing to raise against the reviewed sections of the contribution guide.',
     ...retryNote(),
-  ], summary);
+  ], summary.triggeredBy);
 }
 
 export function formatReviewSkipped(reason: string): string {
