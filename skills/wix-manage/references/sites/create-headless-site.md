@@ -31,7 +31,7 @@ Headless sites are not created from templates. One account-level call creates th
 }
 ```
 
-- `origin` — `drop`, the same origin [Upload a Static Site](upload-static-site.md) uses
+- `origin` — `drop`, the same origin [Upload a Website or HTML Files](upload-static-site.md) uses
 - `namingStrategy` — exactly one of: `metaSiteName` (exact display name), `llmPromptBasedName: {}` (name derived from the top-level `prompt` field), or `defaultName: {}`
 - `seedOptions` — Wix Business Solution apps to install at creation: `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. Each entry takes `clearTemplateContent` (remove sample content) and `seedDemoContent` (seed demo content). Empty installs none
 - `synchronousSteps` — steps to complete before the call returns: `SET_METASITE_NAME`, `CONFIGURE_HEADLESS_APP`, `SEED_CONTENT`. Omitted steps run asynchronously. Include `CONFIGURE_HEADLESS_APP` when the OAuth client must be usable immediately
@@ -49,8 +49,10 @@ To provision headless onto an existing site, pass `"existingMetasite": {}` inste
 
 ## Next Steps
 
-After creating the site:
-- Put the site's pages live using [Upload a Static Site](upload-static-site.md)
-- Install additional apps using [Install Wix Apps](../app-installation/install-wix-apps.md)
-- Add content (products, services, blog posts, etc.)
-- Use the `appId` as the `client_id` to mint visitor tokens and make buyer-facing API calls — see [Manage OAuth Apps](manage-oauth-apps.md)
+The new site serves nothing until files are dropped on it.
+[Upload a Website or HTML Files](upload-static-site.md) drops a finished frontend
+(HTML, a static build or a zip) on the `metaSiteId` and returns its live
+`*.wix-site-host.com` URL. Each later drop replaces the files on the same site and
+URL. A site that needs stores, bookings, forms or another Wix Business Solution
+goes on from there to the headless skill, which builds and releases on the same
+site.
