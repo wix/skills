@@ -97,10 +97,44 @@ export function frontendPresent(cwd = process.cwd()) {
 }
 
 /**
+ * The Wix CLI's blank Astro starter (`wix-astro-blank`, templates/blank/project), still as the CLI
+ * left it: every package it declares is one of the blank template's. That is the one frontend the
+ * kit knows carries no work of its own — a Dev Machine's never-released site, a bare `wix create`
+ * — so a vertical's composed template can take its place (deploy.mjs). A starter with any package
+ * of its own is someone's project. The blank template's package.json is read when the templates
+ * are on disk; otherwise the starter's known package names stand in.
+ */
+const BLANK_STARTER = {
+  name: "wix-astro-blank",
+  packages: ["@astrojs/react", "@types/react", "@types/react-dom", "@wix/astro", "@wix/astro-pages", "@wix/astro-wix-hosting-adapter", "@wix/cli", "@wix/dashboard", "@wix/essentials", "@wix/sdk", "astro", "react", "react-dom", "typescript"],
+};
+export function blankStarter(cwd = process.cwd(), blankPkgPath = null) {
+  const pkgPath = join(cwd, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  let pkg;
+  try { pkg = JSON.parse(readFileSync(pkgPath, "utf8")); } catch { return false; }
+  if (pkg.name !== BLANK_STARTER.name) return false;
+  let known = BLANK_STARTER.packages;
+  if (blankPkgPath && existsSync(blankPkgPath)) {
+    try {
+      const blank = JSON.parse(readFileSync(blankPkgPath, "utf8"));
+      known = Object.keys({ ...blank.dependencies, ...blank.devDependencies });
+    } catch { /* the known names stand in */ }
+  }
+  return Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).every((name) => known.includes(name));
+}
+
+/**
  * What the folder IS, from a few file facts — the one classification every script and SKILL.md
  * step 3 share: wix.config.json, its site.outputDirectory, the migration variables in .env.local,
  * package.json, index.html (at the root or in public/), src/pages/. `migrationActive` comes from
  * siteContext (it needs `.env.local`).
+ *
+ * Two axes decide it: whether a site is bound to the folder (the config), and what frontend is
+ * here (`facts.frontend`: none, the CLI's untouched blank starter, the starter with plain pages in
+ * public/, plain pages with no bundler, or someone's project). The migration flag is read first.
+ * Anything the rows below do not name is `wix-project`, the fill-only path: never scaffold, init,
+ * reseed or delete.
  *
  *   empty             nothing that reads as a project → setup CREATE: the run makes the site, seeds the plan
  *   project           a frontend, no wix.config.json → setup ADOPT: `init` gives it a new, empty site, seeds the plan
@@ -111,6 +145,9 @@ export function frontendPresent(cwd = process.cwd()) {
  *   static-in-astro   a config, a package.json, public/index.html and no src/pages/ (a site published
  *                     through the drop flow, on its Wix Dev Machine) → the pages stay plain files in
  *                     public/; the static REST layer deploys beside them; build and release
+ *   blank-starter     a config and the CLI's blank starter with no work of its own (a Dev Machine's
+ *                     never-released site, a bare `wix create`) → attach.mjs on the config's site: the
+ *                     vertical's composed template takes the starter's place, install and seed run detached
  *   wix-project       a config AND a frontend (package.json, or index.html in the output folder) → iterate:
  *                     never scaffold, init or reseed; deploy.mjs adds a solution, edits, release
  *   published-static  a config, index.html at the ROOT, no package.json, no laid-out output folder (a site
@@ -120,23 +157,30 @@ export function frontendPresent(cwd = process.cwd()) {
 export function folderShape(cwd = process.cwd(), { migrationActive = false } = {}) {
   const config = existsSync(join(cwd, "wix.config.json"));
   const f = frontendPresent(cwd);
+  const starter = f.packageJson && blankStarter(cwd);
   const next = {
     empty: "setup.mjs --vertical <v> --business-name <brand> [--plan]: creates the site here and seeds the plan (CREATE)",
     project: "setup.mjs --vertical <v> --stack <stack> [--plan]: init links the folder to a new, empty site, seeds the plan and deploys (ADOPT)",
     "config-only": "attach.mjs: the site exists and has no frontend yet; read what it holds (the vertical's read-site.mjs) — nothing is seeded; the vertical's seed module with a plan only when the brief supplies or describes content",
     migration: "setup.mjs (MIGRATE): the shipped code into the starter the download carries (or the composed template around a bare config); the site being migrated owns its content — guides/migration.md",
     "static-in-astro": "a dropped site on its Dev Machine: the pages are plain files in public/, served as they are. deploy.mjs <vertical…> --stack static --out public puts the REST layer in public/js/wix/; wire the pages in place with <script type=\"module\">: do the least that makes them work: connect each control the pages show and add only what a control can't work without (more only when the brief asks), and no Astro pages. Read the site (read-site.mjs); run the vertical's seed module with a plan only for content the brief supplies or describes. Release with npx @wix/cli@latest build && npx @wix/cli@latest release; the URL stays",
-    "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then ONE npm install; file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
+    "blank-starter": "attach.mjs --business-name <brand> --vertical <v…> [--plan plan.json] (the site comes from wix.config.json): the CLI's blank starter with no work of its own, as a Dev Machine or a bare wix create leaves it. attach deploys the vertical onto it with its composed lock and starts the install and the seed detached: build the brand layer while they run, then sync on .install-exit and .seed-exit before release (SKILL.md step 3). Read the site first (read-site.mjs) when it may already hold content",
+    "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then one install: node <SKILL_ROOT>/install/install.mjs (it skips when node_modules already satisfies the lock); file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
     "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
   };
   let shape;
   if (!config) shape = f.packageJson || f.rootIndex ? "project" : "empty";
   else if (migrationActive) shape = "migration";
   else if (f.packageJson && f.publicIndex && !f.astroPages) shape = "static-in-astro";
+  else if (starter) shape = "blank-starter";
   else if (f.packageJson || f.outputIndex) shape = "wix-project";
   else if (f.rootIndex) shape = "published-static";
   else shape = "config-only";
-  return { shape, next: next[shape], facts: { config, ...f } };
+  const frontend = !(f.packageJson || f.rootIndex || f.outputIndex) ? "none"
+    : starter ? (f.publicIndex && !f.astroPages ? "starter+static" : "starter")
+    : f.packageJson ? "project"
+    : "static";
+  return { shape, next: next[shape], facts: { config, frontend, starter, ...f } };
 }
 
 /**

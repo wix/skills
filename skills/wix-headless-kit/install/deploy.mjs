@@ -45,7 +45,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { templatesDir } from "./templates.mjs";
 import { syncLockRoot } from "./lock.mjs";
-import { siteContext } from "./context.mjs";
+import { blankStarter, siteContext } from "./context.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -130,7 +130,7 @@ const VERTICAL_DEPS = {
   blog: {
     core: {
       "@wix/blog": "^1.0.645",
-      "@wix/ricos": "^11.12.0",
+      "@wix/ricos": "^11.17.0", // the viewer-only entry @wix/ricos/viewer
     },
     astro: {
       "@wix/seo": "^1.0.79",
@@ -440,20 +440,17 @@ if (siteSearch) {
 }
 
 // ---- the blank starter takes the vertical's composed template --------------------------------
-// A project that is still the blank starter (a Dev Machine's, or a bare `wix create`) holds only
-// the blank template's packages. Deploying one vertical onto it makes exactly that vertical's
-// composed template (templates/<vertical>/project: the blank scaffold plus the vertical), so the
-// starter takes the composed package.json dependencies and lockfile. The install then reads the
-// lock instead of resolving the vertical's tree. A project with any package of its own, a second
-// vertical, or two verticals in one run is left alone.
-const BLANK = join(REF, "blank", "project");
-if (stack === "astro" && result.verticals.length === 1 && existsSync(PKG_JSON) && existsSync(join(BLANK, "package.json"))) {
-  const composed = join(REF, result.verticals[0], "project");
-  const pkg = JSON.parse(readFileSync(PKG_JSON, "utf8"));
-  const blank = JSON.parse(readFileSync(join(BLANK, "package.json"), "utf8"));
-  const blankNames = new Set(Object.keys({ ...blank.dependencies, ...blank.devDependencies }));
-  const own = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter((name) => !blankNames.has(name));
-  if (pkg.name === blank.name && !own.length && existsSync(join(composed, "package-lock.json"))) {
+// A project that is still the blank starter (context.mjs blankStarter: a Dev Machine's, or a bare
+// `wix create`) holds only the blank template's packages. Deploying one vertical onto it makes
+// exactly that vertical's composed template (templates/<vertical>/project: the blank scaffold plus
+// the vertical), so the starter takes the composed package.json dependencies and lockfile, and the
+// install reads the lock instead of resolving the vertical's tree. A project with any package of its
+// own, a second vertical, or two verticals in one run is left alone.
+if (stack === "astro" && result.verticals.length === 1 && blankStarter(PROJECT, join(REF, "blank", "project", "package.json"))) {
+  // The composed project/ is left out of a committed templates copy; templatesDir fetches it on need.
+  const composed = join(templatesDir({ need: `${result.verticals[0]}/project` }), result.verticals[0], "project");
+  if (existsSync(join(composed, "package-lock.json"))) {
+    const pkg = JSON.parse(readFileSync(PKG_JSON, "utf8"));
     const template = JSON.parse(readFileSync(join(composed, "package.json"), "utf8"));
     pkg.dependencies = template.dependencies;
     pkg.devDependencies = template.devDependencies;
