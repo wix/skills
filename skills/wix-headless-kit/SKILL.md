@@ -284,10 +284,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    for the stack: Astro → `npx @wix/cli@latest build` then `npx @wix/cli@latest release`;
    React or another bundler → the project's own build, then `npx @wix/cli@latest release` of
    the build folder named in `wix.config.json` (deep URLs must answer 200 directly, step 1);
-   static → `release` alone. On every stack but Astro, run `node <SKILL_ROOT>/install/site-script.mjs
-   <the folder the release uploads>` right before the release: it puts the loader of the site's Wix
-   scripts (analytics, consent, the owner's tags, dashboard SEO) in every page, which `@wix/astro`
-   does on Astro. If the install failed, run it once more and then build. Don't
+   static → `release` alone. If the install failed, run it once more and then build. Don't
    build+release mid-flow; backend content is fetched at
    runtime, so a re-release never "refreshes" seeded data. The run is complete only when the
    site is released — close with the live URL and the dashboard link
