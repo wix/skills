@@ -66714,15 +66714,7 @@ function winnerLabel(s) {
     return winner === 'with' ? '⬆️ PR' : '⬇️ prod';
 }
 const TABLE_LEGEND = [
-    '<details><summary>How to read this table</summary>',
-    '',
-    '- **Skill needed?** is the decision. ✅ yes: the skill clearly helps (the PR passes the checks that prod fails, or uses more than 15% fewer tokens than prod when both pass). ❌ no: it does not (a tie within ±15% tokens, the PR uses more tokens, or a PR check failed). The reason is in each scenario\'s section below.',
-    '- **Judge\'s pick** is an LLM judge\'s opinion of which run read better. It is informational and never changes the decision above.',
-    '- **If they disagree, go by Skill needed?** and read the judge\'s reasoning in the scenario section:',
-    '  - ✅ yes, but the judge picks prod: the skill passes the checks, but the judge saw a quality problem. Check it; fix the skill if it is real.',
-    '  - ❌ no, but the judge picks PR: the skill shows no measurable gain on our checks. If the judge\'s reason is a real improvement, add an assertion for it so it is measured; otherwise the skill may not be needed.',
-    '',
-    '</details>',
+    '**Skill needed?** is the decision: ✅ yes if the PR passes checks prod fails, or uses >15% fewer tokens; ❌ no otherwise. **Judge\'s pick** is an LLM opinion and never changes it. If they disagree, trust *Skill needed?* and read the judge\'s reasoning below; if the judge sees a real gain on a ❌, add an assertion to measure it.',
 ];
 function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios, judgeCoverage } = result.result;
