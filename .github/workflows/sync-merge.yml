@@ -1,0 +1,80 @@
+name: Merge the ax-skills snapshot
+
+# wix/skills is a read-only mirror of wix-private/ax-skills. After every merge there, a job
+# pushes a one-commit snapshot of the public-facing paths to the branch `sync/main` here.
+# This workflow turns that push into a merged PR with no human on this side:
+#   1. open (or reuse) the PR sync/main -> main with the workflow's own token,
+#   2. approve it as skill-builder-bot, a second identity, which the org's PR Flow ruleset
+#      requires (one approval, not by the last pusher),
+#   3. enable auto-merge, so it lands as soon as the required checks report.
+# Review and CI happened in ax-skills before the snapshot was built; nothing is re-judged here.
+# Same two-identity shape as release-bump, which has merged every release PR this way.
+#
+# A new snapshot force-pushes sync/main; that dismisses the earlier approval and re-runs this
+# workflow, which approves again. Only `sync/main` is listened to, so a dry run pushed to any
+# other branch opens nothing. Idle until the pusher's push trigger is enabled at cutover.
+
+on:
+  push:
+    branches: [sync/main]
+
+concurrency:
+  group: sync-merge
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    # Holds RELEASE_APP_CLIENT_ID / RELEASE_APP_PRIVATE_KEY (skill-builder-bot). Its deployment
+    # branch policy must allow `sync/main`, or this job is refused before it starts.
+    environment: codegen
+    timeout-minutes: 10
+    steps:
+      - name: Open the PR, or reuse the open one
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          subject=$(gh api "repos/${REPO}/commits/${HEAD_SHA}" --jq '.commit.message | split("\n")[0]')
+          url=$(gh pr list -R "$REPO" --head sync/main --base main --state open --json url --jq '.[0].url // empty')
+          if [ -z "$url" ]; then
+            body=$(printf '%s\n' \
+              'Snapshot of the public-facing paths of `wix-private/ax-skills`, pushed by its sync job.' \
+              '' \
+              'Review and CI ran there before this commit was built. This PR is opened, approved and' \
+              'merged by automation; nothing here needs a human. The source commit is named in the' \
+              'commit message. If something looks wrong, fix it in ax-skills and let the next sync' \
+              'supersede this branch.')
+            url=$(gh pr create -R "$REPO" --base main --head sync/main --title "$subject" --body "$body")
+            echo "opened $url"
+          else
+            echo "reusing $url"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Mint a skill-builder-bot token (a second identity, so it may approve)
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Approve
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          gh pr review --approve "$PR_URL" --body "Automated approval: snapshot from wix-private/ax-skills, reviewed and gated there."
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: gh pr merge --auto --squash "$PR_URL"
