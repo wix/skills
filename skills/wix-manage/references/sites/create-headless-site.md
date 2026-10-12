@@ -31,7 +31,7 @@ Headless sites are not created from templates. One account-level call creates th
 }
 ```
 
-- `origin` — `drop`, the same origin [Create and Update an Uploaded Website](upload-static-site.md) uses
+- `origin` — `drop`, the same origin [Create and Update an Uploaded Headless Website](upload-static-site.md) uses
 - `namingStrategy` — exactly one of: `metaSiteName` (exact display name), `llmPromptBasedName: {}` (name derived from the top-level `prompt` field), or `defaultName: {}`
 - `seedOptions` — Wix Business Solution apps to install at creation: `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. Each entry takes `clearTemplateContent` (remove sample content) and `seedDemoContent` (seed demo content). Empty installs none
 - `synchronousSteps` — steps to complete before the call returns: `SET_METASITE_NAME`, `CONFIGURE_HEADLESS_APP`, `SEED_CONTENT`. Omitted steps run asynchronously. Include `CONFIGURE_HEADLESS_APP` when the OAuth client must be usable immediately
@@ -50,7 +50,7 @@ To provision headless onto an existing site, pass `"existingMetasite": {}` inste
 ## Next Steps
 
 The new site serves nothing until files are uploaded to it.
-[Create and Update an Uploaded Website](upload-static-site.md) uploads a frontend
+[Create and Update an Uploaded Headless Website](upload-static-site.md) uploads a frontend
 (the user's HTML, a static build, a zip, or pages written for them) to the `metaSiteId` and returns its live
 `*.wix-site-host.com` URL. Each later upload replaces the files on the same site and
 URL. A site that needs stores, bookings, forms or another Wix Business Solution
