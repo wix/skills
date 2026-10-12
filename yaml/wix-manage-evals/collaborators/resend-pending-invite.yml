@@ -1,0 +1,61 @@
+name: collaborators/resend-pending-invite
+description: >-
+  Verifies the agent reads the manage-site-collaborators recipe, sends a site
+  invite with Bulk Invite, and resends it with Resend Invite using the invite
+  id returned in that response. The invite is created by the agent itself, so
+  no seeded id is needed.
+triggerPrompt: >-
+  I'm testing collaborator invites on my Wix site. Invite
+  eval-collab@example.com as a collaborator with any standard role, then resend
+  that invite email once, as if they never got it. I confirm both actions, so
+  go ahead without asking again.
+tags: [collaborators]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/user-management/sites/skills/manage-site-collaborators
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to invite eval-collab@example.com to their site
+      and then resend that invite, and confirmed both actions up front.
+
+      Pass if the response:
+      - sends the invite with POST /invites/site-invite/bulk (emails
+        ["eval-collab@example.com"], a policyIds array), AND
+      - resends with POST /invites/site-invite/{inviteId}/resend using the id
+        from the invites[].id of that Bulk Invite response, with no body, AND
+      - looks up a valid role ID (GET /roles-management/roles) for policyIds rather
+        than guessing one, AND
+      - reports an authorization rejection only if one happened: if every call
+        succeeds, the agent should simply report the outcome, and nothing about
+        an API key is required. If a call is refused with 403, it should say
+        the endpoint needs an account-level API key. The invite id comes from
+        the Bulk Invite response, so it is never "unsupported".
+
+      Fail if the response:
+      - invents an inviteId or asks the user for one although it just created
+        the invite, OR
+      - sends a second Bulk Invite instead of calling Resend Invite, OR
+      - invents an endpoint or uses the app-invite proxy endpoints.
+
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the Wix MCP let the agent handle this request. Examine
+      the tool-call trace. Score 0-10 (10 = read the recipe, invite, resend with the returned id).
+
+      Penalize and LIST any of:
+      - a non-2xx error other than a 403 account-level API key rejection — score at most 5
+      - A 403 account-level API key rejection that the agent reports clearly is NOT a
+        friction: do not deduct for it, or for the call being blocked as a result
+        (that is a limit of the test account, not of the agent's path).
+      - endpoints guessed first and corrected after reading the recipe — score at most 5
+      - doc/spec searches beyond reading the recipe — minor deduction
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions, or 'clean path'>"}
