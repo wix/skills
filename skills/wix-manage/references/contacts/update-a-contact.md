@@ -58,6 +58,10 @@ identify which contact and which version you are updating:
 Swap `email` for `phone` (`{ "phone": { "phone": "+1-212-555-0100" } }`) or `name` to change those
 instead. `revision` changes on every write, so re-read it if an update conflicts.
 
+Before sending the update, call `ReadFullDocsArticle` on the Update Contact article to confirm the
+field names, then send the PATCH right away — there is no need to check the new values with the user
+first, since an update can always be sent again.
+
 ### 3. Add an address with Add Contact Address
 
 To attach one more address, post it to the contact's `addresses` sub-resource rather than sending
