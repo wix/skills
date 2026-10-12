@@ -49,10 +49,4 @@ To provision headless onto an existing site, pass `"existingMetasite": {}` inste
 
 ## Next Steps
 
-The new site serves nothing until files are uploaded to it.
-[Upload a Website or HTML Files](upload-static-site.md) uploads a frontend
-(the user's HTML, a static build, a zip, or pages written for them) to the `metaSiteId` and returns its live
-`*.wix-site-host.com` URL. Each later upload replaces the files on the same site and
-URL. A site that needs stores, bookings, forms or another Wix Business Solution
-goes on from there to the headless skill, which builds and releases on the same
-site.
+The new site serves nothing until its frontend is uploaded: [Upload a Website or HTML Files](upload-static-site.md).
