@@ -1,15 +1,15 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a website as static files — an index.html, a static build, a zip exported from an AI builder or any other tool, or pages you write for the user — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host HTML/CSS/JS as a NEW site, their own or written for them in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Create and update a Wix Headless website by uploading its files — an index.html, a static build, a zip exported from an AI builder or any other tool, or pages you write for the user — as a live site in the user's Wix account. Covers every route: uploading with the user's identity (curl with a Wix CLI token, or the Wix MCP), publishing anonymously with a save link when you don't hold it, and the Wix Headless drop page; then updating the same site and URL, and connecting a Wix backend (stores, bookings, forms) through the headless skill. Use when the user wants to upload, publish, deploy or host HTML/CSS/JS as a new Wix site, their own or written for them, or to change a site published this way. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
 
-A website as static files goes live on Wix: one the user has (hand-written HTML,
-a static build, a zip, a project an AI builder exported), or one you write for them
-as you upload it. Every route below ends the same way: a headless site in the user's Wix account that serves those files
-at a `*.wix-site-host.com` URL. Later changes upload to [the same site](#change-it-later), and
-the URL stays.
+A website goes live on Wix as a Wix Headless site: its files are uploaded to a
+site in the user's Wix account and served at a `*.wix-site-host.com` URL. The
+files are ones the user has (hand-written HTML, a static build, a zip, a project
+an AI builder exported) or ones you write for them as you upload. Later changes
+upload to [the same site](#change-it-later), and the URL stays.
 
 The flow: pick the route that fits where you run, create the site, upload the
 files, and give the user the live URL. Later changes go to the same site, and a

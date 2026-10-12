@@ -1,6 +1,6 @@
 ---
 name: "Create Headless Site"
-description: Creates a Wix Headless site, a site in the user's Wix account whose frontend is files uploaded to Wix hosting. The flow is in Upload a Website or HTML Files.
+description: Creates a Wix Headless website: a site in the user's Wix account whose frontend is files uploaded to Wix hosting, with the Wix business backend behind it through APIs. Creating, uploading, updating and connecting a backend are one flow, in Upload a Website or HTML Files.
 ---
 # Create Headless Site
 
