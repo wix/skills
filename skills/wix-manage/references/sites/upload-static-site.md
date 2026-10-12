@@ -11,6 +11,21 @@ as you upload it. Every route below ends the same way: a headless site in the us
 at a `*.wix-site-host.com` URL. Later changes upload to [the same site](#change-it-later), and
 the URL stays.
 
+The flow: pick the route that fits where you run, create the site, upload the
+files, and give the user the live URL. Later changes go to the same site, and a
+backend, when the site needs one, comes once it is live.
+
+- [What decides the route](#what-decides-the-route): which route fits where you run
+- [Before the calls](#before-the-calls): the user's token, the Wix MCP, the attribution slug
+- [Create the site](#create-the-site): one call, the site in the user's account
+- Upload the files [with curl](#drop-with-curl) or [through the Wix MCP](#drop-through-the-wix-mcp)
+- [Change it later](#change-it-later): edits on the same site and URL
+- [Connect a backend](#connect-a-backend): stores, bookings, forms and more through the headless skill
+- [Images](#images): how images reach the site
+- [Publish anonymously](#publish-anonymously): no login, a temporary site the user claims or saves
+- [The drop page](#the-drop-page): the user uploads the files when no route reaches Wix
+- [Limits and failures](#limits-and-failures), [Send feedback to Wix](#send-feedback-to-wix), [Route the request correctly](#route-the-request-correctly)
+
 ## What decides the route
 
 Three things about where you run decide it:
