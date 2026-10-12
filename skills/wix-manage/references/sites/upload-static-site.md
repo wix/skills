@@ -11,6 +11,13 @@ as you upload it. Every route below ends the same way: a headless site in the us
 at a `*.wix-site-host.com` URL. Later changes upload to [the same site](#change-it-later), and
 the URL stays.
 
+**Headless** means the Wix Editor is not involved. The site has no Editor or Wix
+Studio pages and no template; its frontend is the uploaded files, hosted by Wix,
+and it changes only by uploading again. It is still a site in the user's Wix
+account with a dashboard, where business content lives. Stores, bookings, a CMS,
+members or forms come from the Wix backend through its APIs, not from Editor
+widgets ([Connect a backend](#connect-a-backend)).
+
 ## What decides the route
 
 Three things about where you run decide it:
