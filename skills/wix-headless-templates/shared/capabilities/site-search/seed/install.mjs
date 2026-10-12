@@ -11,10 +11,10 @@
 // (searchAll("<a seeded title word>")) and expect a non-empty group before wiring the UI. Zero
 // documents after a minute means the app is not installed or the content is not visible to the
 // index (hidden products, drafts), not that the query is wrong.
-import { execFileSync } from "node:child_process";
 import { seedSiteId } from "../../../seed/site-context.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { installSiteSearch } from "../../../seed/site.mjs";
+import { wixToken } from "../../../seed/wix-cli.mjs";
 
 function flag(name) {
   const i = process.argv.indexOf(`--${name}`);
@@ -29,9 +29,11 @@ if (!siteId) {
   console.log(JSON.stringify({ error: "no site: pass --site <siteId> or run in a folder with wix.config.json" }));
   process.exit(1);
 }
-const token = execFileSync("npx", ["-y", "@wix/cli@1.1.258", "token", "--site", siteId], { encoding: "utf8" }).trim();
-if (!token) {
-  console.log(JSON.stringify({ error: "the Wix CLI returned no token — run `npx @wix/cli@1.1.258 login` first" }));
+let token;
+try {
+  token = wixToken(siteId);
+} catch (e) {
+  console.log(JSON.stringify({ error: String(e.message).slice(0, 400) }));
   process.exit(1);
 }
 try {

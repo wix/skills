@@ -6,8 +6,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post-metrics.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import { fetchAuthorsByIds } from "./authors.js";
 import {
   BLOG_APP_ID,
@@ -31,8 +31,8 @@ import {
   withAuthors,
   type FetchPostsOptions,
   type Raw,
-} from "./posts-core.js";
-import type { PostDetail, PostMetrics, PostPage, PostSummary } from "./types.js";
+} from "../app/wix/blog/posts-core.js";
+import type { PostDetail, PostMetrics, PostPage, PostSummary } from "../app/wix/blog/types.js";
 
 export { BLOG_APP_ID, categoryPath, formatCount, postMetaLine, postPath, relativeDateLabel, tagPath, type FetchPostsOptions };
 

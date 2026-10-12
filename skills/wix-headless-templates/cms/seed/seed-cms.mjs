@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 
 const API = "https://www.wixapis.com";
 const WIX_DATA_APP_ID = "e593b0bd-b783-45b8-97c2-873d42aacaf4";
@@ -303,7 +304,7 @@ export async function setupCms(ctx, { collections = [] } = {}) {
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

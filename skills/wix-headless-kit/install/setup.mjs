@@ -30,13 +30,15 @@
 // to recover one failed step. Emits ONE JSON event per line and exits in ~35s with the two long
 // steps — the dependency install and the seed — running detached in the background (logs and
 // completion markers in the final event), so the caller can build the brand layer while they finish.
-import { spawn, spawnSync } from "node:child_process";
-import { cpSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
+import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 import { folderShape, siteContext } from "./context.mjs";
+import { failure, npmSync, startBackground } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -129,7 +131,7 @@ if (mode === "create") {
     // a committed copy fetches it here, at the commit the rest came from.
     const template = stack === "astro" ? join(templatesDir({ need: `${vertical}/project` }), vertical, "project") : null;
     emit("scaffolding", { folder: folderName, template });
-    const scaffold = spawnSync(
+    const scaffold = npmSync(
       "npm",
       // --skip-git: this wrapper composes its own steps and leaves version control to
       // the caller / the enclosing repo; the scaffold's own `git init` + "Initial
@@ -143,7 +145,7 @@ if (mode === "create") {
       { env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 },
     );
     if (scaffold.status !== 0 || !existsSync(join(projectDir, "wix.config.json"))) {
-      fail("scaffold", (scaffold.stderr || scaffold.stdout || `scaffold produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
+      fail("scaffold", failure(scaffold, `scaffold produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
     }
   }
 } else if (mode === "migrate") {
@@ -164,9 +166,6 @@ if (mode === "create") {
     scaffolded.name = basename(cwd).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "site";
     writeFileSync(pkgPath, JSON.stringify(scaffolded, null, 2) + "\n");
   }
-  const gi = join(cwd, ".gitignore");
-  const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
-  if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
 } else if (publishedStatic) {
   // ---- 1 · a published static site: the config came with the folder, the site exists -------------
   // No init: `wix.config.json` already names the site the pages are published on (and its app). The
@@ -179,10 +178,10 @@ if (mode === "create") {
   // wix.config.json and .env.local, touches nothing else. Non-interactive under CI=1; the site is
   // named after the folder (rename it in the dashboard).
   emit("adopting", { folder: cwd });
-  const init = spawnSync("npm", ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "init"],
+  const init = npmSync("npm", ["create", `@wix/new@${PINS["@wix/create-new"]}`, "--", "init"],
     { cwd, env: { ...process.env, CI: "1" }, encoding: "utf8", timeout: 300_000 });
   if (init.status !== 0 || !has("wix.config.json")) {
-    fail("init", (init.stderr || init.stdout || `init produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
+    fail("init", failure(init, `init produced no wix.config.json — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-600));
   }
 }
 const wixConfig = JSON.parse(readFileSync(join(projectDir, "wix.config.json"), "utf8"));
@@ -208,7 +207,7 @@ const deploy = spawnSync(
   [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(stack === "static" ? ["--out", STATIC_OUT] : []), ...(planPath ? ["--plan", resolve(planPath)] : [])],
   { cwd: projectDir, encoding: "utf8", timeout: 60_000 },
 );
-if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
+if (deploy.status !== 0) fail("deploy", failure(deploy));
 let deployResult = {};
 try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going with raw output below */ }
 if (deployResult.error) fail("deploy", deployResult.error);
@@ -243,7 +242,10 @@ if (mode === "create" && !subfolder && projectDir !== cwd) {
   }
 }
 
-// ---- 2d · the agent config files `wix create` would have written --------------------------------
+// ---- 2d · .env.local ignored, and the agent config files `wix create` would have written ---------
+// Every mode leaves a .env.local with the app secret (env pull, init, the migration download), and a
+// folder's own .gitignore may not cover it.
+ignoreEnvLocal(projectDir);
 // Skipped by the CLI because of --skip-install. Fill-only: a project that has its own AGENTS.md
 // keeps it (the event says `kept`).
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack, ...(migrating ? { migration: { parentSiteId: ctx.migration.parentSiteId, deploySiteId: ctx.deploy.siteId } } : {}) }));
@@ -255,13 +257,7 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 let install = null;
 if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  const logFd = openSync(installLog, "a");
-  const child = spawn("sh", ["-c", existsSync(join(projectDir, "package-lock.json")) ? "npm ci --ignore-scripts || npm install --ignore-scripts" : "npm install --ignore-scripts"], {
-    cwd: projectDir,
-    detached: true,
-    stdio: ["ignore", logFd, logFd],
-  });
-  child.unref();
+  startBackground("install", [existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install"], { cwd: projectDir, log: installLog });
   install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
   emit("install_started", install);
 }
@@ -276,7 +272,7 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
 const madeTheSite = mode === "create" || mode === "adopt";
 let seed = null;
 if (planPath && !madeTheSite) {
-  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (templates/${vertical}/seed/read-site.mjs), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
+  emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (${join(TEMPLATES, vertical, "seed", "read-site.mjs")}), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
 }
 if (planPath && madeTheSite) {
   const seedDir = join(TEMPLATES, vertical, "seed");
@@ -286,12 +282,7 @@ if (planPath && madeTheSite) {
   if (!seedName) fail("seed", `no seed module found under ${seedDir}`);
   const seedFile = join(seedDir, seedName);
   const planAbs = resolve(planPath);
-  const seedChild = spawn(
-    "sh",
-    ["-c", `node "${seedFile}" "${planAbs}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
-    { cwd: projectDir, detached: true, stdio: "ignore" },
-  );
-  seedChild.unref();
+  startBackground("seed", [seedFile, planAbs], { cwd: projectDir });
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
   emit("seeding_started", { vertical, ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${vertical}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 }
@@ -325,7 +316,7 @@ emit("ready_for_brand_layer", {
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
       : madeTheSite
       ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
-      : `nothing was seeded (setup seeds only a site it created): read what the site holds with templates/${vertical}/seed/read-site.mjs, then run templates/${vertical}/seed/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
+      : `nothing was seeded (setup seeds only a site it created): read what the site holds with ${join(TEMPLATES, vertical, "seed", "read-site.mjs")}, then run ${join(TEMPLATES, vertical, "seed")}/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +
     (others.length && mode !== "migrate"
       ? `${others.join(", ")} deployed too, no further install needed: run each one's seed module (templates/<vertical>/seed/) with its own plan when the brief gives it content (the members seed installs the Members Area app and needs no plan); `
       : "") +

@@ -7,8 +7,8 @@
 // Porting: keep the paths, keep the bodies, port the core once.
 // docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/category-v2/query-categories.md
 // docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/question-entry-v2/query-question-entries.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   FAQ_APP_ID,
   assembleFaq,
@@ -21,8 +21,8 @@ import {
   toCategory,
   toQuestion,
   type Raw,
-} from "./faq-core.js";
-import type { FaqCategory, FaqData, FaqQuestion, FaqQuestionPage, FetchQuestionsOptions } from "./types.js";
+} from "../app/wix/faq/faq-core.js";
+import type { FaqCategory, FaqData, FaqQuestion, FaqQuestionPage, FetchQuestionsOptions } from "../app/wix/faq/types.js";
 
 export { FAQ_APP_ID };
 

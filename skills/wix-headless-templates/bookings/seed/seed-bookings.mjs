@@ -17,7 +17,7 @@
 //                    "price"? (number | { "from": number }), "priceText"?, "free"?, "deposit"?, "payInFull"?,
 //                    "duration"? (APPOINTMENT, minutes), "capacity"?, "waitlist"?, "maxParticipants"?,
 //                    "requireManualApproval"?, "conferencing"?, "staff"? (name | [names]), "location"? (name),
-//                    "category"? (name), "imageUrl"? | "imagePath"? | "imagePrompt"?,
+//                    "category"? (name), "imageMediaId"? | "imageUrl"? | "imagePath"? | "imagePrompt"?,
 //                    "sessions"?: [{ "start", "end", "capacity"? }],            // CLASS: one-off sessions, local "YYYY-MM-DDThh:mm:ss"
 //                    "weekly"?: { "days": ["MONDAY"], "time": "18:00", "duration": 60, "start", "end" } }] }  // CLASS or COURSE: recurring
 //
@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { resolveItemImages } from "../../shared/seed/images.mjs";
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
+import { isMain } from "../../shared/seed/main.mjs";
 
 const API = "https://www.wixapis.com";
 const BOOKINGS_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
@@ -355,6 +356,7 @@ export async function setupBookings(ctx, { services = [], staff = [], locations 
   // Pass 2 — images: resolve (import by url / generate by prompt) in one parallel wave, then
   // attach. Failures leave the service text-only; the seed's exit never depends on images.
   const files = await resolveItemImages(ctx, created.map((c, i) => ({
+    mediaId: services[i]?.imageMediaId,
     url: services[i]?.imageUrl,
     path: services[i]?.imagePath,
     prompt: services[i]?.imagePrompt,
@@ -389,7 +391,7 @@ export async function setupBookings(ctx, { services = [], staff = [], locations 
 
 // ---- CLI entry ----------------------------------------------------------------------------------
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());
+const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {

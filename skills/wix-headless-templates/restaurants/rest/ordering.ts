@@ -12,10 +12,10 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/list-fulfillment-methods.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import { fetchSiteMoney } from "./menu.js";
-import { initialSelection, nextCursor, validateSelection, type Raw } from "./menu-core.js";
+import { initialSelection, nextCursor, validateSelection, type Raw } from "../app/wix/restaurants/menu-core.js";
 import {
   RESTAURANTS_ORDERS_APP_ID,
   assertOrderAdded,
@@ -29,8 +29,8 @@ import {
   toFulfillmentMethods,
   toMenuOrderingMap,
   toOrderCart,
-} from "./ordering-core.js";
-import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types.js";
+} from "../app/wix/restaurants/ordering-core.js";
+import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "../app/wix/restaurants/types.js";
 
 export { RESTAURANTS_ORDERS_APP_ID };
 

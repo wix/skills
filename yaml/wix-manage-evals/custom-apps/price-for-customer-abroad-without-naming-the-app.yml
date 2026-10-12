@@ -1,0 +1,78 @@
+name: custom-apps/price-for-customer-abroad-without-naming-the-app
+description: >-
+  Verifies the agent reaches an installed app's skill when the request doesn't
+  mention any app: the site has the Global Pricing Helper custom app
+  installed, so the agent discovers the site's app skills and app tools, picks
+  the International price quote skill and prices the product with the app's
+  tools instead of its own math.
+triggerPrompt: >-
+  What should a customer in Germany pay, in euros and including VAT, for our
+  $49 mug? Round it up to a whole number of euros. Give me the final price
+  first, then how you got there.
+tags: [custom-apps, app-installation]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Global Pricing Helper from its share link, a demo app that declares app skills and app tools and isn't in the App Market
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-share-url/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          shareUrlId: 503085ae-8a7d-450c-8af1-cbb37906011c
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/app-management/app-tools/skills/use-app-skills-and-app-tools
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked what a customer in Germany should pay for a $49 mug, in
+      euros and including VAT, rounded up to a whole number of euros. The
+      request names no app. The site has the Global Pricing Helper custom app
+      installed. Its "International price quote" app skill
+      (toolMethodNames: convertCurrency, calculateVat, roundPrice) covers
+      exactly this request. Its tools return: 49 USD = 45.08 EUR (rate 0.92);
+      German VAT 19% = 8.57, total 53.65; whole rounding = 54.
+      Calls count whether the agent made them as separate tool calls or
+      inside ExecuteWixAPI code (wix.request).
+      Intent: notice the site's pricing app and answer with its pricing, not
+      with the agent's own math.
+
+      Pass if the agent:
+      - discovered the site's app skills and app tools (List App Skills and
+        List Tools Providers), AND
+      - read the International price quote skill with Get App Skill, AND
+      - ran convertCurrency, calculateVat and roundPrice through Invoke Tool
+        with providerAppId set to the app's appId, AND
+      - told the user the final price is 54 EUR (€54) before the breakdown,
+        and showed the converted price, the 19% VAT and the total before
+        rounding.
+
+      Fail if the agent:
+      - computes the conversion, VAT or rounding itself instead of calling
+        the app's tools, OR
+      - asks the user which app or skill to use, although the request and the
+        installed apps are enough, OR
+      - reports a final price other than 54 EUR (€54).
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+      Penalize and LIST any of: a non-2xx error even if recovered; an endpoint
+      called with a wrong URL, host or HTTP method and then corrected; an
+      Invoke Tool payload guessed wrong then corrected; calling Get App Skill
+      for skills other than the chosen one; searching the REST docs
+      (SearchWixRESTDocumentation) or probing other APIs (such as eCommerce
+      or currency settings) before the two discovery calls; redundant or
+      repeated calls clearer docs would avoid. For each, name the likely
+      MCP/docs gap. Reading the Wix README, calling GetSiteContext and reading
+      the recipe article before the discovery calls are expected steps; do
+      not penalize them.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

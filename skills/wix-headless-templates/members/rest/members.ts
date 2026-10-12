@@ -4,10 +4,10 @@
 // whatever token ./client.js holds — a member's after a rest/auth.ts login → the profile; a
 // visitor's → 403 → null. Porting: keep the path and the fieldsets, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/get-my-member.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { MEMBER_FIELDSETS, memberId, toCurrentMember, type Raw } from "./members-core.js";
-import type { CurrentMember } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { MEMBER_FIELDSETS, memberId, toCurrentMember, type Raw } from "../app/wix/members/members-core.js";
+import type { CurrentMember } from "../app/wix/members/types.js";
 
 /**
  * The current member, or null: for a visitor (the call is refused — "Missing site member id"), for

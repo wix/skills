@@ -124,6 +124,37 @@ async function findExisting(ctx, displayName) {
   }
 }
 
+/**
+ * The Media Manager file a spec names, when it names one: `mediaId`, or the file id at the end of a
+ * `static.wixstatic.com/media/<fileId>` URL. Returns { id, url, existing: true } for a file on this
+ * site, waiting out a short PENDING (an upload still processing), or null when the URL's file is
+ * not on this site (it is then imported like any external URL). An explicit `mediaId` that is not
+ * on the site throws, so the product is reported text-only with the reason.
+ */
+// docs: https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/get-file-descriptor.md
+const WIX_MEDIA_URL = /^https?:\/\/static\.wixstatic\.com\/media\/([^/?#]+)/;
+async function existingMediaFile(ctx, s) {
+  const id = s.mediaId ?? s.url?.match(WIX_MEDIA_URL)?.[1];
+  if (!id) return null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await fetch(`${API}/site-media/v1/files/get-file-by-id?fileId=${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${ctx.token}`, "wix-site-id": ctx.siteId },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 404) {
+      if (s.mediaId) throw new Error(`no Media Manager file ${id} on this site`);
+      return null;
+    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(`GET get-file-by-id -> ${res.status}: ${JSON.stringify(json).slice(0, 200)}`);
+    const f = json.file;
+    if (f?.operationStatus === "FAILED") throw new Error(`Media Manager file ${id} failed processing`);
+    if (f?.url && f.operationStatus !== "PENDING") return { id: f.id, url: f.url, existing: true };
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error(`Media Manager file ${id} still processing`);
+}
+
 /** Short stable fingerprint of an image's source (url, prompt + size, or file bytes). */
 function sourceHash(s) {
   const h = createHash("sha1");
@@ -149,8 +180,10 @@ export async function importImage(ctx, url, displayName = "image.png") {
 
 /**
  * THE seed entry point. Resolves a batch of image specs to Wix Media files in ONE parallel
- * wave. Each spec: { path } (LOCAL file — the user's own asset, uploaded) OR { url }
- * (verified external URL — imported) OR { prompt } (generated, ~1 credit) — plus optional
+ * wave. Each spec: { mediaId } (a file already in this site's Media Manager — used as it is,
+ * as is a static.wixstatic.com/media URL of one) OR { path } (LOCAL file — the user's own asset,
+ * uploaded) OR { url } (verified external URL — imported) OR { prompt } (generated, ~1 credit) —
+ * plus optional
  * displayName, width, height. Returns an array aligned with the input: { file, error } per
  * spec — `file` is { id, url } on success and null otherwise; `error` is the reason it is null
  * (the thrown message, "empty spec", or "timed out"). Never throws. Every failure is also
@@ -166,8 +199,11 @@ export async function resolveItemImagesDetailed(ctx, specs, { perImageBudgetMs =
   });
   const results = await Promise.allSettled(
     (specs ?? []).map(async (s) => {
-      if (!s || (!s.path && !s.url && !s.prompt)) return null;
+      if (!s || (!s.path && !s.url && !s.prompt && !s.mediaId)) return null;
       const resolve = (async () => {
+        // A file already in this site's Media Manager is used as it is: no import, no copy.
+        const inMedia = await existingMediaFile(ctx, s);
+        if (inMedia) return inMedia;
         const name = stableName(s);
         // uploadImage swaps in the file's own extension; look for what it will actually be named
         const uploadedName = s.path ? name.replace(/\.[a-z0-9]+$/i, "") + extname(s.path).toLowerCase() : name;
@@ -184,10 +220,10 @@ export async function resolveItemImagesDetailed(ctx, specs, { perImageBudgetMs =
   );
   return results.map((r, i) => {
     const spec = specs?.[i] ?? {};
-    const label = spec.displayName ?? spec.path ?? spec.url ?? (spec.prompt ? "(prompt)" : "(empty)");
+    const label = spec.displayName ?? spec.mediaId ?? spec.path ?? spec.url ?? (spec.prompt ? "(prompt)" : "(empty)");
     if (r.status === "fulfilled") {
       if (r.value) return { file: r.value, error: null };
-      const error = !spec.path && !spec.url && !spec.prompt ? "empty spec" : `timed out after ${perImageBudgetMs} ms`;
+      const error = !spec.path && !spec.url && !spec.prompt && !spec.mediaId ? "empty spec" : `timed out after ${perImageBudgetMs} ms`;
       if (error !== "empty spec") console.error(`image ${label}: ${error}`);
       return { file: null, error };
     }

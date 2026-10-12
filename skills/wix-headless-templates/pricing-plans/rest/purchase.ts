@@ -4,9 +4,9 @@
 // order form, and payment itself, so a visitor token starts it. Never create the order yourself,
 // never hand-build a checkout URL.
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
-import { purchaseBody, redirectUrl, type PurchaseOptions } from "./purchase-core.js";
-import type { Raw } from "./plans-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { purchaseBody, redirectUrl, type PurchaseOptions } from "../app/wix/pricing-plans/purchase-core.js";
+import type { Raw } from "../app/wix/pricing-plans/plans-core.js";
 
 export type { PurchaseOptions };
 

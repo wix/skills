@@ -9,7 +9,7 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/ticket-reservations/create-ticket-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
+import { wixRequest } from "../../shared/rest/client.js";
 import {
   availableTiersQuery,
   checkoutCallbacks,
@@ -25,9 +25,9 @@ import {
   type CheckoutPaths,
   type RsvpValues,
   type TierEvent,
-} from "./registration-core.js";
-import type { Raw } from "./events-core.js";
-import type { EventDetail, RegistrationResult, TicketSelection, TicketTier } from "./types.js";
+} from "../app/wix/events/registration-core.js";
+import type { Raw } from "../app/wix/events/events-core.js";
+import type { EventDetail, RegistrationResult, TicketSelection, TicketTier } from "../app/wix/events/types.js";
 
 export { type CheckoutPaths, type RsvpValues, type TierEvent };
 

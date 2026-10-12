@@ -5,9 +5,9 @@
 // visitor, so callers check the session first (the store does) and never call for a visitor.
 // Porting: keep the path and the query string; the rule is one line in the core.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/member-list-orders.md
-import { wixRequest } from "./client.js";
-import { hasPlanAccess, memberOrdersQuery, type MemberOrdersQuery } from "./plan-access-core.js";
-import type { Raw } from "./plans-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { hasPlanAccess, memberOrdersQuery, type MemberOrdersQuery } from "../app/wix/pricing-plans/plan-access-core.js";
+import type { Raw } from "../app/wix/pricing-plans/plans-core.js";
 
 export type { MemberOrdersQuery };
 

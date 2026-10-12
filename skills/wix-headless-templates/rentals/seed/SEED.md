@@ -19,7 +19,7 @@ exercise the UI: one hourly and one daily rental when the business allows it, a 
 approval-gated one where it fits, and an image per rental — the default is an `imagePrompt`
 (AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
 aesthetic/mood, palette, lighting — always ending "no text, no watermarks". At least one image shows
-the real thing being rented. For an asset the user actually supplied use `imagePath` (a file on this
+the real thing being rented. For an asset the user actually supplied use `imageMediaId` (a file already in the site's Media Manager, such as one the user uploaded there: used as it is, no copy; a `static.wixstatic.com/media/<file id>` URL of a site file counts as one), `imagePath` (a file on this
 machine — uploaded to Wix Media) or `imageUrl` (their own hosted URL; verify it with `curl -sI` →
 200) — never a stock-photo or guessed URL. Images resolve in parallel and never block the seed.
 

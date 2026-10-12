@@ -6,16 +6,13 @@ Go through [WIX_PATTERNS_DOCS.md § Prerequisites](../WIX_PATTERNS_DOCS.md#prere
 
 ## 1. Find the templates
 
-Templates are docs-index entries with `category: "Templates"`, and each lists every file of its page in `templateFiles` (relative to `dist/templates/`). One probe lists them all with the guide that chooses between them:
+One call lists every page template with its files, plus the guide that chooses between them:
 
 ```bash
-python3 -c "
-import json; i = json.load(open('<pkgRoot>/dist/docs/index.json'))
-for k, e in i.items():
-    if e.get('category') == 'Templates' or e.get('relatedTemplates'):
-        print(k, '|', e.get('templateFiles') or e.get('relatedTemplates'), '|', e.get('summary', '')[:200])
-"
+node <pkgRoot>/bin/patterns-lookup.cjs --templates
 ```
+
+It also takes names (`--templates Table useTableCollection …`), so the patterns names you already know you'll need can go in the same call ([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)). If the script is missing (an older `@wix/patterns`), list those entries from `<pkgRoot>/dist/docs/index.json` in one probe.
 
 **No `Templates` entries means the install predates them — upgrade `@wix/patterns`.** Do not rebuild a page from memory or from an older copy of this skill instead: the templates exist so the shell, provider nesting and router wiring come from the package.
 
@@ -48,7 +45,7 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 `route` takes no leading slash — `support-tickets`, not `/support-tickets`. See [Dashboard Page → Scaffold](../DASHBOARD_PAGE.md#scaffold).
 
-Then copy **every** file in `templateFiles` into the generated folder (`src/extensions/dashboard/pages/<feature>/`). They import one another by relative path, so keep their names relative to each other; one file on its own does not compile.
+Then copy **every** file `--templates` lists for it into the generated folder (`src/extensions/dashboard/pages/<feature>/`). They import one another by relative path, so keep their names relative to each other; one file on its own does not compile.
 
 - The template's `page.tsx` is the entry file, and the CLI generated none by that name: put its contents into the component file the builder's `component` path points at (e.g. `employee-shifts.tsx`), and add no separate `page.tsx`, which nothing loads. Leave the builder file and the `src/extensions.ts` registration as the CLI wrote them.
 - Rename `Items` / `Item` to your feature and entity, in file names and identifiers alike.

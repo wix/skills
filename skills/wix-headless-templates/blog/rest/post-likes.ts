@@ -5,10 +5,10 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/likes/create-like.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/likes/query-likes.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/likes/delete-like-by-fqdn-and-entity-id.md
-import { wixRequest } from "./client.js";
+import { wixRequest } from "../../shared/rest/client.js";
 import { fetchPostMetrics } from "./posts.js";
-import { BLOG_POST_FQDN, likeBody, likeStateQuery, type Raw } from "./posts-core.js";
-import type { LikeState } from "./types.js";
+import { BLOG_POST_FQDN, likeBody, likeStateQuery, type Raw } from "../app/wix/blog/posts-core.js";
+import type { LikeState } from "../app/wix/blog/types.js";
 
 /** Like the post as the current viewer.  POST /blog/v1/likes  { like: { entityId, fqdn: "wix.blog.v3.post" } } */
 export async function likePost(postId: string): Promise<void> {

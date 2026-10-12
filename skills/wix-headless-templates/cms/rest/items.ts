@@ -9,8 +9,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/get-data-item.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-item-references.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgRatio, imgSrc } from "./media.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgRatio, imgSrc } from "../../shared/rest/media.js";
 import {
   DEFAULT_LIMIT,
   DISTINCT_LIMIT,
@@ -26,8 +26,8 @@ import {
   toValues,
   type Media,
   type Raw,
-} from "./items-core.js";
-import type { CmsFilter, CmsItem, CmsPage, CmsQuery } from "./types.js";
+} from "../app/wix/cms/items-core.js";
+import type { CmsFilter, CmsItem, CmsPage, CmsQuery } from "../app/wix/cms/types.js";
 
 const media: Media = { imgSrc, imgRatio };
 const notFound = (e: unknown): boolean => e instanceof WixApiError && e.status === 404;

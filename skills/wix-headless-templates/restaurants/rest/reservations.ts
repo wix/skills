@@ -9,9 +9,9 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-held-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/reserve-reservation.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md
-import { wixRequest } from "./client.js";
-import { availableSlots, reservationBody, reserveeBody, toConfirmation, toHold, toLocations } from "./reservations-core.js";
-import type { Raw } from "./menu-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { availableSlots, reservationBody, reserveeBody, toConfirmation, toHold, toLocations } from "../app/wix/restaurants/reservations-core.js";
+import type { Raw } from "../app/wix/restaurants/menu-core.js";
 import type {
   ReservationConfirmation,
   ReservationFormConfig,
@@ -19,7 +19,7 @@ import type {
   ReservationLocationInfo,
   ReservationReservee,
   ReservationSlot,
-} from "./types.js";
+} from "../app/wix/restaurants/types.js";
 
 const RESERVATIONS = "/table-reservations/reservations/v1";
 

@@ -1,0 +1,47 @@
+name: sites/send-feedback-to-wix
+description: >-
+  Verifies that, when the user asks to tell Wix about a flow that went badly, the agent reads the
+  send-feedback-to-wix skill, composes a structured message from what the user reports (provenance,
+  narrative, friction points with their errors and request id, attribution, bottom line), and sends
+  it with a user identity through the headless feedback endpoint, or shows it for confirmation
+  first, instead of sending a bare sentence, inventing an endpoint, or using a site-scoped token.
+triggerPrompt: >-
+  Please tell Wix about this. I asked my AI assistant to upload my shop mock to Wix. The pages went
+  live at site 3c1f6a2e-8d4b-4f0e-9a7c-2b5d1e8f4a90, but the drop call for the product photos failed
+  twice with "500 Internal Server Error" (request id 1791539001.4821037), so I had to upload the
+  photos to the Media Manager myself and the assistant wired them in afterwards. It took 40 minutes
+  instead of 5. Tell them the photo upload for chat assistants is the weak spot.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/send-feedback-to-wix
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user explicitly asked the agent to send feedback to Wix about a site upload that went
+      badly: the drop call for product photos failed twice with a 500 (request id
+      1791539001.4821037) on site 3c1f6a2e-8d4b-4f0e-9a7c-2b5d1e8f4a90, the user had to upload
+      the photos to the Media Manager themselves, and it took 40 minutes instead of 5. Judge the
+      tool-call trace and the final answer.
+
+      Pass if ALL hold:
+      - the composed message is structured, not a bare sentence: provenance (agent, tooling, the
+        site id), a narrative of what the user set out to do and what happened, the friction point
+        with the step, the 500 status, the request id and the workaround, a best guess at where
+        the fault lives (or "unsure"), and a bottom line naming the photo upload as the main
+        problem, AND
+      - the user's own point ("the photo upload for chat assistants is the weak spot") appears in
+        the message in their words, AND
+      - the agent either sent it with POST https://www.wixapis.com/mcp-serverless/v1/headless-feedback
+        and body {"message": ...} using a user identity (account scope in an ExecuteWixAPI script,
+        or a token from the bare `wix token` command) and reported the result, OR showed the final
+        wording and asked the user to confirm before sending.
+
+      Fail if:
+      - the message is a single sentence or omits the error, the request id or the site id, OR
+      - the agent calls an endpoint other than the one above, or invents one, OR
+      - it sends with a site-scoped token or a site-scoped script call, OR
+      - it includes a bearer token, API key or other credential in the message, OR
+      - it claims the feedback was sent without a call that returned 200.

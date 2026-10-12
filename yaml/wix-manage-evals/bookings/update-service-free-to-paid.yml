@@ -56,6 +56,8 @@ assertions:
       - leaves the service NO_FEE (e.g. only sets a price without changing
         rateType) or reports success without a successful update in the trace, OR
       - changes anything the user didn't ask for (name, type, capacity), OR
+      - turns off in-person payment (`options.inPerson` ends `false`) — the user
+        only asked for a price, so customers should still be able to pay in person, OR
       - only explains how to do it instead of doing it.
   - type: llm_judge
     minScore: 7

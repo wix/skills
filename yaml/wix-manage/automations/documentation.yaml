@@ -1,0 +1,18 @@
+# Synced from the Automations builder skill; see README.md for maintenance and review fixes.
+# Source content SHA-256: 070918aee0f63a99f458b6e9e9438424a4e0fb062e87371268f545150d87f806
+apiDoc:
+  title: Wix Automations Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/automations/build-and-manage-automations.md
+      title: "Build and Manage Wix Automations"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/api-catalog.md
+      title: "Automations API Catalog"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/activation-status.md
+      title: "Automations Activation Status"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]

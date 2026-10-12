@@ -13,12 +13,12 @@
 // what future deploys copy and what the agent reads, not `src/`. Nothing here touches `src/`.
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { SKILL_ROOT, TEMPLATES_PATH, installSource, templatesDir, templatesSource } from "./templates.mjs";
 
 const git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", timeout: 120_000, ...opts });
-const skillName = SKILL_ROOT.split("/").pop();
+const skillName = basename(SKILL_ROOT);
 const { repo } = installSource();
 
 const out = { skill: {}, templates: {}, update: {} };

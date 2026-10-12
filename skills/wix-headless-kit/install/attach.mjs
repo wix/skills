@@ -46,13 +46,15 @@
 // Emits ONE JSON event per line (attached, scaffolded, deployed, install_started,
 // ready_for_brand_layer, or error). Requires a logged-in Wix CLI (`npx @wix/cli@<pinned> whoami`, the version in pins.json)
 // whose account owns or co-manages the site.
-import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
+import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { frontendPresent, siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
+import { failure, npmSync, startBackground } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -137,9 +139,9 @@ emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cw
 
 // ---- http ---------------------------------------------------------------------------------------
 const cliToken = (site) => {
-  const r = spawnSync("npx", ["-y", WIX_CLI, "token", ...(site ? ["--site", site] : [])], { encoding: "utf8", timeout: 120_000 });
+  const r = npmSync("npx", ["-y", WIX_CLI, "token", ...(site ? ["--site", site] : [])], { encoding: "utf8", timeout: 120_000 });
   const t = (r.stdout || "").trim();
-  if (r.status !== 0 || !t) fail("auth", (r.stderr || r.stdout || `no token — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-400));
+  if (r.status !== 0 || !t) fail("auth", failure(r, `no token — is the Wix CLI logged in? (npx ${WIX_CLI} whoami)`).slice(-400));
   return t;
 };
 async function call(base, path, { method = "POST", token, site, body, query } = {}) {
@@ -281,9 +283,6 @@ if (stack === "astro" && mode === "scaffold") {
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
   pkg.name = folderName;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-  const gi = join(projectDir, ".gitignore");
-  const cur = existsSync(gi) ? readFileSync(gi, "utf8") : "";
-  if (!/\.env/.test(cur)) writeFileSync(gi, cur + "\n# local env (pulled from Wix)\n.env.local\n.env\n");
 }
 writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify({ appId, siteId }, null, 2) + "\n");
 // The env the CLI's build reads. Same content `wix env pull` writes; written here so the build
@@ -297,6 +296,7 @@ writeFileSync(join(projectDir, ".env.local"), [
   `WIX_CLIENT_SECRET=${quote(secrets.appSecret)}`,
   "",
 ].join("\n"));
+ignoreEnvLocal(projectDir); // in every mode: a linked project's own .gitignore may not cover it
 emit(mode === "link" ? "linked" : mode === "config-only" ? "configured" : "scaffolded", { folder: folderName, stack, template: mode === "scaffold" && stack === "astro" ? join(TEMPLATES, verticals[0], "project") : null });
 // the agent config files `wix create` writes (attach never runs the CLI's scaffold at all); fill-only
 emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), stack }));
@@ -304,7 +304,7 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
   emit("ready", { projectDir, siteId, appId, baseUrl, hosting, frontend, stack, dashboardUrl: `https://manage.wix.com/dashboard/${siteId}`,
     next: `scaffold the ${stack} project in this folder per SKILL.md, then deploy.mjs <vertical…> --stack ${stack}${planPath ? ` --plan ${planPath}` : ""} (the client id is read from wix.config.json); ` +
-      (planPath ? `then seed with the plan: node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs ${planPath}` : `no plan given, so nothing seeds — the site owns its content`) +
+      (planPath ? `then seed with the plan: node ${join(TEMPLATES, verticals[0], "seed", `seed-${verticals[0]}.mjs`)} ${planPath}` : `no plan given, so nothing seeds — the site owns its content`) +
       (hosting === "self" ? `; you host it: origins on the OAuth app allow-list now: ${origins.join(", ") || "none — add them before the first checkout test"}` : "") });
   process.exit(0);
 }
@@ -313,7 +313,7 @@ if (mode !== "link" && (stack !== "astro" || mode === "config-only")) {
 let deployResult = {};
 {
   const deploy = spawnSync("node", [join(SKILL_ROOT, "install", "deploy.mjs"), ...verticals, "--stack", stack, ...(planPath ? ["--plan", resolve(planPath)] : [])], { cwd: projectDir, encoding: "utf8", timeout: 60_000 });
-  if (deploy.status !== 0) fail("deploy", deploy.stderr || deploy.stdout);
+  if (deploy.status !== 0) fail("deploy", failure(deploy));
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
   if (deployResult.error) fail("deploy", deployResult.error);
   emit("deployed", deployResult);
@@ -323,9 +323,7 @@ let deployResult = {};
 let install = null;
 if (existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  const logFd = openSync(installLog, "a");
-  const child = spawn("sh", ["-c", existsSync(join(projectDir, "package-lock.json")) ? "npm ci --ignore-scripts || npm install --ignore-scripts" : "npm install --ignore-scripts"], { cwd: projectDir, detached: true, stdio: ["ignore", logFd, logFd] });
-  child.unref();
+  startBackground("install", [existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install"], { cwd: projectDir, log: installLog });
   install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
   emit("install_started", install);
 }
@@ -339,20 +337,15 @@ if (planPath) {
   const seedDir = join(TEMPLATES, verticals[0], "seed");
   const seedName = existsSync(seedDir) ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs")) : undefined;
   if (!seedName) fail("seed", `no seed module found under ${seedDir}`);
-  const seedChild = spawn(
-    "sh",
-    ["-c", `node "${join(seedDir, seedName)}" "${resolve(planPath)}" > seed-result.json 2> seed.log; echo $? > .seed-exit`],
-    { cwd: projectDir, detached: true, stdio: "ignore" },
-  );
-  seedChild.unref();
+  startBackground("seed", [join(seedDir, seedName), resolve(planPath)], { cwd: projectDir });
   seed = { resultFile: "seed-result.json", log: "seed.log", doneMarker: ".seed-exit", success: "file contains 0" };
   emit("seeding_started", { vertical: verticals[0], ...seed, ...(verticals.length > 1 ? { note: `the plan seeds ${verticals[0]}; the other verticals' seeds run afterwards, each with its own plan` } : {}) });
 } else {
   if (siteOrigin === "init") {
-    emit("note", { step: "seed", detail: `this site was made for this run (init) and is empty: draft a plan per templates/${verticals[0]}/seed/SEED.md — the brief's content, else demo content — and run node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs plan.json from the project root` });
+    emit("note", { step: "seed", detail: `this site was made for this run (init) and is empty: draft a plan per ${join(TEMPLATES, verticals[0], "seed", "SEED.md")} — the brief's content, else demo content — and run node <SKILL_ROOT>/templates/${verticals[0]}/seed/seed-<vertical>.mjs plan.json from the project root` });
   }
   if (verticals.includes("members")) {
-    emit("note", { step: "seed", detail: "members: the Members Area app (the profile layer, no content) is installed by templates/members/seed/seed-members.mjs — run it unless the site already has the app" });
+    emit("note", { step: "seed", detail: `members: the Members Area app (the profile layer, no content) is installed by ${join(TEMPLATES, "members", "seed", "seed-members.mjs")} — run it unless the site already has the app` });
   }
 }
 

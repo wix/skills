@@ -8,8 +8,8 @@
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/create-submission.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/get-media-upload-url.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { wixRequest } from "./client.js";
-import type { Raw } from "./forms-core.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import type { Raw } from "../app/wix/forms/forms-core.js";
 import {
   SUBMITTED_OK,
   formLevelError,
@@ -23,8 +23,8 @@ import {
   toSubmissionValues,
   uploadFilesWith,
   uploadMimeType,
-} from "./submissions-core.js";
-import type { FormFieldDto, FormValues, SubmissionDto, UploadedFile } from "./types.js";
+} from "../app/wix/forms/submissions-core.js";
+import type { FormFieldDto, FormValues, SubmissionDto, UploadedFile } from "../app/wix/forms/types.js";
 
 export { SUBMITTED_OK, formLevelError, normalizePhone, normalizeUrl, submissionErrors, toSubmissionValues };
 

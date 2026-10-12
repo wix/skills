@@ -53,8 +53,10 @@ rows (Role, Year, Client…).
 - Every image field's default is a prompt (`coverImagePrompt` / `items[].imagePrompt` —
   AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
   aesthetic/mood, palette, lighting — always ending "no text, no watermarks". At least one image in the set shows the real subject of the business — the actual product/space/service, not abstract decoration. For an asset the user actually supplied
-  use a path (`coverImagePath` / `items[].imagePath` — a file on this machine, uploaded to
-  Wix Media) or a url (`coverImageUrl` / `items[].imageUrl` — their own hosted URL; verify it
+  use a Media Manager file (`coverImageMediaId` / `items[].imageMediaId` — a file already in the
+  site's Media Manager, such as one the user uploaded there: used as it is, no copy; a
+  `static.wixstatic.com/media/<file id>` URL of a site file counts as one), a path
+  (`coverImagePath` / `items[].imagePath` — a file on this machine, uploaded to Wix Media) or a url (`coverImageUrl` / `items[].imageUrl` — their own hosted URL; verify it
   with `curl -sI` → 200) — never a stock-photo or guessed URL. All images —
   covers and gallery items alike — resolve in one parallel wave and never block the seed; a
   failed image skips just that item/cover. The **cover** is the

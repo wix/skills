@@ -4,11 +4,11 @@
 // the bodies, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/query-members.md
 // docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/get-my-member.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { authorsQuery, indexAuthors, toAuthor, uniqueIds } from "./authors-core.js";
-import type { Raw } from "./posts-core.js";
-import type { BlogAuthor } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { authorsQuery, indexAuthors, toAuthor, uniqueIds } from "../app/wix/blog/authors-core.js";
+import type { Raw } from "../app/wix/blog/posts-core.js";
+import type { BlogAuthor } from "../app/wix/blog/types.js";
 
 /**
  * Every distinct author of one page in ONE request, keyed by member id. {} on failure.

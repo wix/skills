@@ -4,10 +4,10 @@
 // order on this visitor's session. Not guaranteed for every site's visitor scope: a 403 throws
 // and the confirmation surface degrades to a confirmation without order details.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/orders/get-order.md
-import { WixApiError, wixRequest } from "./client.js";
-import { ORDER_FIELDSETS, toOrder } from "./orders-core.js";
-import type { Raw } from "./events-core.js";
-import type { OrderSummary } from "./types.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { ORDER_FIELDSETS, toOrder } from "../app/wix/events/orders-core.js";
+import type { Raw } from "../app/wix/events/events-core.js";
+import type { OrderSummary } from "../app/wix/events/types.js";
 
 /**
  * One order by the pair the thank-you URL carries. Null on 404; throws on anything else.

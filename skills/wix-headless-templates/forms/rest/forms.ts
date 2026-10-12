@@ -6,10 +6,10 @@
 // Porting: keep the paths, keep the query, port the core once.
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms.md
-import { wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "./forms-core.js";
-import type { FormDto } from "./types.js";
+import { wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue, toForm, type Raw } from "../app/wix/forms/forms-core.js";
+import type { FormDto } from "../app/wix/forms/types.js";
 
 export { FORMS_NAMESPACE, applyRules, isClosed, otherText, otherValue };
 

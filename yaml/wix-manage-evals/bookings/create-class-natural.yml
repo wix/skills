@@ -1,8 +1,9 @@
 name: bookings/create-class-natural
 description: >-
-  Verifies that a natural class-creation request (no recipe named) routes to the class
-  recipe and produces a CLASS service with the requested capacity and price — and that
-  the agent is honest that the class is not bookable until sessions are scheduled.
+  Verifies that a natural class-creation request (no recipe named) reaches the services
+  recipe and produces a CLASS service with the requested capacity and price — and that,
+  given no session times, the agent asks for them instead of inventing a schedule and is
+  honest that the class is not bookable until sessions exist.
 triggerPrompt: >-
   Add a yoga class to my Wix site for $25, with room for 12 people.
 tags: [bookings]
@@ -12,7 +13,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-class-service
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -27,9 +28,8 @@ assertions:
       - sets `defaultCapacity: 12`, AND
       - sets a fixed price of 25 (`payment.rateType: "FIXED"` with `fixed.price.value` "25" or "25.00"), AND
       - enables online booking, AND
-      - EITHER successfully creates class session events on the service's schedule,
-        OR clearly tells the user the class still needs sessions scheduled (dates/times)
-        before customers can book it.
+      - clearly tells the user the class still needs sessions scheduled (days/times)
+        before customers can book it, and asks for them (the user gave no times).
 
       Fail if the agent:
       - creates the service as APPOINTMENT or COURSE, OR
@@ -37,6 +37,8 @@ assertions:
         or `sessionDurations` for the class's schedule), OR
       - claims the class is ready/bookable when no session events exist and no
         scheduling caveat is given, OR
+      - creates session events at days/times the user never gave (an invented
+        schedule), OR
       - reports success without a successful create call in the trace, OR
       - only explains how to do it instead of doing it.
   - type: llm_judge
@@ -46,7 +48,9 @@ assertions:
       tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors). Penalize
       and LIST any of: a non-2xx error even if recovered; a request-body shape guessed
       wrong then corrected; fields silently dropped by the API that the agent then had
-      to re-do; redundant or probing calls clearer docs would avoid. Do not penalize a
+      to re-do; redundant or probing calls clearer docs would avoid, including a Site
+      Properties lookup just to learn the currency or an installed-apps check before
+      the first Bookings call. Do not penalize a
       single post-create verification read. For each friction, name the likely
       recipe/docs/MCP gap.
       Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected gap, or 'clean path' if none>"}.

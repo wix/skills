@@ -6,11 +6,11 @@
 // All calls run with the visitor token: the cart is the token's (see ../shared/client).
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
-import { EMPTY_TOTALS, WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, cartErrorMessage, rawId, summaryTotals, toCart } from "./cart-core.js";
-import type { Raw } from "./catalog-core.js";
-import type { Cart } from "./types.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
+import { EMPTY_TOTALS, WIX_STORES_APP_ID, addOptions, assertAdded, assertCheckoutable, cartErrorMessage, rawId, summaryTotals, toCart } from "../app/wix/storefront/cart-core.js";
+import type { Raw } from "../app/wix/storefront/catalog-core.js";
+import type { Cart } from "../app/wix/storefront/types.js";
 
 const CART = "/ecom/v2/carts/current";
 

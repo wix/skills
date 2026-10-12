@@ -35,7 +35,7 @@ The CLI generates the folder, the page's component file (`<page>.tsx`, the build
 
 **Before writing that UI:** copy in the installed `@wix/patterns` page template that matches, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — don't compose the shell from scratch.
 
-**Then, for whatever the template doesn't cover:** probe `<pkgRoot>/dist/docs/index.json` once with `grep`/`python3` — never a whole-file `Read`, which truncates silently ([Prerequisites](WIX_PATTERNS_DOCS.md#prerequisites)). Its `importPath`, `examples` and `bundle` decide whether you open anything else. Each Bash call is a fresh shell — re-set the path variable every time.
+**Then, for whatever the template doesn't cover:** list every patterns name you'll add, and resolve them all in one `node <pkgRoot>/bin/patterns-lookup.cjs <name…>` call ([WIX_PATTERNS_DOCS.md § 1](WIX_PATTERNS_DOCS.md#1--the-index)). Its import, examples and props file decide whether you open anything else. Each Bash call is a fresh shell — re-set the path variable every time.
 
 ## Capabilities
 

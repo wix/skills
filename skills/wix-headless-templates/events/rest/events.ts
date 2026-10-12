@@ -7,8 +7,8 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/get-event.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/query-categories.md
-import { WixApiError, wixRequest } from "./client.js";
-import { imgSrc } from "./media.js";
+import { WixApiError, wixRequest } from "../../shared/rest/client.js";
+import { imgSrc } from "../../shared/rest/media.js";
 import {
   DEFAULT_PAGE_SIZE,
   DETAIL_FIELDS,
@@ -23,8 +23,8 @@ import {
   toSummary,
   type ListOptions,
   type Raw,
-} from "./events-core.js";
-import type { EventCategory, EventDetail, EventSummary } from "./types.js";
+} from "../app/wix/events/events-core.js";
+import type { EventCategory, EventDetail, EventSummary } from "../app/wix/events/types.js";
 
 export { EVENTS_APP_ID, type ListOptions };
 
