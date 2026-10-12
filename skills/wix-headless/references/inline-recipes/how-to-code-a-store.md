@@ -534,7 +534,7 @@ The **category page** is the same block with the category identifiers — same i
 export const wixMetadata = {
   appDefId: WIX_APPS.checkoutAndOrders.id,
   pageIdentifier: WIX_APPS.checkoutAndOrders.categoryPageMetadata.pageIdentifier,
-  identifiers: { slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.collection },
+  identifiers: { slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.handle },
 };
 const slug = Astro.params.slug!;
 let category = null, seoTagsServiceConfig = null;
