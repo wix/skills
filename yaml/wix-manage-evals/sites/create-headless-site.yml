@@ -1,12 +1,11 @@
 name: sites/create-headless-site
 description: >-
-  Verifies the agent reads the create-headless-site skill and creates a headless site via the
-  Headless Business Setup provision API (one call: site + business apps + OAuth client), instead
-  of using the meta-site template API with a HEADLESS namespace or creating a standalone OAuth app.
+  Verifies the agent reads the create-headless-site skill, follows it to the upload recipe, and
+  creates the headless site with the Headless Business Setup provision API and origin "drop",
+  instead of using the meta-site template API with a HEADLESS namespace.
 triggerPrompt: >-
-  Create a new Wix Headless site for my project called "Acme Storefront" with Wix Stores installed,
-  so I can build my own frontend against the Wix APIs. Explain which API call you would make, what
-  the request body looks like, and how I get the OAuth client ID my frontend needs.
+  Create a new Wix Headless site for my project called "Acme Studio", so I can put my own frontend
+  on it. Explain which API call you would make and what the request body looks like.
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
@@ -16,28 +15,23 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user wants a new Wix Headless site named "Acme Storefront" with Wix Stores installed, and
-      asked which API call creates it, what the request body looks like, and where the OAuth client
-      ID comes from.
+      The user wants a new Wix Headless site named "Acme Studio" for their own frontend, and asked
+      which API call creates it and what the request body looks like.
       Intent: create the headless site with the Headless Business Setup provision API —
-      POST https://www.wixapis.com/headless-business-setup/v1/headless-business/provision — one
-      account-level call that creates the site, installs the requested business solution apps, and
-      creates + configures the site's OAuth client.
+      POST https://www.wixapis.com/headless-business-setup/v1/headless-business/provision — as the
+      upload recipe (Upload a Website or HTML Files) does, then put the frontend on it by uploading
+      its files.
 
       Pass if the response:
       - creates the site with the provision endpoint (POST .../headless-business-setup/v1/headless-business/provision), AND
       - shows a request body with a newMetasite target carrying a naming strategy (e.g.
-        metaSiteName "Acme Storefront"), a seedOptions entry installing STORES, and an origin of
-        "drop", AND
-      - says the response's appId is the site's OAuth client ID (no separate OAuth app needs to be
-        created).
-      A response that additionally asks the user to confirm before creating still PASSES, as long
-      as it describes the provision call above.
+        metaSiteName "Acme Studio") and an origin of "drop".
+      A response that additionally asks the user to confirm before creating, or explains how the
+      frontend's files get uploaded afterwards, still PASSES.
 
       Fail if the response:
       - creates the site with the meta-site template API (msm/v1/meta-site/create-from-template),
         with or without a namespace: "HEADLESS" field, OR
-      - instructs creating a standalone OAuth app as a separate step, OR
       - omits the provision endpoint or the request body shape, OR
       - is generic with no specific endpoint, OR
       - sends no origin, or an origin other than "drop".

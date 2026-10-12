@@ -74,7 +74,7 @@ page whole. A web fetch is the fallback.
 
 ## Create the site
 
-The [Create Headless Site](create-headless-site.md) call with no Wix Business
+One account-level call creates the headless site, with no Wix Business
 Solutions. Name it after the page's `<title>` and keep `"origin": "drop"`.
 
 ```bash
