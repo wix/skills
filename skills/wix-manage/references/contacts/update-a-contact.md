@@ -59,8 +59,7 @@ Swap `email` for `phone` (`{ "phone": { "phone": "+1-212-555-0100" } }`) or `nam
 instead. `revision` changes on every write, so re-read it if an update conflicts.
 
 Before sending the update, call `ReadFullDocsArticle` on the Update Contact article to confirm the
-field names, then send the PATCH right away — there is no need to check the new values with the user
-first, since an update can always be sent again.
+field names, then show the user the new values and send the PATCH once they confirm.
 
 ### 3. Add an address with Add Contact Address
 
