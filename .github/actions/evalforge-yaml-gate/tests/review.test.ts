@@ -1,22 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as core from '@actions/core';
-import type { ChangedFile } from '../src/utils/github';
+import type { ChangedFile, ThreadComment } from '../src/utils/github';
 import type { ReviewFinding } from '../src/utils/review-comment';
 import type { AgentOutcome } from '../src/utils/review-agent';
 
 // `vi.hoisted` because `vi.mock` is hoisted above these declarations, and this file imports the
 // mocked modules at the top — so a factory would run before a plain `const` spy was initialised.
 const {
-  getChangedFiles, runReviewAgent, upsert, postPending, clearPending, clearAck,
-  existsSync,
+  getChangedFiles, runReviewAgent, upsert, retirePrior,
+  postPending, clearPending, clearAck, postReview, existsSync,
 } =
   vi.hoisted(() => ({
     getChangedFiles: vi.fn<() => Promise<ChangedFile[]>>(),
     runReviewAgent: vi.fn<() => Promise<AgentOutcome>>(),
-    upsert: vi.fn<(body: string) => Promise<void>>(),
+    upsert: vi.fn<(body: string) => Promise<number | undefined>>(),
+    retirePrior: vi.fn<(keep?: number) => Promise<void>>(),
     postPending: vi.fn<(body: string) => Promise<void>>(),
     clearPending: vi.fn<() => Promise<void>>(),
     clearAck: vi.fn<() => Promise<void>>(),
+    postReview: vi.fn<(
+      headSha: string, comments: ThreadComment[], body: (unplaced: ThreadComment[]) => string,
+    ) => Promise<ThreadComment[] | undefined>>(),
     existsSync: vi.fn<() => boolean>(),
   }));
 
@@ -24,12 +28,16 @@ vi.mock('../src/utils/github', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/utils/github')>();
   return {
     ...actual, getChangedFiles,
-    makeReviewCommenter: () => upsert,
+    makeReviewCommenter: () => ({ post: upsert, retirePrior }),
     makeReviewPendingCommenter: () => ({
       post: postPending, clear: clearPending, clearAck,
     }),
+    makeReviewPoster: () => postReview,
   };
 });
+
+/** The text the review is submitted with, given what GitHub could not place. */
+const reviewText = (unplaced: ThreadComment[] = []) => postReview.mock.calls[0][2](unplaced);
 
 vi.mock('../src/utils/review-agent', () => ({
   runReviewAgent,
@@ -93,10 +101,12 @@ async function run(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  upsert.mockResolvedValue(undefined);
+  upsert.mockResolvedValue(1);
+  retirePrior.mockResolvedValue(undefined);
   postPending.mockResolvedValue(undefined);
   clearPending.mockResolvedValue(undefined);
   clearAck.mockResolvedValue(undefined);
+  postReview.mockResolvedValue([]);
   payload.pull_request = { ...basePullRequest };
   getChangedFiles.mockResolvedValue(IN_SCOPE);
   runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
@@ -194,7 +204,7 @@ describe('review mode — what may and may not fail the check', () => {
     runReviewAgent.mockResolvedValue({ ok: true, findings, discarded: 0, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
     await run();
     expect(setFailed).toHaveBeenCalledTimes(fails ? 1 : 0);
-    expect(upsert).toHaveBeenCalledOnce();
+    expect(postReview).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -205,8 +215,8 @@ describe('review mode — what may and may not fail the check', () => {
     runReviewAgent.mockResolvedValue({ ok: true, findings: [], discarded: 0, score, verdict: 'stores/a: the reason.' });
     await run();
     expect(setFailed).toHaveBeenCalledTimes(fails ? 1 : 0);
-    expect(upsert.mock.calls[0][0]).toContain(`**Score: ${score}/10**`);
-    expect(upsert.mock.calls[0][0]).toContain('stores/a: the reason.');
+    expect(reviewText()).toContain(`## 🤖 Skill Review · Score: ${score}/10`);
+    expect(reviewText()).toContain('stores/a: the reason.');
   });
 
   it.each([
@@ -216,8 +226,8 @@ describe('review mode — what may and may not fail the check', () => {
     process.env.INPUT_BLOCKING = 'true';
     runReviewAgent.mockResolvedValue({ ok: true, findings, discarded, score: 8, verdict: 'stores/create-bundle: one advisory note.' });
     await run();
-    expect(upsert).toHaveBeenCalledOnce();
-    expect(upsert.mock.calls[0][0]).toContain('⚠️ Review job partly completed — 1 finding could not be read');
+    expect(postReview).toHaveBeenCalledOnce();
+    expect(reviewText()).toContain('⚠️ Review job partly completed — 1 finding could not be read');
     expect(clearPending).toHaveBeenCalledOnce();
     expect(setFailed).toHaveBeenCalledOnce();
     expect(setFailed.mock.calls[0][0]).toContain('1 malformed finding(s)');
@@ -225,13 +235,13 @@ describe('review mode — what may and may not fail the check', () => {
 
   it('comments even when there is nothing to report, so a green check is legible', async () => {
     await run();
-    expect(upsert.mock.calls[0][0]).toContain('No findings');
-    expect(upsert.mock.calls[0][0]).toContain('abcdef1');
+    expect(reviewText()).toContain('No findings');
+    expect(reviewText()).toContain('abcdef1');
   });
 
   it('names whoever triggered the run', async () => {
     await run();
-    expect(upsert.mock.calls[0][0]).toContain('triggered by @asker');
+    expect(reviewText()).toContain('triggered by @asker');
   });
 
   it('retires the /review acknowledgement when the run fails, and keeps its own error notice', async () => {
@@ -275,5 +285,64 @@ describe('review mode — what may and may not fail the check', () => {
     await run();
     expect(setFailed).toHaveBeenCalledOnce();
     expect(setFailed.mock.calls[0][0]).toContain('/review');
+  });
+});
+
+describe('review mode — where the findings land', () => {
+  const withFindings = (findings: ReviewFinding[]) =>
+    runReviewAgent.mockResolvedValue({ ok: true, findings, discarded: 0, score: 5, verdict: 'stores/create-bundle: a blocking note.' });
+
+  it('posts each finding on its line, or on its file when it has none, and only counts them here', async () => {
+    withFindings([
+      finding({ line: 12, consequence: 'on the line' }),
+      finding({ line: undefined, consequence: 'on the file' }),
+    ]);
+    await run();
+
+    const [headSha, comments] = postReview.mock.calls[0];
+    expect(headSha).toBe('abcdef1234');
+    expect(comments.map(thread => [thread.path, thread.line])).toEqual([
+      ['skills/wix-manage/references/stores/create-bundle.md', 12],
+      ['skills/wix-manage/references/stores/create-bundle.md', undefined],
+    ]);
+
+    const text = reviewText();
+    expect(text).toContain('**🔴 2 blocking** — posted as review comments on the changed lines.');
+    for (const where of ['on the line', 'on the file']) expect(text).not.toContain(where);
+  });
+
+  it('lists in the review\'s text only the findings GitHub had no line or file for', async () => {
+    withFindings([
+      finding({ consequence: 'on the line' }),
+      finding({ file: 'skills/wix-manage/references/stores/create-product.md', consequence: 'not in this PR' }),
+    ]);
+    await run();
+
+    const [, comments] = postReview.mock.calls[0];
+    const text = reviewText(comments.slice(1));
+    expect(text).toContain('not in this PR');
+    expect(text).not.toContain('on the line');
+    expect(retirePrior).toHaveBeenCalledOnce();
+  });
+
+  // As a run that could not review: the last verdict stands, and the commit counts as unreviewed.
+  it('leaves the last verdict standing and fails when the review could not be posted', async () => {
+    process.env.INPUT_BLOCKING = 'true';
+    postReview.mockResolvedValue(undefined);
+    withFindings([finding()]);
+    await run();
+
+    expect(retirePrior).not.toHaveBeenCalled();
+    expect(postPending.mock.calls[0][0]).toContain('Review job failed — the review could not be posted');
+    expect(clearAck).toHaveBeenCalledOnce();
+    expect(setFailed).toHaveBeenCalledOnce();
+  });
+
+  // A review goes up even with nothing to raise, so the last run is still retired.
+  it('posts a review with no comments when nothing is found', async () => {
+    await run();
+    expect(postReview).toHaveBeenCalledOnce();
+    expect(postReview.mock.calls[0][1]).toEqual([]);
+    expect(reviewText()).toContain('No findings');
   });
 });
