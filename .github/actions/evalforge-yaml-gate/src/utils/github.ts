@@ -8,7 +8,7 @@ import {
 } from '@wix/evalforge-core';
 import { COMMENT_MARKER, PR_SWEEP_ACK_MARKER, PR_SWEEP_MARKER, PR_SWEEP_PENDING_MARKER } from './comment';
 import { MD_RE, EVALS_RE } from './paths';
-import { REVIEW_ACK_MARKER, REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER } from './review-comment';
+import { REVIEW_ACK_MARKER, REVIEW_COMMENT_MARKER, REVIEW_PENDING_MARKER, REVIEW_THREAD_MARKER } from './review-comment';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 export type { ChangedFile, Commenter };
@@ -156,27 +156,163 @@ export function makeSweepPendingCommenter(
   );
 }
 
-export function makeReviewCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): Commenter {
-  return async function post(body: string): Promise<void> {
-    try {
-      await outdatePriorReviews(octokit, owner, repo, prNumber);
-      await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-    } catch (error) {
-      core.warning(`Failed to post the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
-      await core.summary.addRaw(body).write();
-    }
+/**
+ * The summary comment, in steps rather than one call: it is posted before the finding comments so
+ * it reads first on the PR, and the earlier ones are retired only once the whole run is up.
+ */
+export type ReviewCommenter = {
+  /** Resolves to the new comment's id, or undefined when it could only go to the job summary. */
+  post: (body: string) => Promise<number | undefined>;
+  edit: (id: number, body: string) => Promise<void>;
+  remove: (id: number) => Promise<void>;
+  retirePrior: (keep?: number) => Promise<void>;
+};
+
+export function makeReviewCommenter(octokit: Octokit, owner: string, repo: string, prNumber: number): ReviewCommenter {
+  const warn = (what: string, error: unknown) =>
+    core.warning(`Failed to ${what} the skill review comment: ${error instanceof Error ? error.message : String(error)}`);
+  return {
+    async post(body) {
+      try {
+        const { data } = await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+        return data.id;
+      } catch (error) {
+        warn('post', error);
+        await core.summary.addRaw(body).write();
+        return undefined;
+      }
+    },
+    async edit(id, body) {
+      await octokit.rest.issues.updateComment({ owner, repo, comment_id: id, body }).catch(error => warn('update', error));
+    },
+    async remove(id) {
+      await octokit.rest.issues.deleteComment({ owner, repo, comment_id: id }).catch(error => warn('delete', error));
+    },
+    retirePrior: keep => outdatePriorReviews(octokit, owner, repo, prNumber, keep).catch(error => warn('outdate', error)),
   };
 }
 
+/** No `line`: a comment on the whole file. `fileBody` is the body there, which says what line it meant. */
+export type ThreadComment = { path: string; line?: number; body: string; fileBody: string };
+
+/** Resolves to the comments GitHub had nowhere to put, or undefined when the run could not post. */
+export type ThreadPoster = (headSha: string, comments: ThreadComment[]) => Promise<ThreadComment[] | undefined>;
+
+/**
+ * Each comment is posted on its own, as the "Comment" button does: a review's summary would stay
+ * on the PR for good, since GitHub cannot hide one as outdated. The last run's comments are retired
+ * only once the new ones are up, and a failed run takes its own back down.
+ */
+export function makeReviewThreadPoster(octokit: Octokit, owner: string, repo: string, prNumber: number): ThreadPoster {
+  return async function post(headSha, comments) {
+    const prior = await findPriorThreads(octokit, owner, repo, prNumber);
+    const unplaced: ThreadComment[] = [];
+    const posted: number[] = [];
+    try {
+      for (const comment of comments) {
+        const base = { owner, repo, pull_number: prNumber, commit_id: headSha, path: comment.path };
+        let id: number | undefined;
+        if (comment.line !== undefined) {
+          id = await unlessUnresolvable(octokit.rest.pulls.createReviewComment({ ...base, line: comment.line, side: 'RIGHT', body: comment.body }));
+        }
+        id ??= await unlessUnresolvable(octokit.rest.pulls.createReviewComment({ ...base, subject_type: 'file', body: comment.fileBody }));
+        if (id === undefined) unplaced.push(comment);
+        else posted.push(id);
+      }
+    } catch (error) {
+      core.warning(`Could not post the skill review on the changed lines: ${error instanceof Error ? error.message : String(error)}`);
+      for (const comment_id of posted) {
+        await octokit.rest.pulls.deleteReviewComment({ owner, repo, comment_id }).catch(() => {});
+      }
+      return undefined;
+    }
+    await retireThreads(octokit, prior);
+    return unplaced;
+  };
+}
+
+/** GitHub answers 422 for a line or path it cannot resolve; anything else is a real failure. */
+async function unlessUnresolvable(request: Promise<{ data: { id: number } }>): Promise<number | undefined> {
+  try {
+    return (await request).data.id;
+  } catch (error) {
+    if ((error as { status?: number }).status === 422) return undefined;
+    throw error;
+  }
+}
+
+type ThreadPage = {
+  repository: { pullRequest: { reviewThreads: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    nodes: Array<{
+      id: string;
+      isResolved: boolean;
+      comments: { totalCount: number; nodes: Array<{ id: string; body: string; isMinimized: boolean; viewerDidAuthor: boolean }> };
+    }>;
+  } } };
+};
+
+type PriorThread = { threadId: string; commentId: string; isMinimized: boolean };
+
+/**
+ * Only threads nobody has acted on. One someone resolved or replied to is theirs now, so it is
+ * left as it is: not stamped outdated, and not folded away.
+ */
+async function findPriorThreads(octokit: Octokit, owner: string, repo: string, prNumber: number): Promise<PriorThread[]> {
+  const prior: PriorThread[] = [];
+  try {
+    let cursor: string | null = null;
+    do {
+      const page: ThreadPage = await octokit.graphql(
+        'query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {'
+        + ' repository(owner: $owner, name: $repo) { pullRequest(number: $pr) {'
+        + ' reviewThreads(first: 100, after: $cursor) { pageInfo { hasNextPage endCursor }'
+        + ' nodes { id isResolved comments(first: 1) { totalCount nodes { id body isMinimized viewerDidAuthor } } } } } } }',
+        { owner, repo, pr: prNumber, cursor },
+      );
+      const threads = page.repository.pullRequest.reviewThreads;
+      for (const thread of threads.nodes) {
+        const first = thread.comments.nodes[0];
+        if (!first?.viewerDidAuthor || !first.body.includes(REVIEW_THREAD_MARKER)) continue;
+        if (thread.isResolved || thread.comments.totalCount > 1) continue;
+        prior.push({ threadId: thread.id, commentId: first.id, isMinimized: first.isMinimized });
+      }
+      cursor = threads.pageInfo.hasNextPage ? threads.pageInfo.endCursor : null;
+    } while (cursor !== null);
+  } catch (error) {
+    core.warning(`Could not find earlier skill review comments: ${String(error)}`);
+  }
+  return prior;
+}
+
+async function retireThreads(octokit: Octokit, prior: PriorThread[]): Promise<void> {
+  for (const thread of prior) {
+    try {
+      if (!thread.isMinimized) {
+        await octokit.graphql(
+          'mutation($subjectId: ID!) { minimizeComment(input: { subjectId: $subjectId, classifier: OUTDATED }) { minimizedComment { isMinimized } } }',
+          { subjectId: thread.commentId },
+        );
+      }
+      await octokit.graphql(
+        'mutation($threadId: ID!) { resolveReviewThread(input: { threadId: $threadId }) { thread { isResolved } } }',
+        { threadId: thread.threadId },
+      );
+    } catch (error) {
+      core.warning(`Could not mark an earlier skill review comment as outdated: ${String(error)}`);
+    }
+  }
+}
+
 async function outdatePriorReviews(
-  octokit: Octokit, owner: string, repo: string, prNumber: number,
+  octokit: Octokit, owner: string, repo: string, prNumber: number, keep?: number,
 ): Promise<void> {
   const priorNodeIds: string[] = [];
   for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
     owner, repo, issue_number: prNumber, per_page: 100,
   })) {
     for (const comment of page.data) {
-      if (comment.body?.includes(REVIEW_COMMENT_MARKER)) priorNodeIds.push(comment.node_id);
+      if (comment.id !== keep && comment.body?.includes(REVIEW_COMMENT_MARKER)) priorNodeIds.push(comment.node_id);
     }
   }
 
