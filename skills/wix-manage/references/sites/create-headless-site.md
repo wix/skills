@@ -9,4 +9,4 @@ uploaded to Wix hosting and served at a `*.wix-site-host.com` URL, with the Wix
 business backend (stores, bookings, forms, a CMS) behind it through APIs.
 Creating it, uploading its files, changing it later and connecting a backend are
 one flow: [Upload a Website or HTML Files](upload-static-site.md), online at
-https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files.md
