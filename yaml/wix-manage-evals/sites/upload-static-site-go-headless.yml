@@ -15,7 +15,7 @@ tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/create-and-update-an-uploaded-headless-website
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

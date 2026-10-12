@@ -31,7 +31,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/upload-static-site.md
-      title: Create and Update an Uploaded Headless Website
+      title: Upload a Website or HTML Files
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/send-feedback-to-wix.md
