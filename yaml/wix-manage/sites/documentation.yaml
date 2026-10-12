@@ -31,7 +31,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/upload-static-site.md
-      title: Upload a Website or HTML Files
+      title: Create and Upload a Website
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
     - file: ../../../skills/wix-manage/references/sites/send-feedback-to-wix.md

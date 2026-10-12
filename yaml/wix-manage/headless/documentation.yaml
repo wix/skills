@@ -3,6 +3,6 @@ apiDoc:
 
   docs:
     - file: ../../../skills/wix-manage/references/sites/upload-static-site.md
-      title: Upload a Website or HTML Files
+      title: Create and Upload a Website
       docsEntry: https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend
       tags: [sites]

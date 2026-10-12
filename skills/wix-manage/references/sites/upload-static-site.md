@@ -1,13 +1,13 @@
 ---
-name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+name: "Create and Upload a Website"
+description: Publish a website as static files — an index.html, a static build, a zip exported from an AI builder or any other tool, or pages you write for the user — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host HTML/CSS/JS as a NEW site, their own or written for them in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
-# Upload a Website or HTML Files
+# Create and Upload a Website
 
-The user has a finished website — hand-written HTML, a static build, a zip, a
-project an AI builder exported — and wants it live on Wix. Every route below ends
-the same way: a headless site in the user's Wix account that serves those files
+A website as static files goes live on Wix: one the user has (hand-written HTML,
+a static build, a zip, a project an AI builder exported), or one you write for them
+as you upload it. Every route below ends the same way: a headless site in the user's Wix account that serves those files
 at a `*.wix-site-host.com` URL.
 
 ## What decides the route
@@ -217,7 +217,7 @@ the same site, appId and URL.
 **A mock that shows a business solution: publish it, then ask before connecting.**
 Any control on the page that promises what static files can't deliver —
 something to buy, book, order, join, submit or pay — is a Wix Business Solution
-the page pretends to have. First get the site live from what the user gave you.
+the page pretends to have. First get the site live from the pages as they are.
 Then, with the live URL, name each such control, the solution that would make it
 work, and what connecting it involves: what gets created from the page's own
 content (the products, services or form). Ask whether to go ahead, and connect only after the user says
@@ -361,7 +361,7 @@ workaround.
 
 ## Route the request correctly
 
-- **A new site from the user's files**: [What decides the route](#what-decides-the-route).
+- **A new site from files, the user's or ones you write**: [What decides the route](#what-decides-the-route).
 - **A change to a site published this way**: the [same site](#change-it-later);
   upload and release while it's anonymous.
 - **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
@@ -372,5 +372,5 @@ workaround.
   custom code in the editor.
 - **Images, videos or documents for a site's media**: [Upload Media to Wix](../media/upload-media-to-wix.md).
 
-Don't create the site from a template: that makes an empty site, not a copy of
-the user's files.
+Don't create the site from a template: that makes an empty site, not the site's
+files.
