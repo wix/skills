@@ -20,7 +20,7 @@ Headless sites are not created from templates. One account-level call creates th
 **Request Body**:
 ```json
 {
-  "origin": "agent-<your-agent-id>",
+  "origin": "drop",
   "newMetasite": {
     "namingStrategy": { "metaSiteName": "My Headless Business" },
     "seedOptions": [
@@ -31,7 +31,7 @@ Headless sites are not created from templates. One account-level call creates th
 }
 ```
 
-- `origin` — `agent-` followed by your own identifier: a short, stable, lowercase-hyphenated slug for the coding agent or tool you are (e.g. `claude-code`, `cursor`, `codex-cli`, `windsurf`, `github-copilot`, or your product's name; `unknown-agent` if you can't name yourself). It records which agent created the site
+- `origin` — `drop`, the same origin [Upload a Static Site](upload-static-site.md) uses
 - `namingStrategy` — exactly one of: `metaSiteName` (exact display name), `llmPromptBasedName: {}` (name derived from the top-level `prompt` field), or `defaultName: {}`
 - `seedOptions` — Wix Business Solution apps to install at creation: `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. Each entry takes `clearTemplateContent` (remove sample content) and `seedDemoContent` (seed demo content). Empty installs none
 - `synchronousSteps` — steps to complete before the call returns: `SET_METASITE_NAME`, `CONFIGURE_HEADLESS_APP`, `SEED_CONTENT`. Omitted steps run asynchronously. Include `CONFIGURE_HEADLESS_APP` when the OAuth client must be usable immediately
@@ -50,6 +50,7 @@ To provision headless onto an existing site, pass `"existingMetasite": {}` inste
 ## Next Steps
 
 After creating the site:
+- Put the site's pages live using [Upload a Static Site](upload-static-site.md)
 - Install additional apps using [Install Wix Apps](../app-installation/install-wix-apps.md)
 - Add content (products, services, blog posts, etc.)
 - Use the `appId` as the `client_id` to mint visitor tokens and make buyer-facing API calls — see [Manage OAuth Apps](manage-oauth-apps.md)
