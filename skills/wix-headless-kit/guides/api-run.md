@@ -123,6 +123,18 @@ half a run.
 A payment (a cart, a paid booking, a ticket, a plan, a donation) ends in Wix's hosted checkout,
 reached through a redirect session, and is wired on the first pass, payments connected or not.
 
+Every page loads the site's Wix scripts (analytics, the consent banner, the owner's tags and custom
+code, dashboard SEO), which only the Astro integration injects. One tag does it, right before
+`</head>`, with the site's client id:
+
+```html
+<script id="wix-site-script" src="https://manage.wix.com/_api/headless-business-setup/v1/headless-business/site-script.js" data-client-id="{appId}" async></script>
+```
+
+With Node where the pages are, `node {SKILL_ROOT}/install/site-script.mjs <folder> --client-id
+{appId}` writes it into every page and replaces a stale one; otherwise each page carries the line
+as written.
+
 The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
 attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
 is static files, dropped onto the site from step 2 through
