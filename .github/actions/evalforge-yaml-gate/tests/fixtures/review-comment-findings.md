@@ -1,26 +1,10 @@
 <!-- evalforge-skill-review-action -->
-## 🤖 Skill Review
+## 🤖 Skill Review · Score: 5/10
 
-<sub>✅ Review job completed</sub>
+<sub>✅ Review job completed · `abcdef1` · 3 files</sub>
 
-**Score: 5/10** · `abcdef1` · 3 files
+`stores/create-bundle` tells the agent to call a tool not every client has.
 
-`stores/create-bundle` tells the agent to call a tool not every client has, so those agents cannot follow it.
-
-**1 blocking, 1 advisory**
-
-### `skills/wix-manage/references/stores/create-bundle.md`
-
-- 🔴 **blocking** — [line 12](../blob/abcdef1234567890/skills/wix-manage/references/stores/create-bundle.md#L12) · [stay-agnostic-to-agent-and-client](../blob/main/CONTRIBUTING.md#stay-agnostic-to-agent-and-client)
-  > call ReadFullDocsArticle to fetch the schema
-
-  An agent without that tool reads an instruction it cannot follow.
-
-- 🟡 **advisory** — [line 44](../blob/abcdef1234567890/skills/wix-manage/references/stores/create-bundle.md#L44)
-  > The response contains the bundle and its items.
-
-  An agent cannot tell which field the next call reads, so it guesses or goes back to the docs for it.
-
-  **Instead:** The response returns `bundle.id`, which the publish call takes as `bundleId`.
+**🔴 1 blocking, 🟡 1 advisory** — posted as review comments on the changed lines.
 
 _Comment `/review` to review the current commit again._

@@ -45,9 +45,9 @@ const OUTPUT_SCHEMA = JSON.stringify({
         properties: {
           file: {
             type: 'string',
-            description: 'Path from the repository root. The file the finding is on, or the skill that should be unified with others.',
+            description: 'Path from the repository root. The changed file the finding is on, or the changed skill that should be unified with others.',
           },
-          line: { type: 'integer', description: 'The line in that file, where the finding is about specific text' },
+          line: { type: 'integer', description: 'The line in that file, where the finding is about specific text — a line this PR added or changed' },
           section: {
             type: 'string',
             description: 'The guide section, when one covers it — e.g. CONTRIBUTING.md#stay-agnostic-to-agent-and-client',
