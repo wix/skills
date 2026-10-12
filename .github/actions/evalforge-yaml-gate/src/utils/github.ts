@@ -199,45 +199,58 @@ export type ThreadComment = { path: string; line?: number; body: string; fileBod
 export type ThreadPoster = (headSha: string, comments: ThreadComment[]) => Promise<ThreadComment[] | undefined>;
 
 /**
- * Each comment is posted on its own, as the "Comment" button does: a review's summary would stay
- * on the PR for good, since GitHub cannot hide one as outdated. The last run's comments are retired
- * only once the new ones are up, and a failed run takes its own back down.
+ * One review per run, so a run notifies once. It is built as a draft a comment at a time, so a line
+ * GitHub refuses falls back alone, to its file, then out; and it is submitted with no summary text,
+ * since a review's text cannot be hidden as outdated. Nothing shows until it is submitted, so a
+ * failed run only discards its draft, and the last run's comments are retired once the new ones are up.
  */
 export function makeReviewThreadPoster(octokit: Octokit, owner: string, repo: string, prNumber: number): ThreadPoster {
   return async function post(headSha, comments) {
     const prior = await findPriorThreads(octokit, owner, repo, prNumber);
     const unplaced: ThreadComment[] = [];
-    const posted: number[] = [];
-    try {
-      for (const comment of comments) {
-        const base = { owner, repo, pull_number: prNumber, commit_id: headSha, path: comment.path };
-        let id: number | undefined;
-        if (comment.line !== undefined) {
-          id = await unlessUnresolvable(octokit.rest.pulls.createReviewComment({ ...base, line: comment.line, side: 'RIGHT', body: comment.body }));
+    if (comments.length > 0) {
+      let draft: { id: number; node_id: string } | undefined;
+      try {
+        await deleteOwnPendingReviews(octokit, owner, repo, prNumber);
+        ({ data: draft } = await octokit.rest.pulls.createReview({ owner, repo, pull_number: prNumber, commit_id: headSha }));
+        for (const comment of comments) {
+          let placed = false;
+          if (comment.line !== undefined) placed = await addThread(octokit, draft.node_id, comment.path, comment.body, comment.line);
+          if (!placed) placed = await addThread(octokit, draft.node_id, comment.path, comment.fileBody);
+          if (!placed) unplaced.push(comment);
         }
-        id ??= await unlessUnresolvable(octokit.rest.pulls.createReviewComment({ ...base, subject_type: 'file', body: comment.fileBody }));
-        if (id === undefined) unplaced.push(comment);
-        else posted.push(id);
+        if (unplaced.length === comments.length) {
+          await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: draft.id });
+        } else {
+          await octokit.rest.pulls.submitReview({ owner, repo, pull_number: prNumber, review_id: draft.id, event: 'COMMENT' });
+        }
+      } catch (error) {
+        core.warning(`Could not post the skill review on the changed lines: ${error instanceof Error ? error.message : String(error)}`);
+        if (draft) await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: draft.id }).catch(() => {});
+        return undefined;
       }
-    } catch (error) {
-      core.warning(`Could not post the skill review on the changed lines: ${error instanceof Error ? error.message : String(error)}`);
-      for (const comment_id of posted) {
-        await octokit.rest.pulls.deleteReviewComment({ owner, repo, comment_id }).catch(() => {});
-      }
-      return undefined;
     }
     await retireThreads(octokit, prior);
     return unplaced;
   };
 }
 
-/** GitHub answers 422 for a line or path it cannot resolve; anything else is a real failure. */
-async function unlessUnresolvable(request: Promise<{ data: { id: number } }>): Promise<number | undefined> {
-  try {
-    return (await request).data.id;
-  } catch (error) {
-    if ((error as { status?: number }).status === 422) return undefined;
-    throw error;
+/** No `line`: on the whole file. A line or path GitHub cannot resolve comes back as no thread, not as an error. */
+async function addThread(octokit: Octokit, reviewId: string, path: string, body: string, line?: number): Promise<boolean> {
+  const result: { addPullRequestReviewThread: { thread: { id: string } | null } } = await octokit.graphql(
+    'mutation($reviewId: ID!, $path: String!, $line: Int, $subjectType: PullRequestReviewThreadSubjectType!, $body: String!) {'
+    + ' addPullRequestReviewThread(input: { pullRequestReviewId: $reviewId, path: $path, line: $line, side: RIGHT,'
+    + ' subjectType: $subjectType, body: $body }) { thread { id } } }',
+    { reviewId, path, line: line ?? null, subjectType: line === undefined ? 'FILE' : 'LINE', body },
+  );
+  return result.addPullRequestReviewThread.thread !== null;
+}
+
+/** GitHub allows one pending review per user, and a run that died mid-post leaves one behind. */
+async function deleteOwnPendingReviews(octokit: Octokit, owner: string, repo: string, prNumber: number): Promise<void> {
+  const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, { owner, repo, pull_number: prNumber, per_page: 100 });
+  for (const review of reviews.filter(candidate => candidate.state === 'PENDING')) {
+    await octokit.rest.pulls.deletePendingReview({ owner, repo, pull_number: prNumber, review_id: review.id });
   }
 }
 
