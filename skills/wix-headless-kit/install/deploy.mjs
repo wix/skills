@@ -493,9 +493,9 @@ if (result.verticals.length && existsSync(PKG_JSON)) {
   if (existsSync(PROJECT_LOCK)) {
     const sync = syncLockRoot(PROJECT);
     if (sync && (sync.promoted.length || sync.missing.length)) result.lock = sync;
-    result.note = [result.note, "install with `npm ci --ignore-scripts || npm install --ignore-scripts`"].filter(Boolean).join("; ");
+    result.note = [result.note, "install with node <SKILL_ROOT>/install/install.mjs (nothing when node_modules already satisfies the lock)"].filter(Boolean).join("; ");
   } else if (result.depsAdded?.length) {
-    result.note = [result.note, "run `npm install --ignore-scripts` to pick up depsAdded"].filter(Boolean).join("; ");
+    result.note = [result.note, "run node <SKILL_ROOT>/install/install.mjs to pick up depsAdded"].filter(Boolean).join("; ");
   }
 }
 

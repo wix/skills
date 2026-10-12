@@ -7,11 +7,12 @@
 // What the lock asks for is compared with node_modules (each entry's package.json version):
 //   none     every entry is there at its version — nothing runs. A machine image that pre-warms the
 //            solutions' packages, or a second deploy that added nothing, ends here in under a second.
-//   install  node_modules exists but does not match — `npm install --ignore-scripts` keeps what is
-//            there and writes only the difference (seconds for a few packages; a tree that is mostly
-//            missing costs about what npm ci would).
-//   ci       no node_modules — `npm ci --ignore-scripts || npm install --ignore-scripts` (ci needs a
-//            lock that agrees with package.json; without a lock, install).
+//   install  node_modules exists and holds most of the lock — `npm install --ignore-scripts` keeps what
+//            is there and writes only the difference (seconds for a few packages).
+//   ci       no node_modules, or a tree that lacks most of the lock (the blank starter under a
+//            solution's lock: measured 67 s for ci against 84 s for install there) —
+//            `npm ci --ignore-scripts || npm install --ignore-scripts` (ci needs a lock that agrees
+//            with package.json; without one, install).
 // Every path ends with `.install-exit` holding the exit code (0 for none), the marker setup.mjs,
 // attach.mjs and SKILL.md step 3 sync on. Never two installs concurrently in one project: a second
 // npm in the same node_modules redoes the first one's work.
@@ -59,8 +60,9 @@ export function installDecision(projectDir = process.cwd()) {
   const hasModules = existsSync(join(projectDir, "node_modules"));
   const lock = lockGaps(projectDir);
   if (!hasModules) return { decision: existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install", lock };
-  if (lock && lock.total > 0 && lock.missing === 0) return { decision: "none", lock };
-  return { decision: "install", lock };
+  if (!lock || lock.total === 0) return { decision: "install", lock };
+  if (lock.missing === 0) return { decision: "none", lock };
+  return { decision: lock.missing > lock.total / 2 ? "ci" : "install", lock };
 }
 
 /** Runs the decided install; stdio defaults to inherited. Returns {decision, lock, status}. */
