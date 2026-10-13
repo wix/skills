@@ -9,6 +9,9 @@ triggerPrompt: >-
   Show me the API call to create the OAuth app and how to get its client_id.
 tags: [sites]
 assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/headless/skills/manage-oauth-apps
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

@@ -4,6 +4,9 @@ description: Adds missing checkout and cart pages to a site when Stores app is i
 ---
 # Add Store Pages to Site
 
+> These calls need the Wix Stores app on the site (`appDefId` `215238eb-22a5-4c36-9e7b-e7c08025e04e`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+
+
 This recipe demonstrates how to add checkout and cart pages to a Wix site when the Stores app is installed but pages are missing.
 
 ## Overview

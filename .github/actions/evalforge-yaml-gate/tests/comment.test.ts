@@ -180,7 +180,7 @@ describe('comment formatters', () => {
     // The pipeline omits pairwiseJudgement when pairwise judging is off or the judge fails.
     const out = c.formatComparisonResult(group([scenario({ pairwiseJudgement: undefined })]), 'proj-1');
     // renders a placeholder winner instead of throwing on the missing field
-    expect(out).toContain('| scenario-a | ✅ | — |');
+    expect(out).toContain('| scenario-a | ✅ yes | — |');
     expect(out).not.toContain('Compare result:');
   });
 
@@ -279,8 +279,8 @@ describe('comment formatters', () => {
     });
 
     expect(out).toContain('## ⚠️ EvalForge YAML Gate: Eval Comparison');
-    expect(out).toContain('| bookings/diagnose-availability-issues | ❌ | - |');
+    expect(out).toContain('| bookings/diagnose-availability-issues | ❌ no | - |');
     expect(out).toContain('**No winner:** both runs failed the LLM judge.');
-    expect(out).not.toContain('⬆️ with (high)');
+    expect(out).not.toContain('⬆️ PR');
   });
 });

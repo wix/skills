@@ -1,12 +1,95 @@
 name: cms/cms-publishing-flow-publish-changed-item
 description: >-
-  Verifies the agent reads the cms-publishing-flow skill and correctly explains the
-  Publishing Flow CHANGED state and how to publish a changed item's edits to the live site.
+  Verifies the agent creates and publishes a new CMS item, edits a PUBLISHED item through a new
+  draft, and publishes an existing pending edit without writing to the published collection.
 triggerPrompt: >-
-  My Wix CMS collection uses the publishing workflow (review edits before publishing). One of my
-  items now shows a "Changed" status. What does that mean, and how do I get my edits to appear on
-  the live site?
+  In my News collection, publish the pending edits to "Weekend Update" and change the body of
+  "Opening Hours" to "We now open at 9 a.m." Keep its title. Add a new item titled "Studio Opens"
+  with the body "The new studio opens Saturday at 10 a.m." Go ahead and publish all three items,
+  then confirm the live content.
 tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create News
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: News
+            displayName: News
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+              - key: body
+                displayName: Body
+                type: TEXT
+            permissions:
+              insert: ANYONE
+              update: ANYONE
+              remove: ANYONE
+              read: ANYONE
+      - label: Enable draft workflow
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin
+        body:
+          dataCollectionId: News
+          draftItemsOptions: {}
+          publishPluginConflictAction: COPY_DRAFT_ITEMS_WITH_DRAFT_STATUS
+      - label: Seed the existing published item
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 44444444-4444-4444-8444-444444444444
+            data:
+              title: Weekend Update
+              body: The festival is scheduled for Saturday.
+      - label: Publish the existing item
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items/publish-draft
+        body:
+          dataCollectionId: News
+          dataItemId: 44444444-4444-4444-8444-444444444444
+      - label: Seed its pending edit
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 44444444-4444-4444-8444-444444444444
+            data:
+              title: Weekend Update
+              body: The festival has moved to Sunday.
+      - label: Seed item to edit through a new draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 55555555-5555-4555-8555-555555555555
+            data:
+              title: Opening Hours
+              body: We open at 10 a.m.
+      - label: Publish item without leaving a pending draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items/publish-draft
+        body:
+          dataCollectionId: News
+          dataItemId: 55555555-5555-4555-8555-555555555555
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -15,19 +98,47 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user has a Publishing-Flow (draft/publish) CMS collection; an item shows the "Changed"
-      status and they want their edits to go live.
-      Intent: recognize CHANGED = a published (live) item that has a newer draft with unpublished
-      edits, and that publishing the item's draft is what pushes those edits live.
+      The user asked the agent to publish the pending edits to "Weekend Update" and create and
+      publish a new News item titled "Studio Opens" with body "The new studio opens Saturday at
+      10 a.m." The collection has the Draft Items plugin. Before the run, "Weekend Update" was
+      published with body "The festival is scheduled for Saturday." and had a pending draft with
+      body "The festival has moved to Sunday." The user also asked to change the body of "Opening
+      Hours" to "We now open at 9 a.m." while preserving its title, then publish it. Opening Hours
+      was PUBLISHED with body "We open at 10 a.m." and had no draft. Evaluate the tool-call trace,
+      post-change data, and final response.
 
-      Pass if the response:
-      - explains CHANGED means the item is published/live but has draft edits that are not yet published, AND
-      - tells the user to publish the item (publish its draft) to push the edits to the live site, AND
-      - reflects the draft/published model (edits live on a draft until published; optionally mentions
-        unpublish or revert-to-live as related transitions).
+      Pass only if all of the following hold:
+      - The agent resolves the drafts collection ID from the published collection's Draft Items
+        plugin metadata.
+      - It creates "Studio Opens" in the paired drafts collection, then publishes it by calling
+        Publish Data Item Draft with the published collection ID.
+      - It publishes the existing "Weekend Update" draft by calling Publish Data Item Draft with
+        the published collection ID.
+      - For "Opening Hours", it calls Create Data Item Draft with dataCollectionId News and item
+        ID 55555555-5555-4555-8555-555555555555, edits the resulting draft using the paired drafts
+        collection ID, then publishes it using News. The title remains "Opening Hours".
+      - Post-change reads show all three items in News with their requested/latest content, and
+        none of the three items remains in the drafts collection. "Studio Opens" exists exactly
+        once, and no unrelated items are changed.
+      - The final response accurately confirms all three items are live based on post-change reads.
 
-      Fail if the response:
-      - misidentifies CHANGED (e.g. treats it as an error, a merge conflict, or merely "unsaved" needing
-        only a re-save), OR
-      - claims editing the item directly makes it live with no publish step, OR
-      - invents statuses/actions that are not part of the draft/publish model.
+      Fail if the agent only describes what to do without making the changes, writes the new item
+      directly to News, updates or patches Opening Hours using News, skips creating its draft,
+      publishes with the drafts collection ID, leaves any draft unpublished, loses the Opening
+      Hours title, or claims results not supported by post-change reads.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: >
+      Judge the tool-call path for the user's explicit request to create and publish a new News item
+      and edit a PUBLISHED item and publish an existing pending edit. A clean path reads the skill,
+      resolves the published collection's draftsCollectionId, writes the new item only to that
+      drafts collection, creates an Opening Hours draft using Create Data Item Draft with News,
+      edits that draft using the drafts collection ID, and publishes all three drafts using News.
+      Creating a draft for Weekend Update is unnecessary because its draft already exists.
+      Penalize any
+      attempted insert, update, patch, or save against the published collection, a wrong collection
+      ID, a non-2xx Wix API call even if recovered, unnecessary exploratory or duplicate calls, or
+      claiming the changes are live without confirming successful publish calls and post-write
+      reads. Score 0-10 and return ONLY
+      {"score":<0-10>,"reason":"<specific deductions, or 'clean path'>"}.

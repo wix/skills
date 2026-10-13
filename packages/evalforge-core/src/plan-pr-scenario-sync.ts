@@ -1,6 +1,6 @@
 import type { Scenario } from './schema';
 import type { LoadedScenario } from './load-scenarios';
-import { withManagedTags, uniqueRemoteScenarios, DRAFT_PREFIX, type RemoteScenario, type ScenarioBody } from './evalforge';
+import { withManagedTags, managedTagsFor, uniqueRemoteScenarios, DRAFT_PREFIX, type RemoteScenario, type ScenarioBody } from './evalforge';
 import { toEvalForgeBody } from './evalforge-mapper';
 
 export const SyncActionKind = {
@@ -51,6 +51,16 @@ function foreignDraftTags(tags: string[], myDraftTag: string): string[] {
   return tags.filter(tag => tag.startsWith(DRAFT_PREFIX) && tag !== myDraftTag);
 }
 
+/**
+ * True for a draft written by `draftOnlyTags`: nothing on it but the draft tag and the managed
+ * code-origin tags. Scenarios always carry a semantic tag, so a draft kept by
+ * `semanticPlusDraftTags` (another gate's) never matches.
+ */
+export function isDraftOnlyScenario(entry: RemoteScenario, draftTag: string, repo: string): boolean {
+  const own = new Set([draftTag, ...managedTagsFor(repo)]);
+  return entry.tags.every(tag => own.has(tag));
+}
+
 export function diffSyncPlan(input: {
   /** Scenarios this PR's net diff actually touched — these get CREATE/UPDATE actions. */
   changedHead: Map<string, LoadedScenario>;
@@ -66,6 +76,12 @@ export function diffSyncPlan(input: {
   /** `owner/repo` the scenarios are authored from — stamped as a managed code-origin tag. */
   repo: string;
   tagStrategy?: PrTagStrategy;
+  /**
+   * Opt-in sweep of this PR's orphaned drafts. The draft tag is per PR, not per gate, so when
+   * several gates sync one PR a remote draft carrying it may belong to another gate; `head` here
+   * only covers this gate's scenarios. The caller says which remote drafts are its own.
+   */
+  isOwnedDraft?: (entry: RemoteScenario) => boolean;
 }): { actions: SyncAction[]; errors: SyncError[] } {
   const { changedHead, head, base, remote, draftTag, repo } = input;
   const tagStrategy = input.tagStrategy ?? draftOnlyTags;
@@ -101,6 +117,18 @@ export function diffSyncPlan(input: {
       errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
     } else {
       actions.push({ kind: SyncActionKind.DEFER_DELETE, id: match.id, name });
+    }
+  }
+
+  // Orphans: drafted by an earlier push of this PR, then renamed or removed before merge. They were
+  // never in base, so the loop above can't see them, and the comparison runs by draft tag.
+  if (input.isOwnedDraft) {
+    const handled = new Set(actions.map(a => a.name));
+    for (const entry of remote) {
+      if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name)) continue;
+      if (entry.tags.includes(draftTag) && input.isOwnedDraft(entry)) {
+        actions.push({ kind: SyncActionKind.DELETE, id: entry.id, name: entry.name });
+      }
     }
   }
 

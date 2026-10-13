@@ -1,0 +1,164 @@
+name: cms/cms-publishing-flow-remove-published-item
+description: >-
+  Verifies the agent removes a published item into drafts for later restoration and permanently
+  deletes PUBLISHED, CHANGED, and draft-only items, including both outcomes of the draft check.
+triggerPrompt: >-
+  In my News collection, take the item titled "Temporary Pause" off the live site but keep it so I
+  can restore it later. Permanently delete the items titled "Retired Notice" and "Expired Bulletin"
+  and the unpublished draft titled "Draft Preview". Go ahead and make all four changes, then confirm
+  what remains live and what can be restored.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create News
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: News
+            displayName: News
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Enable draft workflow
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections/add-draft-items-plugin
+        body:
+          dataCollectionId: News
+          draftItemsOptions: {}
+          publishPluginConflictAction: COPY_DRAFT_ITEMS_WITH_DRAFT_STATUS
+      - label: Seed published item to retain as a draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 11111111-1111-4111-8111-111111111111
+            data: { title: Temporary Pause }
+      - label: Publish item to retain as a draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items/publish-draft
+        body:
+          dataCollectionId: News
+          dataItemId: 11111111-1111-4111-8111-111111111111
+      - label: Seed item to permanently delete
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 22222222-2222-4222-8222-222222222222
+            data: { title: Retired Notice }
+      - label: Publish item to permanently delete
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items/publish-draft
+        body:
+          dataCollectionId: News
+          dataItemId: 22222222-2222-4222-8222-222222222222
+      - label: Seed the pending edit on the item to permanently delete
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 22222222-2222-4222-8222-222222222222
+            data: { title: Retired Notice - pending edit }
+      - label: Seed a never-published draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 33333333-3333-4333-8333-333333333333
+            data: { title: Draft Preview }
+      - label: Seed item to delete without a pending draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: News__drafts
+          dataItem:
+            id: 66666666-6666-4666-8666-666666666666
+            data: { title: Expired Bulletin }
+      - label: Publish item without leaving a pending draft
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items/publish-draft
+        body:
+          dataCollectionId: News
+          dataItemId: 66666666-6666-4666-8666-666666666666
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-publishing-flow-visible-hidden
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to remove "Temporary Pause" from the live News collection while
+      retaining it for restoration, permanently delete "Retired Notice" and "Expired Bulletin",
+      and permanently delete the never-published draft "Draft Preview". Retired Notice was CHANGED:
+      its published version and a pending draft with the same item ID were both present. Draft Preview
+      exists only in the paired drafts collection. Expired Bulletin was PUBLISHED with no pending
+      draft. The collection has the Draft Items plugin and its
+      paired drafts collection is News__drafts. Evaluate the Wix API tool-call trace, post-change
+      data, and final response.
+
+      Pass only if all of the following hold:
+      - The agent resolves the paired drafts collection from the Draft Items plugin, or uses the
+        returned plugin metadata, rather than relying on an assumed suffix.
+      - It calls Unpublish Data Item for "Temporary Pause" with `dataCollectionId: News` and
+        `copyToDraft: true` (or omits `copyToDraft`, whose default is true).
+      - It calls Unpublish Data Item for "Retired Notice" with `dataCollectionId: News` and
+        `copyToDraft: false`, which preserves its pending draft. It then calls DELETE for item ID
+        `22222222-2222-4222-8222-222222222222` using the paired drafts collection ID.
+      - It deletes "Draft Preview" directly from the paired drafts collection without calling
+        Unpublish Data Item for that ID.
+      - It calls Unpublish Data Item for "Expired Bulletin" with dataCollectionId News and
+        copyToDraft false, then queries the paired drafts collection. The query shows no draft for
+        item ID 66666666-6666-4666-8666-666666666666, so it makes no DELETE call for that ID.
+      - Post-change reads show "Temporary Pause" absent from News and present in the paired drafts
+        collection, while Retired Notice, Expired Bulletin, and Draft Preview are absent from both.
+        Any other seeded items remain unchanged.
+      - The final response accurately confirms these observed results and that "Temporary Pause"
+        can be restored by publishing its draft.
+
+      Fail if the agent only explains the procedure without making the requested changes, directly
+      deletes "Temporary Pause", leaves either version of a permanently deleted item,
+      calls Unpublish Data Item for the never-published "Draft Preview", uses the drafts collection
+      ID for an unpublish call, attempts DELETE for Expired Bulletin despite its absent draft, or
+      claims an outcome not supported by post-change reads.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: >
+      Judge the tool-call path for this task. A clean path reads the publishing-flow skill, resolves
+      the News plugin metadata and drafts collection, performs the three unpublish calls with the
+      correct `copyToDraft` settings,
+      queries the paired drafts collection after unpublishing Retired Notice, deletes its returned
+      pending draft using that collection ID, directly deletes Draft Preview from the drafts
+      collection, checks for an Expired Bulletin draft and skips DELETE because none exists, and
+      queries both collections afterward to verify all outcomes.
+      Penalize non-2xx Wix API calls even if recovered, using the wrong collection ID or
+      `copyToDraft` value, failing to delete the found Retired Notice draft, calling unpublish for
+      Draft Preview, attempting DELETE for Expired Bulletin, deleting the retained item,
+      unnecessary exploratory calls, or claiming success
+      without post-write reads. The user explicitly authorized these mutations, so the
+      requested writes are not a quality issue. Score 0-10 and return ONLY
+      {"score":<0-10>,"reason":"<specific deductions, or 'clean path'>"}.

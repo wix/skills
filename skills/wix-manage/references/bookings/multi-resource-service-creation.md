@@ -4,6 +4,9 @@ description: Creates resource types and individual resources using Resources API
 ---
 # Technical Step-by-Step Instructions: Creating Multi-Resource Bookings Services (Rooms, Equipment, Staff) - Real-World, API-First
 
+> These calls need the Wix Bookings app on the site (`appDefId` `13d21c63-b5ec-5912-8397-c3a5ddb27a97`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+
+
 ## Description
 
 Below are the recommended steps to successfully create Wix Bookings services that require multiple resource types (e.g., Room + Equipment + Instructor). This recipe covers the **gaps** in individual API documentation: resource architecture planning, entity relationship patterns, availability dependencies, and real-world coordination challenges that aren't clear from reading individual API references.

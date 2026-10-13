@@ -1,16 +1,36 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish a user's ready-made website — an index.html, a static build, or a zip exported from an AI builder or any other tool — as a live Wix site. Covers every way to get there — publishing straight into the user's Wix account when you hold their identity, publishing anonymously with a save link when you don't, and handing the user the Wix Headless drop page, or releasing it as a Wix Headless project — and how to get the user's identity through the Wix CLI. Use whenever the user wants to upload, publish, deploy, or host their own HTML/CSS/JS as a NEW site, including files generated for them earlier in the conversation, or to update a site published this way (replace its files on the same site and URL). Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Create and update a Wix Headless website by uploading its files — an index.html, a static build, a zip exported from an AI builder or any other tool, or pages you write for the user — as a live site in the user's Wix account. Covers every route: uploading with the user's identity (curl with a Wix CLI token, or the Wix MCP), publishing anonymously with a save link when you don't hold it, and the Wix Headless drop page; then updating the same site and URL, and connecting a Wix backend (stores, bookings, forms) through the headless skill. Use when the user wants to upload, publish, deploy or host HTML/CSS/JS as a new Wix site, their own or written for them, or to change a site published this way. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
 ---
 
 # Upload a Website or HTML Files
 
-The user has a finished website — hand-written HTML, a static build, a zip, a
-project an AI builder exported — and wants it live on Wix. Every route below ends
-the same way: a headless site in the user's Wix account that serves those files
-at a `*.wix-site-host.com` URL.
+A website goes live on Wix as a Wix Headless site: its files are uploaded to a
+site in the user's Wix account and served at a `*.wix-site-host.com` URL. The
+files are ones the user has (hand-written HTML, a static build, a zip, a project
+an AI builder exported) or ones you write for them as you upload. Later changes
+upload to [the same site](#change-it-later), and the URL stays.
+
+The flow: pick the route that fits where you run, create the site, upload the
+files, and give the user the live URL. Later changes go to the same site, and a
+backend, when the site needs one, comes once it is live.
+
+- [What decides the route](#what-decides-the-route): which route fits where you run
+- [Before the calls](#before-the-calls): the user's token, the Wix MCP, the attribution slug
+- [Create the site](#create-the-site): one call, the site in the user's account
+- Upload the files [with curl](#drop-with-curl) or [through the Wix MCP](#drop-through-the-wix-mcp)
+- [Change it later](#change-it-later): edits on the same site and URL
+- [Connect a backend](#connect-a-backend): stores, bookings, forms and more through the headless skill
+- [Images](#images): how images reach the site
+- [Publish anonymously](#publish-anonymously): no login, a temporary site the user claims or saves
+- [The drop page](#the-drop-page): the user uploads the files when no route reaches Wix
+- [Limits and failures](#limits-and-failures), [Send feedback to Wix](#send-feedback-to-wix), [Route the request correctly](#route-the-request-correctly)
 
 ## What decides the route
+
+The user's request to publish is the consent to create the site and upload: do
+not ask again before either. Ask only where this recipe says to (connecting a
+backend, replacing a frontend that is serving).
 
 Three things about where you run decide it:
 
@@ -58,8 +78,9 @@ page whole. A web fetch is the fallback.
 
 ## Create the site
 
-The [Create Headless Site](create-headless-site.md) call with no Wix Business
-Solutions. Name it after the page's `<title>` and keep `"origin": "drop"`.
+One account-level call creates the headless site, with no Wix Business
+Solutions. Name it after the page's `<title>`, at most 40 characters (a longer
+name is rejected), and keep `"origin": "drop"`.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
@@ -217,7 +238,7 @@ the same site, appId and URL.
 **A mock that shows a business solution: publish it, then ask before connecting.**
 Any control on the page that promises what static files can't deliver —
 something to buy, book, order, join, submit or pay — is a Wix Business Solution
-the page pretends to have. First get the site live from what the user gave you.
+the page pretends to have. First get the site live from the pages as they are.
 Then, with the live URL, name each such control, the solution that would make it
 work, and what connecting it involves: what gets created from the page's own
 content (the products, services or form). Ask whether to go ahead, and connect only after the user says
@@ -249,15 +270,22 @@ Its commands run:
 
 ## Images
 
-You never write an image's bytes yourself, as base64 or in any other form: model
-output corrupts them past a few thousand characters, and every byte costs tokens.
-An SVG is text and goes in like a page. Every other image reaches Wix one of four
-ways:
+An SVG is text and goes in like a page. Every other image is bytes, and bytes
+reach Wix one of these ways, in this order of preference:
 
 1. **With a shell that reaches Wix**, in the `curl` drop, from disk.
 2. **When your files travel as files**, inside the zip you pass the upload tool.
-3. **A public URL**: the page keeps the absolute URL.
-4. **The user uploads it** to the site's Media Manager. This is the way for images
+3. **A public URL**: the page keeps the absolute URL, or the Wix MCP's
+   `UploadImageToWixSite` imports it into the site's media (`imageUrls`) and the
+   page points at the returned `static.wixstatic.com` address. A share page
+   (Dropbox, Drive) is not a file URL; a direct link is.
+4. **`imageBase64` on `UploadImageToWixSite`**, when you can read the file and
+   encode it yourself (a shell, a file API): one image per call, the raw base64
+   with its `mimeType`. Encoding it from a file works; typing it out does not: a
+   model cannot reproduce a long base64 string faithfully, so a string that was
+   not produced by a tool comes back as an `atob` error or a corrupt image.
+   Never put image bytes in the `files` bundle beyond a few KB (an icon).
+5. **The user uploads it** to the site's Media Manager. This is the way for images
    that exist only as files you can't send. Publish the pages first, then name
    the missing files, give the user
    `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them to
@@ -265,9 +293,12 @@ ways:
    match each to the page's reference by `displayName`, point the reference at the
    file's `static.wixstatic.com` URL, and drop again.
 
-Never stand in drawings or placeholders of your own for the user's images, and
-never shrink or re-encode them. The closing message names every image still
-missing.
+`attachments` on a Wix MCP tool carries a file only from ChatGPT or Codex, which
+swap it for a download URL before the call reaches Wix. From any other client it
+arrives as the path you wrote, and Wix cannot read a path on your machine; the
+answer does not change on a retry. An image you could not send is named in the
+closing message. Never stand in drawings or placeholders of your own for the
+user's images, and never shrink or re-encode them.
 
 ## Publish anonymously
 
@@ -313,14 +344,15 @@ curl -sS -X POST \
 
 Claim last: it ends the anonymous record, and later changes are
 [drops](#change-it-later). **The URL changes on claim.** Read the new `viewUrl`
-with Query Sites in the `HEADLESS` namespace; the default query omits headless
-sites and rejects an `id` filter, so match the id yourself, paging with
-`metadata.cursors.next`:
+with Query Sites in the `HEADLESS` namespace (the default query omits headless
+sites). An `id` filter takes the `$in` form; a bare `"id": "<uuid>"` is a `400`:
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"query":{"filter":{"namespace":"HEADLESS"},"cursorPaging":{"limit":100}}}'
+  -d '{"query":{"filter":{"namespace":"HEADLESS","id":{"$in":["'$META_SITE_ID'"]}},"cursorPaging":{"limit":10}}}'
+# sites[0].viewUrl is the live address; the same query without the id filter lists every
+# headless site with its viewUrl, which is how a site is found from a URL the user gives
 ```
 
 ## The drop page
@@ -340,7 +372,7 @@ plugin or connector in a chat client).
 
 - **A top-level HTML file.** A lone one of any name is the homepage; with more
   than one, `index.html` must be among them.
-- **3 MB per file, 20 MB per site.**
+- **20 MB per file and per site.** The Wix MCP's upload tool takes 10 MB per call.
 - **Static files only** in a drop. A project that needs a build is built first,
   and its build output is dropped.
 
@@ -348,7 +380,7 @@ plugin or connector in a chat client).
 | --- | --- |
 | `400` `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | In `details.applicationError.code`; fix the files. |
 | `403 PERMISSION_DENIED` on a drop | The token expired or is missing, or the site isn't the caller's. An anonymous site takes upload and release, not a drop. |
-| `500` on a drop or upload | A malformed multipart body; rebuild it as shown. The same body fails again. |
+| `500` on a drop or upload | A failure on Wix's side, with a request id and no body. Retry once; if it fails again, keep the request id for feedback and hand over the drop page. A body built by hand (not `wix.multipart()`) can also answer `500`: rebuild it as shown. |
 | `404` on the anonymous route | The hour passed or the site was claimed. |
 
 ## Send feedback to Wix
@@ -361,7 +393,7 @@ workaround.
 
 ## Route the request correctly
 
-- **A new site from the user's files**: [What decides the route](#what-decides-the-route).
+- **A new site from files, the user's or ones you write**: [What decides the route](#what-decides-the-route).
 - **A change to a site published this way**: the [same site](#change-it-later);
   upload and release while it's anonymous.
 - **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
@@ -372,5 +404,5 @@ workaround.
   custom code in the editor.
 - **Images, videos or documents for a site's media**: [Upload Media to Wix](../media/upload-media-to-wix.md).
 
-Don't create the site from a template: that makes an empty site, not a copy of
-the user's files.
+Don't create the site from a template: that makes an empty site, not the site's
+files.

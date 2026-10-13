@@ -4,6 +4,9 @@ description: Configures restaurant menus, sections, and items using Menus API. C
 ---
 # Wix Restaurants Setup API Reference
 
+> These calls need the Wix Restaurants Menus app on the site (`appDefId` `b278a256-2757-4f19-9313-c05c783bec92`; online ordering is Wix Restaurants Orders `9a5d83fd-8570-482e-81ab-cfa88942ee60`, reservations Wix Table Reservations `f9c07de2-5341-40c6-b096-8eb39de391fb`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds one by that id.
+
+
 This recipe covers setting up and configuring Wix Restaurants using the REST API, including menus, items, and ordering configuration.
 
 ## Prerequisites

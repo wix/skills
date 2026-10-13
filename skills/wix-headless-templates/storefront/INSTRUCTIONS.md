@@ -264,7 +264,7 @@ import { seoTags } from "@wix/seo";
 export const wixMetadata = {
   appDefId: WIX_APPS.checkoutAndOrders.id,
   pageIdentifier: WIX_APPS.checkoutAndOrders.categoryPageMetadata.pageIdentifier,
-  identifiers: { slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.handle },
+  identifiers: { slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.collection },
 };
 
 const slug = Astro.params.slug!;

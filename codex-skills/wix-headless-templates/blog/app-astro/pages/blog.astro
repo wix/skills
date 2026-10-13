@@ -1,0 +1,34 @@
+---
+// Blog index — data fetched SERVER-SIDE (SEO) and handed to the island as DTO props.
+// Keep this frontmatter; swap the island import to YOUR feed component. The category pills link
+// to the category pages (/blog/category/<slug>) so every filter has a URL; pass no `categoryHref`
+// for client-side filtering instead.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import BlogFeedView from "../components/blog/BlogFeedView";
+import { categoryPath, fetchPosts } from "../wix/blog/posts";
+import { fetchBlogCategories, fetchBlogTags } from "../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag, PostPage } from "../wix/blog/types";
+
+let page: PostPage | undefined;
+let categories: BlogCategory[] = [];
+let tags: BlogTag[] = [];
+let failed = false;
+try {
+  [page, categories, tags] = await Promise.all([fetchPosts(), fetchBlogCategories(), fetchBlogTags()]);
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream. With no seed the island fetches
+  // client-side and shows its own error state — never "No posts yet" for a failed read.
+  failed = true;
+}
+---
+
+<SiteLayout title="Blog">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Blog</h1>
+  <BlogFeedView
+    client:load
+    initialPage={failed ? undefined : page}
+    initialCategories={categories}
+    initialTags={tags}
+    categoryHref={categoryPath}
+  />
+</SiteLayout>

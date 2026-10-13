@@ -1,0 +1,155 @@
+
+# Wix App Validation
+
+Validates Wix CLI applications through a four-step sequential workflow: package installation, TypeScript compilation check, build, and preview.
+
+## Validation Workflow
+
+Execute these steps sequentially. Stop and report errors if any step fails.
+
+### Step 1: Package Installation
+
+Ensure all dependencies are installed before proceeding with the build.
+
+**Detect package manager:**
+- Check for `package-lock.json` → use `npm`
+- Check for `yarn.lock` → use `yarn`
+- Check for `pnpm-lock.yaml` → use `pnpm`
+- Default to `npm` if no lock file is found
+
+**Run installation command:**
+
+```bash
+# For npm
+npm install
+
+# For yarn
+yarn install
+
+# For pnpm
+pnpm install
+```
+
+**Success criteria:**
+- Exit code 0
+- All dependencies installed successfully
+- No missing peer dependencies warnings (unless expected)
+- `node_modules` directory exists and contains expected packages
+
+**On failure:** Report the installation errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation. Common issues:
+- Network connectivity problems
+- Corrupted lock files
+- Version conflicts
+- Missing Node.js or package manager
+
+### Step 2: TypeScript Compilation Check
+
+Run TypeScript compiler to check for type errors.
+
+```bash
+npx tsc --noEmit -p .
+```
+
+Run it from the app root, and check the whole project rather than just the files you
+generated — a type error in generated code usually surfaces in the file that consumes
+it. `-p .` is what holds that line: adding a file path to it is an error, whereas adding
+one to a bare `npx tsc --noEmit` silently discards `tsconfig.json` (`strict`, `paths`,
+`jsx`) and checks against compiler defaults instead.
+
+**Success criteria:**
+- Exit code 0
+- No TypeScript compilation errors
+- All type checks pass
+
+**On failure:** Report the specific TypeScript errors and stop validation. Common issues:
+- Type mismatches between expected and actual types
+- Missing type declarations for imported modules
+- Incorrect generic type parameters
+- Properties not existing on declared types
+- Incompatible function signatures
+
+### Step 3: Build Validation
+
+Run the build command and check for compilation errors:
+
+```bash
+npx wix build
+```
+
+**Success criteria:**
+- Exit code 0
+- No TypeScript errors
+- No missing dependencies
+
+**On failure:** Report the specific compilation errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
+
+### Step 4: Preview Deployment
+
+`npx wix preview` is a one-shot command, not a server: it uploads a preview build, prints the preview URLs and **exits on its own**, in seconds. Run it in the foreground, exactly as written, and read its output:
+
+```bash
+npx wix preview
+```
+
+Don't pipe it (`| tail`, `| head`, `| grep`). The output is short, and a pipe holds back everything until the command exits, so a slow preview shows nothing at all.
+
+Don't wrap it in `timeout` (macOS has none, so the call fails before preview runs), background it, `sleep` or poll a log for it, or `kill` it afterwards. There is no process left to wait for or stop.
+
+**If it doesn't return:** your shell may move a long call to the background on its own (for example, after a 120s limit). That means the preview stalled, not that it's still working normally. Read the output it left and `.wix/debug.log` **once**. If neither has the preview URLs, report "preview did not complete" with whatever they show and stop validation. Don't sleep, poll, schedule a wake-up or start the preview again, and don't tell the user a URL is coming.
+
+**Success criteria:**
+- The command exits 0
+- It printed `✔ Preview created successfully!` and the preview URLs
+
+**URL extraction:** the URLs follow `Open the preview on:`, one per line, each in parentheses:
+
+```
+  › Site (https://www.wix.com/app-installer?appId=...)
+  › Editor (https://www.wix.com/app-installer?appId=...)
+  › Dashboard (https://www.wix.com/app-installer?appId=...)
+```
+
+A long URL wraps across several lines. Join the lines up to the closing `)` before using it. Give the Site and Dashboard URLs to the user for manual verification.
+
+**On failure:** Report the preview errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
+
+## Validation Report
+
+After completing all steps, provide a summary:
+
+**Pass:**
+- Dependencies: ✓ All packages installed successfully
+- TypeScript: ✓ No compilation errors
+- Build: ✓ Compiled successfully
+- Preview: ✓ Created — [Dashboard URL]
+
+**Fail:**
+- Identify which step failed
+- Provide specific error messages
+- Suggest remediation steps
+
+## Debug Log on Errors
+
+When a validation step fails (non-zero exit code, error output, or the CLI crashes/hangs), check `.wix/debug.log` in the project root for the full error trace. **Only read this file when errors occur** — skip it when steps pass or when the terminal output already makes the error clear (e.g. a straightforward TypeScript type error).
+
+The `.wix/` directory is automatically created by the Wix CLI and contains internal configuration and log files. Don't edit it, but reading `debug.log` for troubleshooting is expected.
+
+```
+Read: .wix/debug.log
+
+# If the file is large, read the last 100 lines for the most recent errors
+Read: .wix/debug.log (with offset to the end)
+```
+
+## Common Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
+| TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit -p .` output |
+| Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
+| Preview fails | Config issue, not logged in, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
+| Console errors in preview | Runtime exceptions | Check browser console output |
+| UI not rendering | Component errors | Review component code and imports |
+| CLI error with no clear message | Truncated terminal output | Read `.wix/debug.log` for the full error trace and stack details |
+| Mysterious failures after config change | Stale CLI state | Read `.wix/debug.log` to confirm, then delete `.wix/` and rebuild |

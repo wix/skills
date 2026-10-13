@@ -27,6 +27,12 @@ shape as setup (SKILL.md step 3):
 node <SKILL_ROOT>/install/attach.mjs --site <siteId> --business-name "<site name>" --vertical <vertical>[,<vertical>] [--plan plan.json]
 ```
 
+The same call takes a folder that already holds the site's config and the CLI's blank Astro
+starter with no work of its own (`context.mjs` says `blank-starter`: a Wix Dev Machine for a
+never-released site, or a bare `wix create`): `--site` comes from the config, the vertical's
+composed template takes the starter's place, its lockfile with it, and the install and the seed
+run detached as below. Do not install by hand there; the brand layer is yours while they run.
+
 `init`/`wix create` always create a site, so they are not used here. attach does what they do
 after creating one — the site's OAuth app, Wix hosting, `wix.config.json` — against the site
 given, copies the first vertical's composed template, deploys the rest, and starts the install

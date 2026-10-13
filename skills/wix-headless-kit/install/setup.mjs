@@ -257,8 +257,8 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 let install = null;
 if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  startBackground("install", [existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install"], { cwd: projectDir, log: installLog });
-  install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
+  startBackground("install", [], { cwd: projectDir, log: installLog });
+  install = { log: installLog, doneMarker: ".install-exit", success: "file contains 0" };
   emit("install_started", install);
 }
 

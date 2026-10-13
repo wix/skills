@@ -4,6 +4,9 @@ description: Creates subscription and one-time payment plans using Plans API. Co
 ---
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Pricing Plans (Real-World, API-First)
 
+> These calls need the Wix Pricing Plans app on the site (`appDefId` `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+
+
 ## Description
 Below are the recommended steps to successfully create or update a Wix Pricing Plans (or several at once) on Wix and attach a booking session to a pricing plan, with real-world troubleshooting and fixes for common API issues.
 

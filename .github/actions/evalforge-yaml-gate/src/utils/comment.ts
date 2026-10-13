@@ -239,9 +239,14 @@ function winnerLabel(s: ScenarioComparison): string {
     return '—';
   }
 
-  const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
-  return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
+  const { winner } = s.pairwiseJudgement;
+  if (winner === 'tie') return '≈ tie';
+  return winner === 'with' ? '⬆️ PR' : '⬇️ prod';
 }
+
+const TABLE_LEGEND = [
+  '**Skill needed?** is the decision: ✅ yes if the PR passes checks prod fails, or uses >15% fewer tokens; ❌ no otherwise. **Judge\'s pick** is an LLM opinion and never changes it. If they disagree, trust *Skill needed?* and read the judge\'s reasoning below; if the judge sees a real gain on a ❌, add an assertion to measure it.',
+];
 
 export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
   const { verdict, tag, scenarios, judgeCoverage } = result.result;
@@ -269,7 +274,7 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
   }
 
   lines.push(
-    '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
+    '| Scenario | Skill needed? | Judge\'s pick | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
     '|---|---|---|---|---|---|---|',
   );
 
@@ -282,8 +287,10 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
     const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
     const runWith = projectId && s.with.runId ? `[PR](${evalRunUrl(projectId, s.with.runId, s.with.name)})` : '—';
     const runWithout = projectId && s.without.runId ? `[prod](${evalRunUrl(projectId, s.without.runId, s.without.name)})` : '—';
-    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '❌'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+    lines.push(`| ${s.scenarioName} | ${s.required ? '✅ yes' : '❌ no'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
   }
+
+  lines.push('', ...TABLE_LEGEND);
 
   for (const s of (scenarios ?? [])) {
     const reason = noWinnerReason(s);

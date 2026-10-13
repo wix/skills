@@ -37,6 +37,7 @@ jobs:
     outputs:
       wix_app: ${{ steps.changes.outputs.wix_app }}
       evalforge: ${{ steps.changes.outputs.evalforge }}
+      codex_skills: ${{ steps.changes.outputs.codex_skills }}
       wix_app_refs: ${{ steps.changes.outputs.wix_app_refs }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -96,6 +97,12 @@ jobs:
             echo "evalforge=true" >> "$GITHUB_OUTPUT"
           else
             echo "evalforge=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if match '^\.github/(scripts|workflows)/sync-codex-skills'; then
+            echo "codex_skills=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "codex_skills=false" >> "$GITHUB_OUTPUT"
           fi
 
   typecheck:
@@ -222,9 +229,13 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        if: ${{ needs.detect.outputs.evalforge == 'true' || needs.detect.outputs.codex_skills == 'true' }}
         with:
           node-version: '24'
+
+      - name: codex-skills sync — test
+        if: ${{ needs.detect.outputs.codex_skills == 'true' }}
+        run: node --test .github/scripts/sync-codex-skills.test.mjs
 
       - name: evalforge-core — install, test, build
         if: ${{ needs.detect.outputs.evalforge == 'true' }}
@@ -274,7 +285,9 @@ jobs:
 
       - name: Summary
         run: |
-          echo "evalforge: ${{ needs.detect.outputs.evalforge }}"
-          if [ "${{ needs.detect.outputs.evalforge }}" = "false" ]; then
+          echo "evalforge:    ${{ needs.detect.outputs.evalforge }}"
+          echo "codex-skills: ${{ needs.detect.outputs.codex_skills }}"
+          if [ "${{ needs.detect.outputs.evalforge }}" = "false" ] \
+          && [ "${{ needs.detect.outputs.codex_skills }}" = "false" ]; then
             echo "No tested areas changed — nothing to do."
           fi

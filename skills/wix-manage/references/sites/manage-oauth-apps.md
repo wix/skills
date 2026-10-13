@@ -147,8 +147,8 @@ Use the `access_token` as the `Authorization` header on subsequent API calls.
 
 ## API Reference
 
-- [OAuth Apps — Create](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-o-auth-app)
-- [OAuth Apps — Get](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/get-o-auth-app)
-- [OAuth Apps — Query](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/query-o-auth-apps)
-- [OAuth Apps — Update](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-o-auth-app)
+- [OAuth Apps — Create](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app)
+- [OAuth Apps — Get](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/get-oauth-app)
+- [OAuth Apps — Query](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/query-oauth-apps)
+- [OAuth Apps — Update](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app)
 - [Retrieve Tokens — `/oauth2/token` contract, all grant types](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens)

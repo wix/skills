@@ -92,7 +92,7 @@ curl -X POST \
 
 Before installing, refer to the [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix) documentation to find the correct `appDefId` for the app you want to install.
 
-Some common apps:
+Some common apps (`appDefId`; [List Installed Apps](list-installed-apps.md) shows which of them a site already has):
 | App | appDefId |
 |-----|----------|
 | Wix Stores | `215238eb-22a5-4c36-9e7b-e7c08025e04e` |
@@ -102,6 +102,10 @@ Some common apps:
 | Wix Multilingual | `14d84998-ae09-1abf-c6fc-3f3cace5bf19` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 | Wix CMS | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
+| Wix Forms | `225dd912-7dea-4738-8688-4b8c6955ffc2` |
+| Wix Restaurants Menus | `b278a256-2757-4f19-9313-c05c783bec92` |
+| Wix Restaurants Orders (online ordering) | `9a5d83fd-8570-482e-81ab-cfa88942ee60` |
+| Wix Table Reservations | `f9c07de2-5341-40c6-b096-8eb39de391fb` |
 
 ### IMPORTANT NOTES:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).

@@ -55,6 +55,7 @@ import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { frontendPresent, siteContext } from "./context.mjs";
 import { listVerticals, templatesDir } from "./templates.mjs";
 import { failure, npmSync, startBackground } from "./proc.mjs";
+import { blankStarter } from "./context.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -92,6 +93,10 @@ const cwdConfig = has("wix.config.json") ? JSON.parse(readFileSync(join(cwd, "wi
 // config's site.outputDirectory names (a static site laid out for release) — install/context.mjs.
 const fp = frontendPresent(cwd);
 const hasProject = fp.packageJson || fp.rootIndex || fp.outputIndex;
+// The CLI's blank starter with no work of its own (a Dev Machine's never-released site, a bare
+// `wix create`): not a project to link, a scaffold to complete — the vertical's composed template
+// takes its place (deploy.mjs), the install and the seed run detached as for a new site.
+const starter = !!cwdConfig && fp.packageJson && !(fp.publicIndex && !fp.astroPages) && blankStarter(cwd);
 // A migration preview (wix.config.json names a deploy-only site, .env.local names the site being
 // migrated) is already provisioned: its app, hosting and credentials came with the folder. Nothing
 // here applies — setup.mjs takes it (SKILL.md step 3).
@@ -124,18 +129,18 @@ if (hosting0 === "self" && stack === "astro" && !hasProject && !stackFlag) {
   fail("args", "--hosting self scaffolds nothing: pass --stack for the frontend you will host (react|lib|static), or attach from inside the project on disk");
 }
 if (!subfolder) {
-  if (hasProject && cwdConfig) {
-    fail("place", "this folder is already a Wix project with a frontend (wix.config.json and a project): nothing to attach. deploy.mjs <vertical> adds this skill's code or a solution to it; then ONE npm install");
+  if (hasProject && cwdConfig && !starter) {
+    fail("place", "this folder is already a Wix project with a frontend (wix.config.json and a project): nothing to attach. deploy.mjs <vertical> adds this skill's code or a solution to it; then node <SKILL_ROOT>/install/install.mjs");
   }
   if (cwdConfig && (cwdConfig.siteId ?? cwdConfig.projectId) !== siteId) {
     fail("place", `this folder is attached to site ${cwdConfig.siteId ?? cwdConfig.projectId}, not ${siteId} — a folder is never re-pointed; attach the other site with --subfolder`);
   }
-  if (hasProject && !stackFlag) {
+  if (hasProject && !starter && !stackFlag) {
     fail("args", "attaching a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
   }
 }
-const mode = !subfolder && hasProject ? "link" : hosting0 === "self" ? "config-only" : "scaffold";
-emit("folder", { mode, stack, hosting: hosting0, project: hasProject, config: cwdConfig ? "same site" : null, siteOrigin });
+const mode = !subfolder && hasProject && !starter ? "link" : hosting0 === "self" ? "config-only" : "scaffold";
+emit("folder", { mode, stack, hosting: hosting0, project: hasProject, starter, config: cwdConfig ? "same site" : null, siteOrigin });
 
 // ---- http ---------------------------------------------------------------------------------------
 const cliToken = (site) => {
@@ -165,6 +170,13 @@ async function call(base, path, { method = "POST", token, site, body, query } = 
 }
 
 const folderName = flag("folder-name") ?? (businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "site");
+const renamePackage = (dir, name) => {
+  const pkgPath = join(dir, "package.json");
+  if (!existsSync(pkgPath)) return;
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  pkg.name = name;
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+};
 const projectDir = subfolder ? resolve(cwd, folderName) : cwd;
 if (subfolder && existsSync(join(projectDir, "wix.config.json"))) fail("args", `${folderName}/ is already a Wix project — pick --folder-name, or run deploy.mjs there`);
 
@@ -279,10 +291,9 @@ if (stack === "astro" && mode === "scaffold") {
   // here because the CLI's create makes a new site and this folder gets an existing one. Further
   // verticals are deployed below.
   cpSync(join(templatesDir({ need: `${verticals[0]}/project` }), verticals[0], "project"), projectDir, { recursive: true, force: false, errorOnExist: false });
-  const pkgPath = join(projectDir, "package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-  pkg.name = folderName;
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+  // The blank starter keeps its name through deploy, which recognizes it by name and gives it the
+  // composed package.json and lockfile; the project takes the folder's name after that (below).
+  if (!starter) renamePackage(projectDir, folderName);
 }
 writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify({ appId, siteId }, null, 2) + "\n");
 // The env the CLI's build reads. Same content `wix env pull` writes; written here so the build
@@ -317,14 +328,15 @@ let deployResult = {};
   try { deployResult = JSON.parse(deploy.stdout); } catch { /* keep going */ }
   if (deployResult.error) fail("deploy", deployResult.error);
   emit("deployed", deployResult);
+  if (starter) renamePackage(projectDir, folderName);
 }
 
 // ---- 4 · dependency install, detached (any project with a package.json) --------------------------
 let install = null;
 if (existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  startBackground("install", [existsSync(join(projectDir, "package-lock.json")) ? "ci" : "install"], { cwd: projectDir, log: installLog });
-  install = { log: installLog, doneMarker: "node_modules/.package-lock.json" };
+  startBackground("install", [], { cwd: projectDir, log: installLog });
+  install = { log: installLog, doneMarker: ".install-exit", success: "file contains 0" };
   emit("install_started", install);
 }
 

@@ -431,6 +431,9 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 
 ```bash
 # A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
+
+> These calls need the Wix Stores app on the site (`appDefId` `215238eb-22a5-4c36-9e7b-e7c08025e04e`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+
 # keep the option and choice IDs when rebuilding the options array, and each variant
 # with its choices and price. Omitting those identities or required variant fields can reject the update.
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \

@@ -1,0 +1,40 @@
+---
+// Services listing — the first page fetched SERVER-SIDE (SEO) with the URL's filter (`?category=`,
+// `?location=`) and handed to the island as DTO props; the island pages and re-filters from there.
+// Keep this frontmatter; swap the island import to YOUR listing component.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import ServicesView from "../components/bookings/ServicesView";
+import { fetchServices, fetchBookingCategories, fetchLocations } from "../wix/bookings/services";
+import type { BookingCategory, LocationOption, ServiceSummary } from "../wix/bookings/types";
+
+const categoryId = Astro.url.searchParams.get("category") || null;
+const locationId = Astro.url.searchParams.get("location") || null;
+
+let services: ServiceSummary[] = [];
+let hasMore = false;
+let categories: BookingCategory[] = [];
+let locations: { locations: LocationOption[]; hasOtherLocations: boolean } = { locations: [], hasOtherLocations: false };
+try {
+  const [page, cats, locs] = await Promise.all([fetchServices({ categoryId, locationId }), fetchBookingCategories(), fetchLocations()]);
+  services = page.items;
+  hasMore = page.hasMore;
+  categories = cats;
+  locations = locs;
+} catch {
+  // An unguarded SSR throw truncates the response mid-stream; the island renders the
+  // empty state instead.
+}
+---
+
+<SiteLayout title="Services">
+  <h1 class="mb-8 text-2xl font-semibold tracking-tight">Services</h1>
+  <ServicesView
+    client:load
+    initialServices={services}
+    initialHasMore={hasMore}
+    initialCategories={categories}
+    initialLocations={locations}
+    initialCategoryId={categoryId}
+    initialLocationId={locationId}
+  />
+</SiteLayout>

@@ -35916,6 +35916,7 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.semanticPlusDraftTags = exports.draftOnlyTags = exports.SyncActionKind = void 0;
 exports.toScenarioBody = toScenarioBody;
+exports.isDraftOnlyScenario = isDraftOnlyScenario;
 exports.diffSyncPlan = diffSyncPlan;
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
@@ -35937,6 +35938,15 @@ const semanticPlusDraftTags = (scenario, draftTag) => [...scenario.tags, draftTa
 exports.semanticPlusDraftTags = semanticPlusDraftTags;
 function foreignDraftTags(tags, myDraftTag) {
     return tags.filter(tag => tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag);
+}
+/**
+ * True for a draft written by `draftOnlyTags`: nothing on it but the draft tag and the managed
+ * code-origin tags. Scenarios always carry a semantic tag, so a draft kept by
+ * `semanticPlusDraftTags` (another gate's) never matches.
+ */
+function isDraftOnlyScenario(entry, draftTag, repo) {
+    const own = new Set([draftTag, ...(0, evalforge_1.managedTagsFor)(repo)]);
+    return entry.tags.every(tag => own.has(tag));
 }
 function diffSyncPlan(input) {
     const { changedHead, head, base, remote, draftTag, repo } = input;
@@ -35974,6 +35984,18 @@ function diffSyncPlan(input) {
         }
         else {
             actions.push({ kind: exports.SyncActionKind.DEFER_DELETE, id: match.id, name });
+        }
+    }
+    // Orphans: drafted by an earlier push of this PR, then renamed or removed before merge. They were
+    // never in base, so the loop above can't see them, and the comparison runs by draft tag.
+    if (input.isOwnedDraft) {
+        const handled = new Set(actions.map(a => a.name));
+        for (const entry of remote) {
+            if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name))
+                continue;
+            if (entry.tags.includes(draftTag) && input.isOwnedDraft(entry)) {
+                actions.push({ kind: exports.SyncActionKind.DELETE, id: entry.id, name: entry.name });
+            }
         }
     }
     return { actions, errors };
@@ -66708,9 +66730,14 @@ function winnerLabel(s) {
     if (!s.pairwiseJudgement) {
         return '—';
     }
-    const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
-    return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
+    const { winner } = s.pairwiseJudgement;
+    if (winner === 'tie')
+        return '≈ tie';
+    return winner === 'with' ? '⬆️ PR' : '⬇️ prod';
 }
+const TABLE_LEGEND = [
+    '**Skill needed?** is the decision: ✅ yes if the PR passes checks prod fails, or uses >15% fewer tokens; ❌ no otherwise. **Judge\'s pick** is an LLM opinion and never changes it. If they disagree, trust *Skill needed?* and read the judge\'s reasoning below; if the judge sees a real gain on a ❌, add an assertion to measure it.',
+];
 function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios, judgeCoverage } = result.result;
     const hasNoWinner = comparisonHasNoWinner(result.result);
@@ -66729,7 +66756,7 @@ function formatComparisonResult(result, projectId) {
     if (!isFullyJudged && judgeCoverage) {
         lines.push(`> ⚠️ **Only ${judgeCoverage.judged}/${judgeCoverage.total} scenarios were judged.** The verdict above rests on the`, '> remaining scenarios\' assertion results alone, so treat it as provisional rather than', '> as evidence the skill makes no difference. Re-run to get full coverage.', '');
     }
-    lines.push('| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |', '|---|---|---|---|---|---|---|');
+    lines.push('| Scenario | Skill needed? | Judge\'s pick | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |', '|---|---|---|---|---|---|---|');
     for (const s of (scenarios ?? [])) {
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
@@ -66739,8 +66766,9 @@ function formatComparisonResult(result, projectId) {
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
         const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_core_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
         const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_core_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '❌'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅ yes' : '❌ no'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
+    lines.push('', ...TABLE_LEGEND);
     for (const s of (scenarios ?? [])) {
         const reason = noWinnerReason(s);
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
@@ -67800,7 +67828,10 @@ async function runGate() {
     if (!remote)
         return;
     const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
-    const plan = (0, evalforge_core_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
+    const plan = (0, evalforge_core_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}`,
+        // The draft tag is shared with the wix-app gate; only drafts shaped like ours are ours to sweep.
+        isOwnedDraft: entry => (0, evalforge_core_1.isDraftOnlyScenario)(entry, draftTag, `${config.owner}/${config.repo}`),
+    });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);

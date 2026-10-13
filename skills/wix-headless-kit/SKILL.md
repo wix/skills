@@ -195,9 +195,12 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | **yes**, from `--plan` |
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
    | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys. That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
-   | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then ONE `npm install`; a change is file edits; then release | no |
+   | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then one install, `node <SKILL_ROOT>/install/install.mjs` (nothing when `node_modules` already satisfies the lock); a change is file edits; then release | no |
    | a config, a `package.json`, `public/index.html` and no `src/pages/` (a site published through the drop flow, on its Wix Dev Machine) | **static-in-astro** → refuses | the pages stay plain files in `public/`: `deploy.mjs <vertical…> --stack static --out public` puts the REST layer in `public/js/wix/`, the pages are wired in place (reference mode), and no Astro pages are added; release with `build` then `release`, the URL stays | no |
+   | a config and the CLI's blank Astro starter with no work of its own (`wix-astro-blank`, only the blank template's packages: a Dev Machine's never-released site, a bare `wix create`) | **blank-starter** → refuses | `attach.mjs --business-name <brand> --vertical <v…> [--plan plan.json]` on the config's site: the vertical's composed template takes the starter's place (its lockfile with it), the install and the seed start detached; build the brand layer while they run | **yes**, from `--plan`: the site was made for this run and is empty, unless `read-site.mjs` shows content |
    | a config, `index.html` at the root, no `package.json` (a site published through the drop flow and downloaded) | **published-static** | the config's site, no `init`: `site/` becomes the upload, the REST layer deploys into `site/js/wix/`; the `next` says to move the pages, styles and assets in; release keeps the URL | no |
+
+   A folder no row names is **wix-project**: the fill-only path — never scaffold, `init`, reseed or delete; deploy, edit, release. A wrong guess costs a slower run, never the user's work.
 
    **Who decides the seed: where the site came from, never the brief's wording.** A site made
    for this run is empty by construction, so it is always seeded — with the brief's content when
@@ -238,7 +241,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project from the
    vertical's composed template (`wix create` copies it: the code and its lockfile arrive with
    the scaffold), **deploys** whatever the folder still lacks (patching `package.json` with every
-   dependency the code imports), then **starts two detached background jobs** — the dependency install (`npm ci --ignore-scripts || npm install --ignore-scripts`)
+   dependency the code imports), then **starts two detached background jobs** — the dependency install (`install/install.mjs`: nothing when `node_modules` already satisfies the lock, `npm install --ignore-scripts` over a tree that is there, else `npm ci --ignore-scripts || npm install --ignore-scripts`)
    and the **seed** — whose logs and completion markers are in the events. The final
    `ready_for_brand_layer` event carries the project dir, siteId, ready-made dashboard links,
    and both markers. Relay notable events. On an `error` event, recover just that step via the
@@ -246,8 +249,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
 
    **Recovering one step, or adding a solution later:** the pieces run on their own from the
    project root — `node <SKILL_ROOT>/install/deploy.mjs <vertical…> --stack <stack>` (the client
-   id is read from `wix.config.json`), ONE `npm ci --ignore-scripts || npm install
-   --ignore-scripts` (**never a second npm install concurrently**: two npms in one
+   id is read from `wix.config.json`), ONE `node <SKILL_ROOT>/install/install.mjs`
+   (**never a second npm install concurrently**: two npms in one
    `node_modules` race and redo each other's work; setup already started one — wait on its
    marker), the vertical's seed module per its `seed/SEED.md`.
    A code change on an existing project is done when it is **released** (step 5) and the live
@@ -272,7 +275,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    `templates/shared/CUSTOM_OPERATIONS.md` before writing it. Use one documented path and
    implement it; do not reverse-engineer SDK internals.
 5. **When both background jobs have completed** — the install's marker
-   (`node_modules/.package-lock.json`) and the seed's (`.seed-exit`) both exist — **verify the
+   (`.install-exit`, containing `0`) and the seed's (`.seed-exit`) both exist — **verify the
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
    your summary — if non-zero, read `seed.log` and re-run the seed module manually). Those two
    seed files exist **only when setup started the seed** (attach runs none: only the install

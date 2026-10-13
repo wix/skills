@@ -1,0 +1,43 @@
+---
+// REFERENCE campaign surface: cover, name, the site's own story copy, GoalProgress, and the shipped
+// DonateForm (client:load — the campaign arrives as an SSR-fetched DTO prop; only the donate action
+// runs client-side). Mounted by pages/donate/[id].astro and, for a site with exactly one campaign,
+// by pages/donate/index.astro. Correct and plain; per the skill's model you design your own layout
+// around the two shipped components — the story text is yours (the API has no description field).
+import DonateForm from "./DonateForm";
+import GoalProgress from "./GoalProgress";
+import type { CampaignDetail } from "../../wix/donations/types";
+
+interface Props {
+  campaign: CampaignDetail;
+  /** The campaign's story — the site's own copy; the API carries none. */
+  story?: string;
+}
+const { campaign, story } = Astro.props;
+const closed =
+  campaign.status === "goalReached"
+    ? "This campaign has reached its goal. Thank you to everyone who gave."
+    : campaign.status === "expired"
+      ? "This campaign has ended. Thank you to everyone who gave."
+      : "";
+---
+
+<article class="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[3fr_2fr]">
+  <div>
+    {campaign.imageUrl && (
+      <div class="mb-6 aspect-[16/9] overflow-hidden rounded-xl bg-secondary">
+        <img src={campaign.imageUrl} alt={campaign.name} class="h-full w-full object-cover" />
+      </div>
+    )}
+    <h1 class="text-3xl font-semibold tracking-tight">{campaign.name}</h1>
+    {story && <p class="mt-4 whitespace-pre-wrap leading-relaxed text-muted-foreground">{story}</p>}
+  </div>
+  <aside class="lg:sticky lg:top-24 lg:self-start">
+    <div class="rounded-lg border border-border bg-background p-6">
+      <GoalProgress goal={campaign.goal} className="mb-6" />
+      <DonateForm client:load campaign={campaign}>
+        <p class="text-sm text-muted-foreground">{closed}</p>
+      </DonateForm>
+    </div>
+  </aside>
+</article>
