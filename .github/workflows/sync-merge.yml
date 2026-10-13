@@ -59,6 +59,36 @@ jobs:
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
+      # release.yml publishes to npm when a PR carrying the `release` label merges into main. Before
+      # the mirror, release-bump opened that PR here and labelled it. Now the bump lands in ax-skills
+      # and arrives as part of a snapshot, so the label has to be put on by the snapshot's PR when,
+      # and only when, the version it carries differs from main's. Without this step the first bump
+      # after cutover would merge and never publish.
+      - name: Label `release` when the snapshot changes the package version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          version() {
+            gh api "repos/${REPO}/contents/package.json?ref=$1" --jq '.content' | base64 -d \
+              | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version"
+          }
+          main_version=$(version main)
+          head_version=$(version "$HEAD_SHA")
+          echo "main=${main_version} snapshot=${head_version}"
+          if [ "$main_version" != "$head_version" ]; then
+            gh label list -R "$REPO" --search release --json name --jq '.[].name' | grep -qx release \
+              || gh label create release -R "$REPO" --color 0E8A16 --description "Merging publishes to npm"
+            gh pr edit "$PR_URL" --add-label release
+            echo "labelled: merging publishes v${head_version}"
+          else
+            gh pr edit "$PR_URL" --remove-label release 2>/dev/null || true
+            echo "no version change; not a release"
+          fi
+
       - name: Mint a skill-builder-bot token (a second identity, so it may approve)
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
