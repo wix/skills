@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  diffSyncPlan, draftOnlyTags, semanticPlusDraftTags,
+  diffSyncPlan, draftOnlyTags, isDraftOnlyScenario, semanticPlusDraftTags,
   remoteScenarioFiltersForGate, listRemoteScenariosForGate, stripInactiveForeignDraftTags,
 } from '../src/plan-pr-scenario-sync';
 import type { Scenario } from '../src/schema';
@@ -97,16 +97,39 @@ describe('diffSyncPlan — wix-manage contract (default tag strategy)', () => {
 });
 
 describe('diffSyncPlan — orphaned drafts', () => {
-  it('deletes a draft of this PR that is in neither head nor base (renamed/removed in an earlier push)', () => {
-    const plan = diffSyncPlan({
-      changedHead: new Map([['blog/a', loaded('blog/a')]]),
-      head: new Map([['blog/a', loaded('blog/a')]]),
-      base: new Map(),
-      remote: [remoteScenario('1', 'blog/old', [DRAFT_TAG]), remoteScenario('2', 'blog/other', ['draft:wix/skills#7'])],
-      draftTag: DRAFT_TAG,
-      repo: REPO,
-    });
-    expect(plan.actions.filter(a => a.kind === 'DELETE')).toEqual([{ kind: 'DELETE', id: '1', name: 'blog/old' }]);
+  const owned = (e: RemoteScenario) => isDraftOnlyScenario(e, DRAFT_TAG, REPO);
+  const plan = (remote: RemoteScenario[], isOwnedDraft?: (e: RemoteScenario) => boolean) => diffSyncPlan({
+    changedHead: new Map([['blog/a', loaded('blog/a')]]),
+    head: new Map([['blog/a', loaded('blog/a')]]),
+    base: new Map([['blog/base', loaded('blog/base')]]),
+    remote, draftTag: DRAFT_TAG, repo: REPO, isOwnedDraft,
+  });
+  const deletes = (p: ReturnType<typeof plan>) => p.actions.filter(a => a.kind === 'DELETE').map(a => a.name);
+
+  it('deletes this gate\'s draft of this PR that is in neither head nor base (renamed/removed in an earlier push)', () => {
+    const p = plan([remoteScenario('1', 'blog/old', [DRAFT_TAG, ...MANAGED])], owned);
+    expect(p.actions).toContainEqual({ kind: 'DELETE', id: '1', name: 'blog/old' });
+  });
+
+  it('does not sweep unless the caller opts in', () => {
+    expect(deletes(plan([remoteScenario('1', 'blog/old', [DRAFT_TAG, ...MANAGED])]))).toEqual([]);
+  });
+
+  it('leaves another gate\'s draft of the same PR alone (it keeps its semantic tags)', () => {
+    expect(deletes(plan([remoteScenario('1', 'app/other-gate', ['blog', DRAFT_TAG, ...MANAGED])], owned))).toEqual([]);
+  });
+
+  it('leaves another PR\'s draft and a scenario still in head alone, and does not double-delete a removed base draft', () => {
+    const p = plan([
+      remoteScenario('1', 'blog/theirs', ['draft:wix/skills#7', ...MANAGED]),
+      remoteScenario('2', 'blog/a', [DRAFT_TAG, ...MANAGED]),
+      remoteScenario('3', 'blog/base', [DRAFT_TAG, ...MANAGED]),
+    ], owned);
+    expect(deletes(p)).toEqual(['blog/base']); // once, from the existing base-removal rule
+  });
+
+  it('leaves a prod scenario that never carried this PR\'s draft tag alone', () => {
+    expect(deletes(plan([remoteScenario('1', 'blog/prod', ['blog', ...MANAGED])], owned))).toEqual([]);
   });
 });
 

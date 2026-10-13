@@ -35916,6 +35916,7 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.semanticPlusDraftTags = exports.draftOnlyTags = exports.SyncActionKind = void 0;
 exports.toScenarioBody = toScenarioBody;
+exports.isDraftOnlyScenario = isDraftOnlyScenario;
 exports.diffSyncPlan = diffSyncPlan;
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
@@ -35937,6 +35938,15 @@ const semanticPlusDraftTags = (scenario, draftTag) => [...scenario.tags, draftTa
 exports.semanticPlusDraftTags = semanticPlusDraftTags;
 function foreignDraftTags(tags, myDraftTag) {
     return tags.filter(tag => tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag);
+}
+/**
+ * True for a draft written by `draftOnlyTags`: nothing on it but the draft tag and the managed
+ * code-origin tags. Scenarios always carry a semantic tag, so a draft kept by
+ * `semanticPlusDraftTags` (another gate's) never matches.
+ */
+function isDraftOnlyScenario(entry, draftTag, repo) {
+    const own = new Set([draftTag, ...(0, evalforge_1.managedTagsFor)(repo)]);
+    return entry.tags.every(tag => own.has(tag));
 }
 function diffSyncPlan(input) {
     const { changedHead, head, base, remote, draftTag, repo } = input;
@@ -35978,12 +35988,15 @@ function diffSyncPlan(input) {
     }
     // Orphans: drafted by an earlier push of this PR, then renamed or removed before merge. They were
     // never in base, so the loop above can't see them, and the comparison runs by draft tag.
-    const handled = new Set(actions.map(a => a.name));
-    for (const entry of remote) {
-        if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name))
-            continue;
-        if (entry.tags.includes(draftTag))
-            actions.push({ kind: exports.SyncActionKind.DELETE, id: entry.id, name: entry.name });
+    if (input.isOwnedDraft) {
+        const handled = new Set(actions.map(a => a.name));
+        for (const entry of remote) {
+            if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name))
+                continue;
+            if (entry.tags.includes(draftTag) && input.isOwnedDraft(entry)) {
+                actions.push({ kind: exports.SyncActionKind.DELETE, id: entry.id, name: entry.name });
+            }
+        }
     }
     return { actions, errors };
 }
@@ -67815,7 +67828,10 @@ async function runGate() {
     if (!remote)
         return;
     const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
-    const plan = (0, evalforge_core_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
+    const plan = (0, evalforge_core_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}`,
+        // The draft tag is shared with the wix-app gate; only drafts shaped like ours are ours to sweep.
+        isOwnedDraft: entry => (0, evalforge_core_1.isDraftOnlyScenario)(entry, draftTag, `${config.owner}/${config.repo}`),
+    });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);

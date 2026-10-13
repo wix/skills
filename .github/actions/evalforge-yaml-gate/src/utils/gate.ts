@@ -8,7 +8,7 @@ import { canonicalDocUrl, docUrls } from './doc-url';
 import { changedDocsEntries, validateDocsEntries, slashedTitles } from './docs-entry-check';
 import { computeCoverage } from './coverage';
 import {
-  EvalForgeClient, assertSameRepoBranch, diffSyncPlan, draftTagFor, evalRunUrl,
+  EvalForgeClient, assertSameRepoBranch, diffSyncPlan, draftTagFor, evalRunUrl, isDraftOnlyScenario,
   listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
   stripInactiveForeignDraftTags, type RemoteScenario,
 } from '@wix/evalforge-core';
@@ -197,7 +197,10 @@ export async function runGate(): Promise<void> {
     (tag) => isDraftTagActive(octokit, tag),
   );
 
-  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
+  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}`,
+    // The draft tag is shared with the wix-app gate; only drafts shaped like ours are ours to sweep.
+    isOwnedDraft: entry => isDraftOnlyScenario(entry, draftTag, `${config.owner}/${config.repo}`),
+  });
   if (plan.errors.length > 0) {
     await comment(formatForeignDraftConflicts(plan.errors, { owner: config.owner, repo: config.repo }));
     fail(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
