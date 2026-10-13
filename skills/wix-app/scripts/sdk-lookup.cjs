@@ -474,24 +474,55 @@ function deriveRecord(name, dir) {
     }
   }
 
-  // The fields a search term can go in without a free-text search: those that
-  // take $startsWith and are declared `string` on the entity, ids and numbers
-  // in a string (`price.amount`, `taxRate`, `revision`) left out. [] means the package lists the
-  // operators and none fits; no `textFields` means the package does not list
-  // them (the docs page does).
+  // The fields a search term can go in without a free-text search, declared
+  // `string` on the entity, ids and numbers in a string (`price.amount`,
+  // `taxRate`, `revision`) left out. `textFields`: those that list
+  // $startsWith. `textFieldsAny`: those under `operators: '*'`, where the
+  // service decides per field (orders' `number` is `string` in the package
+  // and takes no $startsWith). [] means the package lists the operators and
+  // none fits; no `textFields` means the package does not list them.
   const entity = searchSpec?.entity ?? querySpec?.entity ?? entityType;
   const entityBody = entity && typeBody(sources, entity);
   const notText = (f) => /(^|\.)(_?id|amount|value|revision)$|(Id|Count|Rate)$/.test(f);
+  const isText = (f) => !notText(f) && (!entityBody || fieldType(sources, entityBody, f) === 'string');
   for (const meth of methods.values()) {
     if (!['search', 'query', 'query-builder'].includes(meth.kind)) continue;
     const sw = meth.builder?.startsWith;
     let fields;
+    let any = [];
     if (meth.filterable) {
-      fields = Object.entries(meth.filterable).filter(([, f]) => f.ops.includes('$startsWith') || f.ops.includes('*')).map(([k]) => k);
+      const rows = Object.entries(meth.filterable);
+      fields = rows.filter(([, f]) => f.ops.includes('$startsWith')).map(([k]) => k);
+      any = rows.filter(([k, f]) => f.ops.includes('*') && !fields.includes(k)).map(([k]) => k);
       if (sw && !sw.includes('*')) fields.push(...sw.filter((f) => !fields.includes(f)));
     } else if (meth.builder && !meth.filterUnlisted && !sw?.includes('*')) fields = sw ?? [];
     if (!fields) continue;
-    meth.textFields = fields.filter((f) => !notText(f) && (!entityBody || fieldType(sources, entityBody, f) === 'string'));
+    meth.textFields = fields.filter(isText);
+    any = any.filter((f) => !meth.textFields.includes(f) && isText(f));
+    if (any.length) meth.textFieldsAny = any;
+  }
+
+  // A query or list method can take free text in its options, with no search
+  // method in the namespace: queryMembers(options) has `options.search:
+  // { expression, fields }`, whose fields default to one (`profile.nickname`).
+  for (const meth of methods.values()) {
+    if (!['query', 'query-builder', 'list'].includes(meth.kind)) continue;
+    for (const p of splitParams(rawParams.get(meth.name) ?? '')) {
+      const m = p.match(/^(\w+)\??\s*:\s*([A-Z]\w*)/);
+      const search = m && membersOf(typeBody(sources, m[2]) ?? '').find((x) => x.name === 'search');
+      const type = search?.type.match(/^([A-Z]\w*)/)?.[1];
+      const body = type && typeBody(sources, type);
+      if (!body || !membersOf(body).some((x) => x.name === 'expression')) continue;
+      const doc = body.match(/\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*fields\??\s*:/)?.[1] ?? '';
+      const [list, dflt] = doc.split(/Default:/);
+      meth.optionsSearch = {
+        param: m[1],
+        fields: [...list.matchAll(/`([\w.]+)`/g)].map((x) => x[1]),
+        default: dflt?.match(/`([\w.]+)`/)?.[1] ?? null,
+        max: Number(doc.match(/@maxSize (\d+)/)?.[1]) || null,
+      };
+      break;
+    }
   }
 
   // The keys of a search, query or list method's argument and response, so a
@@ -698,18 +729,30 @@ function shapeFor(record, ns, intent) {
     m?.filterable ? Object.entries(m.filterable).filter(([, f]) => f.search).map(([k]) => k) : null;
   const queryCall = (m) => `${call(m)}({ ${(m.queryForm.keys?.length ? m.queryForm.keys : ['filter', 'sort']).join(', ')} })`;
   const out = [];
+  let opt;
 
   if (intent === 'search') {
     if (search && search.freeText !== false) {
       const fields = textFields(search);
       out.push(`${call(search)}({ search: { expression: term } }): one call${fields ? `; the term matches ${fields.join(', ')}` : ''}; exact-match facets go in filter`);
+    } else if ((opt = [builder, query, ...by('list')].find((m) => m?.optionsSearch))) {
+      // Free text in a query's options, with no search method (queryMembers).
+      const o = opt.optionsSearch;
+      const first = splitParams(opt.params.join(', '))[0]?.startsWith(o.param);
+      const arg = `{ search: { expression: term, fields } }`;
+      out.push(`${call(opt)}(${first ? arg : `…, ${arg}`})${opt.kind === 'query-builder' ? '.find()' : ''}: no search method; free text in its ${o.param}.search`);
+      if (o.default) out.push(`  search.fields defaults to ${o.default} alone: name every field the term must match${o.max ? ` (at most ${o.max})` : ''}`);
+      if (o.fields.length) out.push(`  searchable fields: ${o.fields.join(', ')}`);
+      out.push('  never run one query per field and merge the results in the client');
     } else {
       // Without free text, a term goes in $startsWith on the text fields: a
       // prefix match. None of them → the server cannot match a term at all.
       const orBuilder = builder?.builder?.or;
       const form = search ?? query ?? (builder?.queryForm && !orBuilder ? builder : null);
       const target = form ?? builder;
-      const fields = target?.textFields;
+      const listed = target?.textFields;
+      const any = target?.textFieldsAny ?? [];
+      const fields = listed && [...listed, ...any];
       const where = form === builder ? queryCall(builder) : target && `${call(target)}${target === builder ? '()' : ''}`;
       const merge = '  never run one query per field and merge the results in the client';
       if (fields && !fields.length) {
@@ -719,10 +762,15 @@ function shapeFor(record, ns, intent) {
       } else if (form) {
         const why = form === builder ? 'no search method, and the builder has no or(): pass one query object instead' : search ? 'its search takes no free text' : 'no search method';
         out.push(`${where}: ${why}`);
-        out.push(fields
-          ? `  the term: filter: { $or: [${fields.slice(0, 2).map((f) => `{ '${f}': { $startsWith: term } }`).join(', ')}${fields.length > 2 ? ', …' : ''}] } on the text fields ${capped(fields)}`
-          : '  the term: filter $or, one $startsWith clause per text field (the package does not list the fields: the method docs page does)');
-        out.push('  $startsWith is a prefix match: no generated filter list has $contains, so a term inside a value matches only through a search method');
+        const or = fields && `filter: { $or: [${fields.slice(0, 2).map((f) => `{ '${f}': { $startsWith: term } }`).join(', ')}${fields.length > 2 ? ', …' : ''}] }`;
+        if (!fields) out.push('  the term: filter $or, one $startsWith clause per text field (the package does not list the fields: the method docs page does)');
+        else if (listed.length) out.push(`  the term: ${or} on the text fields ${capped(listed)}`);
+        else out.push(`  the term: ${or}`);
+        if (any.length) {
+          out.push(`  ${listed.length ? 'also ' : ''}text fields with operators '*' (the service decides per field): ${capped(any)}`);
+          out.push('  the method docs page lists which of them take $startsWith; for the others use an exact $eq');
+        }
+        out.push('  $startsWith is a prefix match; for a match inside a value, look for $contains on the method docs page (the package declares it for no field)');
         if (form === builder) out.push('  an API may implement only part of WQL: if its docs page rules out $or, use ONE field and say so to the user');
         out.push(merge);
       } else if (orBuilder) {

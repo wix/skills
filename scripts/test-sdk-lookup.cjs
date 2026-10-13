@@ -104,12 +104,36 @@ test('a builder with no filter sends the call to the query object, and an empty 
 });
 
 test('without free text, a search term goes in $startsWith on the string fields of the filter list, ids left out', () => {
+  const [r] = json('members', '--intent', 'search');
+  assert.deepEqual(method(r.candidates[0], 'queryMembers').textFields, ['loginEmail', 'contact.firstName'], 'a nested string field is followed; _id is left out');
+});
+
+test('a string field under operators * is offered with a docs check, not as a sure $startsWith', () => {
   const [r] = json('services', '--intent', 'search');
-  assert.deepEqual(method(r.candidates[0], 'queryServices').textFields, ['name']);
+  const m = method(r.candidates[0], 'queryServices');
+  assert.deepEqual(m.textFields, []);
+  assert.deepEqual(m.textFieldsAny, ['name']);
   const { out } = run('services', '--intent', 'search');
   assert.match(out, /^shape services\.queryServices\(\{ paging, filter, sort \}\): no search method, and the builder has no or\(\): pass one query object instead$/m);
-  assert.match(out, /the term: filter: \{ \$or: \[\{ 'name': \{ \$startsWith: term \} \}\] \} on the text fields name$/m);
-  assert.match(out, /\$startsWith is a prefix match/);
+  assert.match(out, /the term: filter: \{ \$or: \[\{ 'name': \{ \$startsWith: term \} \}\] \}$/m);
+  assert.match(out, /text fields with operators '\*' \(the service decides per field\): name$/m);
+  assert.match(out, /for the others use an exact \$eq/);
+  assert.doesNotMatch(out, /no text match/);
+});
+
+test('free text in a query method\'s options is the search, with its field default named', () => {
+  const [r] = json('members', '--intent', 'search');
+  const q = method(r.candidates[0], 'queryMembers');
+  assert.deepEqual(q.optionsSearch, {
+    param: 'options',
+    fields: ['loginEmail', 'contact.firstName', 'contact.lastName', 'profile.title', 'profile.nickname', 'profile.slug'],
+    default: 'profile.nickname',
+    max: 4,
+  });
+  const { out } = run('members', '--intent', 'search');
+  assert.match(out, /^shape members\.queryMembers\(\{ search: \{ expression: term, fields \} \}\)\.find\(\): no search method; free text in its options\.search$/m);
+  assert.match(out, /search\.fields defaults to profile\.nickname alone: name every field the term must match \(at most 4\)/);
+  assert.doesNotMatch(out, /startsWith on ONE field/);
 });
 
 test('a filter list with no text field says the API cannot match a term, not to filter in the client', () => {

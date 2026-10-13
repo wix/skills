@@ -1,0 +1,52 @@
+// Trimmed from @wix/auto_sdk_members_members@1.0.138 build/cjs/index.typings.d.ts:
+// no search method, but a builder whose options take free text
+// (`options.search: { expression, fields }`, fields defaulting to one).
+interface Member {
+    _id?: string | null;
+    loginEmail?: string | null;
+    contact?: Contact;
+}
+interface Contact {
+    firstName?: string | null;
+}
+interface Search {
+    /**
+     * Search term or expression.
+     * @minLength 1
+     * @maxLength 100
+     */
+    expression?: string | null;
+    /**
+     * Currently supported fields for search:
+     *
+     * - `loginEmail`
+     * - `contact.firstName`
+     * - `contact.lastName`
+     * - `profile.title`
+     * - `profile.nickname`
+     * - `profile.slug`
+     *
+     * Default: `profile.nickname`.
+     * @maxSize 4
+     */
+    fields?: string[];
+}
+interface QueryMembersOptions {
+    /** Plain text search. */
+    search?: Search | undefined;
+}
+/**
+ * Retrieves a list of up to 100 members, given the specified filters, fieldsets, sorting and paging.
+ * @public
+ * @permissionId MEMBERS.MEMBER_READ
+ * @applicableIdentity APP
+ * @fqn com.wixpress.members.api.Members.QueryMembers
+ */
+declare function queryMembers(options?: QueryMembersOptions): MembersQueryBuilder;
+interface MembersQueryBuilder {
+    eq: (propertyName: '_id' | 'loginEmail' | 'contact.firstName', value: any) => MembersQueryBuilder;
+    startsWith: (propertyName: '_id' | 'loginEmail' | 'contact.firstName', value: string) => MembersQueryBuilder;
+    find: () => Promise<{ items: Member[] }>;
+}
+
+export { type Member, type MembersQueryBuilder, type QueryMembersOptions, type Search, queryMembers };

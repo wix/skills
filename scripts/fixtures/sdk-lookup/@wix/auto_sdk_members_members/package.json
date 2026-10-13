@@ -1,0 +1,14 @@
+{
+  "name": "@wix/auto_sdk_members_members",
+  "version": "1.0.138",
+  "main": "./build/cjs/index.js",
+  "types": "./build/cjs/index.d.ts",
+  "dependencies": {
+    "@wix/sdk-runtime": "^1.0.24",
+    "@wix/sdk-types": "^1.17.11"
+  },
+  "wix": {
+    "artifact": { "artifactId": "auto-sdk-members-members", "groupId": "com.wixpress.public-sdk-dependencies" },
+    "sdkDependency": { "fqdnNamespace": "members", "fqdn": "wix.members.v1.member" }
+  }
+}
