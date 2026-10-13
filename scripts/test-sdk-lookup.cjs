@@ -141,7 +141,9 @@ test('a filter list with no text field says the API cannot match a term, not to 
   const v4 = r.candidates.find((c) => c.namespace === 'contacts');
   assert.deepEqual(method(v4, 'queryContacts').textFields, []);
   assert.match(v4.shape[0], /^contacts\.queryContacts\(\): no text match in the package/);
-  assert.ok(v4.shape.some((l) => /never filter one page in the client/.test(l)));
+  assert.ok(v4.shape.some((l) => /never match only the loaded page, or a capped or cached set/.test(l)));
+  assert.ok(v4.shape.some((l) => /next: its docs page \(SearchWixSDKDocumentation "queryContacts"\), not the typings/.test(l)));
+  assert.ok(!v4.shape.some((l) => /types search\.expression/.test(l)), 'a builder has no search argument');
 });
 
 test('when the package does not list the filter fields, the term line points to the docs page', () => {

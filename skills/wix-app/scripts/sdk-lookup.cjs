@@ -756,9 +756,16 @@ function shapeFor(record, ns, intent) {
       const where = form === builder ? queryCall(builder) : target && `${call(target)}${target === builder ? '()' : ''}`;
       const merge = '  never run one query per field and merge the results in the client';
       if (fields && !fields.length) {
-        out.push(`${where}: no text match in the package: no free-text search, and no text field takes $startsWith`);
-        out.push('  read the method docs page; if it lists none either, tell the user the API cannot match a search term');
-        out.push('  never filter one page in the client and present it as a search');
+        // A search argument can carry `search: { expression }` (the generic
+        // search object) while the spec declares no searchable field: the
+        // type accepts a term the service has no field to match it on.
+        const typed = search && /\bsearch: \{[^}]*\bexpression\b/.test(search.arg ?? '');
+        out.push(`${where}: no text match in the package: no searchable field, and no text field takes $startsWith`);
+        if (typed) out.push('  its argument types search.expression, but its search spec declares no searchable field: do not rely on it unless the docs page lists searchable fields');
+        out.push(`  next: its docs page (SearchWixSDKDocumentation "${target.name}"), not the typings: nothing more is in the package`);
+        out.push('  if the docs list no text filter either, tell the user the API cannot match a search term;');
+        out.push('  a search then reads every page (cursor) and matches the values itself, re-read on each search, with no silent cap');
+        out.push('  never match only the loaded page, or a capped or cached set, and present it as a search');
       } else if (form) {
         const why = form === builder ? 'no search method, and the builder has no or(): pass one query object instead' : search ? 'its search takes no free text' : 'no search method';
         out.push(`${where}: ${why}`);
