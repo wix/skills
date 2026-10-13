@@ -1,5 +1,5 @@
 # Synced from the Automations builder skill; see README.md for maintenance and review fixes.
-# Source content SHA-256: c36adeb3b584e32f7dbbc2b01fd39086817ca4118212b23532cedce93b3c2b12
+# Source content SHA-256: 1b34f1c9f6df59f5fc68b93c884d108b4c92c773e661da9742f14ab969858321
 apiDoc:
   title: Wix Automations Recipes
 
@@ -30,6 +30,10 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/entity-ids-and-providers.md
       title: "Automations Entity and Provider Configuration"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/item-selection.md
+      title: "Automations Item Selection"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/email-actions.md
