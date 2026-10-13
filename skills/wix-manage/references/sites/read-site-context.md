@@ -51,6 +51,10 @@ Response:
 - **Wix Blog** (ID: `14bcded7-0066-7c35-14d7-466cb3f09103`)
 ```
 
+The app list reflects installs after a delay: an app installed a few minutes ago can be missing here
+while its own API already answers. To check an install you just made, read the site's instances with
+[List Installed Apps](../app-installation/list-installed-apps.md), which is immediate.
+
 ### Without siteId
 
 ```bash

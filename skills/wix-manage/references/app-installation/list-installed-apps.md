@@ -8,7 +8,10 @@ This recipe guides you through listing all installed apps on a Wix site using th
 
 ## Prerequisites
 
-- Site ID for the site you want to check
+- A token scoped to the site: the call takes no site parameter and answers for the site the token is
+  for. With the Wix CLI, `npx @wix/cli@latest token --site <siteId>`; through the Wix MCP, `ExecuteWixAPI`
+  with `scope: 'site'` and the `siteId`. An account token, with or without a `wix-site-id` header, answers
+  an empty list, which looks like a site with no apps.
 
 ## Required APIs
 
@@ -18,7 +21,10 @@ This recipe guides you through listing all installed apps on a Wix site using th
 
 ## Step 1: Query Installed Apps
 
-Use the Get Installed Apps endpoint to retrieve all apps installed on a site.
+Use the Get Installed Apps endpoint to retrieve all apps installed on a site. It returns every app
+instance, including the dozens of platform apps every site carries, as ids only: the response has no
+names. [Read Account or Site Context](../sites/read-site-context.md) returns the same list with each
+app's display name in one call; use this endpoint when you need the instance ids or the raw list.
 
 **Endpoint**: `GET https://www.wixapis.com/apps-installer-service/v1/app-instances`
 
@@ -26,7 +32,7 @@ Use the Get Installed Apps endpoint to retrieve all apps installed on a site.
 ```bash
 curl -X GET \
   'https://www.wixapis.com/apps-installer-service/v1/app-instances' \
-  -H 'Authorization: <AUTH>' \
+  -H "Authorization: $(npx @wix/cli@latest token --site <SITE_ID>)" \
   -H 'Content-Type: application/json'
 ```
 
@@ -36,8 +42,7 @@ curl -X GET \
   "appInstances": [
     {
       "id": "instance-id-1",
-      "appDefId": "1380b703-ce81-ff05-f115-39571d94dfcd",
-      "version": "^0.0.0",
+      "appDefId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
       "enabled": true,
       "status": "UNKNOWN"
     },
@@ -61,12 +66,17 @@ Match the `appDefId` values from the response against known Wix app IDs.
 
 | App | appDefId |
 |-----|----------|
-| Wix Stores | `1380b703-ce81-ff05-f115-39571d94dfcd` |
+| Wix Stores | `215238eb-22a5-4c36-9e7b-e7c08025e04e` |
+| Wix Checkout & Orders (installed with Stores) | `1380b703-ce81-ff05-f115-39571d94dfcd` |
 | Wix Bookings | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` |
 | Wix Blog | `14bcded7-0066-7c35-14d7-466cb3f09103` |
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
-| Wix Restaurants | `13e8d036-5516-6f75-e025-2aca3b5d7930` |
+| Wix CMS (Wix Data) | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
+| Wix Forms | `225dd912-7dea-4738-8688-4b8c6955ffc2` |
+| Wix Restaurants Menus | `b278a256-2757-4f19-9313-c05c783bec92` |
+| Wix Restaurants Orders (online ordering) | `9a5d83fd-8570-482e-81ab-cfa88942ee60` |
+| Wix Table Reservations | `f9c07de2-5341-40c6-b096-8eb39de391fb` |
 
 For a complete list, see [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix).
 
@@ -111,8 +121,8 @@ If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
 - Check that the token has `APP-MARKET.VIEW-INSTALLED-APP` permission
 
 ### Empty Response
-- The site may have no additional apps installed beyond core Wix functionality
-- This is normal for new or minimal sites
+- Every site carries dozens of platform app instances, so an empty list means the token was not scoped to
+  the site (an account token answers empty), not a site with no apps. Mint a site token and call again.
 
 ---
 

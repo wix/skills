@@ -1,0 +1,33 @@
+name: app-installation/list-installed-apps-site-token
+description: >-
+  Verifies the agent reads the list-installed-apps skill and answers "is Wix Stores on this site" with
+  the Apps Installer read, scoped to the site, matching the Stores appDefId (not Checkout & Orders),
+  or with the one-call site context.
+triggerPrompt: >-
+  Before I start adding products through the API, check whether my site 6f1c0c2e-3b8a-4e1d-9a7f-2c5d8e4b1a90
+  has the Wix Stores app installed. Which call do you make, and what in the response tells you?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/list-installed-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to know whether Wix Stores is installed on a specific site before calling the Stores API.
+      Intent: read the site's installed apps and look for the Wix Stores app by its appDefId.
+
+      Pass if the response:
+      - reads the installed apps either with GET https://www.wixapis.com/apps-installer-service/v1/app-instances
+        scoped to the site (a site-scoped token, or ExecuteWixAPI with scope site and the siteId), or with the
+        site-context call (dynamic-context) that lists installed apps by name, AND
+      - identifies Wix Stores by the appDefId 215238eb-22a5-4c36-9e7b-e7c08025e04e (or by the display name
+        "Wix Stores" in the context output), AND
+      - says what to do when it is missing: install it with the Apps Installer install endpoint.
+
+      Fail if the response:
+      - treats 1380b703-ce81-ff05-f115-39571d94dfcd (Wix Checkout & Orders) as the Wix Stores id, OR
+      - reads an empty list from an account-level call and concludes the site has no apps, OR
+      - invents an appDefId, OR
+      - gives no concrete call.
