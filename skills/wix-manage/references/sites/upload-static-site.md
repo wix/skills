@@ -270,15 +270,22 @@ Its commands run:
 
 ## Images
 
-You never write an image's bytes yourself, as base64 or in any other form: model
-output corrupts them past a few thousand characters, and every byte costs tokens.
-An SVG is text and goes in like a page. Every other image reaches Wix one of four
-ways:
+An SVG is text and goes in like a page. Every other image is bytes, and bytes
+reach Wix one of these ways, in this order of preference:
 
 1. **With a shell that reaches Wix**, in the `curl` drop, from disk.
 2. **When your files travel as files**, inside the zip you pass the upload tool.
-3. **A public URL**: the page keeps the absolute URL.
-4. **The user uploads it** to the site's Media Manager. This is the way for images
+3. **A public URL**: the page keeps the absolute URL, or the Wix MCP's
+   `UploadImageToWixSite` imports it into the site's media (`imageUrls`) and the
+   page points at the returned `static.wixstatic.com` address. A share page
+   (Dropbox, Drive) is not a file URL; a direct link is.
+4. **`imageBase64` on `UploadImageToWixSite`**, when you can read the file and
+   encode it yourself (a shell, a file API): one image per call, the raw base64
+   with its `mimeType`. Encoding it from a file works; typing it out does not: a
+   model cannot reproduce a long base64 string faithfully, so a string that was
+   not produced by a tool comes back as an `atob` error or a corrupt image.
+   Never put image bytes in the `files` bundle beyond a few KB (an icon).
+5. **The user uploads it** to the site's Media Manager. This is the way for images
    that exist only as files you can't send. Publish the pages first, then name
    the missing files, give the user
    `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them to
@@ -286,9 +293,12 @@ ways:
    match each to the page's reference by `displayName`, point the reference at the
    file's `static.wixstatic.com` URL, and drop again.
 
-Never stand in drawings or placeholders of your own for the user's images, and
-never shrink or re-encode them. The closing message names every image still
-missing.
+`attachments` on a Wix MCP tool carries a file only from ChatGPT or Codex, which
+swap it for a download URL before the call reaches Wix. From any other client it
+arrives as the path you wrote, and Wix cannot read a path on your machine; the
+answer does not change on a retry. An image you could not send is named in the
+closing message. Never stand in drawings or placeholders of your own for the
+user's images, and never shrink or re-encode them.
 
 ## Publish anonymously
 
