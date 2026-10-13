@@ -31802,6 +31802,7 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.semanticPlusDraftTags = exports.draftOnlyTags = exports.SyncActionKind = void 0;
 exports.toScenarioBody = toScenarioBody;
+exports.isDraftOnlyScenario = isDraftOnlyScenario;
 exports.diffSyncPlan = diffSyncPlan;
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
@@ -31823,6 +31824,15 @@ const semanticPlusDraftTags = (scenario, draftTag) => [...scenario.tags, draftTa
 exports.semanticPlusDraftTags = semanticPlusDraftTags;
 function foreignDraftTags(tags, myDraftTag) {
     return tags.filter(tag => tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag);
+}
+/**
+ * True for a draft written by `draftOnlyTags`: nothing on it but the draft tag and the managed
+ * code-origin tags. Scenarios always carry a semantic tag, so a draft kept by
+ * `semanticPlusDraftTags` (another gate's) never matches.
+ */
+function isDraftOnlyScenario(entry, draftTag, repo) {
+    const own = new Set([draftTag, ...(0, evalforge_1.managedTagsFor)(repo)]);
+    return entry.tags.every(tag => own.has(tag));
 }
 function diffSyncPlan(input) {
     const { changedHead, head, base, remote, draftTag, repo } = input;
@@ -31860,6 +31870,18 @@ function diffSyncPlan(input) {
         }
         else {
             actions.push({ kind: exports.SyncActionKind.DEFER_DELETE, id: match.id, name });
+        }
+    }
+    // Orphans: drafted by an earlier push of this PR, then renamed or removed before merge. They were
+    // never in base, so the loop above can't see them, and the comparison runs by draft tag.
+    if (input.isOwnedDraft) {
+        const handled = new Set(actions.map(a => a.name));
+        for (const entry of remote) {
+            if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name))
+                continue;
+            if (entry.tags.includes(draftTag) && input.isOwnedDraft(entry)) {
+                actions.push({ kind: exports.SyncActionKind.DELETE, id: entry.id, name: entry.name });
+            }
         }
     }
     return { actions, errors };
