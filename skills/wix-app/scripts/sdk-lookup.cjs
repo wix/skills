@@ -763,14 +763,20 @@ function shapeFor(record, ns, intent) {
         const why = form === builder ? 'no search method, and the builder has no or(): pass one query object instead' : search ? 'its search takes no free text' : 'no search method';
         out.push(`${where}: ${why}`);
         const or = fields && `filter: { $or: [${fields.slice(0, 2).map((f) => `{ '${f}': { $startsWith: term } }`).join(', ')}${fields.length > 2 ? ', …' : ''}] }`;
-        if (!fields) out.push('  the term: filter $or, one $startsWith clause per text field (the package does not list the fields: the method docs page does)');
-        else if (listed.length) out.push(`  the term: ${or} on the text fields ${capped(listed)}`);
-        else out.push(`  the term: ${or}`);
-        if (any.length) {
-          out.push(`  ${listed.length ? 'also ' : ''}text fields with operators '*' (the service decides per field): ${capped(any)}`);
-          out.push('  the method docs page lists which of them take $startsWith; for the others use an exact $eq');
+        // The package has nothing more to find when it lists no fields: say so,
+        // or the agent greps the typings and the compiled JS for operators.
+        if (!fields) {
+          out.push('  the term: filter $or, one clause per text field — the package has no filter list for this method');
+          out.push(`  next: its docs page (SearchWixSDKDocumentation "${target.name} filter"), not the typings or the compiled JS: nothing more is in the package`);
+          out.push('  the docs page lists the fields and operators: $contains where a field takes it (a match inside a value), else $startsWith (a prefix)');
+        } else {
+          out.push(listed.length ? `  the term: ${or} on the text fields ${capped(listed)}` : `  the term: ${or}`);
+          if (any.length) {
+            out.push(`  ${listed.length ? 'also ' : ''}text fields with operators '*' (the service decides per field): ${capped(any)}`);
+            out.push('  the method docs page lists which of them take $startsWith; for the others use an exact $eq');
+          }
+          out.push('  $startsWith is a prefix match; the package lists $contains for no field: for a match inside a value, check the method docs page');
         }
-        out.push('  $startsWith is a prefix match; for a match inside a value, look for $contains on the method docs page (the package declares it for no field)');
         if (form === builder) out.push('  an API may implement only part of WQL: if its docs page rules out $or, use ONE field and say so to the user');
         out.push(merge);
       } else if (orBuilder) {

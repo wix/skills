@@ -147,7 +147,10 @@ test('a filter list with no text field says the API cannot match a term, not to 
 test('when the package does not list the filter fields, the term line points to the docs page', () => {
   const [r] = json('extendedBookings', '--intent', 'search');
   assert.equal(method(r.candidates[0], 'queryExtendedBookings').textFields, undefined);
-  assert.match(run('extendedBookings', '--intent', 'search').out, /the term: filter \$or, one \$startsWith clause per text field \(the package does not list the fields: the method docs page does\)/);
+  const { out } = run('extendedBookings', '--intent', 'search');
+  assert.match(out, /the term: filter \$or, one clause per text field — the package has no filter list for this method$/m);
+  assert.match(out, /next: its docs page \(SearchWixSDKDocumentation "queryExtendedBookings filter"\), not the typings or the compiled JS/);
+  assert.match(out, /\$contains where a field takes it/);
 });
 
 test('a write method needs the revision', () => {
