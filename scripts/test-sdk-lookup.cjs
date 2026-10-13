@@ -103,6 +103,29 @@ test('a builder with no filter sends the call to the query object, and an empty 
   assert.doesNotMatch(search, /startsWith on ONE field/);
 });
 
+test('without free text, a search term goes in $startsWith on the string fields of the filter list, ids left out', () => {
+  const [r] = json('services', '--intent', 'search');
+  assert.deepEqual(method(r.candidates[0], 'queryServices').textFields, ['name']);
+  const { out } = run('services', '--intent', 'search');
+  assert.match(out, /^shape services\.queryServices\(\{ paging, filter, sort \}\): no search method, and the builder has no or\(\): pass one query object instead$/m);
+  assert.match(out, /the term: filter: \{ \$or: \[\{ 'name': \{ \$startsWith: term \} \}\] \} on the text fields name$/m);
+  assert.match(out, /\$startsWith is a prefix match/);
+});
+
+test('a filter list with no text field says the API cannot match a term, not to filter in the client', () => {
+  const [r] = json('contacts', '--intent', 'search');
+  const v4 = r.candidates.find((c) => c.namespace === 'contacts');
+  assert.deepEqual(method(v4, 'queryContacts').textFields, []);
+  assert.match(v4.shape[0], /^contacts\.queryContacts\(\): no text match in the package/);
+  assert.ok(v4.shape.some((l) => /never filter one page in the client/.test(l)));
+});
+
+test('when the package does not list the filter fields, the term line points to the docs page', () => {
+  const [r] = json('extendedBookings', '--intent', 'search');
+  assert.equal(method(r.candidates[0], 'queryExtendedBookings').textFields, undefined);
+  assert.match(run('extendedBookings', '--intent', 'search').out, /the term: filter \$or, one \$startsWith clause per text field \(the package does not list the fields: the method docs page does\)/);
+});
+
 test('a write method needs the revision', () => {
   const [r] = json('contacts', '--intent', 'write');
   assert.deepEqual(method(r.candidates[0], 'updateContact').required, ['revision']);

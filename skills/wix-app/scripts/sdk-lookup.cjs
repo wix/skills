@@ -279,6 +279,20 @@ function shapeOfBody(sources, body, skip, depth) {
   return `{ ${keys.length > 8 ? [...keys.slice(0, 8), '…'].join(', ') : keys.join(', ')} }`;
 }
 
+// The declared type of a dotted field path (`contact.firstName`) in a type
+// body, with `| null` dropped; a builder's `category.id` is the type's `_id`.
+function fieldType(sources, body, dotted) {
+  const parts = dotted.split('.');
+  for (let i = 0; body && i < parts.length; i++) {
+    const m = membersOf(body).find((x) => x.name === parts[i] || x.name === `_${parts[i]}`);
+    if (!m) return null;
+    const t = m.type.trim().replace(/;$/, '').replace(/\s*\|\s*(null|undefined)\b/g, '').trim();
+    if (i === parts.length - 1) return t;
+    body = t.startsWith('{') ? t.slice(1, t.lastIndexOf('}')) : typeBody(sources, t.match(/^(\w+)/)?.[1] ?? '');
+  }
+  return null;
+}
+
 function deriveRecord(name, dir) {
   const pj = readJson(path.join(dir, 'package.json'));
   const dep = pj.wix?.sdkDependency ?? {};
@@ -458,6 +472,26 @@ function deriveRecord(name, dir) {
       meth.queryForm = form;
       break;
     }
+  }
+
+  // The fields a search term can go in without a free-text search: those that
+  // take $startsWith and are declared `string` on the entity, ids and numbers
+  // in a string (`price.amount`, `taxRate`, `revision`) left out. [] means the package lists the
+  // operators and none fits; no `textFields` means the package does not list
+  // them (the docs page does).
+  const entity = searchSpec?.entity ?? querySpec?.entity ?? entityType;
+  const entityBody = entity && typeBody(sources, entity);
+  const notText = (f) => /(^|\.)(_?id|amount|value|revision)$|(Id|Count|Rate)$/.test(f);
+  for (const meth of methods.values()) {
+    if (!['search', 'query', 'query-builder'].includes(meth.kind)) continue;
+    const sw = meth.builder?.startsWith;
+    let fields;
+    if (meth.filterable) {
+      fields = Object.entries(meth.filterable).filter(([, f]) => f.ops.includes('$startsWith') || f.ops.includes('*')).map(([k]) => k);
+      if (sw && !sw.includes('*')) fields.push(...sw.filter((f) => !fields.includes(f)));
+    } else if (meth.builder && !meth.filterUnlisted && !sw?.includes('*')) fields = sw ?? [];
+    if (!fields) continue;
+    meth.textFields = fields.filter((f) => !notText(f) && (!entityBody || fieldType(sources, entityBody, f) === 'string'));
   }
 
   // The keys of a search, query or list method's argument and response, so a
@@ -662,7 +696,6 @@ function shapeFor(record, ns, intent) {
   const call = (m) => `${ns ?? 'sdk'}.${m.name}`;
   const textFields = (m) =>
     m?.filterable ? Object.entries(m.filterable).filter(([, f]) => f.search).map(([k]) => k) : null;
-  const builderFields = (op) => builder?.builder?.[op] ?? null;
   const queryCall = (m) => `${call(m)}({ ${(m.queryForm.keys?.length ? m.queryForm.keys : ['filter', 'sort']).join(', ')} })`;
   const out = [];
 
@@ -670,21 +703,35 @@ function shapeFor(record, ns, intent) {
     if (search && search.freeText !== false) {
       const fields = textFields(search);
       out.push(`${call(search)}({ search: { expression: term } }): one call${fields ? `; the term matches ${fields.join(', ')}` : ''}; exact-match facets go in filter`);
-    } else if (search || query) {
-      const m = search ?? query;
-      out.push(`${call(m)}: no free text; one filter object with $or, one clause per field the term may match (operators from its filter list)`);
-    } else if (builder?.builder?.or) {
-      out.push(`${call(builder)}(): no search method; the builder has or(), so chain one .startsWith() per field inside .or()`);
-    } else if (builder?.queryForm) {
-      out.push(`${queryCall(builder)}: no search method, and the builder has no or(): pass one query object instead`);
-      out.push(`  its filter is WQL: $or with one clause per field the term may match (operators from ${builder.filterable ? 'its filter list' : 'its docs page'})`);
-      out.push('  an API may implement only part of WQL: if its docs page rules out $or, use ONE field and say so to the user');
-      out.push('  never run one query per field and merge the results in the client');
-    } else if (builder) {
-      const sw = builderFields('startsWith');
-      out.push(`${call(builder)}(): no search method, and the builder chains clauses with AND and has no or()`);
-      out.push(`  so one builder call cannot match a term in any of several fields: use startsWith on ONE field${sw?.length ? ` (${sw.join(', ')})` : ''}, and say so to the user`);
-      out.push('  never run one query per field and merge the results in the client');
+    } else {
+      // Without free text, a term goes in $startsWith on the text fields: a
+      // prefix match. None of them → the server cannot match a term at all.
+      const orBuilder = builder?.builder?.or;
+      const form = search ?? query ?? (builder?.queryForm && !orBuilder ? builder : null);
+      const target = form ?? builder;
+      const fields = target?.textFields;
+      const where = form === builder ? queryCall(builder) : target && `${call(target)}${target === builder ? '()' : ''}`;
+      const merge = '  never run one query per field and merge the results in the client';
+      if (fields && !fields.length) {
+        out.push(`${where}: no text match in the package: no free-text search, and no text field takes $startsWith`);
+        out.push('  read the method docs page; if it lists none either, tell the user the API cannot match a search term');
+        out.push('  never filter one page in the client and present it as a search');
+      } else if (form) {
+        const why = form === builder ? 'no search method, and the builder has no or(): pass one query object instead' : search ? 'its search takes no free text' : 'no search method';
+        out.push(`${where}: ${why}`);
+        out.push(fields
+          ? `  the term: filter: { $or: [${fields.slice(0, 2).map((f) => `{ '${f}': { $startsWith: term } }`).join(', ')}${fields.length > 2 ? ', …' : ''}] } on the text fields ${capped(fields)}`
+          : '  the term: filter $or, one $startsWith clause per text field (the package does not list the fields: the method docs page does)');
+        out.push('  $startsWith is a prefix match: no generated filter list has $contains, so a term inside a value matches only through a search method');
+        if (form === builder) out.push('  an API may implement only part of WQL: if its docs page rules out $or, use ONE field and say so to the user');
+        out.push(merge);
+      } else if (orBuilder) {
+        out.push(`${where}: no search method; the builder has or(), so chain one .startsWith() per field inside .or()${fields ? ` (${capped(fields)})` : ''}`);
+      } else if (builder) {
+        out.push(`${where}: no search method, and the builder chains clauses with AND and has no or()`);
+        out.push(`  so one builder call cannot match a term in any of several fields: use startsWith on ONE field${fields?.length ? ` (${capped(fields)})` : ''}, and say so to the user`);
+        out.push(merge);
+      }
     }
   } else if (intent === 'read') {
     if (builder) {
