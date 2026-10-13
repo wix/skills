@@ -92,7 +92,7 @@ curl -X POST \
 
 Before installing, refer to the [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix) documentation to find the correct `appDefId` for the app you want to install.
 
-Some common apps (`appDefId`; [Read Account or Site Context](../sites/read-site-context.md) shows which of them a site already has):
+Some common apps (`appDefId`; [List Installed Apps](list-installed-apps.md) shows which of them a site already has):
 | App | appDefId |
 |-----|----------|
 | Wix Stores | `215238eb-22a5-4c36-9e7b-e7c08025e04e` |

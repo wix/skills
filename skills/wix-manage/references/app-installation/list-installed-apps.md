@@ -23,8 +23,8 @@ This recipe guides you through listing all installed apps on a Wix site using th
 
 Use the Get Installed Apps endpoint to retrieve all apps installed on a site. It returns every app
 instance, including the dozens of platform apps every site carries, as ids only: the response has no
-names. [Read Account or Site Context](../sites/read-site-context.md) returns the same list with each
-app's display name in one call; use this endpoint when you need the instance ids or the raw list.
+names; match them against the table in Step 2. [Read Account or Site Context](../sites/read-site-context.md)
+has the names, but its list can lag an install by many minutes; this call is immediate.
 
 **Endpoint**: `GET https://www.wixapis.com/apps-installer-service/v1/app-instances`
 
