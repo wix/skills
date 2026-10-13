@@ -432,7 +432,7 @@ its `id`, its `choices` (by `optionChoiceIds` — or `optionChoiceNames`, see *G
 ```bash
 # A choice image + a variant's sale price, one PATCH. Both arrays are complete and keep their ids —
 
-> The Wix Stores app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+> These calls need the Wix Stores app on the site; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [Read Account or Site Context](../sites/read-site-context.md) shows the installed apps in one call; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it.
 
 # keep the option and choice IDs when rebuilding the options array, and each variant
 # with its choices and price. Omitting those identities or required variant fields can reject the update.

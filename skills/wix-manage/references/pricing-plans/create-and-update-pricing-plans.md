@@ -4,7 +4,7 @@ description: Creates subscription and one-time payment plans using Plans API. Co
 ---
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Pricing Plans (Real-World, API-First)
 
-> The Wix Pricing Plans app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+> These calls need the Wix Pricing Plans app on the site; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [Read Account or Site Context](../sites/read-site-context.md) shows the installed apps in one call; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it.
 
 
 ## Description

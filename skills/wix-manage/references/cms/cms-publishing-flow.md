@@ -4,7 +4,7 @@ description: "Interact with CMS collections that gate their items behind a draft
 ---
 # CMS Draft & Publish Workflow
 
-> The Wix CMS app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+> These calls need the Wix CMS app on the site; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [Read Account or Site Context](../sites/read-site-context.md) shows the installed apps in one call; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it.
 
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
