@@ -5,6 +5,9 @@ description: Find, search, query, and list products from a Wix Store using Catal
 
 # RECIPE: Business Recipe – Find Products in a Wix Store (Query and Search, Catalog V3)
 
+> The Wix Stores app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 Find products in a Wix store using the Catalog V3 Search Products and Query Products APIs.
 
 ## Article: How to Find Products

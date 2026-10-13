@@ -5,6 +5,9 @@ description: Mandatory first recipe for every Wix Stores Catalog V3 create-produ
 
 # Create Product (Catalog V3)
 
+> The Wix Stores app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 Use this recipe for one or multiple Catalog V3 products. Catalog V1 remains supported through [Create Product (Catalog V1)](create-product-catalog-v1.md).
 
 > [!IMPORTANT]

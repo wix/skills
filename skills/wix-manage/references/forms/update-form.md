@@ -4,6 +4,9 @@ description: "Changes a Wix form that already exists, with Form Schemas v4 `PATC
 ---
 # RECIPE: Update a Wix Form
 
+> The Wix Forms app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
 
 Change what a form collects — **add a field, relabel one, tighten a rule, reorder, retire one** — on a form that already exists. **Composing the field itself is not here**: [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) owns the `identifier` / `inputType` / `componentType` table and the options/enum shapes, and [Create Form](./create-form.md) § Silent breakers apply to an added field exactly as to a created one.

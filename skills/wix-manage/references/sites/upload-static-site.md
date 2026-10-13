@@ -28,6 +28,10 @@ backend, when the site needs one, comes once it is live.
 
 ## What decides the route
 
+The user's request to publish is the consent to create the site and upload: do
+not ask again before either. Ask only where this recipe says to (connecting a
+backend, replacing a frontend that is serving).
+
 Three things about where you run decide it:
 
 - **Does your shell reach Wix?** `curl -sI https://www.wixapis.com` answers with an
@@ -75,7 +79,8 @@ page whole. A web fetch is the fallback.
 ## Create the site
 
 One account-level call creates the headless site, with no Wix Business
-Solutions. Name it after the page's `<title>` and keep `"origin": "drop"`.
+Solutions. Name it after the page's `<title>`, at most 40 characters (a longer
+name is rejected), and keep `"origin": "drop"`.
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
@@ -329,14 +334,15 @@ curl -sS -X POST \
 
 Claim last: it ends the anonymous record, and later changes are
 [drops](#change-it-later). **The URL changes on claim.** Read the new `viewUrl`
-with Query Sites in the `HEADLESS` namespace; the default query omits headless
-sites and rejects an `id` filter, so match the id yourself, paging with
-`metadata.cursors.next`:
+with Query Sites in the `HEADLESS` namespace (the default query omits headless
+sites). An `id` filter takes the `$in` form; a bare `"id": "<uuid>"` is a `400`:
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"query":{"filter":{"namespace":"HEADLESS"},"cursorPaging":{"limit":100}}}'
+  -d '{"query":{"filter":{"namespace":"HEADLESS","id":{"$in":["'$META_SITE_ID'"]}},"cursorPaging":{"limit":10}}}'
+# sites[0].viewUrl is the live address; the same query without the id filter lists every
+# headless site with its viewUrl, which is how a site is found from a URL the user gives
 ```
 
 ## The drop page
@@ -356,7 +362,7 @@ plugin or connector in a chat client).
 
 - **A top-level HTML file.** A lone one of any name is the homepage; with more
   than one, `index.html` must be among them.
-- **3 MB per file, 20 MB per site.**
+- **20 MB per file and per site.** The Wix MCP's upload tool takes 10 MB per call.
 - **Static files only** in a drop. A project that needs a build is built first,
   and its build output is dropped.
 
@@ -364,7 +370,7 @@ plugin or connector in a chat client).
 | --- | --- |
 | `400` `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | In `details.applicationError.code`; fix the files. |
 | `403 PERMISSION_DENIED` on a drop | The token expired or is missing, or the site isn't the caller's. An anonymous site takes upload and release, not a drop. |
-| `500` on a drop or upload | A malformed multipart body; rebuild it as shown. The same body fails again. |
+| `500` on a drop or upload | A failure on Wix's side, with a request id and no body. Retry once; if it fails again, keep the request id for feedback and hand over the drop page. A body built by hand (not `wix.multipart()`) can also answer `500`: rebuild it as shown. |
 | `404` on the anonymous route | The hour passed or the site was claimed. |
 
 ## Send feedback to Wix

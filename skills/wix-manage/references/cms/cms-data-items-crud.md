@@ -4,6 +4,9 @@ description: "Add, query, update, and delete items in CMS collections, one at a 
 ---
 # CMS Data Items CRUD
 
+> The Wix CMS app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
 This recipe covers Create, Read, Update, Delete (CRUD) operations for Wix CMS data items, plus count, upsert, truncate, aggregate, and reference-field links.

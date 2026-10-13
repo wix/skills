@@ -4,6 +4,9 @@ description: OAuth-based integration with Google Calendar, Microsoft Outlook, an
 ---
 # Technical Step-by-Step Instructions: Connecting External Calendars (Google, Microsoft, Apple) to Wix Bookings (Real-World, API-First)
 
+> The Wix Bookings app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 ## Description
 
 Below are the recommended steps to successfully connect and sync external calendars (Google Calendar, Microsoft Outlook, Apple Calendar) with Wix Bookings, with real-world troubleshooting and fixes for common API issues. This recipe covers the complete OAuth flow, sync configuration, and verification procedures.

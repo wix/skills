@@ -5,6 +5,9 @@ description: Sets up booking policies, cancellation rules, and waitlist configur
 
 # Technical Step-by-Step Instructions: Configuring Wix Bookings Service Policies (Real-World, API-First)
 
+> The Wix Bookings app must be installed on the site before these calls work; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not. Check with [List Installed Apps](../app-installation/list-installed-apps.md) and install it with [Install Wix Apps](../app-installation/install-wix-apps.md).
+
+
 ## Description
 
 Below are the recommended steps to successfully configure booking, cancellation, and waitlist policies for Wix Bookings services. This recipe covers policy inheritance, service-specific overrides, and common policy configurations for different business models.
