@@ -477,10 +477,10 @@ function deriveRecord(name, dir) {
   // The fields a search term can go in without a free-text search, declared
   // `string` on the entity, ids and numbers in a string (`price.amount`,
   // `taxRate`, `revision`) left out. `textFields`: those that list
-  // $startsWith. `textFieldsAny`: those under `operators: '*'`, where the
-  // service decides per field (orders' `number` is `string` in the package
-  // and takes no $startsWith). [] means the package lists the operators and
-  // none fits; no `textFields` means the package does not list them.
+  // $startsWith. `textFieldsAny`: those under `operators: '*'` (every
+  // operator: orders' `number` takes $startsWith on a real site, although its
+  // docs page lists fewer). [] means the package lists the operators and none
+  // fits; no `textFields` means the package does not list them.
   const entity = searchSpec?.entity ?? querySpec?.entity ?? entityType;
   const entityBody = entity && typeBody(sources, entity);
   const notText = (f) => /(^|\.)(_?id|amount|value|revision)$|(Id|Count|Rate)$/.test(f);
@@ -769,6 +769,7 @@ function shapeFor(record, ns, intent) {
       } else if (form) {
         const why = form === builder ? 'no search method, and the builder has no or(): pass one query object instead' : search ? 'its search takes no free text' : 'no search method';
         out.push(`${where}: ${why}`);
+        if (form === search) out.push('  a search.expression here can be ignored with no error (on a real site, searchOrders returned every order): put the term in filter');
         const or = fields && `filter: { $or: [${fields.slice(0, 2).map((f) => `{ '${f}': { $startsWith: term } }`).join(', ')}${fields.length > 2 ? ', …' : ''}] }`;
         // The package has nothing more to find when it lists no fields: say so,
         // or the agent greps the typings and the compiled JS for operators.
@@ -779,8 +780,7 @@ function shapeFor(record, ns, intent) {
         } else {
           out.push(listed.length ? `  the term: ${or} on the text fields ${capped(listed)}` : `  the term: ${or}`);
           if (any.length) {
-            out.push(`  ${listed.length ? 'also ' : ''}text fields with operators '*' (the service decides per field): ${capped(any)}`);
-            out.push('  the method docs page lists which of them take $startsWith; for the others use an exact $eq');
+            out.push(`  ${listed.length ? 'also ' : ''}text fields with operators '*' (every operator, $startsWith too): ${capped(any)}`);
           }
           out.push('  $startsWith is a prefix match; the package lists $contains for no field: for a match inside a value, check the method docs page');
         }

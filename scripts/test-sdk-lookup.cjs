@@ -108,7 +108,7 @@ test('without free text, a search term goes in $startsWith on the string fields 
   assert.deepEqual(method(r.candidates[0], 'queryMembers').textFields, ['loginEmail', 'contact.firstName'], 'a nested string field is followed; _id is left out');
 });
 
-test('a string field under operators * is offered with a docs check, not as a sure $startsWith', () => {
+test('a string field under operators * is a text field: it takes every operator, $startsWith too', () => {
   const [r] = json('services', '--intent', 'search');
   const m = method(r.candidates[0], 'queryServices');
   assert.deepEqual(m.textFields, []);
@@ -116,8 +116,8 @@ test('a string field under operators * is offered with a docs check, not as a su
   const { out } = run('services', '--intent', 'search');
   assert.match(out, /^shape services\.queryServices\(\{ paging, filter, sort \}\): no search method, and the builder has no or\(\): pass one query object instead$/m);
   assert.match(out, /the term: filter: \{ \$or: \[\{ 'name': \{ \$startsWith: term \} \}\] \}$/m);
-  assert.match(out, /text fields with operators '\*' \(the service decides per field\): name$/m);
-  assert.match(out, /for the others use an exact \$eq/);
+  assert.match(out, /text fields with operators '\*' \(every operator, \$startsWith too\): name$/m);
+  assert.doesNotMatch(out, /exact \$eq/);
   assert.doesNotMatch(out, /no text match/);
 });
 
