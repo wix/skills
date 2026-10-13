@@ -4,7 +4,7 @@ description: "Changes a Wix form that already exists, with Form Schemas v4 `PATC
 ---
 # RECIPE: Update a Wix Form
 
-> These calls need the Wix Forms app on the site; a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [Read Account or Site Context](../sites/read-site-context.md) shows the installed apps in one call; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it.
+> These calls need the Wix Forms app on the site (`appDefId` `225dd912-7dea-4738-8688-4b8c6955ffc2`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [Read Account or Site Context](../sites/read-site-context.md) shows the installed apps in one call; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
 
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
