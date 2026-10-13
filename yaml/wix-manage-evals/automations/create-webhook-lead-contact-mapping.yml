@@ -1,0 +1,64 @@
+{
+  "name": "automations/create-webhook-lead-contact-mapping",
+  "description": "A webhook-triggered automation creates a contact with Create a contact, whose fieldMapping input is saved as mapped sub-fields plus their _order list.",
+  "triggerPrompt": "Create an automation named Webhook lead to contact. My external form will POST JSON with firstName, lastName and email to a webhook. For each request, create a contact from those three fields; if a similar contact already exists, update it. Save it and give me the webhook URL.",
+  "tags": [
+    "automations"
+  ],
+  "assertions": [
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schemas-and-scheduling"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration"
+      }
+    },
+    {
+      "tool": "ReadFullDocsArticle",
+      "params": {
+        "articleUrl": "https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-schema-annotations"
+      }
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10. The agent builds a webhook trigger (generated webhookId, the single fixed webhook filter, an overrideSchema with string firstName, lastName and email) followed by the Create a contact action (contacts-create_contact). The action's `contact` input is the fieldMapping object: keys only firstName, lastName and email, each value exactly the matching {{var(\"firstName\")}}, {{var(\"lastName\")}}, {{var(\"email\")}} reference, plus `_order` listing exactly those three keys; `duplicationStrategy` is UPDATE_CONTACT. It gives the user the webhook URL. Unknown keys inside `contact`, an `_order` naming unmapped keys, values from the wrong field, a missing duplicationStrategy, or an unsupported success claim fail. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 0-10 for the actual tool path. Require bounded catalog discovery, the runtime schema of contacts-create_contact read before mapping, Validate on the full object before Create, public tools only and no guessed endpoints. Penalize repeated failed saves, mapping keys outside the action's schema, invented contact fields, activation or test runs. Name each detour and its docs or API cause. Return only a JSON object with score and reason."
+    },
+    {
+      "type": "llm_judge",
+      "minScore": 7,
+      "prompt": "Score 10 only when successful API responses in the tool trace prove the requested automation was persisted and a subsequent Get read-back of its returned ID contains the webhook trigger and a contacts-create_contact step whose inputMapping.contact holds firstName, lastName and email references and an `_order` array of exactly those keys and INACTIVE status. Inspect response bodies, not just the agent's summary or submitted request. Missing read-back, a failed save, a stripped or reshaped mapping, or unverified success scores 0. No activation, test execution, deletion, or unrelated writes are allowed unless the user explicitly requested them. A correct blocker explanation is honest but does not pass this successful-persistence scenario. Return only a JSON object with score and reason."
+    }
+  ],
+  "siteSetup": {
+    "templateId": "blank-editor"
+  }
+}

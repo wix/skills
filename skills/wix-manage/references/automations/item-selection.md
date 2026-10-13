@@ -25,7 +25,7 @@ new access.
 ## When and how to call it
 
 Call it **once per trigger or action you configure**, before writing its filters, inputs or the
-conditions that compare its payload ids. Address the component in exactly one of two ways:
+conditions that compare its payload ids. Address the component in exactly one of two ways — the same split as Get Automation Action Schema ([Automations Action Schema APIs](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-schema-apis) §2):
 
 1. **Saved automation — when editing, and after Create.** Automations you create through the
    public API are saved (INACTIVE) as soon as Create returns, so this is the usual form. Pass
