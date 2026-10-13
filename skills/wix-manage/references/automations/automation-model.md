@@ -22,7 +22,7 @@ description: "Assemble builder-editable automation graphs with valid node relati
 | `id`, `revision`              | Read-only. `revision` MUST be sent back on Update Automation (§6).                                                                               |
 | `name`                        | Required, 1–100 chars (API allows 500; the builder holds 100); the business outcome ("Send welcome email to new subscribers").                   |
 | `description`                 | Optional, ≤2000 chars.                                                                                                                           |
-| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks ([Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)). |
+| `origin`                      | Required on create, immutable. `USER` for anything you create. `APPLICATION`/`PREINSTALLED` carry update locks ([Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4). |
 | `settings`                    | Locks for APPLICATION/PREINSTALLED (`readonly`, `actionSettings`, …). Never set it on create; on Update send it back exactly as fetched.         |
 | `configuration.status`        | Required, `ACTIVE` \| `INACTIVE`. Create `INACTIVE`; activate only on request.                                                                   |
 | `configuration.trigger`       | `{appId, triggerKey, filters[], scheduledEventOffset?, overrideSchema?, automationConfigMapping?}` — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration).                                |
@@ -61,7 +61,7 @@ Action (common fields):
 ### Designing within the tree
 
 - **Several independent actions** ("send an email and post a chat message") → chain them A → B → C, most time-sensitive first. Use SPLIT only when the user wants them to run at the same time. Never claim parallel execution is impossible.
-- **Branch, then continue** ("if A, also do A2; after 6h send Y to everyone") → DUPLICATE every later stage into BOTH branches with fresh ids and namespaces (variable steps keep `setVariable`, with fresh variable keys and updated downstream references). A **Send an email** in a duplicated stage is added by the user in each branch — never copy an existing step's `messageId` / `templateId` / `uniqueRuleId`: both steps would share one email, so editing one changes both and deleting one can delete the shared email. Never point both branches at the same action. Never use a "gate" where the TRUE branch does its side-action and stops while the timeline should continue.
+- **Branch, then continue** ("if A, also do A2; after 6h send Y to everyone") → DUPLICATE every later stage into BOTH branches with fresh ids and namespaces (variable steps keep `setVariable`, with fresh variable keys and updated downstream references). A **Send an email** in a duplicated stage is added by the user in each branch ([Automations Action Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-action-configuration) §5.1) — never copy an existing step's `messageId` / `templateId` / `uniqueRuleId`: both steps would share one email, so editing one changes both and deleting one can delete the shared email. Never point both branches at the same action. Never use a "gate" where the TRUE branch does its side-action and stops while the timeline should continue.
 
 ```text
 initial > Check A?
@@ -252,7 +252,7 @@ Why it's valid: one parentless root; ≤1 id per connection; one parent each; id
 
 Create `INACTIVE` (your "draft"); activate only on request. Create procedure and read-back: [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) §3; calls: [Automations API Catalog](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-api-catalog) §2.
 
-**Update:** Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Locks: [Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence).
+**Update:** Get → change only what was asked, keep every other node byte-for-byte → Validate → Update with the full merged object + `revision`, `origin` and `settings` as fetched; on an ACTIVE automation the change is live — confirm first. Locks: [Automations Feasibility and Planning](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-feasibility-and-planning) §4.
 
 ## 7. Pre-validate self-check (do in code)
 
