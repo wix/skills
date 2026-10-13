@@ -1,0 +1,33 @@
+---
+// The results page: /search?q=<phrase>[&type=<products|services|posts|events>].
+//
+// SSR renders the first result set from the query string — the grouped view (every configured type
+// at once) or, with `type`, the first page of that type — and hands it to the SearchResults island,
+// which takes over: "show all", sort, facets, paging, all client-side against the same data layer.
+// Keep the frontmatter (the clamp to 100 chars, the type check against the config, the noindex
+// header); restyle the template. SiteLayout is the deployed vertical's — brand it there; the header
+// SearchBox (components/site-search/SearchBox.tsx, client:only="react") is what leads visitors here.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import SearchResults from "../components/site-search/SearchResults";
+import { config, searchAll, searchType } from "../wix/site-search/search";
+import { MAX_QUERY, clampQuery, isDocType } from "../wix/site-search/search-core";
+import type { SearchAllResult, SearchPage } from "../wix/site-search/types";
+
+const q = clampQuery(Astro.url.searchParams.get("q"), MAX_QUERY);
+const typeParam = Astro.url.searchParams.get("type");
+const type = isDocType(typeParam) && config.types.includes(typeParam) ? typeParam : null;
+
+// A search page is never a landing page: keep it out of the index (the header form works with every
+// layout, where a <meta> in the seo-tags slot would fight the layout's own <title>).
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+// Fail loudly on a real error (the layout's error page), but an empty q renders the prompt state.
+let initial: SearchAllResult | null = null;
+let initialPage: SearchPage | null = null;
+if (q && !type) initial = await searchAll(q);
+if (q && type) initialPage = await searchType({ q, type });
+---
+
+<SiteLayout title={q ? `Search: ${q}` : "Search"} description={q ? `Search results for “${q}”` : "Search this site"}>
+  <SearchResults client:load q={q} type={type} initialGroups={initial?.groups ?? null} initialIndexed={initial?.indexed ?? null} initialPage={initialPage} />
+</SiteLayout>

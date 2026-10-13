@@ -1,0 +1,51 @@
+---
+// Tag page — the feed filtered to one tag, with the tag's label as its header (a tag carries no
+// description or cover). No SEO item type exists for tags (the enum has BLOG_POST and BLOG_CATEGORY
+// only) and Wix's own sitemap lists no tag pages, so this page is a plain page: the layout's
+// title comes from the tag's label. Keep the frontmatter; restyle the template. The first page is
+// fetched SERVER-SIDE with the tag filter and seeded together with the filter id. An unknown slug is
+// a real 404 (Wix's router answers 200 + empty feed; on a headless site that page does not exist).
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import BlogFeedView from "../../../components/blog/BlogFeedView";
+import { categoryPath, fetchPosts } from "../../../wix/blog/posts";
+import { fetchBlogCategories, fetchBlogTags, fetchTagBySlug } from "../../../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag, PostPage } from "../../../wix/blog/types";
+
+const slug = Astro.params.slug;
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+let tag: BlogTag | null = null;
+let page: PostPage | undefined;
+let categories: BlogCategory[] = [];
+let tags: BlogTag[] = [];
+try {
+  [tag, categories, tags] = await Promise.all([fetchTagBySlug(slug), fetchBlogCategories(), fetchBlogTags()]);
+  if (tag) page = await fetchPosts({ tagId: tag.id });
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream. With no seed the island
+  // fetches the filtered page client-side and shows its own error state.
+}
+
+if (!tag) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<SiteLayout title={tag.label}>
+  <header class="mb-10">
+    <p class="eyebrow">Tag</p>
+    <h1 class="mt-2 text-2xl font-semibold tracking-tight">{tag.label}</h1>
+  </header>
+
+  <BlogFeedView
+    client:load
+    initialPage={page}
+    initialTagId={tag.id}
+    initialCategories={categories}
+    initialTags={tags}
+    categoryHref={categoryPath}
+    emptyMessage="No posts with this tag yet."
+  />
+</SiteLayout>

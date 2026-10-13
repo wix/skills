@@ -1,0 +1,47 @@
+---
+// The site chrome for every restaurant page — THIS file (header/footer/nav) plus the @theme
+// token block in src/styles/global.css are what you brand. Keep the <slot name="seo-tags" />
+// in <head>, the global.css import, and one OrderCartButton in the header + one
+// OrderCartDrawer per page (both client:only — they read browser cart state and must not
+// server-render). (If another vertical is also deployed, its SiteLayout may have won; merge
+// the Menu/Reservations nav links and the order-cart mounts there instead.)
+import OrderCartButton from "../components/restaurants/OrderCartButton";
+import OrderCartDrawer from "../components/restaurants/OrderCartDrawer";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <slot name="seo-tags" />
+  </head>
+  <body>
+    <header class="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
+      <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <a href="/" class="text-base font-bold tracking-tight text-foreground no-underline">Brand Name</a>
+        <nav class="flex items-center gap-6 text-sm">
+          <a href="/menu" class="text-foreground no-underline transition-colors hover:text-muted-foreground">Menu</a>
+          <a href="/reservations" class="text-foreground no-underline transition-colors hover:text-muted-foreground">Reservations</a>
+          <OrderCartButton client:only="react" />
+        </nav>
+      </div>
+    </header>
+    <main class="mx-auto max-w-6xl px-6 pb-24 pt-10">
+      <slot />
+    </main>
+    <footer class="border-t border-border px-6 py-10 text-center text-sm text-muted-foreground">
+      © Brand Name
+    </footer>
+    <OrderCartDrawer client:only="react" />
+  </body>
+</html>

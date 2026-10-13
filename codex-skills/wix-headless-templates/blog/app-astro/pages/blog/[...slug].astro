@@ -1,0 +1,148 @@
+---
+// Post page.
+//
+// This is a Wix ITEM PAGE: the wixMetadata export + <SEO.Tags> below let the site owner edit
+// this page's title/description/OG in the dashboard and register the route in the sitemap.
+// Keep all three SEO pieces, the [...slug] rest param (a slug may contain "/"), and this
+// frontmatter; restyle the template below freely. The body island is client:only — the ricos
+// viewer breaks under SSR. The like row and the comments are client:load islands: both read as
+// the VIEWER (personal like state, the member's own comments), which SSR cannot do.
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import RichContent from "../../components/blog/RichContent";
+import PostLikeButton from "../../components/blog/PostLikeButton";
+import CommentsView from "../../components/blog/CommentsView";
+import { PostCard } from "../../components/blog/BlogFeedView";
+import { categoryPath, fetchPostBySlug, fetchRelatedPosts, postMetaLine, tagPath } from "../../wix/blog/posts";
+import { fetchBlogCategories, fetchTagsByIds, inIdOrder } from "../../wix/blog/taxonomy";
+import type { BlogCategory, BlogTag, PostDetail, PostSummary } from "../../wix/blog/types";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+export const wixMetadata = {
+  appDefId: WIX_APPS.blogs.id,
+  pageIdentifier: WIX_APPS.blogs.postPageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.blogs.postPageMetadata.identifiers.slug,
+  },
+};
+
+// The rest param arrives decoded and re-joined ("a/b" for /blog/a/b) — exactly the stored slug.
+const slug = Astro.params.slug;
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+// Behind Wix's proxy the request URL is internal — the real public page URL arrives on
+// x-wix-forwarded-url; the SEO service needs the public one.
+const forwardedUrl = Astro.request.headers.get("x-wix-forwarded-url");
+const pageUrl =
+  forwardedUrl && URL.canParse(forwardedUrl) && /^https?:$/.test(new URL(forwardedUrl).protocol)
+    ? forwardedUrl
+    : Astro.url.href;
+
+let post: PostDetail | null = null;
+let allCategories: BlogCategory[] = [];
+let postTags: BlogTag[] = [];
+let related: PostSummary[] = [];
+let seoTagsServiceConfig = null;
+try {
+  [post, allCategories, seoTagsServiceConfig] = await Promise.all([
+    fetchPostBySlug(slug),
+    fetchBlogCategories(),
+    loadSEOTagsServiceConfig({
+      pageUrl,
+      itemType: seoTags.ItemType.BLOG_POST,
+      itemData: { slug },
+    }).catch(() => null),
+  ]);
+  if (post) {
+    // Tags are read BY ID (a blog's tags run to hundreds); the related strip needs the post's ids.
+    [postTags, related] = await Promise.all([fetchTagsByIds(post.tagIds), fetchRelatedPosts(post)]);
+  }
+} catch {
+  // Guarded: an unhandled SSR throw truncates the response mid-stream.
+}
+
+if (!post) {
+  return new Response(null, { status: 404 });
+}
+
+// Chips in the POST's order (its categoryIds), ids that resolved to nothing dropped.
+const postCategories = inIdOrder(post.categoryIds, allCategories);
+// One source of head tags: the SEO service when it resolved (it carries the owner's overrides);
+// otherwise the DTO's own seoTitle/seoDescription (override → title; override → excerpt → body).
+const head = seoTagsServiceConfig ? {} : { title: post.seoTitle, description: post.seoDescription };
+---
+
+<SiteLayout {...head}>
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="seo-tags" />
+
+  <article class="mx-auto max-w-3xl">
+    {
+      postCategories.length > 0 && (
+        <p class="eyebrow">
+          {postCategories.map((c, i) => (
+            <>
+              {i > 0 && " · "}
+              <a href={categoryPath(c.slug)} class="no-underline">
+                {c.label}
+              </a>
+            </>
+          ))}
+        </p>
+      )
+    }
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight">{post.title}</h1>
+    <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      {post.authorAvatarUrl && <img src={post.authorAvatarUrl} alt="" width="24" height="24" class="h-6 w-6 rounded-full object-cover" />}
+      {post.authorName && <span>{post.authorName}</span>}
+      {post.authorName && postMetaLine(post) && <span aria-hidden="true">·</span>}
+      <time datetime={post.dateISO}>{postMetaLine(post)}</time>
+    </p>
+    {
+      post.coverUrl && (
+        <div class="mt-6 aspect-[16/9] max-h-[45vh] overflow-hidden rounded-xl bg-secondary">
+          <img src={post.coverUrl} alt={post.coverAlt} class="h-full w-full object-cover" />
+        </div>
+      )
+    }
+    <div class="mt-8">
+      <RichContent client:only="react" content={post.richContent} fallbackParagraphs={post.paragraphs} />
+    </div>
+    <div class="mt-8 border-t border-border pt-4">
+      <PostLikeButton client:load post={post} />
+    </div>
+    {
+      postTags.length > 0 && (
+        <div class="mt-6 flex flex-wrap gap-2">
+          {postTags.map((t) => (
+            <a href={tagPath(t.slug)} class="rounded-control border border-border px-3 py-1 text-xs font-medium text-muted-foreground no-underline">
+              {t.label}
+            </a>
+          ))}
+        </div>
+      )
+    }
+    {
+      related.length > 0 && (
+        <aside class="mt-14">
+          <h2 class="mb-6 text-lg font-semibold">Related posts</h2>
+          <div class="grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {related.map((p) => (
+              <PostCard post={p} />
+            ))}
+          </div>
+        </aside>
+      )
+    }
+    {
+      post.commentingEnabled && post.referenceId && (
+        <div class="mt-14">
+          <CommentsView client:load referenceId={post.referenceId} />
+        </div>
+      )
+    }
+  </article>
+</SiteLayout>

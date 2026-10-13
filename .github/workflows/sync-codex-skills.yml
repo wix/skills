@@ -1,0 +1,62 @@
+name: Sync Codex Skills
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/wix-app/**'
+      - 'skills/wix-manage/**'
+      - 'skills/wix-design-system/**'
+      - 'skills/wix-docs/**'
+      - 'skills/wix-headless-kit/**'
+      - 'skills/wix-headless-templates/**'
+      - '.github/scripts/sync-codex-skills.sh'
+      - '.github/workflows/sync-codex-skills.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-codex-skills
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Sync codex-skills from skills
+        run: ./.github/scripts/sync-codex-skills.sh
+
+      - name: Check for changes
+        id: sync
+        run: |
+          if [ -z "$(git status --porcelain -- codex-skills)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # main is branch-protected, so the sync lands through a PR.
+      - name: Create Pull Request
+        if: steps.sync.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B sync/codex-skills
+          git add codex-skills/
+          git commit -m "chore: sync codex-skills from skills"
+          git push -f origin sync/codex-skills
+          if gh pr list --head sync/codex-skills --state open --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already exists, updated branch."
+          else
+            gh pr create \
+              --head sync/codex-skills \
+              --title "chore: sync codex-skills from skills" \
+              --body "Automated sync of \`codex-skills/\` from \`skills/\` by \`.github/scripts/sync-codex-skills.sh\`."
+          fi

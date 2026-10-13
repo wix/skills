@@ -1,0 +1,190 @@
+
+# Wix Dashboard Modal
+
+Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
+
+> **🛑 Scope — apply this test before building a modal.** Does the dialog **create, update, or display one record that a table or list in your app enumerates**? If yes, it is not a modal — it is a `@wix/patterns` `EntityPage`, reached via `usePatternsNavigate().navigateToEntityPage`. This holds whether those records come from a CMS collection or an existing Wix app's SDK.
+>
+> A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule, and it is the most common way the rule is lost. Dialog size and field count are not exceptions either — a one-field create form is still an `EntityPage`.
+>
+> **A page that lists nothing is out of scope.** A settings page, an embedded-script config page, or any dashboard page that does not enumerate records carries no `EntityPage` obligation, and a dashboard modal is a normal choice there.
+>
+> So a dashboard modal is for: **destructive confirmations** (delete, discard, unsaved changes), **dialogs that persist nothing and show no record detail** (an informational notice, a picker that returns a selection), and **dialogs on pages that list nothing**. Never the add/edit form of a listed record — and "I built the list without `@wix/patterns`" is not an exception: a page that enumerates records should be a `CollectionPage`, so the fix is the page, not the dialog.
+>
+> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+
+## Scaffold
+
+Use `wix generate --params` with all required fields:
+
+```bash
+wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<title>","folder":"<folder>"}'
+```
+
+| Field | Constraint |
+| --- | --- |
+| `title` | Display name for the modal. |
+| `folder` | Lowercase alphanumeric and hyphens. |
+
+The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
+
+## Theme
+
+A modal opens as **its own iframe, separate from the page that opened it** — so theming the page does nothing for it. A themed page opening an unthemed modal is a common and very visible split: the dialog arrives in the pre-redesign look on top of a redesigned page.
+
+Wrap the generated `<modal>.tsx` in the app's `BusinessManagerTheme`, at the root, above `CustomModalLayout`:
+
+```tsx
+import type { FC } from 'react';
+import { CustomModalLayout } from '@wix/design-system';
+import { BusinessManagerTheme } from '../../BusinessManagerTheme';
+import modalConfig from './<modal>.config';
+
+const Modal: FC = () => (
+  <BusinessManagerTheme>
+    <CustomModalLayout
+      title={modalConfig.title}
+      showHeaderDivider={false}
+      showFooterDivider={false}
+      closeButtonProps={{ size: 'small' }}
+      /* … */
+    />
+  </BusinessManagerTheme>
+);
+```
+
+The wrapper file is written once per app and reused by every extension — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app). Icons come from `@wix/wix-ui-icons-common/lazy`, and anything you style yourself uses `--wds-*` tokens or a `skin`/`size` prop — [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
+
+**The redesign changes modal chrome specifically**, and the wrapper cannot make these for you:
+
+| Part | Redesign | How |
+| --- | --- | --- |
+| Header / footer dividers | Removed | `showHeaderDivider={false} showFooterDivider={false}`. **Both default to `'auto'`**, which shows them once content scrolls — so doing nothing ships the dividers the redesign removes |
+| Close / help button | Smallest size | `closeButtonProps={{ size: 'small' }}`, `helpButtonProps={{ size: 'small' }}` — `CloseButton` sizes are `small \| medium \| large` |
+| Destructive confirm | Token, not a red literal | `skin="destructive"` on the confirm `Button` |
+
+A confirm dialog's footer is a primary `Button` plus a cancel, and because the cancel sits beside a primary it takes the **Dark** skin rather than the wrapper's `standard` default.
+
+**One thing the design note asks for that has no API at 1.330.0:** "the footer's secondary action is a `TextButton` at M size". `CustomModalLayout`'s slot is `secondaryButtonProps?: Omit<ButtonProps, …>` and renders a `Button`; there is no footer-skin prop either (the only `light` skin is `footnoteSkin`, which styles the footnote). Achieving it means hand-building the footer — so take it to **#wix-design-system** rather than improvising, and if you do hand-build it, the cancel needs both `skin="dark"` and `size="medium"` against the wrapper's `TextButton` default of `small`.
+
+**Nothing renders a modal until something opens it**, so an unthemed dialog survives more than the usual checks: it is invisible to `tsc` and `wix build`, and also to a careful look at the page in `wix preview`, because it isn't on screen yet. Trigger the dialog before calling it done — that is the only step that shows it.
+
+## Quick Reference
+
+| Task | Method | Example |
+|------|--------|---------|
+| Open modal | `dashboard.openModal()` | `openModal({ modalId: "modal-id" })` |
+| Pass data to modal | `params` in `openModal()` | `params: { userId: "123" }` |
+| Read data in modal | `observeState()` | `dashboard.observeState((state) => { ... })` |
+| Close modal | `dashboard.closeModal()` | `closeModal()` |
+| Return data to parent | Pass data to `closeModal()` | `closeModal({ ... })` |
+| Wait for modal close | `modalClosed` Promise | `const { modalClosed } = openModal(...);` |
+
+## Opening a Modal
+
+```typescript
+import { dashboard } from "@wix/dashboard";
+
+// Simple open
+const result = await dashboard.openModal({
+  modalId: "your-modal-id", // The id generated by the CLI for this modal
+});
+
+// Pass data to modal via params
+const result = await dashboard.openModal({
+  modalId: "your-modal-id",
+  params: {
+    userId: user.id,
+    itemData: complexObject, // Objects are passed directly, no encoding needed
+  },
+});
+
+// Get notified when the modal is closed
+const { modalClosed } = dashboard.openModal({
+  modalId: "your-modal-id",
+});
+const result = await modalClosed; // Resolves with data from closeModal()
+```
+
+## Receiving Data in Modal
+
+Inside the modal, subscribe via `dashboard.observeState()` to access whatever was passed in `openModal({ params })`. The callback receives the params object as `state`. `observeState` is generic (`state`'s type defaults to `{}`), so **pass the params shape explicitly as a type argument** — without it, `tsc` fails every property access on `state` with "Property 'x' does not exist on type '{}'":
+
+```typescript
+import { dashboard } from "@wix/dashboard";
+
+dashboard.observeState<{ userId: string; itemData: unknown }>((state) => {
+  // state contains the keys you passed in `openModal({ params: { ... } })`
+  console.log(state.userId, state.itemData);
+});
+```
+
+Call it inside a `useEffect` if you want to set local React state from the params.
+
+## Closing Modal
+
+Call `closeModal()` from within the modal extension. The optional argument is data passed back to the opener (resolved via `modalClosed`).
+
+```typescript
+import { dashboard } from "@wix/dashboard";
+
+dashboard.closeModal({ saved: true, itemId: "123" }); // arg is optional
+```
+
+The argument must be cloneable via the [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) — strings, numbers, booleans, plain objects, arrays, Dates, Maps, Sets, ArrayBuffers. **Not supported:** functions, DOM nodes, class instances with methods, Symbols, Promises.
+
+## Customizing Modal
+
+Edit `<modal>.config.ts` (generated alongside the modal) to change the title and dimensions. The generated `.tsx` already imports and uses it.
+
+```typescript
+// <modal>.config.ts
+export default {
+  title: 'User Settings',
+  width: 600,
+  height: 500,
+};
+```
+
+## Common Mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Can't find modal ID | Check the modal's generated builder file's `id` field (not `src/extensions.ts`, which only registers the extension) |
+| Using `extensionId` instead of `modalId` | Use `modalId` in `openModal()` |
+| Can't access params in modal | Use `dashboard.observeState()` to read passed data |
+| Modal won't close | Use `dashboard.closeModal()` from `@wix/dashboard` |
+
+## Real-World Example
+
+End-to-end delete-confirmation flow. The scaffolded `<modal>.tsx` already wires up `CustomModalLayout` — the unique parts are on the opener side, in `observeState`, and in the confirm handler.
+
+```typescript
+// Dashboard Page: open the modal with the item to delete, act on the result
+const handleDelete = async (item: Item) => {
+  const { modalClosed } = dashboard.openModal({
+    modalId: "confirm-delete-modal-guid",
+    params: { itemId: item.id, itemName: item.name }, // objects are passed directly via params
+  });
+  // `modalClosed` resolves as `Serializable` (a union) and `openModal` takes no type
+  // parameter, so narrow it to the shape this modal's own close payload uses.
+  const result = (await modalClosed) as { confirmed?: boolean } | undefined;
+  if (result?.confirmed) {
+    // ...your delete logic + collection refresh...
+  }
+};
+
+// Modal: read params, confirm or cancel
+const [itemName, setItemName] = useState<string | null>(null);
+
+useEffect(() => {
+  dashboard.observeState<{ itemName?: string }>((state) => {
+    if (state.itemName) setItemName(state.itemName);
+  });
+}, []);
+
+const handleConfirm = () => dashboard.closeModal({ confirmed: true });
+const handleCancel = () => dashboard.closeModal({ confirmed: false });
+```
+
+(Creating, updating, or displaying the item itself would be an `EntityPage`, not a modal — see the scope note at the top.)
