@@ -32,9 +32,11 @@ Must be read at the start of any flow. How to work with the Wix MCP: source-of-t
 BLOCK
 )"
 
+TMP_FILE="$(mktemp)"
+trap 'rm -f "$TMP_FILE"' EXIT
 awk '
   !inserted && /^# / { print; print ""; print ENVIRON["START_HERE_BLOCK"]; inserted = 1; next }
   { print }
   END { if (!inserted) { print "ERROR: no # heading found" > "/dev/stderr"; exit 1 } }
-' "$WIX_MANAGE_SKILL" > "${WIX_MANAGE_SKILL}.tmp"
-mv "${WIX_MANAGE_SKILL}.tmp" "$WIX_MANAGE_SKILL"
+' "$WIX_MANAGE_SKILL" > "$TMP_FILE"
+cat "$TMP_FILE" > "$WIX_MANAGE_SKILL"
