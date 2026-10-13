@@ -96,6 +96,20 @@ describe('diffSyncPlan — wix-manage contract (default tag strategy)', () => {
   });
 });
 
+describe('diffSyncPlan — orphaned drafts', () => {
+  it('deletes a draft of this PR that is in neither head nor base (renamed/removed in an earlier push)', () => {
+    const plan = diffSyncPlan({
+      changedHead: new Map([['blog/a', loaded('blog/a')]]),
+      head: new Map([['blog/a', loaded('blog/a')]]),
+      base: new Map(),
+      remote: [remoteScenario('1', 'blog/old', [DRAFT_TAG]), remoteScenario('2', 'blog/other', ['draft:wix/skills#7'])],
+      draftTag: DRAFT_TAG,
+      repo: REPO,
+    });
+    expect(plan.actions.filter(a => a.kind === 'DELETE')).toEqual([{ kind: 'DELETE', id: '1', name: 'blog/old' }]);
+  });
+});
+
 describe('diffSyncPlan — tag strategy', () => {
   it('draftOnlyTags replaces semantic tags (wix-manage: promote restores them)', () => {
     const plan = diffSyncPlan({

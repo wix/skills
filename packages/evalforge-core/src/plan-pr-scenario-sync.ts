@@ -104,6 +104,14 @@ export function diffSyncPlan(input: {
     }
   }
 
+  // Orphans: drafted by an earlier push of this PR, then renamed or removed before merge. They were
+  // never in base, so the loop above can't see them, and the comparison runs by draft tag.
+  const handled = new Set(actions.map(a => a.name));
+  for (const entry of remote) {
+    if (head.has(entry.name) || base.has(entry.name) || handled.has(entry.name)) continue;
+    if (entry.tags.includes(draftTag)) actions.push({ kind: SyncActionKind.DELETE, id: entry.id, name: entry.name });
+  }
+
   return { actions, errors };
 }
 
