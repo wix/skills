@@ -101,7 +101,9 @@ const created = await wix.request({ scope: 'account', method: 'POST',
 ```
 
 The site is in the user's account. When it goes live, give the user its
-`siteUrl` and the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`.
+`siteUrl`, the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`, and how
+to put their own domain on it, per [Domain Search, Purchase and Connect](../domains/domain-search-purchase-and-connect.md):
+bought through Wix, or one they already own.
 
 ## Drop with curl
 
