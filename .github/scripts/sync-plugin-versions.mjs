@@ -11,6 +11,7 @@ const MANIFESTS = [
   '.cursor-plugin/plugin.json',
   'plugin.json',
   'gemini-extension.json',
+  'antigravity/wix/plugin.json',
 ];
 
 const VERSION_LINE = /("version"\s*:\s*")([^"]*)(")/;
