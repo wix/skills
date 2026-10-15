@@ -277,17 +277,40 @@ reach Wix one of these ways, in this order of preference:
 
 1. **With a shell that reaches Wix**, in the `curl` drop, from disk.
 2. **When your files travel as files**, inside the zip you pass the upload tool.
-3. **A public URL**: the page keeps the absolute URL, or the Wix MCP's
+3. **With a shell, the Wix MCP, and no login**: an `ExecuteWixAPI` script with
+   the site's `siteId` mints an upload URL per file, and the shell sends the bytes
+   to it. That request carries no token, so a shell without a Wix login can make
+   it; it needs the network to reach `upload.wixmp.com` (`curl -sI
+   https://upload.wixmp.com` answers). A chat client's sandbox (Claude.ai, Claude
+   Code in the cloud) usually reaches only package registries: when the probe
+   fails, this step is out.
+
+   ```javascript
+   const r = await wix.request({ method: 'POST',
+     url: 'https://www.wixapis.com/site-media/v1/files/generate-upload-url',
+     body: { mimeType: 'image/jpeg', fileName: 'hero.jpg' } });
+   return r.data.uploadUrl;
+   ```
+
+   ```bash
+   curl -sS -X PUT "$UPLOAD_URL?filename=hero.jpg" \
+     -H 'Content-Type: image/jpeg' --data-binary @hero.jpg
+   ```
+
+   The answer is `{ "file": { "url": "https://static.wixstatic.com/media/…" } }`;
+   the page points at that `url`, then the pages are dropped again. One URL per
+   file; it expires and is not reused.
+4. **A public URL**: the page keeps the absolute URL, or the Wix MCP's
    `UploadImageToWixSite` imports it into the site's media (`imageUrls`) and the
    page points at the returned `static.wixstatic.com` address. A share page
    (Dropbox, Drive) is not a file URL; a direct link is.
-4. **`imageBase64` on `UploadImageToWixSite`**, when you can read the file and
+5. **`imageBase64` on `UploadImageToWixSite`**, when you can read the file and
    encode it yourself (a shell, a file API): one image per call, the raw base64
    with its `mimeType`. Encoding it from a file works; typing it out does not: a
    model cannot reproduce a long base64 string faithfully, so a string that was
    not produced by a tool comes back as an `atob` error or a corrupt image.
    Never put image bytes in the `files` bundle beyond a few KB (an icon).
-5. **The user uploads it** to the site's Media Manager. This is the way for images
+6. **The user uploads it** to the site's Media Manager. This is the way for images
    that exist only as files you can't send. Publish the pages first, then name
    the missing files, give the user
    `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them to

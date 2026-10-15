@@ -1,0 +1,50 @@
+name: sites/upload-static-site-image-from-shell
+description: >-
+  Verifies that an agent with a shell on the user's machine but no Wix CLI login, asked to put a
+  photo from disk onto a live headless (drop) site, reads the upload-static-site skill and takes
+  its upload-URL route: one ExecuteWixAPI call to the site-media generate-upload-url endpoint, a
+  curl PUT of the file from the shell to the returned URL, the page pointed at the returned
+  static.wixstatic.com address, then the pages dropped again. Not typing the file's base64 into a
+  tool call, not inlining the bytes in a files bundle, and not sending the user to the Media
+  Manager while a shell route exists.
+triggerPrompt: >-
+  I'm in Claude Code on my laptop (I have a terminal; I never ran the Wix CLI login). The headless
+  site you published for me through the drop flow is live. The hero photo for the home page,
+  hero.jpg (2.4 MB), sits in the project folder and the page already references ./hero.jpg, but
+  it shows a broken image on the live site. Get the photo onto the site so the page shows it.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has a shell on their own machine, no Wix CLI login, the Wix MCP connected, and a
+      2.4 MB photo on disk that a live drop site's page references. The skill's route for this
+      case: an ExecuteWixAPI script with the site's siteId calls
+      POST https://www.wixapis.com/site-media/v1/files/generate-upload-url
+      ({ mimeType, fileName }) and returns the uploadUrl; the shell then runs
+      curl -X PUT "$UPLOAD_URL?filename=hero.jpg" -H 'Content-Type: image/jpeg' --data-binary @hero.jpg
+      (no Authorization header); the response's file.url (a static.wixstatic.com address) replaces
+      ./hero.jpg in the page; the pages are dropped again on the same site. The agent may have no
+      shell of its own in this harness; laying those commands out for the user to run is fine.
+
+      Pass if the response:
+      - mints an upload URL through the site-media generate-upload-url endpoint (in ExecuteWixAPI,
+        or shown as the call to make), AND
+      - sends the file's bytes to that URL from the shell with curl (run, or given to the user),
+        with no Wix token on that request, AND
+      - points the page at the returned static.wixstatic.com URL and redeploys the pages on the
+        same site (a placeholder for the site id, or asking which site, is fine).
+
+      Fail if the response:
+      - types or pastes the photo's base64 into a tool parameter (imageBase64 or a files bundle)
+        for a 2.4 MB file, OR
+      - passes a local path such as ./hero.jpg or /Users/... to UploadImageToWixSite or to an
+        attachments parameter, OR
+      - sends the user to the Media Manager to upload the photo by hand as the first answer,
+        while the shell route is available, OR
+      - creates a new site instead of updating the live one, OR
+      - invents an upload endpoint other than site-media generate-upload-url.
