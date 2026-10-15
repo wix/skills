@@ -1,9 +1,9 @@
 name: Mirror greeter
 
-# wix/skills is a read-only mirror of wix-private/ax-skills. Wix members cannot create branches
-# here (ruleset), so the only pull requests that can still appear come from forks. This leaves
-# one comment on each, saying where the change can actually land, and labels it `external` so a
-# maintainer can find it. The PR stays open; nothing is merged into the mirror by hand.
+# Pull requests are not merged in this repository: its main branch is written only by the sync
+# from the maintainers' source, and new branches are blocked (ruleset), so the only pull requests
+# that can still appear come from forks. This leaves one comment on each, pointing at issues,
+# and labels it `external` so a maintainer can find it. The PR stays open as a proposal.
 #
 # pull_request_target so the comment can be posted on a fork PR. Nothing from the PR is checked
 # out or executed: the job reads event metadata and calls the API.
@@ -33,8 +33,8 @@ jobs:
             || gh label create external -R "$REPO" --color 5319E7 --description "Opened from a fork against the mirror"
           gh pr edit "$PR" -R "$REPO" --add-label external
           gh pr comment "$PR" -R "$REPO" --body "$(cat <<'MSG'
-          Thanks for the contribution. This repository is a **read-only mirror** of `wix-private/ax-skills`: its `main` branch is rewritten from the source on every change there, and pull requests opened here are not merged.
+          Thanks for the contribution. Pull requests are not merged in this repository; the maintainers read this one as a proposal and make the change themselves if it is accepted.
 
-          The PR stays open so a maintainer can review it and port accepted changes to the source. If you are at Wix, open the same change in `wix-private/ax-skills` (default branch `master`) instead; see [CONTRIBUTING.md](https://github.com/wix/skills/blob/main/CONTRIBUTING.md).
+          The PR stays open for that review. For future changes, [open an issue](https://github.com/wix/skills/issues/new) instead; see [CONTRIBUTING.md](https://github.com/wix/skills/blob/main/CONTRIBUTING.md) for what makes a useful report.
           MSG
           )"
