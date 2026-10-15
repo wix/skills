@@ -103,8 +103,22 @@ jobs:
         run: |
           gh pr review --approve "$PR_URL" --body "Automated approval: snapshot from wix-private/ax-skills, reviewed and gated there."
 
-      - name: Enable auto-merge
+      # Merge directly as the App, not via auto-merge. main is locked by the ruleset "mirror: main
+      # is written only by the sync", whose bypass names this App. GitHub honours that bypass when
+      # the App itself calls the merge API, but not for auto-merge, which GitHub performs later on
+      # the App's behalf: the first live sync (#1769) sat approved and blocked for exactly that
+      # reason. Nothing else gates the merge (no required checks; review already given), so the
+      # direct call succeeds at once. If it ever does not, fall back to auto-merge so a transient
+      # condition still resolves without a human.
+      - name: Merge as skill-builder-bot
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ steps.pr.outputs.url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          set -euo pipefail
+          if gh pr merge --squash "$PR_URL"; then
+            echo "merged"
+          else
+            echo "::warning::direct merge refused; arming auto-merge as a fallback"
+            gh pr merge --auto --squash "$PR_URL"
+          fi
