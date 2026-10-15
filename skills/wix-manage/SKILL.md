@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
+description: "REST recipes to configure and manage a Wix site's business solutions — stores, bookings, payments, CMS, and more. Open the matching recipe for the exact endpoint, method, and payload before calling — never guess a Wix API, never write Wix dashboard URL from memory. Routes to: automations, stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, partners, custom-apps, pricing-plans, restaurants, ricos rich-content, sites, blog, calendar, domains, events, site-properties, ecommerce, marketing, google-ads, google-business-profile, analytics, accessibility, seo, dashboard-navigation."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -345,6 +345,16 @@ Uploads images and files to the Wix Media Manager using the Import File API. Cov
 
 ### [Generate an Image with AI](references/media/generate-image-with-ai.md)
 Generates an image from a text prompt with the Wix AI APIs (Runware). Returns a short-lived URL that must be imported to be kept — importing is Upload Media to Wix's job, and this recipe hands off to it. Covers choosing a model and its cost/latency/content-filter trade-off, the accepted output sizes, per-model batching limits, the AI credit each call spends, and why a content refusal arrives as a success response with no image.
+
+---
+
+## Partners
+
+### [Manage Client Intake Forms](references/partners/manage-client-intake-forms.md)
+Creates and manages Content Collector client intake forms for Wix Studio partners — AI-tailored questionnaires a partner sends to a client to gather project details before work starts. Covers creating a form from a project description, sharing it with a client, finding a client's forms, checking whether a client submitted, exporting submitted forms, team notifications, and deleting forms. Account-level, not tied to any site.
+
+### [Manage Studio Custom Templates](references/partners/manage-studio-custom-templates.md)
+Manages a Wix Studio partner's own custom templates — reusable starting points the partner builds from their existing sites. Covers saving a site as a template, listing and finding templates, how many client sites were created from one, creating a new client site from a template, renaming, deleting, publishing, and how to sell or share a template. Not for Wix's public template gallery.
 
 ---
 

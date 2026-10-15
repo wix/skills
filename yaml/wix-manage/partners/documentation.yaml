@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Partners Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/partners/manage-client-intake-forms.md
+      title: Manage Client Intake Forms
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/content-collector
+      tags: [partners]
+    - file: ../../../skills/wix-manage/references/partners/manage-studio-custom-templates.md
+      title: Manage Studio Custom Templates
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/studio-workspace
+      tags: [partners]

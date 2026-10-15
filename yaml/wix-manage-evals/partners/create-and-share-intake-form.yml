@@ -1,0 +1,49 @@
+name: partners/create-and-share-intake-form
+description: >-
+  Verifies the agent reads the client intake forms skill and creates a Content Collector intake form
+  with an account-level call, populates the project description, infers the industry, gives the
+  review link, and does not share the form with the client before the user confirms.
+triggerPrompt: >-
+  I'm starting a website project for my new client Jane Cohen. She runs Bloom Bakery, a neighborhood
+  bakery that wants a site with their menu, online ordering, and a catering inquiry form. Set up an
+  intake form so I can collect the details from her. Her email is jane@bloombakery.com.
+tags: [partners]
+maxTokens: 600000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/content-collector/skills/manage-client-intake-forms
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user, a Wix Studio partner, asked to set up a client intake form for Jane Cohen (Bloom Bakery)
+      and gave the client's email.
+
+      Pass if the agent:
+      - calls POST https://www.wixapis.com/partners/content-collector/v1/intake-forms as an account-level
+        call, with no site ID, AND
+      - sets clientName, a project name, and sourceMaterials.projectMaterials describing the bakery project, AND
+      - sets project.industry to a fitting value it inferred (e.g. FOOD_AND_BEVERAGE or RESTAURANT) without
+        asking the user to choose one, AND
+      - gives the user a review link containing /content-collector/partner/<the created form id> and explains
+        they can review and edit the questions there, AND
+      - does NOT add jane@bloombakery.com to clientEmails before the user confirms the form is ready to share
+        (asking for confirmation, or saying it will share once the user confirms, is correct).
+
+      Fail if the agent:
+      - uses a site-scoped call or passes a site ID, OR
+      - creates the form without any project description, OR
+      - shares the form (adds clientEmails) without asking, OR
+      - claims it emailed or contacted the client.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
+      Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any of: a non-2xx error
+      even if recovered; a site-scoped call attempted before the account-level one; an industry enum
+      value guessed wrong then corrected; a request shape guessed wrong then corrected; redundant or
+      probing docs/schema calls that the skill should have made unnecessary. For each, name the likely
+      MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

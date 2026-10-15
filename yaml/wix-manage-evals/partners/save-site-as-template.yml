@@ -1,0 +1,48 @@
+name: partners/save-site-as-template
+description: >-
+  Verifies the agent reads the Studio custom templates skill and saves the partner's site as a custom
+  template with Copy Site As Template, not the Wix gallery template flow.
+triggerPrompt: >-
+  Save my site as a template called "Portfolio Starter" so I can reuse it for future clients.
+tags: [partners]
+maxTokens: 600000
+# Copy Site As Template needs a real site to duplicate, so the run gets a fresh one and the agent
+# resolves its ID from context instead of a fabricated GUID. A Studio site, not an Editor one:
+# custom templates are a Wix Studio partner feature.
+siteSetup:
+  mode: template
+  templateId: events-studio
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/skills/manage-studio-custom-templates
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user, a Wix Studio partner, asked to save their site as a reusable template named "Portfolio Starter".
+      The run was given one provisioned site; that is the site the user means.
+
+      Pass if the agent:
+      - calls POST https://www.wixapis.com/wixstudio/templates/v1/templates/copy-site with
+        templateName "Portfolio Starter" and siteMetaSiteIdToCopy set to the provisioned site's ID, AND
+      - reports the created template (its id or name), AND
+      - explains the original site is unchanged and the template has its own backing site (a duplicate), so
+        editing the template doesn't affect the original or sites already created from it.
+
+      Fail if the agent:
+      - uses the Wix gallery template search or meta-site create-from-template flow, OR
+      - passes a site ID other than the provisioned site's, OR
+      - tells the user the original site itself became the template, OR
+      - invents a field to set hidden or templateType PUBLIC at creation.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
+      Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any of: a non-2xx error
+      even if recovered; reaching for the Wix gallery template recipe first; a request body guessed
+      wrong then corrected (e.g. a templateName outside 4-20 characters); a Query Templates filter or
+      sort on templateType or sites.count (unsupported); redundant or probing docs/schema calls.
+      For each, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.

@@ -1,0 +1,49 @@
+name: partners/intake-form-submission-status
+description: >-
+  Verifies the agent creates an intake form and then reports its status from
+  clientFormInteraction.submissionDate, so a form that was never submitted is reported as not
+  submitted rather than inferred from sharing state.
+triggerPrompt: >-
+  Make an intake form for my new client Dana Levi — she's opening a yoga studio called Flow House and
+  needs a site with class schedules and online booking. Once it's created, check it and tell me whether
+  she's already submitted it or not.
+tags: [partners]
+maxTokens: 600000
+# Submission is set only when a real client submits, which a run can't simulate, so the scenario
+# creates its own form: the only correct status for it is "not submitted", and "no form found"
+# can't satisfy the judge.
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/studio-workspace/content-collector/skills/manage-client-intake-forms
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user, a Wix Studio partner, asked the agent to create an intake form for client Dana Levi
+      (Flow House yoga studio) and then report whether she has submitted it.
+
+      Pass if the agent:
+      - creates the form with POST https://www.wixapis.com/partners/content-collector/v1/intake-forms as an
+        account-level call with no site ID, including sourceMaterials.projectMaterials describing the project, AND
+      - reads the form back (Get, Search or Query) and decides the status from
+        clientFormInteraction.submissionDate, AND
+      - reports that the form has NOT been submitted (and, if it says more, that it hasn't been shared yet
+        since no client email was added).
+
+      Fail if the agent:
+      - reports the form as submitted, OR
+      - reports "no form found" for the form it just created, OR
+      - adds Dana's email to clientEmails (shares the form) without the user asking, OR
+      - answers the status question without a read call.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Rate how smoothly the Wix MCP let the agent fulfill the request. Examine the tool-call trace.
+      Score 0-10 (10 = direct: no wasted calls, no errors). Penalize and LIST any of: a non-2xx error
+      even if recovered; a site-scoped call attempted first; an industry enum value guessed wrong then
+      corrected; a search/query body shape guessed wrong then corrected; listing every form when the
+      created form's id was already known; redundant or probing docs/schema calls. For each, name the
+      likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
