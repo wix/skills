@@ -57,8 +57,9 @@ Supplementary files are allowed; keep scaffold roles intact.
    ```
 
 3. **Plan.** Identify props, root, parts, and states; read routed references.
-   Use the scaffold and references before package declarations; probe an API
-   only when undocumented or a typecheck fails.
+   Use the scaffold and references before inspecting package declarations.
+   Inspect only needed declarations resolved by the app for undocumented APIs
+   or fields, or typecheck failures. They govern API shapes; retain editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's configured formatter before
@@ -144,6 +145,7 @@ references are leaves.
   never spread the `a11y` object or add one-off ARIA props.
 - Named parts: global class, module class, and `elementProps` (root uses
   top-level props).
+- Every visible text: a text prop plus a named part; no JSX text literals.
 - Native design states: pair selectors with injected modifiers; keep non-input
   `:focus-visible` standalone unless editable focus is requested; toggle custom
   state classes from data, each with a matching `:global()` rule.
@@ -151,6 +153,7 @@ references are leaves.
   root state and sync internal state from it.
 - Single-visible-body arrays: `name` per item, `ActiveItemIndex<'prop'>`, render
   all bodies, hide inactive accessibly.
+- No arrays inside array items; keep group fields flat (no object props).
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
 - Resizable layout: keep required content usable at 320px. Reflow visible
