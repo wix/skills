@@ -1,6 +1,6 @@
 ---
 name: wix-headless-entry
-description: "Build a complete Wix Managed Headless site from a single prompt, then connect Wix Business Solutions. The deterministic first steps — installing the skill and the Wix CLI login — come first; the agent then hands the run to the wix-headless skill. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, rental site, rentals, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, then connect Wix Business Solutions. The deterministic first steps — installing the skill and the Wix CLI login — come first; the agent then hands the run to the wix-headless skill. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, rental site, rentals, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless."
 ---
 
 # Wix Headless Skill — cold-start entry
