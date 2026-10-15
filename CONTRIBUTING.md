@@ -1,185 +1,54 @@
 # Contributing to Skills
 
-Thank you for your interest in contributing to skills. This document provides Wix-specific guidelines for adding and updating skill content in this repository.
+Thank you for your interest in improving these skills.
 
-## Where to open pull requests
+## This repository is a mirror
 
-The source of truth is **[`wix-private/ax-skills`](https://github.com/wix-private/ax-skills)**, default branch `master`. The public [`wix/skills`](https://github.com/wix/skills) is a read-only mirror: a job syncs every merge to `ax-skills` master into it, and pull requests opened against the mirror are not merged.
+`wix/skills` is a read-only mirror. The skills are developed in a separate source repository
+at Wix, and every change merged there is synced here automatically. Pull requests opened
+against this repository are not merged; a pull request from a fork is read as a proposal and
+labeled `external`, and a maintainer ports the change if it is accepted.
 
-- Wix employees open pull requests in `wix-private/ax-skills`. The eval gates and the skill-review check run only there.
-- Anyone without access to `wix-private` opens an issue in `wix/skills`. A maintainer ports accepted changes.
-- A branch started in `wix/skills` can be pushed to `ax-skills` as it is: the two repositories share history. Add the remote, push the branch, and open the pull request against `master`:
+- **Wix employees:** open pull requests in `wix-private/ax-skills`. Its contribution guide
+  covers the full process, including the eval scenarios a change needs.
+- **Everyone else:** [open an issue](https://github.com/wix/skills/issues/new) describing the
+  change.
 
-  ```bash
-  git remote add private git@github.com:wix-private/ax-skills.git
-  git push -u private my-branch
-  gh pr create -R wix-private/ax-skills --base master
-  ```
+## What makes a useful report
 
-> **Note:** For general Agent Skills format requirements, see the [Agent Skills specification](https://agentskills.io/home).
+Name the skill and the file, and say what an agent got wrong or could not do. The most useful
+reports include:
 
-Two companion documents carry the detail, so this one stays the entry point:
+- **The request.** What the user asked the agent to do.
+- **What happened.** The call the agent made, or the step it got stuck on, and the error or
+  wrong result.
+- **The correct behavior.** What the skill should have said instead, with a link to the
+  official [Wix API reference](https://dev.wix.com/docs/rest) that confirms it. A plausible but
+  unverified fix is worse than none, because an agent will trust it.
 
-| Document | When you need it |
-|---|---|
-| [docs/eval-scenarios.md](docs/eval-scenarios.md) | Writing or editing an eval scenario — required fields, tagging, assertion types, examples |
-| [docs/skill-evaluation.md](docs/skill-evaluation.md) | Understanding a failing check, or working on the eval workflows themselves |
+## What a skill change should look like
 
-## Skill Placement
+If you propose wording, it is held to the same standard as every skill here:
 
-Do not add a new top-level folder under `skills/` by default.
+- It covers public Wix REST APIs or documented SDK APIs only.
+- It shows each call an agent needs: the full URL with host, the HTTP method, and a minimal
+  request body, with the reference page linked for the full contract.
+- It gives orders, not suggestions, where the agent has to decide, and keeps steps whose order
+  matters in that order.
+- It names no specific agent, client, MCP tool, model or editor — it describes the capability
+  it needs instead.
+- It asks the user to confirm before changing site or account data.
 
-Most new content should fit into one of the existing skill folders:
-
-- `skills/wix-manage/` — REST API skills for managing Wix business solutions, sites, account-level resources, and administrative workflows.
-- `skills/wix-app/` — building Wix app extensions, service plugins, dashboard pages, site widgets, backend code, and CLI-based app development.
-- `skills/wix-design-system/` — Wix Design System component, API, and reference guidance.
-- `skills/wix-headless/` — one-prompt headless site builds, templates, orchestration, and vertical-specific implementation guidance.
-
-In this repo, many requests to add a "new skill" should actually be added as a new skill reference inside an existing skill. New top-level skills should only be added by repository admins.
-
-## Adding a Wix Manage Skill
-
-Use `wix-manage` for REST API operations that configure, set up, or manage Wix business entities and account/site resources.
-
-If you do not have write permissions for `wix-private/ax-skills`, please read [bo.wix.com/github-assist](https://bo.wix.com/github-assist) for the approved contribution path.
-
-Start with [When a skill earns its place](#when-a-skill-earns-its-place): read the area's section of the index, and add a new skill only when no existing entry already claims the intent yours would serve.
-
-When adding a `wix-manage` skill:
-
-1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
-2. Add an entry to the relevant section in `skills/wix-manage/SKILL.md`: a `.md` link whose text is the skill's frontmatter `name`, followed by its frontmatter `description` verbatim. The frontmatter is the single source of truth — do not write separate wording for the index, and when you change a `description`, update its entry in the same commit.
-3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`, with `docsEntry` pointing at a **category** in the docs menu (use the "Copy Docs Entry" button) — not at an individual API page (a `RESOURCE` menu node). Use the skill's frontmatter `name` as the `title`, and keep it free of `/`: the docs pipeline treats a slash in a title as a section separator and publishes the page under the text after the last slash, so the recipe loses its name and its doc URL.
-4. **Add eval scenarios** under `yaml/wix-manage-evals/<area>/` that provide meaningful coverage of what the skill exists to help an agent do. At least one scenario is required. See [Adding a Wix Manage Eval Scenario](docs/eval-scenarios.md#adding-a-wix-manage-eval-scenario).
-5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
-6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
-7. Keep the skill's `description` to at most 1024 characters.
-
-## Updating a Wix App Reference
-
-When updating `wix-app` skill content:
-
-1. Add or update the content under `skills/wix-app/SKILL.md` or `skills/wix-app/references/<name>.md`.
-2. Update the relevant index entry in `skills/wix-app/SKILL.md`.
-3. **Every change must be covered by an eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed — reuse an existing one if it fits, otherwise add a new one. See [Adding a Wix App Eval Scenario](docs/eval-scenarios.md#adding-a-wix-app-eval-scenario).
-4. Keep the skill's `description` to at most 1024 characters.
-
-## Writing Wix API Skills
-
-Connect an agent to the Wix MCP and use official docs, examples, and method schemas to verify any API skill. Do not rely on memory, copied internal service names, or old examples.
-
-The best source for a skill is often a real agent conversation where the agent successfully completed the task. After the task works, ask the agent to distill the happy path, the API details it had to discover, and the missing context it needed to know up front.
-
-Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill only when those sources are correct but still do not connect the dots for an agent. Keep the skill minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
-
-### When a skill earns its place
-
-An agent picks a skill from the `name` and `description` of each entry in `skills/wix-manage/SKILL.md`, before opening any file. So before adding an entry, decide whether the content needs a skill of its own or belongs in a skill that already exists.
-
-Two skills are separate when they serve different intents or use cases, or when the same intent genuinely needs a different flow, and an agent never has to open either one to choose between them.
-
-Skills to unify — the same intent and the same outcome:
-- Same endpoint, different request body: The body is an argument, not a different intent.
-- Single and bulk endpoints for one operation: The skill picks the endpoint.
-- The same intent from a different input.
-- The same intent plus a feature.
-- A narrow copy of a general skill: "Site properties" and "site properties for stores". Put the content in the general one.
-
-Linking two skills does not fix an overlap: the agent chooses from the index and reads the contents afterwards.
-
-When you do merge skills, name the survivor, delete the absorbed files, remove their entries from `SKILL.md` and their lines from `documentation.yaml`, repoint their eval scenarios, and rewrite the survivor's `description` to claim the ground it now covers.
-
-### Keep the description high level
-
-A skill's frontmatter `description` is the only part of it an agent sees before deciding whether to open the file. Everything else in the skill is still unread at that moment.
-
-Write it as a high-level summary of what the skill covers — the capability, the entities it works with, the kind of work it does, the requests it serves. A summary that does that well is one an agent can judge against: it will recognize the skill as the one for the request in front of it, and pass it by for an unrelated one. That recognition is what a good summary earns, not something the description has to spell out.
-
-Keep the flow out of it. The order of the calls, the field names, the decisions between steps, and the product's own rules belong in the body, where the agent reads them once it has decided to open the skill.
-
-### Orchestration and worked examples
-
-A skill starts with orchestration: which APIs to call, in what order, what to decide between calls, and what to confirm with the user — *"create the product first, then add options and choices to it; variants are generated from those, not passed in"*.
-
-Orchestration on its own, though, still leaves the agent to go find the request body. That costs a round trip to the docs on every run, and it leaves room to guess wrong. So show the call too: the endpoint and HTTP method, a minimal request body for the common path, the response fields the next step reads, and any wrapper, enum value, or ID format that the field name alone doesn't reveal. An agent that can copy a working call finishes the task faster and more reliably than one that has to reconstruct it.
-
-Write the endpoint as the full URL, host included, never as a path relative to the API host. An example that shows the full URL, the HTTP method and the request body the method takes is one the agent can execute as written. A relative path is not, and it sends the agent back to the docs and schema tools to rebuild a call it already had.
-
-Keep examples minimal and current. Show the fields the task needs, not the whole schema: exhaustive field lists, every optional field, and full enum tables belong in the linked reference, which stays accurate as the API evolves. Link that page alongside the example so the agent can go deeper when a task falls outside the common path. Use placeholder IDs rather than values from a real site.
-
-The reverse is a defect too. If which endpoint to call, in what order, or which field is required is only reachable through the link, the skill has offloaded its job and the agent pays a round trip on every run. Everything the common path needs belongs in the skill; the link is for the depth beyond it.
-
-Write instructions an agent can act on — an observable trigger and an action it can take. Hedging where a decision is required (*"you may want to"*, *"consider"*) leaves the agent guessing at the very thing the skill exists to settle, and a step whose order matters has to be written as an order.
-
-### Verify the API details
-
-Run every example against a real site, or confirm it against the official reference and method schema — and when live behavior contradicts the reference, document what the API actually does. A plausible but wrong example is worse than no example, because the agent will trust it.
-
-### Stay agnostic to agent and client
-
-You don't know which agent will read a skill, which client or provider it's running in, which tools it has, or what machine it's on. So never name one: *"call X"* breaks silently when X isn't in the reader's tool inventory, and *"if you're in \<client\>"* is wrong for every other reader. The same goes for a named model, device, or editor. Describe the capability you need, not the tool that provides it.
-
-For mutating flows, ask for user confirmation before changing site or account data unless the surrounding skill already makes the mutation an explicit user-confirmed action.
-
-## PR Checklist
-
-Before opening a PR, confirm the following.
-
-Three things look at a PR, and they answer different questions. The **wiring** group is checked
-automatically, and a failing check names the item that broke. The **eval run** answers whether the
-skill actually works — it runs your scenarios against your PR's own skill content.
-The **skill review** reads what you wrote: whether the content is complete and
-followable, and whether the scenarios coverage is meaningful. The two content groups below are what it
-starts from, so they are worth reading before you write rather than after — but they are the points
-worth emphasizing, not the whole of what a reviewer may raise about the writing.
-
-**Wiring**
-
-- The content is in the right existing skill. New top-level skills are admin-only.
-- Each skill's `description` is at most 1024 characters.
-- The relevant `SKILL.md` index is updated, and each entry still matches its skill's frontmatter `name` and `description` word for word.
-- Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
-- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) on its doc URL.
-- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion.
-- The [wix-app eval gate](docs/skill-evaluation.md#wix-app-scenarios-the-pr-eval-gate) comment has been read: no uncovered tags, and any scenario you added or edited has at least 3 assertions including an `llm_judge`.
-- The skill evaluation workflow is expected to run for the changed files, if applicable.
-
-**Skill content** — see [Writing Wix API Skills](#writing-wix-api-skills)
-
-- No existing entry [serves the same intent](#when-a-skill-earns-its-place).
-- The `description` is [high level](#keep-the-description-high-level): a summary of what the skill covers, with the flow and the product's rules left to the body.
-- The skill describes [orchestration and shows a verified worked example](#orchestration-and-worked-examples) for each call it asks for — minimal request, the response fields the next step uses — with the reference page linked for the full contract.
-- The common path is completable [without leaving the skill](#orchestration-and-worked-examples): the reference page is linked for the full contract, not pasted in and not standing in for what the task needs.
-- Wix API details were [verified](#verify-the-api-details) against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
-- The skill names no MCP tool, agent, client, provider, model or device — it stays [agnostic to agent and client](#stay-agnostic-to-agent-and-client).
-- Instructions are ones [an agent can act on](#orchestration-and-worked-examples): no hedging where a decision is required, and steps whose order matters are written as an order.
-- Mutating flows [ask for user confirmation](#stay-agnostic-to-agent-and-client) before changing site or account data.
-
-**Eval scenario content** — see [What a Scenario Must Test](docs/eval-scenarios.md#what-a-scenario-must-test)
-
-- Every eval scenario starts from a real user's intent.
-- The scenarios [provide meaningful coverage](docs/eval-scenarios.md#cover-what-the-skill-is-for): they give confidence that the skill helps resolve the user requests it is meant to support and that important regressions would be caught.
-- The `triggerPrompt` is [a real user's request](docs/eval-scenarios.md#test-a-real-user-conversation) — context added only where an earlier turn would have carried it, never in place of site state that belongs in `siteSetup`.
-- Every eval scenario [tests behavior](docs/eval-scenarios.md#test-behavior-not-skill-text), not skill text, and asserts [correctness *and* quality](docs/eval-scenarios.md#assert-correctness-and-quality) — coverage, an `llm_judge` on the outcome, an `llm_judge` on the tool-call path.
-- Each judge is [written so that a plausible-but-wrong run fails it](docs/eval-scenarios.md#assert-correctness-and-quality).
-
-## Questions
-
-If you're unsure about where to place new content or how to structure it:
-
-- Review existing skills for patterns.
-- Ask a repository admin if you think a new top-level skill is required.
-- Refer to the [Agent Skills specification](https://agentskills.io/home) for base format requirements.
+For the base file format, see the [Agent Skills specification](https://agentskills.io/home).
 
 <!-- automations-sync-maintenance -->
 ## Synced skill areas
 
-**Files under `skills/wix-manage/references/automations/`, `yaml/wix-manage/automations/` and
-`yaml/wix-manage-evals/automations/` (and the marked Automations section of
-`skills/wix-manage/SKILL.md`) are generated from a source maintained by the Wix Automations
-team. The next sync replaces any file that differs from the generated output, so an accepted
-edit persists only once the maintainer ports it to that source.**
+**Files under `skills/wix-manage/references/automations/` and `yaml/wix-manage/automations/`
+(and the marked Automations section of `skills/wix-manage/SKILL.md`) are generated from a
+source maintained by the Wix Automations team. The next sync replaces any file that differs
+from the generated output, so an accepted edit persists only once the maintainer ports it to
+that source.**
 
 Public fixes remain welcome. The Automations maintainer ports accepted changes back before
 syncing again, so they survive regeneration. See the
