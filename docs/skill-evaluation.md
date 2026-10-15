@@ -5,7 +5,7 @@ themselves. For the scenario format, see [eval-scenarios.md](eval-scenarios.md).
 
 ## The wix-manage gate
 
-The automated skill evaluation runs on every PR (against `main`) that touches:
+The automated skill evaluation runs in the source repository, `wix-private/ax-skills` (default branch `master`; the public `wix/skills` is its read-only mirror, on `main`). It runs on every PR against the default branch that touches:
 
 - `skills/wix-manage/references/**`
 - `yaml/wix-manage/**`
@@ -20,10 +20,10 @@ What it checks, in order:
 When the workflow runs, it creates an EvalForge MCP capability version that points at the PR:
 
 ```text
-https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=<headSha>
+https://mcp.wix.com/mcp?skillsRepo=<owner/repo the gate runs in>&skillsPr=<headSha>
 ```
 
-That PR override makes the Wix MCP load skill content from the pull request instead of from `main`, so eval scenarios test the proposed skill content.
+That PR override makes the Wix MCP load skill content from the pull request instead of from the default branch, so eval scenarios test the proposed skill content.
 
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
@@ -35,10 +35,10 @@ are the same for both gates and are listed under
 
 ### Merge-tag sweep
 
-After a wix-manage PR merges to `main`, [`evalforge-merge-tag-sweep.yml`](../.github/workflows/evalforge-merge-tag-sweep.yml)
+After a wix-manage PR merges to the default branch, [`evalforge-merge-tag-sweep.yml`](../.github/workflows/evalforge-merge-tag-sweep.yml)
 re-runs every EvalForge scenario sharing a tag with whatever changed — catching regressions in
 other areas that a PR's own scenarios can't see. It's reactive, not blocking: the commit is
-already on `main` by the time it runs. Eval runs are not fully deterministic, so a failing
+already on the default branch by the time it runs. Eval runs are not fully deterministic, so a failing
 scenario is rerun (up to two retries) and only counts as a regression when a majority of the
 attempts fail; only a confirmed regression posts to Slack, naming the merging PR's author. A
 tag matching more than 20 scenarios samples rather than running everything, to keep a broad tag
@@ -172,7 +172,7 @@ anyway — it is telling you what will block once it flips.
 `wix-app` scenarios follow a different model. The repo YAML under
 `yaml/wix-app-evals/` is the **source of truth**, and a workflow keeps the
 EvalForge **App Builder** project aligned with it: when a PR that touches
-`yaml/wix-app-evals/**` is merged into `main`,
+`yaml/wix-app-evals/**` is merged into the default branch,
 `.github/workflows/evalforge-wix-app-sync.yml` runs the `evalforge-skill-gate`
 action in **`sync` mode** and reconciles the YAML into EvalForge.
 
@@ -190,7 +190,7 @@ action in **`sync` mode** and reconciles the YAML into EvalForge.
 - **Gated to `@wix.com` authors.** If the merged PR's author is not a
   `@wix.com` address, the sync is skipped (logged, not failed).
 - **Applies on merge.** There is no per-PR run and no dry-run — the merge to
-  `main` is what applies the plan.
+  the default branch is what applies the plan.
 
 ## Working on the EvalForge actions themselves
 

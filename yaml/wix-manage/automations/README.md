@@ -22,7 +22,7 @@ building and managing automations.
 
 Contributors can propose a normal PR against these files. Explain the correction
 and update applicable scenarios following this repository's
-[contribution guide](https://github.com/wix/skills/blob/main/CONTRIBUTING.md). Before the next
+[contribution guide](../../../CONTRIBUTING.md). Before the next
 sync, the Automations maintainer must port accepted public edits into the internal source;
 otherwise the next sync regenerates the files and overwrites them. The exporter's `--check`
 mode lists files that differ from the generated output, so an unported edit is visible before
