@@ -6,7 +6,11 @@ export type TagRules = {
   referenceDir: string;
   ignoreGlobs: string[];
   broadImpactGlobs: string[];
+  /** Non-reference files that a reference tag covers, e.g. a script the skill tells the agent to run. */
+  tagGlobs?: TagGlob[];
 };
+
+export type TagGlob = { glob: string; tags: string[] };
 
 export type DerivedTags = {
   tags: string[];
@@ -19,6 +23,17 @@ export type DerivedTags = {
 export const DEFAULT_REFERENCE_DIR = 'references';
 
 export const DEFAULT_IGNORE_GLOBS: string[] = ['scripts/**'];
+
+/** `glob: tag, tag` lines (the `tag-globs` input) → rules. */
+export function parseTagGlobs(lines: string[]): TagGlob[] {
+  return lines.map(line => {
+    const at = line.lastIndexOf(':');
+    const glob = at > 0 ? line.slice(0, at).trim() : '';
+    const tags = at > 0 ? line.slice(at + 1).split(',').map(tag => tag.trim()).filter(Boolean) : [];
+    if (!glob || tags.length === 0) throw new Error(`tag-globs line must be "glob: tag[, tag]" (received: ${line})`);
+    return { glob, tags };
+  });
+}
 
 /** References that apply across scenarios, so no single tag describes them. */
 export const DEFAULT_BROAD_IMPACT_GLOBS: string[] = [
@@ -48,9 +63,10 @@ function relativeToSkillDir(changedPath: string, skillDir: string): string | und
 /**
  * Changed paths → the tags whose scenarios must run.
  *
- * Order is load-bearing: ignore → broad-impact → reference → unmapped, first match wins. Let
- * the reference rule run first and `references/CODE_QUALITY.md` derives a `code-quality` tag
- * the coverage guard can never satisfy.
+ * Order is load-bearing: tag-globs → ignore → broad-impact → reference → unmapped, first match
+ * wins. Let the reference rule run first and `references/CODE_QUALITY.md` derives a
+ * `code-quality` tag the coverage guard can never satisfy. A tag glob runs before ignore
+ * because it names files inside an ignored directory (`scripts/sdk-lookup.cjs`).
  */
 export function deriveTags(changedPaths: string[], rules: TagRules): DerivedTags {
   const tags = new Set<string>();
@@ -62,6 +78,12 @@ export function deriveTags(changedPaths: string[], rules: TagRules): DerivedTags
   for (const changedPath of changedPaths) {
     const relativePath = relativeToSkillDir(changedPath, rules.skillDir);
     if (relativePath === undefined) continue;
+
+    const tagged = (rules.tagGlobs ?? []).filter(rule => matchesAny(relativePath, [rule.glob]));
+    if (tagged.length > 0) {
+      for (const rule of tagged) rule.tags.forEach(tag => tags.add(tag));
+      continue;
+    }
 
     if (matchesAny(relativePath, rules.ignoreGlobs)) continue;
 

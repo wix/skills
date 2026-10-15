@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  deriveTags, touchedScenarioPaths,
+  deriveTags, parseTagGlobs, touchedScenarioPaths,
   DEFAULT_IGNORE_GLOBS, DEFAULT_BROAD_IMPACT_GLOBS, type TagRules,
 } from '../src/derive-tags';
 
@@ -33,6 +33,20 @@ describe('deriveTags — precedence', () => {
   it('ignores a path matching ignoreGlobs even though it sits under the skill dir', () => {
     const derived = deriveTags(['skills/wix-app/scripts/generate-auto-patterns.js'], WIX_APP_RULES);
     expect(derived).toEqual({ tags: [], broadImpact: false, unmapped: [] });
+  });
+
+  it('gives a tag-globs file its tags, even inside an ignored directory', () => {
+    const rules: TagRules = {
+      ...WIX_APP_RULES,
+      tagGlobs: [{ glob: 'scripts/sdk-lookup.cjs', tags: ['sdk-module-map', 'dashboard-page'] }],
+    };
+    const derived = deriveTags(['skills/wix-app/scripts/sdk-lookup.cjs', 'skills/wix-app/scripts/other.js'], rules);
+    expect(derived).toEqual({ tags: ['dashboard-page', 'sdk-module-map'], broadImpact: false, unmapped: [] });
+  });
+
+  it('parses tag-globs lines and rejects one with no tag', () => {
+    expect(parseTagGlobs(['scripts/a.cjs: x, y'])).toEqual([{ glob: 'scripts/a.cjs', tags: ['x', 'y'] }]);
+    expect(() => parseTagGlobs(['scripts/a.cjs:'])).toThrow(/tag-globs line must be/);
   });
 
   it('prefers ignore over broad impact when a path matches both', () => {

@@ -239,11 +239,12 @@ Changed paths are classified in a **fixed precedence, first match wins**:
 
 | # | Changed path | Result |
 |---|---|---|
-| 1 | matches `ignore-globs` | ignored, silently |
-| 2 | matches `broad-impact-globs` | **broad impact** → the whole suite is in play |
-| 3 | `<reference-dir>/DASHBOARD_PAGE.md` | tag `dashboard-page` — lowercase, `_` → `-`, drop `.md` |
-| 4 | `<reference-dir>/dashboard-page/API_SPEC.md` | tag `dashboard-page` — the directory name is already the tag |
-| 5 | any other file under `skill-dir` | **unmapped** — warned about, triggers nothing |
+| 1 | matches a `tag-globs` glob | the tags that line names — a script the skill tells the agent to run, inside an ignored directory |
+| 2 | matches `ignore-globs` | ignored, silently |
+| 3 | matches `broad-impact-globs` | **broad impact** → the whole suite is in play |
+| 4 | `<reference-dir>/DASHBOARD_PAGE.md` | tag `dashboard-page` — lowercase, `_` → `-`, drop `.md` |
+| 5 | `<reference-dir>/dashboard-page/API_SPEC.md` | tag `dashboard-page` — the directory name is already the tag |
+| 6 | any other file under `skill-dir` | **unmapped** — warned about, triggers nothing |
 | — | the scenario glob | no tag; changed scenarios are included in the run directly |
 | — | anything else | ignored |
 
@@ -294,6 +295,7 @@ capability version, no run — so a coverage failure reports in seconds and cost
 | `reference-dir` | `gate` | `references` | Relative to `skill-dir` |
 | `ignore-globs` | `gate` | `scripts/**` | Newline-separated, relative to `skill-dir` |
 | `broad-impact-globs` | `gate` | `SKILL.md` + the six cross-cutting references | Newline-separated, relative to `skill-dir` |
+| `tag-globs` | `gate` | none | Newline-separated `glob: tag[, tag]`, relative to `skill-dir`; checked before `ignore-globs` |
 | `max-scenarios` | `gate` | `25` | Touched scenarios kept first; anything cut is named in the comment |
 | `runs-per-scenario` | `gate` | `1` | Max `20`. Each scenario repeats this many times **per arm**, so an intermittent failure is visible instead of indistinguishable from a regression — at proportional cost. An intermittent failure counts as a failure |
 | `base-arm-grace-seconds` | `gate` | `60` | Max `300`. `0` means "don't wait for the base arm at all". Window the base arm gets after the PR arm completes before its poll is cancelled. Exceeding it degrades the comment to "attribution unavailable" without affecting the verdict — the base eval run itself still completes server-side either way |

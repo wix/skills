@@ -1,0 +1,8 @@
+{
+  "name": "@wix/crm",
+  "version": "1.0.1648",
+  "dependencies": {
+    "@wix/auto_sdk_crm_contacts": "1.0.1380",
+    "@wix/auto_sdk_crm_contacts-v-5": "1.0.22"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@wix/auto_sdk_payments_refunds",
+  "version": "1.0.70",
+  "wix": {
+    "sdkDependency": {
+      "fqdnNamespace": "refunds",
+      "fqdn": "wix.payments.refunds.v1.refund"
+    }
+  },
+  "dependencies": {
+    "@wix/sdk-runtime": "^1.0.24",
+    "@wix/sdk-types": "^1.17.11"
+  }
+}

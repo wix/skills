@@ -1,0 +1,14 @@
+{
+  "name": "@wix/auto_sdk_bookings_services",
+  "version": "1.0.289",
+  "main": "./build/cjs/index.js",
+  "types": "./build/cjs/index.d.ts",
+  "dependencies": {
+    "@wix/sdk-runtime": "^1.0.24",
+    "@wix/sdk-types": "^1.17.11"
+  },
+  "wix": {
+    "artifact": { "artifactId": "auto-sdk-bookings-services", "groupId": "com.wixpress.public-sdk-dependencies" },
+    "sdkDependency": { "fqdnNamespace": "services", "fqdn": "wix.bookings.services.v2.service" }
+  }
+}

@@ -47,6 +47,10 @@ inputs:
     required: false
     default: |
       scripts/**
+  tag-globs:
+    description: 'Newline-separated "glob: tag[, tag]" lines, relative to skill-dir. A changed file that matches derives those tags; checked before ignore-globs, so it can name a script under scripts/'
+    required: false
+    default: ''
   broad-impact-globs:
     description: 'Newline-separated globs, relative to skill-dir, whose changes put the whole suite in play. These derive no tag of their own and are never coverage-checked'
     required: false

@@ -1,0 +1,14 @@
+{
+  "name": "@wix/auto_sdk_crm_contacts",
+  "version": "1.0.1380",
+  "wix": {
+    "sdkDependency": {
+      "fqdnNamespace": "contacts",
+      "fqdn": "wix.contacts.v4.contact"
+    }
+  },
+  "dependencies": {
+    "@wix/sdk-runtime": "^1.0.24",
+    "@wix/sdk-types": "^1.17.11"
+  }
+}

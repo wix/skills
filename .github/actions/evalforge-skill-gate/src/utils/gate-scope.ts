@@ -83,6 +83,7 @@ function deriveChangeScope(
     referenceDir: config.referenceDir,
     ignoreGlobs: config.ignoreGlobs,
     broadImpactGlobs: config.broadImpactGlobs,
+    tagGlobs: config.tagGlobs,
   });
   const touchedPaths = new Set(touchedScenarioPaths(
     changedFiles.map(file => ({ path: file.filename, status: file.status })),

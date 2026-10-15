@@ -1,0 +1,38 @@
+"use strict";
+
+function getContact2() {
+  const payload = { contactId: ":contactId" };
+  const getRequestOptions = getContact(payload);
+  const getUrl = (context) => {
+    const { url } = getRequestOptions(context);
+    return url;
+  };
+  return {
+    getUrl,
+    httpMethod: "GET",
+    path: "/v5/contacts/{contactId}",
+    pathParams: { contactId: "contactId" },
+    __requestType: null,
+    __originalRequestType: null,
+    __responseType: null,
+    __originalResponseType: null
+  };
+}
+function searchContacts2() {
+  const payload = {};
+  const getRequestOptions = searchContacts(payload);
+  const getUrl = (context) => {
+    const { url } = getRequestOptions(context);
+    return url;
+  };
+  return {
+    getUrl,
+    httpMethod: "GET",
+    path: "/v5/contacts/search",
+    pathParams: {},
+    __requestType: null,
+    __originalRequestType: null,
+    __responseType: null,
+    __originalResponseType: null
+  };
+}

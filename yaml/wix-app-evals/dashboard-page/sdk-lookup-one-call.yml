@@ -1,0 +1,30 @@
+name: dashboard-page/sdk-lookup-one-call
+description: A dashboard page over two verticals (contacts and orders) finds both SDK calls with one run of the skill's sdk-lookup.cjs, takes the namespace it chooses (contactsV5.searchContacts for a search box, orders.searchOrders), and does not crawl the auto_sdk typings to choose a method
+triggerPrompt: |-
+  Build a dashboard page that lists the site's contacts with name, email and phone, with a search box that finds a contact by any of them. Add a second page listing the site's orders, searchable by order number.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, sdk-module-map, draft-template, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate how the agent found the SDK calls, from the trace and the generated code. Check: (1) The agent ran the skill's `scripts/sdk-lookup.cjs` with both entities (contacts and orders) in **one** call, after `@wix/crm` and `@wix/ecom` were installed. A separate call per entity scores at most 6; no call at all scores at most 3. (2) The contacts search box calls `contactsV5.searchContacts` from `@wix/crm` with the term in the free-text `search` expression — not `contacts.queryContacts()`, and not several per-field queries merged in the client (score at most 3 for either). (3) The orders page calls `orders.searchOrders` from `@wix/ecom`. (4) Before the lookup output, the agent did not list or grep `node_modules/@wix/auto_sdk_*` or `@wix/sdk-types` typings to choose a namespace or method; reading the one declaration the lookup names (`type … file:line`) to check fields is expected and fine. Score 0-10, citing the commands in the trace.
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate the permission handling. The lookup prints each method's permission but not its Dev Center scope ID. Check: (1) The final response lists, under manual steps, a Dev Center permission scope for contacts (read contacts) and one for orders (read orders), each taken from a docs page or the lookup output rather than invented. (2) The orders page does not break the contacts page if the orders scope is missing (the second vertical's call is wrapped). Score 0-10.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 2

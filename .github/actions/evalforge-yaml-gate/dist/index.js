@@ -34408,12 +34408,24 @@ function collectSkillFiles(root, skillDir, options = {}) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DEFAULT_BROAD_IMPACT_GLOBS = exports.DEFAULT_IGNORE_GLOBS = exports.DEFAULT_REFERENCE_DIR = void 0;
+exports.parseTagGlobs = parseTagGlobs;
 exports.deriveTags = deriveTags;
 exports.touchedScenarioPaths = touchedScenarioPaths;
 const minimatch_1 = __nccwpck_require__(8911);
 /** Single home for the default: `action.yml`, the config reader and the workflow all defer to it. */
 exports.DEFAULT_REFERENCE_DIR = 'references';
 exports.DEFAULT_IGNORE_GLOBS = ['scripts/**'];
+/** `glob: tag, tag` lines (the `tag-globs` input) → rules. */
+function parseTagGlobs(lines) {
+    return lines.map(line => {
+        const at = line.lastIndexOf(':');
+        const glob = at > 0 ? line.slice(0, at).trim() : '';
+        const tags = at > 0 ? line.slice(at + 1).split(',').map(tag => tag.trim()).filter(Boolean) : [];
+        if (!glob || tags.length === 0)
+            throw new Error(`tag-globs line must be "glob: tag[, tag]" (received: ${line})`);
+        return { glob, tags };
+    });
+}
 /** References that apply across scenarios, so no single tag describes them. */
 exports.DEFAULT_BROAD_IMPACT_GLOBS = [
     'SKILL.md',
@@ -34438,9 +34450,10 @@ function relativeToSkillDir(changedPath, skillDir) {
 /**
  * Changed paths → the tags whose scenarios must run.
  *
- * Order is load-bearing: ignore → broad-impact → reference → unmapped, first match wins. Let
- * the reference rule run first and `references/CODE_QUALITY.md` derives a `code-quality` tag
- * the coverage guard can never satisfy.
+ * Order is load-bearing: tag-globs → ignore → broad-impact → reference → unmapped, first match
+ * wins. Let the reference rule run first and `references/CODE_QUALITY.md` derives a
+ * `code-quality` tag the coverage guard can never satisfy. A tag glob runs before ignore
+ * because it names files inside an ignored directory (`scripts/sdk-lookup.cjs`).
  */
 function deriveTags(changedPaths, rules) {
     const tags = new Set();
@@ -34451,6 +34464,12 @@ function deriveTags(changedPaths, rules) {
         const relativePath = relativeToSkillDir(changedPath, rules.skillDir);
         if (relativePath === undefined)
             continue;
+        const tagged = (rules.tagGlobs ?? []).filter(rule => matchesAny(relativePath, [rule.glob]));
+        if (tagged.length > 0) {
+            for (const rule of tagged)
+                rule.tags.forEach(tag => tags.add(tag));
+            continue;
+        }
         if (matchesAny(relativePath, rules.ignoreGlobs))
             continue;
         if (matchesAny(relativePath, rules.broadImpactGlobs)) {

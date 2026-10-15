@@ -26,7 +26,7 @@ describe('action.yml', () => {
       'mode', 'github-token', 'evalforge-url', 'evalforge-project-id',
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',
       'capability-id', 'agent-id', 'skill-dir', 'reference-dir',
-      'ignore-globs', 'broad-impact-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
+      'ignore-globs', 'broad-impact-globs', 'tag-globs', 'max-scenarios', 'blocking', 'runs-per-scenario',
       'base-arm-grace-seconds', 'eval-run-id',
     ]) {
       expect(Object.keys(action.inputs), name).toContain(name);

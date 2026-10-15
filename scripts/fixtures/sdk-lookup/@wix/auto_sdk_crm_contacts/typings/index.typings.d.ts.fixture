@@ -1,0 +1,19 @@
+import '@wix/sdk-types';
+
+interface Contact {
+    _id?: string | null;
+}
+/**
+ * Retrieves a list of contacts.
+ * @public
+ * @permissionId CONTACTS.CONTACT_READ
+ * @applicableIdentity APP
+ * @fqn wix.contacts.v4.ContactsService.QueryContacts
+ */
+declare function queryContacts(): ContactsQueryBuilder;
+interface ContactsQueryBuilder {
+    eq: (propertyName: '_id' | 'info.name.first', value: any) => ContactsQueryBuilder;
+    find: () => Promise<{ items: Contact[] }>;
+}
+
+export { type Contact, type ContactsQueryBuilder, queryContacts };

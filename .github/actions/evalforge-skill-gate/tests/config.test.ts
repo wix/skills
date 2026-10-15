@@ -104,6 +104,24 @@ describe('getGateConfig', () => {
     expect(getGateConfig().broadImpactGlobs).toEqual(['SKILL.md', 'docs/README.md']);
   });
 
+  it('parses tag-globs lines into a glob and its tags', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'tag-globs': 'scripts/sdk-lookup.cjs: sdk-module-map, dashboard-page\n' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().tagGlobs).toEqual([{ glob: 'scripts/sdk-lookup.cjs', tags: ['sdk-module-map', 'dashboard-page'] }]);
+  });
+
+  it('defaults tag-globs to none', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().tagGlobs).toEqual([]);
+  });
+
+  it('rejects a tag-globs line with no tag', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'tag-globs': 'scripts/sdk-lookup.cjs' });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(() => getGateConfig()).toThrow(/tag-globs line must be/);
+  });
+
   it('treats blocking: true as blocking and anything else as soaking', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, blocking: 'true' });
     const { getGateConfig } = await import('../src/utils/config');

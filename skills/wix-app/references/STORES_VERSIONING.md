@@ -130,4 +130,4 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 - [stores/INVENTORY.md](stores/INVENTORY.md) — inventory read and write operations
 - [stores/CATEGORIES.md](stores/CATEGORIES.md) — collections (V1) ↔ categories (V3)
 
-For methods not listed here, use `SearchWixSDKDocumentation` then `ReadFullDocsMethodSchema` (use `ReadFullDocsArticle` only for prose). Always return the required permission scopes to the user.
+For methods not listed here, run the [SDK lookup](../SKILL.md#sdk-lookup-one-call-for-every-vertical-entity) for `products` (it prints both namespaces and their methods), then `ReadFullDocsMethodSchema` for its permission scope (and the filter list if the lookup printed none). Always return the required permission scopes to the user.

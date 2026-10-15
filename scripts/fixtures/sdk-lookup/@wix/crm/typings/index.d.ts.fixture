@@ -1,0 +1,4 @@
+import * as auto_sdk_crm_contacts from '@wix/auto_sdk_crm_contacts';
+export { auto_sdk_crm_contacts as contacts };
+import * as auto_sdk_crm_contactsV5 from '@wix/auto_sdk_crm_contacts-v-5';
+export { auto_sdk_crm_contactsV5 as contactsV5 };

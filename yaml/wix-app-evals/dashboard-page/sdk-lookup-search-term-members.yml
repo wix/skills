@@ -1,0 +1,25 @@
+name: dashboard-page/sdk-lookup-search-term-members
+description: A members dashboard page with a search box takes the term rule from the sdk-lookup shape line — members has no search method, but queryMembers takes free text in options.search, whose fields default to the nickname alone, so the call names the name and email fields — and does not run one query per field or filter a fetched page in the client
+triggerPrompt: |-
+  Build a dashboard page that lists the site's members with their name, login email and nickname, with a search box that finds a member by any of them.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: c0ee6fd2-5265-4c57-b083-4f1308ff5ffa
+tags: [dashboard-page, sdk-module-map, draft-template, wix-patterns-docs]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md, references/dashboard-page/DRAFT_TEMPLATE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate how the search box finds members, from the trace and the generated code. Check: (1) The agent ran the skill's `scripts/sdk-lookup.cjs` for members with `--intent search` after `@wix/members` was installed, and the code follows its `shape` line. (2) The search term reaches the server in ONE `members.queryMembers` call, on the name and the email fields (`contact.firstName`, `contact.lastName`, `loginEmail`): either in `options.search` with `expression` and `fields` naming those fields, or in one `filter` with `$or` of `$startsWith` on them. A `search` with no `fields` searches only `profile.nickname`, so it scores at most 4. Several queries merged in the client, or a fetched page filtered in the client with `includes()`, scores at most 3. (3) The query passes `fieldsets: ['FULL']`, so the name and login email columns are filled (the default `PUBLIC` returns neither). Score 0-10, citing the code and the commands in the trace.
+  - type: time_limit
+    maxDurationMs: 300000
+  - type: cost
+    maxCostUsd: 2

@@ -20,6 +20,7 @@ const CONFIG: GateConfig = {
   referenceDir: 'references',
   ignoreGlobs: ['scripts/**'],
   broadImpactGlobs: ['SKILL.md'],
+  tagGlobs: [],
   maxScenarios: 25,
   isBlocking: true,
   owner: 'wix',

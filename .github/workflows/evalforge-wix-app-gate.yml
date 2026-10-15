@@ -102,6 +102,11 @@ jobs:
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
           evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
           skill-dir: skills/wix-app
+          # SKILL.md tells the agent to trust the SDK lookup over the typings, so a change to it
+          # runs the scenarios that call it rather than nothing (scripts/** is ignored).
+          tag-globs: |
+            scripts/sdk-lookup.cjs: sdk-module-map, dashboard-page
+            scripts/sdk-curated.json: sdk-module-map, dashboard-page
           # Inline rather than repo vars: neither is a secret, and in the workflow file they
           # appear in the diff, get reviewed when they change, and document what the gate
           # evaluates against. As repo vars they could be edited silently.

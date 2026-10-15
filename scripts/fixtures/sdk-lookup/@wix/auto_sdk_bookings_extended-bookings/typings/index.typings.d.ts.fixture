@@ -1,0 +1,69 @@
+// Trimmed from @wix/auto_sdk_bookings_extended-bookings@1.0.136 build/cjs/index.typings.d.ts:
+// a builder with no filter or sort, a query object with cursor paging, and a
+// query spec that lists no field (`wql: []`).
+interface ExtendedBooking {
+    booking?: Booking;
+}
+interface Booking {
+    _id?: string | null;
+    status?: string;
+}
+interface QueryExtendedBookingsResponse {
+    extendedBookings?: ExtendedBooking[];
+    pagingMetadata?: PagingMetadataV2;
+}
+interface PagingMetadataV2 {
+    count?: number | null;
+    cursors?: Cursors;
+}
+interface Cursors {
+    next?: string | null;
+}
+interface QueryExtendedBookingsOptions {
+    /** Whether to return information about the actions the customer can perform for the bookings. */
+    withBookingAllowedActions?: boolean;
+}
+/**
+ * Retrieves a list of bookings, including additional extended information, given the provided paging, filtering, and sorting.
+ * @public
+ * @param options - Additional options for performing the query.
+ * @permissionId BOOKINGS.BOOKING_READ
+ * @applicableIdentity APP
+ * @fqn com.wixpress.bookings.reader.v2.BookingsReader.QueryExtendedBookings
+ */
+declare function queryExtendedBookings(options?: QueryExtendedBookingsOptions): ExtendedBookingsQueryBuilder;
+interface ExtendedBookingsQueryResult {
+    items: ExtendedBooking[];
+}
+interface ExtendedBookingsQueryBuilder {
+    /** @param limit - Number of items to return, which is also the `pageSize` of the results object. */
+    limit: (limit: number) => ExtendedBookingsQueryBuilder;
+    /** @param cursor - A pointer to specific record */
+    skipTo: (cursor: string) => ExtendedBookingsQueryBuilder;
+    find: () => Promise<ExtendedBookingsQueryResult>;
+}
+/**
+ * @hidden
+ * @fqn com.wixpress.bookings.reader.v2.BookingsReader.QueryExtendedBookings
+ * @requiredField query
+ */
+declare function typedQueryExtendedBookings(query: ExtendedBookingQuery, options?: QueryExtendedBookingsOptions): Promise<NonNullablePaths<QueryExtendedBookingsResponse, `extendedBookings` | `extendedBookings.${number}.booking.status`, 4>>;
+interface ExtendedBookingQuerySpec extends QuerySpec {
+    paging: 'cursor';
+    wql: [];
+}
+type CommonQueryWithEntityContext = Query<ExtendedBooking, ExtendedBookingQuerySpec>;
+type ExtendedBookingQuery = {
+    /**
+    Cursor token pointing to a page of results.
+    */
+    cursorPaging?: {
+        limit?: NonNullable<CommonQueryWithEntityContext['cursorPaging']>['limit'] | null;
+        cursor?: NonNullable<CommonQueryWithEntityContext['cursorPaging']>['cursor'] | null;
+    };
+    filter?: CommonQueryWithEntityContext['filter'] | null;
+    sort?: {
+        fieldName?: NonNullable<CommonQueryWithEntityContext['sort']>[number]['fieldName'];
+        order?: NonNullable<CommonQueryWithEntityContext['sort']>[number]['order'];
+    }[];
+};

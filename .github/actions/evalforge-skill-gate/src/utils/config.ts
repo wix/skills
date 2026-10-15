@@ -4,7 +4,7 @@ import * as github from '@actions/github';
 import {
   DEFAULT_BASE_ARM_GRACE_SECONDS, DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS,
   DEFAULT_REFERENCE_DIR, DEFAULT_RUNS_PER_SCENARIO, ensureHttps, safeGetSecret, getPrNumber,
-  readHeadRepoFullName,
+  parseTagGlobs, readHeadRepoFullName, type TagGlob,
 } from '@wix/evalforge-core';
 
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
@@ -77,6 +77,7 @@ export type GateConfig = {
   referenceDir: string;
   ignoreGlobs: string[];
   broadImpactGlobs: string[];
+  tagGlobs: TagGlob[];
   maxScenarios: number;
   /** The action input stays `blocking` — that name is the public contract and reads right in YAML. */
   isBlocking: boolean;
@@ -266,6 +267,7 @@ export function getGateConfig(): GateConfig {
     referenceDir: core.getInput('reference-dir') || DEFAULT_REFERENCE_DIR,
     ignoreGlobs: getMultilineList('ignore-globs', DEFAULT_IGNORE_GLOBS),
     broadImpactGlobs: getMultilineList('broad-impact-globs', DEFAULT_BROAD_IMPACT_GLOBS),
+    tagGlobs: parseTagGlobs(getMultilineList('tag-globs', [])),
     maxScenarios,
     isBlocking: core.getInput('blocking') === 'true',
     owner,

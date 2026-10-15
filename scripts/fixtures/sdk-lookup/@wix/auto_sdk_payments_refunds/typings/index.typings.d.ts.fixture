@@ -1,0 +1,35 @@
+import '@wix/sdk-types';
+
+interface Refund {
+    _id?: string | null;
+}
+interface RefundCreatedEnvelope {
+    entity: Refund;
+}
+/**
+ * Retrieves a refund.
+ * @param refundId - ID of the refund to retrieve.
+ * @public
+ * @documentationMaturity preview
+ * @requiredField refundId
+ * @permissionId PAYMENTS.REFUND_READ
+ * @applicableIdentity APP
+ * @fqn wix.payments.refunds.v1.RefundService.GetRefund
+ * @deprecated Use getRefundV2 instead.
+ * @replacedBy wix.payments.refunds.v1.RefundService.GetRefundV2
+ * @targetRemovalDate 2027-01-01
+ */
+declare function getRefund(refundId: string): Promise<Refund>;
+/** @permissionScope Manage Refunds
+ * @permissionScopeId SCOPE.DC-PAYMENTS.MANAGE-REFUNDS
+ * @permissionScope Read Refunds
+ * @permissionScopeId SCOPE.DC-PAYMENTS.READ-REFUNDS
+ * @permissionId PAYMENTS.REFUND_READ
+ * @webhook
+ * @eventType wix.payments.refunds.v1.refund_created
+ * @serviceIdentifier wix.payments.refunds.v1.RefundService
+ * @slug created
+ */
+declare function onRefundCreated(handler: (event: RefundCreatedEnvelope) => void | Promise<void>): void;
+
+export { type Refund, type RefundCreatedEnvelope, getRefund, onRefundCreated };
