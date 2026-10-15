@@ -116,7 +116,11 @@ jobs:
           PR_URL: ${{ steps.pr.outputs.url }}
         run: |
           set -euo pipefail
-          if gh pr merge --squash "$PR_URL"; then
+          # --admin: without it gh refuses client-side as soon as the PR shows "blocked", which the
+          # lock makes it show for everyone, and never asks the server, where the App's bypass is
+          # evaluated. The flag only tells gh to attempt the merge; the bypass decision stays
+          # GitHub's. Seen on #1771: "the base branch policy prohibits the merge" from gh itself.
+          if gh pr merge --squash --admin "$PR_URL"; then
             echo "merged"
           else
             echo "::warning::direct merge refused; arming auto-merge as a fallback"
