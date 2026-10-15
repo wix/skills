@@ -1,0 +1,40 @@
+name: Mirror greeter
+
+# wix/skills is a read-only mirror of wix-private/ax-skills. Wix members cannot create branches
+# here (ruleset), so the only pull requests that can still appear come from forks. This leaves
+# one comment on each, saying where the change can actually land, and labels it `external` so a
+# maintainer can find it. The PR stays open; nothing is merged into the mirror by hand.
+#
+# pull_request_target so the comment can be posted on a fork PR. Nothing from the PR is checked
+# out or executed: the job reads event metadata and calls the API.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  greet:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comment and label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh label list -R "$REPO" --search external --json name --jq '.[].name' | grep -qx external \
+            || gh label create external -R "$REPO" --color 5319E7 --description "Opened from a fork against the mirror"
+          gh pr edit "$PR" -R "$REPO" --add-label external
+          gh pr comment "$PR" -R "$REPO" --body "$(cat <<'MSG'
+          Thanks for the contribution. This repository is a **read-only mirror** of `wix-private/ax-skills`: its `main` branch is rewritten from the source on every change there, and pull requests opened here are not merged.
+
+          The PR stays open so a maintainer can review it and port accepted changes to the source. If you are at Wix, open the same change in `wix-private/ax-skills` (default branch `master`) instead; see [CONTRIBUTING.md](https://github.com/wix/skills/blob/main/CONTRIBUTING.md).
+          MSG
+          )"
