@@ -106,6 +106,17 @@ paths below are relative to that folder, never assumed under `<SKILL_ROOT>`.
 `node <SKILL_ROOT>/install/check.mjs` says whether the skill or its templates have a newer version
 and prints the update commands; it changes nothing.
 
+**Where a file is read from, and where a script runs.** The scripts run where the project is: on
+this machine, or on a remote machine whose shell you reach through a tool. The prose (this file, a
+vertical's `INSTRUCTIONS.md` and `SEED.md`, the shared `DESIGN.md` and `CONTENT.md`) is the same
+file in every copy of these skills: the one installed beside the project, the one your client holds,
+and the one online at `https://www.wix.com/skills/<skill>/<path>`. `context.mjs`, `setup.mjs` and
+`attach.mjs` name what to read in `read`: each file's `path` here, its online `url`, and its size
+in `chars`. A shell that returns a file whole reads `path`. A shell whose output comes back cut
+short, as a remote machine's does past a size, loses the start or the end of a long file without
+saying so, and a tool's own result limit cuts it again: there, read `url` with your docs tool, which
+returns the file whole, and keep the shell for running scripts, whose output is short by design.
+
 Throughout any run, keep the site working at every step so the user can try it as it grows. Steps
 only the site owner can take never hold a flow back: drafted content is live, and anything that
 takes money reaches Wix's checkout before payments are connected. The owner's steps go in the

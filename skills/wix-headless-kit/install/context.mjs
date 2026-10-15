@@ -19,6 +19,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { failure, npmSync } from "./proc.mjs";
+import { statSync } from "node:fs";
+import { basename, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+const SKILL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const skillFile = (rel) => { const path = join(SKILL_ROOT, rel); let chars = null; try { chars = statSync(path).size; } catch { /* absent */ } return { path, url: `https://www.wix.com/skills/${basename(SKILL_ROOT)}/${rel}`, chars }; };
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
 const WIX_CLI = `@wix/cli@${PINS["@wix/cli"]}`;
 
@@ -180,7 +185,10 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
     : starter ? (f.publicIndex && !f.astroPages ? "starter+static" : "starter")
     : f.packageJson ? "project"
     : "static";
-  return { shape, next: next[shape], facts: { config, frontend, starter, ...f } };
+  // What to read for this shape, by path here and the same file online: a shell that returns a file
+  // whole reads `path`; a docs tool reads `url`; `chars` says when a cut-off read would lose the start.
+  const read = [skillFile("SKILL.md"), ...(["blank-starter", "config-only"].includes(shape) ? [skillFile("guides/existing-site.md")] : []), ...(shape === "migration" ? [skillFile("guides/migration.md")] : [])];
+  return { shape, next: next[shape], read, facts: { config, frontend, starter, ...f } };
 }
 
 /**

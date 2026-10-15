@@ -53,7 +53,7 @@ import { fileURLToPath } from "node:url";
 import { writeAgentsMd } from "./agents-md.mjs";
 import { ignoreEnvLocal } from "./env-ignore.mjs";
 import { frontendPresent, siteContext } from "./context.mjs";
-import { listVerticals, templatesDir } from "./templates.mjs";
+import { listVerticals, readingList, templatesDir } from "./templates.mjs";
 import { failure, npmSync, startBackground } from "./proc.mjs";
 import { blankStarter } from "./context.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
@@ -378,7 +378,9 @@ emit("ready_for_brand_layer", {
   install,
   seed,
   siteOrigin,
+  read: readingList(TEMPLATES, verticals, { seeds: !!planPath || siteOrigin === "init" }),
   next:
+    "the files to read are in `read`, each with its path here, its online url (the same file) and its size: read a file whole from `path` with a shell that returns it whole, else at `url` with your docs tool; scripts run here; " +
     (seed
       ? "the plan is seeding in the background (additive; the result's preexisting[] names what the site already held) — sync on .seed-exit before release; "
       : siteOrigin === "init"
