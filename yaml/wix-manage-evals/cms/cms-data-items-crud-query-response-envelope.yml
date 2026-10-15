@@ -1,0 +1,136 @@
+name: cms/cms-data-items-crud-query-response-envelope
+description: >-
+  Verifies live CMS queries are executed and their dataItems/data envelope is used to report
+  matching records, including a zero price, while a no-match condition is reported accurately.
+triggerPrompt: >-
+  In my Products CMS collection, list all in-stock items priced below 100, cheapest first.
+  Include each item's CMS ID, title and price, and give me the number of matches and the sum
+  of their prices. Also check whether there are any in-stock items priced above 1000.
+  Don't change anything.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Products
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Products
+            displayName: Products
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+              - key: price
+                displayName: Price
+                type: NUMBER
+              - key: inStock
+                displayName: In Stock
+                type: BOOLEAN
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Seed matching cable
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Products
+          dataItem:
+            id: 4c7d3e91-88a2-4d07-9f15-32e80bcb1001
+            data: { title: USB-C Cable, price: 12.99, inStock: true }
+      - label: Seed in-stock item above price limit
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Products
+          dataItem:
+            id: 4c7d3e91-88a2-4d07-9f15-32e80bcb1002
+            data: { title: Wireless Headphones, price: 149.99, inStock: true }
+      - label: Seed out-of-stock item below price limit
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Products
+          dataItem:
+            id: 4c7d3e91-88a2-4d07-9f15-32e80bcb1003
+            data: { title: Bluetooth Speaker, price: 79.99, inStock: false }
+      - label: Seed matching free item last to exercise sorting
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Products
+          dataItem:
+            id: 4c7d3e91-88a2-4d07-9f15-32e80bcb1004
+            data: { title: Logo Sticker, price: 0, inStock: true }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - type: llm_judge
+    scoringMode: boolean
+    maxTokens: 2048
+    prompt: |
+      Evaluate the executed tool calls, returned payloads, any response-processing code, and
+      final answer. The fixture contains four Products records. Its values are not in the user
+      prompt: the answer must obtain them from actual service results.
+
+      Pass only if all of the following hold:
+      - The agent actually executes Query Data Items (POST
+        https://www.wixapis.com/wix-data/v2/items/query, or its equivalent alias
+        https://www.wixapis.com/data/v2/items/query) against Products on the provisioned site,
+        through CallWixSiteAPI or ExecuteWixAPI, and receives successful responses. Merely
+        writing code or explaining the API is insufficient. It applies both requested inStock/price
+        conditions, either in separate filtered queries or by filtering a complete returned
+        result set in code. For a broad query, all pages must be accounted for before claiming
+        no matches; a single execution tool call may run multiple requests.
+      - It handles the REST response's dataItems array and each item's data object correctly.
+        If processing code is present, it must use those fields (possibly through aliases or
+        helper functions), not treat response.items/response.data as the record array or read
+        item.title/item.price at the envelope level. A transport wrapper such as
+        response.data.dataItems is valid. Directly reading the tool payload is also acceptable.
+      - It reports exactly these two matches in this order, with their returned IDs:
+        Logo Sticker, price 0, ID 4c7d3e91-88a2-4d07-9f15-32e80bcb1004;
+        USB-C Cable, price 12.99, ID 4c7d3e91-88a2-4d07-9f15-32e80bcb1001.
+        Server-side sorting or sorting the returned data in code are both acceptable.
+      - It reports 2 matches and a sum of 12.99, derived from the actual returned records.
+      - It reports no in-stock items above 1000 from service evidence: an empty response to
+        that filtered query, or a complete result set with no items meeting that condition.
+        An omitted dataItems field on an empty response is acceptable if the raw payload
+        establishes that the query succeeded with no matches.
+      - It does not write, delete or modify any site data.
+
+      Fail for an empty-collection claim despite a nonempty dataItems response; dropping the
+      zero-price item; including either excluded record; fabricated IDs or values; a correct
+      list unsupported by actual returned data; wrong sums/order; or instructions without execution.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1536
+    prompt: |
+      Rate the executed path 0-10, using the trace rather than code branches that never ran.
+      Expected: read the CRUD skill, resolve the collection if needed, execute queries covering
+      both conditions, process dataItems[*].data and report both outcomes without writes.
+      Either two filtered queries or one complete query with correct local filtering is valid.
+      Relevant schema/docs verification is acceptable. /data/v2/items/query and
+      /wix-data/v2/items/query are equivalent aliases, not invented endpoints. Score 9-10 for a direct clean path,
+      7-8 for modest extra discovery or verification, and 0-6 for an actual wrong-envelope
+      parse (even if repaired), a non-2xx CMS response from a guessed request, invented endpoints,
+      repeated unfiltered/probing queries, or any mutation. Reading response.items and treating
+      undefined as empty is a correctness failure, not evidence of an empty collection.
+      When evaluating pagination, accept either a limit that covers the fixture or fetching
+      all returned pages; a count from pagingMetadata alone cannot supply the item values.
+      LIST each friction and its likely skill/MCP/docs gap. Return ONLY
+      {"score":<0-10>,"reason":"<frictions and suspected gaps, or 'clean path'>"}.

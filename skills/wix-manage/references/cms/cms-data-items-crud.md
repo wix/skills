@@ -7,9 +7,14 @@ description: "Add, query, update, and delete items in CMS collections, one at a 
 > These calls need the Wix CMS app on the site (`appDefId` `e593b0bd-b783-45b8-97c2-873d42aacaf4`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
 
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. `https://www.wixapis.com/data/v2/...` (the `publicUrl` that `SearchWixAPISpec` returns for these methods) is an equivalent alias of the `https://www.wixapis.com/wix-data/v2/...` paths used here; either works.
 
 This recipe covers Create, Read, Update, Delete (CRUD) operations for Wix CMS data items, plus count, upsert, truncate, aggregate, and reference-field links.
+
+> **Response envelope — read this before parsing any response.**
+> - **Single-item responses** (insert, get, update, patch, delete) wrap the item in **`dataItem`**: `{ "dataItem": { "id": "...", "dataCollectionId": "...", "data": { ... } } }`
+> - **Query responses** wrap results in **`dataItems`** plus `pagingMetadata` — there is **no `items` key**. Parsing `response.items` returns `undefined` (not an error!) and silently looks like an empty collection.
+> - Item fields are nested under each element's **`data`** object; the element id is **`id`** (the flat `_id` lives inside `data`).
 
 ## Prerequisites
 
@@ -164,6 +169,35 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 }
 ```
 
+**Response**:
+```json
+{
+  "dataItems": [
+    {
+      "id": "item-guid-1",
+      "dataCollectionId": "Products",
+      "data": {
+        "_id": "item-guid-1",
+        "_createdDate": { "$date": "2024-01-15T10:00:00.000Z" },
+        "_updatedDate": { "$date": "2024-01-15T10:00:00.000Z" },
+        "title": "Wireless Headphones",
+        "price": 149.99,
+        "inStock": true
+      }
+    }
+  ],
+  "pagingMetadata": {
+    "count": 1,
+    "offset": 0,
+    "tooManyToCount": false,
+    "cursors": {},
+    "hasNext": false
+  }
+}
+```
+
+> **Common error**: Query results are under **`dataItems`**, NOT `items`. Reading `response.items` yields `undefined` — the code still runs, returns an empty list, and looks exactly like "the collection is empty". If a query returns no items but you expect some, dump the **raw response body** and check you are reading `response.dataItems` with each item's fields under `item.data`.
+
 ## Get Single Item
 
 **Endpoint**: `GET https://www.wixapis.com/wix-data/v2/items/{itemId}?dataCollectionId={collectionId}`
@@ -172,6 +206,22 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 curl -X GET \
 'https://www.wixapis.com/wix-data/v2/items/abc123?dataCollectionId=Products' \
 -H 'Authorization: <AUTH>'
+```
+
+**Response** (same `dataItem` envelope as insert):
+```json
+{
+  "dataItem": {
+    "id": "abc123",
+    "dataCollectionId": "Products",
+    "data": {
+      "_id": "abc123",
+      "_createdDate": { "$date": "2024-01-15T10:00:00.000Z" },
+      "_updatedDate": { "$date": "2024-01-15T10:00:00.000Z" },
+      "title": "Wireless Headphones"
+    }
+  }
+}
 ```
 
 ## Update Data Item
@@ -194,6 +244,8 @@ curl -X GET \
   }
 }
 ```
+
+**Response**: the full updated item, in the same `dataItem` envelope as insert (see [Insert Data Item](#insert-data-item)).
 
 ## Patch Data Item (Partial Update - Single Item)
 
@@ -231,6 +283,8 @@ Unlike Update, this only modifies the specified fields — all other fields rema
   }
 }
 ```
+
+**Response**: the patched item, in the same `dataItem` envelope as insert (see [Insert Data Item](#insert-data-item)).
 
 ## Bulk Update Items
 
@@ -369,6 +423,10 @@ curl -X DELETE \
 'https://www.wixapis.com/wix-data/v2/items/abc123?dataCollectionId=Products' \
 -H 'Authorization: <AUTH>'
 ```
+
+**Response**: the deleted item, in the same `dataItem` envelope as insert.
+
+To delete by field value (e.g. by `title`), query first (see [Query Data Items](#query-data-items)) to resolve the item id, then delete by id.
 
 ## Bulk Delete Items
 
@@ -698,6 +756,11 @@ POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
 After the installation succeeds, retry the original `POST https://www.wixapis.com/wix-data/v2/items` request. If the
 user only asks what the error means or how to fix it, explain this installation step and ask for
 confirmation before performing the install.
+
+Installing the CMS app is the whole fix. Do **not** tell the user to enable Velo, dev mode or the
+code editor: the Data Items introduction's code-editor note is for app developers, and the generic
+`WD_BAD_REQUEST` entry for `WDE0110` on the error-codes page does not change this remedy. This
+section has everything the answer needs; no further docs reads are required.
 
 | Error | Cause | Solution |
 |-------|-------|----------|

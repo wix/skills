@@ -1,0 +1,92 @@
+name: cms/cms-data-items-crud-get-response-envelope
+description: >-
+  Verifies a live single-item CMS read uses dataItem.data and preserves a numeric zero and
+  boolean false instead of treating those returned values as missing.
+triggerPrompt: >-
+  Check CMS item 9aaf642e-7cd4-47f8-b951-c1c35bf51001 in my Products collection.
+  Tell me its title, price and whether it is in stock. Don't change anything.
+tags: [cms]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install CMS
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: '{{siteId}}'
+            tenantType: SITE
+          appInstance:
+            appDefId: e593b0bd-b783-45b8-97c2-873d42aacaf4
+      - label: Create Products
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/collections
+        body:
+          collection:
+            id: Products
+            displayName: Products
+            fields:
+              - key: title
+                displayName: Title
+                type: TEXT
+              - key: price
+                displayName: Price
+                type: NUMBER
+              - key: inStock
+                displayName: In Stock
+                type: BOOLEAN
+            permissions:
+              insert: ADMIN
+              update: ADMIN
+              remove: ADMIN
+              read: ANYONE
+      - label: Seed item with falsy values
+        method: post
+        url: https://www.wixapis.com/wix-data/v2/items
+        body:
+          dataCollectionId: Products
+          dataItem:
+            id: 9aaf642e-7cd4-47f8-b951-c1c35bf51001
+            data: { title: Spare Keyboard, price: 0, inStock: false }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud
+  - type: llm_judge
+    scoringMode: boolean
+    maxTokens: 1536
+    prompt: |
+      Evaluate the executed calls, returned payloads, any processing code and final answer.
+      The fixture's title, price and stock status are not in the user prompt.
+      Pass only if all of the following hold:
+      - The agent actually retrieves item 9aaf642e-7cd4-47f8-b951-c1c35bf51001 from Products
+        on the provisioned site using Get Data Item: GET /wix-data/v2/items/{id} with
+        dataCollectionId=Products, or the documented POST /wix-data/v2/items/get equivalent.
+        The /data/v2/... paths are equivalent aliases, and CallWixSiteAPI or ExecuteWixAPI
+        (wix.request) are both valid ways to call it. A collection query alone does not
+        exercise the single-item response envelope.
+      - The call succeeds with the requested record in dataItem. It reads the fields under
+        dataItem.data (possibly through aliases/helpers, or directly from the tool payload).
+      - The answer says title "Spare Keyboard", price 0 (free is acceptable), and not in stock.
+        It must not label zero/false as unknown, missing, unset, unavailable data or an error.
+      - These facts are supported by the returned record, not guessed or copied from examples.
+      - No site data is changed and no mutation is claimed.
+      Fail for parsing response.items/response.dataItems instead of dataItem, reading title or
+      price at the envelope level, dropping zero/false through truthiness defaults, claiming
+      the item does not exist despite a successful response, or explaining a call without executing it.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 1024
+    prompt: |
+      Rate the executed path 0-10. Expected: read the CRUD skill and retrieve the known item
+      using the single-item endpoint, then read dataItem.data and report its values without writes.
+      Relevant schema/docs verification and resolving the site/collection are acceptable.
+      The /data/v2/... and /wix-data/v2/... paths are equivalent aliases, not invented endpoints.
+      Score 9-10 for a clean direct path, 7-8 for modest extra discovery, and 0-6 for an actual
+      wrong-envelope parse even if repaired, a non-2xx CMS call from a guessed request,
+      repeated queries to rediscover the supplied item ID, invented endpoints, or any mutation.
+      Do not penalize error-handling branches that never ran or documentation mentioning errors.
+      LIST each friction and its likely skill/MCP/docs gap. Return ONLY
+      {"score":<0-10>,"reason":"<frictions and suspected gaps, or 'clean path'>"}.
