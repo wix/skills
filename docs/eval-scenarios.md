@@ -161,6 +161,24 @@ siteSetup:
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
 
+#### Passing values between bootstrap steps
+
+Bootstrap substitutes these placeholders in step URLs and body values:
+
+- `{{siteId}}` — the provisioned site's ID.
+- `{{prev.<path>}}` — a value from the previous step's JSON response.
+- `{{steps.N.<path>}}` — a value from step `N`'s response (zero-based, counting all steps).
+
+For example, if step 1 creates a form, later submission steps can reuse its returned ID with this body fragment:
+
+```yaml
+body:
+  submission:
+    formId: "{{steps.1.form.id}}"
+```
+
+`{{prev.form.id}}` also works immediately after form creation; use the indexed reference for multiple submissions. Paths support array indexes, such as `results.0.item.id`. References must resolve to a string, number, or boolean; missing paths or unavailable steps stop bootstrap. These placeholders do not expose responses in `triggerPrompt`.
+
 ## Adding a Wix App Eval Scenario
 
 Every `wix-app` skill change should be covered by an **eval scenario** — a YAML file describing a realistic build request and how to verify the agent handled it. `wix-app` scenarios are the **source of truth** in the repo and sync to EvalForge on merge (see [wix-app scenarios: sync on merge](skill-evaluation.md#wix-app-scenarios-sync-on-merge)); they're selected by **tag**.
