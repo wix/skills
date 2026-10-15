@@ -91,13 +91,18 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+Run the [`release-bump`](https://github.com/wix-private/ax-skills/actions/workflows/release-bump.yml) workflow from the **Actions** tab of `wix-private/ax-skills` and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass, the sync carries the new version to `wix/skills`, and [`release.yml`](https://github.com/wix/skills/blob/main/.github/workflows/release.yml) there publishes to npm via Trusted Publishing.
 
 ## Serving (`www.wix.com/skills`)
 
-Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`), directly from this repo's `main` branch with no build step. Responses are cached, so a merge to `main` reflects there within a few minutes.
+Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`), directly from the `main` branch of `wix/skills` with no build step. Responses are cached, so a change reflects there within a few minutes of reaching that branch.
 
 ## Contributing
+
+The source of truth for these skills is **[`wix-private/ax-skills`](https://github.com/wix-private/ax-skills)** (default branch `master`). The public repository, [`github.com/wix/skills`](https://github.com/wix/skills), is a read-only mirror of it: every merge to `ax-skills` master is synced there automatically, and pull requests opened against the mirror are not merged.
+
+- **Wix employees:** open pull requests in `wix-private/ax-skills`. Review, evals and the skill-review check run there.
+- **Everyone else:** open an issue in `wix/skills` describing the change. A maintainer ports accepted changes to the source.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills.
 
