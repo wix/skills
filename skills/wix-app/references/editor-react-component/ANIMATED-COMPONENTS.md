@@ -43,12 +43,11 @@ For carousel-like components that swap readable parallel items, make the item
 wrapper a live region:
 
 - Use `aria-live={isPlaying ? 'off' : 'polite'}` and `aria-atomic="false"`.
-- `isPlaying = isPlayOn && !isHovered && !isStoppedByFocus`. Reduced motion
+- `isPlaying = isPlayOn && !isHovered && !isFocusWithin`. Reduced motion
   starts paused; editor mode, `autoPlay={false}`, and pause set it false.
-  Keyboard focus remains stopped until the rotation control restarts; hover
-  pauses temporarily.
-- Previous/next changes items. Use root `onMouseEnter`/`onMouseLeave`;
-  leaving resumes unless focus has stopped rotation.
+- Root `onMouseEnter`/`onMouseLeave` and `onFocus`/`onBlur` (clear only when
+  `relatedTarget` leaves the root) pause temporarily; prev/next/dot set
+  `isPlayOn` to `false`.
 
 ## 1. Define Props
 
@@ -126,17 +125,14 @@ do not restart when it turns off. Resume can still override the preference.
 
 Derive runtime playback from `isPlayOn` plus only needed conditions. Without
 another condition, use `const isPlaying = isPlayOn`. A carousel, slideshow,
-slider, or gallery also uses hover and focus-stop state:
+slider, or gallery also uses hover and focus state:
 
 ```tsx
-const isPlaying = isPlayOn && !isHovered && !isStoppedByFocus;
+const isPlaying = isPlayOn && !isHovered && !isFocusWithin;
 ```
 
 Pass `isPlaying` to the renderer. The button uses `isPlayOn` and toggles
-between `handlePause` / `handleResume` on click. In a carousel-like component,
-focus entering anything except that button sets `isPlayOn` to `false` and
-`isStoppedByFocus` to `true`; `handleResume` sets `isPlayOn` to `true` and
-clears `isStoppedByFocus`.
+between `handlePause` / `handleResume` on click.
 
 ## 3. Add the Play/Pause Button
 
@@ -223,7 +219,8 @@ Wire the named part completely:
   pointer-events: none;
 }
 
-.root[data-pause-button-visibility="showOnHover"]:hover .playButton {
+.root[data-pause-button-visibility="showOnHover"]:hover .playButton,
+.root[data-pause-button-visibility="showOnHover"]:focus-within .playButton {
   opacity: 1;
   pointer-events: auto;
 }
@@ -268,6 +265,7 @@ Design mode stops autoplay and exposes the control; preview uses the user's valu
 - [ ] Autoplay and pause-control props use the documented contract; `loop` is
       present only when repeat behavior is supported.
 - [ ] Reduced motion starts paused and never restarts playback automatically.
+- [ ] Hover and focus pause rotation; manual navigation stops it.
 - [ ] The play/pause button is a fully wired named part with a stable accessible name.
 - [ ] Both icons inherit button-owned `--icon-size` for width and height and
       `--icon-color` via `color` and `currentColor` for fill or stroke.
