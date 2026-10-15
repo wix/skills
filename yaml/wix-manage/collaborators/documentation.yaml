@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Site Collaborators Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/collaborators/manage-site-collaborators.md
+      title: Manage Site Collaborators
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/user-management/sites
+      tags: [collaborators]

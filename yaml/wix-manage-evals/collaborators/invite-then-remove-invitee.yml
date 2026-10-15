@@ -1,0 +1,40 @@
+name: collaborators/invite-then-remove-invitee
+description: >-
+  Verifies the agent picks the right action when asked to remove someone it just
+  invited: the person has only been invited, so the agent cancels the invite
+  with the id from the Bulk Invite response and never calls Remove Contributor.
+  Bulk Invite may be refused on the test account; the judge scores the call
+  sequence.
+triggerPrompt: >-
+  Invite hadarza@wix.com to my Wix site as a collaborator with any
+  standard role, then remove that person from the site right away.
+tags: [collaborators]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/user-management/sites/skills/manage-site-collaborators
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked the agent to invite hadarza@wix.com and then
+      "remove that person" right away. The person has only been invited, never
+      accepted, so the correct way to undo it is to cancel the invite.
+
+      Score 8-10 if EITHER:
+      (a) the agent looked up a role (GET /roles-management/roles), sent
+          POST /invites/site-invite/bulk, then called
+          POST /invites/site-invite/{inviteId}/revoke with the id from that
+          response, and told the user the invite was canceled; OR
+      (b) the invite call was refused (for example 403) and the agent stopped,
+          told the user, and did not invent an invite id or call revoke or
+          Remove Contributor.
+
+      Score 0-3 if the agent calls POST /roles-management/contributor/remove
+      for this person, asks the user for an invite id it should already have,
+      invents an id, or asks for confirmation instead of acting.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}
