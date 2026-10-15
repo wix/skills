@@ -22,9 +22,16 @@ declare class CollectionState<T = any, F = any> { [key: string]: unknown }
 
 That is a documentation abridgement, not the declaration your code compiles against. `tsc` resolves
 `dist/types/index.d.ts`, which re-exports the **fully typed** `CollectionState` from
-`@wix/bex-core` — no index signature. So `state.collection.…` is properly typed, a wrong member is a
-compile error at the access, and reading `state.collection.status.status` to debug a stuck table is
-sound. See `<pkgRoot>/dist/docs/Reading the Doc Indices.md` for what a stub means.
+`@wix/bex-core` — no index signature. So `state.collection.…` is properly typed and a wrong member
+is a compile error at the access. See `<pkgRoot>/dist/docs/Reading the Doc Indices.md` for what a
+stub means.
+
+**`status.status` exists, whatever its page implies.** `CollectionState.md` describes `status` as
+"boolean flags of `isIdle`, `isError`, `isLoading`, `isFetching`, `isSuccess`" and never mentions
+the discriminant, so the page reads as though there were no such field. There is:
+`QueryResultStatus` is a discriminated union keyed on
+`status: 'idle' | 'loading' | 'error' | 'success'`. Logging `state.collection.status.status` to
+debug a stuck table is sound and type-safe — do not "fix" it to a flag.
 
 Prefer a typed member on `TableState` itself anyway — it is the object the hook hands you, and the
 table's own view of the collection.
@@ -41,8 +48,13 @@ zero rows, so binding `SummaryBar`'s `status` to it leaves the bar on skeleton p
 an empty collection — which reads as a hung network rather than an empty result. Use
 `state.showErrorState ? 'error' : 'success'`.
 
-**`collection.isLoading` and `collection.refresh()` are not members.** They look plausible, they
-compile against the index signature, and neither exists at runtime.
+**`collection.isLoading` and `collection.refresh()` are not members.** Both look plausible and
+neither exists. `tsc` rejects them at the access — `Property 'refresh' does not exist on type
+'CollectionState<…>'` — so this costs one compile, not a debugging session. The members you want
+are `collection.status.isLoading` and, to reload after a write, one of `refreshCurrentPage()`,
+`refreshAllPages()`, `invalidate()`, `clearResultAndMoveToStart()` or `retryErrorState()`. They
+differ in what they invalidate and whether a loading indication shows, so pick from
+`patterns-lookup.cjs CollectionState` — its summary names them — rather than by the sound of a name.
 
 ### A `fetchTotal` that resolves undefined shows 0, not the rows
 
