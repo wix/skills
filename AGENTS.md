@@ -12,4 +12,4 @@ automated checks. What they cover, one line each:
 - **Skill evaluation** — PRs touching wix-manage references or yaml run the automated eval gate: coverage → schema → execution; treat it as a loop, not a one-time check.
 - **PR checklist** — the pre-open checklist; walk it before every PR.
 
-No fork PRs for `wix-manage` changes (the eval bot can't run on forks). Descriptions ≤ 1024 chars.
+Open PRs in `wix-private/ax-skills` (default branch `master`), never in the public mirror `wix/skills`. Descriptions ≤ 1024 chars.

@@ -2,6 +2,14 @@
 
 Thank you for your interest in contributing to skills. This document provides Wix-specific guidelines for adding and updating skill content in this repository.
 
+## Where to open pull requests
+
+The source of truth is **[`wix-private/ax-skills`](https://github.com/wix-private/ax-skills)**, default branch `master`. The public [`wix/skills`](https://github.com/wix/skills) is a read-only mirror: a job syncs every merge to `ax-skills` master into it, and pull requests opened against the mirror are not merged.
+
+- Wix employees open pull requests in `wix-private/ax-skills`. The eval gates and the skill-review check run only there.
+- Anyone without access to `wix-private` opens an issue in `wix/skills`. A maintainer ports accepted changes.
+- A branch started in `wix/skills` can be pushed to `ax-skills` as it is: the two repositories share history. Add the remote, push the branch, and open the pull request against `master`.
+
 > **Note:** For general Agent Skills format requirements, see the [Agent Skills specification](https://agentskills.io/home).
 
 Two companion documents carry the detail, so this one stays the entry point:
@@ -28,9 +36,7 @@ In this repo, many requests to add a "new skill" should actually be added as a n
 
 Use `wix-manage` for REST API operations that configure, set up, or manage Wix business entities and account/site resources.
 
-If you are adding or changing `wix-manage` skills, do not open the PR from a fork. The automated evaluation bot verifies the PR branch against eval scenarios, and fork-based PRs cannot be used for that workflow.
-
-If you do not have write permissions for this repository, please read [bo.wix.com/github-assist](https://bo.wix.com/github-assist) for the approved contribution path.
+If you do not have write permissions for `wix-private/ax-skills`, please read [bo.wix.com/github-assist](https://bo.wix.com/github-assist) for the approved contribution path.
 
 Start with [When a skill earns its place](#when-a-skill-earns-its-place): read the area's section of the index, and add a new skill only when no existing entry already claims the intent yours would serve.
 
