@@ -8,7 +8,13 @@ The source of truth is **[`wix-private/ax-skills`](https://github.com/wix-privat
 
 - Wix employees open pull requests in `wix-private/ax-skills`. The eval gates and the skill-review check run only there.
 - Anyone without access to `wix-private` opens an issue in `wix/skills`. A maintainer ports accepted changes.
-- A branch started in `wix/skills` can be pushed to `ax-skills` as it is: the two repositories share history. Add the remote, push the branch, and open the pull request against `master`.
+- A branch started in `wix/skills` can be pushed to `ax-skills` as it is: the two repositories share history. Add the remote, push the branch, and open the pull request against `master`:
+
+  ```bash
+  git remote add private git@github.com:wix-private/ax-skills.git
+  git push -u private my-branch
+  gh pr create -R wix-private/ax-skills --base master
+  ```
 
 > **Note:** For general Agent Skills format requirements, see the [Agent Skills specification](https://agentskills.io/home).
 
