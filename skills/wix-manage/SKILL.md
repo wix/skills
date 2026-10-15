@@ -399,7 +399,7 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 
 ### [Create Headless Site](references/sites/create-headless-site.md)
-Creates a Wix Headless website: a site in the user's Wix account whose frontend is files uploaded to Wix hosting, with the Wix business backend behind it through APIs. Creating, uploading, updating and connecting a backend are one flow, in Upload a Website or HTML Files.
+Creates a Wix Headless website: a site in the user's Wix account whose frontend is files uploaded to Wix hosting, with the Wix business backend behind it through APIs. Two flows make one: Upload a Website or HTML Files, for pages the user has or that you write; the Wix Headless kit's cold start, for a store, blog, bookings or another Wix Business Solution built on its shipped code.
 
 ### [Manage OAuth Apps](references/sites/manage-oauth-apps.md)
 Create, read, update, and query OAuth apps for a Wix headless site. Each OAuth app's id is the client_id a frontend uses to mint anonymous visitor tokens and call Wix APIs.
