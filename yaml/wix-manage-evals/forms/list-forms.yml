@@ -1,10 +1,10 @@
 name: forms/list-forms
 description: >-
-  Verifies the agent reads the REST List Forms reference — there is no recipe
-  for listing — then lists a site's forms with the required namespace query
-  parameter, reports them with their IDs, and knows that the default
-  enabled=true hides disabled forms. The site is seeded with one enabled and
-  one disabled form, so a single default listing is incomplete.
+  Verifies the agent reads the Read Forms and Submissions recipe, then lists a
+  site's forms with the required namespace query parameter, reports them with
+  their IDs, and knows that the default enabled=true hides disabled forms. The
+  site is seeded with one enabled and one disabled form, so a single default
+  listing is incomplete.
 triggerPrompt: >-
   What forms does my Wix site have? List them with their IDs.
 tags: [forms]
@@ -93,7 +93,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/read-forms-and-submissions
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
@@ -103,13 +103,16 @@ assertions:
       and "Newsletter signup" (disabled).
 
       Pass if the response:
-      - lists the site's forms by calling
-        GET /form-schema-service/v4/forms with the required
-        `?namespace=wix.form_app.form` query parameter, AND
+      - lists the site's forms either with
+        GET /form-schema-service/v4/forms?namespace=wix.form_app.form
+        (the namespace query parameter is required), or with
+        POST /form-schema-service/v4/forms/query filtered on
+        "namespace": {"$eq": "wix.form_app.form"}, AND
       - reports each form's name together with its form ID, AND
-      - accounts for the disabled form — either by listing a second time with
-        `enabled=false` and reporting both forms, or by telling the user the
-        default listing covers enabled forms only and offering to check.
+      - accounts for the disabled form — by listing a second time with
+        `enabled=false`, by using Query Forms (which returns both), or by
+        telling the user the default listing covers enabled forms only and
+        offering to check.
 
       Fail if the response:
       - omits the namespace query parameter, or answers a resulting 400 by
@@ -127,9 +130,9 @@ assertions:
       Judge the tool-call path, not just the final answer.
 
       Pass if:
-      - the agent read the REST List Forms reference
-        (`crm/forms/form-schemas/list-forms`) before composing the call —
-        listing has no management recipe, so the reference is the source, AND
+      - the agent read the Read Forms and Submissions recipe
+        (`crm/forms/skills/read-forms-and-submissions`) before composing the
+        call, AND
       - it used the listing endpoint rather than guessing IDs or scanning an
         index, AND
       - every API detail it states (endpoint, query parameters, the enabled
@@ -139,6 +142,8 @@ assertions:
       retry is not itself a failure.
 
       Fail if:
-      - it never arrived at `?namespace=wix.form_app.form`, OR
+      - it never sent namespace wix.form_app.form, as the List Forms query
+        parameter or inside the Query Forms filter, OR
+      - it called an invented URL such as `/forms/v4/forms` (404), OR
       - it called a write endpoint at any point — the request is read-only, OR
       - it hallucinated endpoints, query parameters or namespaces.

@@ -1,0 +1,150 @@
+name: forms/submissions-date-range
+description: >-
+  Verifies the agent reads the Read Forms and Submissions recipe and counts a
+  date range of submissions with createdDate, one condition per operator
+  joined with $and (a single object holding both $gte and $lt is rejected),
+  the namespace inside query.filter, and paging rather than Count Submissions,
+  which takes no date filter.
+triggerPrompt: >-
+  How many submissions did my contact form get between October 1 and October 7, 2026?
+tags: [forms]
+maxTokens: 400000
+# Same seed as forms/latest-submissions, and the same limit: submissions can't be seeded, so the
+# right answer is 0 and the judges grade the date-range request in the tool-call trace. A closed
+# range with two named ends forces both bounds, so the $and rule is what gets tested.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Wix Forms (New) — a blank site has no forms app, and the create 400s without it
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 225dd912-7dea-4738-8688-4b8c6955ffc2
+      - label: seed an enabled contact form
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Contact form
+            namespace: wix.form_app.form
+            formFields:
+              - id: 192371c5-f45d-45f5-880f-e7571a3cf3d0
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_1923
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+              - id: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f
+                identifier: SUBMIT_BUTTON
+                fieldType: DISPLAY
+                displayOptions:
+                  displayFieldType: PAGE_NAVIGATION
+                  pageNavigationOptions: { submitText: Send }
+            steps:
+              - id: 3194a1be-3053-4fa2-b1a5-9c14baf627b1
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: 192371c5-f45d-45f5-880f-e7571a3cf3d0, row: 0, column: 0, width: 12, height: 1 }
+                      - { fieldId: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f, row: 1, column: 6, width: 6, height: 1 }
+      - label: seed a second, unrelated form — the agent has to pick the contact form by name
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Newsletter signup
+            namespace: wix.form_app.form
+            formFields:
+              - id: c4668719-180a-4ffe-8c60-3dbc11a9843d
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_c466
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+            steps:
+              - id: fb159d38-591e-432e-9b27-6bd6d7c493bb
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: c4668719-180a-4ffe-8c60-3dbc11a9843d, row: 0, column: 0, width: 12, height: 1 }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/read-forms-and-submissions
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how many submissions their contact form got between
+      October 1 and October 7, 2026. The site has two forms in the wix.form_app.form namespace,
+      "Contact form" and "Newsletter signup". The contact form has no
+      submissions, so the correct answer is 0.
+
+      Pass if:
+      - the agent found the "Contact form" ID from the site's forms, AND
+      - it called POST /form-submission-service/v4/submissions/namespace/query
+        (or its alias /forms/v4/submissions/namespace/query, the publicUrl the
+        API spec gives; both work)
+        with "namespace": "wix.form_app.form" inside query.filter, the
+        contact form's formId, and a createdDate range with BOTH ends: a
+        lower bound at 2026-10-01 (start of day) and an upper bound covering
+        all of 2026-10-07 (for example $lt 2026-10-08T00:00:00Z or $lte the
+        end of 2026-10-07), AND
+      - the range is written as separate conditions under $and, for example
+        {"$and": [{"namespace": "wix.form_app.form"}, {"formId": "<id>"},
+        {"createdDate": {"$gte": "2026-10-01T00:00:00Z"}}, {"createdDate": {"$lt": "2026-10-08T00:00:00Z"}}]}, AND
+      - it answers 0 for that range.
+
+      Fail if:
+      - it reports a number other than 0, OR
+      - its final query has only one bound, so the range is open-ended, OR
+      - it answers with Count Submissions' all-time totalCount as if it were
+        the 7-day count, OR
+      - it filters on a field that does not exist (submittedDate,
+        _createdDate, submissionDate, dateCreated) in its final query, OR
+      - it created, updated or deleted any form or submission.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent got from the request to the answer. Look at
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST each of these, even if the agent recovered:
+      - a createdDate object holding two operators, such as
+        {"createdDate": {"$gte": "...", "$lt": "..."}} — it fails with
+        "Field '$lt' is not supported for filter with operator '$eq'";
+      - $ge or $le instead of $gte or $lte;
+      - a submissions query without the namespace inside query.filter
+        ("namespace filter is required");
+      - a filter or sort on submittedDate, _createdDate or another field the
+        endpoint does not support;
+      - a call to an invented URL that 404s, such as /forms/v4/forms;
+      - probing calls that the recipe would have made unnecessary.
+
+      A score of 7 or more needs no failing call with a two-operator
+      createdDate object, and no failing call on submittedDate or _createdDate.
+      For each problem, name the likely skill or docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of problems + suspected gap, or 'clean path' if none>"}.

@@ -16,3 +16,8 @@ apiDoc:
       title: Forms Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
       tags: [forms]
+
+    - file: ../../../skills/wix-manage/references/forms/read-forms-and-submissions.md
+      title: Read Forms and Submissions
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
+      tags: [forms]

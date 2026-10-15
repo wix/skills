@@ -1,0 +1,147 @@
+name: forms/latest-submissions
+description: >-
+  Verifies the agent reads the Read Forms and Submissions recipe, finds the
+  contact form among the site's forms, and queries its submissions with the
+  namespace inside query.filter and a createdDate DESC sort — not an invented
+  submittedDate or _createdDate field, and not an invented /forms/v4/forms URL.
+triggerPrompt: >-
+  Show me the latest submissions to my contact form.
+tags: [forms]
+maxTokens: 600000
+# Two forms are seeded so the agent has to find the contact form's ID first. Submissions can't
+# be seeded: bootstrap steps can't pass the created form's ID to a later step, and a form's ID
+# is read-only. So the form has no submissions, and the judges grade the request the agent
+# built (visible in the tool-call trace) plus an honest "no submissions yet" answer.
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: Install Wix Forms (New) — a blank site has no forms app, and the create 400s without it
+        method: post
+        url: https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+        body:
+          tenant:
+            id: "{{siteId}}"
+            tenantType: SITE
+          appInstance:
+            appDefId: 225dd912-7dea-4738-8688-4b8c6955ffc2
+      - label: seed an enabled contact form
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Contact form
+            namespace: wix.form_app.form
+            formFields:
+              - id: 192371c5-f45d-45f5-880f-e7571a3cf3d0
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_1923
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+              - id: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f
+                identifier: SUBMIT_BUTTON
+                fieldType: DISPLAY
+                displayOptions:
+                  displayFieldType: PAGE_NAVIGATION
+                  pageNavigationOptions: { submitText: Send }
+            steps:
+              - id: 3194a1be-3053-4fa2-b1a5-9c14baf627b1
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: 192371c5-f45d-45f5-880f-e7571a3cf3d0, row: 0, column: 0, width: 12, height: 1 }
+                      - { fieldId: 2acef7ec-f3ec-4207-8f2e-6bf4c7ecaf7f, row: 1, column: 6, width: 6, height: 1 }
+      - label: seed a second, unrelated form — the agent has to pick the contact form by name
+        method: post
+        url: https://www.wixapis.com/form-schema-service/v4/forms
+        body:
+          form:
+            name: Newsletter signup
+            namespace: wix.form_app.form
+            formFields:
+              - id: c4668719-180a-4ffe-8c60-3dbc11a9843d
+                identifier: CONTACTS_EMAIL
+                fieldType: INPUT
+                inputOptions:
+                  target: email_c466
+                  pii: true
+                  required: true
+                  contactMapping: { contactField: EMAIL, emailInfo: { tag: UNTAGGED } }
+                  inputType: STRING
+                  stringOptions:
+                    validation: { format: EMAIL }
+                    componentType: TEXT_INPUT
+                    textInputOptions: { label: Email, showLabel: true }
+            steps:
+              - id: fb159d38-591e-432e-9b27-6bd6d7c493bb
+                name: Page 1
+                layout:
+                  large:
+                    items:
+                      - { fieldId: c4668719-180a-4ffe-8c60-3dbc11a9843d, row: 0, column: 0, width: 12, height: 1 }
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/read-forms-and-submissions
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for the latest submissions to their contact form. The
+      site has two forms in the wix.form_app.form namespace, "Contact form"
+      and "Newsletter signup". The contact form has no submissions yet.
+
+      Pass if:
+      - the agent found the "Contact form" ID by listing or querying the
+        site's forms (GET /form-schema-service/v4/forms?namespace=wix.form_app.form
+        or POST /form-schema-service/v4/forms/query), AND
+      - it called POST /form-submission-service/v4/submissions/namespace/query
+        (or its alias /forms/v4/submissions/namespace/query, the publicUrl the
+        API spec gives; both work)
+        with "namespace": "wix.form_app.form" INSIDE query.filter and the
+        contact form's formId in the filter, AND
+      - it sorted by createdDate DESC (fieldName "createdDate", order "DESC"), AND
+      - it told the user the contact form has no submissions yet.
+
+      Fail if:
+      - it reports submissions, names or answers that the API did not
+        return, OR
+      - it reads the Newsletter signup form's submissions as the contact
+        form's, OR
+      - its only submissions query that succeeded had no createdDate sort,
+        so "latest" was never asked for, OR
+      - it created, updated or deleted any form or submission — the request
+        is read-only.
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Rate how smoothly the agent got from the request to the answer. Look at
+      the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no errors).
+
+      Penalize and LIST each of these, even if the agent recovered:
+      - a call to a URL that does not exist, such as /forms/v4/forms,
+        /forms/v4/forms/query or /form-schema-service/v4/submissions/... (404);
+      - a forms or submissions read without the namespace, or with the
+        namespace at the top level of the body instead of inside query.filter
+        (error "namespace filter is required");
+      - a sort or filter on a field that does not exist, such as
+        submittedDate, submittedAt, submissionTime, submissionDate,
+        dateCreated or _createdDate ("Sort contains unsupported condition");
+      - a guessed namespace other than wix.form_app.form;
+      - probing calls that the recipe would have made unnecessary.
+
+      A score of 7 or more needs no failing call that uses submittedDate or
+      _createdDate, and no 404 from an invented URL.
+      For each problem, name the likely skill or docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of problems + suspected gap, or 'clean path' if none>"}.

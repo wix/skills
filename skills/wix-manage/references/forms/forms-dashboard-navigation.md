@@ -1,6 +1,6 @@
 ---
 name: "Forms Dashboard Navigation"
-description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com. The paths are not guessable and appear in no API reference, so take them from here: under `https://manage.wix.com/dashboard/{metaSiteId}/`, the forms list is `wix-forms`, a form's builder is `wix-forms/form/{formId}`, and that form's submissions are `wix-forms/form/{formId}/submissions` — there is no site-wide submissions page, and nothing lives under `contacts/forms`, `forms`, `form-builder` or `wix-forms-and-payments` (the legacy app). Also standalone forms, and each Forms entity paired with its read API so you can fetch one and hand back a 'view it in your dashboard' link."
+description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com. The paths are not guessable and appear in no API reference, so take them from here: under `https://manage.wix.com/dashboard/{metaSiteId}/`, the forms list is `wix-forms`, a form's builder is `wix-forms/form/{formId}`, and that form's submissions are `wix-forms/form/{formId}/submissions` — there is no site-wide submissions page, and nothing lives under `contacts/forms`, `forms`, `form-builder` or `wix-forms-and-payments` (the legacy app). Also standalone forms, and the dashboard link for each Forms entity; reading forms and submissions is Read Forms and Submissions."
 ---
 
 # Forms Dashboard Navigation
@@ -32,6 +32,8 @@ Fetch the entity via REST, then link the matching dashboard page. All calls use 
 |---|---|---|
 | Form | `GET /form-schema-service/v4/forms` · `POST /form-schema-service/v4/forms/query` · `GET /form-schema-service/v4/forms/{formId}` | `wix-forms/form/{formId}` (edit) or `wix-forms` (list) |
 | Submission | `POST /form-submission-service/v4/submissions/namespace/query` (the filter must carry `"namespace": "wix.form_app.form"`) · `GET /form-submission-service/v4/submissions/{submissionId}` | `wix-forms/form/{formId}/submissions` — the `formId` comes off the submission |
+
+For complete read requests — the namespace on each call, the submission fields you can filter and sort by, paging — see [Read Forms and Submissions](./read-forms-and-submissions.md).
 
 Example — after creating a form, hand back its links:
 
