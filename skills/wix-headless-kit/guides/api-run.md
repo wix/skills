@@ -95,9 +95,10 @@ Restaurants, Donations, FAQ), goes on with the Apps Installer:
 
 `seed-{solution}.mjs` is a sequence of REST calls, and `SEED.md` is its contract: the plan shape
 (what to create, how many, which images), the order the entities need, the request bodies and the
-traps the script encodes. Read `SEED.md` before the first create: it maps the brief's words to the
-fields, and the script's builder functions turn those fields into each request, so the bodies you
-send are the ones they build. A call `SEED.md` only names is made through `{MANAGE}`'s recipe for
+traps the script encodes. Write the seed as your own `ExecuteWixAPI` script, its calls made on the
+new site: `wix.request({ scope: "site", siteId: <the metaSiteId>, … })`. Read `SEED.md` before
+the first create: it maps the brief's words to the fields. Build each request body in your script the
+way the script's builder functions do. A call `SEED.md` only names is made through `{MANAGE}`'s recipe for
 it. Keep the script's rules: create, never delete, and report what the site already held. The closing
 names entities you drafted as placeholders.
 
@@ -142,25 +143,20 @@ takes the complete file set in one call and a response has a hard size limit; th
 later" section downloads what the site serves, so a later drop adds files to a live set without
 resending what is already there.
 
-**When it cannot**, or when its output would all have to be written out by hand, a page that loads
-the Wix SDK from a package CDN and talks to the site as a visitor. One file per call, a few hundred lines, written in full inside that call: a response has a
+**When it cannot**, or when its output would all have to be written out by hand, a page that talks
+to the site as a visitor over plain `fetch`. One file per call, a few hundred lines, written in full inside that call: a response has a
 hard size limit, and a call that carries the whole frontend at once exceeds it. A second file joins
 the first the recipe's way, "Change it later": the same call downloads the live set and drops the
 union. The
-SDK comes from a pinned package URL, `https://esm.sh/@wix/sdk@{version}` and the solution's package
-(`@wix/bookings`, `@wix/stores`, `@wix/blog`, …); the client is
-`createClient({ modules: { … }, auth: OAuthStrategy({ clientId }) })` with the `appId` the provision
-call returned, and the SDK mints and refreshes the visitor token itself. Markup, a render function
+page calls the Wix REST API with `fetch` and mints the visitor token itself with the `appId` the
+provision call returned, as `{TEMPLATES}/shared/rest/client.ts` does. Markup, a render function
 per state, the event handlers: that is what you write. Keep what the page shows to what the site
 holds; nothing invented, as in SKILL.md step 4.
 
-**The calls**, on that second path, take their shape from the kit's own transport for the solution,
-`{TEMPLATES}/{solution}/app/wix/{solution}/*.ts` (`services.ts`, `booking.ts`, `catalog.ts`, …,
-with `{TEMPLATES}/shared/app/wix/sdk.ts` for the client wiring): those files call the same SDK
-modules the page imports, and they are verified. Copy the form of the call, not the file. A page
-that talks to Wix over plain `fetch`, with no SDK, takes them from the REST twins instead:
+**The calls**, on that second path, take their shape from the kit's REST twins for the solution:
 `{TEMPLATES}/shared/rest/client.ts` (the visitor token and the request) and
 `{TEMPLATES}/{solution}/rest/*.ts` (the calls), each importing its helpers by their real paths.
+They are verified. Copy the form of the call, not the file.
 The cores,
 `{TEMPLATES}/{solution}/app/wix/{solution}/*-core.ts`, hold the rules the page needs and nothing else
 does: which fields to read, how a price or a duration is formatted, which slot is bookable, how an
@@ -170,11 +166,9 @@ a translatable object, a quantity a nested one). What you write is the markup, t
 the cores return, and the event handlers.
 
 **A call those files don't cover** is confirmed before it is written, the way `{DOCS}` describes:
-the method's SDK page, and when the page and the package disagree, the package's own type
-declarations (the `@wix/auto_sdk_{solution}_<module>` package the solution package depends on,
-its `index.d.ts`) are the truth. Two shapes that recur, as examples of what the types settle and
-the kit's files already encode: SDK query methods return a query builder finished with `.find()`;
-and an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
+the method's REST page, and its schema (SearchWixAPISpec on the method's docs URL) for the exact
+request and response. A shape that recurs, as an example of what the kit's files already encode:
+an entity's id arrives as `_id` on some objects and `id` on others (the kit reads both,
 `rawId`). Dates travel as local wall-clock strings in the business time zone.
 
 **The check**, before every upload: a page cannot be opened here, so a wrong shape fails silently in
