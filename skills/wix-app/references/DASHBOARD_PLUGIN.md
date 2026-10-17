@@ -33,7 +33,7 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 
 A plugin is its own iframe, so **it inherits nothing from the host page it sits in** — not even though that page is a redesigned first-party Wix app. This makes a plugin the least forgiving dashboard surface: an unthemed one renders classic icons and pre-redesign buttons directly beside the redesigned Stores/Bookings/Blog UI framing it.
 
-Wrap the plugin component in the app's `BusinessManagerTheme` (the example below does), import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — never a hardcoded colour or an inline `style` override ([BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md)). The wrapper file itself is written once per app: [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app).
+Wrap the plugin component in `BusinessManagerThemeProvider` (the example below does), import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — never a hardcoded colour or an inline `style` override ([BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md)). What the provider applies, and why: [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-use-the-provider-the-package-exports--never-write-the-defaults-yourself).
 
 Two things to get right in a slot specifically:
 
@@ -50,7 +50,7 @@ Use `observeState()` from the Dashboard SDK to receive data from the host dashbo
 import { dashboard } from "@wix/dashboard";
 import { useEffect, useState, type FC } from "react";
 import { Card, Text } from "@wix/design-system";
-import { BusinessManagerTheme } from "../../BusinessManagerTheme";
+import { BusinessManagerThemeProvider } from "@wix/patterns/provider";
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
@@ -62,13 +62,13 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <BusinessManagerTheme>
+    <BusinessManagerThemeProvider>
       <Card>
         <Card.Content size="medium">
           <Text>Received data: {JSON.stringify(params)}</Text>
         </Card.Content>
       </Card>
-    </BusinessManagerTheme>
+    </BusinessManagerThemeProvider>
   );
 };
 ```
