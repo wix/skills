@@ -1,116 +1,158 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Create and update a Wix Headless website by uploading its files — an index.html, a static build, a zip exported from an AI builder or any other tool, or pages you write for the user — as a live site in the user's Wix account. Covers every route: uploading with the user's identity (curl with a Wix CLI token, or the Wix MCP), publishing anonymously with a save link when you don't hold it, and the Wix Headless drop page; then updating the same site and URL, and connecting a Wix backend (stores, bookings, forms) through the headless skill. Use when the user wants to upload, publish, deploy or host HTML/CSS/JS as a new Wix site, their own or written for them, or to change a site published this way. Not for migrating a live store/site from another platform by URL or from CSV exports (use Site Import), not for adding HTML or custom code into an existing Wix site, and not for uploading images or documents to a site's media files.
+description: Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated and anonymous publishing, verification, and connecting a Wix business backend. Use for files the user supplies or pages you create for them. Not for migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
 ---
 
 # Upload a Website or HTML Files
 
-A website goes live on Wix as a Wix Headless site: its files are uploaded to a
-site in the user's Wix account and served at a `*.wix-site-host.com` URL. The
-files are ones the user has (hand-written HTML, a static build, a zip, a project
-an AI builder exported) or ones you write for them as you upload. Later changes
-upload to [the same site](#change-it-later), and the URL stays.
+Wix serves uploaded static files at a `*.wix-site-host.com` URL. **A raw drop
+replaces the entire file set: omitted files disappear.** The file helpers below
+simulate a patch by downloading the current ZIP, merging changes, and dropping
+the complete result. They preserve omitted files, but still transfer the full
+site and are not atomic against another editor.
 
-The flow: pick the route that fits where you run, create the site, upload the
-files, and give the user the live URL. Later changes go to the same site, and a
-backend, when the site needs one, comes once it is live.
+## Choose the task
 
-- [What decides the route](#what-decides-the-route): which route fits where you run
-- [Before the calls](#before-the-calls): the user's token, the Wix MCP, the attribution slug
-- [Create the site](#create-the-site): one call, the site in the user's account
-- Upload the files [with curl](#drop-with-curl) or [through the Wix MCP](#drop-through-the-wix-mcp)
-- [Change it later](#change-it-later): edits on the same site and URL
-- [Connect a backend](#connect-a-backend): stores, bookings, forms and more through the headless skill
-- [Images](#images): how images reach the site
-- [Publish anonymously](#publish-anonymously): no login, a temporary site the user claims or saves
-- [The drop page](#the-drop-page): the user uploads the files when no route reaches Wix
-- [Limits and failures](#limits-and-failures), [Send feedback to Wix](#send-feedback-to-wix), [Route the request correctly](#route-the-request-correctly)
-
-## What decides the route
-
-The user's request to publish is the consent to create the site and upload: do
-not ask again before either. Ask only where this recipe says to (connecting a
-backend, replacing a frontend that is serving).
-
-Three things about where you run decide it:
-
-- **Does your shell reach Wix?** `curl -sI https://www.wixapis.com` answers with an
-  HTTP status line. When it fails, or there is no shell, it doesn't.
-- **Is the Wix MCP connected?** Its tools are in your tool list: `ExecuteWixAPI`,
-  and usually `UploadHeadlessWebsiteFiles`.
-- **Do your files travel as files?** Some clients resolve a tool's `attachments`
-  param themselves: a file the user attached, or one you wrote to disk, reaches
-  the upload tool as the file. Elsewhere `attachments` comes back unresolved, and
-  every file you send through the MCP is text you write into the call.
-
-| Your situation | Route |
+| Request | Flow |
 | --- | --- |
-| The shell reaches Wix | [Create the site](#create-the-site) and [drop the files with `curl`](#drop-with-curl) and a CLI token; without a login, [publish anonymously](#publish-anonymously). A site of text files can take the MCP route below instead, with no login. |
-| The shell doesn't reach Wix, or there is no shell, and the Wix MCP is connected | [Create the site](#create-the-site) and [drop through the MCP](#drop-through-the-wix-mcp): the files themselves when they travel as files, a text bundle when they don't. |
-| A project that needs a build (a `package.json`) | Build it where its dependencies install, then drop the build output. When the shell reaches Wix, the [headless skill](#connect-a-backend) builds and releases it. When it can't be built anywhere you are, ask the user for the build output. |
-| None of these, or every route failed | The [drop page](#the-drop-page): the user uploads the files. |
+| Publish files as a new site | [Choose an upload route](#before-the-calls), [create once](#create-the-site), upload, [verify](#verify-and-report). |
+| Inspect or edit a deployed site | [Find its ID](#find-an-existing-site), then [list, read or patch](#change-it-later). Do not create another site. |
+| Replace the entire deployed frontend | Confirm replacement of the serving frontend, then drop the complete intended file set on the same ID. |
+| Make a shop, bookings, forms or other business controls work | [Connect a backend](#connect-a-backend) on the same site. A static upload alone does not make them functional. |
+| Publish without a login | [Anonymous upload and release](#publish-anonymously), then claim or give the private save link. |
+| Migrate a live site by URL or CSV/TSV | [Site Import](site-import.md), not this recipe. |
+| Add an embed to an editor-built site / upload media assets | Use the editor / [Upload Media to Wix](../media/upload-media-to-wix.md), respectively. |
 
-When files don't travel as files, writing them costs nothing for a page already
-in the conversation and a read and a rewrite for text files on disk; images never
-travel as text (see [Images](#images)). Publishing yourself beats the drop page
-whenever a route fits. Never report an upload you couldn't perform; when a route
-fails partway, hand over the drop page.
+A request to publish or edit authorizes that work; do not ask again. A request
+to inspect files authorizes no writes. Do not create from a template: that
+creates an empty site rather than publishing the supplied files.
+
+Quick reference: [upload through MCP](#drop-through-the-wix-mcp) ·
+[upload with curl](#drop-with-curl) · [list/read](#list-and-read) ·
+[patch](#patch-files) · [ZIP fallback](#download-edit-drop-fallback) ·
+[images](#images) · [limits/errors](#limits-and-failures).
 
 ## Before the calls
 
-- **With a shell that reaches Wix**, `$ACCESS_TOKEN` is the user's token: run
-  `npx @wix/cli@latest login` once (the user approves in the browser), then
-  `npx @wix/cli@latest token` prints a token that lasts 15 minutes. Run it again
-  when the token may have expired, and always after a `403`.
-- **Through the Wix MCP**, `ExecuteWixAPI` runs JavaScript
-  whose `wix.request` calls carry the user's login: no token. Ids go into URLs as
-  values; a `$NAME` there is sent as is. `wix.request` returns `{ status, data }`.
-- **`$AGENT`** is a short lowercase slug naming you (`claude-code`, `cursor`,
-  `codex-cli`, `chatgpt`, `claude-ai`; `unknown-agent` if you can't tell). Every drop and upload
-  carries `?campaign=mcp&agent=$AGENT`, which attributes the site to you in Wix's
-  reports.
-- **`$META_SITE_ID`, `$UPLOAD_ID`, …** come from the previous response.
+Choose an already-authenticated route that can access the files, not by the
+client's name. Check the available tools before choosing:
 
-**Reading the pages this recipe links.** A Wix skill you have installed is read
-from disk. Otherwise a `www.wix.com/skills/…` or `dev.wix.com/docs/…` page is read
-with the Wix MCP's `ReadFullDocsArticle` when the MCP is connected; it returns the
-page whole. A web fetch is the fallback.
+- **Wix MCP connected:** use `UploadHeadlessWebsiteFiles` for a complete
+  upload and `ExecuteWixAPI` for API scripts and list/read/patch helpers.
+  `ExecuteWixAPI` supplies authenticated `wix.request({ scope: 'account', ... })`,
+  returning `{ status, data }`; no token or extra CLI login is needed.
+- **Shell reaches Wix:** check `curl -sI https://www.wixapis.com` for an HTTP
+  status. Run `npx @wix/cli@latest login` once for browser approval, then
+  `npx @wix/cli@latest token`. Its token lasts 15 minutes; refresh after expiry
+  or a `403`. Use it as `$ACCESS_TOKEN`. Without login, use the anonymous route.
+- **Neither route works:** use [the drop page](#the-drop-page). Never claim an
+  upload you could not perform.
+
+Network access does not give access to files on the user's machine. If you
+cannot read their files, ask for an attachment/export or give the drop page;
+do not provision an empty site.
+
+Build projects that need dependencies first, and upload only their static
+output. If your environment cannot build the project, ask for the build output.
+For a Wix business project, follow [Connect a backend](#connect-a-backend).
+
+The JavaScript examples below run in `ExecuteWixAPI`, not directly in a shell
+or browser. Without MCP, use the curl examples and edit downloaded files locally;
+`wix.request`, `wix.multipart` and `wix.headless.files` are sandbox utilities,
+not public SDK methods.
+
+For external file inputs on either MCP tool, use only parameters in its visible schema.
+Prefer resolved `attachments`: they transport files without retyping them.
+If an attachment arrives unresolved as a local path, retrying that path cannot
+work; use supported text input or [another image route](#images).
+`files` text input uses this unescaped format:
+
+```text
+=== FILE: index.html ===
+<!doctype html><html><head><title>Northwind Studio</title>
+<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1></body></html>
+=== FILE: assets/styles.css ===
+body { font-family: sans-serif; padding: 4rem; }
+```
+
+Each path is relative to the site root. This format cannot carry a file
+containing an identical `=== FILE: … ===` delimiter line. Binary images are
+not text input.
+
+Replace example IDs with response values: `metaSiteId` is the site ID, not
+`appId` or `uploadId`. `$AGENT` / `AGENT_SLUG` is your short lowercase
+attribution slug, or `unknown-agent`. Raw uploads use
+`?campaign=mcp&agent=$AGENT`. Never leave a `$NAME` placeholder inside a
+JavaScript URL.
+
+Read linked skills from disk when installed; otherwise use `ReadFullDocsArticle`
+when available for Wix skill/docs URLs, with web fetch as fallback.
 
 ## Create the site
 
-One account-level call creates the headless site, with no Wix Business
-Solutions. Name it after the page's `<title>`, at most 40 characters (a longer
-name is rejected), and keep `"origin": "drop"`.
+Create only for a new site. Use the page title, at most 40 characters. Keep
+`origin: 'drop'`, empty `seedOptions`, and both synchronous steps:
+
+```javascript
+async function run() {
+  return wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
+    body: { origin: 'drop',
+      newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+      synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] }
+  });
+}
+// result.data: { metaSiteId, appId }
+```
+
+The shell equivalent:
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},
-       "synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
-# {"metaSiteId":"7597a72e-bedc-4d86-af86-9a25d11f0632","appId":"9f0a8b59-1acb-4a67-aafd-f8602259cbfa"}
+  -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
-In a script, the same call:
+## Drop through the Wix MCP
+
+If `UploadHeadlessWebsiteFiles` is available, pass the existing
+`metaSiteId` as `siteId` and the **complete** files. It creates no site,
+replaces all files, adds attribution, and returns the live URL and dashboard.
+Prefer a ZIP attachment containing the whole site, including images; a single
+wrapping folder is stripped. Its limit is 10 MB per call. Otherwise use the
+`files` text format above.
+
+Without that tool, use `ExecuteWixAPI`. File inputs belong in the
+external `files` or `attachments` parameter, not inside `code`; the script
+receives them as the `files` global. For individual files:
 
 ```javascript
-const created = await wix.request({ scope: 'account', method: 'POST',
-  url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-  body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
-          synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-// created.data.metaSiteId
+async function run() {
+  const siteId = 'META_SITE_ID';
+  const mp = wix.multipart(files);
+  return wix.request({ scope: 'account', method: 'POST',
+    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${siteId}/drop?campaign=mcp&agent=AGENT_SLUG`,
+    headers: { 'Content-Type': mp.contentType }, body: mp.body });
+}
+// result.data: { uploadId, siteUrl }
 ```
 
-The site is in the user's account. When it goes live, give the user its
-`siteUrl`, the dashboard, `https://manage.wix.com/dashboard/{metaSiteId}`, and how
-to put their own domain on it, per [Domain Search, Purchase and Connect](../domains/domain-search-purchase-and-connect.md):
-bought through Wix, or one they already own.
+For a single ZIP attachment, use
+`wix.multipart(await wix.unzip(files[0].content))` instead. Its entries must
+already be site-root-relative; this local unzip does not strip a wrapper.
+Do not hand-build multipart while `wix.multipart` exists.
+
+An older execution schema without file inputs can pass inline entries to
+`wix.multipart([{ path, content }])`. In JavaScript template literals, escape
+backslashes first, then backticks and `${`; otherwise text is reinterpreted.
+Only if `typeof wix.multipart !== 'function'`, construct multipart yourself:
+parts named `files`, site-relative path as `filename`, CRLF line endings,
+closing `--<boundary>--`, and the same boundary in the Content-Type header.
 
 ## Drop with curl
 
-One multipart request uploads and releases. Each file is a part named `files`
-whose **filename is its path relative to the site root**; that is how
-subdirectories survive. A single `.zip` part works too: it is unpacked
-server-side, a single wrapping folder stripped.
+One request uploads and releases. Each part is named `files`; its
+`filename` is the site-root-relative path, preserving subdirectories:
 
 ```bash
 curl -sS -X POST \
@@ -119,222 +161,282 @@ curl -sS -X POST \
   -F "files=@index.html;filename=index.html" \
   -F "files=@assets/styles.css;filename=assets/styles.css" \
   -F "files=@assets/logo.png;filename=assets/logo.png"
-# {"uploadId":"c0d5b3bb-…","siteUrl":"https://headless-zjfqzddjtww-northwind-1406.wix-site-host.com"}
+# { "uploadId": "...", "siteUrl": "https://...wix-site-host.com" }
 ```
 
-`siteUrl` is final.
+A single ZIP part also works: it is unpacked server-side with one wrapping
+folder stripped. `siteUrl` is the final address.
 
-## Drop through the Wix MCP
+## Find an existing site
 
-### With the Wix MCP's upload tool
-
-When the Wix MCP lists `UploadHeadlessWebsiteFiles`, it is the drop: pass it the
-`metaSiteId` from [Create the site](#create-the-site) as `siteId`, and the files.
-It replaces the whole file set, stamps the attribution itself, and returns
-`siteUrl` and the dashboard link. It creates no site and makes no other call.
-
-- **When your files travel as files**, pass them as `attachments`: zip the whole
-  site folder, images included, and pass the zip as one attachment. It is
-  unpacked, a wrapping folder stripped, up to 10 MB per call. Nothing is written
-  out by you. Where `attachments` doesn't resolve, a path passed in it fails:
-  your files don't travel as files, and they go in the bundle below.
-- **When they don't**, pass a `files` text bundle: each file starts with a line
-  `=== FILE: <path> ===` followed by its raw text, `<path>` relative to the site
-  root. Nothing in it is escaped. It carries text files: HTML, CSS, JavaScript,
-  SVG. Other images reach the site as [Images](#images) says.
-
-```
-=== FILE: index.html ===
-<!doctype html><html><head><title>Northwind Studio</title>
-<link rel="stylesheet" href="assets/styles.css"></head><body><h1>Northwind Studio</h1><img src="assets/logo.svg"></body></html>
-=== FILE: assets/styles.css ===
-body { font-family: sans-serif; margin: 0; padding: 4rem; }
-=== FILE: assets/logo.svg ===
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>
-```
-
-The bundle can't carry a file with a line that reads exactly `=== FILE: … ===`.
-
-### From an ExecuteWixAPI script
-
-Without the upload tool, both calls run in one script. The same bundle goes in
-the tool's **`files` param**, never in `code`; in `code` it is the `files` global
-(`[{ path, content, encoding? }]`), and `wix.multipart()` turns it into the body.
+Reuse the ID from the earlier upload. If only a name or URL is known, query the
+user's sites and match it; ask if ambiguous. The default namespace omits
+headless sites, so explicitly filter `HEADLESS`:
 
 ```javascript
 async function run() {
-  const agent = 'your-agent-slug';         // $AGENT
-  const created = await wix.request({ scope: 'account', method: 'POST',
-    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-    body: { origin: 'drop', newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
-            synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] } });
-  const mp = wix.multipart();              // from the `files` param; or pass [{ path, content | base64 | bytes }]
-  return await wix.request({ scope: 'account', method: 'POST',
-    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${created.data.metaSiteId}/drop?campaign=mcp&agent=${agent}`,
+  return wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/site-list/v2/sites/query',
+    body: { query: { filter: { namespace: 'HEADLESS', id: { $in: ['META_SITE_ID'] } },
+      cursorPaging: { limit: 100 } } } });
+}
+// result.data.sites: match id/displayName/viewUrl
+```
+
+Omit the `id` filter when looking up by name/URL. While `data.metadata.hasNext`,
+follow `data.metadata.cursors.next` with `{ query: { cursorPaging: { limit: 100,
+cursor } } }`. See [Query Sites](query-sites.md) for name search on large accounts.
+With a known ID, use `$in`, not a scalar ID or `$eq` (rejected).
+Unclaimed anonymous sites instead use their saved ID and
+[anonymous upload/release](#publish-anonymously).
+
+## Change it later
+
+Use the same site ID and URL. With `ExecuteWixAPI`, prefer its file helpers
+for selective edits, not `UploadHeadlessWebsiteFiles`: sending only changed
+files to that upload tool would remove omitted files. Without MCP, go directly
+to the [ZIP fallback](#download-edit-drop-fallback).
+
+The server may have helpers newer than the client's visible description.
+Check once in `ExecuteWixAPI` without changing anything:
+
+```javascript
+async function run() {
+  try {
+    const h = wix.headless.files;
+    return { fileHelpers: ['list', 'read', 'patch'].every(k => typeof h[k] === 'function') };
+  } catch { return { fileHelpers: false }; }
+}
+```
+
+If false, use the [ZIP fallback](#download-edit-drop-fallback). Do not retry a
+missing helper or invent `UploadHeadlessWebsiteFiles` parameters such as `mode: 'merge'`.
+These execution helpers do not change the full-replacement upload contract.
+List/read/inline edits work without external file inputs.
+
+### List and read
+
+```javascript
+async function run() {
+  return wix.headless.files.list({ siteId: 'META_SITE_ID', prefix: 'assets/', offset: 0, limit: 100 });
+}
+// { files: [{ path, bytes, contentType }], total, offset, hasMore }
+```
+
+Omit `prefix` to list all paths. Default limit is 100, maximum 200; advance
+`offset` by the limit while `hasMore`. The size field is `bytes`, not `size`.
+
+```javascript
+async function run() {
+  return wix.headless.files.read({ siteId: 'META_SITE_ID', path: 'index.html' });
+}
+// { path, bytes, contentType, text }
+```
+
+`text` is a **string**, not a method. Read supports UTF-8 text up to 256,000
+bytes; use the ZIP fallback for larger/binary files. Helpers exclude the
+generated `wix.config.json`. Each list/read fetches a fresh full snapshot, so
+request only needed paths/pages; for bulk inspection download once instead.
+
+### Patch files
+
+For a small edit, keep the original in the execution sandbox and guard the
+replacement. Do not return/retype the whole file just to change one string:
+
+```javascript
+async function run() {
+  const siteId = 'META_SITE_ID';
+  const current = await wix.headless.files.read({ siteId, path: 'index.html' });
+  const before = 'Welcome to Bloom Cafe';
+  if (current.text.split(before).length !== 2) throw new Error('Expected one headline; inspect before editing.');
+  return wix.headless.files.patch({ siteId, agent: 'AGENT_SLUG',
+    files: [{ path: current.path, content: current.text.replace(before, 'Bloom Cafe — Now Open') }] });
+}
+```
+
+For authored additions/replacements, pass only changed files through supported
+external file inputs, then:
+
+```javascript
+async function run() {
+  return wix.headless.files.patch({ siteId: 'META_SITE_ID', files,
+    deletePaths: ['old-offer.html'], agent: 'AGENT_SLUG' });
+}
+```
+
+If the visible `ExecuteWixAPI` schema has neither `files` nor `attachments`,
+do not reference the `files` global. Supply changed text files inline as
+`files: [{ path: 'hours.txt', content: 'Mon–Fri 8–5' }]` instead. Helper
+availability does not imply file-input support; use the ZIP/shell fallback
+for binary additions that cannot be supplied.
+
+- Omitted paths are preserved. Delete only with explicit `deletePaths`; omit it
+  when nothing should be removed. Delete-only: `files: []` plus exact paths.
+- Rename: supply the new path with the original bytes and delete the old path.
+  Never write and delete the same path.
+- ZIP inputs expand without stripping a project folder. Paths must be literal,
+  case-sensitive, site-relative; duplicate/unsafe paths and `wix.config.json`
+  are rejected. Keep a root `index.html` or `index.htm` in the final site.
+- Serialize edits. Neither read-then-patch nor patch's internal
+  download/merge/drop protects against a concurrent writer.
+
+Inspect `summary.added/replaced/deleted/unchanged/missingDeletes`.
+`unchanged` means supplied files already matched byte-for-byte; omitted files
+are preserved too. `published: false` means no byte change, not failure.
+A publish returns `siteUrl`, `uploadId`, `fileCount`. Then
+[verify](#verify-and-report).
+
+### Download, edit, drop fallback
+
+For older servers, bulk/binary reads, or a shell workflow, obtain the current
+ZIP rather than reconstructing the site from memory:
+
+```bash
+curl -sSL -H "Authorization: Bearer $ACCESS_TOKEN" -o current.zip \
+  "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
+```
+
+In an execution script, use `responseType: 'base64'` and feed `data` directly
+to `wix.unzip`. Entries contain `{ path, bytes, text() }`: unlike helper
+reads, **`text()` is a method**. Call it only on known text files. Here is a
+complete guarded edit; untouched assets remain bytes:
+
+```javascript
+async function run() {
+  const siteId = 'META_SITE_ID';
+  const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
+    url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${siteId}/download.zip` });
+  if (r.status !== 200) throw new Error('Snapshot unavailable; do not publish a partial site.');
+  const entries = (await wix.unzip(r.data)).filter(e => e.path !== 'wix.config.json');
+  const byPath = new Map(entries.map(e => [e.path, e]));
+  const page = byPath.get('index.html');
+  if (!page) throw new Error('Missing index.html; inspect the inventory.');
+  const before = 'Welcome to Bloom Cafe', text = page.text();
+  if (text.split(before).length !== 2) throw new Error('Expected one headline; inspect before editing.');
+  byPath.set(page.path, { path: page.path, content: text.replace(before, 'Bloom Cafe — Now Open') });
+  const mp = wix.multipart([...byPath.values()]);
+  return wix.request({ scope: 'account', method: 'POST',
+    url: `https://www.wixapis.com/headless-business-setup/v1/headless-business/${siteId}/drop?campaign=mcp&agent=AGENT_SLUG`,
     headers: { 'Content-Type': mp.contentType }, body: mp.body });
 }
 ```
 
-A zip passed through `attachments` is one entry; unpack it first:
-`wix.multipart(await wix.unzip(files[0].content))`. Don't build a multipart body
-by hand while `wix.multipart()` exists (a malformed one is a bare `500`).
+Reuse the download/unzip portion for these operations:
 
-**An older `ExecuteWixAPI` with no `files` param** still has `wix.multipart()`:
-pass it the entries written in `code`, `[{ path, content }]`, the text as template
-literals. Escape `\` as `\\` first, then `` ` `` as `` \` `` and `${` as `\${`; an
-unescaped `\` is dropped or reinterpreted. Only when
-`typeof wix.multipart !== 'function'` is the body a string you build: parts named
-`files` with the path as `filename`, lines ending in `\r\n`, the body ending with
-`--<boundary>--`, and `Content-Type: multipart/form-data; boundary=<the same
-boundary>`.
+| Operation | Script after obtaining `entries` / `byPath` |
+| --- | --- |
+| List only | `return entries.map(e => ({ path: e.path, bytes: e.bytes.length }));` No drop. |
+| Read only | Find the exact entry, fail if missing, then `return entry.text();` for a known text file. No drop. |
+| Add/replace | `byPath.set('hours.txt', { path: 'hours.txt', content: 'Mon–Fri 8–5' });` |
+| Delete | `byPath.delete('old-offer.html');` |
+| Merge supplied individual files | `for (const e of files) byPath.set(e.path, e);` |
 
-## Change it later
+For a single supplied ZIP, use `await wix.unzip(files[0].content)` instead of
+`files` in that merge loop; its entries must be site-root-relative.
+For mutations, validate paths and the final homepage, then drop **all** map
+values. Leave `wix.config.json` out; preserve other unchanged entries as bytes.
+Never pass only a delta to a raw drop. For a shell edit, likewise preserve the
+downloaded files and upload the complete result.
 
-On the same `metaSiteId`, never a new site. Each drop replaces every file, and
-`siteUrl` stays.
+If snapshot access is blocked by host policy, use authenticated curl or request
+the complete current ZIP. Do not keep retrying, bypass the policy, or claim to
+preserve files you could not retrieve. A failed file lookup is not evidence
+that the site is empty.
 
-- **With a shell that reaches Wix**, edit the files and drop the full set with
-  `curl`.
-- **Through the MCP**, by the kind of change:
-  - **An edit to files the site serves** (a price, a line, a link): one
-    `ExecuteWixAPI` script downloads what it serves, edits in code, and drops the
-    full set back. Only the edit is written; images travel back as they are.
-  - **New or rewritten files**: when your files travel as files, zip the whole
-    site, images included, and send it through the upload tool. When they don't,
-    the script carries them in its `files` param and adds them to the download
-    before the drop.
-  - **A site rewritten wholesale**: a full text bundle through the upload tool.
+## Verify and report
 
-For a site from an earlier conversation, find its `metaSiteId` with
-[Query Sites](#claim-it-into-the-users-account), matching the name or `viewUrl`.
-The download holds what the site serves plus a `wix.config.json`, which is left
-out of the drop:
+1. Check publication status and returned URL. For a patch, compare its change
+   summary with the requested paths, including missing deletions.
+2. Check the saved changed files using read or the ZIP; confirm removals and
+   preservation of unrelated assets. Do not treat a successful drop alone as
+   proof that the requested edit is correct.
+3. When available, open the live page and exercise the changed UI. HTTP/HTML
+   retrieval can verify delivery, but not layout or JavaScript behavior.
+   If live fetch/browser access is blocked, report the saved-file checks and
+   that limitation; do not claim a browser test.
 
-```bash
-curl -sSL -o current.zip \
-  "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
-```
+If a call fails after publishing, inspect the current snapshot before retrying:
+the write may have succeeded and only its subsequent verification failed.
+Avoid repeating a mutation merely because the last call returned an error.
 
-In a script, request that URL with `responseType: 'base64'` and pass `r.data` to
-`wix.unzip()`. Each entry is `{ path, bytes, text() }`; call `text()` only on text
-files, since a decoded image is corrupted. Entries go back to `wix.multipart()` as
-they are, an edited one as `{ path, content }`:
-
-```javascript
-const r = await wix.request({ scope: 'account', method: 'GET', responseType: 'base64',
-  url: `https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/${metaSiteId}/download.zip` });
-const entries = (await wix.unzip(r.data)).filter((e) => e.path !== 'wix.config.json').map((e) =>
-  e.path === 'index.html' ? { path: e.path, content: e.text().replace('Welcome', 'Bloom Cafe — Now Open') } : e);
-const mp = wix.multipart(entries);
-// then the drop call: headers { 'Content-Type': mp.contentType }, body mp.body
-```
-
-Never rebuild a site from memory.
+Give the live URL, what changed, what was verified, and any missing assets.
+On first authenticated publish (or after claim), also give
+`https://manage.wix.com/dashboard/{metaSiteId}` and
+[domain connection](../domains/domain-search-purchase-and-connect.md) options
+for a Wix-purchased or existing domain. For an unclaimed anonymous site, give
+the live URL and private save link instead, not a dashboard link.
 
 ## Connect a backend
 
-A dropped site is static. Stores, payments, bookings, a CMS, members or forms
-need a **Wix Headless project**, which the headless skill builds and releases on
-the same site, appId and URL.
+A static page cannot itself provide stores, payments, bookings, CMS, members
+or forms. For an uploaded mock, publish it, then name the nonfunctional
+buy/book/order/join/submit/pay controls, what Wix solution and content would
+be created, and ask before connecting. A request for a working shop or real
+bookings already supplies that consent; do not stop at a static mock.
 
-**A mock that shows a business solution: publish it, then ask before connecting.**
-Any control on the page that promises what static files can't deliver —
-something to buy, book, order, join, submit or pay — is a Wix Business Solution
-the page pretends to have. First get the site live from the pages as they are.
-Then, with the live URL, name each such control, the solution that would make it
-work, and what connecting it involves: what gets created from the page's own
-content (the products, services or form). Ask whether to go ahead, and connect only after the user says
-yes; a request that already asks for it (a working shop, real bookings) is that
-yes. A page that promises nothing beyond its content stops at the pages.
+Use the headless skill on the **same site, appId and URL**, not another site.
+[Claim an anonymous site](#claim-it-into-the-users-account) first.
 
-A site published anonymously is [claimed](#claim-it-into-the-users-account)
-before a backend: the headless skill works on a site in the user's account.
-
-The headless skill starts at its cold-start page,
-`https://www.wix.com/skills/headless-cold-start/headless-kit.md` (read it as
-[Before the calls](#before-the-calls) says). It installs the skills, runs a
-bootstrap that checks the Wix CLI login, and hands off to the kit's `SKILL.md`,
-which reads the folder, deploys the solution's code, seeds, builds and releases.
-Its commands run:
-
-- **With a shell that reaches Wix**, in a folder holding the site, from the
-  site's own download:
-
-  ```bash
-  curl -sSL -o project.zip \
-    "https://www.wix.com/_api/wixstro-deployments/v1/instant-sites/$META_SITE_ID/download.zip"
-  unzip project.zip -d project
-  ```
-- **Through the Wix MCP alone**, the kit's API-call guide,
-  `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md`, does the same
-  run as Wix API calls through the Wix MCP, with the frontend dropped as this
-  recipe says.
+- With a build-capable shell, read
+  `https://www.wix.com/skills/headless-cold-start/headless-kit.md`. It installs
+  the skills, checks CLI login, then hands off to the kit for deployment,
+  seeding, build and release. Start from the site's downloaded ZIP, unpacked
+  into a project folder.
+- With MCP execution only, read
+  `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` for the API
+  route, then upload the frontend as above.
 
 ## Images
 
-An SVG is text and goes in like a page. Every other image is bytes, and bytes
-reach Wix one of these ways, in this order of preference:
+SVG is text; other images are bytes. Prefer, in order:
 
-1. **With a shell that reaches Wix**, in the `curl` drop, from disk.
-2. **When your files travel as files**, inside the zip you pass the upload tool.
-3. **A public URL**: the page keeps the absolute URL, or the Wix MCP's
-   `UploadImageToWixSite` imports it into the site's media (`imageUrls`) and the
-   page points at the returned `static.wixstatic.com` address. A share page
-   (Dropbox, Drive) is not a file URL; a direct link is.
-4. **`imageBase64` on `UploadImageToWixSite`**, when you can read the file and
-   encode it yourself (a shell, a file API): one image per call, the raw base64
-   with its `mimeType`. Encoding it from a file works; typing it out does not: a
-   model cannot reproduce a long base64 string faithfully, so a string that was
-   not produced by a tool comes back as an `atob` error or a corrupt image.
-   Never put image bytes in the `files` bundle beyond a few KB (an icon).
-5. **The user uploads it** to the site's Media Manager. This is the way for images
-   that exist only as files you can't send. Publish the pages first, then name
-   the missing files, give the user
-   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`, and ask them to
-   tell you once they're uploaded. Then [list the site's files](../media/upload-media-to-wix.md),
-   match each to the page's reference by `displayName`, point the reference at the
-   file's `static.wixstatic.com` URL, and drop again.
+1. Local originals included in the curl drop.
+2. Resolved file/ZIP attachments.
+3. A direct public image URL kept in the page, or imported through
+   `UploadImageToWixSite` when available using `imageUrls`; use its returned
+   `static.wixstatic.com` URL. A sharing page is not a direct file URL.
+4. Tool-encoded `imageBase64` with `mimeType`, one image per call, if the
+   tool exposes those fields. Never synthesize base64 in
+   model output: it causes decoding errors or corrupt images.
+5. If bytes cannot be sent, publish the pages and name the missing images.
+   Ask the user to upload them at
+   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`.
+   Then [list media](../media/upload-media-to-wix.md), match `displayName`,
+   update references to returned public URLs and republish.
 
-`attachments` on a Wix MCP tool carries a file only from ChatGPT or Codex, which
-swap it for a download URL before the call reaches Wix. From any other client it
-arrives as the path you wrote, and Wix cannot read a path on your machine; the
-answer does not change on a retry. An image you could not send is named in the
-closing message. Never stand in drawings or placeholders of your own for the
-user's images, and never shrink or re-encode them.
+Never substitute drawings/placeholders for supplied images, shrink/re-encode
+them, or decode unchanged binary files as text during edits.
 
 ## Publish anonymously
 
-With a shell that reaches Wix and no login: the site belongs to a temporary owner and
-lives one hour unless the user keeps it. Generate `anonymousId` yourself, any
-UUID, once per site, and reuse it with the returned `metaSiteId` for every call.
-After one hour every call, claim included, returns `404`.
+With shell access to Wix but no login, generate one UUID as `anonymousId`
+and reuse it with the returned `metaSiteId`. The temporary site expires after
+one hour unless kept; expired calls, including claim, return `404`.
 
 ```bash
-# 1. create
+# 1. Create: returns { metaSiteId, projectId }
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID"
-# {"metaSiteId":"f0ad8672-…","projectId":"54528d34-…"}
 
-# 2. upload: the drop's multipart shape; nothing is live yet
+# 2. Upload the complete file set: returns { uploadId }; not live yet
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/upload?campaign=mcp&agent=$AGENT" \
   -F "files=@index.html;filename=index.html" -F "files=@assets/styles.css;filename=assets/styles.css"
-# {"uploadId":"03244542-…"}
 
-# 3. release: the site goes live
+# 3. Release: returns { siteUrl }
 curl -sS -X POST \
   "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/release" \
   -H 'Content-Type: application/json' -d "{\"uploadId\":\"$UPLOAD_ID\"}"
-# {"siteUrl":"https://instant-hguwrvtcrniw-headlessstack-140d.wix-site-host.com"}
 ```
 
-To change the site, repeat steps 2 and 3 with the full file set. When it's final,
-claim it with the user's identity. Without one, give the user `siteUrl` and the
-save link, which signs them in to keep the site. Whoever opens the link while
-signed in to Wix gets the site, so give it only to the user:
+For edits, repeat upload and release with the full set. When finished, claim
+with the user's identity or give them the live URL and this save link:
 
-```
+```text
 https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
 ```
+
+The link signs them in to keep the site. **Whoever opens it while signed in
+gets the site; share it only with the user.**
 
 ### Claim it into the user's account
 
@@ -344,67 +446,34 @@ curl -sS -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Claim last: it ends the anonymous record, and later changes are
-[drops](#change-it-later). **The URL changes on claim.** Read the new `viewUrl`
-with Query Sites in the `HEADLESS` namespace (the default query omits headless
-sites). An `id` filter takes the `$in` form; a bare `"id": "<uuid>"` is a `400`:
-
-```bash
-curl -sS -X POST "https://www.wixapis.com/site-list/v2/sites/query" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"query":{"filter":{"namespace":"HEADLESS","id":{"$in":["'$META_SITE_ID'"]}},"cursorPaging":{"limit":10}}}'
-# sites[0].viewUrl is the live address; the same query without the id filter lists every
-# headless site with its viewUrl, which is how a site is found from a URL the user gives
-```
+Claim last: it ends the anonymous record. Later edits use authenticated drops
+or patches. **The URL changes on claim**; obtain the new `sites[0].viewUrl`
+with the [HEADLESS site query](#find-an-existing-site).
 
 ## The drop page
 
-```
-https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>
-```
+`https://www.wix.com/headless/drop?utm_campaign=mcp&agent=<your-agent-id>`
 
-The user drags in the files without logging in, the site is live at once, and a
-banner offers to keep it. Tell them the limits below first.
-
-When no route reached Wix from where you are, say what would let you publish it
-yourself: a shell whose network reaches Wix, or the Wix MCP connected (the Wix
-plugin or connector in a chat client).
+When no upload route works, the user can drag in files without login; the site
+goes live and a banner offers to keep it. Explain the limits below and what
+would enable you to publish directly: a network-enabled shell or connected
+Wix MCP.
 
 ## Limits and failures
 
-- **A top-level HTML file.** A lone one of any name is the homepage; with more
-  than one, `index.html` must be among them.
-- **20 MB per file and per site.** The Wix MCP's upload tool takes 10 MB per call.
-- **Static files only** in a drop. A project that needs a build is built first,
-  and its build output is dropped.
+- Raw drop: a lone top-level HTML file of any name becomes the homepage; with
+  multiple HTML files, include `index.html`. The patch helper requires a root
+  `index.html` or `index.htm`.
+- 20 MB per file and site; `UploadHeadlessWebsiteFiles` limits each call
+  to 10 MB. Patch also limits the final snapshot to 2,000 files.
+- Drop serves static files, not unbuilt project source.
 
-| Failure | Meaning |
+| Failure | Action |
 | --- | --- |
-| `400` `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | In `details.applicationError.code`; fix the files. |
-| `403 PERMISSION_DENIED` on a drop | The token expired or is missing, or the site isn't the caller's. An anonymous site takes upload and release, not a drop. |
-| `500` on a drop or upload | A failure on Wix's side, with a request id and no body. Retry once; if it fails again, keep the request id for feedback and hand over the drop page. A body built by hand (not `wix.multipart()`) can also answer `500`: rebuild it as shown. |
-| `404` on the anonymous route | The hour passed or the site was claimed. |
+| `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
+| Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
+| Drop/upload `500` | Inspect current state before retrying once; retain the request ID if it fails again and offer the drop page. Hand-built malformed multipart can also cause this: use `wix.multipart`. |
+| Anonymous `404` | The hour expired or the site was claimed; do not create a replacement without explaining. |
 
-## Send feedback to Wix
-
-When this flow didn't work well enough, offer to send it to Wix as feedback,
-following [Send Feedback to Wix](send-feedback-to-wix.md): a route failed and you
-fell back, a call errored or needed retries, images had to wait on the user, or
-the recipe left you guessing and you had to invent a
-workaround.
-
-## Route the request correctly
-
-- **A new site from files, the user's or ones you write**: [What decides the route](#what-decides-the-route).
-- **A change to a site published this way**: the [same site](#change-it-later);
-  upload and release while it's anonymous.
-- **An anonymous site the user wants to keep**: [claim it](#claim-it-into-the-users-account), or the save link.
-- **A site that now needs a backend**: [Connect a backend](#connect-a-backend).
-- **Migrating a live site or store from another platform by URL, or CSV/TSV
-  exports**: [Site Import](site-import.md).
-- **HTML, an embed or code inside an existing Wix site**: not this recipe; that is
-  custom code in the editor.
-- **Images, videos or documents for a site's media**: [Upload Media to Wix](../media/upload-media-to-wix.md).
-
-Don't create the site from a template: that makes an empty site, not the site's
-files.
+Offer [feedback to Wix](send-feedback-to-wix.md) when a route fails, retries or
+workarounds are needed, images must wait for the user, or guidance is missing.
