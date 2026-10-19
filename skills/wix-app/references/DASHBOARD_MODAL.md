@@ -32,16 +32,16 @@ The CLI generates the folder, the modal `.tsx`, the config file, the builder fil
 
 A modal opens as **its own iframe, separate from the page that opened it** — so theming the page does nothing for it. A themed page opening an unthemed modal is a common and very visible split: the dialog arrives in the pre-redesign look on top of a redesigned page.
 
-Wrap the generated `<modal>.tsx` in the app's `BusinessManagerTheme`, at the root, above `CustomModalLayout`:
+Wrap the generated `<modal>.tsx` in `BusinessManagerThemeProvider`, at the root, above `CustomModalLayout`:
 
 ```tsx
 import type { FC } from 'react';
 import { CustomModalLayout } from '@wix/design-system';
-import { BusinessManagerTheme } from '../../BusinessManagerTheme';
+import { BusinessManagerThemeProvider } from '@wix/design-system';
 import modalConfig from './<modal>.config';
 
 const Modal: FC = () => (
-  <BusinessManagerTheme>
+  <BusinessManagerThemeProvider>
     <CustomModalLayout
       title={modalConfig.title}
       showHeaderDivider={false}
@@ -49,11 +49,11 @@ const Modal: FC = () => (
       closeButtonProps={{ size: 'small' }}
       /* … */
     />
-  </BusinessManagerTheme>
+  </BusinessManagerThemeProvider>
 );
 ```
 
-The wrapper file is written once per app and reused by every extension — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app). Icons come from `@wix/wix-ui-icons-common/lazy`, and anything you style yourself uses `--wds-*` tokens or a `skin`/`size` prop — [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
+The wrapper file is written once per app and reused by every extension — [BUSINESS_MANAGER_THEME.md § 2](BUSINESS_MANAGER_THEME.md#2-use-the-provider-the-package-exports--never-write-the-defaults-yourself). Icons come from `@wix/wix-ui-icons-common/lazy`, and anything you style yourself uses `--wds-*` tokens or a `skin`/`size` prop — [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
 
 **The redesign changes modal chrome specifically**, and the wrapper cannot make these for you:
 

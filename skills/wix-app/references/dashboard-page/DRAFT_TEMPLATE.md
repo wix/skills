@@ -51,7 +51,7 @@ Then copy **every** file `--templates` lists for it into the generated folder (`
 - Rename `Items` / `Item` to your feature and entity, in file names and identifiers alike.
 - Route paths stay page-relative (`/`, `/:id`, `/new`) — never prefix them with `<route>` ([DASHBOARD_PAGE.md](../DASHBOARD_PAGE.md)).
 
-- **Theme the entry file.** In it, replace the template's `WixDesignSystemProvider` and its `@wix/design-system/styles.global.css` import with the app's `BusinessManagerTheme` — written once per app ([BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app)), kept in the entry file so it sits above `WixPatternsProvider`. **Business Manager passes none of the redesign through the extension's iframe**, so the bare provider renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass.
+- **Theme the entry file.** In it, replace the template's `WixDesignSystemProvider` with `BusinessManagerThemeProvider` from `@wix/design-system` ([BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-use-the-provider-the-package-exports--never-write-the-defaults-yourself)), keep it in the entry file so it sits above `WixPatternsProvider`, and add the `themes/odeditor.global.css` import beside the existing stylesheet import. **Business Manager passes none of the redesign through the extension's iframe**, so the bare provider renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass.
 
 ## 4. Replace the data file
 
