@@ -101,12 +101,34 @@ For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.co
 | `manageVariants: false` (customizations) | `modifiers[i]` |
 | `collectionIds[i]` | `directCategories[i].id` |
 | `ribbon`, `brand` (string) | `ribbon.name`, `brand.name` (managed via `ribbonsV3` / `brandsV3`) |
-| `media.mainMedia.image.url` (main image URL) | `media.main.image ?? media.main.url` — in V3, `ProductMedia.image` is a `string` (Wix-hosted URL), `url` is a `string` (external URL); check both |
+| `media.mainMedia.image.url` (main image URL) | `media.main.image` can be a `wix:image://` URI. Use `media.main.url` only for image media; it can otherwise describe a video. See [Image rendering](dashboard-page/IMAGE_RENDERING.md) for browser URL conversion. |
 | `lastUpdated` | `updatedDate` |
 
 **Pricing model** — V1 had a `discount` object; V3 removed it. Discounts are now expressed by the relationship between two fields on the variant: `actualPrice` (required, what the customer pays) vs `compareAtPrice` (optional, original price shown struck through). With discount: V1 `price`/`discountedPrice` → V3 `compareAtPrice`/`actualPrice`. Without discount: V1 `price` → V3 `actualPrice`, leave `compareAtPrice` empty.
 
 ---
+
+## Display SDK product images
+
+In the V3 SDK, `media.main.image` is a **string**, including Wix image URIs. The raw REST
+response can show an image object instead: `media.main.image.url` from that response is not
+the SDK access path. Pass the whole SDK image value to `toBrowserImageUrl` from
+[IMAGE_RENDERING.md](dashboard-page/IMAGE_RENDERING.md), then choose a fallback:
+
+```typescript
+import { productsV3 } from '@wix/stores';
+
+export function productImageUrl(product: productsV3.V3Product): string | undefined {
+  const main = product.media?.main;
+  return toBrowserImageUrl(main?.image)
+    || (main?.mediaType === 'IMAGE' ? toBrowserImageUrl(main.url) : undefined)
+    || toBrowserImageUrl(main?.thumbnail?.url);
+}
+```
+
+Use this mapping in both views. Collection thumbnails may prefer normalized `main.thumbnail.url`.
+A video's thumbnail is an image; its own `url` is not. Request
+`'THUMBNAIL'` in **both** list and detail calls; it is not returned by default.
 
 ## Webhooks
 
