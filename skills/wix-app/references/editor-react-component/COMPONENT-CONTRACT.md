@@ -1,14 +1,13 @@
 # Component Contract
 
-Use this reference when defining props, defaults, named-part wiring, complex data,
-or internal file boundaries.
+Use for props, defaults, named parts, data, and file boundaries.
 
 ## Public Props Contract
 
-Keep identity and platform contracts together with component-specific data and
-behavior. Do not add `children` unless the component is explicitly a container.
+Keep identity, platform props, data, and behavior together. Add `children` only
+for an explicit container.
 
-Use this shape:
+Shape:
 
 ```ts
 import type { A11y, Direction } from '@wix/editor-react-types';
@@ -28,7 +27,7 @@ export type PlanCardProps = {
   onBlur?: (event: React.FocusEvent) => void;
 
   elementProps?: {
-    cta?: { className?: string; href?: string };
+    planCardCta?: { className?: string; href?: string };
   };
 };
 ```
@@ -43,9 +42,8 @@ Rules:
 - Default to common optional SDK callbacks by capability; add specialized ones
   when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
-- A CTA with a real destination is a native link with that `href`. If it only
-  performs an action, use a native button. Never use `href="#"` as a fallback;
-  it creates a focusable link without a meaningful destination.
+- Use a native link for a CTA with a real `href`, or a native button for an
+  action. Never fall back to `href="#"`: it has no meaningful destination.
 
 ## Numeric Range Constraints
 
@@ -68,47 +66,49 @@ Treat an independently editable inner element as a named part. Wiring rules:
 
 - Root receives top-level `id`, `className`, `direction`, `a11y` — no
   `elementProps` entry.
-- Every named inner part has an `elementProps` entry (even if only `className`
-  is needed); structural/decorative non-parts use only a CSS Module class.
+- Every named inner part has an `elementProps` entry (`className` at minimum); structural/decorative non-parts use only a CSS Module class.
 
 On a raw HTML element, spread the entry and explicitly merge its injected
-`className`. Keep the entry key short while prefixing the global class with the
-component name.
+`className`. The key is the part's global class in camelCase, never shortened
+(`plan-card-cta` → `planCardCta`); any other key reads `undefined`.
 
 ```tsx
 <a
-  {...elementProps?.cta}
+  {...elementProps?.planCardCta}
   className={classNames(
     'plan-card-cta',
     styles.cta,
-    elementProps?.cta?.className,
+    elementProps?.planCardCta?.className,
   )}
 >
   {label}
 </a>
 ```
 
-When a named part renders another component built with this skill, spread the
-entry and let that component merge its incoming `className` on its root.
+For a skill-built sub-component, spread the entry; its root merges the incoming
+`className`.
 
 ```tsx
-<PlanRow {...elementProps?.planRow} item={plan} />
+<PlanRow {...elementProps?.planCardPlanRow} item={plan} />
 ```
 
-Do not merge the same class at both the call site and the sub-component root.
+Never merge the class at both the call site and the sub-component root.
 
 ## Content and Data
 
 Compute derived values internally when a small pure expression can derive them
-from props or state (e.g. expose `price` and `quantity`; compute `subtotal`; use
-numeric types when arithmetic is required).
+from props or state (e.g. expose `price`, `quantity`; compute `subtotal`).
+Use numeric types for arithmetic.
 
 ### Data-Driven Components
 
-Export named content props rather than `children` for leaf components — text
-(`label`, `title`, `placeholder`), media (`image`, `video`, `icon`), links
-(`link`, `href`), collections (`items`, `options`, `menuItems`). Internal
-sub-components may still use `children` for composition.
+Export named content props, not `children`, for leaf components — text
+(`label`, `title`), media (`image`, `icon`), links (`link`), collections
+(`items`, `options`). Internal sub-components may use `children`.
+
+Every visible text (eyebrow, subtitle, label) is a text prop with a default in
+its own named part. No JSX text literals (`aria-label`: ACCESSIBILITY.md).
+Computed text (a clock) gets one too.
 
 ### Container Components
 
@@ -184,14 +184,20 @@ optional `uri`, `alt`, `width`, `height`; `Link` has optional `href`, `target`
 
 Do not represent media as a URL/source string or split its metadata across
 primitive props. Preserve the media object through the public contract so the
-component can consume all of its supported data. Inspect the installed media
-type declaration only if a needed field is not covered here or a typecheck
-reports an error.
+component can consume all of its supported data.
+
+Before using fields not documented here, inspect the relevant app-resolved
+`@wix/editor-react-types` declaration and only needed type references. Never
+infer one type's fields from another type's example. Recheck documented fields
+only if a related typecheck error reveals a mismatch; follow the installed
+declaration for the field shape while retaining editor rules. Preserve required
+fields. Do not bypass errors with `any`, casts, or replacement media types.
 
 ## Defaults and Resources
 
-Export `defaultProps` from `<component-name>.props.ts`. Both `component.tsx` and
-the extension consume this object; never duplicate fallbacks in JSX.
+Export `defaultProps` from `<component-name>.props.ts`, including defaults for
+root and nested `a11y` fields. Both `component.tsx` and the extension consume
+this object; never duplicate these defaults in destructuring or JSX.
 
 All rendered media must come from Wix-hosted services, local assets, or props.
 No external hosts or third-party runtime dependencies.
@@ -254,4 +260,5 @@ Do not extract tiny fragments merely to satisfy a line-count threshold.
 - [ ] Array elements are objects with semantic named fields. No separate `id` field added to item types; React keys use item fields (stable unique → slug → index), not a typed `id`.
 - [ ] Authored media uses the corresponding Wix media type, not URL/source strings or flattened metadata.
 - [ ] Defaults live only in the props file (no JSX fallbacks).
+- [ ] Every visible text is a prop with a named part; no JSX text literals.
 - [ ] Resources are Wix-hosted, prop-supplied, or locally bundled.

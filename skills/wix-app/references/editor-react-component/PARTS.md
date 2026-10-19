@@ -24,13 +24,14 @@ would plausibly control independently in the editor. It receives:
 
 - one prefixed global class: `'<component-name>-<part-name>'`
 - one CSS Module class
-- one matching `elementProps` entry, spread onto the element. Declare `a11y` on
-  the entry only when the part reads `ariaLabel`, and destructure it out before
-  spreading (see `ACCESSIBILITY.md`)
+- one matching `elementProps` entry, keyed by the camelCase of its global class
+  and spread onto the element. Declare `a11y` on the entry only when the part
+  reads `ariaLabel`, and destructure it out before spreading (see
+  `ACCESSIBILITY.md`)
 
 Apply this filter to every candidate:
 
-- A state or variant (`selected`, `active`, `open`, `disabled`) is not a part.
+- A state or variant (`selected`, `active`, `checked`, `disabled`) is not a part.
   Implement it as a prefixed design-state modifier on the affected part.
 - A hidden and shown version of the same element is one part, not two.
 - A grouping or layout-only wrapper is not a part. A wrapper that isn't
@@ -49,9 +50,10 @@ The manifest generator can silently omit a named part behind conditional JSX.
 Keep an editor-controlled part mounted in the render it inspects. Hide it with
 CSS driven by a data attribute, or disable it when it should remain visible.
 After generating the manifest, confirm that its `elements` include every
-intended named part.
+intended named part and that each `elementProps.<key>` read in code equals the
+camelCase of that part's global class.
 
-## Plausibility Check
+## Sanity Check
 
 For each candidate, ask:
 

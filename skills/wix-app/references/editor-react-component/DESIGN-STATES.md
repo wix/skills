@@ -3,7 +3,7 @@
 Use this reference when a named part changes appearance through interaction or
 a selectable value. A design state styles an element differently for an
 eligible interaction (`hover`, `focus`, `disabled`, `invalid`) or per a
-selectable value in its data (`selected`, `active`, `open`, …). Author states
+selectable value in its data (`selected`, `active`, `checked`, …). Author states
 in the component's `.tsx` and `.module.css`.
 
 ## Contents
@@ -24,9 +24,9 @@ in the component's `.tsx` and `.module.css`.
 | Input field — `select`/`textarea`; `input` except `hidden`/`button`/`submit`/`reset`/`image`; or an input-widget `role` (`checkbox`/`radio`/`switch`/`slider`/`spinbutton`/`textbox`/`searchbox`/`combobox`/`listbox`) | `focus` |
 | Other interactive element whose editable focus appearance the user explicitly requests | `focus` |
 | Disableable — `button`/`input`/`select`/`textarea`/`fieldset` or a disableable role | `disabled` (+ `invalid` for `input`/`select`/`textarea`) |
-| Has a selectable/variant value in its data — `selected`/`active`/`current`/`open`/`expanded`/`checked`/`featured` | that custom state |
-| Whole component opens/collapses (expandable panel, disclosure, dropdown, drawer), even when a click toggles it | root `isOpen` prop state — see §6 |
-| None of the above | no states — resting style only |
+| Has a selectable/variant value in its data — `selected`/`active`/`current`/`checked`/`featured` | that custom state |
+| Whole component opens/collapses or reveals content (expandable panel, disclosure, dropdown, drawer, popup, tooltip) on click, hover or focus | root `isOpen` state, no part `open` state (§6) |
+| None of the above, incl. a non-interactive root or part | no states, and no `:hover`/`:active`/`:focus` rules, even decorative; resting style only |
 
 An explicit `role` overrides the tag's implicit semantics: `<input role="button">`
 is a non-input control, while `<div role="checkbox">` is an input field.
@@ -37,8 +37,7 @@ unless the user explicitly requests editable focus styling. A control that
 restyles its own outline, background, or border must still carry a standalone
 `:focus-visible` rule as its keyboard affordance.
 
-A custom state may also be driven by a root-level boolean prop (e.g.
-`isFeatured`) instead of by markup or item data — see §5. For an active-item
+A root-level boolean prop can also drive a custom state (§5). For an active-item
 component, drive each item's `--active` class by comparing its index with the
 active-index prop rather than storing a per-item boolean.
 
@@ -47,7 +46,7 @@ active-index prop rather than storing a per-item boolean.
 Flat: the element's own global class + `--<state>`. Because inner-part
 global classes are prefixed with the component name, the state class is prefixed too —
 e.g. `pricing-card-cta--hover`, `pricing-card-plan-row--selected`. Never bare
-(`cta--hover` would collide with other components on the page) and never
+(`cta--hover` collides with other components) and never
 nested (`card__row--selected`).
 
 ## 3. Author CSS
@@ -56,7 +55,7 @@ Put the resting value in the bare class; put only the state override in the
 state selector. When both set the same property, write the state selector
 **before** the bare class. Manifest generation can otherwise record the state
 value as the part's resting `defaultValue`, even though runtime CSS renders
-correctly. The state selector still wins at runtime through its specificity.
+correctly.
 
 - **Native design state** — pair the pseudo-class with the `:global` modifier.
   Every exposed native state needs both selectors in the same rule; do not
@@ -101,34 +100,34 @@ The local static accessibility scan cannot measure rendered color contrast.
 - **Native** — render the correct interactive element (`<button>`, an
   interactive `role`, or a handler). No custom state class is needed, but the
   element must still satisfy the accessibility contract for its semantics.
-- **Custom** — toggle the global state class from the element's data. Every
-  state class toggled in TSX needs a matching `:global()` rule in §3; without
-  one the manifest generator silently drops the state.
+- **Custom** — toggle the global state class from the element's data, except
+  for open/collapsed content (§6). Every state class toggled in TSX needs a
+  matching `:global()` rule in §3; without one the manifest generator silently
+  drops the state.
 - **Inner elements** — every named inner element gets an `elementProps` entry;
   spread it so editor-driven states reach it. On a raw HTML element also merge
   `elementProps?.<key>.className` inline; on a skill-built sub-component the
-  spread alone suffices (it merges `className` itself). The `elementProps` key
-  stays the **short** part name (`cta`) even though the element's global class
-  is prefixed (`pricing-card-cta`) — don't rename the key to match the class.
+  spread alone suffices (it merges `className` itself). The key is the global
+  class in camelCase (`COMPONENT-CONTRACT.md`).
 
 Wire native and custom states as follows:
 
 ```tsx
 <button
   type="button"
-  {...elementProps?.cta}
-  className={classNames('pricing-card-cta', styles.cta, elementProps?.cta?.className)}
+  {...elementProps?.pricingCardCta}
+  className={classNames('pricing-card-cta', styles.cta, elementProps?.pricingCardCta?.className)}
 >
   {label}
 </button>
 
 <li
-  {...elementProps?.planRow}
+  {...elementProps?.pricingCardPlanRow}
   className={classNames(
     'pricing-card-plan-row',
     styles.planRow,
     row.selected && 'pricing-card-plan-row--selected',
-    elementProps?.planRow?.className,
+    elementProps?.pricingCardPlanRow?.className,
   )}
 >
   {row.label}
@@ -143,10 +142,9 @@ A **prop-triggered** state is a custom state switched by a single boolean
 whole component's appearance — e.g. `isLoading`, `isFeatured`.
 
 Mark the prop with the `ElementState<boolean>` type from
-`@wix/react-component-utils`. It is an identity alias — the prop still behaves
-as a plain `boolean` at runtime and stays a normal boolean in the component's
-data — but the manifest generator detects the marker and emits a custom state
-on the **root element**.
+`@wix/react-component-utils`. It is an identity alias (a plain `boolean` at
+runtime and in data); the manifest generator detects the marker and emits a
+custom state on the **root element**.
 
 ```tsx
 import type { ElementState } from '@wix/react-component-utils';
@@ -178,39 +176,41 @@ Rules:
 ```
 
 Prefer a native state (interactive markup) or a class trigger (per-item data
-such as `row.selected`) whenever one fits — those are the common cases and work
-at any depth. Reach for a prop trigger only for a root-level boolean switch
-or an open/collapsed toggle (§6).
+such as `row.selected`) whenever one fits; both work at any depth. Reach for a
+prop trigger only for a root-level boolean switch.
 
 ## 6. Expose Open/Collapsed Toggles
 
-For a component that opens or collapses, expose its state to the editor even
-when a click toggles it. `useState` alone gives the manifest no state picker.
-For one-of-many item bodies, use the active-item contract instead.
+Expose the open state of a component that opens, collapses or reveals content
+on click, hover or focus. `useState` alone, or a CSS `:hover`/`:focus-within`
+reveal, gives the editor no state picker. For one-of-many item bodies, use the
+active-item contract instead.
 
 - Add `isOpen?: ElementState<boolean>` and set `isOpen: false` in
-  `defaultProps`.
-- Seed and resync internal state from the prop; clicks update internal state.
+  `defaultProps`. Keep it props-only (§5).
+- Seed and resync internal state from the prop; clicks, pointer enter/leave and
+  focus/blur update it.
 - Always render the collapsible content; hide it with CSS plus `aria-hidden`
   and `inert` when closed. Never mount it with `open && …`.
-- Style the open state with inner-part classes
-  (`<component-name>-content--open`) and matching `:global()` rules, not only
-  inline styles or refs measured during render.
-- Keep the root state props-only for the on-stage picker (§5).
+- Style the open look with a module class (`open && styles.contentOpen`), not
+  only inline styles or render-time refs.
+- Never toggle a `:global()` class for it (`--open`, `--visible`, …) on the
+  root or any part: each adds an "Open" design-panel state beside the on-stage
+  picker.
 
 ```tsx
 const [open, setOpen] = React.useState(Boolean(isOpen));
 React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
 
 <div
-  {...elementProps?.content}
+  {...elementProps?.infoPanelContent}
   aria-hidden={!open}
   {...(!open && { inert: '' })}
   className={classNames(
     'info-panel-content',
     styles.content,
-    open && 'info-panel-content--open',
-    elementProps?.content?.className,
+    open && styles.contentOpen,
+    elementProps?.infoPanelContent?.className,
   )}
 >
   <p>{text}</p>
@@ -219,7 +219,7 @@ React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
 
 ```css
 .content { display: none; }
-.content:global(.info-panel-content--open) { display: block; }
+.contentOpen { display: block; }
 ```
 
 ## Checklist
@@ -233,4 +233,5 @@ React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
 - [ ] Every state class toggled in TSX has a matching `:global()` CSS rule.
 - [ ] `ElementState<boolean>` is used only for a component-level root state.
 - [ ] An open/collapsed component exposes a props-only `isOpen` root state,
-      syncs internal state from it, and always renders its content.
+      syncs internal state from it, always renders its content, and adds no
+      `--open` class anywhere.
