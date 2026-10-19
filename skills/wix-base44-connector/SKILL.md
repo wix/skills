@@ -111,7 +111,7 @@ const wx = require(require("path").resolve(P));
 - `wx.bash(cmd)` — shell over saved files (GNU grep/sed; awk is mawk; no rg)
 - `wx.spec(docsUrl | code)` — a method's exact schema, plus the titles of the docs' own request examples saved at `examplesPath`; pass a hit's docsUrl (direct load), or raw code to query the index yourself
 - `wx.mgmtRecipes(q?)` — management-recipe index; no arg → categories, a word → matching recipes
-- `wx.ensureOAuthApp(token, { name, redirectUris, redirectDomains })` — the headless OAuth app, found by name or created, with the redirect lists merged into whatever it already allows; returns `{ clientId, created }`. `clientId` is what the browser mints visitor tokens from. Run it whenever `context` reports no OAuth app, or before any Wix-hosted flow that returns to this app — see Visitor authentication and Wix-hosted flows
+- `wx.ensureOAuthApp(token, { name, redirectUris, redirectDomains })` — the headless OAuth app, found by name or created with `origin: "base44-app"`, with the redirect lists merged into whatever it already allows; returns `{ clientId, created }`. `clientId` is what the browser mints visitor tokens from. Run it whenever `context` reports no OAuth app, or before any Wix-hosted flow that returns to this app — see Visitor authentication and Wix-hosted flows
 - `wx.installApp(appDefId, siteId, token)` — install a Wix app on the site (Apps Installer). If discovery finds an API whose app isn't installed on the site, install it first — that's a one-call prerequisite, **not** a reason to fall back to a hand-built alternative. `appDefId` from `search` or the Apps-Created-by-Wix table; `siteId` from `context` (the site report)
 
 Search makes one combined request across REST, management recipes, and Headless by default.
@@ -363,7 +363,9 @@ creating the OAuth app when the site has none and adding your URLs to its lists 
 has one. Returns only complete for URLs in those lists, and a missing one breaks silently —
 create-checkout and the anonymous token still succeed — until a real buyer is redirected and
 stranded on Wix. It is idempotent by name: never create a second OAuth app for the same Base44
-app, or the first `clientId`'s returns stop working.
+app, or the first `clientId`'s returns stop working. The app is created with `origin: "base44-app"`,
+the name of this flow on the OAuth app; `origin` is set at creation only, so an OAuth app created
+by hand carries the same value in its create call.
 
 ```js
 // Register BOTH of this app's own URLs — its preview URL and its published URL — so returns work
