@@ -61,19 +61,23 @@ const SDK_HANDLER_PROPS = {
   onDoubleClick: 'onDblClick',
   onMouseEnter: 'onMouseIn',
   onMouseLeave: 'onMouseOut',
+  onFocus: 'onFocus',
+  onBlur: 'onBlur',
 };
 const isSdkRoot = (tag) => /\bid=\{\s*(?:props\.)?id\s*\}/.test(tag);
 
-/** Every handler on the tag forwards its SDK prop, `onClick={onClick}` or `onMouseEnter={props.onMouseIn}`; anything else makes the root a control. */
+const getHandlerAttributes = (tag) => [...tag.matchAll(/\b(on[A-Z]\w*)=\{([^}]*)\}/g)];
+
+/** `onClick={onClick}` or `onMouseEnter={props.onMouseIn}`. */
+function isSdkForward(name, value) {
+  const sdkProp = SDK_HANDLER_PROPS[name];
+  return Boolean(sdkProp) && value.trim().replace(/^props\./, '') === sdkProp;
+}
+
+/** Every handler on the tag forwards its SDK prop; anything else makes the root a control. */
 function forwardsOnlySdkHandlers(tag) {
-  const handlers = [...tag.matchAll(/\b(on[A-Z]\w*)=\{([^}]*)\}/g)];
-  return (
-    handlers.length > 0 &&
-    handlers.every(([, name, value]) => {
-      const sdkProp = SDK_HANDLER_PROPS[name];
-      return Boolean(sdkProp) && value.trim().replace(/^props\./, '') === sdkProp;
-    })
-  );
+  const handlers = getHandlerAttributes(tag);
+  return handlers.length > 0 && handlers.every(([, name, value]) => isSdkForward(name, value));
 }
 
 const PASSIVE_AUTOPLAY_HANDLERS = new Set([
@@ -85,11 +89,26 @@ const PASSIVE_AUTOPLAY_HANDLERS = new Set([
   'onBlurCapture',
 ]);
 
-/** Carousel roots observe hover/focus to pause autoplay; these handlers do not activate the region. */
+/**
+ * Carousel roots observe hover and focus to pause autoplay; these handlers do not activate
+ * the region. A root needs both, so hover-only roots stay flagged. SDK forwards may sit
+ * beside them; any other handler makes the root a control.
+ */
 function pausesAutoplayOnly(tag) {
-  if (!isSdkRoot(tag) || !tag.includes('data-pause-button-visibility=')) return false;
-  const handlers = [...tag.matchAll(/\b(on[A-Z]\w*)=\{[^}]*\}/g)];
-  return handlers.length > 0 && handlers.every(([, name]) => PASSIVE_AUTOPLAY_HANDLERS.has(name));
+  if (!isSdkRoot(tag)) return false;
+  const handlers = getHandlerAttributes(tag);
+  // `onMouseEnter={onMouseIn}`, `onMouseEnter={onMouseEnter}` or `onFocus={onFocus}` forwards a prop; it is not a pause observer.
+  const isPauseObserver = (name, value) =>
+    PASSIVE_AUTOPLAY_HANDLERS.has(name) &&
+    !isSdkForward(name, value) &&
+    value.trim().replace(/^props\./, '') !== name;
+  const hasPauseObserver = (pattern) =>
+    handlers.some(([, name, value]) => pattern.test(name) && isPauseObserver(name, value));
+  return (
+    hasPauseObserver(/^onMouse/) &&
+    hasPauseObserver(/^on(?:Focus|Blur)/) &&
+    handlers.every(([, name, value]) => isPauseObserver(name, value) || isSdkForward(name, value))
+  );
 }
 
 /** Roles whose native element cannot express a styled component. */
@@ -112,9 +131,13 @@ function roleHasNoNativeTag(tag) {
  */
 const EXEMPTIONS = [
   {
-    // ANIMATED-COMPONENTS.md requires the noninteractive carousel root to
-    // observe hover and focus so autoplay stops while a visitor is using it.
-    rules: new Set(['jsx-a11y/no-noninteractive-element-interactions']),
+    // ANIMATED-COMPONENTS.md requires the carousel root to observe hover and
+    // focus so autoplay pauses while a visitor is using it.
+    rules: new Set([
+      'jsx-a11y/click-events-have-key-events',
+      'jsx-a11y/no-noninteractive-element-interactions',
+      'jsx-a11y/no-static-element-interactions',
+    ]),
     tag: pausesAutoplayOnly,
   },
   {

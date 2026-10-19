@@ -1,7 +1,5 @@
 # Accessibility Implementation and Review
 
-Use while authoring; run the review after JSX is complete.
-
 ## Contents
 
 - [Implementation Contract](#implementation-contract)
@@ -28,18 +26,31 @@ Every `a11y` field that reaches the DOM becomes an editor control. Read only the
 field the part needs and write it as its HTML attribute,
 `aria-label={a11y?.ariaLabel}`. Never spread the whole object.
 
-```tsx
+The shared-default rule in `COMPONENT-CONTRACT.md` applies to a11y fields too:
+root defaults go in `defaultProps.a11y`; named-part defaults go in
+`defaultProps.elementProps.<part>.a11y`.
+
+```ts
+// toggle.props.ts
 import type { A11y } from '@wix/editor-react-types';
 
-type ToggleProps = {
+export type ToggleProps = {
   elementProps?: { toggle?: { className?: string; a11y?: A11y } };
 };
 
-function Toggle({ elementProps }: ToggleProps) {
-  const { a11y: toggleA11y, ...toggleProps } = elementProps?.toggle ?? {};
+export const defaultProps = {
+  elementProps: { toggle: { a11y: { ariaLabel: 'Toggle details' } } },
+} satisfies ToggleProps;
+```
 
+```tsx
+// toggle.tsx
+import type { ToggleProps } from './toggle.props';
+
+export function Toggle({ elementProps }: ToggleProps) {
+  const { a11y: toggleA11y, ...toggleProps } = elementProps?.toggle ?? {};
   return (
-    <button {...toggleProps} aria-label={toggleA11y?.ariaLabel ?? ARIA_LABELS.toggle}>
+    <button {...toggleProps} aria-label={toggleA11y?.ariaLabel}>
       <svg aria-hidden="true" viewBox="0 0 16 16">
         <path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" />
       </svg>
@@ -48,7 +59,7 @@ function Toggle({ elementProps }: ToggleProps) {
 }
 ```
 
-Keep the root's typed `a11y?: A11y` prop even when it reads no field. Destructure
+Keep the root's `a11y?: A11y` prop even when it reads no field. Destructure
 `a11y` out of an `elementProps` entry before spreading the entry; a spread entry
 records the nested object as a whole. Image alt text comes from the `Image`
 type's `alt` field, not from `a11y`.
@@ -64,24 +75,12 @@ Use this priority order:
 
 Never hardcode an `aria-label` string directly in JSX.
 
-```tsx
-// constants.ts
-export const ARIA_LABELS = {
-  toggle: 'Toggle details',
-  playButton: 'Play animation',
-  pauseButton: 'Pause animation',
-} as const;
+For example, a system-owned playback label can use
+`aria-label={isPlaying ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton}`,
+with those strings defined in `constants.ts`.
 
-// component JSX
-<button
-  aria-label={isPlaying ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton}
->
-  {isPlaying ? <PauseIcon /> : <PlayIcon />}
-</button>;
-```
-
-Icon-only controls require an accessible name. Controls with visible text,
-including an icon plus visible text, usually do not need another ARIA label.
+Icon-only controls need an accessible name; controls with visible text usually
+do not need another ARIA label.
 
 ### Preserve Semantic Ownership
 
@@ -95,8 +94,8 @@ including an icon plus visible text, usually do not need another ARIA label.
 
 ## Review Scope
 
-Run this review once the JSX is complete and again after each fix pass, at
-most two passes. Do not rerun after a clean result unless JSX changed.
+Review completed JSX and rerun after fixes, at most two passes. After a clean
+result, rerun only if JSX changes.
 
 | Request | Pass to the command |
 | --- | --- |
@@ -105,10 +104,8 @@ most two passes. Do not rerun after a clean result unless JSX changed.
 | Full audit | `src/extensions/site/components/` |
 
 `*.generated.ts` is regenerated from JSX and CSS and is never scanned.
-Imported shared components are inspection context, not automatic edit scope.
-Report a confirmed shared-component issue instead of changing a broadly reused
-primitive unless the requested fix requires that shared change and its impact is
-understood.
+Inspect imported shared components, but edit them only when the requested fix
+requires it and the impact is understood; otherwise report the issue.
 
 ## Automated Review
 
@@ -119,16 +116,12 @@ from the consumer Wix package so dependencies resolve from that project.
 node <SKILL_ROOT>/scripts/scan-a11y-review.cjs <component-dir | files...>
 ```
 
-One command, one report. It runs the jsx-a11y ESLint rules, a semantic scanner
-that follows imports and checks the per-part `a11y` contract, and a render
-audit: the component is rendered with `defaultProps` in Node (an SSR check),
-loaded into jsdom with its CSS Modules, and audited with axe-core.
-`component.preview.tsx` must render without falling back to the placeholder.
+The command runs jsx-a11y ESLint rules, a semantic scanner that follows imports,
+and an SSR/jsdom/axe-core audit with `defaultProps` and CSS Modules.
+`component.preview.tsx` must render without the placeholder.
 
-The JSON report has `summary.line`, then `findings` grouped by rule with a
-count, locations or DOM target, the scanner message, and the axe help link,
-then `notChecked`. Exit `0` means every scanner ran and found nothing, `1`
-means findings, `2` means the review is inconclusive; never treat `2` as clean.
+Read `summary.line`, `findings`, and `notChecked` in the JSON report.
+Exit `0` means clean, `1` means findings, and `2` means inconclusive, never clean.
 Exit `2` with `render FAILED (missing-deps)` means `jsdom` or `axe-core` is not
 installed: install them (SKILL.md step 2) and rerun. Exit `2` with
 `render FAILED (loader)` means the audit could not load a module the component
@@ -147,25 +140,21 @@ For every finding:
 3. Assign `confirmed`, `false-positive`, or `not-relevant`.
 4. Fix only confirmed findings.
 
-Scanner output is a lead, not permission to edit blindly.
-
 ### Confidence and Action
 
 | Confidence | Evidence | Action |
 | --- | --- | --- |
-| High | The rendered element and static props directly establish the issue. | Confirm and fix when the change is safe and local. |
-| Medium | Props or partial component resolution strongly imply the semantics. | Inspect surrounding code, then confirm or discard. |
-| Low | Heuristics or unresolved runtime spreads are the main evidence. | Trace further and fix only after confirmation. |
-| Unknown | The semantic target cannot be resolved. | Leave unchanged and report the ambiguity when material. |
+| High | Rendered element and static props prove it. | Fix when safe and local. |
+| Medium | Props or partial resolution suggest it. | Inspect, then confirm or discard. |
+| Low | Only heuristics or unresolved spreads. | Trace before fixing. |
+| Unknown | Semantic target unresolved. | Leave unchanged; report material ambiguity. |
 
-Confidence establishes whether a finding is real, not whether its fix is safe.
-Apply confirmed local, behavior-preserving fixes. Leave a confirmed issue
-unchanged only when product intent is unknowable or the fix requires risky,
-non-local behavior changes.
+Apply confirmed local, behavior-preserving fixes. Report issues needing unknown
+product intent or risky, non-local behavior changes.
 
 ### Semantic Resolution Order
 
-Resolve rendered behavior in this order:
+Resolve semantics in this order:
 
 1. Flagged JSX element and static props
 2. Explicit polymorphic props such as `as="a"` or `component="button"`
@@ -174,19 +163,20 @@ Resolve rendered behavior in this order:
 5. Prop evidence such as `href`, `to`, `src`, `alt`, and `role`
 6. Component-name heuristics
 
-Follow local imports to their rendered root. For package imports, inspect the
-resolved package entry when available. Do not assign more confidence than the
-evidence supports.
+Follow local imports to their rendered root and package imports to their
+resolved entry. Match confidence to evidence.
 
 ## Manual Review
 
-In the default rendered state the command checks names, alt text, ARIA
-validity, nesting, list and heading structure, hidden-but-focusable content,
-the `a11y` contract, and SSR safety. Verify what it cannot see:
+The command audits default-state semantics, names, ARIA, focus visibility,
+the a11y contract, and SSR. Also verify:
 
 - Every meaningful non-default state (expanded, selected, playing, error,
   empty, hover/focus) keeps correct names, focusability, hidden state, and
   structure; the command audits only the default render.
+- Trace each a11y field read, including aliases and inner parts, to its matching
+  `defaultProps` path and meaningful default. An unused `a11y?: A11y` declaration
+  needs no default. Check source; no extra manifest generation is required.
 - Wrappers and polymorphic components preserve their documented semantics;
   extension overrides preserve generated accessibility fields.
 - Accessible names describe the action, and visually hidden text that carries
@@ -202,8 +192,9 @@ the `a11y` contract, and SSR safety. Verify what it cannot see:
 - The root implements the direction contract, and every `ReactNode` slot
   isolates nested content with `dir="ltr"`.
 
-- An auto-rotating set of readable parallel items uses `aria-live="off"` while
-  it is rotating and `aria-live="polite"` while it is stopped.
+- An auto-rotating set of readable parallel items pauses while hovered or
+  focused, uses `aria-live="off"` while rotating and `"polite"` while stopped.
+  Its root hover/focus handlers are required; never remove them for a finding.
 
 ## Pre-Fix Checks for Non-Interactive Controls
 
@@ -232,7 +223,6 @@ The accessibility review is complete only when:
 - the command was rerun after the last fix pass; and
 - the manual review is complete.
 
-After two fix passes, stop and report the remaining findings with their triage.
-Preserve visual and runtime behavior. Fix the semantic owner: root, named inner
-part, shared primitive, or call site. Then return to the main workflow for the
-Wix build, manifest generation, TypeScript check, and relevant project tests.
+After two fix passes, report remaining findings with their triage. Preserve
+visual and runtime behavior. Fix the semantic owner, then resume only the
+build, manifest, TypeScript, and test steps required by the task.
