@@ -1,4 +1,4 @@
-// Preview-only banner linking the running app to its Wix Business Manager (the back office).
+// Preview-only banner linking the running app to its Wix Dashboard (the back office).
 // Renders while the app is previewed or run locally, never on the published site, and is
 // dismissible (persisted per site).
 // Mount it at the top of your Layout's fixed region, ABOVE <Header/> (see INSTRUCTIONS STEP 3) —
@@ -41,8 +41,8 @@ export default function WixManageBanner() {
       fontFamily: "system-ui,-apple-system,sans-serif", borderBottom: "1px solid #e2e2ea",
     }}>
       <span>
-        Manage your business behind this site in Wix{" "}
-        <a href={DASHBOARD_URL} target="_blank" rel="noopener" style={{ color: "inherit", textDecoration: "underline" }}>business manager</a>
+        Manage your business behind this site on the{" "}
+        <a href={DASHBOARD_URL} target="_blank" rel="noopener" style={{ color: "inherit", textDecoration: "underline" }}>Wix Dashboard</a>
       </span>
       <a href={DASHBOARD_URL} target="_blank" rel="noopener" style={{
         background: "#131720", color: "#fff", borderRadius: 999, padding: "8px 18px", fontSize: 14, textDecoration: "none",
