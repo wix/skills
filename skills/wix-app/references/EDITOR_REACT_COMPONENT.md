@@ -57,8 +57,9 @@ Supplementary files are allowed; keep scaffold roles intact.
    ```
 
 3. **Plan.** Identify props, root, parts, and states; read routed references.
-   Use the scaffold and references before package declarations; probe an API
-   only when undocumented or a typecheck fails.
+   Use the scaffold and references before inspecting package declarations.
+   Inspect only needed declarations resolved by the app for undocumented APIs
+   or fields, or typecheck failures. They govern API shapes; retain editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's configured formatter before
@@ -120,7 +121,7 @@ references are leaves.
 
 | Trigger | Read |
 | --- | --- |
-| Interactive/selectable part, custom state, or open/collapse toggle | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
+| Interactive/selectable part, custom state, or open/reveal toggle | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
@@ -144,13 +145,15 @@ references are leaves.
   never spread the `a11y` object or add one-off ARIA props.
 - Named parts: global class, module class, and `elementProps` (root uses
   top-level props).
-- Native design states: pair selectors with injected modifiers; keep non-input
-  `:focus-visible` standalone unless editable focus is requested; toggle custom
-  state classes from data, each with a matching `:global()` rule.
-- Open/collapse components: expose a props-only `isOpen: ElementState<boolean>`
-  root state and sync internal state from it.
+- Every visible text: a text prop plus a named part; no JSX text literals.
+- Native design states: interactive elements only, never a non-interactive root
+  or part; pair selectors with injected modifiers; toggle custom state classes
+  from data, each with a matching `:global()` rule.
+- Open/close/reveal (click/hover/focus): props-only root
+  `isOpen: ElementState<boolean>` synced to state; module classes, no `--open` class.
 - Single-visible-body arrays: `name` per item, `ActiveItemIndex<'prop'>`, render
   all bodies, hide inactive accessibly.
+- No arrays inside array items; keep group fields flat (no object props).
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
 - Resizable layout: keep required content usable at 320px. Reflow visible

@@ -1,9 +1,7 @@
 # CSS Guidelines
 
 Use these rules for the scaffolded `<component-name>.module.css` file and any
-colocated CSS Modules owned by internal sub-components. These rules keep the component
-editable by zero config, responsive to its Wix-owned container, and safe in
-both LTR and RTL layouts.
+colocated CSS Modules owned by internal sub-components.
 
 **Visual intent.** When the request specifies how the component should look —
 mood, palette, layout style, or a reference — follow that direction. Default to a modern, refined look — intentional layout, pleasing proportions, polished and deliberate styling.
@@ -31,18 +29,18 @@ Apply classes with `classnames`:
 | Structural/decorative non-part | Module class only |
 
 The global class lets zero config create an editor element. Prefix every inner
-part with the component name to prevent collisions between components. The
+part with the component name to avoid collisions. The
 module class carries the component's default CSS. Preserve the scaffolded root
 pattern. For a new named part, add only the wiring the scaffold cannot infer:
 spread its `elementProps` entry and merge the injected class.
 
 ```tsx
 <h2
-  {...elementProps?.heading}
+  {...elementProps?.profileCardHeading}
   className={classNames(
     'profile-card-heading',
     styles.heading,
-    elementProps?.heading?.className,
+    elementProps?.profileCardHeading?.className,
   )}
 >
   {heading}
@@ -96,9 +94,8 @@ height or the requested behavior requires a bounded height. Omit it when the
 extension uses `LAYOUT.SIZING_TYPE.content`; the component's content must then
 establish its block size.
 
-Set `--display` on the root; do not set root `display` directly. The platform
-resolves and overrides this custom property. Inner elements use `display`
-normally.
+Set `--display` on the root; do not set root `display` directly. Inner
+elements use `display` normally.
 
 Choose the simplest root shape that fits the component:
 
@@ -152,8 +149,7 @@ Use logical inline-axis properties so layout flips automatically in RTL:
 ```
 
 Avoid `left`, `right`, `margin-left`, `padding-right`, and similar physical
-inline-axis properties. Physical block-axis properties such as `top` and
-`margin-bottom` are fine.
+inline-axis properties. Physical block-axis properties are fine.
 
 ## Editable Values
 
@@ -161,7 +157,8 @@ Keep static styling in the CSS Module, not JSX `style` objects. Use literal CSS
 values when no interpolation is needed; do not create a React prop or CSS custom
 property for routine values that zero config already surfaces.
 
-Use this pattern:
+Write each spacing value as one `px`, `%`, `vh` or `vw` number (`px` by
+default), not `clamp()`, `calc()`, `min()` or `max()`.
 
 ```css
 .root {
@@ -176,31 +173,50 @@ Use this pattern:
 }
 ```
 
-A dynamic runtime value that cannot be represented statically may use a narrowly
-scoped CSS custom property set from JSX, but keep the actual style rule in CSS
-and do not expose a visual prop solely for that purpose.
+A dynamic runtime value may use a narrowly scoped custom property set from
+JSX; keep the style rule in CSS and expose no visual prop for it.
 
 ```css
-/* Typography: zero config builds the `font` control from both longhands.
-   A part with a size but no family gets a control with no default. */
+/* Typography: set both longhands; a size without a family gives the
+   `font` control no default. */
 .cta {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 600;
 }
 
-/* Avoid: a module-only wrapper is not an editor element. A size here is
-   uneditable and silently overrides the parent's typography control. */
+/* Avoid: a module-only wrapper isn't editable; its size silently
+   overrides the parent's typography control. */
 .cta-label {
   font-size: 14px;
 }
 ```
 
-The same override risk applies to paintable properties. A layout-only inner
-wrapper must stay visually transparent; if it isn't, promote it to its own
-named part instead of hardcoding an opaque style on an unexposed node, since
-that style would otherwise mask the parent part's own
-`background`/`border`/`box-shadow`.
+The same applies to paint: a layout-only wrapper stays transparent or becomes
+a named part, so it can't mask the parent's `background`/`border`/`box-shadow`.
+
+### SVG Icons
+
+The part owning an icon declares `--icon-size` and `--icon-color`, prefixed
+per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
+`fill` or `stroke`.
+
+- **Inline** (chevron, play/pause): the `svg` applies them through a module
+  class, its paths carrying no colour attributes; no rotation property, since
+  state and direction own its transform.
+
+```css
+.toggleButton {
+  --icon-size: 16px;
+  --icon-color: #1e293b;
+}
+
+.chevron {
+  inline-size: var(--icon-size);
+  block-size: var(--icon-size);
+  fill: var(--icon-color);
+}
+```
 
 ## Interaction and Motion
 
@@ -232,7 +248,7 @@ request or existing design provides better values:
 
 ### Foreground and Background Ownership
 
-If the component is a self-contained block (card, panel, banner, accordion item), give the root a background. If it is an inline control meant to blend in (link, ghost button, icon button), control may leave the root transparent instead.
+If the component is a self-contained block (card, panel, banner, accordion item), give the root a background. An inline control meant to blend in (link, ghost button, icon button) may leave it transparent.
 
 - On a transparent root, don't hardcode text or icon colors; inherit them from the parent.
 - Set the background and main text/icon color together on the same element. Any secondary text (captions, hints, icons) must still be readable against that same background.
@@ -242,7 +258,6 @@ If the component is a self-contained block (card, panel, banner, accordion item)
 A neutral owned surface may use a light background with dark primary and
 secondary foregrounds, plus one accessible accent. The exact colors are not a
 contract; the contrast relationship is.
-
 
 ## Checklist
 
@@ -261,6 +276,5 @@ contract; the contrast relationship is.
 - [ ] Visual containers have deliberate hierarchy rather than bare scaffolding.
 - [ ] Every explicit foreground has a known contrasting background; transparent
       components inherit foregrounds from their host.
-- [ ] No unexposed descendant inside a named part paints its own opaque
-      `background`/`border`/`box-shadow`; a wrapper needing its own surface is
-      promoted to a named part instead.
+- [ ] No unexposed descendant paints an opaque surface; promote it to a named
+      part instead.

@@ -432,7 +432,10 @@ async function installApp(appDefId, siteId, token) {
 // return needs. Idempotent by name — a site reached by the "connect an existing site" flow
 // has none, and creating a second one for the same app strands the first app's returns.
 // Redirect lists are merged, never replaced: an app that already serves a custom domain
-// keeps it when a preview URL is added.
+// keeps it when a preview URL is added. `origin` names the flow that created the app; it is
+// written once, at creation, and an update leaves it as it is.
+const OAUTH_APP_ORIGIN = "base44-app";
+
 async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains = [] }) {
   const { oAuthApps = [] } = await post(
     "https://www.wixapis.com/oauth-app/v1/oauth-apps/query", { query: {} }, token);
@@ -440,7 +443,7 @@ async function ensureOAuthApp(token, { name, redirectUris = [], redirectDomains 
   const merge = (a = [], b = []) => [...new Set([...a, ...b])];
   if (!existing) {
     const { oAuthApp } = await post("https://www.wixapis.com/oauth-app/v1/oauth-apps", {
-      oAuthApp: { name, allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains },
+      oAuthApp: { name, allowedRedirectUris: redirectUris, allowedRedirectDomains: redirectDomains, origin: OAUTH_APP_ORIGIN },
     }, token);
     return { clientId: oAuthApp.id, created: true, oAuthApp };
   }

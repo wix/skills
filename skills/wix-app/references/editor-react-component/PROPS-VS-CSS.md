@@ -31,11 +31,11 @@ Use this pattern:
 
 ```tsx
 <div
-  {...elementProps?.progressBar}
+  {...elementProps?.audioPlayerProgressBar}
   className={classNames(
     'audio-player-progress-bar',
     styles.progressBar,
-    elementProps?.progressBar?.className,
+    elementProps?.audioPlayerProgressBar?.className,
   )}
 >
   {/* progress UI */}
@@ -50,6 +50,26 @@ Behavior-critical visibility may also be a prop when visibility itself changes
 the interaction contract. `pauseButtonVisibility` in an autoplaying component
 is the canonical exception: the editor preview must be able to force the
 play/pause control visible.
+
+## Lists of Groups
+
+When each item of a list holds its own list, the Manage panel can't edit the inner list. Use fixed
+groups instead and map them internally:
+
+- Give each group flat top-level fields named after the group, so Manage
+  Items shows "Starters Dishes", not "Dishes 1".
+- For a requested range ("2 to 5 sections"), create the maximum and add a
+  count prop that shows the first N.
+- Group order is fixed. If the user asks to reorder groups, don't add an
+  order, slot, key or label field or a separate array to emulate it; say in
+  your reply that groups can't be reordered.
+
+```ts
+// startersTitle: string; startersDishes: Array<Dish>
+// /** @min 2 @max 5 */ sectionCount: number
+// Not: sections: Array<{ dishes: Array<Dish> }>, starters: Section,
+// or sections: Array<{ slot: number }> with dishes1…dishes5
+```
 
 ## Examples
 
