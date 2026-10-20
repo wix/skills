@@ -1,7 +1,7 @@
 # Manifest Build Errors
 
 Use this reference only when `npx wix build` or `npx wix generate manifest`
-exits with an error. Read the error name from the first token before the colon
+exits with an error or prints a warning. For an error, read the error name from the first token before the colon
 (`IoError:`, `ParseError:`, or `NotFoundError:`), then apply the matching fix.
 
 | Error | Fix |
@@ -19,6 +19,19 @@ exits with an error. Read the error name from the first token before the colon
 | `ParseError: Failed to parse CSS file for component "X"` | CSS syntax error in `.module.css` — line/column is in the error message |
 
 After each fix, re-run `npx wix build && npx wix generate manifest` to confirm.
+
+## Warnings
+
+The build can also print non-fatal warnings such as
+`[css] … styles selectors that matched no element in the extraction render`.
+Read every warning and fix it; this is mandatory, with one exception below.
+
+- **A part's own class** (`.errorMessage`, `.item`) means the part is not
+  mounted in the extraction render. Keep it mounted per `PARTS.md`, then
+  re-run build and manifest generation.
+- **A class applied only by state** (`.contentOpen` from `open && styles.contentOpen`)
+  is expected: the part is mounted and only the state look is absent. Leave the
+  markup and CSS unchanged; do not force the state on or remove the styling.
 
 ## Checklist
 

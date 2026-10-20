@@ -29,9 +29,11 @@ const items = buildItems(props.items);
 return <ul>{items.map(renderItem)}</ul>;
 ```
 
-This does not require every data branch to render simultaneously. Empty,
-loading, and error states may be conditional when their initial value is stable
-and the same on server and client.
+This does not require every data branch to render simultaneously: loading,
+empty, and error states may be conditional when their initial value is stable
+and the same on server and client. A branch that contains a named part must
+still be mounted in the first render, or the manifest omits that part (see
+`PARTS.md`).
 
 ## Deterministic Output
 
@@ -47,4 +49,5 @@ format, or a client-only enhancement that does not replace the initial markup.
 
 - [ ] No browser globals are accessed at module scope or during render.
 - [ ] Initial server/client markup is complete and identical.
+- [ ] Every named part is mounted in the first render.
 - [ ] Render output does not depend on random, clock, locale, or timezone state.
