@@ -19,6 +19,24 @@ Keep the Wix CLI scaffold and file roles:
 
 Supplementary files are allowed; keep scaffold roles intact.
 
+## Required Reading (blocking)
+
+Before writing code, open and read in full every reference in the matching
+row. An unopened one is a failed run. Open paths directly; never skim or
+grep instead.
+
+| Scope | Required references |
+| --- | --- |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md), [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
+| Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
+| Changing public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
+| Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
+| Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
+| Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
+| Creating or changing layout/content | [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
+| Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
+| Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+
 ## Workflow
 
 1. **Scaffold only when creating.** Run in the Wix app (`wix.config.json`).
@@ -56,16 +74,16 @@ Supplementary files are allowed; keep scaffold roles intact.
    }
    ```
 
-3. **Plan.** Identify props, root, parts, and states; read routed references.
-   Use the scaffold and references before inspecting package declarations.
-   Inspect only needed declarations resolved by the app for undocumented APIs
-   or fields, or typecheck failures. They govern API shapes; retain editor rules.
+3. **Plan.** Identify props, root, parts, and states; open all required references first.
+   Use them and the scaffold before inspecting package declarations; inspect
+   only for undocumented APIs or fields, or typecheck failures. Declarations
+   govern API shapes; retain editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's configured formatter before
    checking formatting. Never edit or format `*.generated.ts`.
 
-5. **Run the accessibility review.** Once the JSX is complete, run from the
+5. **Run the accessibility review (mandatory).** Once the JSX is complete, run from the
    same folder (`<SKILL_ROOT>` is the directory containing the active `SKILL.md`):
 
    ```bash
@@ -97,25 +115,12 @@ Supplementary files are allowed; keep scaffold roles intact.
    For creation/layout changes, complete the routed overflow resize review.
 
 8. **Report.** Summarize files, checks, blockers, and checks that could not run.
+   List required references as read/unread; read any unread one and fix first.
 
 ## Reference Policy
 
-Read only matched references. Preserve unrelated behavior. `SKILL.md` routes;
-references are leaves.
-
-### Required References
-
-| Scope | Required references |
-| --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
-| Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
-| Changing public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
-| Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
-| Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
-| Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
-| Creating or changing layout/content | [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
-| Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
-| Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
+Read every required reference for the matched scope, optional ones only on
+trigger. Preserve unrelated behavior. References are leaves.
 
 ### Optional References
 
@@ -125,7 +130,7 @@ references are leaves.
 | Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
-| `npx wix build` or manifest generation exits with an error | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
+| `npx wix build` or manifest generation errors or warns | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |
 | Animation, video, carousel, or other playable/looped/autoplaying content | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Site/runtime/editor context hooks needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) (+ [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) when design-mode behavior differs) |
 | Branded, themed, or brand-aware component requested | [`BRANDED-COMPONENTS.md`](editor-react-component/BRANDED-COMPONENTS.md) |
@@ -137,9 +142,7 @@ references are leaves.
 - Elected root: `dir={direction}`, fallback-direction class, logical CSS for
   direction-sensitive layout.
 - Deterministic render; no browser globals during render.
-- Explicit foreground colors need a known contrasting background; transparent
-  roots inherit from the host.
-- Baseline Widely Available CSS/DOM only, or supported fallbacks.
+- Baseline Widely Available CSS/DOM only, or fallbacks.
 - Accessibility per part, per [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md):
   read only `a11y.ariaLabel`, and only for a control without a visible name;
   never spread the `a11y` object or add one-off ARIA props.
@@ -149,17 +152,14 @@ references are leaves.
 - Native design states: interactive elements only, never a non-interactive root
   or part; pair selectors with injected modifiers; toggle custom state classes
   from data, each with a matching `:global()` rule.
-- Open/close/reveal (click/hover/focus): props-only root
+- Open/close/reveal: props-only root
   `isOpen: ElementState<boolean>` synced to state; module classes, no `--open` class.
 - Single-visible-body arrays: `name` per item, `ActiveItemIndex<'prop'>`, render
   all bodies, hide inactive accessibly.
 - No arrays inside array items; keep group fields flat (no object props).
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
-- Resizable layout: keep required content usable at 320px. Reflow visible
-  groups inside their page and cap track minima with
-  `minmax(min(100%, <minimum>), 1fr)`. Follow [`OVERFLOW.md`](editor-react-component/OVERFLOW.md).
-- Preview composition, inline or through variables:
-  `withDefaults(withFallbackPlaceholder(PreviewOrComponent, options), defaultProps)`.
-  Keep `withDefaults` outermost; use one crucial data field and match the root
-  class.
+- Resizable layout: keep required content usable at 320px, per
+  [`OVERFLOW.md`](editor-react-component/OVERFLOW.md).
+- Preview: `withDefaults` outermost, one crucial data field, matching root
+  class, per [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md).

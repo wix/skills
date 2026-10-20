@@ -64,19 +64,24 @@ export interface MyAnimationProps {
   direction?: Direction;
   a11y?: A11y;
 
-  /** Start playing on load. Default `true`. */
+  /** Start playing on load. */
   autoPlay?: boolean;
 
-  /** Repeat when finished. Default `true`. */
+  /** Repeat when finished. */
   loop?: boolean;
 
-  /** Show play/pause button. Default `'showOnHover'`. */
   pauseButtonVisibility?: 'showAlways' | 'showOnHover';
 
   elementProps?: {
     myAnimationPlayButton?: { className?: string };
   };
 }
+
+export const defaultProps = {
+  autoPlay: true,
+  loop: true,
+  pauseButtonVisibility: 'showAlways',
+} as const;
 ```
 
 Omit `loop` when repeat is unsupported.
@@ -183,7 +188,7 @@ Set the visibility data attribute on the existing elected root, preserving its
 full root contract:
 
 ```tsx
-data-pause-button-visibility={pauseButtonVisibility ?? 'showOnHover'}
+data-pause-button-visibility={pauseButtonVisibility}
 ```
 
 Wire the named part completely:
@@ -210,7 +215,7 @@ Wire the named part completely:
 /* Narrow behavior-only exception documented in CSS-GUIDELINES.md. Keep editable
    appearance on .playButton and use this relationship only for visibility. */
 
-/* showOnHover (default) */
+/* showOnHover */
 .root[data-pause-button-visibility="showOnHover"] .playButton {
   opacity: 0;
   pointer-events: none;
@@ -222,7 +227,7 @@ Wire the named part completely:
   pointer-events: auto;
 }
 
-/* showAlways — no extra CSS needed; button is visible by default */
+/* showAlways (default) — no extra CSS needed; button is visible by default */
 ```
 
 ## 4. Suppress Autoplay in `component.preview.tsx`

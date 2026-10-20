@@ -46,9 +46,38 @@ Apply this filter to every candidate:
   share the same semantic editor surface. Distinguish position with data or a
   module-only helper class, not separate part names.
 
-The manifest generator can silently omit a named part behind conditional JSX.
-Keep an editor-controlled part mounted in the render it inspects. Hide it with
-CSS driven by a data attribute, or disable it when it should remain visible.
+## Keep Every Part Mounted
+
+The manifest is generated from a single server-side render of the component
+with mock props. Effects do not run and `useState` keeps its initial value, so
+markup that is not mounted in that render, and the CSS that styles it, never
+reaches the manifest. The source is not changed afterwards: write it so every
+part is mounted regardless of state.
+
+- Mount every phase (loading, error, empty, question, result) and hide the
+  inactive ones with the `hidden` attribute. Never write
+  `phase === 'x' && <Part />`. Give a `hidden` element no author `display`
+  rule: it would override `hidden`.
+- While data is missing, render one static placeholder item inside a hidden
+  wrapper so the item parts exist. It is never visible.
+- Mutually exclusive messages (loading, error, empty) are one part whose text
+  switches by phase, not several parts with the same name.
+- A modifier toggled by state (`correct`, `incorrect`) is a design state; see
+  `DESIGN-STATES.md`.
+
+```tsx
+const item = current ?? placeholderItem; // placeholder shows only while hidden
+
+<div hidden={phase !== 'question'}>
+  <h3
+    {...elementProps?.quizQuestion}
+    className={classNames('quiz-question', styles.question, elementProps?.quizQuestion?.className)}
+  >
+    {item.question}
+  </h3>
+</div>
+```
+
 After generating the manifest, confirm that its `elements` include every
 intended named part and that each `elementProps.<key>` read in code equals the
 camelCase of that part's global class.
