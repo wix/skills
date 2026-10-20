@@ -2,17 +2,11 @@
 
 Thank you for your interest in improving these skills.
 
-## This repository is a mirror
+## How to contribute
 
-`wix/skills` is a read-only mirror. The skills are developed in a separate source repository
-at Wix, and every change merged there is synced here automatically. Pull requests opened
-against this repository are not merged; a pull request from a fork is read as a proposal and
-labeled `external`, and a maintainer ports the change if it is accepted.
-
-- **Wix employees:** open pull requests in `wix-private/ax-skills`. Its contribution guide
-  covers the full process, including the eval scenarios a change needs.
-- **Everyone else:** [open an issue](https://github.com/wix/skills/issues/new) describing the
-  change.
+[Open an issue](https://github.com/wix/skills/issues/new) describing the problem or the change
+you'd like. Pull requests are not merged in this repository: a pull request is read as a
+proposal, and the maintainers make the change if it is accepted.
 
 ## What makes a useful report
 
