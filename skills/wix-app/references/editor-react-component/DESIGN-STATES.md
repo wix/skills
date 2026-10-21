@@ -23,7 +23,8 @@ in the component's `.tsx` and `.module.css`.
 | Interactive — `button`/`a`/`input`/`select`/`textarea`/`summary`, an interactive `role`, or an interactive handler (`onClick`/`onMouseEnter`/`onFocus`/…) | `hover` |
 | Input field — `select`/`textarea`; `input` except `hidden`/`button`/`submit`/`reset`/`image`; or an input-widget `role` (`checkbox`/`radio`/`switch`/`slider`/`spinbutton`/`textbox`/`searchbox`/`combobox`/`listbox`) | `focus` |
 | Other interactive element whose editable focus appearance the user explicitly requests | `focus` |
-| Disableable — `button`/`input`/`select`/`textarea`/`fieldset` or a disableable role | `disabled` (+ `invalid` for `input`/`select`/`textarea`) |
+| `button`/`input`/`select`/`textarea`/`fieldset` when asked or its action can be unavailable | `disabled` |
+| `input`/`select`/`textarea` with a constraint or `setCustomValidity`; a `form`/`fieldset` with one | `invalid` |
 | Has a selectable/variant value in its data — `selected`/`active`/`current`/`checked`/`featured` | that custom state |
 | Whole component opens/collapses or reveals content (expandable panel, disclosure, dropdown, drawer, popup, tooltip) on click, hover or focus | root `isOpen` state, no part `open` state (§6) |
 | None of the above, incl. a non-interactive root or part | no states, and no `:hover`/`:active`/`:focus` rules, even decorative; resting style only |
@@ -109,8 +110,6 @@ The local static accessibility scan cannot measure rendered color contrast.
   `elementProps?.<key>.className` inline; on a skill-built sub-component the
   spread alone suffices (it merges `className` itself). The key is the global
   class in camelCase (`COMPONENT-CONTRACT.md`).
-
-Wire native and custom states as follows:
 
 ```tsx
 <button

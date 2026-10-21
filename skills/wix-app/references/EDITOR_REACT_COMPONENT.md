@@ -49,9 +49,9 @@ grep instead.
    Never rerun the scaffold for an existing component.
    Write a meaningful `description` in 1-2 plain sentences (max 300 chars): what
    the user sees, when to use it, and capabilities that affect that choice.
-   Don't repeat the component name or add implementation details.
+   Don't repeat the name or add implementation details.
 
-2. **Run the dependency preflight.** Check required packages:
+2. **Run the dependency preflight.**
 
    ```bash
    deps=(@wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)
@@ -80,8 +80,7 @@ grep instead.
    govern API shapes; retain editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
-   files. Format edited source files with the app's configured formatter before
-   checking formatting. Never edit or format `*.generated.ts`.
+   files. Format edited source files with the app's formatter. Never edit or format `*.generated.ts`.
 
 5. **Run the accessibility review (mandatory).** Once the JSX is complete, run from the
    same folder (`<SKILL_ROOT>` is the directory containing the active `SKILL.md`):
@@ -107,14 +106,13 @@ grep instead.
    ```
 
    Run `npx tsc --noEmit`, relevant tests/lint, and the accessibility review.
-   If later edits affect a check, rerun that
-   check. Inspect the manifest when generated; never hand-repair it. Diagnose
-   failures with
+   If later edits affect a check, rerun that check. Inspect the manifest when generated; never hand-repair it.
+   Diagnose failures with
    [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
 
    For creation/layout changes, complete the routed overflow resize review.
 
-8. **Report.** Summarize files, checks, blockers, and checks that could not run.
+8. **Report.** Summarize files, checks, blockers, unrun checks.
    List required references as read/unread; read any unread one and fix first.
 
 ## Reference Policy
@@ -127,6 +125,7 @@ trigger. Preserve unrelated behavior. References are leaves.
 | Trigger | Read |
 | --- | --- |
 | Interactive/selectable part, custom state, or open/reveal toggle | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
+| Disabled or invalid state | [`DISABLED-INVALID.md`](editor-react-component/DISABLED-INVALID.md) |
 | Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
