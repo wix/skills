@@ -26,7 +26,9 @@
     "./skills/wix-headless-kit",
     "./skills/wix-headless-templates",
     "./skills/wix-vibe-headless",
-    "./skills/wix-docs"
+    "./skills/wix-docs",
+    "./skills/wix-export",
+    "./skills/wix-import"
   ],
   "mcpServers": "./.mcp.json",
   "interface": {
