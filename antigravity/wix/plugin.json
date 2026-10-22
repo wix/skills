@@ -1,0 +1,34 @@
+{
+  "name": "wix",
+  "displayName": "Wix",
+  "version": "1.33.0",
+  "description": "Build Wix apps and headless sites, and manage Wix stores, bookings, CMS and more, with Wix CLI skills and the official Wix MCP server.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Build a headless online store on Wix and release it to Wix hosting",
+    "Add a dashboard page with Wix Design System UI to my Wix app",
+    "List my Wix sites and add three products to my store"
+  ],
+  "category": "Developer Tools",
+  "keywords": [
+    "wix",
+    "wix-cli",
+    "wix-mcp",
+    "wix-headless",
+    "headless",
+    "ecommerce",
+    "cms",
+    "wix-apps"
+  ],
+  "author": {
+    "name": "Wix",
+    "url": "https://dev.wix.com"
+  },
+  "homepage": "https://dev.wix.com/docs/api-reference/articles/ai-tools/about-wix-skills",
+  "repository": "https://github.com/wix/skills",
+  "license": "MIT",
+  "skills": [
+    "./skills"
+  ],
+  "mcpServers": "./mcp_config.json"
+}
