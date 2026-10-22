@@ -1,9 +1,7 @@
 ---
 name: "Automations Activation Status"
-description: "Read an automation’s current ACTIVE or INACTIVE status, and activate or deactivate it when the user asks."
+description: "Inspect or change active status with lock checks, revision handling and read-back, without requiring unrelated repairs before deactivation."
 ---
-
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; do not perform any workflow that needs a guide marked "not yet published". "Stage" and "not yet published" describe how this skill is being rolled out; never mention them to the user. Explain a limit in product terms: what can't be done through the API here and where the user can do it instead (for example, in the automations builder).
 
 # Activation status and lifecycle
 
@@ -12,8 +10,7 @@ description: "Read an automation’s current ACTIVE or INACTIVE status, and acti
 Status does not show whether past runs succeeded. There is no separate
 "published" flag and no public draft API:
 
-- **Status check** = Get Automation → read `configuration.status`. Report exactly that value, in a
-  short answer that starts with the automation's name and returned ID;
+- **Status check** = Query by name (if no ID) → Get the single matching ID → read that Get response’s `configuration.status`. Query is discovery only: never answer from its status projection, even if it includes one. Report the name, returned ID and status, explaining ACTIVE as eligible for new trigger events and INACTIVE as not eligible;
   never infer it from the name or from your own earlier writes. If several automations match the
   supplied name, list each one's returned ID and end with a direct question such as "Which one
   do you mean?"; don't report a single status. If no automation matches the supplied name, say
@@ -44,10 +41,10 @@ Status does not show whether past runs succeeded. There is no separate
 1. Get Automation with `fields: ["OVERRIDE_SCHEMA"]` → current `revision`, `origin`, `settings`.
    If `settings.disableStatusChange`
    or `settings.readonly` is true, stop and report the lock: the owning app doesn't allow it
-   (§4 of Automations Feasibility and Planning (not yet published)).
+   ([Automations Validation and Persistence — included update restrictions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence)).
 2. Already `ACTIVE` → report it and stop (idempotent; no write).
-3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) and full Validate — never activate
-   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) explains.
+3. Set only the candidate's status to `ACTIVE`, then apply the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) and full Validate — never activate
+   an automation that doesn't validate. Preserve existing supported configurations as the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) explains.
 4. Explicit activation instructions authorize this change; do not ask again. If the user only
    asked to build or inspect it, obtain authorization before making it eligible for real runs.
 5. Update Automation with the object exactly as fetched, `configuration.status: "ACTIVE"`, and
@@ -59,7 +56,7 @@ Status does not show whether past runs succeeded. There is no separate
 **Deactivate** (on explicit request): Get the complete object with override schemas; check
 `settings.disableStatusChange` and `settings.readonly`; already INACTIVE means no write.
 Otherwise change only `configuration.status` to `INACTIVE`, preserving origin, settings,
-revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in [Build and Manage Wix Automations — included validation procedure](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) or
+revision, schemas and all nodes, then Update and read back the returned id. **Do not run the §4 checklist in [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence) or
 Validate as a prerequisite**, and do not repair or remove unrelated invalid/legacy steps.
 An explicit request to turn it off is sufficient authorization. Deactivating prevents new
 triggered runs; it is not proof that every pending/running activation has stopped or will finish.
