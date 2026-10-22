@@ -10,6 +10,10 @@ apiDoc:
       title: Manage Events
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/events
       tags: [events]
+    - file: ../../../skills/wix-manage/references/events/events-dashboard-navigation.md
+      title: Events Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/events
+      tags: [events]
     - file: ../../../skills/wix-manage/references/events/manage-event-tickets.md
       title: Manage Event Tickets
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/events

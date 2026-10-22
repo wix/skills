@@ -1,6 +1,6 @@
 ---
 name: "Dashboard Navigation"
-description: "Entry point for building direct links into a site's Wix dashboard (manage.wix.com). Documents the shared URL structure for all dashboard pages (site and account level, app-ID fallback, entity deep links, machine-readable routes.json) and routes to a per-business-solution recipe for every covered solution — bookings, stores/ecommerce, blog, pricing plans, restaurants, CMS, contacts, forms, marketing, get paid, analytics, google ads, app management, site settings, sites, and domains. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
+description: "Entry point for building direct links into a site's Wix dashboard (manage.wix.com). Documents the shared URL structure for all dashboard pages (site and account level, app-ID fallback, entity deep links, machine-readable routes.json) and routes to a per-business-solution recipe for every covered solution — bookings, stores/ecommerce, events, blog, pricing plans, restaurants, CMS, contacts, forms, marketing, get paid, analytics, google ads, app management, site settings, sites, and domains. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Dashboard Navigation
@@ -40,6 +40,7 @@ Useful properties of these URLs:
 |---|---|---|
 | Wix Bookings | [Bookings Dashboard Navigation](../bookings/bookings-dashboard-navigation.md) | Services, calendar, booking list, staff, availability, resources, settings |
 | Wix Stores / eCommerce | [Stores Dashboard Navigation](../stores/stores-dashboard-navigation.md) | Products, categories, inventory, orders, abandoned checkouts, gift cards, shipping, tax |
+| Wix Events | [Events Dashboard Navigation](../events/events-dashboard-navigation.md) | Event lists, drafts, categories, occurrences, and one event's tickets, guests, orders, schedule, registration settings and form, policies |
 | Wix Blog | [Blog Dashboard Navigation](../blog/blog-dashboard-navigation.md) | Posts (published + drafts), categories, tags, writers, comments, analytics, monetization, settings |
 | Wix Pricing Plans | [Pricing Plans Dashboard Navigation](../pricing-plans/pricing-plans-dashboard-navigation.md) | Plans list, create/edit plan, manual orders, settings |
 | Wix Restaurants | [Restaurants Dashboard Navigation](../restaurants/restaurants-dashboard-navigation.md) | Menus, items, online orders board, ordering settings, reservations, floor plans, reservation experiences |
