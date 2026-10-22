@@ -24,7 +24,7 @@
 // tooling, so the code layers, playbooks, seeds and readers are committed at the commit the project
 // was built from, recorded in `.source`. A caller that needs a `project/` folder passes it as
 // `need`; when a committed copy lacks it, that part is fetched at the same commit.
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -69,6 +69,31 @@ function parseSource(src) {
   const m = src.match(/^(?:https?:\/\/github\.com\/)?([^/\s]+)\/([^/\s#@]+?)(?:\.git)?(?:\/tree\/([^\s]+))?$/);
   if (!m) return { repo: DEFAULT_REPO, ref: null };
   return { repo: `https://github.com/${m[1]}/${m[2]}.git`, ref: m[3] ?? null };
+}
+
+/** The online copy of a skill file: the same file on www.wix.com/skills, mirrored from main. */
+export const SKILLS_ONLINE = "https://www.wix.com/skills";
+const fileEntry = (dir, skill, rel) => {
+  const path = join(dir, rel);
+  let chars = null;
+  try { chars = statSync(path).size; } catch { /* a file the copy lacks: the url still reads */ }
+  return { path, url: `${SKILLS_ONLINE}/${skill}/${rel}`, chars };
+};
+
+/**
+ * What a run reads, with where to read it: the kit's SKILL.md, each vertical's INSTRUCTIONS.md and
+ * SEED.md, the shared design and content floors. `path` is the copy on this machine, `url` the same
+ * file online (main), `chars` its size, so a caller knows when a shell read would be cut short and
+ * reads the url with its docs tool instead. Scripts run where the project is; prose reads anywhere.
+ */
+export function readingList(templates, verticals, { seeds = true } = {}) {
+  const list = [fileEntry(SKILL_ROOT, basename(SKILL_ROOT), "SKILL.md")];
+  for (const v of verticals) {
+    list.push(fileEntry(templates, "wix-headless-templates", `${v}/INSTRUCTIONS.md`));
+    if (seeds) list.push(fileEntry(templates, "wix-headless-templates", `${v}/seed/SEED.md`));
+  }
+  list.push(fileEntry(templates, "wix-headless-templates", "shared/DESIGN.md"), fileEntry(templates, "wix-headless-templates", "shared/CONTENT.md"));
+  return list;
 }
 
 export function listVerticals(dir) {

@@ -36,7 +36,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
 import { ignoreEnvLocal } from "./env-ignore.mjs";
-import { listVerticals, templatesDir } from "./templates.mjs";
+import { listVerticals, readingList, templatesDir } from "./templates.mjs";
 import { folderShape, siteContext } from "./context.mjs";
 import { failure, npmSync, startBackground } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
@@ -310,7 +310,9 @@ emit("ready_for_brand_layer", {
   categoriesUrl: deployResult.categoriesUrl,
   install,
   seed,
+  read: readingList(TEMPLATES, verticals),
   next:
+    "the files to read are in `read`, each with its path here, its online url (the same file) and its size: read a file whole from `path` with a shell that returns it whole, else at `url` with your docs tool; scripts run here; " +
     (publishedStatic ? "a published static site: its pages are live on this site already and keep their URL; move index.html, the other pages, styles and assets into site/ (the root keeps the config, the plan, the seed output and the skills) and wire the solution into the page that needs it; " : "") +
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
