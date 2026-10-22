@@ -1,6 +1,6 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: "Start here for existing Catalog V3 product updates, including digital products that fail at add-to-cart with ITEM_NOT_FOUND_IN_CATALOG. Includes name lookup, Get Product, and PATCH in one flow, plus importing a supplied PDF and attaching it to the existing variant. Covers options, variant prices and SKUs, product visibility (hide/unhide through `visible`, never delete), description edits that preserve Rich Content, and revision-based updates. Read another recipe only for a field or operation this flow does not cover."
+description: "Start here for existing Catalog V3 product updates, including digital products that fail at add-to-cart with ITEM_NOT_FOUND_IN_CATALOG. Includes name lookup, Get Product, and PATCH in one flow, plus importing a supplied PDF and attaching it to the existing variant. Covers options, variant prices and SKUs, variant shipping weight in the site's weight unit, product visibility (hide/unhide through `visible`, never delete), description edits that preserve Rich Content, and revision-based updates. Read another recipe only for a field or operation this flow does not cover."
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
@@ -156,7 +156,7 @@ For prepend, append, and text removal, execute the documented calls directly: th
 | Get Product | `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=DESCRIPTION` | `product.id`, `product.revision`, and the full `product.description`. |
 | Update Product | `PATCH https://www.wixapis.com/stores/v3/products/{productId}` with `{ product: { id, revision, description }, fields: ["DESCRIPTION"] }`, using the read ID/revision and complete edited document. | `product.description` verifies the edit; `product.revision` is the new revision. |
 
-The request-level `fields` array projects response data; it is separate from `search.search.fields`, which selects the fields searched. A description-only PATCH needs only the three product fields shown above; variant, option, price, and physical-property fields belong to other update flows.
+The request-level `fields` array projects response data; it is separate from `search.search.fields`, which selects the fields searched. A description-only PATCH needs only the three product fields shown above. Variant, option, and price changes use [Prepare a Price or SKU Update](#prepare-a-price-or-sku-update); shipping weight uses [Set Shipping Weight](#set-shipping-weight).
 
 Use a single read-modify-write operation: locate the product, read its description and revision, make the requested change in memory, then PATCH once and verify the response.
 
@@ -510,6 +510,61 @@ const skuPatchBody = { product: variantPatchProduct };
 
 Send the selected body to `PATCH https://www.wixapis.com/stores/v3/products/{productId}` in the same ExecuteWixAPI invocation as the name lookup and Get Product. Its response is `{ product: { id, revision, variantsInfo: { variants } } }`; verify the changed variant by its retained ID and confirm from that response. These examples provide the request fields and response paths for price and SKU changes; proceed directly after reading this recipe. Discover further schemas only for fields not covered here or a documented call that fails.
 
+### Set Shipping Weight
+
+Shipping weight belongs to the variant: `variantsInfo.variants[].physicalProperties.weight`, a number in the site's weight unit. The unit is a site-wide, read-only setting at `product.physicalProperties.weightMeasurementUnitInfo.weightMeasurementUnit` (`KG` or `LB`). Get Product returns it only when `fields` includes `WEIGHT_MEASUREMENT_UNIT_INFO`; the default read omits it.
+
+1. Use the name lookup above, then Get Product with the preparation read plus the unit: `GET https://www.wixapis.com/stores/v3/products/{productId}?fields=WEIGHT_MEASUREMENT_UNIT_INFO&fields=VARIANT_OPTION_CHOICE_NAMES&fields=MERCHANT_DATA&fields=PRODUCT_CHOICES_MEDIA_REFERENCES&fields=PRODUCT_CHOICES_DISPLAY_IMAGE`.
+2. Convert the requested value to the returned unit in code, in either direction (1 kg = 2.20462262 lb). A value given without a unit is already in the site's unit.
+3. Build `variantPatchProduct` as in **Prepare a Price or SKU Update**, select the target variants, and set `physicalProperties.weight` only on them. A named choice (`Size = Large`) selects exactly one variant, as in the SKU example; if it matches none or several, ask the user. Set every variant only when the product has one variant or the user asked for all of them; otherwise ask which variant they mean. The other variants stay in the body unchanged.
+4. Send the PATCH with top-level `fields: ["WEIGHT_MEASUREMENT_UNIT_INFO"]`, in the same execution as the lookup and read. Do not send `product.physicalProperties`: product-level `physicalProperties` is accepted on create (see [Create Product (Catalog V3)](create-product-catalog-v3.md)) but not on update, where the unit cannot be changed and a PATCH that carries it is rejected with `400 productType cannot be provided with any these fields: physical_properties`.
+5. Confirm from the PATCH response: `product.variantsInfo.variants[].physicalProperties.weight` on the retained variant IDs, and the unit at `product.physicalProperties.weightMeasurementUnitInfo.weightMeasurementUnit`. Report both value and unit to the user, for example "0.5 kg (stored as 1.1023 lb, the store's unit)".
+
+```javascript
+const unit = getResponse.product.physicalProperties.weightMeasurementUnitInfo.weightMeasurementUnit;
+const requested = { value: 0.5, unit: "KG" }; // requested weight and its unit ("KG" or "LB")
+const factor = requested.unit === unit ? 1 : unit === "LB" ? 2.20462262 : 1 / 2.20462262;
+const weight = Number((requested.value * factor).toFixed(4));
+const choice = { optionName: "Size", choiceName: "Large" }; // null when the user named no variant
+const allVariants = false; // true when the user asked for every variant
+const targets = choice
+  ? variants.filter(variant => variant.choices.some(c =>
+      c.optionChoiceNames.optionName === choice.optionName && c.optionChoiceNames.choiceName === choice.choiceName))
+  : variants;
+if (choice && targets.length !== 1) throw new Error("Clarify which variant should receive the weight");
+if (!choice && !allVariants && variants.length !== 1) throw new Error("Clarify whether every variant should receive the weight");
+for (const variant of targets) variant.physicalProperties = { ...variant.physicalProperties, weight };
+const weightPatchBody = { product: variantPatchProduct, fields: ["WEIGHT_MEASUREMENT_UNIT_INFO"] };
+```
+
+Set `choice` to `null` and `allVariants` to `true` when the user asked for every variant. Send `weightPatchBody`, not a body rebuilt by hand: each variant in `variants` still carries its SKU, barcode, visibility and cost, which a PATCH without them drops.
+
+For a simple product (one variant, no options) on a `KG` site whose variant has no SKU, barcode, cost or other state yet, the request is:
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "options": [],
+      "variantsInfo": {
+        "variants": [{
+          "id": "{existingVariantId}",
+          "choices": [],
+          "price": { "actualPrice": { "amount": "{existingPrice}" } },
+          "physicalProperties": { "weight": 0.5 }
+        }]
+      }
+    },
+    "fields": ["WEIGHT_MEASUREMENT_UNIT_INFO"]
+  }'
+```
+
+The response returns `product.variantsInfo.variants[0].physicalProperties.weight: 0.5` and `product.physicalProperties.weightMeasurementUnitInfo.weightMeasurementUnit: "KG"`, which confirm the stored weight and its unit.
+
 ### Update Variant Price Only
 
 Read `{existingVariantId}` off the Get Product response; a Search or Query Products result does not carry it. The curl below is for a single-variant product without options. For an optioned product, use the complete options/variants body in **Prepare a Price or SKU Update**.
@@ -607,6 +662,7 @@ Copy any other writable variant fields from the read product using the preparati
 | `price must not be empty` | A variant was sent without a price — including an existing variant rebuilt from only its `id` and the field being changed | Carry `price.actualPrice.amount` on every variant you send, not just new ones; copy it from the Get Product response for variants you are not repricing |
 | `variantsInfo is invalid: variants has size 0, expected 1 or more` | Variants were read from a Search or Query Products response, which does not return them | Re-read the product with Get Product and send its `variantsInfo.variants` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
+| `productType cannot be provided with any these fields: physical_properties` | Sent `product.physicalProperties`, for example to set the weight unit | Leave it out; weight goes on `variantsInfo.variants[].physicalProperties.weight` — see [Set Shipping Weight](#set-shipping-weight) |
 | `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
 | `ITEM_NOT_FOUND_IN_CATALOG` at add-to-cart, product exists | A `DIGITAL` variant has no `digitalProperties.digitalFile` | Attach a file — see [Attach a Digital File](#attach-a-digital-file) |
 | `exceeds available inventory` at add-to-cart, product exists | The variant has no stock (`DIGITAL` products included) | Update its stock through the Inventory API; inventory is separate from an Update Product PATCH |
