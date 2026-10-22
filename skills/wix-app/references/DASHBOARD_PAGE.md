@@ -33,7 +33,7 @@ The CLI generates the folder, the page's component file (`<page>.tsx`, the build
 
 **After scaffolding, check `routePath`:** use `support-tickets`, not `/support-tickets`; a leading slash fails registration even if the build passes. Internal router paths stay `/`, `/:id`, `/new`, never prefixed with `<route>` — see `<pkgRoot>/dist/docs/Collection to Entity Flow.md`.
 
-**Before writing that UI:** copy in the installed `@wix/patterns` page template that matches, per [DRAFT_TEMPLATE.md](dashboard-page/DRAFT_TEMPLATE.md) — don't compose the shell from scratch.
+**Before writing UI:** copy the [template](dashboard-page/DRAFT_TEMPLATE.md). Make sure `WixPatternsProvider` remains at the extension root, inside `BusinessManagerTheme` and above all components calling Patterns hooks.
 
 **Then, for whatever the template doesn't cover:** list every patterns name you'll add, and resolve them all in one `node <pkgRoot>/bin/patterns-lookup.cjs <name…>` call ([WIX_PATTERNS_DOCS.md § 1](WIX_PATTERNS_DOCS.md#1--the-index)). Its import, examples and props file decide whether you open anything else. Each Bash call is a fresh shell — re-set the path variable every time.
 
