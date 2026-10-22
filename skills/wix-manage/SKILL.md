@@ -167,7 +167,7 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 **Dashboard URLs are recipe data, not general knowledge.** A `manage.wix.com` route is an app-registered slug that appears in no API reference and cannot be derived from the entity's name or its API path (Forms pages live under `wix-forms`, not `contacts/forms`; Stores products under `wix-stores/products`). So for **every** request for a dashboard link — even one that needs no API call, and even when a route feels obvious — open the solution's dashboard-navigation recipe below and copy the route from its table. Answering from memory is the one failure mode these recipes exist to prevent.
 
 ### [Dashboard Navigation](references/dashboard-navigation/dashboard-navigation.md)
-**Index** — for any "where do I manage X in the dashboard" / "give me a dashboard link" request: the shared URL structure for all dashboard pages (`https://manage.wix.com/dashboard/{metaSiteId}/{route}`, app-ID fallback, legacy redirects, entity deep links), routing to the per-business-solution recipes (e.g. [Bookings](references/bookings/bookings-dashboard-navigation.md), [Stores](references/stores/stores-dashboard-navigation.md)) which live in their solution's section below.
+"Entry point for building direct links into a site's Wix dashboard (manage.wix.com). Documents the shared URL structure for all dashboard pages (site and account level, app-ID fallback, entity deep links, machine-readable routes.json) and routes to a per-business-solution recipe for every covered solution — bookings, stores/ecommerce, events, blog, pricing plans, restaurants, CMS, contacts, forms, marketing, get paid, analytics, google ads, app management, site settings, sites, and domains. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 
@@ -247,6 +247,9 @@ Routes discounts, coupons, sales and bundles to promotion recipes, and visual pr
 
 ### [Manage Event Guests](references/events/manage-event-guests.md)
 "Manages the people registered for a Wix event — RSVPs on RSVP events, and orders, tickets and ticket holders on ticketed events: listing and counting guests, adding or removing a guest, changing an RSVP, checking guests in, and marking orders paid. Use when the user asks who is coming or how many registered, or wants to add, remove or check in a guest. Notes what the API can't do, such as refunds and resending emails."
+
+### [Events Dashboard Navigation](references/events/events-dashboard-navigation.md)
+"Builds direct links to Wix Events dashboard pages on manage.wix.com — the published and draft event lists, a new event, categories, staff, a recurring series' occurrences, and one event's pages: overview, edit, tickets, guests (RSVP or ticketed), orders, schedule, registration settings and form, and policies. Pairs each Events entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
 ---
 

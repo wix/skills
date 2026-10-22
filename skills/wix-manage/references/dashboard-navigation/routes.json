@@ -1102,6 +1102,255 @@
    ]
   },
   {
+   "app": "Wix Events",
+   "appDefinitionId": "140603ad-af8d-84a5-2c80-a0f60cb47351",
+   "slug": "events",
+   "pages": [
+    {
+     "path": "events",
+     "inSidebar": true,
+     "title": "menu.events.published",
+     "legacyAliases": [
+      "app/140603ad-af8d-84a5-2c80-a0f60cb47351"
+     ]
+    },
+    {
+     "path": "events/drafts",
+     "inSidebar": true,
+     "title": "menu.events.drafts",
+     "legacyAliases": []
+    },
+    {
+     "path": "events/categories",
+     "inSidebar": true,
+     "title": "menu.events.categories",
+     "legacyAliases": []
+    },
+    {
+     "path": "events/staff",
+     "inSidebar": true,
+     "title": "menu.events.staff",
+     "legacyAliases": []
+    },
+    {
+     "path": "events/new",
+     "inSidebar": false,
+     "title": "menu.events.drafts",
+     "legacyAliases": []
+    },
+    {
+     "path": "events/occurrences",
+     "inSidebar": false,
+     "title": "menu.events.published",
+     "legacyAliases": [],
+     "deepLink": "events/occurrences/{categoryId}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "menu.events.published",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/overview"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "draft event",
+     "legacyAliases": [],
+     "deepLink": "events/event/draft/{eventId}/overview"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "tickets",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/tickets"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "rsvp-guests",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/rsvp-guests"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "ticketed-guests",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/ticketed-guests"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "orders",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/orders"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "schedule",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/features/schedule"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "registration-settings",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/registration-settings"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "registration-form",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/registration-form"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "policies",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/policies"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "edit",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/edit"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "new ticket",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/tickets/new"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "ticket",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/tickets/{ticketDefinitionId}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "rsvp",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/rsvp-guests/{rsvpId}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "ticket holder",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/ticketed-guests/{ticketNumber}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "order",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/orders/{orderNumber}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "video-conferencing",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/features/video-conferencing"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "promotions",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/promotions"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "settings",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "registration-messages",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/registration-messages"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "registration-closed",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/registration-closed"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "tickets-unavailable",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/tickets-unavailable"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "policy",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/policies/{policyId}"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "tickets-settings",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/tickets-settings"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "rsvp-confirmation-email",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/rsvp-confirmation-email"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "order-confirmation-email",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/order-confirmation-email"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "reminder-email",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/reminder-email"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "cancellation-email",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/cancellation-email"
+    },
+    {
+     "path": "events/event",
+     "inSidebar": false,
+     "title": "waitlist-email",
+     "legacyAliases": [],
+     "deepLink": "events/event/{eventId}/settings/waitlist-email"
+    }
+   ]
+  },
+  {
    "app": "Wix Forms",
    "appDefinitionId": "225dd912-7dea-4738-8688-4b8c6955ffc2",
    "slug": "wix-forms",
