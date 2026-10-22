@@ -38,14 +38,26 @@ All reads and writes go through the client from §1 — the SDK call shapes are 
 |---|---|
 | <https://dev.wix.com/docs/sdk/articles/work-with-the-sdk/install-sdk-packages.md> | Installing `@wix/sdk` + domain packages and their current versions (bundler path). |
 
-## 3 — Build the frontend (framework fact, not hosting)
+## 3 — Load the site's Wix scripts (every page)
+
+Only the Astro integration injects a site's Wix scripts, so on a non-Astro frontend nothing loads them: no Wix Analytics (the dashboard counts no visits), no cookie-consent banner, none of the owner's marketing tags or custom code, and none of the SEO tags the owner edits in the dashboard. One tag loads them all. Put it right before `</head>` of every HTML page — each `.html` file of a static site, the `index.html` shell of a bundler SPA — with `data-client-id` set to the same public `clientId` as the §1 client:
+
+```html
+<script id="wix-site-script" src="https://manage.wix.com/_api/headless-business-setup/v1/headless-business/site-script.js" data-client-id="<clientId>" async></script>
+```
+
+- **Copy the tag as written; there is nothing else to wire.** The loader mints its own anonymous visitor token from the `clientId`, fetches the scripts for the page's URL, and inserts them once the DOM is ready. It needs no SDK client.
+- **The page's own SEO tags win.** A `<title>`, a `<meta>` with the same `name`/`property`, or a `<link>` with the same `rel` already on the page skips Wix's; structured data (JSON-LD) always goes in.
+- **One tag per page, with this project's `clientId`.** A design downloaded from a dropped Wix site can already carry a `wix-site-script` tag holding that site's `clientId` — replace it with the tag above, or the page loads the other site's scripts and its visits count there.
+
+## 4 — Build the frontend (framework fact, not hosting)
 
 - **Bundler SPA** — produce the build output with the project's own `npm run build`.
 - **Static HTML** — there is **no build**; the HTML *is* the deployable artifact.
 
 This file **stops at "produce the build output."** *Where that output is deployed and how* — `outputDirectory`, publish, origin registration, the `index.html`-at-root rule — is host-specific and lives in `{managed,self-managed}/DEPLOYMENT.md`, not here.
 
-## 4 — Caveats (framework-invariant only)
+## 5 — Caveats (framework-invariant only)
 
 These hold regardless of who hosts. Host-specific gotchas (static `outputDirectory`, the `index.html` rename) are filed in `managed/DEPLOYMENT.md`, where you're in a known mode. (Numbering: N2/N3 were retired; the gap is intentional and the remaining IDs are kept stable so inbound references don't shift.)
 
