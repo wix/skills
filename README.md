@@ -103,6 +103,17 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`), directly from the `main` branch of `wix/skills` with no build step. Responses are cached, so a change reflects there within a few minutes of reaching that branch.
 
+## Privacy and telemetry
+
+Only `wix-replatform` collects telemetry. The other skills send nothing of their own; calls they make to Wix APIs and the Wix MCP are covered by the [Wix Privacy Policy](https://www.wix.com/about/privacy).
+
+During a migration run, `wix-replatform`:
+
+- **Sends run telemetry to Wix** (`https://frog.wix.com/migration-data-validator`): stage timings and outcomes, migrated record counts, errors and gaps by type (never record contents), the source platform and site URL, the destination site ID and the operator's Wix user ID. Turn it off with `RP_TELEMETRY_BI_DISABLED=1`.
+- **Reads the agent's Claude Code session transcripts** (`~/.claude/projects/`) at the end of the run, copies them compressed into the migration project's `telemetry/transcripts/` folder on your machine, and adds a summary (token cost, turn counts, tool failures, retry loops) to the run telemetry. The transcripts themselves stay local. Turn it off with `RP_TELEMETRY_TRANSCRIPT_DISABLED=1`.
+
+Set the variables in the environment the agent runs in. See [wix-replatform/README.md](wix-replatform/README.md).
+
 ## Contributing
 
 To report a problem with a skill or suggest a change, [open an issue](https://github.com/wix/skills/issues/new). Pull requests are not merged in this repository; accepted changes are made by the maintainers. See [CONTRIBUTING.md](CONTRIBUTING.md) for what makes a useful report.

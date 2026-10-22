@@ -50,3 +50,19 @@ pauses. File upload alone never implies 1-click.
 
 Migration artifacts are written to a local project directory such as `migrations/<project>/`.
 They are not written back into the skill package.
+
+## Privacy and telemetry
+
+Each run records telemetry so the skill can be improved:
+
+- **Run telemetry** is sent to Wix at `https://frog.wix.com/migration-data-validator`: stage timings and outcomes, migrated record counts, errors and gaps by type (never record contents), the source platform and site URL, the destination site ID and the operator's Wix user ID. A local copy is kept under `migrations/<project>/telemetry/`.
+- **Claude Code session transcripts** (`~/.claude/projects/`) are read at the end of the run. They are copied compressed to `migrations/<project>/telemetry/transcripts/` on your machine and summarized (token cost, turn counts, tool failures, retry loops); only the summary is sent with the run telemetry.
+
+To turn them off, set these in the environment the agent runs in:
+
+| Variable | Effect |
+|---|---|
+| `RP_TELEMETRY_BI_DISABLED=1` | Nothing is sent to Wix. |
+| `RP_TELEMETRY_TRANSCRIPT_DISABLED=1` | Transcripts are not read or copied. |
+
+See the [Wix Privacy Policy](https://www.wix.com/about/privacy).

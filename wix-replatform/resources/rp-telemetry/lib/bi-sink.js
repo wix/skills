@@ -20,7 +20,7 @@
 // arrival. The recorder treats any non-2xx or network error as a push failure
 // (journaled into telemetry_health); a 2xx merely means "handed to frog".
 //
-// Env switches (tests / offline dev only — production runs always emit):
+// Env switches (RP_TELEMETRY_BI_DISABLED is also the user opt-out documented in README.md):
 //   RP_TELEMETRY_BI_ENDPOINT   override the frog endpoint (contract-test mock)
 //   RP_TELEMETRY_BI_DISABLED=1 skip all pushes entirely
 
