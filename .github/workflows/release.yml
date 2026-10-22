@@ -1,12 +1,15 @@
 name: Publish @wix/agent-skills to npm
 
-# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
-# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
+# Runs on the push that lands a release commit on main, so it always runs main's copy of this file
+# with main's secrets, and the OIDC token it mints is one npm trusted publishing accepts: a push on
+# refs/heads/main. (pull_request_target also ran main's copy, but npm refused the token that event
+# produces — v1.30.0's merge-triggered publish failed with PUT 404 on 2026-10-07; pull_request ran the
+# PR's own copy of the file on an unmerged close.) The release-bump workflow's PR merges as a squash
+# whose message is its title, "chore: release @wix/agent-skills vX.Y.Z"; that message is the guard.
 on:
-  pull_request_target:
-    types: [closed]
-  # Manual fallback: publishes whatever version main's package.json names. Needed on 2026-10-07 when
-  # the pull_request_target run's OIDC token was refused by npm trusted publishing (PUT 404).
+  push:
+    branches: [main]
+  # Manual fallback: publishes whatever version main's package.json names.
   workflow_dispatch:
 
 permissions:
@@ -17,8 +20,7 @@ jobs:
   publish:
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true &&
-       contains(github.event.pull_request.labels.*.name, 'release'))
+      startsWith(github.event.head_commit.message, 'chore: release @wix/agent-skills v')
     runs-on: ubuntu-latest
 
     steps:
