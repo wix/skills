@@ -237,10 +237,16 @@ Routes discounts, coupons, sales and bundles to promotion recipes, and visual pr
 ## Events
 
 ### [Create an Event with the Wix Events API](references/events/create-wix-event.md)
-"Creates an event with the Wix Events V3 API — the required request body, ISO-8601 date and time settings, venue/online/TBD location, RSVP vs ticketed registration, guest capacity, short vs rich-text descriptions, ticket tiers and pricing, and recurring series. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create an event, set its date, location, description, guest limit or ticket prices, or set up a repeating event."
+"Creates an event with the Wix Events V3 API — one-off or recurring, RSVP, ticketed, registration-free or with external registration — including date and time, venue or online location, guest limit, description and ticket tiers. Covers the exact field shapes and the API's misleading validation messages. Use when the user wants to create or set up an event, an information-only event, or a repeating event — including a weekly workshop, class or meetup series held on set dates at a venue or online; a Bookings class or course is booked per session instead."
 
 ### [Manage Wix Events — Publishing, Cancelling, Cloning and Counting](references/events/manage-wix-events.md)
-"Operates on events that already exist with the Wix Events V3 API — finding an event by title, publishing a draft, cancelling, deleting (one or by filter), cloning, updating an event's date or details, and counting events. Use when the user wants to find, publish or cancel an event, duplicate one, move an event's date, delete events in bulk, or count their events. Creating an event, its tickets or a recurring series is a separate recipe."
+"Operates on Wix events that already exist with the Wix Events V3 API — finding, updating (date, venue, details, page settings), controlling registration (close, reopen, registration-free, external, members-only, limits), switching between RSVP and ticketed (a new event — ask before creating it), publishing, cancelling, deleting, cloning and counting, including single occurrences of a recurring event. Use to close registration, move or cancel an event, or change how guests register."
+
+### [Manage Event Tickets](references/events/manage-event-tickets.md)
+"Manages the ticket types of a ticketed Wix event with the Ticket Definitions V3 API — adding, editing, repricing, hiding, reordering and deleting tickets, scheduling or ending ticket sales, and changing the ticket currency. Use when the user wants to add early-bird, VIP, child or donation tickets to an existing event, change a ticket's price or quantity, or set when tickets stop selling."
+
+### [Manage Event Guests](references/events/manage-event-guests.md)
+"Manages the people registered for a Wix event — RSVPs on RSVP events, and orders, tickets and ticket holders on ticketed events: listing and counting guests, adding or removing a guest, changing an RSVP, checking guests in, and marking orders paid. Use when the user asks who is coming or how many registered, or wants to add, remove or check in a guest. Notes what the API can't do, such as refunds and resending emails."
 
 ---
 
