@@ -74,10 +74,20 @@ function createFreshnessMetadata({
   createdAt = new Date().toISOString(),
 } = {}) {
   if (!projectDir) throw new Error('projectDir is required');
+  const additional = {};
+  const schemaFile = path.join(projectDir, 'source-schema.json');
+  const schema = fs.existsSync(schemaFile) ? JSON.parse(fs.readFileSync(schemaFile, 'utf8')) : {};
+  const entities = Array.isArray(schema.entities) ? schema.entities : Object.values(schema.entities || {});
+  if (entities.some((entity) => entity.sourceMeta?.extractionPlan)) {
+    const { planFreshnessReferences } = require('../resources/rp-source-wordpress/lib/plugin-entity-read-plan.js');
+    for (const reference of planFreshnessReferences({ projectDir, entities })) additional[`pluginInput:${reference.path}`] = { path: reference.path, sha256: hashArtifact(projectDir, reference.path) };
+    for (const input of ['src/extract', 'src/lib', 'src/project', 'src/import/plugin-handoff.js']) additional[`pluginCode:${input}`] = { path: input, sha256: hashArtifact(projectDir, input) };
+  }
   return {
     schemaVersion: SCHEMA_VERSION,
     createdAt,
     artifacts: {
+      ...additional,
       sourceSchema: {
         path: artifactPaths.sourceSchema || DEFAULT_ARTIFACTS.sourceSchema,
         sha256: hashArtifact(projectDir, artifactPaths.sourceSchema || DEFAULT_ARTIFACTS.sourceSchema),
@@ -111,7 +121,7 @@ function compareFreshnessMetadata(current, recorded) {
   if (recorded.schemaVersion !== SCHEMA_VERSION) {
     changes.push({ field: 'schemaVersion', expected: SCHEMA_VERSION, actual: recorded.schemaVersion });
   }
-  for (const name of Object.keys(current.artifacts || {})) {
+  for (const name of new Set([...Object.keys(current.artifacts || {}), ...Object.keys(recorded.artifacts || {})])) {
     const currentEntry = current.artifacts[name] || {};
     const recordedEntry = (recorded.artifacts && recorded.artifacts[name]) || {};
     if (currentEntry.sha256 !== recordedEntry.sha256) {

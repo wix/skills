@@ -1,0 +1,201 @@
+{
+  "$comment": "TEMPLATE / EXAMPLE for migrations/<project>/source-schema.json when platform=shopify (private data, read through the Shopify CLI). A shape to follow, NOT a strict schema to validate against. Keep the agnostic core identical to every other platform; push Shopify quirks into the open `sourceMeta` blobs. Synthesize it from data/shopify-discovery/entities/*.json. All values below are invented.",
+  "platform": "shopify",
+  "capturedAt": "2026-10-15T00:00:00.000Z",
+  "rawDiscovery": "data/shopify-discovery/",
+  "$comment_failedReads": "An entity whose read failed (for example discounts) is NOT synthesized as an empty entity: it is already a `shopify:<entity>` capture-failed row in source-coverage.json. Omit it from `entities`.",
+  "sourceMeta": {
+    "$comment": "Store-level facts from the `shop` singleton and the access path.",
+    "accessPath": "shopify-cli",
+    "readOnly": true,
+    "shopDomain": "example-store.myshopify.com",
+    "currencyCode": "USD",
+    "ianaTimezone": "America/New_York",
+    "quirks": [
+      "Global ids are `gid://shopify/<Type>/<n>`; keep them verbatim as source identifiers.",
+      "The CLI shows only recent orders; older orders are a source-coverage row, not missing data."
+    ]
+  },
+  "entities": {
+    "products": {
+      "rawFile": "entities/products.json",
+      "recordCount": 42,
+      "inUse": true,
+      "sourceIdField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "example": "gid://shopify/Product/1001"
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "example": "Example Tee"
+        },
+        "handle": {
+          "type": "string",
+          "required": true,
+          "example": "example-tee"
+        },
+        "status": {
+          "type": "enum",
+          "values": [
+            "ACTIVE",
+            "DRAFT",
+            "ARCHIVED"
+          ],
+          "example": "DRAFT"
+        },
+        "vendor": {
+          "type": "string",
+          "example": "Example Vendor"
+        },
+        "productType": {
+          "type": "string",
+          "example": "Shirts"
+        },
+        "tags": {
+          "type": "string[]",
+          "example": [
+            "summer"
+          ]
+        },
+        "options": {
+          "type": "object[]",
+          "example": [
+            {
+              "name": "Size",
+              "values": [
+                "S",
+                "M"
+              ]
+            }
+          ]
+        }
+      },
+      "relations": [
+        {
+          "to": "variants",
+          "kind": "has-many",
+          "via": "variants",
+          "evidence": "entities/products.json samples[].variants"
+        }
+      ],
+      "sourceMeta": {
+        "$comment": "Draft and archived products are included: the Admin API lists every status.",
+        "statusesSeen": [
+          "ACTIVE",
+          "DRAFT",
+          "ARCHIVED"
+        ],
+        "candidateTargetRefs": [
+          "stores/product"
+        ]
+      }
+    },
+    "variants": {
+      "rawFile": "entities/products.json",
+      "recordCount": null,
+      "inUse": true,
+      "sourceIdField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "example": "gid://shopify/ProductVariant/2001"
+        },
+        "sku": {
+          "type": "string",
+          "example": "EX-TEE-S"
+        },
+        "price": {
+          "type": "decimal-string",
+          "example": "20.00"
+        },
+        "compareAtPrice": {
+          "type": "decimal-string",
+          "nullable": true,
+          "example": null
+        },
+        "inventoryQuantity": {
+          "type": "integer",
+          "example": 5
+        }
+      },
+      "sourceMeta": {
+        "$comment": "Read nested under products; there is no separate variant count at discovery.",
+        "nestedIn": "products"
+      }
+    },
+    "orders": {
+      "rawFile": "entities/orders.json",
+      "recordCount": 7,
+      "inUse": true,
+      "sourceIdField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "example": "gid://shopify/Order/4001"
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "example": "#1001"
+        },
+        "createdAt": {
+          "type": "datetime",
+          "required": true,
+          "example": "2026-09-20T12:00:00Z"
+        },
+        "displayFinancialStatus": {
+          "type": "enum",
+          "example": "PAID"
+        },
+        "displayFulfillmentStatus": {
+          "type": "enum",
+          "example": "FULFILLED"
+        },
+        "totalPriceSet.shopMoney": {
+          "type": "money",
+          "example": {
+            "amount": "32.00",
+            "currencyCode": "USD"
+          }
+        }
+      },
+      "sourceMeta": {
+        "$comment": "recordCount is what the CLI can see (its order-history window), not the store's lifetime total.",
+        "countScope": "cli-window"
+      }
+    },
+    "customers": {
+      "$comment": "Example of a lower-bound count: Shopify answered precision AT_LEAST (countExact false), so recordCount is null and the bound is recordCountAtLeast. An exact count would be recordCount: 12.",
+      "rawFile": "entities/customers.json",
+      "recordCount": null,
+      "recordCountAtLeast": 12,
+      "inUse": true,
+      "sourceIdField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "example": "gid://shopify/Customer/6001"
+        },
+        "createdAt": {
+          "type": "datetime",
+          "example": "2026-03-01T00:00:00Z"
+        },
+        "numberOfOrders": {
+          "type": "integer-string",
+          "example": "1"
+        },
+        "tags": {
+          "type": "string[]",
+          "example": []
+        }
+      }
+    }
+  }
+}

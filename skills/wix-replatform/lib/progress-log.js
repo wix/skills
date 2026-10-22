@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
@@ -89,13 +90,28 @@ function createProgressLogger(options = {}) {
       event,
       status: statusForEvent(event),
       seq,
+      // `host`/`pid` give a health-check reader a script-agnostic, same-machine liveness signal
+      // straight from the record itself -- the existing state/.lock/ owner-claim check only ever
+      // covers a process that calls withStateLock (import writers), so a read-only script (e.g.
+      // a generated run-extract.js) that never acquires that lock had no way to be corroborated
+      // as live once its heartbeat went stale. `host` is encoded the same way local-state.js's
+      // lock-claim filenames already are, so a reader only ever trusts a pid on ITS OWN machine.
+      // BUG FIX: `...fields` must spread BEFORE `host`/`pid`, not after --
+      // a caller-supplied heartbeat field literally named `host` or `pid` must never be able to
+      // shadow this record's own true liveness identity.
       ...fields,
+      host: Buffer.from(os.hostname()).toString('base64url'),
+      pid: process.pid,
       message: String(message || event),
     };
     fs.appendFileSync(progressLog, `${JSON.stringify(record)}\n`, { encoding: 'utf8', flag: 'a' });
-    if (event !== 'heartbeat') {
-      lastProgressAt = Date.now();
-    }
+    // BUG FIX: this used to only reset on a NON-heartbeat event, so once
+    // the ticker's own `elapsed >= heartbeatIntervalMs` check first became true, `lastProgressAt`
+    // never moved again and every subsequent tick re-fired a heartbeat -- flooding the log at the
+    // ticker's poll rate (capped at 5s) instead of the configured interval. A heartbeat IS
+    // progress (proof the process is alive and looking), so it must reset the clock the same as
+    // any other event.
+    lastProgressAt = Date.now();
     if (event === 'start') {
       started = true;
     }

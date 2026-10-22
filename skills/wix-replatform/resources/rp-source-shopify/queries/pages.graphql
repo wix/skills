@@ -1,0 +1,20 @@
+# scopes: read_content
+# Bulk query: online-store pages.
+{
+  pages {
+    edges {
+      node {
+        id
+        title
+        handle
+        body
+        bodySummary
+        isPublished
+        publishedAt
+        templateSuffix
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}

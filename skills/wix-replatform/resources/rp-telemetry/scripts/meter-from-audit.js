@@ -9,8 +9,8 @@
 //
 // TRAP this deliberately handles: a bulk write logs ONE audit row PER ITEM, each carrying the
 // BATCH's total latency. Summing `latencyMs` across rows therefore multiplies one call's latency by
-// its item count — on a real run that turned 346s of elapsed import into 1,050,992ms of "API time",
-// three times longer than the stage existed. Rows are collapsed per distinct
+// its item count — the "API time" total can come out many times longer than the stage itself
+// lasted. Rows are collapsed per distinct
 // (runId, endpoint, batch, latencyMs) so a batch counts once, while genuinely separate calls
 // (category creates, link calls) each count individually.
 

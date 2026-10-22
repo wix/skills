@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/page-capture.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "pageKey", "status", "sourceFingerprint", "viewportSet", "sectionOrder", "ignoredSurfaces", "normalizationActions", "observationRefs", "gapRefs", "hash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "page-capture" }, "id": { "type": "string" }, "pageKey": { "const": "home" }, "status": { "enum": ["accepted", "provisional"] }, "sourceFingerprint": { "type": "string" },
+    "viewportSet": { "type": "array" }, "sectionOrder": { "type": "array" }, "ignoredSurfaces": { "type": "array" }, "normalizationActions": { "type": "array" }, "observationRefs": { "type": "array" }, "gapRefs": { "type": "array" }, "dependencyHashes": { "type": "array" }, "hash": { "type": "string" }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

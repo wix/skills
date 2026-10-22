@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "plugin": "mailpoet",
+  "displayName": "MailPoet",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://kb.mailpoet.com/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "crm.email-subscription"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "mailpoet/mailpoet.php"
+    ],
+    "routes": [
+      "/mailpoet/v1/subscribers"
+    ],
+    "restNamespaces": [
+      "mailpoet/v1"
+    ],
+    "assetPathSlugs": [
+      "mailpoet"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "subscriber",
+      "channel": "plugin-rest",
+      "route": "/mailpoet/v1/subscribers",
+      "recordKeyField": "id",
+      "responseEnvelope": {
+        "itemsPath": "data.items",
+        "countPath": "data.meta.count"
+      },
+      "candidateTargetRefs": [
+        "crm/email-subscription"
+      ],
+      "pitfalls": [
+        {
+          "code": "consent-status-per-record",
+          "severity": "blocker",
+          "summary": "VERIFIED LIVE 2026-08-11: each subscriber carries status (subscribed / unconfirmed / unsubscribed — MailPoet's double opt-in flow) both at the top level and per entry in subscriptions[] (one per list/segment). Only a status of 'subscribed' is consent evidence; writing an unconfirmed or unsubscribed record as a Wix subscribed contact is a consent violation, not a data-quality nuance — see crm/email-subscription's own consent-proof-required pitfall."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "The REST route wraps its records as { data: { items: [...], meta: { count, pages } } } instead of a flat array, and advertises no X-WP-Total/X-WP-TotalPages headers — responseEnvelope (itemsPath/countPath) is what makes this readable at all; without it the whole envelope would sample as a single opaque record with recordCount 1.",
+    "VERIFIED LIVE 2026-08-11: the subscriber list is genuinely paginated (page/per_page args), so read it page by page rather than assuming one response holds every subscriber.",
+    "MailPoet exposes /segments, /tags, /newsletters, /forms, /automations, /dynamic-segments, and /custom-fields under the same namespace and the same responseEnvelope shape (all VERIFIED LIVE 2026-08-11) — not profiled here. Each subscriber record already embeds its own segment_id/status pairs (subscriptions[]) and tags[], so a segment/tag NAME lookup is only needed if a migration wants human-readable list/tag names rather than ids; add /segments and /tags as additional entities if that lookup becomes necessary."
+  ]
+}

@@ -100,6 +100,9 @@ There is **no acquisition-mode fork and no credentials request** for a CSV run.
      drift, mapping hints, entities and relations. **This is what `rp-discovery` synthesizes
      `source-schema.json` from.**
    - `raw-capture.json` — per-column detail plus head/tail samples.
+   - `source-coverage.json` — always written (`rows: []` when clean): one row per file with an
+     unknown role and per stream whose layout halted, so the decision a halt asks for cannot
+     disappear. `rp-discovery` promotes it.
    - `<role>--<entity>.md` — one per entity.
 
 4. **Honor the halt.** When the capture reports `halt: true` (ambiguous layout, unknown file

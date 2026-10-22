@@ -1,0 +1,13 @@
+{
+  "order": {
+    "shipping": { "evidenceFields": ["shipping_lines"], "label": "Shipping lines" },
+    "tax": { "evidenceFields": ["tax_lines"], "label": "Tax lines" },
+    "coupons": { "evidenceFields": ["coupon_lines"], "label": "Coupon lines" },
+    "fees": { "evidenceFields": ["fee_lines"], "label": "Fee lines" }
+  },
+  "product": {
+    "variants": { "evidenceFields": ["variations"], "label": "Product variants" },
+    "inventory": { "evidenceFields": ["stock_status", "stock_quantity"], "label": "Inventory" },
+    "seo": { "evidenceFields": ["yoast_head_json"], "label": "SEO metadata" }
+  }
+}

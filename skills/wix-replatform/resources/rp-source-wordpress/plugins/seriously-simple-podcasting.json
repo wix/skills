@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "plugin": "seriously-simple-podcasting",
+  "displayName": "Seriously Simple Podcasting",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/seriously-simple-podcasting/",
+  "distribution": "wordpress-org",
+  "capabilities": ["content.podcast"],
+  "detect": {
+    "pluginFileIds": ["seriously-simple-podcasting/seriously-simple-podcasting.php"],
+    "routes": ["/ssp/v1/episodes"],
+    "restNamespaces": ["ssp/v1"],
+    "restBases": ["podcast"],
+    "assetPathSlugs": ["seriously-simple-podcasting"]
+  },
+  "entities": [
+    {
+      "entity": "episode",
+      "channel": "plugin-rest",
+      "route": "/ssp/v1/episodes",
+      "recordKeyField": "id",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "no-native-podcast-target",
+          "severity": "warning",
+          "summary": "Wix has no native podcast entity. CMS archival is a signed eligible fallback for content.podcast (plugins/cms-fallback-eligible.json): each migration keeps the capability pending until the merchant approves or declines archiving the episodes in CMS at the mapping review. If approved, episodes arrive as CMS data and audio files as media; no podcast player or RSS feed reappears automatically on Wix."
+        },
+        {
+          "code": "podcast-route-is-settings-not-records",
+          "severity": "info",
+          "summary": "/ssp/v1/podcast (singular) is the show's settings/feed object, not a record collection; the durable records are the episodes (verified live 2026-08-10 on SSP 3.16.3 — the previously declared /ssp/v1/podcasts route does not exist)."
+        }
+      ]
+    }
+  ],
+  "dataRoutePatterns": [
+    {
+      "pattern": "/ssp/v1/*",
+      "reason": "Seriously Simple Podcasting routes expose durable podcast records"
+    }
+  ],
+  "quirks": [
+    "Episode audio is referenced by URL in record fields; media reachability rules apply as for any external media URL."
+  ]
+}

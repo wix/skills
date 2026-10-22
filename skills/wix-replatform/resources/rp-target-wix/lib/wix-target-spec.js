@@ -35,6 +35,9 @@ const CANONICAL_FIELDS = {
   'product.productType': { entity: 'product', kind: 'string' },
   'product.seoTitle': { entity: 'product', kind: 'string' },
   'product.seoDescription': { entity: 'product', kind: 'string' },
+  // Per-field SEO override evidence ({ title|description|focusKeyword: { state, value? } }).
+  // When present it, not seoTitle/seoDescription, decides which product SEO tags are written.
+  'product.seoEvidence': { entity: 'product', kind: 'object' },
   'product.ribbon': { entity: 'product', kind: 'string' },
   // product collections
   'product.categoryPath': { entity: 'product', kind: 'string' },
@@ -71,6 +74,11 @@ const CANONICAL_FIELDS = {
   // overlay that claimed them would be describing a column that does not exist.
   'product.optionNames': { entity: 'product', kind: 'stringList', normalized: true },
   'variant.choices': { entity: 'variant', kind: 'choiceList', normalized: true },
+  // Structural signal, never a payload value: the option names the SOURCE declared,
+  // set only by an adapter that can tell declared options from resolved ones. When present and
+  // non-empty, buildProduct refuses a product whose built options list is empty, so a lost
+  // option set is reported instead of flattening to a silent default variant. Absent = inert.
+  'product.sourceDeclaredOptionNames': { entity: 'product', kind: 'stringList', normalized: true },
   // secondary description — vendors that ship both a long and a short body
   'product.shortDescription': { entity: 'product', kind: 'string' },
   // The vendor idiom for "price after discount". See STORES_V3_TARGET.priceResolution: Wix models
@@ -137,6 +145,11 @@ const STORES_V3_TARGET = {
       // or an info section, recorded in mapping-gaps.json.
       note: 'html-string-converted-to-ricos-by-wix',
     },
+    // WooCommerce and some other source platforms expose a second, shopper-facing short body.
+    // Wix has one description field, so wix-build composes it with product.description before
+    // emitting plainDescription. Keeping this declared makes coverage honest: the field lands,
+    // but never as a separate target property.
+    'product.shortDescription': { via: 'descriptionComposition', provenance: 'unverified' },
     'product.slug': { payloadPath: 'slug', provenance: 'verified', coerce: 'slug' },
     'product.brand': {
       payloadPath: 'brand',
@@ -147,12 +160,18 @@ const STORES_V3_TARGET = {
     'product.visible': { payloadPath: 'visible', provenance: 'verified' },
     'product.seoTitle': { via: 'seoData', provenance: 'verified' },
     'product.seoDescription': { via: 'seoData', provenance: 'verified' },
+    // Create-time persistence of seoData is NOT live-verified (canary pending);
+    // product-seo.js reconciles a dropped create with a revision-protected PATCH.
+    'product.seoEvidence': { via: 'seoData', provenance: 'unverified' },
     'product.images': { via: 'media', provenance: 'verified' },
     'variant.price': { via: 'variants', provenance: 'verified' },
     'variant.compareAtPrice': { via: 'variants', provenance: 'verified' },
     'variant.sku': { via: 'variants', provenance: 'verified' },
     'variant.weight': { via: 'variants', provenance: 'verified' },
     'variant.visible': { via: 'variants', provenance: 'verified' },
+    'variant.inStock': { via: 'variants', provenance: 'verified' },
+    'variant.inventoryQuantity': { via: 'variants', provenance: 'verified' },
+    'variant.inventoryTracked': { via: 'variants', provenance: 'verified' },
     'variant.option1.name': { via: 'options', provenance: 'verified' },
     'variant.option1.value': { via: 'options', provenance: 'verified' },
     'variant.option2.name': { via: 'options', provenance: 'verified' },
@@ -183,7 +202,6 @@ const STORES_V3_TARGET = {
     'tag.name': 'Same as product.tags — no native product-tag target in Stores V3.',
     'product.sourceId': 'Identity only: tracked in the crosswalk, not written to Wix (no client-settable id).',
     'variant.parentRef': 'Identity only: used to attach a variation row to its parent during extract.',
-    'product.shortDescription': 'Stores V3 has one description; a second body would need an info section (not modelled here).',
     'variant.inStock': 'Fed into inventoryItem.inStock by the variants builder rather than mapped directly.',
     'variant.image': 'Per-variant media needs Wix media ids, which only exist after ingestion; requires a follow-up patch.',
     'variant.width': 'Dimension fields on the V3 variant create shape are unverified; not mapped rather than guessed.',
@@ -201,7 +219,6 @@ const STORES_V3_TARGET = {
     'variant.requiresShipping': 'Implied by productType PHYSICAL; not separately settable.',
     'variant.taxable': 'Tax behaviour is a site-level/tax-group concern, not a variant field.',
     'variant.weightUnit': 'Weight is sent in the site weight unit; the source unit only drives conversion.',
-    'variant.inventoryTracked': 'V3 inventory tracking is derived from the inventory item, not a flag.',
   },
 };
 

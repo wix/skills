@@ -9,6 +9,35 @@ description: >-
 
 Determine the Wix-side setup required before import can run safely.
 
+## Declaring user-defined extended fields
+
+When a mapping needs a source-only value on a native Wix record, declare it as a setup
+requirement rather than letting a writer improvise one. The requirement and the step that
+executes it are a fixed pair:
+
+- the requirement is `kind: "extendedFieldSchema"` in `setup/setup-requirements.json`, carrying
+  `schemaKind`, `targetRef`, `fqdn`, `namespace: "_user_fields"`, and its `fields`;
+- the plan step that provisions it is **`provision-extended-fields`** in `setup/setup-plan.json`.
+
+Emit both or neither. A requirement with no matching step provisions nothing, and every writer
+that needs those fields then refuses its write — correct, but the run fails late and for a
+confusing reason. `rp-execute-setup` fails closed on that mismatch rather than proceeding.
+
+Supported targets, and nothing else:
+
+| Target | `schemaKind` | `fqdn` / surface | Types |
+| --- | --- | --- | --- |
+| eCommerce Order | `data-extension-schema` | `wix.ecom.*.order` | `string` (needs `maxLength`) |
+| Product | `data-extension-schema` | `wix.stores.catalog.*.product` (filterable) | `string` |
+| Contact (default) | `data-extension-schema` | `wix.contacts.*.contact`, `contactWriteSurface: "contacts-v5"` | `string` |
+| Contact (legacy, explicit opt-in only) | `crm-contact-extended-field` | `contactWriteSurface: "contacts-v4"`, no `fqdn`/`namespace`; fields carry `displayName` + `dataType` | `TEXT` |
+
+Checkout, Bookings, Booking Services and nested order subrecords (`extensionPoint`) are refused
+before any network call — route such fields to CMS. Use `permissionsPreset: "migration-internal"`
+(Wix users and apps read, Wix users write, no visitor access); visitor exposure is a manual
+dashboard change by the site owner afterwards, never a setup default. Never emit both contact
+surfaces for one field, and never plan a V4 fallback for a V5 contact field.
+
 ## Purpose
 
 This skill analyzes the approved mapping artifacts and derives environment prerequisites
@@ -23,6 +52,23 @@ permissions, and any other target-system configuration dependencies.
 - `migrations/<project>/orchestration/approvals.json`
 - any Wix environment constraints or destination account details provided by the user
 
+For `managementImportMode=quick`, replace the mapping inputs above with
+`migrations/<project>/quick-mode/plan.json`. Its `requiredWixCapabilities` and entity graph are
+the setup authority. Generate the same setup artifacts and standing notification/Catalog-V3
+requirements; do not demand a mapping plan or ask an agent to infer additional quick entities.
+When the plan includes blog posts, add an automatable dedicated fallback Blog author member,
+persist its ID as `WIX_BLOG_FALLBACK_MEMBER_ID`, and disclose the attribution policy in the
+setup summary. This is mandatory setup, never a user decision or import blocker.
+
+Generate the quick-mode setup artifacts deterministically:
+
+```bash
+node skills/wix-replatform/resources/rp-setup-discovery/scripts/quick-setup-plan.js <projectDir>
+```
+
+The adapter declares its entity graph and capabilities; this shared generator owns universal
+destination setup policy and must not infer additional import entities.
+
 ## Workflow
 
 1. Confirm the mapping review checkpoint has been accepted, then read the mapping plan and
@@ -34,8 +80,26 @@ permissions, and any other target-system configuration dependencies.
 3. Determine which Wix apps must be installed or enabled.
 4. Determine which SMC collections must exist.
 5. Determine which extended-fields schemas, references, enums, or validation rules must exist.
-6. Capture dependency ordering where setup steps depend on each other.
+6. Capture dependency ordering where setup steps depend on each other. Every setup step
+   declares its canonical `entityRefs`. Where imports consume a setup-produced value,
+   declare optional `referenceKeys: [{ ref, sourceStableKey, paths: string[] }]` for that
+   step. Each ref must be in its `entityRefs`; keys come from the reviewed source mapping,
+   and paths name the exact dependent payload fields. Never invent a target ID in the plan.
+   Keep every setup-produced dependency `task-complete`, even when its target value is
+   used on individual records.
 7. Write a setup artifact that downstream execution can verify.
+8. Bind `setup/setup-plan.json` to the mapping plan it was derived from (a no-op when the
+   project has no plugin coverage):
+
+   ```bash
+   node skills/wix-replatform/scripts/cms-fallback.js stamp-plan --project-dir <project> --plan setup
+   ```
+
+   It copies `mapping-plan.json` `inputs.cmsFallbackDigest` into `setup-plan.json`
+   `inputs.cmsFallbackDigest`. The router treats a setup plan without it, or with a different
+   one, as stale (`setup_plan_stale_cms_fallback`) and routes back here before any setup or
+   import step. Create CMS collections only for capabilities the mapping plan maps to CMS: a
+   recognized capability whose CMS fallback is pending or declined gets no collection.
 
 ## Artifact to create or update
 
@@ -96,13 +160,15 @@ exist in Wix with the names/types you state — never invent them.
 
 - Verify at the moment you write the requirement; do not defer it. Verify **enum
   values**, not just names: confirm each `Field.type` against the Create Data Collection
-  schema. (Common trap: there is no `SLUG` type — a Wix slug is a `TEXT` field.)
+  schema. (`SLUG` **does** exist in that enum, documented for dynamic page URLs. Use `TEXT` for
+  a preserved source slug held as identity/SEO data and `SLUG` when the target generates the
+  dynamic-page URL from it — never record `SLUG` as a type that does not exist.)
 - If a Wix tool surface such as Wix MCP is available, use it as a fast verification aid.
 - If no Wix tool surface is available, rely on `rp-target-wix`'s verified contracts plus
   published Wix REST/SDK documentation and conservative, known-good names, and mark the
   requirement `unverified` so a human confirms it before `rp-execute-setup` runs.
 
-## Standing requirement: mute site notifications (spec 0012)
+## Standing requirement: mute site notifications
 
 Emit a **`mute-site-notifications`** requirement into `setup/setup-plan.json` and
 `setup/setup-requirements.json` whenever mute is in effect:
@@ -149,13 +215,17 @@ Do not assert "manual" / "cannot self-provision" by assumption — check the API
 - Enabling a Wix app (Blog, Members, etc.) **is** automatable via the App Installation
   API; classify it automatable and cite the method. (Common trap: do not mark Blog or
   Members "cannot self-provision" — both are installable via the API.)
-- When the migration carries a product catalog, emit a **`stores-catalog-v3` requirement**
-  alongside the Wix Stores app install: expected state `catalogVersion: V3_CATALOG`, verified
-  read-only via `GET https://www.wixapis.com/stores/v3/provision/version`, severity
-  **blocker**, automation mode `automatable` (it is provisioned by scaffolding the site from
-  the `commerce` template — see `replatform` → "Headless site creation"). A Stores install
-  alone does not imply V3; a `blank`-scaffolded site comes up `V1_CATALOG` and cannot be
-  converted, so this must be a first-class requirement rather than an assumption.
+- Catalog V3 is guaranteed at provisioning regardless of scaffold template
+  so a Wix Stores install on a site this
+  run created needs no separate catalog-version requirement — do not emit one. This
+  guarantee does not extend to an existing site this run did not create: when
+  `WIX_SITE_STRATEGY=existing` and the migration carries a product catalog, still emit the
+  **`stores-catalog-v3` requirement** alongside the Wix Stores app install — expected state
+  `catalogVersion: V3_CATALOG`, verified read-only via
+  `GET https://www.wixapis.com/stores/v3/provision/version`, severity **blocker**,
+  automation mode `automatable`. A pre-existing site's catalog version predates this
+  guarantee, so it must still be confirmed rather than assumed (see `rp-execute-setup` →
+  "A `V1_CATALOG` verdict is terminal here").
 - Creating CMS collections is automatable; enabling Wix Data itself is automatable by
   installing the **Wix Data app `appDefId e593b0bd-b783-45b8-97c2-873d42aacaf4`** via the
   App Installation API, after which `POST /wix-data/v2/collections` creates NATIVE
