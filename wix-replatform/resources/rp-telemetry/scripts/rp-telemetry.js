@@ -177,6 +177,10 @@ async function main() {
       });
       break;
     case 'digest':
+      if (process.env.RP_TELEMETRY_TRANSCRIPT_DISABLED === '1') {
+        result = { skipped: 'RP_TELEMETRY_TRANSCRIPT_DISABLED=1' };
+        break;
+      }
       if (!flags.transcript) fail(['--transcript <path to Claude Code session jsonl> is required']);
       if (!fs.existsSync(flags.transcript)) fail([`transcript not found: ${flags.transcript}`]);
       result = await runDigest(projectDir, flags.transcript, { offline: flags.offline === true });

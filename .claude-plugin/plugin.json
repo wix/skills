@@ -9,6 +9,7 @@
   "homepage": "https://dev.wix.com/docs/api-reference/articles/ai-tools/about-wix-skills",
   "repository": "https://github.com/wix/skills",
   "license": "MIT",
+  "privacyPolicyUrl": "https://www.wix.com/about/privacy",
   "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
   "skills": [
     "./skills/wix-design-system",
