@@ -23,16 +23,16 @@ The bootstrap only verifies the CLI and logs you in, so it's fine to run in ever
 
 ## Phase 0 — Node (the one manual prerequisite)
 
-The Wix CLI requires **Node ≥ 20.11**. Check it:
+This flow requires **Node ≥ 24.18**. Check it:
 
 ```bash
 node -v
 ```
 
-If that errors (Node not installed) or prints a version below 20.11, install or upgrade Node and re-check — do **not** try to work around it:
+If that errors (Node not installed) or prints a version below 24.18, install or upgrade Node and re-check — do **not** try to work around it:
 
-- **macOS:** `brew install node` (or `nvm install 20 && nvm use 20`)
-- **Linux:** `nvm install 20 && nvm use 20` (or your distro's Node 20+ package)
+- **macOS:** `brew install node` (or `nvm install 24 && nvm use 24`)
+- **Linux:** `nvm install 24 && nvm use 24` (or your distro's Node 24+ package)
 - **Windows:** `winget install OpenJS.NodeJS.LTS` (or download from nodejs.org)
 
 ## Phase 1 — Install the skills
