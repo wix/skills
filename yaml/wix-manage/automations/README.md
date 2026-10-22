@@ -27,3 +27,12 @@ sync, the Automations maintainer must port accepted public edits into the intern
 otherwise the next sync regenerates the files and overwrites them. The exporter's `--check`
 mode lists files that differ from the generated output, so an unported edit is visible before
 it is overwritten.
+
+## Evaluation rubric maintenance
+
+The generated evaluation files intentionally repeat quality and persistence judge rubrics:
+each scenario is standalone, so cross-file YAML anchors are not available. Maintainers must
+update the corresponding canonical rubrics together and regenerate every affected publication
+stage. Before merging a rubric change, search all sibling scenarios in the canonical
+`publication/scenarios.json` for the old wording and verify that every applicable copy was
+updated. Do not hand-edit one generated scenario and leave its siblings on an older rubric.
