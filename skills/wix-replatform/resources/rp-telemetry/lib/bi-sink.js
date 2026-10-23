@@ -1,8 +1,8 @@
 'use strict';
 
-// Wix BI sink for the telemetry recorder — the one transport path (spec 0007).
+// Wix BI sink for the telemetry recorder — the one transport path.
 //
-// Wire format (proven end-to-end 2026-07-26, see research/bi-ingestion-surface.md):
+// Wire format (proven end-to-end 2026-07-26):
 // POST https://frog.wix.com/migration-data-validator with a JSON batch envelope
 //   {"dt":0,"g":{"src":10,"evid":<evid>},"e":[{"dt":0,"f":{...fields}}]}
 // capped at 100 events / ~240KB per request. No transport auth — identity is the
@@ -15,6 +15,10 @@
 //   2. Every GUID-typed field must be a real GUID; a non-hex value fails
 //      validation before routing and drops the whole event.
 //   3. Every row carries `logged_user_id` = the operator's wix_user_id (GUID).
+//      A run with no identity is NOT pushed: BI discards rows whose subject is not
+//      a real user, so a fabricated one (verified 2026-09-02 with the nil UUID)
+//      returns 2xx and ingests nothing. Better to journal the loss than to fake a
+//      success.
 //
 // frog's HTTP status is not an ingestion receipt — only a Trino read-back proves
 // arrival. The recorder treats any non-2xx or network error as a push failure
@@ -84,9 +88,12 @@ function startedRunRow(runStart, wixUserId) {
 }
 
 // `replatform_run` phase:finalized — the complete rollup. Local names map to the
-// as-registered BI names here and nowhere else (spec 0007, Registration notes):
-// schema_version→schemaVersions, verification→verificationType. skills_commit is
-// local-only (not a registered BI column) and deliberately not sent.
+// as-registered BI names here and nowhere else (see the Registration notes):
+// schema_version→schemaVersions, verification→verificationType. skills_commit and
+// discovered_entity_types are local-only (not registered BI columns) and
+// deliberately not sent — the entity-class demand signal reaches BI through the
+// `volumes` column; the dim exists for the finalize cross-check, whose flags
+// travel in telemetryHealth.
 function finalizedRunRow(rollup) {
   const f = { phase: 'finalized' };
   put(f, 'runId', rollup.run_id, { guid: true });
@@ -118,6 +125,31 @@ function finalizedRunRow(rollup) {
   put(f, 'runStarted', rollup.run_started);
   put(f, 'runEnded', rollup.run_ended);
   put(f, 'bundleManifest', rollup.bundle_manifest, { json: true });
+  // The transcript_digest is a run-grain fact, so it rides the
+  // existing finalized row rather than opening a new BI call — one JSON field,
+  // matching how `stages`/`volumes` already travel, rather than one registered
+  // column per sub-field. A run with no digest (offline recompute skipped, or
+  // a run that predates 1.5.0) simply omits the field, same as any unknown.
+  //
+  // Known limitation (verified live): as of 2026-08-17, `bi_events_raw`
+  // shows evid 5012 rows with an EMPTY dimensions/measures map for every one of them —
+  // this field will land alongside `terminalState`/`volumes`/every other field already
+  // on this row and be equally unqueryable until whoever owns the BI schema resolves
+  // why 5012/5013 aren't materializing their payload. Nothing to fix here: this `put()`
+  // call matches the pattern every other field on the row already uses correctly.
+  put(f, 'transcriptDigest', rollup.transcript_digest, { json: true });
+  // The run's key/value source-read counts. Rides the finalized row as one
+  // JSON field, exactly like transcript_digest above and for the same reason -- it is a
+  // run-grain fact, not a new grain.
+  //
+  // This has to leave the machine to be worth anything. `redacted_values` is explicitly a
+  // CROSS-RUN signal: one run's non-zero count says little, while a rate across runs says
+  // some sites keep credentials where nobody expects them, and that is a fleet-level fact no
+  // single run can see. Computing it into a local file and stopping there would satisfy the
+  // letter of "record it" and none of the point.
+  //
+  // Same known 5012/5013 materialization limitation the comment above documents applies.
+  put(f, 'sourceReads', rollup.source_reads, { json: true });
   return { evid: EVID_RUN, fields: f };
 }
 
@@ -173,28 +205,54 @@ function shedOversize(event) {
   return shed ? { ...event, f } : null;
 }
 
-async function sendBatch(evid, events) {
+// `signal` (optional) is the caller's cancellation. The request is aborted when either the
+// per-request PUSH_TIMEOUT_MS expires or the caller aborts; the combined signal is built with a
+// local controller (listener + cleared timer) so nothing outlives the call and no Node API newer
+// than the supported runtime is needed. A caller abort maps to `aborted`; the timeout stays
+// `timeout`.
+async function sendBatch(evid, events, signal) {
   const body = envelopeBody(evid, events);
+  if (signal && signal.aborted) return 'aborted';
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, PUSH_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  if (signal) signal.addEventListener('abort', onAbort, { once: true });
   try {
     const res = await fetch(endpoint(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body,
-      signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
+      signal: controller.signal,
     });
     if (!res.ok) return `http_${res.status}`;
     return null;
-  } catch (error) {
-    return error && error.name === 'TimeoutError' ? 'timeout' : 'network_error';
+  } catch {
+    if (signal && signal.aborted) return 'aborted';
+    return timedOut ? 'timeout' : 'network_error';
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onAbort);
   }
 }
 
 // Push rows (from the builders above) as the given operator. Never throws:
-// returns { sent, failures: [{evid, rows, detail}], truncated } and the caller
-// journals the failures — telemetry must never block a migration.
-async function pushRows(rows, loggedUserId) {
-  const out = { sent: 0, failures: [], truncated: 0 };
-  if (disabled() || rows.length === 0) return out;
+// returns { sent, failures: [{evid, rows, detail}], truncated, skipped } and
+// the caller journals the failures — telemetry must never block a migration.
+// A disabled sink reports the rows it swallowed in `skipped` instead of
+// masquerading as a successful push — the caller journals those too, so a
+// kill-switch leaking into a production session is visible, never silent.
+//
+// `signal` (optional): once it aborts, nothing more is sent and every row not yet sent is
+// reported as ONE failure `{ detail: 'aborted' }` — the caller journals a single marker and the
+// rows stay backlog for the next heal. Without a signal, behavior is unchanged.
+async function pushRows(rows, loggedUserId, { signal } = {}) {
+  const out = { sent: 0, failures: [], truncated: 0, skipped: 0 };
+  if (rows.length === 0) return out;
+  if (disabled()) {
+    out.skipped = rows.length;
+    return out;
+  }
   if (!isGuid(loggedUserId)) {
     out.failures.push({ evid: null, rows: rows.length, detail: 'no_operator_identity' });
     return out;
@@ -204,9 +262,15 @@ async function pushRows(rows, loggedUserId) {
     if (!byEvid.has(row.evid)) byEvid.set(row.evid, []);
     byEvid.get(row.evid).push({ dt: 0, f: { ...row.fields, logged_user_id: loggedUserId } });
   }
+  let accounted = 0;
+  const abortRest = () => {
+    out.failures.push({ evid: null, rows: rows.length - accounted, detail: 'aborted' });
+    return out;
+  };
   for (const [evid, events] of byEvid) {
     const queue = [events];
     while (queue.length > 0) {
+      if (signal && signal.aborted) return abortRest();
       let chunk = queue.shift();
       if (chunk.length > MAX_EVENTS_PER_REQUEST) {
         const mid = Math.ceil(chunk.length / 2);
@@ -222,14 +286,17 @@ async function pushRows(rows, loggedUserId) {
         const slimmed = shedOversize(chunk[0]);
         if (!slimmed || Buffer.byteLength(envelopeBody(evid, [slimmed])) > MAX_BODY_BYTES) {
           out.failures.push({ evid, rows: 1, detail: 'oversized_event' });
+          accounted += 1;
           continue;
         }
         out.truncated += 1;
         chunk = [slimmed];
       }
-      const failureDetail = await sendBatch(evid, chunk);
+      const failureDetail = await sendBatch(evid, chunk, signal);
+      if (failureDetail === 'aborted') return abortRest();
       if (failureDetail) out.failures.push({ evid, rows: chunk.length, detail: failureDetail });
       else out.sent += chunk.length;
+      accounted += chunk.length;
     }
   }
   return out;
@@ -241,6 +308,7 @@ module.exports = {
   EVID_RUN_EVENT,
   MAX_EVENTS_PER_REQUEST,
   MAX_BODY_BYTES,
+  PUSH_TIMEOUT_MS,
   isGuid,
   disabled,
   startedRunRow,

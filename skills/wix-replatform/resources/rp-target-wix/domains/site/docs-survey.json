@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "domain": "site",
+  "fetchedAt": "2026-09-01",
+  "roots": [
+    "api-reference/business-management/site-properties"
+  ],
+  "surfaces": [
+    {
+      "id": "api-reference/business-management/site-properties/properties",
+      "title": "Properties",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/properties",
+      "group": null,
+      "verdict": "claimed",
+      "refs": [
+        "site/business-contact"
+      ],
+      "reviewedOn": "2026-09-01",
+      "note": "Business Contact is authored. Profile (display name, business name, logo, description), Schedule, Region and Consent Policy are real siblings on the same API with no entity yet -- each needs its own source mapping before it is worth authoring."
+    },
+    {
+      "id": "api-reference/business-management/site-properties/skills",
+      "title": "Skills",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/skills",
+      "group": null,
+      "verdict": "gap",
+      "reviewedOn": "2026-09-01",
+      "reason": "Holds 'Change Payment Currency (Site Properties)' and 'Site Settings Dashboard Navigation'. The currency one is a REAL uncovered need: a source store declares its own currency (WooCommerce: woocommerce_currency in the general settings group) and nothing in this pipeline reads or applies it, so a migrated site can price in a currency the merchant never chose. No entity authored yet; the source-side read is itself not part of the default discovery sweep.",
+      "tracking": "site/business-contact covers the address half of this group; the store's declared CURRENCY is captured by rp-source-wordpress/scripts/capture-store-settings.js and reported at the setup gate, but nothing WRITES it — Change Payment Currency has no entity yet. Awaiting a decision on whether a migration should set a site's currency at all."
+    }
+  ]
+}

@@ -13,9 +13,10 @@ const URL_PRESERVATION_PATHS = [
   'unresolvedPath',
 ];
 
-function createManifest({ projectId, planVersion, tasks = [], generatedArtifacts = [], llmHandoff = null, timestamp = new Date().toISOString() }) {
+function createManifest({ projectId, planVersion, tasks = [], generatedArtifacts = [], llmHandoff = null, timestamp = new Date().toISOString(), mappingPlanDigest }) {
   return {
     schemaVersion: SCHEMA_VERSION,
+    ...(mappingPlanDigest ? { mappingPlanDigest } : {}),
     projectId,
     planVersion,
     generatedAt: timestamp,
@@ -25,7 +26,7 @@ function createManifest({ projectId, planVersion, tasks = [], generatedArtifacts
   };
 }
 
-function validateManifest(manifest) {
+function validateManifest(manifest, producerInputs = null) {
   const errors = [];
   if (!manifest || typeof manifest !== 'object') {
     errors.push('manifest must be an object');
@@ -74,10 +75,26 @@ function validateManifest(manifest) {
       validateUrlPreservation(task, errors);
       if (task.kind === 'import') {
         validateImportTaskState(task, errors);
+        if (!Array.isArray(task.entityRefs) || !task.entityRefs.length || new Set(task.entityRefs).size !== task.entityRefs.length) errors.push(`task.entityRefs required:${task.id}`);
+        if (!Array.isArray(task.dependencyEdges)) errors.push(`dependency_edges_required:${task.id}`);
+        if (!Array.isArray(task.dependencyRefs)) errors.push(`dependency_refs_required:${task.id}`);
+        if (!/^[a-f0-9]{64}$/.test(manifest.mappingPlanDigest || '')) errors.push('mapping_plan_digest_required');
       }
     }
   }
+  if (producerInputs && Array.isArray(manifest.tasks)) { const binding = require('./dependency-readiness').bindDependencyProducers({ manifest, ...producerInputs }); errors.push(...binding.errors); }
   return { ok: errors.length === 0, errors };
+}
+
+async function validateManifestForProject(projectDir) {
+  const fs = require('node:fs/promises'), path = require('node:path');
+  const readiness = require('./dependency-readiness');
+  const manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/execution-manifest.json'), 'utf8'));
+  const setupPlan = JSON.parse(await fs.readFile(path.join(projectDir, 'setup/setup-plan.json'), 'utf8'));
+  const adapter = await readiness.loadDependencyDispositions(projectDir);
+  const validation = validateManifest(manifest, { setupPlan, dispositions: adapter.dispositions });
+  try { readiness.validateImportInputs(projectDir); } catch (error) { validation.errors.push(error.message); validation.ok = false; }
+  return validation;
 }
 
 function validateUrlPreservation(task, errors) {
@@ -181,5 +198,6 @@ module.exports = {
   SCHEMA_VERSION,
   createManifest,
   validateManifest,
+  validateManifestForProject,
   nextPendingTask,
 };

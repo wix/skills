@@ -1,0 +1,76 @@
+# scopes: read_customers
+# Bulk query: every customer created up to the snapshot time. Connections: customers, metafields.
+# The sent text is generated from this file minus the withheld kinds' fields.
+# Composite fields (displayName, MailingAddress.name/formatted) are never selected.
+{
+  customers(query: "created_at:<='{{SNAPSHOT_TIME}}'") {
+    edges {
+      node {
+        id
+        firstName
+        lastName
+        email
+        defaultEmailAddress { emailAddress marketingState marketingOptInLevel marketingUpdatedAt }
+        phone
+        defaultPhoneNumber { phoneNumber marketingState marketingOptInLevel marketingUpdatedAt }
+        locale
+        note
+        tags
+        state
+        taxExempt
+        verifiedEmail
+        numberOfOrders
+        createdAt
+        updatedAt
+        emailMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt }
+        smsMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt }
+        defaultAddress {
+          id
+          firstName
+          lastName
+          address1
+          address2
+          city
+          company
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+          phone
+          latitude
+          longitude
+        }
+        addresses {
+          id
+          firstName
+          lastName
+          address1
+          address2
+          city
+          company
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+          phone
+          latitude
+          longitude
+        }
+        metafields {
+          edges {
+            node {
+              __typename
+              id
+              namespace
+              key
+              type
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

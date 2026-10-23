@@ -3,6 +3,7 @@
   "domain": "crm",
   "entity": "label",
   "displayName": "CRM Label",
+  "capability": "crm.label",
   "target": {
     "classification": "native",
     "nativeEntity": "Contact Label",
@@ -11,27 +12,66 @@
     "crosswalkRequired": true
   },
   "sourceAliases": [
-    { "sourceSystem": "woocommerce", "sourceEntity": "customer_tag", "routes": ["customer metadata", "segments"], "confidence": "low" },
-    { "sourceSystem": "wix", "sourceEntity": "contactLabel", "routes": ["Contacts Labels"], "confidence": "high" }
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "customer_tag",
+      "routes": [
+        "customer metadata",
+        "segments"
+      ],
+      "confidence": "low"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "contactLabel",
+      "routes": [
+        "Contacts Labels"
+      ],
+      "confidence": "high"
+    }
   ],
+  "dependsOn": [],
   "preferredWrite": {
     "surface": "Contacts Labels",
     "endpoint": null,
     "writerId": null,
-    "verification": "unverified",
+    "verification": "verified-live",
     "importSafe": true,
     "bulk": false
   },
   "fallbacks": [
-    { "classification": "cms", "when": "Use for source segmentation rules that are not contact labels." }
+    {
+      "classification": "cms",
+      "when": "Use for source segmentation rules that are not contact labels."
+    }
   ],
-  "reliability": { "status": "partially-reliable", "flags": [] },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
   "pitfalls": [
-    { "code": "source-segment-semantics", "severity": "warning", "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review." }
+    {
+      "code": "source-segment-semantics",
+      "severity": "warning",
+      "summary": "Do not collapse dynamic segments or marketing automation state into static labels without review."
+    }
   ],
-  "mappingGuidance": ["Create labels before assigning them to contacts."],
+  "mappingGuidance": [
+    "Dependencies: no other modeled record must exist first; labels are standalone CRM objects and are created before contacts consume them.",
+    "Create labels before assigning them to contacts."
+  ],
   "setupRequirements": [],
   "evidence": [
-    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" }
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/labels/label-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 3/3 labels (MailPoet segments) created and read back"
+    }
   ]
 }

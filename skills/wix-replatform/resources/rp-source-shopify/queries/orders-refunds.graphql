@@ -1,0 +1,48 @@
+# scopes: read_orders
+# Bulk query: refunds per order, joined to orders-core by order id.
+# Connections: orders, refunds[].refundLineItems, refunds[].transactions (3).
+{
+  orders(query: "created_at:<='{{SNAPSHOT_TIME}}'") {
+    edges {
+      node {
+        id
+        refunds {
+          id
+          createdAt
+          processedAt
+          updatedAt
+          note
+          totalRefundedSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+          refundLineItems {
+            edges {
+              node {
+                __typename
+                id
+                quantity
+                restockType
+                restocked
+                lineItem { id }
+                priceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+                subtotalSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+                totalTaxSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              }
+            }
+          }
+          transactions {
+            edges {
+              node {
+                __typename
+                id
+                kind
+                status
+                gateway
+                processedAt
+                amountSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

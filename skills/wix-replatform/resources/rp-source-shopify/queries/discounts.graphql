@@ -1,0 +1,35 @@
+# scopes: read_discounts
+# Bulk query: code and automatic discounts. Connections: discountNodes plus `codes` on each code type (4).
+{
+  discountNodes {
+    edges {
+      node {
+        id
+        discount {
+          __typename
+          ... on DiscountCodeBasic {
+            title status startsAt endsAt summary usageLimit appliesOncePerCustomer asyncUsageCount
+            customerGets { value { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } } }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountCodeBxgy {
+            title status startsAt endsAt summary usageLimit appliesOncePerCustomer asyncUsageCount
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountCodeFreeShipping {
+            title status startsAt endsAt summary usageLimit appliesOncePerCustomer asyncUsageCount
+            codes { edges { node { __typename id code asyncUsageCount } } }
+          }
+          ... on DiscountAutomaticBasic {
+            title status startsAt endsAt summary asyncUsageCount
+            customerGets { value { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem } } }
+            minimumRequirement { __typename ... on DiscountMinimumQuantity { greaterThanOrEqualToQuantity } ... on DiscountMinimumSubtotal { greaterThanOrEqualToSubtotal { amount currencyCode } } }
+          }
+          ... on DiscountAutomaticBxgy { title status startsAt endsAt summary asyncUsageCount }
+          ... on DiscountAutomaticFreeShipping { title status startsAt endsAt summary asyncUsageCount }
+        }
+      }
+    }
+  }
+}

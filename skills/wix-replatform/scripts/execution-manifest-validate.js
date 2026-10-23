@@ -11,7 +11,7 @@ let progress;
 async function main() {
   const parsed = parseProgressArgs(process.argv.slice(2));
   progress = createProgressLogger({
-    script: 'skills/replatform/scripts/execution-manifest-validate.js',
+    script: 'skills/wix-replatform/scripts/execution-manifest-validate.js',
     ...parsed.progress,
   });
   progress.start('Execution manifest validation started', { phase: 'validation' });

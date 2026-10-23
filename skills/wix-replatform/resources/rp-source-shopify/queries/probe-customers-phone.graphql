@@ -1,0 +1,8 @@
+# scopes: read_customers
+query RpShopifyProbeCustomersPhone($first: Int!) {
+  customers(first: $first) { edges { node {
+    id phone defaultPhoneNumber { phoneNumber }
+    defaultAddress { phone }
+    addresses { phone }
+  } } }
+}

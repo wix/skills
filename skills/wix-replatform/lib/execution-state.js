@@ -28,6 +28,26 @@ function hasDownloadMirror(task) {
   return mirror.mode === 'download' || mirror.mode === 'download-and-upload' || mirror.downloadBeforeRun === true;
 }
 
+// The POST-execution counterpart of hasDownloadMirror, and the
+// gate the generated snapshot pass is run behind. Before this existed, `upload` and the upload
+// half of `download-and-upload` were accepted by validateCmsMirror and reached no code path at
+// all, so a mirror the owner asked for stayed empty by construction.
+//
+// `none` (and an absent cmsMirror) means NOTHING: no collection reads, no writes, and no empty
+// pass reported as a success. Site storage is a shared, plan-based allowance, and a migration's
+// ledger can be a meaningful fraction of a smaller plan's entire quota, so the mirror is spent
+// only when the approved plan actually asked for it.
+//
+// Note this is deliberately NOT `!hasDownloadMirror`: `download` seeds before the run and
+// uploads nothing afterwards, and `downloadBeforeRun` is a download-side flag only.
+function hasUploadMirror(task) {
+  const mirror = task && task.state && task.state.cmsMirror;
+  if (!mirror || mirror.mode === 'none') {
+    return false;
+  }
+  return mirror.mode === 'upload' || mirror.mode === 'download-and-upload';
+}
+
 function hasLocalCrosswalk(task) {
   return Boolean(task.state && task.state.crosswalkPath);
 }
@@ -170,4 +190,6 @@ async function prepareExecutionState(projectDir, manifest, options = {}) {
 
 module.exports = {
   prepareExecutionState,
+  hasDownloadMirror,
+  hasUploadMirror,
 };

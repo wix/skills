@@ -1,0 +1,12 @@
+# scopes: read_orders
+query RpShopifyProbeOrdersAddress($first: Int!) {
+  orders(first: $first) { edges { node {
+    id
+    customer {
+      defaultAddress { address1 address2 zip latitude longitude }
+      addresses { address1 address2 zip latitude longitude }
+    }
+    billingAddress { address1 address2 zip latitude longitude }
+    shippingAddress { address1 address2 zip latitude longitude }
+  } } }
+}

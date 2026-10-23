@@ -60,9 +60,19 @@ what to fix.
 | `meter [--api-ms N --model-ms N --script-ms N --input-tokens N …]` | Measured latency/token counts for a stage. Call it whenever you have real numbers; see "Metering" below. |
 | `wait start [--halt <subtype> --skill <s> [--what '<text>']]` / `wait end` | The moment the run halts for the user, and the moment it resumes. This is how user latency stays out of `active_ms` — never estimate elapsed time yourself. Pass `--halt` for a needs-user halt and the recorder emits the paired `halt_needs_user` event for you. |
 | `record '<event-json>'` | The moment something observable happens (taxonomy below). |
+| `digest --transcript <path> [--offline]` | Just before `finalize` — a deterministic parse of this run's Claude Code session transcript (cost, turn counts, tool failures, retry loops, hook errors). Never authored by you; `--offline` re-runs it later against a checkpointed or local transcript for a run that died before calling it. |
 | `finalize '<rollup-json>'` | When the run reaches a terminal state. |
 | `rebuild [--attempt <n>] [--push]` | Only on request, to re-assemble a past run's signal document from its archived journal after a recorder fix — never during a run. `--push` re-emits the rebuilt run to the BI sink (backfill after an outage; idempotent — the reviewer dedupes at query time). |
 | `status` | To orient after a resume. |
+
+Preflight reads that same `status` and reports whether a journal exists — `active`,
+`absent`, `finalized_only` or `unreadable` — as a non-blocking line in its result. When
+nothing is recording, the preflight script then calls `start` itself (moving an
+unreplayable journal aside first) and adds a `recovery` field to that line. This is a
+safety net, not the main path: `start` at run begin below stays required. A
+`recovery: failed` reading falls under the "never mention" rule below — it is recorded for
+the RePlatform team in the preflight result and progress log, never told to the person
+running the migration, and never blocks the run.
 
 ### Run lifecycle
 
@@ -79,6 +89,23 @@ what to fix.
    `start` on a project with an unfinalized run **resumes** it (same run, same attempt,
    one more session) and closes any open wait interval. `start` after a finalized run
    opens the next attempt. Never try to manage run identity yourself.
+
+   **Always `start` on resume, even mid-stage.** Besides the session accounting, the
+   resume is a BI heal point: the recorder re-pushes everything the previous session's
+   transport may have lost (push failures are journaled, then healed at the next
+   opportunity — a halted run may never reach finalize, so skipping the resume `start`
+   can strand the run's tail in the local journal). `status` shows `bi_backlog: true`
+   when unpushed rows are pending.
+
+   A safety net backs this up, and it does not replace your `start`: the start of a
+   `replatform run`/`resume` supervisor process, and the orchestration route script after
+   at least 15 minutes of journal silence, record the resumed session themselves on an
+   open recording (tagged with a `trigger`). A `start` within a minute of such an automatic
+   session, or at any point during the live supervisor run that opened it, joins that
+   session instead of opening another — it still records the dimensions you pass. The
+   15-minute gap is a heuristic about sittings, not a detected session. A failed or
+   skipped automatic resume falls under the "never mention" rule below: it goes only to
+   the progress log or the supervisor's run record.
 
    `source_acquisition` is an open set of class tokens, but reuse an established one
    (`admin_api`, `public_storefront`, `public_content`, `file_export`) rather than
@@ -103,6 +130,29 @@ what to fix.
    Both may be overridden by passing `skills_version` / `skills_commit` in the `start`
    dims (a runtime with better provenance than the recorder can infer), but normally you
    leave them to auto-resolve.
+
+   **Operator identity is auto-stamped too — you don't pass it, and you must not
+   invent it.** At `start` the recorder resolves `wix_user_id` (the operator's Wix
+   user GUID) from the Wix CLI's login artifact, `~/.wix/auth/account.json`. If the
+   CLI isn't logged in, resolution returns nothing and the run proceeds
+   **unattributed**: it completes normally, its local record is untouched and
+   authoritative, but **BI receives nothing** — the sink cannot route a row without a
+   real user, and a fabricated subject was verified to ingest nothing. The
+   loss is journaled as `no_operator_identity` and flagged in the rollup as
+   `operator_identity_unresolved`; `rebuild --push` backfills it if identity later
+   becomes available.
+
+   **Never mention any of this to the person running the migration.** Telemetry
+   health is our signal, not theirs: it says nothing about whether their migration
+   worked, and an unattributed run is complete and correct. It is read from BI and
+   the local rollup, not narrated in a completion report. The same goes for push
+   failures and `bi_push` counts — they belong in the telemetry record only.
+
+   You may pass `wix_user_id` explicitly in the `start` dims and it wins over
+   resolution, but only when the runtime genuinely knows better (a hosted runner
+   that authenticated the operator itself). Never pass a GUID you guessed, copied
+   from another run, or read off a site — a wrong identity misattributes the run to
+   a real person and is worse than no identity at all.
 
 2. **Stage boundaries** as the pipeline moves. Map orchestrator steps to stages like this:
 
@@ -131,9 +181,14 @@ what to fix.
    `extract` stage exists to prevent.
 
    When the `discovery` stage ends, **always** stamp what it learned:
-   `dims '{"source_platform_version":"...","source_extensions":["..."]}'` — pass `[]`
-   explicitly when discovery found no extensions; a null left behind is flagged in
-   `telemetry_health` as `source_extensions_null_after_discovery`.
+   `dims '{"source_platform_version":"...","source_extensions":["..."],
+   "discovered_entity_types":["post","product","event"]}'` — pass `[]` explicitly when
+   discovery found no extensions (or, improbably, no entity types); a null left behind is
+   flagged in `telemetry_health` as `source_extensions_null_after_discovery` /
+   `discovered_entity_types_null_after_discovery`. `discovered_entity_types` lists every
+   source entity class discovery found in use — including classes with no Wix target; it
+   is what finalize cross-checks the `volumes` rows against, so the "what we couldn't
+   import" demand signal cannot be silently under-reported.
 
 3. **`wait start` / `wait end`** around every needs-user halt: credential requests, the
    mapping-review checkpoint, the approval gate, any halt-to-needs-user. Pass the halt
@@ -151,7 +206,12 @@ what to fix.
 4. **`record`** events as they happen (next section). Record in the moment, not
    retrospectively — improvisation and halts are only reliably knowable when they occur.
 
-5. **`finalize`** once, at a terminal state, with the rollup:
+5. **`digest --transcript <path to this session's CC transcript>`** just before `finalize`.
+   It parses the Claude Code session transcript, deterministically — no model, no
+   judgment, nothing for you to say. If it fails, carry on to `finalize` anyway;
+   telemetry never blocks a migration.
+
+6. **`finalize`** once, at a terminal state, with the rollup:
 
    ```bash
    node scripts/rp-telemetry.js finalize '{"terminal_state":"completed",
@@ -171,7 +231,9 @@ what to fix.
      skipped: N`, `target: none` where no target exists, `planned` 0 or null). "What we
      cannot or chose not to import" must be signal-layer arithmetic, never an evidence
      dig — rows only for imported types silently erase the excluded half of the approved
-     plan.
+     plan. This is enforced mechanically: on a completed run, any class stamped in
+     `discovered_entity_types` with no volume row is flagged
+     `volume_row_missing:<type>` in `telemetry_health`.
    - `verification` makes the finish step's spot-checks countable. `checked: 0` is an
      honest "written but unverified" — report it rather than papering over it.
    - Do **not** finalize a halt you expect the user to resume — leave the run unfinalized
@@ -179,6 +241,17 @@ what to fix.
      being closed out in a stalled state. A user who declines the plan is
      `abandoned_by_user` (plus a `user_decision` event with `subtype: declined`), never
      `halted_needs_user` or `failed`.
+   - **Check the returned `bi_push`.** If it reports `failed > 0` or `skipped > 0`, the
+     run (or part of it) did not reach the central BI record: retry once with
+     `rebuild --push`, and if it still fails, tell the operator in the completion report
+     that the run exists only locally — never let a run silently vanish from the shared
+     record. `skipped > 0` means `RP_TELEMETRY_BI_DISABLED` was set during the session;
+     on a real migration run that env var must never be set. **A clean `bi_push` result
+     (`failed: 0`, `skipped: 0`) means the rows were handed to frog, not that they have
+     arrived in BI** — per `bi-sink.js`'s own transport code, a 2xx is not an ingestion
+     receipt; only a Trino read-back proves arrival, and no such read-back is available
+     from inside a run. Report `bi_push` success as "handed off," never as "confirmed in
+     BI."
 
 ### Metering — splitting `active_ms` into where the time actually went
 
@@ -201,8 +274,8 @@ node scripts/meter-from-audit.js --project <migration dir> --stage import   # --
 
 It reads `logs/import-audit.ndjson` and emits measured `api_ms` / `api_calls` / `api_retries`.
 It exists because a bulk write logs **one audit row per item, each carrying the batch's total
-latency** — summing rows multiplies one call's latency by its item count, which on a real run
-reported 1,050,992 ms of API time inside a stage that only existed for 346,505 ms. The helper
+latency** — summing rows multiplies one call's latency by its item count, which can
+report several times more API time than the stage existed for. The helper
 collapses rows per distinct `(runId, endpoint, batch, latencyMs)`, so a batch counts once while
 genuinely separate calls each count.
 
@@ -233,6 +306,34 @@ Rules that keep the numbers trustworthy:
 The rollup's `timing.agentic_ms` vs `timing.deterministic_ms` (and `agentic_share`) is the number
 that shows whether moving work into deterministic code is paying off. `agentic_share` is `null` when
 nothing was metered rather than `0`, which would falsely read as a fully deterministic run.
+
+### Source key/value reads — the one capability that widened what we can read
+
+The WordPress bridge can read key/value ("EAV") tables like `postmeta`, key-scoped.
+That is the largest widening of source-read reach this pipeline has taken, so it is counted.
+
+```bash
+node scripts/rp-telemetry.js source-read --discovery-queries 1 --discovery-table postmeta --redacted-values 0 --project <dir>
+node scripts/rp-telemetry.js source-read --scoped-queries 6 --scoped-table postmeta --redacted-values 2 --project <dir>
+node scripts/rp-telemetry.js source-read --tier-refusals 1 --project <dir>
+```
+
+Counts accumulate across calls, so report per batch rather than holding a running total.
+`wix-wp-plugin-v2-client.js` derives the per-read counts for you and hands them to its
+`onSourceRead` hook — use that rather than counting at a call site, because the call site that
+forgets is what makes a run's total quietly wrong.
+
+**`redacted_values` is the field worth watching across runs.** The other three describe how one
+migration read one site. A non-zero redaction total means a source site keeps a credential in a
+column nobody expected, which is a fleet-level signal no single run can see. `tier_refusals` has
+to be reported by the caller rather than inferred, because the plugin answers a tier violation
+with the same 400 as a nonexistent column — deliberately, so a refusal never discloses which
+column holds the values.
+
+**Key names are never telemetry.** The run's own artifacts hold those. `discovery_tables` and
+`scoped_tables` carry bare WordPress table names (`postmeta`), which are structural, not customer
+data; the validator rejects anything that is not `^[A-Za-z0-9_]+$`, and rejects a `pinned_keys`
+field outright as unknown. Nothing here should ever be able to carry a value.
 
 ### Collecting `operator_acceptance`
 
@@ -319,6 +420,41 @@ active `rp-*` resource, e.g. `"rp-mapper"`), `severity` (`blocking` | `degraded`
    or misleading as evidence) | `other`. Name the artifacts and their states in
    `what_happened` — names and states, never contents.
 
+9. **`source_plugin_coverage`** — which of the source site's plugins we could **not** resolve,
+   plus one run-level summary. Record after discovery writes
+   `discovery/plugin-coverage.json`.
+
+   **Record one event per unresolved item only.** The unresolved set is: every `pending` row
+   (including `reason: cannot-tell` and unread candidate namespaces), every
+   `requires-development` row, and every row carrying `blocked[]` entries (a
+   `user-file` / `credential` / `surface-changed` blocker, declined or not). **These are the
+   whole point of this event type** — they are the only signal that says which plugin profile
+   to write next, and without them that ordering is guesswork.
+
+   **Do not emit a per-row event for anything already resolved**: `migration-planned` rows
+   with `confidence: confirmed`, or `no-need-to-migrate` rows with `basis: list` or
+   `basis: decision` (a human already signed that verdict). On a
+   55-plugin store that would be ~29 events restating a checked-in list — telemetry with no
+   information content, which makes the real backlog harder to see, not easier. (A
+   `migration-planned` or `no-need-to-migrate` row that automation *derived* —
+   `confidence: proposed` / `basis: proposed` — is reported through `skill_coverage_gap`
+   (`guessed_value`), not here.)
+
+   **Emit exactly one aggregate event per run** carrying the distribution: plugins installed,
+   counts by the four statuses (and by `via` / `confidence` for planned rows), blocked counts
+   by kind, and whether the plugin list was available. That preserves the cross-run view of
+   how coverage is trending without one event per plugin.
+
+   Per-event fields: `subtype` is the row's status (`pending` | `requires_development`) or
+   `blocked` for a blocker entry (then also carry the blocker `kind`); carry the plugin slug
+   and version, the capability, the read channel, whether the row was `recognized`, and
+   `source_api_surface` as the endpoint class. Slug and version are required — without them
+   a cross-run view cannot tell which plugin caused what. Plugin slugs and versions are
+   software identifiers, not client data; still never record site URLs or record contents.
+
+   A `requires-development` row additionally pairs with `api_gap`, and a lossy `via: cms` row
+   with `fidelity_loss` — this event reports *distribution and backlog*, never the gap itself.
+
 ### `evidence_refs` — rare, not routine
 
 Author every event to be **self-sufficient**: coded fields + bounded free text +
@@ -333,7 +469,11 @@ when files regenerate). Never reference secret-bearing config files.
 - Never hand-write, edit, or re-read `run-telemetry.json` or `telemetry/` files — the
   recorder appends; you only call it.
 - Never record client data values, names, URLs beyond the recorded source origin, or
-  secrets — in any field, including shapes and locators.
+  secrets — in any field, including shapes and locators. For a credential-bearing source
+  surface such as a payment gateway's configuration, telemetry may carry the **field name** and
+  its state (`present` / `blank` / `absent`) and nothing else: never the value, never a prefix
+  of it, never its length, never a hash. A length narrows a brute force and a hash confirms a
+  guess, so neither is a safe substitute for the value.
 - Never record a fix, root cause, or recommendation — observations only.
 - Never estimate durations — timing comes from `stage`/`wait` boundary calls.
 - Never skip a rejected call: fix the listed fields and retry. Rejections are counted
