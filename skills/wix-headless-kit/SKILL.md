@@ -293,8 +293,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    site is released — close with the live URL and the dashboard link
    `https://manage.wix.com/dashboard/<siteId>` (the `siteId` of the `ready_for_brand_layer`
    event: on a migration preview that is the migrated site's dashboard, the release URL is the
-   preview's, the original site is unchanged, and completing the migration is the user's next
-   step in the Wix CLI once they approve — say all three). Tell the user how to put their own
+   preview's, the original site is unchanged, and you complete the migration once they
+   approve (`guides/migration.md`) — say all three). Tell the user how to put their own
    domain on the site, per the `wix-manage` recipe `references/domains/domain-search-purchase-and-connect.md`
    (installed beside this skill, else `https://www.wix.com/skills/wix-manage/references/domains/domain-search-purchase-and-connect.md`):
    bought through Wix, or one they already own. When the site takes money through

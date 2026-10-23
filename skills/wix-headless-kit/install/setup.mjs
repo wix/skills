@@ -322,5 +322,5 @@ emit("ready_for_brand_layer", {
       : "") +
     (install || seed ? "then wait for the done markers" + (seed ? ", verify .seed-exit is 0 (else read seed.log and re-run the seed module)" : "") + "; " : "") +
     `then ${release}` +
-    (mode === "migrate" ? "; the release is the PREVIEW on the deploy site — close with its URL and the parent's dashboard, say the original site is unchanged and that completing the migration is the user's next step in the Wix CLI once they approve" : ""),
+    (mode === "migrate" ? "; the release is the PREVIEW on the deploy site — close with its URL and the parent's dashboard, say the original site is unchanged and offer to complete the migration once they approve — guides/migration.md" : ""),
 });

@@ -10,8 +10,8 @@
 // They differ on a MIGRATION PREVIEW: a project whose config points at a fresh site created only to
 // host the deployment, while `.env.local` carries the credentials of the site being migrated (the
 // parent) and says so. Then every admin, discovery and seed call targets the parent, the SDK client
-// is the parent's, and only the release goes to the child. Completing the migration is a CLI step
-// that does not exist yet; this module only reads the state.
+// is the parent's, and only the release goes to the child. Completing the migration follows
+// guides/migration.md; this module only reads the state.
 //
 // `env pull` runs here when `.env.local` is missing (or --refresh): it is the source of the content
 // identity, and the Astro build refuses to run without it. Non-interactive (CI=1); a failure is

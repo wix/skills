@@ -1,11 +1,12 @@
 # A migration preview: a site being moved to headless
 
-Read when setup reports `mode: "migrate"`, or when a folder holds a `wix.config.json` and
-`node <SKILL_ROOT>/install/context.mjs` prints `migration.active: true`. The brief is the prompt
-the Wix dashboard's Headless settings hand the owner after "Go Headless": download the project from
-`https://manage.wix.com/download-headless-business/<siteId>/download.zip`, the names of the apps
-the site already has, and the instruction not to probe, install or seed anything. The zip holds
-`wix.config.json` (the deploy site and its app) beside the CLI's blank Astro starter.
+Read when setup reports `mode: "migrate"`, when a folder holds a `wix.config.json` and
+`node <SKILL_ROOT>/install/context.mjs` prints `migration.active: true`, or when the user asks to
+complete the migration (the dashboard's second prompt names `wix finalize-migration`). The brief is
+the prompt the Wix dashboard's Headless settings hand the owner after "Go Headless": download the
+project from `https://manage.wix.com/download-headless-business/<siteId>/download.zip`, the names of
+the apps the site already has, and the instruction not to probe, install or seed anything. The zip
+holds `wix.config.json` (the deploy site and its app) beside the CLI's blank Astro starter.
 
 **What `.env.local` says.** `wix env pull` copies the project's `prod` environment: the parent's
 `WIX_CLIENT_ID`, and the migration's own variables, `EDITOR_MIGRATION_STATUS` (`ACTIVE` while the
@@ -14,10 +15,10 @@ migration is under way, `COMPLETED` once the parent serves this frontend), `EDIT
 two; the shape is `migration` whenever the status is active, whatever else the folder holds.
 
 **Two sites, one project.** `wix.config.json` names a site created only to host the deployment:
-`wix release` goes there and nowhere else. `.env.local` (what `wix env pull` writes; setup and
-`context.mjs` pull it when it is missing) carries the credentials of the site being migrated, the
-**parent**, and says so. The parent owns everything the pages show and everything the business
-manages. So:
+`wix release` goes there and nowhere else until completion repoints the config (below). `.env.local`
+(what `wix env pull` writes; setup and `context.mjs` pull it when it is missing) carries the
+credentials of the site being migrated, the **parent**, and says so. The parent owns everything the
+pages show and everything the business manages. So:
 
 - **The SDK client is the parent's.** The Astro integration reads `WIX_CLIENT_ID` from the env and
   never the config; `deploy.mjs` copies the same value into `src/wix/config.ts` (react, lib) and
@@ -45,10 +46,41 @@ app, hosting and credentials came with the download; nothing is provisioned or r
 
 **The close.** The release is a **preview** on the deploy site. Close with the preview URL (copied
 from the `wix release` output), the parent's dashboard link, and the two facts: the original site
-is unchanged, and completing the migration, which makes the parent serve this frontend and retires
-the deploy site, is the user's next step once they approve the preview: the dashboard hands them
-a second prompt for it (`wix env pull`, `wix finalize-migration`, `wix build`, `wix release`, in
-that order). That step is not part of this skill and the command may not be in the installed CLI
-yet; do not invent one, do not run `wix release` against the parent, and do not edit
-`wix.config.json`. On every stack the code already carries the parent's client id,
-so completion needs no redeploy from here.
+is unchanged, and completing the migration puts this frontend live on the parent and retires the
+deploy site. Offer to complete it once they approve the preview.
+
+## Completing the migration
+
+Run it once the user approves the preview and asks to go live, or pastes the dashboard's finalize
+prompt: it switches the parent's live site to this frontend. The calls target the parent
+(`migration.parentSiteId` from `context.mjs`).
+
+1. **Read the migration.**
+
+   ```bash
+   curl -sS "https://www.wixapis.com/headless-business-setup/v1/editor-migrations" \
+     -H "Authorization: $(npx -y @wix/cli@latest token --site <parentSiteId>)"
+   ```
+
+   `migration.phase` `ITERATING` → step 2; `MIGRATION_FINALIZING` or `COMPLETED` → step 3;
+   `PREPARING` → the preview release is not observed yet, read again shortly; anything else → stop
+   and report it with the dashboard link.
+
+2. **Accept it**, as the dashboard's Complete Migration button does. On
+   `STALE_MIGRATION_REVISION`, read again and resend.
+
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/editor-migrations/prepare-commit" \
+     -H "Authorization: $(npx -y @wix/cli@latest token --site <parentSiteId>)" \
+     -H "Content-Type: application/json" \
+     -d '{"migrationId":"<migration.id>","expectedRevision":<migration.revision>}'
+   ```
+
+3. **Release to the parent.** `npx @wix/cli@latest finalize-migration` (`@wix/cli` 1.1.256 or later)
+   repoints `wix.config.json` to the parent, builds and releases. React and static projects have no such command: set
+   `wix.config.json`'s `appId` and `siteId` to `.env.local`'s `WIX_CLIENT_ID` and
+   `EDITOR_MIGRATION_PARENT_SITE_ID`, then build and release as in SKILL.md step 5.
+
+Close with the parent's URL and its dashboard link, and say Wix finishes the switch on its side;
+the dashboard notifies them when it is done. Later changes ship with a plain build and
+`wix release`.
