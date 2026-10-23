@@ -36,6 +36,7 @@ import {
   rawId,
   resolveOperation,
   restaurantToday,
+  slotsAddressQuery,
   slotsDateQuery,
   toFulfillmentMethods,
   toFulfillmentTimes,
@@ -43,7 +44,7 @@ import {
   toOrderCart,
   toRestaurantRegion,
 } from "../app/wix/restaurants/ordering-core.js";
-import type { FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "../app/wix/restaurants/types.js";
+import type { DeliveryAddress, FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "../app/wix/restaurants/types.js";
 
 export { RESTAURANTS_ORDERS_APP_ID };
 
@@ -231,18 +232,21 @@ export async function removeOrderLine(lineItemId: string): Promise<OrderCart> {
 
 /**
  * The times the order can be fulfilled at: ASAP for each type, then the scheduled slots of `dayKey`
- * ("YYYY-MM-DD" at the restaurant; default today). AVAILABLE only, ASAP first. [] when there is no
- * operation. Pass the chosen entry to setOrderFulfillment as `time`.
- * GET /restaurants-operations/v1/operations/{id}/first-available-time-slot-per-fulfillment-type
- * GET /restaurants-operations/v1/operations/{id}/available-time-slots-per-date?date.day=&date.month=&date.year=
+ * ("YYYY-MM-DD" at the restaurant; default today), ASAP first. Pass the delivery `address` once the
+ * visitor has entered it: the delivery times are then those of the methods that deliver there (none
+ * when no method does). [] when there is no operation. Pass the chosen entry to setOrderFulfillment as `time`.
+ * GET /restaurants-operations/v1/operations/{id}/first-available-time-slot-per-fulfillment-type[?deliveryAddress.*]
+ * GET /restaurants-operations/v1/operations/{id}/available-time-slots-per-date?date.day=&date.month=&date.year=[&deliveryAddress.*]
+ *   deliveryAddress.addressLine / .city / .postalCode / .country / .subdivision
  */
-export async function fetchFulfillmentTimes(dayKey?: string): Promise<FulfillmentTime[]> {
+export async function fetchFulfillmentTimes(dayKey?: string, address?: DeliveryAddress): Promise<FulfillmentTime[]> {
   const { operationId, timeZone } = await resolveOrdering();
   if (!operationId) return [];
   const base = `/restaurants-operations/v1/operations/${operationId}`;
+  const where = slotsAddressQuery(address, address ? toRestaurantRegion(await listFulfillmentRaws()) : { country: "", subdivision: "" });
   const [asap, slots] = await Promise.all([
-    wixRequest<Raw>(`${base}/first-available-time-slot-per-fulfillment-type`, { method: "GET" }),
-    wixRequest<Raw>(`${base}/available-time-slots-per-date`, { method: "GET", query: slotsDateQuery(dayKey ?? restaurantToday(timeZone)) }),
+    wixRequest<Raw>(`${base}/first-available-time-slot-per-fulfillment-type`, { method: "GET", query: where }),
+    wixRequest<Raw>(`${base}/available-time-slots-per-date`, { method: "GET", query: { ...slotsDateQuery(dayKey ?? restaurantToday(timeZone)), ...where } }),
   ]);
   return toFulfillmentTimes(asap, slots);
 }

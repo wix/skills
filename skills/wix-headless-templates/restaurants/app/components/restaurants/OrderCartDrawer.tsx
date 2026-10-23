@@ -9,7 +9,7 @@ import { zonedDateTimeLabel, zonedDayKey, zonedTimeLabel } from "../../wix/resta
 import type { FulfillmentChoice } from "../../wix/restaurants/types";
 
 export default function OrderCartDrawer() {
-  const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout, fulfillment, fulfillmentTimes, orderingStatus, chooseFulfillment } = useOrderCart();
+  const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout, fulfillment, fulfillmentTimes, orderingStatus, chooseFulfillment, loadFulfillmentTimes } = useOrderCart();
   const types = [...new Set((fulfillment ?? []).map((m) => m.type))];
   const [type, setType] = useState<"PICKUP" | "DELIVERY" | null>(null);
   const [timeCode, setTimeCode] = useState("");
@@ -29,6 +29,11 @@ export default function OrderCartDrawer() {
     return zonedDayKey(d, tz) === today ? zonedTimeLabel(d, tz) : zonedDateTimeLabel(d, tz);
   };
   const deliveryMethod = (fulfillment ?? []).find((m) => m.type === "DELIVERY");
+
+  // Once street and city are in, delivery times come only from the methods that deliver there.
+  function refreshDeliveryTimes() {
+    if (street.trim() && city.trim()) void loadFulfillmentTimes(undefined, { addressLine: street, city, postalCode });
+  }
 
   async function placeOrder() {
     const choice: FulfillmentChoice = {
@@ -155,9 +160,9 @@ export default function OrderCartDrawer() {
             )}
             {chosenType === "DELIVERY" && (
               <div className="mb-3 grid gap-2">
-                <input aria-label="Street address" placeholder="Street address" value={street} onChange={(e) => setStreet(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
+                <input aria-label="Street address" placeholder="Street address" value={street} onChange={(e) => setStreet(e.target.value)} onBlur={refreshDeliveryTimes} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input aria-label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
+                  <input aria-label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} onBlur={refreshDeliveryTimes} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
                   <input aria-label="Postal code" placeholder="Postal code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
                 </div>
                 {deliveryMethod && (deliveryMethod.fee || deliveryMethod.minOrderPrice) && (

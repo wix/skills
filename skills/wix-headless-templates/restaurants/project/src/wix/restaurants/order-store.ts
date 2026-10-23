@@ -4,7 +4,7 @@
 // Consume it through useOrderCart() (hooks/), or subscribe directly. Besides the cart it holds
 // the site's ordering gates: the operation's state and each menu's ordering settings, so an add
 // control can read "accepting orders?" and "is THIS menu orderable now?" without a fetch of its own.
-import type { FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
+import type { DeliveryAddress, FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
 import { menuOrderable } from "./ordering-core";
 import {
   addToOrder as apiAdd,
@@ -131,10 +131,13 @@ export async function removeLineFromOrder(lineItemId: string): Promise<void> {
   await run(() => apiRemove(lineItemId));
 }
 
-/** Load the fulfillment times for `dayKey` ("YYYY-MM-DD" at the restaurant; default today). */
-export async function loadFulfillmentTimes(dayKey?: string): Promise<void> {
+/**
+ * Load the fulfillment times for `dayKey` ("YYYY-MM-DD" at the restaurant; default today). Pass the
+ * delivery address once entered: delivery times then come only from methods that deliver there.
+ */
+export async function loadFulfillmentTimes(dayKey?: string, address?: DeliveryAddress): Promise<void> {
   try {
-    setState({ fulfillmentTimes: await fetchFulfillmentTimes(dayKey) });
+    setState({ fulfillmentTimes: await fetchFulfillmentTimes(dayKey, address) });
   } catch {
     setState({ fulfillmentTimes: null }); // unreadable — checkout still works on ASAP
   }
