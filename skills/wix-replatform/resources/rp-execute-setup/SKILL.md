@@ -38,7 +38,42 @@ WIX_AUTH_TOKEN=
 `WIX_SITE_STRATEGY` is always required. `WIX_SITE_ID` is required before setup
 verification/provisioning begins. If the strategy is `new` and no site has been created
 yet, halt to needs-user and route back to the site-creation step rather than asking for an
-existing site ID. `WIX_AUTH_TOKEN` is the canonical Wix credential key for this project
+existing site ID.
+
+**Studio/Harmony destinations.** A new Editor site is bound only after
+`orchestration/destination.json` is `verified` (actual editor and an `unpublished` readback).
+Setup treats it like any new site: mint `WIX_AUTH_TOKEN` for that `WIX_SITE_ID` through
+`mint-token.sh`, confirm it with a harmless target read before the first write, mute site
+notifications first (`WIX_SITE_STRATEGY=new` regardless of site type), and install/verify
+every required app — never infer installed apps, Catalog version or backend readiness from the
+editor type or template. Never publish the Editor site; its website and publication remain
+operator handoff items.
+
+**When `WIX_SITE_ID` names a site this run did not create, setup changes posture: verify
+and fill gaps, never provision from scratch.** The site is already in use, so treat
+everything in it as pre-existing state to work around rather than a blank slate:
+
+- **Expect apps, collections and fields to exist already.** Install only the delta the
+  mapping actually needs. An app that is already installed is a PASS, not a step to redo,
+  and re-provisioning is how a working site acquires duplicate collections.
+- **Never delete or recreate an entity to "fix" a mismatch.** A collection whose schema
+  differs from what the mapping expects is a `blocked` requirement with a remediation note
+  — the owner decides, not this skill.
+- **A `V1_CATALOG` verdict is terminal here.** The replacement-site recovery in
+  `resources/rp-destination/` applies only to a site this run scaffolded. Record the
+  blocker, write nothing to Stores, halt to needs-user.
+- **When the approved plan requests a CMS mirror, provision the on-site `ImportCrosswalk`
+  collection** (see "Import crosswalk CMS mirror" below). Whether a mirror is requested at all
+  is the owner's call and the mapper's setting — it is optional by design. Once it *has* been
+  requested, two things follow and neither one counts as the other: provisioning is a required
+  setup step **even on a destination the owner already had** (an existing site is not a reason
+  to treat it as already satisfied), and provisioning is **not the deliverable** — the run still
+  owes the post-execution snapshot pass that keeps the collection current.
+- Record which requirements were already satisfied versus newly provisioned in
+  `setup/setup-verification.json`. On a site the user owns, "we changed nothing here" is
+  itself a result worth reporting.
+
+`WIX_AUTH_TOKEN` is the canonical Wix credential key for this project
 flow; for CLI-scaffolded headless sites it holds the site write credential (a CLI token
 sent as a Bearer token). **Never print secret values.** Mint the token without printing it
 to the transcript by running `scripts/mint-token.sh` from the migration project root:
@@ -48,7 +83,7 @@ bash migrations/<project>/scripts/mint-token.sh
 ```
 
 The canonical copy lives at
-`skills/replatform/resources/rp-execute-setup/scripts/mint-token.sh`.
+`skills/wix-replatform/resources/rp-execute-setup/scripts/mint-token.sh`.
 `rp-import-codegen` copies it into `migrations/<project>/scripts/` at scaffolding time —
 do not write it from scratch. The script reads `WIX_SITE_ID` from `config/wix.env`, calls
 `npx @wix/cli@latest token --site "$WIX_SITE_ID"`, captures stdout (token shape:
@@ -57,8 +92,8 @@ do not write it from scratch. The script reads `WIX_SITE_ID` from `config/wix.en
 raw in a Bash tool call — it prints the credential to transcript.
 
 If `WIX_SITE_ID` is missing for a RePlatform `new site` + `headless` flow, the recovery
-path is the **Wix CLI headless scaffold** step defined in `replatform` → "Headless site
-creation" (`npm create @wix/new@latest headless`). The account-level Projects API is
+path is `resources/rp-destination/`, which scaffolds via
+`npm create @wix/new@latest headless`. The account-level Projects API is
 deprecated for this workflow. **Note:** the scaffold does not install Wix Stores — this
 skill (setup) is where Wix Stores and other required apps get installed (via the
 `wix-manage` skill / app-install path), then verified, before import.
@@ -80,6 +115,38 @@ Only check existence plus `present` / `blank` / `missing` status for required ke
 5. If execution is allowed, perform missing setup steps through the shared setup runtime
    and re-verify.
 6. Save the verification results and setup execution artifacts.
+7. **Carry the source store's own configuration.** See the section below — this is a
+   required step, not an optional extra, and it is the one every run before it skipped.
+
+## Carry the source store's own configuration
+
+A migrated site that publishes with a blank business address is not a cosmetic miss: it is a
+whole class of source data that no run ever read, because two independent obstacles each made
+the route look like a dead end (the REST index advertises only the parameterized settings
+route, and the WooCommerce consumer key 401s on it while the WordPress application password
+succeeds). Nothing reported it missing, because no domain owned it.
+
+Three steps, in order:
+
+1. **Capture.** Run `rp-source-wordpress/scripts/capture-store-settings.js <projectDir>`.
+   Deterministic; writes `data/store-settings-general.json`. Do not hand-roll the fetch — the
+   script exists specifically because the credential and the route shape are both traps.
+2. **Write the business address.** Build the payload with
+   `rp-target-wix/lib/store-config-build.js`'s `buildBusinessContactInput`, write it with
+   `wix-writers.js`'s `updateBusinessContact`, then read it back with `getSiteProperties` and
+   compare. The read-back is not optional: the update returns an empty body, so a 200 proves
+   only that the request was accepted. See `domains/site/entities/business-contact.json`.
+   NEVER assemble the `fields.paths` mask by hand — a path listed but not sent is CLEARED, and
+   Wix's own documented example demonstrates that hazard rather than the safe pattern.
+3. **Report the rest at the gate.** `collectReportOnlySettings` returns currency, selling
+   countries, ship-to countries, tax on/off, coupons on/off and price format, each with its
+   source value and why it matters. These are NOT written by this pipeline — surfacing them
+   beside the destination's current values is what turns "we didn't migrate it" from an
+   invisible omission into a decision the merchant can make in one look.
+
+The captured address also feeds the shipping step: with it, a collection point whose source
+carries no address is proposed ("your store address is X — is that where customers collect?")
+instead of prompting blank. See `shipping-build.js`'s `resolvePickupAddressSource`.
 
 ## Execute the setup artifacts — do not re-derive setup from prose
 
@@ -90,6 +157,20 @@ already exist.
 
 This skill owns execution of those artifacts. It does not own redefining the setup plan
 or creating a separate setup approval checkpoint.
+
+The shared executor uses `startSetupRun` and `bindSetupStep` to issue a capability bound to
+the current plan, destination and named step. It admits registered setup operations and
+writes for that step's `entityRefs`; it cannot import records or send arbitrary requests.
+Setup, import, quick and disposable-probe process marks are exclusive. Do not pass a
+caller-authored phase or substitute a general import/probe client for a setup client.
+
+For a step declaring `referenceKeys`, capture `referenceBindings` on its passed requirement
+in `setup/setup-verification.json` from the capability-bound executor's actual target
+read-back. Reuse a successful operation's read result when available; otherwise perform the
+bounded read for each distinct declared target. Bind the receipt to `siteId`, `planDigest`
+and the source keys/paths. Guessed IDs, copied source IDs, raw/unrelated reads and write-only
+responses are not verified bindings. Imports resolve these values through the gate only
+after every bound setup step passes; successful partial setup never unlocks a dependent.
 
 Dry-run setup uses the same setup plan and setup executor as live setup. When `DRY_RUN`
 is enabled by config or `--dry-run`, every setup step must first be reduced to a
@@ -102,7 +183,7 @@ Do not override `DRY_RUN=true` with `--no-dry-run` for setup verification or pro
 unless the user has explicitly approved leaving dry-run for setup. Prefer to avoid that
 override entirely when a dry-run or plan/report can answer the question. The one allowed
 live action while a project otherwise remains in dry-run mode is the separate new-site
-creation step handled upstream by `replatform`; this skill must not treat that exception
+creation step handled upstream by `wix-replatform`; this skill must not treat that exception
 as permission to run live setup writes or live setup verification probes.
 
 Dry-run setup must not update `setup/setup-verification.json` in a way that claims a Wix
@@ -136,7 +217,7 @@ the step can still produce useful non-destructive output.
 
 Concrete mechanisms:
 
-- **Mute site notifications FIRST (spec 0012).** When the setup artifacts carry the
+- **Mute site notifications FIRST.** When the setup artifacts carry the
   `mute-site-notifications` requirement (always for `WIX_SITE_STRATEGY=new`; opt-in for
   existing sites), execute it **before every other setup write** — immediately after the
   target site is available and `WIX_AUTH_TOKEN` is minted, and before app installs,
@@ -174,24 +255,12 @@ Concrete mechanisms:
     NOT from a docs *example* — e.g. the install-app example uses
     `1380b703-…`, which is **Wix eCommerce**, not Blog. Installing the wrong app on a
     live site is a real hazard; verify the ID maps to the app you intend.
-  - **After installing Wix Stores, verify the catalog is V3 — before any Stores write.**
-    Installing Stores does **not** guarantee Catalog V3: on a site scaffolded from the
-    `blank` headless template, the install comes up **`V1_CATALOG`**, which the V3 Stores
-    primitives cannot write to (verified the hard way on a live migration, 2026-07-30).
-    Catalog version is fixed at provisioning — there is no in-place V1 → V3 switch. Check it
-    with the read-only Catalog Versioning API:
-
-    ```bash
-    curl -s -H "Authorization: Bearer $WIX_AUTH_TOKEN" -H "wix-site-id: $WIX_SITE_ID" \
-      https://www.wixapis.com/stores/v3/provision/version
-    ```
-
-    `catalogVersion` is `V3_CATALOG` (proceed), `STORES_NOT_INSTALLED` (install, re-check),
-    or `V1_CATALOG` — record it as a **blocker** in `setup/setup-verification.json`, write
-    nothing to Stores, and halt to needs-user. The prevention lives upstream of this skill
-    (`replatform` → "Headless site creation": scaffold with `--site-template commerce`); the
-    recovery is a user-approved replacement site, **never** a silently created one, and
-    never a throwaway probe site.
+  - **Installing Wix Stores on a site this run created provisions Catalog V3
+    unconditionally** — Catalog V3 is now guaranteed at provisioning regardless of
+    scaffold template, so there is no
+    verification step here for that case. This does not apply to an existing site this
+    run did not create — see "A `V1_CATALOG` verdict is terminal here" above for that
+    case, which is unchanged.
 - **Wix Data / CMS collections (the `WDE0110: Wix Code not enabled` case).** Enable Wix
   Data by **installing the Wix Data app `appDefId e593b0bd-b783-45b8-97c2-873d42aacaf4`**
   via the App Installation API (same `/install` body shape as any other app; it also
@@ -205,10 +274,29 @@ Concrete mechanisms:
     `REFERENCE` fields (add those after install via `create-field`).
   - Note: the standalone "Wix CMS" app (`appDefId 675bbcef-…`) is **not** installable
     (`is-permitted-to-install` → `false`) — do **not** use it; use `e593b0bd-…`.
-- **Optional import crosswalk CMS mirror.** Native Wix entities use local crosswalk state
-  under `migrations/<project>/state/crosswalk/` for idempotency. Provision a native
-  **`ImportCrosswalk`** collection only when the approved setup artifacts explicitly
-  request a CMS mirror for existing-site seeding or site-local reference. After enabling
+- **Import crosswalk CMS mirror — OPTIONAL, provisioned only when a mirror mode is
+  requested.** Native Wix entities use local crosswalk state under
+  `migrations/<project>/state/crosswalk/` as the sole runtime authority for idempotency; a
+  CMS mirror is never a substitute for it and never required for correctness. Do not
+  provision `ImportCrosswalk` by default for every project — Wix CMS quotas are plan-based
+  and shared across every custom collection on the site, so an unconditional mirror can
+  spend a meaningful fraction of a lower-tier plan's total item quota on operational
+  migration state the site owner never asked to store. Provision it only when the mapper's
+  `cmsMirror` setting for the project is something other than `none` (typically an
+  existing-destination flow where the user opted into site-local reference data, so a later
+  re-import from another project or a different surface can see "what has already been
+  imported here" instead of duplicating it). When a mirror IS requested, provisioning alone
+  is not the deliverable: the mirror is a compact snapshot uploaded AFTER
+  execution, not written to inline during it. `rp-import-codegen` generates that snapshot as a
+  distinct post-execution step, gated on the same `cmsMirror` mode, which reads the finished
+  local crosswalk and uploads it through
+  `rp-target-wix/lib/wix-writers.js`'s `syncImportCrosswalk` (see `rp-execute-import`'s
+  "Import & idempotency"). LIVE-VERIFIED a project whose collection was provisioned early and
+  never written to again left every already-imported record with no on-site trace at all until
+  a one-time backfill caught it up, so provisioning must not be treated as satisfied by
+  itself — a provisioned collection is only trustworthy once that post-execution pass has run
+  over the local crosswalk. A mirror requested but never snapshotted is a reportable
+  shortfall, not a completed setup. After enabling
   Wix Data, create it with `POST /wix-data/v2/collections` and fields such as
   `entityType` (TEXT), `sourceId` (TEXT), `sourceStableKey` (TEXT), `targetId` (TEXT),
   `targetType` (TEXT), and `updatedAt` (DATETIME/TEXT). Do not provision this collection
@@ -219,6 +307,27 @@ Concrete mechanisms:
   external-system credentials (e.g. a WordPress Application Password), and
   account-level billing. These are the only categories that may be reported as manual —
   and only after confirming no API covers them.
+
+## Inventory prerequisites for product imports
+
+For planned variant inventory, resolve the intended Stores location with
+`rp-target-wix/lib/stores-inventory.js` → `resolveInventoryLocation(wix, locationId?)`.
+Do not create a location if the lookup is empty or ambiguous. Verify inventory-read access.
+Inventory create and update require their own write permissions in addition to product
+create; a token field or configured scope name is not proof that those permissions work.
+
+On an explicitly selected, already-muted disposable target, run:
+
+```bash
+node resources/rp-target-wix/scripts/verify-stores.js stores inventory-import --env <test-target-config> --artifact <verification-json>
+```
+
+This creates hidden synthetic products, verifies bulk stock create, tracked/untracked updates,
+inline stock, and a no-write rerun, then deletes only those probe products. It does not mute
+or unmute a site. Record actual target, token context, timestamp, assertions, and cleanup in
+the setup receipt; a failed probe cannot satisfy the inventory requirement. A disposable-site
+receipt verifies that token/site only: run the authorized canary under the real destination's
+own setup approval before its full import. Reuse current evidence rather than probing per product.
 
 ## Artifact to create or update
 
@@ -232,7 +341,7 @@ Stores live setup checks that require a probe record must use the shared rp-targ
 verification CLI, not ad hoc snippets. For subscription support, run:
 
 ```bash
-node skills/replatform/resources/rp-target-wix/scripts/verify-stores.js stores subscription-create \
+node skills/wix-replatform/resources/rp-target-wix/scripts/verify-stores.js stores subscription-create \
   --artifact migrations/<project>/setup/stores-subscription-verification.json \
   --proposal-artifact migrations/<project>/setup/contract-ledger-proposal.json
 ```
@@ -314,3 +423,60 @@ setup artifacts, not from improvised per-run logic in this skill.
   the exact API that was refused and why.
 - Do not start import execution from this skill.
 - Do not reinterpret setup requirements from markdown when machine artifacts exist.
+
+## Provisioning user-defined extended fields (Data Extension Schema)
+
+Never build a Data Extension Schema update by hand. Use
+`rp-target-wix/lib/data-extension-schema.js` and send the request it returns.
+
+The reason is a single API property: **Update Data Extension Schema is a `PUT` that overrides the
+stored schema**, and `jsonSchema` is required. Sending only the fields this migration needs
+therefore DELETES every field the merchant created, silently and permanently, on their own data.
+`planDataExtensionSchemaProvisioning()` reads the existing schema, merges into it, and refuses the
+update when it would drop, retype, narrow or re-classify anything already there.
+
+The order it enforces:
+
+1. List the existing schema with `fields=ARCHIVED` — archived fields are hidden by default, and an
+   archived key cannot be reused, so the collision check is blind without them.
+2. Select the schema by `namespace` (`_user_fields`). List returns global and app schemas
+   alongside the user-defined one; picking by position merges into somebody else's schema.
+3. Plan. The result is `create`, `update`, `noop` or `blocked` — `noop` is what a repeated run
+   returns, and `blocked` carries the reason.
+4. Send the returned request. An update carries the schema `id` and the **current** `revision`;
+   the API uses the revision to reject conflicting changes.
+5. Re-read and verify each field with `verifyDataExtensionSchemaFields()`, and persist the
+   evidence. A create or update can report success without producing the field.
+6. Generated import code writes an extended-field value only after verification passed for that
+   exact field — `validateExtendedFieldWriterReferences()` enforces it.
+
+Use `writers.provisionExtendedFieldRequirement()`; it routes each requirement by `schemaKind` and
+the `provision-extended-fields` step already calls it. Scope: orders, products
+and Contacts V5 through the Data Extension Schema; Contacts V4 through CRM Extended Fields only when
+the requirement says `contactWriteSurface: "contacts-v4"`. Everything else is refused before any
+network call. Types: `string` (DES) and `TEXT` (V4); the helpers refuse an unverified type.
+
+Named blockers and what they mean:
+
+- `CONTACTS_V5_DES_UNVERIFIED` — the gating List for `wix.contacts.*.contact` was refused. Setup
+  does **not** fall back to V4. Wait for the path to be verified, or re-route the mapping to
+  `contacts-v4` explicitly; that is a mapping decision, not a recovery step.
+- `EXTENDED_FIELD_SCHEMA_CONFLICT_EXHAUSTED` — three Update attempts in a row hit a revision
+  conflict. Each retry re-listed and re-merged, so the concurrent change was kept, not overwritten.
+  Re-run once the concurrent edits stop.
+- `schema-budget-exceeded` (under `EXTENDED_FIELD_SCHEMA_BLOCKED`) — the namespace byte budget cannot
+  hold the fields. Checked before create too, against the observed 10,000-byte limit. Route the
+  excess to CMS; never pick fields to drop.
+- `CONTACT_EXTENDED_FIELD_MISMATCH` — V4 Find Or Create matched a field by name with another type,
+  returned no or another namespace than `custom`, or returned a key different from the one an
+  earlier run verified. Keys cannot change and approving a migration action does not fix it;
+  decide with the owner rather than creating a second field.
+- `PRIOR_EXTENDED_FIELD_RECEIPT_UNREADABLE` — a contacts-v4 run found
+  `setup/extended-field-verification.json` but could not read it, so key continuity cannot be
+  proved. The file is kept; restore it, or remove it only if no earlier import wrote V4 values.
+
+Contacts V4 receipts record each `displayName`, the returned `key` and the write path
+`info.extendedFields.<key>`; V5 contact values go only under `extendedFields.namespaces._user_fields`.
+Live proof for products and both contact paths is still pending on a disposable site.
+
+The inventory verification token also needs Catalog read access to hidden products and variants. The canary must verify default-location availability in both Inventory and Catalog before the inventory path is marked verified.

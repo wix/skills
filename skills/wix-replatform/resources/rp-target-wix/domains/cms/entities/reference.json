@@ -3,6 +3,7 @@
   "domain": "cms",
   "entity": "reference",
   "displayName": "CMS Reference",
+  "capability": "cms.reference",
   "target": {
     "classification": "cms",
     "nativeEntity": "Wix Data Reference",
@@ -10,6 +11,7 @@
     "idPolicy": "client-assigned",
     "crosswalkRequired": false
   },
+  "dependsOn": ["cms/collection", "cms/data-item"],
   "sourceAliases": [
     { "sourceSystem": "wordpress", "sourceEntity": "relationship", "routes": ["post meta", "term relationships"], "confidence": "medium" },
     { "sourceSystem": "wix", "sourceEntity": "cmsReference", "routes": ["Wix Data reference fields"], "confidence": "high" }
@@ -30,6 +32,10 @@
   "mappingGuidance": ["Resolve crosswalks before writing reference fields."],
   "setupRequirements": ["Reference fields declared in target collection schema."],
   "evidence": [
-    { "type": "repo-research", "path": "research/import-api-suitability/blog-cms-media.md" }
+    {
+      "type": "domain-kb",
+      "path": "skills/wix-replatform/resources/rp-target-wix/domains/cms/domain.json",
+      "note": "domain-level evidence and cross-entity notes for CMS collections/data-items/references"
+    }
   ]
 }

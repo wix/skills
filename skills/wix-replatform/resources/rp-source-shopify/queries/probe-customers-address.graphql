@@ -1,0 +1,8 @@
+# scopes: read_customers
+query RpShopifyProbeCustomersAddress($first: Int!) {
+  customers(first: $first) { edges { node {
+    id
+    defaultAddress { address1 address2 zip latitude longitude }
+    addresses { address1 address2 zip latitude longitude }
+  } } }
+}

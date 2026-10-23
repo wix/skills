@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const w = require('./wix-writers');
+const verification = require('./write-verification');
 
 const DEFAULT_VERIFIED_SUBSCRIPTION_PATHS = [
   'product.subscriptionDetails',
@@ -115,18 +116,23 @@ async function verifyStoresSubscriptionCreate({ wix, siteId, artifactPath, probe
 
   let createdProduct;
   try {
+    const expected = verification.subscriptionExpected(createRequest.body.product);
     createdProduct = (await wix.send(createRequest)).product;
     artifact.probeRecordId = createdProduct && createdProduct.id;
-    if (!artifact.probeRecordId) throw new Error('create response did not include product.id');
+    if (!require('./bulk-results').opaqueId(artifact.probeRecordId) || createdProduct._dryRunPlaceholder) throw new Error('create response did not include a live product.id');
+    artifact.valueEvidence = { expected, targetId: artifact.probeRecordId, actual: null };
+    await writeArtifact(artifactPath, artifact);
 
     const getRequest = w.buildGetStoresProductRequest(artifact.probeRecordId);
     artifact.readback = { endpoint: getRequest.url, method: getRequest.method };
     const readProduct = (await wix.send(getRequest)).product;
     artifact.verifiedPaths = verifyPaths({ product: readProduct }, DEFAULT_VERIFIED_SUBSCRIPTION_PATHS);
     artifact.constraintsDiscovered = w.STORES_SUBSCRIPTION_CONTRACT.constraints.map((constraint) => ({ ...constraint }));
-    artifact.status = artifact.verifiedPaths.every((entry) => entry.present) ? 'passed' : 'failed';
+    artifact.valueEvidence.actual = readProduct;
+    artifact.comparison = verification.verifySubscriptionEvidence(artifact.valueEvidence);
+    artifact.status = artifact.comparison.verified ? 'passed' : 'failed';
     if (artifact.status === 'failed') {
-      artifact.warnings.push('Subscription readback did not include every expected nested path.');
+      artifact.warnings.push('Subscription readback identity or values do not match the submitted product.');
     }
   } catch (error) {
     artifact.status = 'failed';
@@ -225,6 +231,82 @@ async function verifyStoresDeleteProbe({ wix, siteId, artifactPath, productId } 
   return writeArtifact(artifactPath, artifact);
 }
 
+// Runs only against an explicitly selected, already-muted test target. All products are
+// synthetic and hidden. The artifact is saved as IDs are acquired so cleanup is recoverable.
+async function verifyStoresInventoryImport({ wix, siteId, artifactPath } = {}) {
+  const inventory = require('./stores-inventory.js');
+  const build = require('./wix-build.js');
+  const artifact = artifactBase({ command: 'stores inventory-import', siteId, endpoint: '/stores/v3/bulk/inventory-items/create', method: 'POST' });
+  artifact.probeProductIds = [];
+  artifact.checks = [];
+  let stockWrites = 0;
+  const client = wix;
+  wix = { ...client, send(request) {
+    if (request.method !== 'GET' && /\/inventory-items(?:\/|$)/.test(request.url) && !request.url.endsWith('/query')) stockWrites++;
+    return client.send(request);
+  } };
+  const check = (name, passed, detail) => {
+    artifact.checks.push({ name, passed, detail });
+    writeArtifact(artifactPath, artifact);
+    if (!passed) throw new Error(`Inventory probe failed: ${name}`);
+  };
+  const marker = `inventory-probe-${Date.now()}`;
+  const payload = (index, stock) => build.buildProduct({ name: `${marker}-${index}`, visible: false, productType: 'PHYSICAL', variants: [{ price: 1, ...(stock || {}) }] });
+  try {
+    const mute = await w.getSiteMuteState(wix);
+    if (!mute || mute.muted !== true) throw new Error('Inventory probe requires an already-muted disposable test target');
+    const locationId = await inventory.resolveInventoryLocation(wix);
+    const rows = [];
+    for (const [index, state] of [{ inStock: true }, { inStock: false }, { quantity: 0 }, { quantity: 7 }].entries()) {
+      const product = await w.createStoresProduct(wix, payload(index));
+      if (!product || !product.id) throw new Error('Probe product create returned no identity');
+      artifact.probeProductIds.push(product.id); writeArtifact(artifactPath, artifact);
+      const variants = product.variantsInfo && product.variantsInfo.variants;
+      if (!Array.isArray(variants) || variants.length !== 1 || !variants[0].id) throw new Error('Probe product did not return one variant identity');
+      rows.push({ productId: product.id, variantId: variants[0].id, inventory: state });
+    }
+    const created = await inventory.reconcileInventory(wix, rows, { locationId, expectedCount: 4, verifyAttempts: 5 });
+    check('mixed stock create and read-back', created.complete && created.counts.created === 4, created);
+    const changed = rows.map((r, i) => ({ ...r, inventory: i % 2 ? { inStock: false } : { quantity: 3 } }));
+    const updated = await inventory.reconcileInventory(wix, changed, { locationId, expectedCount: 4, verifyAttempts: 5 });
+    check('revisioned updates and tracking-mode changes', updated.complete && updated.counts.updated === 3, updated);
+    const beforeRerun = stockWrites;
+    const rerun = await inventory.reconcileInventory(wix, changed, { locationId, expectedCount: 4 });
+    check('matching rerun performs no stock writes', rerun.complete && rerun.counts.reconciled === 4 && stockWrites === beforeRerun, { ...rerun, observedStockWrites: stockWrites - beforeRerun });
+    const singleProduct = await w.createStoresProduct(wix, payload('single'));
+    if (!singleProduct || !singleProduct.id) throw new Error('Single probe missing product identity');
+    artifact.probeProductIds.push(singleProduct.id); writeArtifact(artifactPath, artifact);
+    const singleRow = { productId: singleProduct.id, variantId: singleProduct.variantsInfo.variants[0].id, inventory: { inStock: false } };
+    await w.createInventoryItem(wix, { productId: singleRow.productId, variantId: singleRow.variantId, inStock: false, trackQuantity: false });
+    const single = await inventory.reconcileInventory(wix, [singleRow], { locationId, expectedCount: 1 });
+    check('single-create helper and read-back', single.complete && single.counts.reconciled === 1, single);
+    const bulk = await w.bulkCreateStoresProductsWithInventory(wix, [payload('inline-false', { inStock: false }), payload('inline-quantity', { inventoryTracked: true, inventoryQuantity: 5 })], { returnEntity: true });
+    for (const result of bulk.results) if (result.success && result.productId) artifact.probeProductIds.push(result.productId);
+    writeArtifact(artifactPath, artifact);
+    check('inline bulk product creation', bulk.succeeded.length === 2 && bulk.unaccounted === 0, { successes: bulk.succeeded.length, unaccounted: bulk.unaccounted });
+    const inlineRows = bulk.succeeded.map((r) => {
+      const variants = r.product && r.product.variantsInfo && r.product.variantsInfo.variants;
+      if (!variants || variants.length !== 1 || !variants[0].id) throw new Error('Inline probe missing variant identity');
+      return { productId: r.productId, variantId: variants[0].id, inventory: r.inputProduct.variantsInfo.variants[0].inventoryItem };
+    });
+    const inline = await inventory.reconcileInventory(wix, inlineRows, { locationId, expectedCount: 2 });
+    check('inline stock persisted without repair', inline.complete && inline.counts.reconciled === 2, inline);
+    artifact.status = 'passed';
+  } catch (error) { artifact.status = 'failed'; artifact.error = error.message; }
+  finally {
+    artifact.cleanup = { attempted: artifact.probeProductIds.length > 0, status: artifact.probeProductIds.length ? 'deleted' : 'not_applicable', failedProductIds: [] };
+    for (const id of artifact.probeProductIds) {
+      try { await w.deleteStoresProduct(wix, id); }
+      catch (_) { artifact.cleanup.failedProductIds.push(id); }
+    }
+    if (artifact.cleanup.failedProductIds.length) {
+      artifact.cleanup.status = 'failed'; artifact.status = 'failed';
+      artifact.recoveryInstructions.push('Delete only the probe product IDs listed in cleanup.failedProductIds.');
+    }
+  }
+  return writeArtifact(artifactPath, artifact);
+}
+
 module.exports = {
   DEFAULT_VERIFIED_SUBSCRIPTION_PATHS,
   defaultProbeProduct,
@@ -235,4 +317,5 @@ module.exports = {
   verifyStoresProductCount,
   verifyStoresProductBySourceMarker,
   verifyStoresDeleteProbe,
+  verifyStoresInventoryImport,
 };

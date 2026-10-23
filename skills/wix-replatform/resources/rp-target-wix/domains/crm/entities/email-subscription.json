@@ -3,6 +3,7 @@
   "domain": "crm",
   "entity": "email-subscription",
   "displayName": "Email Subscription",
+  "capability": "crm.email-subscription",
   "target": {
     "classification": "native",
     "nativeEntity": "Email Subscription",
@@ -10,28 +11,95 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
-    { "sourceSystem": "wordpress", "sourceEntity": "newsletter_subscription", "routes": ["plugin-specific subscription routes"], "confidence": "medium" },
-    { "sourceSystem": "wix", "sourceEntity": "emailSubscription", "routes": ["Email Subscriptions API"], "confidence": "high" }
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "newsletter_subscription",
+      "routes": [
+        "plugin-specific subscription routes (e.g. Mailchimp/MailPoet list-membership tables) -- not yet mapped by this repo"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "order.meta_data",
+      "routes": ["/wc/v3/orders -- meta_data entries with a checkout-consent-checkbox key, value '1'"],
+      "confidence": "high",
+      "note": "LIVE-VERIFIED 2026-09-16: a source store's marketing-consent checkout checkbox is recorded as ORDER meta, not on the customer object, and the key is present only when checked -- absence means not consented (or not asked), never an explicit '0'. Applies identically to registered-customer and guest-checkout orders, so scan orders, not customers, and match back to a customer_id when present."
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "emailSubscription",
+      "routes": [
+        "Email Subscriptions API"
+      ],
+      "confidence": "high"
+    }
   ],
   "preferredWrite": {
     "surface": "Email Subscriptions",
-    "endpoint": null,
-    "writerId": null,
-    "verification": "docs",
+    "endpoint": "POST /email-marketing/v1/email-subscriptions/bulk",
+    "writerId": "bulkUpsertEmailSubscriptions",
+    "verification": "verified-live",
     "importSafe": false,
-    "bulk": true
+    "bulk": true,
+    "decision": "The MECHANICAL write is live-verified: keyed by EMAIL ADDRESS, not contactId, so it covers guest-checkout consent with no Contact behind it just as well as a known contact; a live batch of both known-customer and guest emails landed with subscriptionStatus SUBSCRIBED on query-back; the write only sets a status and does not itself send any confirmation/marketing email, so it is safe to run even while the site's notifications are muted. NOT YET CLEARED FOR USE regardless: importSafe stays false until the order-to-contact fold rule and the API-choice pitfalls below are each resolved as an explicit, recorded product decision -- a working writer is not the same thing as an authorized one, and this entity was flipped to importSafe once before without either decision being made, which is the mistake this note exists to prevent repeating."
   },
   "fallbacks": [
-    { "classification": "cms", "when": "Use for consent evidence and source subscription audit history." }
+    {
+      "classification": "cms",
+      "when": "Use for consent evidence and source subscription audit history."
+    }
   ],
-  "reliability": { "status": "partially-reliable", "flags": [] },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
   "pitfalls": [
-    { "code": "consent-proof-required", "severity": "blocker", "summary": "Only set subscribed states when the migration has consent evidence." }
+    {
+      "code": "consent-proof-required",
+      "severity": "blocker",
+      "summary": "Only set subscribed states when the migration has consent evidence. A real per-order checkout-consent-checkbox flag (see the woocommerce order.meta_data sourceAlias above) is sufficient evidence; do not infer consent from mere presence as a customer or from having placed an order with no consent flag."
+    },
+    {
+      "code": "bulk-endpoint-caps-at-100-per-call",
+      "severity": "warning",
+      "summary": "bulkUpsertEmailSubscriptions accepts 1-100 subscriptions per call and returns per-item results with `metadata.totalSuccess`/`totalFailure` -- batch upstream past 100 and check each item's `error` field rather than trusting an overall 200."
+    },
+    {
+      "code": "order-scoped-consent-has-no-decided-fold-rule",
+      "severity": "blocker",
+      "summary": "A per-ORDER consent signal (see the woocommerce order.meta_data sourceAlias above) is not the same shape as a per-subscriber-record consent field: the same buyer can place several orders over time, possibly agreeing on one and staying silent on later ones. Nothing here has decided how multiple orders for one email reduce to a single Wix subscription state -- 'any consenting order ever sets it, and a later silent order never auto-revokes it' is one defensible rule, 'most recent order's answer wins' is another, and picking one is a real product decision, not an implementation detail an importer should invent silently. Do not write SUBSCRIBED for an email from order-scoped consent data until this fold rule is decided and recorded as product guidance here, and do not treat 'it happened to work when tried once' as that decision."
+    },
+    {
+      "code": "email-subscriptions-vs-marketing-consent-api-unresolved",
+      "severity": "blocker",
+      "summary": "A separate, newer Wix Marketing Consent API models an actual proof-of-consent trail (state CONFIRMED/PENDING/REVOKED, optInLevel single-vs-double-confirmation, and a lastConfirmationActivity source+timestamp record) rather than the bare subscribed/unsubscribed flag this entity's Email Subscriptions surface models. Which one is authoritative for real send-eligibility, and which one (if not both) a migration should write to, has not been confirmed against both APIs' full method schemas -- only informally suggested (an identity-team comment that a sign-up form's consent checkbox is copied onto the Contact, which is what email marketing reads from, favoring Email Subscriptions). Treat that as a lead, not a resolved comparison. Confirm which surface Wix's own contact-eligibility logic actually consults before choosing one, the same evidentiary bar this repo holds every other corrected API-choice claim to."
+    }
   ],
-  "mappingGuidance": ["Keep consent evidence and source timestamps available for review."],
-  "setupRequirements": ["Consent policy decision before subscription writes."],
+  "mappingGuidance": [
+    "Dedupe by lowercased email BEFORE writing: the same address can appear as both a known customer's email and a guest order's billing email across different orders. Prefer the known-customer identity when both exist for the same address.",
+    "Keep consent evidence and source timestamps available for review."
+  ],
+  "setupRequirements": [
+    "Consent policy decision before subscription writes."
+  ],
   "evidence": [
-    { "type": "repo-research", "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md" }
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/email-subscriptions/emailsubscription-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/communication/email-subscriptions/bulk-upsert-email-subscription.md",
+      "note": "confirmed endpoint, batch cap and per-item result shape, 2026-09-16"
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification",
+      "note": "the full set of a store's checkout-consent-flagged orders (registered customers and guests) written via bulkUpsertEmailSubscriptions and confirmed by queryEmailSubscriptions read-back, zero failures"
+    }
   ]
 }

@@ -38,16 +38,27 @@ Expected inputs may include:
 ## Config gate before capture
 
 Before running source capture, verify the project-local config files created by
-`replatform`:
+`wix-replatform`:
 
 - `config/wix.env` should always exist with `WIX_SITE_STRATEGY`, `WIX_SITE_ID`, and
   `WIX_AUTH_TOKEN` keys, even though discovery itself may not use Wix credentials yet.
-- `config/source.<platform>.env` should exist once the source platform is known. For
-  WordPress this is `config/source.wordpress.env`.
+- `config/source.<platform>.env` should exist once the source platform is known. A
+  WordPress-only source uses `config/source.wordpress.env`; a source with confirmed
+  WooCommerce evidence uses `config/source.woocommerce.env` and records
+  `sourcePlatform=woocommerce`. Both use the `rp-source-wordpress` discovery adapter.
 
-If a required key is missing or blank, ask the user for that value and fill the config
-file for them before continuing. Ask one value at a time. Never print secret values back
-to the user; report only present/missing.
+If a required non-sensitive key is missing or blank, ask the user for that value and fill
+the config file before continuing. If a required sensitive key is missing or blank, use
+the secure Secrets Manager flow: check for an existing non-placeholder local env value,
+then an existing non-placeholder Wix secret under the resolved site, and ask the user to
+update the dashboard secret only for keys missing from both places. Never ask the user to
+paste sensitive values into chat. Never print secret values back to the user; report only
+present/missing.
+
+Use `skills/wix-replatform/scripts/source-secrets.js resolve` for sensitive source keys.
+Its output is limited to key names and statuses. It always returns `postHydrationReport`
+(`{ exists, keys }`: present/blank/placeholder/missing for each requested key in the local
+env file). Read that field to confirm a hydration succeeded; do not open the env file to check.
 
 Treat `migrations/<project>/config/*.env` as secret-bearing once they may contain real
 values. Do not inspect them with whole-file reads that echo contents into tool output.
@@ -57,12 +68,12 @@ Use secret-safe checks only: existence, required key names, and `present` / `bla
 ## Site creation precedence
 
 If this skill encounters conflicting Wix guidance about how to create a `new site` +
-`headless` destination, `replatform`'s migration contract wins.
+`headless` destination, `wix-replatform`'s migration contract wins.
 
-- Route headless destination creation back to the **Wix CLI headless scaffold** defined in
-  `replatform` → "Headless site creation" (`npm create @wix/new@latest headless`). This is
-  the verified way to get a genuine headless site; the account-level Projects API is
-  deprecated for this workflow (it produced non-headless sites).
+- Route headless destination creation back to `resources/rp-destination/`, which scaffolds
+  via `npm create @wix/new@latest headless`. This is the verified way to get a genuine
+  headless site; the account-level Projects API is deprecated for this workflow (it
+  produced non-headless sites).
 - Discovery is source-side and does not create the site itself — just defer to that section.
 
 ## Workflow
@@ -75,12 +86,16 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 3. Once the platform is inferred, resolve the acquisition mode before requesting source
    credentials when the platform has materially different read paths.
    - For Shopify URL-based migrations, ask whether to use the `Admin API` or only
-     publicly available `storefront` data.
+     publicly available `storefront` data. `Admin API` records `sourceMode=private_data`
+     and uses the `rp-source-shopify` adapter, read through the operator's Shopify CLI
+     session; it collects no secrets. `storefront` keeps today's public route
+     (`sourceMode=public_content`).
    - For WordPress / WooCommerce URL-based migrations, ask whether to import `public
    content only` or `also include private/authenticated data`.
    - Only the WordPress / WooCommerce `also include private/authenticated data` branch
-   should trigger a credentials request. The `public content only` branch proceeds
-   without credentials and should be described as limited to public data. For WooCommerce,
+   should trigger the secure Secrets Manager collection flow for sensitive credentials.
+   The `public content only` branch proceeds without credentials and should be described
+   as limited to public data. For WooCommerce,
    this branch should still probe public Store API catalog routes such as
    `/wc/store/v1/products` and `/wc/store/v1/products/categories` before declaring
    commerce out of scope.
@@ -90,6 +105,8 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 4. Then select the matching source adapter skill (e.g. `rp-source-wordpress` for
    WordPress / WooCommerce, `rp-source-csv` when the run is file-based). If no adapter
    exists for the platform, capture entities manually following the same output contract.
+   - **Shopify private data** (`sourceMode=private_data`, `sourcePlatform=shopify`) uses
+     `rp-source-shopify`.
    - **File-based runs** (`sourceMode=files_only`, `sourcePlatform=csv`) use
      `rp-source-csv` regardless of which system produced the files; that adapter identifies
      the originating vendor from the header row. There is no acquisition-mode question and
@@ -97,8 +114,10 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 5. Run the adapter's capture step to produce a raw, machine-captured dump under
    `<migrations-root>/<project>/data/<source>-discovery/`. For WordPress, the capture
    script lives in `rp-source-wordpress/scripts/` — run it from that skill directory
-   (see `rp-source-wordpress` Capture section and `CONVENTIONS.md`). The adapter owns the
-   capture mechanics, auth model, and platform quirks; this skill consumes its output.
+   (see `rp-source-wordpress` Capture section and `CONVENTIONS.md`). When using
+   project-local secret-bearing config, prefer the script's deterministic `--env-file`
+   path over shell sourcing. The adapter owns the capture mechanics, auth model, and
+   platform quirks; this skill consumes its output.
    For long runs, pass `--progress-log <path>` and poll it per
    `CONVENTIONS.md#progress-log-polling`.
    - Distinguish **supported** entities (advertised by the source) from **used** entities
@@ -111,6 +130,15 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
      when present. Treat it as the canonical route-scope audit trail: skipped routes are
      evidence, not source entities, unless they were explicitly force-included by an
      audited override.
+   - For WordPress / WooCommerce captures, also read
+     `data/wp-discovery/plugin-coverage.json` and `data/wp-discovery/plugin-inventory.json`.
+     These are the plugin-tier evidence: which plugins were detected, which are installed but
+     unrecognized, which entities were derived generically, and what each capability's
+     coverage status is. Do not re-derive plugin knowledge by reasoning about route names.
+   - For Shopify private-data captures, run `rp-source-shopify/scripts/shopify-discovery.js`
+     (see `rp-source-shopify` → *Discovery*). Exit 3 means a merchant question is pending:
+     stop, and re-run after it is answered; recorded steps are not read again. Synthesize
+     from `data/shopify-discovery/entities/*.json` only after it exits 0.
    - For CSV captures, the capture script lives in `rp-source-csv/scripts/csv-discovery.js`
      and takes the **whole file set in one run** (`--file` is repeatable) so roles and split
      files resolve together. Read `data/csv-discovery/fileset.json` — it is the canonical
@@ -150,6 +178,8 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
    export WP_BASE_URL=https://<id>.ngrok-free.app
    ```
 9. Synthesize the raw capture into the normalized artifacts below.
+10. Promote the adapter's source-coverage record (see *Source coverage* below) as the last
+    discovery write. Discovery is not promoted until this succeeds.
 
 ## Artifacts to create or update
 
@@ -157,6 +187,9 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 - `migrations/<project>/discovery/entities/`
 - `migrations/<project>/discovery/warnings.json`
 - `migrations/<project>/discovery/llm-handoff.json`
+- `migrations/<project>/discovery/plugin-coverage.json`
+- `migrations/<project>/discovery/review/plugin-coverage.md`
+- `migrations/<project>/discovery/source-coverage.json`
 - `migrations/<project>/orchestration/checkpoints.json`
 
 - `migrations/<project>/data/<source>-discovery/`: raw machine-captured output from the source adapter. Treated as evidence, not a hand-off artifact — downstream skills reference it for traceability but do not read it wholesale.
@@ -175,6 +208,142 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
   - Follow the adapter's `source-schema.example.json` for the shape (e.g. `rp-source-wordpress/source-schema.example.json`). It is a template to follow, not a strict schema to validate against — keep the platform-agnostic core stable and push platform quirks into each entity's open `sourceMeta` blob.
 - Optional supporting notes under `migrations/<project>/research/` if needed.
 
+## Plugin coverage (source adapters that support it)
+
+When the source adapter produces plugin evidence — WordPress / WooCommerce does — promote it
+into the canonical artifacts rather than leaving it in the raw capture:
+
+- Copy the adapter's coverage rows into
+  `migrations/<project>/discovery/plugin-coverage.json` (one artifact: capability rows plus
+  the per-plugin projection), and render a short user-facing
+  `discovery/review/plugin-coverage.md` grouped by the four statuses — *Migration planned* ·
+  *No need to migrate* · *Pending* · *Requires development*. The statuses are already
+  customer-readable; phrase the rest in user terms ("your events will come across as a CMS
+  collection"), never internal jargon.
+- For selected WordPress plugin storage without a complete supported REST reader, follow
+  `rp-source-wordpress/PLUGIN-READ-PLANS.md`. A missing permanent profile does not end
+  discovery. Reuse actual schema/storage evidence to prepare and validate a project-local
+  plan. Preserve its canonical `sourceEntityRef`, `bridgeDesignated: true`, and exact
+  `sourceMeta.extractionPlan` reference in `source-schema.json`. Unknown storage remains a
+  typed entity deferral with producer remediation; do not invent a query or record.
+- Emit plugin-derived entities into `source-schema.json` like any other entity, with
+  `sourceMeta.plugin`, `sourceMeta.capability`, `sourceMeta.channel`,
+  `sourceMeta.recognized` (a profile matched) and `sourceMeta.candidateTargetRefs[]`.
+- Derived (unrecognized) entities carry
+  `sourceMeta.origin: "generic-post-type" | "generic-taxonomy"`
+  and, when the source taxonomy is nested, `"hierarchical": true` so the mapper's mandatory
+  hierarchy-lossiness rule fires.
+- Entities read from a property embedded in a parent record carry
+  `sourceMeta.origin: "embedded"` plus the parent route, so codegen extracts them from the
+  parent fetch instead of issuing a second request.
+- Record in `source-profile.md`: whether the plugin list was available, how many plugins were
+  detected/unrecognized, and the counts by status. Downstream stages must not have to
+  parse the raw capture to learn whether plugin coverage was complete.
+
+**Classifying an unrecognized plugin is a judgement, not a lookup.**
+For every installed plugin with no profile, you — not the `[js]` layer — answer the only
+question that matters: *is there anything here to migrate at all?* The no-migration-needed
+list (`plugins/no-migration-needed.json`) is an input to that answer: a slug hit is strong
+evidence and not by itself the answer, because the list says nothing about what this
+particular installation is holding. Add your own reading of the registered types, taxonomies
+and data-shaped routes, and record the reasoning either way. Three exits, and only three:
+
+- **Nothing to move** → *No need to migrate*, with `basis: list` (a list entry you confirmed)
+  or `basis: proposed` (your own reading) and the `rationale` filled in — a list hit with no
+  recorded confirmation is a failure.
+- **It holds data** → propose a Wix capability; the row is *Migration planned*
+  as `proposed`, decided at the mapping review. When the capability has no REST route,
+  check whether wix-wp-plugin-v2 can reach it as a `structure-bridge-plugin` fulfillment
+  before assuming a `user-file`/CSV request is the only path — see
+  `rp-source-wordpress/plugins/README.md`'s "Resolving a db-only capability" section. Which
+  credential the bridge needs depends on whether the source has WooCommerce (Application
+  Password requires it; the migration key does not) — same section.
+- **Cannot tell** → leave the row *Pending* with `reason: cannot-tell`. An honest "cannot
+  tell" is the point of Pending — it is what stops this step from becoming a silent way to
+  drop data. Never resolve it yourself; the mapping review is the only exit.
+
+**"Cannot tell" means tried and still uncertain, not merely unexamined.** Before landing a
+plugin on Pending, make the same best-effort reachability pass `rp-source-wordpress/plugins/README.md`'s
+"Resolving a db-only capability" section describes for a confirmed capability — REST route,
+built-in export, public docs/source for its storage mechanism, wix-wp-plugin-v2 reachability —
+so the question put to the human at the mapping review is "here is what we found, decide the
+target" rather than "we didn't look, please figure this out." A live-verified negative result
+(e.g. every candidate table 404s, or the plugin's own source shows the data never leaves its
+vendor's cloud) is itself a valid, useful finding to record on the row — it is not the same as
+never having checked, and it changes what the human is actually being asked to decide. This
+does not license guessing a candidate target on your own judgement (see the "It holds data"
+exit above and `rp-mapper`'s pending-row-verdict section) — it means the row that reaches the
+human is backed by an actual attempt, not a name and a shrug.
+
+You may never conclude that Wix cannot do something — *Requires development* is reachable
+only from the human-signed register or from the human at the gate.
+
+A **recognized** (profiled) plugin is not yours to re-decide: its rows come from the profile
+and the registers. That includes a *No need to migrate* row with `basis: decision` — a
+human-signed per-capability entry in `no-migration-needed.json` (`capabilities[]`), settled
+and carrying its `decidedBy` / `decidedOn`. Report it; do not re-open it as Pending.
+
+- Collect every `blocked[]` entry across rows (a missing credential, a file only the user
+  has, a changed surface — *Blocked — recoverable*, never a status) and ask the user
+  **once**, as a single batched request with each item individually skippable. Record each
+  answer in `orchestration/decisions.json` under `pluginBlocker:<capability>:<kind>` with
+  value `provided` or `declined` — the discovery script reads these back so a declined ask
+  renders as declined, not as unanswered. Never block the run on a skipped capability.
+- Beside it, `pluginCmsFallback:<capability>` holds the merchant's answer to a CMS-fallback ask
+  (recognized capabilities that a human signed as CMS-eligible). Discovery reads it but never
+  writes it: it is asked at the mapping review and recorded only by
+  `orchestration-state.js decide-cms-fallback` (see `rp-mapper`). Copy each coverage row's
+  `cmsFallback` block into `discovery/plugin-coverage.json` unchanged, and list pending CMS-fallback
+  rows under *Pending* in `plugin-coverage.md` with their `featureLoss` sentence.
+
+### Router reason `cms_fallback_inputs_changed` — reclassify, do not refetch
+
+The router sends a run here with this reason when a CMS-fallback answer, the eligibility
+register, or anything that could resolve an in-scope capability natively (target knowledge,
+a detected plugin's current profile, the other signed registers) has changed since
+`plugin-coverage.json` was written. Rebuild coverage without any source request:
+
+```bash
+node skills/wix-replatform/resources/rp-source-wordpress/scripts/wp-discovery.js \
+  --reclassify-coverage --out-dir migrations/<project>/data/wp-discovery
+```
+
+It reads the stored `plugin-inventory.json`, the prior coverage's `entityStats` and review
+evidence, and the current profiles, registers, target knowledge and decisions, then rewrites
+both `data/wp-discovery/plugin-coverage.json` and `discovery/plugin-coverage.json` (record
+counts, `genericEntities`, `childSamples`, `notes` and `statusInvariant` carried forward
+unchanged). Refresh `discovery/review/plugin-coverage.md` for the changed rows. If it exits
+**3** with `outcome: needs-full-discovery` (coverage written before `entityStats` existed, or
+a current profile route it never sampled), it wrote nothing: run normal discovery instead (one
+source fetch). Never hand-edit coverage rows to satisfy the router.
+
+## Source coverage (every adapter)
+
+Anything the adapter advertised or attempted but did **not** emit as a `source-schema.json`
+entity must stay visible: a 401/403 entity, a route that failed capture, a data route skipped
+by rule, an unsupported route surface, a CSV file with an unknown role or a halted layout.
+Each adapter writes these as rows in `data/<source>-discovery/source-coverage.json` — always,
+with `rows: []` when there is nothing to report. Frontend, theme, admin and transient route
+skips stay route-scope evidence only and get no row.
+
+After `source-schema.json` is synthesized, promote the record (run from this skill directory):
+
+```bash
+node scripts/promote-source-coverage.js <migrations-root>/<project> --adapter wordpress   # or csv, shopify
+```
+
+It validates the adapter file, writes `discovery/source-coverage.json`, and stamps
+`sourceCoverageContract: 1` on the project-root `source-schema.json`. It exits 2 and refuses
+when the adapter file is missing or malformed, when `source-schema.json` does not exist yet, or
+for an adapter it does not know; there is no unstamped path for a current adapter. Never
+hand-write or edit the coverage file or the stamp. Quick modes write their own record at `plan`.
+
+Do not synthesize an entity for a coverage row. A row is resolved downstream: `rp-mapper` gives
+it exactly one disposition. Recoverable rows (credentials, a missing route, a force-include)
+join the single batched blocker ask under *Plugin coverage*, individually skippable; record the
+answer through `rp-mapper/scripts/coverage-reconcile.js decide` (never by hand), and re-run
+discovery for a `provided` answer. A skipped capability never blocks the run.
+
 ## Output quality rules
 
 - Separate confirmed facts from assumptions.
@@ -182,3 +351,7 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 - Preserve source-specific identifiers exactly.
 - Include enough detail for downstream mapping and code generation.
 - Flag unknowns explicitly instead of inventing structure.
+
+## Final discovered-set census
+
+As the last standard-mode discovery step, after source-schema and plugin/source-coverage outputs are complete, run `node scripts/discovered-census.js build <projectDir>` from the toolkit root. The deterministic builder writes `discovery/census.json` from metadata only, including populated registered sub-parts, distinct plugin capabilities and unlinked plugins. Preserve unknown counts as unknown; do not invent entities or decisions for uncaptured source-coverage rows. This adds no discovery pause. Mapping reconciles each decision row to its plan or explicit gap before review. Quick mode keeps its existing path.

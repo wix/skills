@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "plugin": "strong-testimonials",
+  "displayName": "Strong Testimonials",
+  "profileVersion": "2026-08",
+  "sourceOfTruth": "https://wordpress.org/plugins/strong-testimonials/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.testimonials"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "strong-testimonials/strong-testimonials.php"
+    ],
+    "assetPathSlugs": [
+      "strong-testimonials"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "testimonial",
+      "capability": "content.testimonials",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "shared-posts-table-requires-filter",
+          "severity": "warning",
+          "summary": "Testimonials are wp_posts rows (post_type=wpm-testimonial) with no dedicated table and no show_in_rest -- reading the posts table WITHOUT this entity's declared where-filter would return every post type on the site (products, pages, attachments, etc.), not just testimonials. sampleStructureRequest.where is mandatory here, not optional -- enforced by plugin-knowledge.js's SHARED_CORE_TABLES_REQUIRING_WHERE check."
+        },
+        {
+          "code": "extra-fields-in-key-scoped-postmeta",
+          "severity": "warning",
+          "summary": "Rating, category, and other structured fields (if used) live in postmeta keys. These are READABLE through wix-wp-plugin-v2, key-scoped: list the distinct meta_key values for these testimonials' post ids, then read the keys that matter with a scoped request (max 50 keys). Postmeta is not refused -- do not accept a metadata gap here without running the two-step read first. post_title/post_content/post_status/dates remain directly readable from wp_posts."
+        },
+        {
+          "code": "empty-on-real-test-site",
+          "severity": "info",
+          "summary": "VERIFIED LIVE 2026-08-29: a filtered query against the posts table (where post_type = wpm-testimonial) executes correctly and may return zero rows when the plugin is active but unused -- the mechanism is real and reachable; an empty result means there is nothing to migrate."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "wix-wp-plugin-v2 can read the shared posts table filtered to this plugin's post_type -- VERIFIED LIVE 2026-08-29: a filtered query (where post_type = wpm-testimonial) executes correctly and returns pagingMetadata.total (0 when no testimonials are configured). Reachability is confirmed; fulfillment wiring is deferred until a Wix target is researched and approved at the mapping review. The working filtered query, for reference once a target is approved: select ID/post_title/post_content/post_excerpt/post_status/post_date where post_type=wpm-testimonial, orderBy ID asc.",
+          "declined": false
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Registers custom post type wpm-testimonial: author (post_title), body (post_content). Confirmed via the plugin's own source (shortcode-form.php).",
+    "No native Wix target researched or approved yet -- do not assume a generic CMS collection is the right landing spot without that approval (see e.g. Wix Stores' native wishlist feature, which was nearly mis-defaulted to CMS the same way for a different plugin). Do not wire the testimonial entity's blocked[] fulfillment on your own judgment before that target decision is made."
+  ]
+}

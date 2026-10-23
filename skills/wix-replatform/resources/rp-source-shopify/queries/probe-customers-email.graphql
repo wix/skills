@@ -1,0 +1,6 @@
+# scopes: read_customers
+query RpShopifyProbeCustomersEmail($first: Int!) {
+  customers(first: $first) { edges { node {
+    id email defaultEmailAddress { emailAddress }
+  } } }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/decision-patch.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "requestId", "choice", "confidence", "reasonCodes"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "decision-patch" }, "requestId": { "type": "string" }, "choice": {}, "confidence": { "enum": ["high", "medium", "low"] }, "reasonCodes": { "type": "array", "items": { "type": "string" } }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

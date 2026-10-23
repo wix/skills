@@ -1,0 +1,73 @@
+# scopes: read_products
+# Bulk query: every product, all statuses. Connections: products, variants, media, metafields.
+{
+  products {
+    edges {
+      node {
+        id
+        title
+        handle
+        status
+        productType
+        vendor
+        tags
+        descriptionHtml
+        templateSuffix
+        isGiftCard
+        createdAt
+        updatedAt
+        publishedAt
+        seo { title description }
+        options { id name position values }
+        variants {
+          edges {
+            node {
+              __typename
+              id
+              title
+              sku
+              barcode
+              position
+              price
+              compareAtPrice
+              taxable
+              inventoryPolicy
+              inventoryQuantity
+              selectedOptions { name value }
+              inventoryItem { id }
+              createdAt
+              updatedAt
+            }
+          }
+        }
+        media {
+          edges {
+            node {
+              __typename
+              id
+              alt
+              mediaContentType
+              status
+              preview { image { url width height } }
+              ... on MediaImage { image { url width height altText } }
+              ... on Video { filename sources { url mimeType format height width } }
+              ... on ExternalVideo { embedUrl host }
+            }
+          }
+        }
+        metafields {
+          edges {
+            node {
+              __typename
+              id
+              namespace
+              key
+              type
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# scopes: read_orders, read_fulfillments
+# Bulk query: fulfillments per order, joined to orders-core by order id.
+# Connections: orders, fulfillments[].fulfillmentLineItems (2).
+{
+  orders(query: "created_at:<='{{SNAPSHOT_TIME}}'") {
+    edges {
+      node {
+        id
+        fulfillments {
+          id
+          name
+          status
+          displayStatus
+          createdAt
+          updatedAt
+          deliveredAt
+          inTransitAt
+          estimatedDeliveryAt
+          totalQuantity
+          trackingInfo { company number url }
+          location { id }
+          fulfillmentLineItems {
+            edges {
+              node {
+                __typename
+                id
+                quantity
+                lineItem { id }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

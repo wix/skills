@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
+const { approvalArtifactRefs } = require('../lib/user-actions.js');
 const {
   nowIso,
   randomId,
@@ -12,11 +14,21 @@ const {
   writeJsonAtomic,
   appendEvent,
   updateDecisionObject,
+  assertGenericDecisionKey,
+  recordPluginCmsFallbackDecision,
   updateApprovalObject,
+  autoApproveOneClick,
   updateCheckpointObject,
   transitionRun,
 } = require('../lib/orchestration-state.js');
 const { createProgressLogger, parseProgressArgs } = require('../lib/progress-log.js');
+const {
+  SOURCE_MODE_DECISION_KEYS,
+  invalidSourceModeMessage,
+  isKnownSourceMode,
+  normalizeAutomationMode,
+} = require('../lib/orchestration-decisions.js');
+const { applySiteTypePair, resolveSiteTypePair } = require('../lib/destination-choice.js');
 
 let progress;
 
@@ -26,7 +38,10 @@ function usage() {
   node scripts/orchestration-state.js validate --project-dir <dir>
   node scripts/orchestration-state.js status --project-dir <dir>
   node scripts/orchestration-state.js decide --project-dir <dir> --key <decisionKey> --value <jsonOrString> [--source user|deterministic_inference|prior_artifact] [--rationale <text>]
-  node scripts/orchestration-state.js approve --project-dir <dir> --type mapping|execution --status pending|approved|rejected|provisional [--notes <text>] [--decided-by user|system]
+      (targetSiteType: --value headless|studio|harmony [--business-type store|bookings|other|unknown] [--business-type-source user|context|not_asked] [--evidence-ref <ref>])
+  node scripts/orchestration-state.js decide-cms-fallback --project-dir <dir> --capability <id> --value approved|declined --approved-by <text> [--rationale <text>] [--coverage <plugin-coverage.json>] [--plugins-root <dir>]
+  node scripts/orchestration-state.js approve --project-dir <dir> --type mapping|execution --status pending|approved|rejected|provisional [--notes <text>] [--decided-by user|system|agent]
+  node scripts/orchestration-state.js auto-approve --project-dir <dir> --type mapping|execution [--notes <text>] [--artifact-refs <jsonArray>]
   node scripts/orchestration-state.js checkpoint --project-dir <dir> --phase discovery|mapping|setup|codegen|execution --patch <json>
   node scripts/orchestration-state.js transition --project-dir <dir> --state <state> --phase <activePhase> [--status <runStatus>] [--needs-user-input true|false] [--needs-llm true|false] [--resume-from <jsonReasonRef>]
 `);
@@ -45,6 +60,17 @@ function parseArgs(argv) {
     i += 1;
   }
   return args;
+}
+
+// Missing checkpoints.json or a missing phase entry renders as null; the validation
+// error list printed alongside it names the problem.
+function checkpointStatusSummary(checkpoints) {
+  const summary = {};
+  for (const phase of ['discovery', 'mapping', 'setup', 'codegen', 'execution']) {
+    const item = checkpoints && typeof checkpoints === 'object' ? checkpoints[phase] : null;
+    summary[phase] = item && typeof item === 'object' ? item.status : null;
+  }
+  return summary;
 }
 
 function parseMaybeJson(value) {
@@ -79,7 +105,7 @@ async function saveArtifacts(projectDir, artifacts) {
 async function main() {
   const parsed = parseProgressArgs(process.argv.slice(2));
   progress = createProgressLogger({
-    script: 'skills/replatform/scripts/orchestration-state.js',
+    script: 'skills/wix-replatform/scripts/orchestration-state.js',
     ...parsed.progress,
   });
   progress.start('Orchestration state command started', { phase: 'orchestration' });
@@ -132,13 +158,7 @@ async function main() {
       activePhase: artifacts.run.activePhase,
       runStatus: artifacts.run.status,
       approvals: artifacts.approvals,
-      checkpointStatus: {
-        discovery: artifacts.checkpoints.discovery.status,
-        mapping: artifacts.checkpoints.mapping.status,
-        setup: artifacts.checkpoints.setup.status,
-        codegen: artifacts.checkpoints.codegen.status,
-        execution: artifacts.checkpoints.execution.status,
-      },
+      checkpointStatus: checkpointStatusSummary(artifacts.checkpoints),
       errors: result.errors,
     }, null, 2));
     if (result.ok) {
@@ -153,7 +173,30 @@ async function main() {
     if (!args.key || args.value == null) {
       throw new Error('decide requires --key and --value');
     }
-    updateDecisionObject(artifacts.decisions, args.key, parseMaybeJson(args.value), {
+    assertGenericDecisionKey(args.key);
+    const decisionValue = parseMaybeJson(args.value);
+    if (['automationMode', 'interactionMode', 'runMode'].includes(args.key) &&
+        normalizeAutomationMode(decisionValue) === 'one_click' && !args.source) {
+      throw new Error('explicit one-click requires --source user');
+    }
+    // Reject an unknown source mode before anything is saved or logged, so it can never
+    // reach the router or preflight and silently downgrade to public capture.
+    if (SOURCE_MODE_DECISION_KEYS.includes(args.key) && !isKnownSourceMode(decisionValue)) {
+      throw new Error(invalidSourceModeMessage(decisionValue));
+    }
+    // The site type and Harmony business type are one pair in one write.
+    if (args.key === 'targetSiteBusinessType') {
+      throw new Error('record targetSiteBusinessType with --key targetSiteType --value harmony --business-type <store|bookings|other|unknown>');
+    }
+    if (args.key === 'targetSiteType') {
+      const pair = resolveSiteTypePair({
+        siteType: decisionValue,
+        businessType: args.businessType,
+        businessTypeSource: args.businessTypeSource || (decisionValue === 'harmony' && args.businessType === undefined ? 'user' : undefined),
+        evidenceRef: args.evidenceRef || null,
+      });
+      applySiteTypePair(artifacts.decisions, pair, { rationale: args.rationale || null, timestamp: nowIso() });
+    } else updateDecisionObject(artifacts.decisions, args.key, decisionValue, {
       source: args.source || 'user',
       rationale: args.rationale || null,
       timestamp: nowIso(),
@@ -172,11 +215,38 @@ async function main() {
     return;
   }
 
+  if (command === 'decide-cms-fallback' || command === 'decideCmsFallback') {
+    const coveragePath = args.coverage
+      ? path.resolve(args.coverage)
+      : [path.join(projectDir, 'discovery', 'plugin-coverage.json'), path.join(projectDir, 'data', 'wp-discovery', 'plugin-coverage.json')]
+        .find((candidate) => fs.existsSync(candidate));
+    if (!coveragePath || !fs.existsSync(coveragePath)) {
+      throw new Error('decide-cms-fallback needs plugin-coverage.json (discovery/ or data/wp-discovery/, or --coverage)');
+    }
+    const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+    const coverageRow = (coverage.capabilities || []).find((row) => row.capability === args.capability && row.recognized);
+    const { key, event } = recordPluginCmsFallbackDecision(artifacts, {
+      capability: args.capability,
+      value: args.value,
+      approvedBy: args.approvedBy,
+      coverageRow,
+      pluginsRoot: args.pluginsRoot ? path.resolve(args.pluginsRoot) : undefined,
+      rationale: args.rationale || null,
+      timestamp: nowIso(),
+    });
+    await saveArtifacts(projectDir, artifacts);
+    await appendEvent(projectDir, event);
+    console.log(JSON.stringify({ ok: true, decision: key, value: args.value, mappingApproval: artifacts.approvals.mapping.status }, null, 2));
+    progress.complete('CMS-fallback decision recorded', { phase: 'orchestration', step: 'decide-cms-fallback', entity: key, artifact: projectDir });
+    return;
+  }
+
   if (command === 'approve') {
     if (!args.type || !args.status) {
       throw new Error('approve requires --type and --status');
     }
     updateApprovalObject(artifacts.approvals, args.type, args.status, {
+      artifactRefs: await approvalArtifactRefs(projectDir, { approvalType: args.type, status: args.status, decidedBy: args.decidedBy || 'user' }),
       notes: args.notes || null,
       decidedBy: args.decidedBy || 'user',
       timestamp: nowIso(),
@@ -195,12 +265,78 @@ async function main() {
     return;
   }
 
+  if (command === 'auto-approve' || command === 'autoApprove') {
+    if (!args.type) {
+      throw new Error('auto-approve requires --type');
+    }
+    const artifactRefs = args.artifactRefs == null ? [] : parseMaybeJson(args.artifactRefs);
+    if (!Array.isArray(artifactRefs)) {
+      throw new Error('--artifact-refs must be a JSON array when provided');
+    }
+    // Preserve the existing no-op/refusal behavior before performing any disk binding.
+    const probe = autoApproveOneClick(JSON.parse(JSON.stringify(artifacts)), args.type, { artifactRefs });
+    if (!probe.ok) throw new Error(`auto-approve failed: ${probe.reason}`);
+    const boundRefs = probe.changed ? await approvalArtifactRefs(projectDir, { approvalType: args.type, status: 'approved', decidedBy: 'agent', artifactRefs }) : artifactRefs;
+    const result = autoApproveOneClick(artifacts, args.type, {
+      artifactRefs: boundRefs,
+      notes: args.notes || null,
+      timestamp: nowIso(),
+    });
+    if (!result.ok) {
+      throw new Error(`auto-approve failed: ${result.reason}`);
+    }
+    await saveArtifacts(projectDir, artifacts);
+    await appendEvent(projectDir, {
+      id: randomId('evt'),
+      timestamp: nowIso(),
+      phase: artifacts.run.activePhase,
+      state: artifacts.run.currentState,
+      type: 'approval.auto_approved',
+      payload: { approvalType: args.type },
+    });
+    console.log(JSON.stringify({ ok: true, approvalType: args.type, changed: result.changed }, null, 2));
+    progress.complete('Orchestration approval auto-approved', { phase: 'orchestration', step: 'auto-approve', entity: args.type, artifact: projectDir });
+    return;
+  }
+
   if (command === 'checkpoint') {
     if (!args.phase || !args.patch) {
       throw new Error('checkpoint requires --phase and --patch');
     }
     updateCheckpointObject(artifacts.checkpoints, args.phase, parseMaybeJson(args.patch), nowIso());
     await saveArtifacts(projectDir, artifacts);
+    // Advancing a phase is a fact about how far the run got, so it belongs in the run's own
+    // journal exactly as `transition`, `decide`, `approve` and `auto-approve` put theirs there.
+    // Without this line, phase progress was remembered only in checkpoints.json, and a reader
+    // replaying the journal saw a run that never left its opening state.
+    //
+    // The payload is read back off the *persisted* checkpoint, never off `--patch`: a patch that
+    // sets only `lastCompletedStep` must still report the status the checkpoint actually holds,
+    // and reporting the argument would emit `undefined` for a field the run still carries.
+    const checkpoint = artifacts.checkpoints[args.phase];
+    const payload = {
+      phase: args.phase,
+      status: checkpoint.status ?? null,
+      // A fresh checkpoint has no completed step. Emit the null rather than dropping the key:
+      // an absent key and a null step are different facts to a reader replaying the journal.
+      lastCompletedStep: checkpoint.lastCompletedStep ?? null,
+    };
+    if (args.phase === 'execution') {
+      // Execution is the only checkpoint carrying these two, and the only one where a single
+      // status cannot distinguish "setup done, import not" from "neither started".
+      payload.setupStatus = checkpoint.setupStatus ?? null;
+      payload.importStatus = checkpoint.importStatus ?? null;
+    }
+    // After saveArtifacts, matching the four sibling commands. A crash in between leaves a
+    // checkpoint with no event; that failure mode is theirs already and is not narrowed here.
+    await appendEvent(projectDir, {
+      id: randomId('evt'),
+      timestamp: nowIso(),
+      phase: artifacts.run.activePhase,
+      state: artifacts.run.currentState,
+      type: 'checkpoint.updated',
+      payload,
+    });
     console.log(JSON.stringify({ ok: true, phase: args.phase }, null, 2));
     progress.complete('Orchestration checkpoint updated', { phase: 'orchestration', step: 'checkpoint', entity: args.phase, artifact: projectDir });
     return;

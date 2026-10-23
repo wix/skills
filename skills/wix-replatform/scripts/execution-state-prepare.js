@@ -75,7 +75,7 @@ async function readMirrorRows(projectDir, specs) {
 async function main() {
   const parsed = parseProgressArgs(process.argv.slice(2));
   progress = createProgressLogger({
-    script: 'skills/replatform/scripts/execution-state-prepare.js',
+    script: 'skills/wix-replatform/scripts/execution-state-prepare.js',
     ...parsed.progress,
   });
   progress.start('Execution state preparation started', { phase: 'execution', step: 'prepare-state' });

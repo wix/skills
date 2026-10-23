@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/observation-packet.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "packetType", "sourceFingerprint", "payload"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "kind": { "const": "observation-packet" },
+    "packetType": { "type": "string" },
+    "sourceFingerprint": { "type": "string" },
+    "viewport": { "type": ["object", "null"] },
+    "state": { "type": ["string", "null"] },
+    "payload": {},
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

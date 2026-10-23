@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "domain": "sales-channels",
+  "entity": "ebay-shop-connect",
+  "displayName": "eBay",
+  "capability": "commerce.ebay-catalog-sync",
+  "target": {
+    "classification": "manual-mapping",
+    "nativeEntity": null,
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "ebay-for-woocommerce",
+      "confidence": "low",
+      "note": "No WooCommerce plugin profile authored yet for an eBay channel plugin; this alias is a forward-pointer. Confidence is low because of the missing internal evidence noted in pitfalls."
+    }
+  ],
+  "dependsOn": ["stores/product"],
+  "preferredWrite": {
+    "surface": "Manual -- no API; merchant connects/creates an eBay shop via the Wix dashboard",
+    "endpoint": null,
+    "writerId": null,
+    "verification": "none",
+    "importSafe": false,
+    "bulk": false
+  },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": ["not-independently-verified-live", "no-internal-fqdn-match"]
+  },
+  "pitfalls": [
+    {
+      "code": "no-internal-fqdn-found-for-ebay",
+      "severity": "warning",
+      "summary": "No FQDN matching \"ebay\" was found in the internal Business Schema registry, unlike the other channels in this domain. The mechanism below is sourced only from public Wix support documentation; treat it as lower confidence until an internal service is located or the current dashboard behavior is independently verified."
+    }
+  ],
+  "mappingGuidance": [
+    "Dependencies: stores/product must be migrated before the merchant connects eBay, so the catalog listing has products to publish."
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-ebay-shop"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://support.wix.com/en/article/wix-stores-managing-how-products-are-listed-on-ebay"
+    }
+  ],
+  "manualSteps": {
+    "prerequisite": "An eBay seller account (an existing eBay shop, or create a new one during setup).",
+    "steps": [
+      { "actor": "merchant", "text": "Go to Catalog > Sales Channels > eBay in the Wix dashboard and choose to connect an existing eBay shop or create a new one." },
+      { "actor": "external", "text": "Authorize the connection on eBay's side." },
+      { "actor": "merchant", "text": "Once connected, manage which products are listed on eBay from the eBay tab added to the Wix dashboard." }
+    ],
+    "mechanism": "Public docs describe inventory and listing management from the Wix dashboard once connected, but the underlying sync mechanism and frequency are unverified; see the no-internal-fqdn-found-for-ebay pitfall.",
+    "evidence": [
+      { "type": "wix-docs", "url": "https://support.wix.com/en/article/wix-stores-connecting-and-setting-up-an-ebay-shop" }
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "domain": "events",
+  "entity": "category",
+  "displayName": "Events Category",
+  "capability": "content.event-categories",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Wix Events Category",
+    "verifiedFqdn": "wix.events.v1.category",
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "sourceAliases": [
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "tribe_events_cat",
+      "routes": [
+        "/wp/v2/tribe_events_cat"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Events Categories",
+    "endpoint": "POST /events/v1/categories",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only if category metadata beyond name/assignment must survive (Wix category carries name + assigned events)."
+    }
+  ],
+  "reliability": {
+    "status": "unknown",
+    "flags": []
+  },
+  "mappingGuidance": [
+    "Create categories first, then assign events to them by ID — assignment happens on the category, not the event.",
+    "Wix Events categories are flat: flatten hierarchical source taxonomies and record the faithfulness-ledger entry."
+  ],
+  "setupRequirements": [
+    "Wix Events app"
+  ],
+  "pitfalls": [
+    {
+      "code": "flat-categories",
+      "severity": "warning",
+      "summary": "Wix Events categories are flat; a hierarchical source event taxonomy (tribe_events_cat is hierarchical) flattens on import — faithfulness-ledger entry required."
+    }
+  ],
+  "notes": "Event categories have a native Categories API (dev.wix.com Events > Event Management > Categories); do not map them to CMS. Docs-verified only; exercise live before confirming.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/categories/category-object"
+    },
+    {
+      "type": "review-decision",
+      "path": "anonymized-live-verification"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live: create + query-back readback, safe mode on — 3/3 categories created via POST /events/v1/categories, server IDs crosswalked; assignment-to-events not exercised (events stayed drafts)"
+    }
+  ]
+}

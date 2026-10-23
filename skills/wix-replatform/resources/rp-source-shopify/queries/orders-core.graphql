@@ -1,0 +1,150 @@
+# scopes: read_orders
+# Bulk query: the order set, authoritative for which orders exist and for updatedAt.
+# Connections: orders, lineItems, shippingLines, discountApplications, metafields (5).
+# Refunds and fulfillments are separate queries joined by order id.
+{
+  orders(query: "created_at:<='{{SNAPSHOT_TIME}}'") {
+    edges {
+      node {
+        id
+        name
+        number
+        createdAt
+        processedAt
+        updatedAt
+        closedAt
+        cancelledAt
+        cancelReason
+        currencyCode
+        presentmentCurrencyCode
+        displayFinancialStatus
+        displayFulfillmentStatus
+        confirmed
+        test
+        email
+        phone
+        note
+        tags
+        customerLocale
+        sourceName
+        paymentGatewayNames
+        discountCodes
+        subtotalPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        totalShippingPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        totalTaxSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        totalDiscountsSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        totalPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        totalRefundedSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+        taxLines { title rate priceSet { shopMoney { amount currencyCode } } }
+        customer {
+          id
+          firstName
+          lastName
+          email
+          defaultEmailAddress { emailAddress }
+          phone
+          defaultPhoneNumber { phoneNumber }
+        }
+        billingAddress {
+          firstName
+          lastName
+          address1
+          address2
+          city
+          company
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+          phone
+          latitude
+          longitude
+        }
+        shippingAddress {
+          firstName
+          lastName
+          address1
+          address2
+          city
+          company
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+          phone
+          latitude
+          longitude
+        }
+        lineItems {
+          edges {
+            node {
+              __typename
+              id
+              title
+              variantTitle
+              sku
+              vendor
+              quantity
+              requiresShipping
+              taxable
+              isGiftCard
+              product { id }
+              variant { id }
+              originalUnitPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              discountedUnitPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              totalDiscountSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              taxLines { title rate priceSet { shopMoney { amount currencyCode } } }
+            }
+          }
+        }
+        shippingLines {
+          edges {
+            node {
+              __typename
+              id
+              title
+              code
+              source
+              originalPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              discountedPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
+              taxLines { title rate priceSet { shopMoney { amount currencyCode } } }
+            }
+          }
+        }
+        discountApplications {
+          edges {
+            node {
+              __typename
+              allocationMethod
+              targetSelection
+              targetType
+              value {
+                __typename
+                ... on MoneyV2 { amount currencyCode }
+                ... on PricingPercentageValue { percentage }
+              }
+              ... on DiscountCodeApplication { code }
+              ... on ManualDiscountApplication { title description }
+              ... on AutomaticDiscountApplication { title }
+              ... on ScriptDiscountApplication { title }
+            }
+          }
+        }
+        metafields {
+          edges {
+            node {
+              __typename
+              id
+              namespace
+              key
+              type
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# scopes: read_online_store_navigation
+# Bulk query: URL redirects.
+{
+  urlRedirects {
+    edges {
+      node {
+        id
+        path
+        target
+      }
+    }
+  }
+}

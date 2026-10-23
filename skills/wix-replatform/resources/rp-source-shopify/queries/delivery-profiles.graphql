@@ -1,0 +1,51 @@
+# scopes: read_shipping
+# Bulk query: shipping profiles, zones and rates. Connections: deliveryProfiles, locationGroupZones,
+# methodDefinitions (3, two nested levels).
+{
+  deliveryProfiles {
+    edges {
+      node {
+        id
+        name
+        default
+        profileLocationGroups {
+          locationGroup { id }
+          locationGroupZones {
+            edges {
+              node {
+                __typename
+                zone { id name countries { code { countryCode restOfWorld } provinces { code } } }
+                methodDefinitions {
+                  edges {
+                    node {
+                      __typename
+                      id
+                      name
+                      active
+                      description
+                      rateProvider {
+                        __typename
+                        ... on DeliveryRateDefinition { id price { amount currencyCode } }
+                        ... on DeliveryParticipant { id fixedFee { amount currencyCode } percentageOfRateFee }
+                      }
+                      methodConditions {
+                        id
+                        field
+                        operator
+                        conditionCriteria {
+                          __typename
+                          ... on MoneyV2 { amount currencyCode }
+                          ... on Weight { unit value }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

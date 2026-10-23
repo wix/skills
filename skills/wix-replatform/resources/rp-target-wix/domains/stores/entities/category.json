@@ -3,6 +3,7 @@
   "domain": "stores",
   "entity": "category",
   "displayName": "Stores Category",
+  "capability": "commerce.catalog-category",
   "target": {
     "classification": "native",
     "nativeEntity": "Stores Category",
@@ -10,9 +11,25 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [],
   "sourceAliases": [
-    { "sourceSystem": "woocommerce", "sourceEntity": "product_category", "routes": ["/wc/v3/products/categories"], "confidence": "high" },
-    { "sourceSystem": "wix", "sourceEntity": "storesCategory", "routes": ["Catalog V3 Categories", "V1 collections"], "confidence": "high" }
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product_category",
+      "routes": [
+        "/wc/v3/products/categories"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "storesCategory",
+      "routes": [
+        "Catalog V3 Categories",
+        "V1 collections"
+      ],
+      "confidence": "high"
+    }
   ],
   "preferredWrite": {
     "surface": "Categories",
@@ -23,15 +40,42 @@
     "bulk": false
   },
   "fallbacks": [
-    { "classification": "cms", "when": "Use only for source taxonomy metadata or hierarchy details not represented by Stores categories." }
+    {
+      "classification": "cms",
+      "when": "Use only for source taxonomy metadata or hierarchy details not represented by Stores categories."
+    }
   ],
-  "reliability": { "status": "reliable", "flags": [] },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
   "pitfalls": [
-    { "code": "tree-reference-top-level", "severity": "blocker", "summary": "Pass Stores treeReference as a top-level sibling of category." }
+    {
+      "code": "tree-reference-top-level",
+      "severity": "blocker",
+      "summary": "Pass Stores treeReference as a top-level sibling of category."
+    }
   ],
-  "mappingGuidance": ["Preserve hierarchy where the target category tree supports it; create before products."],
-  "setupRequirements": ["Wix Stores app"],
+  "hierarchy": {
+    "maxNestingDepth": 5,
+    "source": "product domain knowledge",
+    "confirmedBy": null,
+    "liveVerified": false,
+    "note": "Not yet independently live-verified. If live confirmation is required, verify with a small multi-level treeReference test chain and update liveVerified/evidence."
+  },
+  "mappingGuidance": [
+    "Preserve hierarchy where the target category tree supports it (up to 5 levels of nesting per Wix Stores category tree); create before products.",
+    "If a source category tree exceeds 5 levels, re-parent nodes deeper than level 5 up to their level-5 ancestor and record the flattening as a documented faithfulness-ledger loss -- do not silently drop or guess.",
+    "Category images take the same one-url, permanent-ceiling path as product media: resolve the source reference to its original, maximum-resolution candidate instead of reading a single named field, and percent-encode the url before sending it."
+  ],
+  "setupRequirements": [
+    "Wix Stores app"
+  ],
   "evidence": [
-    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" }
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/category-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
   ]
 }

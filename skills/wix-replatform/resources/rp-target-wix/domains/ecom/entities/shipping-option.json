@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "domain": "ecom",
+  "entity": "shipping-option",
+  "displayName": "Wix Shipping Option",
+  "capability": "commerce.shipping-rate",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "ShippingOption",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [
+    "ecom/delivery-profile"
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "shipping-zone.method",
+      "routes": [
+        "/wc/v3/shipping/zones/{id}/methods"
+      ],
+      "confidence": "high",
+      "note": "Same source data shipping-build.js's classifyMethod already classifies for delivery-profile.json's deliveryCarrier.backupRate -- but ONLY a kind:'carrier' classification produces BOTH a DeliveryCarrier.backupRate AND a ShippingOption from the same classified method; for that kind they are not alternatives. The other kinds produce no shipping option at all: 'pickup' becomes a PickupLocation (see ecom/pickup-location), 'threshold' folds onto a sibling paid option as a conditional rate, and 'coupon-domain' produces nothing here."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Shipping Options",
+    "endpoint": "POST /ecom/v1/shipping-options",
+    "writerId": "createShippingOptionVerified",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "Verified live: creating a ShippingOption that matches a region's DeliveryCarrier.backupRate populates the dashboard rate table where the carrier write alone does not. The write counts only when its read-back matches (createShippingOptionVerified); createShippingOption stays as the raw call."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "not-derived-from-backup-rate-a-separate-required-write",
+      "severity": "blocker",
+      "summary": "DeliveryCarrier.backupRate does not create a ShippingOption and does not clear Wix's missing-rates dashboard warning. Live verification showed that a carrier-only region can write and read back successfully while remaining non-functional at checkout. Always create a matching ShippingOption for every imported DeliveryRegion from the same classified method used for DeliveryCarrier.backupRate; see shipping-build.js's buildShippingOptionInput."
+    },
+    {
+      "code": "delivery-region-ids-plural-is-the-live-field",
+      "severity": "warning",
+      "summary": "CORRECTED. An earlier reading of this API said to use the singular `deliveryRegionId` and treat the plural as decoration; that is inverted. Per the service contract, the singular `deliveryRegionId` is DEPRECATED and replaced by `deliveryRegionIds`, with a removal target already in the past -- the plural is the live field, which is also why the singular-only observation showed an empty plural array on read-back. Write BOTH: the plural is what is honoured going forward, the singular keeps older reads and tooling working until it is actually removed. The original observation was real; the conclusion drawn from a doc page that predated the deprecation was not."
+    },
+    {
+      "code": "estimated-delivery-time-is-the-field-not-the-translatable-name",
+      "severity": "blocker",
+      "summary": "CORRECTED; the earlier rule had the two names exactly reversed. The request field is `estimatedDeliveryTime` (proto field 12, `estimated_delivery_time`, max 500 characters; wix-private/ecom shipping_option.proto at ed73ff24). `estimate_delivery_time` is only the `translatable` annotation's `name` -- a key in the translation system, not something a request can set -- which is why it looks like a second spelling. Wix accepts the misspelled `estimateDeliveryTime` in a create body with a 200 and silently drops it, so every option created with it read back with no delivery time. Live 2026-10-08: POST with `estimateDeliveryTime` returned 200 and GET showed no estimate; PATCH with `{shippingOption:{id, revision, estimatedDeliveryTime}}` stored it and it read back. shipping-build.js's buildShippingOptionInput emits only `estimatedDeliveryTime`, throws above 500 characters (never truncates), and has no default; createShippingOptionVerified reads every create back and repairs only a blank estimate with one estimate-only PATCH."
+    },
+    {
+      "code": "rates-support-conditions-and-the-lowest-valid-one-wins",
+      "severity": "warning",
+      "summary": "`rates[]` is the ConditionalRates type: each entry is {conditions[0..10], amount (decimal string), multiplyByQuantity}, and each Condition is {type: BY_TOTAL_WEIGHT|BY_TOTAL_PRICE|BY_TOTAL_QUANTITY, value, operator: EQ|GT|GTE|LT|LTE}. Conditions AND together; an empty conditions[] means always-applies. The runtime rule, verbatim from the service contract: 'at runtime for a given shipment input, up to one rate (price) should be returned in an option. If more than one rate is valid then we return the lowest one.' A source minimum-order free-shipping threshold is therefore fully expressible and is NOT a gap. What the contract does NOT settle is whether BY_TOTAL_PRICE is measured before or after cart discounts -- WooCommerce has an explicit ignore_discounts setting for exactly this, so the two can disagree. Ship the threshold as written, flag it, confirm at the first live checkout, and never report such a rate as verified until then."
+    },
+    {
+      "code": "explicit-two-band-partition-breaks-the-dashboard-editor",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-09-16: a paid-flat-rate-plus-threshold fold has TWO API-valid encodings, and only one of them is dashboard-editable. Writing it as an explicit two-way partition -- one rate LT the threshold at the paid amount, one rate GTE the threshold at 0 (shipping-build.js's priceThresholdRates) -- is accepted by Create Shipping Option (200, correct read-back, verifyShippingEconomics reports zero violations) but the Wix dashboard's own rate editor renders it as 'Rate by price' mode with invalid, unfillable 'From'/'Up to' boundary fields -- a merchant opening this rate sees validation errors on a rate that works fine at checkout. LEANING ON the service's own lowest-wins tiebreak instead -- one UNCONDITIONAL rate at the paid amount plus one separate GTE-threshold rate at 0 (unconditionalRate + freeAboveThresholdRates, both already in shipping-build.js) -- renders correctly as the dashboard's simpler 'Flat rate' mode with its 'Offer free shipping when customers purchase a certain amount' checkbox, confirmed live against the actual dashboard editor. resolveZoneMethods now builds this combination by default; do not switch it back to the explicit-partition shape without re-verifying the dashboard editor first, and do not reach for priceThresholdRates directly for anything a merchant will open in the dashboard."
+    },
+    {
+      "code": "one-option-per-buyer-choice-not-per-source-method",
+      "severity": "blocker",
+      "summary": "CORRECTED, and the correction matters more than the original. An earlier version of this rule said each carrier-classified method becomes its own ShippingOption and to never collapse several methods into one. That produces a store where the same delivery is listed two or three times, because a source zone lists every shipping BEHAVIOUR as its own method row -- a minimum-order threshold and a coupon-gated free shipping are both rows, and neither is something a buyer picks. Observed live: one source zone with five methods produced four options, two of them byte-identical unconditional zeroes. Resolve the zone's methods to buyer-facing choices first (shipping-build.js's resolveZoneMethods: fold thresholds onto paid options, drop coupon-gated rows, route pickup to its own entity, then collapse identical survivors) and create one option per surviving choice. Every collapse is reported as a resolved source defect -- a silent collapse is indistinguishable from never having noticed."
+    }
+  ],
+  "mappingGuidance": [
+    "For every WooCommerce shipping-zone method that shipping-build.js's classifyMethod resolves to kind:'carrier', create BOTH a DeliveryCarrier (backupRate, on the delivery profile) AND a ShippingOption (rates[], standalone resource keyed by deliveryRegionId) from the same classified result -- shipping-build.js's buildDeliveryCarrierInput and buildShippingOptionInput. Creating only the former leaves the region looking fully configured via the API (and even via a plain Query Delivery Profiles read-back) while Wix's own checkout and dashboard still treat it as missing rates.",
+    "amount is a plain decimal string ('8', '0'), same convention as backupRate.amount -- no separate currency/format handling needed.",
+    "A source minimum-order free-shipping threshold is CARRIED, not dropped: write the paid option with two rates -- an UNCONDITIONAL rate at the source price plus a separate GTE band at 0 on BY_TOTAL_PRICE at the source's minimum (shipping-build.js's unconditionalRate + freeAboveThresholdRates), relying on the service's own lowest-valid-rate tiebreak. Do NOT use the explicit LT/GTE two-way partition (priceThresholdRates) for this -- see the explicit-two-band-partition-breaks-the-dashboard-editor pitfall below: it is schema-valid but renders as a broken, unfillable 'Rate by price' mode in the Wix dashboard's own rate editor. priceThresholdRates still exists and is schema-valid; it is discouraged specifically for anything a merchant will open in the dashboard, which is the normal case here.",
+    "An unconditional 0-amount rate is correct in exactly one case: a source free-shipping method with NO condition attached at all. Anywhere else it means a condition was dropped, which does not half-migrate the rule -- it inverts it, makes every paid option unreachable, and costs the merchant its shipping revenue. shipping-build.js's verifyShippingEconomics fails a region that has an unconditional free option alongside a paid one, for exactly this reason.",
+    "Delivery estimate: resolve it per option with shipping-build.js's resolveDeliveryEstimate -- a merchant-confirmed `shipping-delivery-estimate:<zoneId>` decision (`source: \"user\"` only) wins, then a delivery time the source states, then the reviewed '5-7 business days' default in the DESTINATION site's language (DEFAULT_ESTIMATE_BY_LANGUAGE; Hebrew gets '5–7 ימי עסקים'). A language with no reviewed row gets NO estimate and a `shipping-estimate-missing` merchant item; English is never written on a non-English site. Every default is flagged `shipping-estimate-default` for the merchant to confirm. A non-empty estimate the migration did not write is the merchant's and is never overwritten. Options created by earlier (pre-fix) migrations are reported (`shipping-estimate-legacy-blank`), never edited."
+  ],
+  "setupRequirements": [],
+  "objectPageException": "The standard API reference menu (dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery, checked 2026-08-15) has exactly one subsection, 'Delivery Profiles' -- no 'Shipping Options' subsection and no dedicated ShippingOption '…-object' page exist anywhere in that tree. The entire resource is undocumented there; the only place it's described at all is the 'Shipping: API Reference' skills article (a distilled, AI-agent-oriented reference in a completely separate doc tree, business-solutions/e-commerce/skills/) plus its sibling 'Fix Shipping Coverage Gaps' article. The full field shape is sourced from those two pages' request/response examples instead.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-fix-coverage-gaps",
+      "note": "the article that surfaced ShippingOption's existence and its role in clearing a checkout coverage gap; not linked from or mentioned on any shipping-delivery/delivery-profiles/* page"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference",
+      "note": "full Query/Create/Get/Update/Delete Shipping Option + Add/Remove Delivery Region (on a shipping option) schema and the singular-vs-plural deliveryRegionId gotcha, confirmed 2026-08-15"
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification"
+    }
+  ]
+}

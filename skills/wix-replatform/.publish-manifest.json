@@ -1,8 +1,8 @@
 {
-  "bundle": "replatform",
-  "version": "1.2.0",
+  "bundle": "wix-replatform",
+  "version": "2.2.3",
   "sourceRepo": "wix-private/replatform",
-  "sourcePath": "skills/",
-  "sourceCommit": "9aaaebd",
-  "publishedAt": "2026-08-05T13:55:48Z"
+  "sourcePath": "skills/wix-replatform/",
+  "sourceCommit": "6bde03f",
+  "publishedAt": "2026-10-22T22:14:10Z"
 }
