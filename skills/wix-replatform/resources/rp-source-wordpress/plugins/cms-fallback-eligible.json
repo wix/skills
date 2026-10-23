@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "description": "The CMS-fallback eligibility register: recognized plugin capabilities for which a NAMED HUMAN has determined that nothing native in Wix fits, so a Wix CMS (Wix Data) collection is an acceptable place to keep the records. Eligibility alone never plans a write: each migration keeps the capability pending until the merchant approves or declines that specific fallback at the mapping review, recorded in that project's orchestration/decisions.json under pluginCmsFallback:<capability> (written only by `orchestration-state.js decide-cms-fallback`). CMS keeps the records; it does not bring back what the plugin did, and `featureLoss` says what the merchant loses, verbatim, at the approval ask and in reports.\n\nRules (enforced by plugin-knowledge-validate.js): every entry is signed (`decidedBy`, `decidedOn`); `targetRefsByEntity` keys cover exactly the profile entities of the capability, and only a capability whose every declaring profile declares exactly one capability may appear; every ref starts with cms/ and is a known target ref; a capability may not also appear in requires-development.json or no-migration-needed.json capabilities[]; and an entry is rejected once a Wix target entity claims the capability. Plugin profiles never name cms/* refs in candidateTargetRefs.",
+  "capabilities": [
+    {
+      "capability": "content.podcast",
+      "targetRefsByEntity": {
+        "seriously-simple-podcasting/episode": ["cms/collection", "cms/data-item"]
+      },
+      "reason": "Wix has no native podcast entity: no Wix target entity claims content.podcast, so episodes can only be kept as CMS data (a collection of episodes, with audio files referenced as media).",
+      "nativeAlternativesChecked": "Bundled Wix target knowledge (rp-target-wix domains capabilityIndex) has no entity claiming content.podcast and no podcast, episode or feed target; reviewed with the original 2026-08-16 signature, which recorded CMS as the migration model for this capability.",
+      "featureLoss": "Episodes arrive as CMS data; no podcast player or RSS feed is recreated.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-08-16",
+      "note": "Replaces the CMS refs formerly declared in seriously-simple-podcasting.json's episode entity and the signature recorded in its no-native-podcast-target pitfall; the signature is scoped to this capability only."
+    }
+  ]
+}

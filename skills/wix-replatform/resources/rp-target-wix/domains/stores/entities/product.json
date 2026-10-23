@@ -3,6 +3,7 @@
   "domain": "stores",
   "entity": "product",
   "displayName": "Stores Product",
+  "capability": "commerce.catalog-product",
   "target": {
     "classification": "native-plus-cms",
     "nativeEntity": "Stores Product",
@@ -10,9 +11,31 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "stores/category",
+    "stores/brand",
+    "stores/product-tag",
+    "media/media-file",
+    "stores/product-customization"
+  ],
   "sourceAliases": [
-    { "sourceSystem": "woocommerce", "sourceEntity": "product", "routes": ["/wc/v3/products"], "confidence": "high" },
-    { "sourceSystem": "wix", "sourceEntity": "storesProduct", "routes": ["Stores Catalog V1 Products", "Stores Catalog V3 Products"], "confidence": "high" }
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "product",
+      "routes": [
+        "/wc/v3/products"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "storesProduct",
+      "routes": [
+        "Stores Catalog V1 Products",
+        "Stores Catalog V3 Products"
+      ],
+      "confidence": "high"
+    }
   ],
   "preferredWrite": {
     "surface": "Stores Catalog V3 Products",
@@ -31,7 +54,7 @@
       "path": "product.subscriptionDetails",
       "verificationLevel": "live-create-and-readback",
       "lastVerified": "2026-07-26",
-      "verifiedBy": "migration-20260726-01",
+      "verifiedBy": "live-verification",
       "requiredPaths": [
         "product.subscriptionDetails.allowOneTimePurchases",
         "product.subscriptionDetails.subscriptions[]",
@@ -49,7 +72,12 @@
         },
         {
           "path": "product.subscriptionDetails.subscriptions[].frequency",
-          "enum": ["DAY", "WEEK", "MONTH", "YEAR"],
+          "enum": [
+            "DAY",
+            "WEEK",
+            "MONTH",
+            "YEAR"
+          ],
           "source": "live-create"
         },
         {
@@ -71,20 +99,123 @@
     }
   ],
   "fallbacks": [
-    { "classification": "cms", "when": "Use for plugin rules, source-only metadata, or catalog semantics that do not fit product extended fields." }
+    {
+      "classification": "cms",
+      "when": "Use for plugin rules, source-only metadata, or catalog semantics that do not fit product extended fields."
+    }
   ],
-  "reliability": { "status": "partially-reliable", "flags": [] },
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
   "pitfalls": [
-    { "code": "catalog-v3-normalization", "severity": "blocker", "summary": "Normalize V1/simple product fields into Catalog V3 product and variant shapes before create." },
-    { "code": "variant-matrix-two-pass", "severity": "warning", "summary": "Full variable product matrices require a post-create option-choice and variant pass." }
+    {
+      "code": "catalog-v3-normalization",
+      "severity": "blocker",
+      "summary": "Normalize V1/simple product fields into Catalog V3 product and variant shapes before create."
+    },
+    {
+      "code": "variant-matrix-two-pass",
+      "severity": "warning",
+      "summary": "Full variable product matrices require a post-create option-choice and variant pass."
+    },
+    {
+      "code": "empty-source-slug-derives-and-can-collide",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE: a source product carrying an EMPTY slug is not rejected -- Wix derives one from the product name instead. That derived slug competes in the same namespace as every slug the import supplies, so it can collide with another product's decoded source slug or with a second product whose name slugifies the same way, and the losing write comes back as a duplicate-slug conflict. Empty source slugs are not rare. Resolve them BEFORE the write -- mint an explicit, catalog-unique slug per affected product and record it against the source id -- so which product owns the name is decided by the mapping, not by write order. A conflict resolved by appending a numeric suffix, whether the platform did it or a repair pass did, is a DEVIATION from the source value and not a preserved slug: report it as an exception on the run's faithfulness ledger rather than counting it as correct."
+    },
+    {
+      "code": "media-source-resolution",
+      "severity": "blocker",
+      "summary": "media.itemsInfo.items[] takes ONE url per image and the destination copies exactly that file, generating every derivative from it with no way to raise quality afterwards -- so the url sent is that image's permanent ceiling. Never map a single named source image field: a source image reference usually carries several urls for the same picture at different sizes, and the field holding the original differs between routes of the SAME source. Resolve to the original, maximum-resolution candidate before building the item. Also: altText (1-1000 chars) and displayName (max 80, url-set items only) are writable per item and must not be flattened away; thumbnail is destination-generated output, never an input."
+    },
+    {
+      "code": "wordpress-percent-encoded-slug",
+      "severity": "blocker",
+      "summary": "product.slug is user-visible URL, not internal state -- and Wix slug sanitizing silently turns literal '%' characters into dashes rather than erroring. A WooCommerce source stores a non-Latin (e.g. Hebrew) post_name percent-encoded and its REST API (wc/v3) returns it undecoded; passing that raw value straight through as product.slug produces a garbled hex-with-dashes URL (e.g. '.../product-page/d7-90-d7-99-d7-a0-d7-98-d7-a0-d7-a1-d7-95') instead of the real slug. Nothing fails -- no 400 and no warning -- so only a check that compares the stored slug against the DECODED source value catches it; comparing against the raw source field or against what the writer sent calls it correct. Decode with decodeURIComponent BEFORE the slug coercion runs (decoding afterwards is too late: sanitizing has already consumed the '%'), guarded in a try/catch so a slug that was never percent-encoded passes through unchanged and a malformed escape falls back to the raw value instead of throwing. The decoded Unicode slug is then writable as-is: the standard coercion (`coerce: 'slug'`, i.e. toWixSlug) lowercases and keeps letters, combining marks and digits in any script, so do not replace a non-Latin slug with a transliterated or invented one. Confirm on the FIRST product that the decoded slug read back intact; missing it costs a repair pass over every product already created. Confirmed live on non-Latin WooCommerce catalogs. See rp-source-wordpress/SKILL.md and rp-import-codegen/SKILL.md's 'Never hand-write slug sanitizing' section."
+    },
+    {
+      "code": "seo-data-only-for-proven-overrides",
+      "severity": "blocker",
+      "summary": "Write product.seoData only for per-field SEO overrides the source proves (see rp-source-wordpress wordpress-seo product-seo-meta). Rendered Yoast output would turn an inherited pattern into a hard per-product override. [UNVERIFIED as of 2026-09-29] Create-time persistence of seoData on the create-with-inventory call has not been live-verified: the throwaway-site canary (create one product with inventory plus title and description seoData, read it back, observe both tags resolve TAG_SOURCE_ITEM, delete it) is still pending. Until it is recorded here, product-seo.js reads every product back after create and, if seoData was dropped, writes it with a revision-protected PATCH and verifies that. A PATCH of seoData with the saved revision is live-observed (2026-08-27, resolved TAG_SOURCE_ITEM). tags[] is replaced whole: send current non-import-owned tags back unchanged."
+    }
   ],
   "mappingGuidance": [
-    "Create categories, tags, and media references before products when the source uses them.",
-    "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified."
+    "Create categories, brands, tags, and media references before products when the source uses them; assign brands by crosswalked brand.id, never by name (see stores/brand).",
+    "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified.",
+    "Plan the slug for the WHOLE catalog before writing the first product, not per record. Two source shapes decide the target slug and neither is visible one record at a time: a percent-encoded non-Latin slug must be tolerantly percent-decoded first and then kept as the decoded Unicode value (see wordpress-percent-encoded-slug), and an empty source slug must be filled in rather than left for the platform to derive (see empty-source-slug-derives-and-can-collide). Build the source-slug -> planned-target-slug map up front, assert it is unique across the catalog after coercion, and carry the ORIGINAL source slug beside the planned one so a later URL-preservation report can tell a faithful slug from a deviated one.",
+    "Product images: pass every candidate url the source record offers to the source adapter's image resolver and use its result, never a hardcoded field such as src. Carry altText and displayName through to the media item. When the resolver reports that only a downscaled crop existed, record those images in the run's faithfulness ledger rather than importing them silently.",
+    "Product SEO: build seoData with buildProduct(canonical, { seoPlan }) from product-seo.js planProductSeo; never map rendered source SEO into seoTitle/seoDescription for an evidence-contract source."
   ],
-  "setupRequirements": ["Wix Stores app", "Product data extension schema when source-only product fields are preserved natively."],
+  "setupRequirements": [
+    "Wix Stores app",
+    "Product data extension schema when source-only product fields are preserved natively.",
+    "Product data extension schema (FQDN wix.stores.catalog.*.product, provision-extended-fields step) before any writer emits product extendedFields values."
+  ],
   "evidence": [
-    { "type": "repo-research", "path": "research/import-api-suitability/stores-catalog-inventory.md" },
-    { "type": "repo-research", "path": "research/source-entity-import-suitability-wordpress-woocommerce-wix.md" }
-  ]
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/product-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+  ],
+  "extendedFields": {
+    "schemaKind": "data-extension-schema",
+    "definitionSurface": "Data Extension Schema API",
+    "definitionOperation": "Create/Update Data Extension Schema (FQDN wix.stores.catalog.*.product)",
+    "valuePath": "extendedFields.namespaces._user_fields",
+    "namespaceForCreatedFields": "_user_fields",
+    "dataExtensionSchemaBacked": true,
+    "fqdn": "wix.stores.catalog.*.product",
+    "supportsFiltering": true,
+    "nestedSubrecordExtendedFields": "none known",
+    "liveVerification": "UNVERIFIED — offline contract only; disposable-site create and concurrent-edit proof pending.",
+    "admittedFieldTypes": [
+      "string"
+    ],
+    "keyConvention": "sourceProductId for the source product id; plain keys under _user_fields.",
+    "docs": [
+      "https://dev.wix.com/docs/api-reference/business-management/data-extension-schema/introduction"
+    ]
+  },
+  "intendedFields": [
+    {
+      "targetPath": "product.name",
+      "sourcePaths": [
+        "name"
+      ]
+    },
+    {
+      "targetPath": "product.plainDescription",
+      "sourcePaths": [
+        "description"
+      ]
+    },
+    {
+      "targetPath": "product.media.itemsInfo.items[]",
+      "sourcePaths": [
+        "images[]",
+        "media[]"
+      ]
+    }
+  ],
+  "readBackProjection": {
+    "identity": "source-marker-and-variant-id",
+    "serverOwned": [
+      {
+        "path": "product.revision",
+        "reason": "server revision"
+      },
+      {
+        "path": "product.updatedDate",
+        "reason": "server timestamp"
+      }
+    ],
+    "read": "getStoresProductForVerification",
+    "fields": [
+      "MEDIA_ITEMS_INFO",
+      "PLAIN_DESCRIPTION"
+    ],
+    "mediaSettlement": "read-after-60s-unknown-on-exhaustion"
+  }
 }

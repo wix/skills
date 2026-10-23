@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/build-plan.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "pageKey", "route", "manifestHash", "status", "units"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "build-plan" }, "pageKey": { "const": "home" }, "route": { "const": "/" }, "manifestHash": { "type": "string" }, "status": { "enum": ["accepted", "done_with_gaps"] }, "units": { "type": "array" }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

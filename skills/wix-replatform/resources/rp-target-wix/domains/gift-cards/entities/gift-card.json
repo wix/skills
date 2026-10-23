@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "domain": "gift-cards",
+  "entity": "gift-card",
+  "displayName": "Gift Card",
+  "capability": "commerce.gift-cards",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Gift Card",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "dependsOn": [],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.pw-woocommerce-gift-cards.gift-card-activity",
+      "degradedField": "balance",
+      "pitfallCode": "balance-is-read-only",
+      "degradation": "warning"
+    }
+  ],
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "giftCard",
+      "sourcePlugin": "woocommerce-gift-cards",
+      "routes": [
+        "/wc/v3/gift-cards"
+      ],
+      "confidence": "high"
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "giftCard",
+      "sourcePlugin": "pw-woocommerce-gift-cards",
+      "routes": [
+        "/wc/v3/orders"
+      ],
+      "confidence": "high",
+      "note": "Live verification established that the source plugin has no REST namespace of its own. Issuance data rides as line_item meta_data on /wc/v3/orders once an order reaches processing or completed; redemption and balance data have no REST or order-meta surface and require the profile's gift-card-activity entity."
+    }
+  ],
+  "preferredWrite": {
+    "surface": "Gift Cards",
+    "endpoint": "POST /gift-cards/v1/gift-cards",
+    "writerId": null,
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false
+  },
+  "fallbacks": [
+    {
+      "classification": "cms",
+      "when": "Only for redemption/transaction history, which has no public write surface, or for source-only fields such as the original card design."
+    }
+  ],
+  "reliability": {
+    "status": "partially-reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "suppress-recipient-email-on-import",
+      "severity": "blocker",
+      "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder."
+    },
+    {
+      "code": "code-length-8-to-20",
+      "severity": "blocker",
+      "summary": "`giftCard.code` is constrained to 8-20 characters and is immutable. Source codes outside that range cannot be preserved, which breaks the code customers already hold; surface affected cards before import rather than silently rewriting them."
+    },
+    {
+      "code": "code-alphanumeric-only",
+      "severity": "blocker",
+      "summary": "Verified live: `giftCard.code` rejects any non-alphanumeric character. A hyphenated code returns `428 INVALID_CODE`, independent of the 8-20 length check above. Sources whose default format includes separators therefore cannot preserve those codes as-is. Stripping non-alphanumeric characters produces an acceptable code, but changes what the customer already holds; report affected cards and require an explicit decision rather than stripping silently."
+    },
+    {
+      "code": "full-code-returned-only-at-create",
+      "severity": "blocker",
+      "summary": "The create response is the only place the full unobfuscated code appears; Get/Query return it masked (`****-****-****-4444`) plus `codeSuffix`. Persist the code-to-id crosswalk in the same step as the create or it is unrecoverable."
+    },
+    {
+      "code": "balance-is-read-only",
+      "severity": "warning",
+      "summary": "Only `initialValue` is settable; `balance` is derived from transactions and there is no public adjust-balance method. A partly-spent card must either be created at its remaining value (loses face value and spend history) or created at face value and reduced via a redeem call (preserves both, adds a synthetic transaction). Use one balance policy per run (Policy A/B, never both for the same card) and lib/gift-card-balance-reconciliation.js's buildBalanceReconciliationReport() (fixed 2026-08-18) for the reporting-only drift check this implies — it never proposes a balance patch, only disable-and-replace or investigate, for exactly the no-adjust-balance-method reason stated here."
+    },
+    {
+      "code": "no-transaction-history-import",
+      "severity": "warning",
+      "summary": "No public method writes historical redemption transactions, so per-card spend history is not reproducible natively."
+    }
+  ],
+  "mappingGuidance": [
+    "Always send `source: \"MANUAL\"` — it is required, and it distinguishes imported cards from cards bought through a Wix order.",
+    "Pass a stable `idempotencyKey` derived from the source card id so a retried import cannot double-issue a card.",
+    "`expirationDate` is accepted at create, so original expiry dates are preserved.",
+    "Decide the partial-balance policy in the mapping plan and surface it in the execution plan; do not default silently.",
+    "Amounts are decimal strings with at most 2 decimal places, and currency is ISO-4217 alphabetic.",
+    "CORRECTED 2026-08-17 (VERIFIED LIVE): `currency` is a TOP-LEVEL field on the giftCard object, NOT nested inside `initialValue`. `{ giftCard: { initialValue: { amount, currency } } }` fails with `400 currency must not be empty`; the working shape is `{ giftCard: { initialValue: { amount }, currency, source, code, idempotencyKey } }`."
+  ],
+  "setupRequirements": [
+    "Wix Gift Card app installed",
+    "SCOPE.DC-ECOM-MEGA.MANAGE-ECOM"
+  ],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/gift-card-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/create-gift-card"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-cards/introduction"
+    },
+    {
+      "type": "wix-docs-search",
+      "path": "searched: gift card, stored value, voucher, store credit — across business-solutions/gift-cards and e-commerce/payments/gift-cards (2026-08-01)"
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification",
+      "note": "Verified live after installing the Wix Gift Cards app: create and read-back succeeded through rp-target-wix/lib/gift-card-build.js and established the currency-placement and code-alphanumeric constraints. Not exercised: Send Gift Card Email, Query/Search, checkout redemption, or disabling/deleting a card."
+    }
+  ]
+}

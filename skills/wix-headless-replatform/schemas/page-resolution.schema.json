@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/page-resolution.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "pageKey", "destinationRoute", "source", "status", "gapRefs", "hash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" },
+    "kind": { "const": "page-resolution" },
+    "id": { "const": "page-resolution:home" },
+    "pageKey": { "const": "home" },
+    "destinationRoute": { "const": "/" },
+    "status": { "enum": ["accepted", "provisional"] },
+    "source": {
+      "type": "object",
+      "required": ["requestedUrl", "resolvedUrl"],
+      "properties": {
+        "requestedUrl": { "type": "string", "format": "uri" },
+        "candidateUrl": { "type": "string", "format": "uri" },
+        "resolvedUrl": { "type": "string", "format": "uri" },
+        "canonicalUrl": { "type": "string", "format": "uri" },
+        "redirectsFollowed": { "type": "boolean" },
+        "fingerprint": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "gapRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "dependencyHashes": { "type": "array", "items": { "type": "string" } },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

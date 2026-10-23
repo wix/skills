@@ -3,6 +3,7 @@
   "domain": "members",
   "entity": "member",
   "displayName": "Site Member",
+  "capability": "identity.member",
   "target": {
     "classification": "native-plus-cms",
     "nativeEntity": "Member",
@@ -10,10 +11,34 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
+  "dependsOn": [
+    "crm/contact"
+  ],
   "sourceAliases": [
-    { "sourceSystem": "wordpress", "sourceEntity": "user", "routes": ["/wp/v2/users"], "confidence": "medium" },
-    { "sourceSystem": "woocommerce", "sourceEntity": "customer", "routes": ["/wc/v3/customers"], "confidence": "medium" },
-    { "sourceSystem": "wix", "sourceEntity": "member", "routes": ["Members APIs"], "confidence": "high" }
+    {
+      "sourceSystem": "wordpress",
+      "sourceEntity": "user",
+      "routes": [
+        "/wp/v2/users"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "customer",
+      "routes": [
+        "/wc/v3/customers"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "member",
+      "routes": [
+        "Members APIs"
+      ],
+      "confidence": "high"
+    }
   ],
   "preferredWrite": {
     "surface": "Members V1",
@@ -32,22 +57,149 @@
     }
   ],
   "fallbacks": [
-    { "classification": "crm", "when": "Use Contacts for person records that do not need login identity." },
-    { "classification": "cms", "when": "Use for author profiles or member metadata not represented by Members APIs." }
+    {
+      "classification": "crm",
+      "when": "Use Contacts for person records that do not need login identity."
+    },
+    {
+      "classification": "cms",
+      "when": "Use for author profiles or member metadata not represented by Members APIs."
+    }
   ],
-  "reliability": { "status": "unreliable", "flags": ["IMPORT_UNRELIABLE"] },
+  "reliability": {
+    "status": "unreliable",
+    "flags": [
+      "IMPORT_UNRELIABLE"
+    ]
+  },
   "pitfalls": [
-    { "code": "passwords-never-imported", "severity": "warning", "summary": "Passwords are NOT imported — project decision (2026-08-03), not just an API gap. Members keep account/profile/contact linkage; they set a new password via reset. Never propose hash import." },
-    { "code": "activation-via-forgot-password", "severity": "warning", "summary": "Activation (decided 2026-08-03): passwordless members complete the standard forgot-password flow (confirmed). Delivery = post-import automation (label-added trigger, owner-branded email, label applied in API waves). Never mass-send Send Set Password Email — its link dies in 3h." },
-    { "code": "serial-create-only", "severity": "warning", "summary": "No bulk member create; documented >=1s spacing per Create Member call (10k members ~ 3h serial floor). Plan throughput and resume via loginEmail crosswalk." },
-    { "code": "chronology-server-controlled", "severity": "warning", "summary": "Original createdDate and lastLoginDate are not writable as native member chronology." }
+    {
+      "code": "safe-mode-email-domain-rejected",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-08-16: safe mode cannot import members at all today. `mockEmailForEntity` (rp-target-wix/lib/wix-writers.js) mints `replatform+<type>_<id>@wix.com`, and POST /members/v1/members rejects that domain with 400 INVALID_EMAIL_DOMAIN — so a safe-mode member import fails wholesale on the first record. The bug hid because Contacts V5 ACCEPTS @wix.com (existing test contacts use it), so only the Members surface trips it. A reserved-TLD address (RFC 2606 `.invalid`) was accepted by other surfaces in the same probe session and is the obvious candidate, but changing the safe-mode address format alters what gets written to a customer's site on every entity, not just members — it needs an explicit decision, not a silent lib patch. Until then: treat safe mode + member import as unsupported and say so in the plan rather than discovering it mid-run."
+    },
+    {
+      "code": "passwords-never-imported",
+      "severity": "warning",
+      "summary": "Passwords are NOT imported — project decision (2026-08-03), not just an API gap. Members keep account/profile/contact linkage; they set a new password via reset. Never propose hash import."
+    },
+    {
+      "code": "activation-via-forgot-password",
+      "severity": "warning",
+      "summary": "Activation (decided 2026-08-03): passwordless members complete the standard forgot-password flow (confirmed). Delivery = post-import automation (label-added trigger, owner-branded email, label applied in API waves). Never mass-send Send Set Password Email — its link dies in 3h."
+    },
+    {
+      "code": "serial-create-only",
+      "severity": "warning",
+      "summary": "No bulk member create; documented >=1s spacing per Create Member call (10k members ~ 3h serial floor). Plan throughput and resume via loginEmail crosswalk."
+    },
+    {
+      "code": "chronology-server-controlled",
+      "severity": "warning",
+      "summary": "Original createdDate and lastLoginDate are not writable as native member chronology."
+    },
+    {
+      "code": "phone-must-be-e164-and-dedupes-across-contacts",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-09-06: contact.phones[] REJECTS anything not already E.164 (\"050-1234567\" 400s INVALID_PHONE; \"+972501234567\" is accepted) -- WooCommerce phones are local-format text and need converting or dropping, never sent as-is. Separately, Contacts dedupes on phone: creating a SECOND member with an unrelated name/email but the SAME phone as a first member returned the FIRST member's contactId -- silently attaching the new person onto the old contact, renaming it in the process -- and this happened even after the first member had been DELETED (deleting a member does not delete its contact; the contact is left orphaned and reusable). rp-target-wix/lib/customer-member.js normalizePhoneE164 converts under an explicit per-country rule or refuses (never guesses); wix-writers.js ensureMember queries Contacts V5 by phone before every create (every phone in the array, not just the first -- an earlier version of this guard checked only phones[0], which a review caught 2026-09-06) and drops the phone(s) (finding member-phone-collision-dropped) rather than risk merging two different source customers. Also cosmetic, not a defect: Members V1 read-back reformats the phone with spaces/dashes for display (\"+972 50-999-0001\"), while Contacts V5 stores the compact string sent and exposes it again verbatim under phone.e164 -- compare on digits, not the display string."
+    },
+    {
+      "code": "query-members-by-login-email-is-eventually-consistent",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-09-06: a freshly created member is NOT immediately findable through Query Members by loginEmail -- one probe saw zero matches at +0ms and +2000ms after Create Member returned, then one match at +5000ms. Create Member's own loginEmail UNIQUENESS check, by contrast, is immediate and case-insensitive (a same-email create in a different case 409s ALREADY_EXISTS right away, with no delay observed). So a caller that reconciles by Query Members before creating (rp-target-wix/lib/wix-writers.js ensureMember) can, within that window, see zero matches for a member that in fact already exists on the target (created moments earlier by an interrupted or concurrent run) and then hit a 409 attempting to create it again. ensureMember reports this as its own outcome (member-already-exists-unreconciled) rather than the generic member-failed, since the record is not lost -- a later run's query will catch up and reconcile it -- but it is not a silent success either. Reconciling through a crosswalk row's GET-by-id (matchedBy: crosswalk) does not depend on this: a fresh site's crosswalk-driven re-run in this project's own live verification reconciled correctly immediately after creation, suggesting GET-by-id does not carry the same lag, though that was not isolated and confirmed the way this consistency gap was."
+    },
+    {
+      "code": "login-email-immutable-once-member-exists",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-09-16: once a Contact already has a Member on it (contact.memberInfo present), Contacts' updateContact 428s CANNOT_UPDATE_MEMBER_EMAIL on ANY email PATCH to that contact -- even when the on-file email is still a safe-mode mock. Update Member's own docs independently confirm loginEmail is immutable there too (\"The privacyStatus and loginEmail field can't be updated\"). So if a Member is ever created against the wrong email (a mock address, a typo, a placeholder used for early testing before the real value was known), there is NO supported API path to correct it afterward -- not via Contacts, not via Members. The only paths that avoid this are: (1) never create the Member until the contact's real email is already on file (this is why the crm/contact promotion flow updates the Contact's email BEFORE calling ensureMember, never after), or (2) if a wrong-email member already exists, accept it as-is and treat correcting it as requiring a delete-and-recreate (which loses member history/UGC) rather than an in-place fix. Detect this BEFORE attempting an email update by checking the read contact's own memberInfo.memberId -- it is free on the same getContact call that would otherwise 428 -- rather than discovering it from the write's error."
+    },
+    {
+      "code": "create-member-occasional-transient-failure",
+      "severity": "warning",
+      "summary": "LIVE-FOUND: in a real large sequential Create Member batch, with the documented >=1s floor already enforced, a small fraction of otherwise-valid Create Member calls failed on the first attempt with no 4xx/validation signature, and succeeded immediately when the IDENTICAL call was retried moments later with no changes to the request -- not a rate-limit artifact of this caller (the floor was already respected) and not a validation problem. ensureMember (rp-target-wix/lib/wix-writers.js) now retries Create Member once, after a short backoff, for any failure that is not the already-exists race (query-members-by-login-email-is-eventually-consistent above) and not a 4xx -- a 4xx is a validation error that will not fix itself and is reported as member-failed immediately. A caller still seeing member-failed after this retry should treat it as retryable on a LATER run, not terminal: every transient failure observed before this fix succeeded on a subsequent attempt with no other change."
+    }
   ],
   "mappingGuidance": [
     "Split author, customer, contact, and login-member roles before selecting targets.",
     "Create Member sends no email and does not fire the signup automations trigger (source-confirmed) — silent import is the default; the only member-facing email is the explicit Send Set Password Email call, which is per-member, interactive-mode, owner-approved only."
   ],
-  "setupRequirements": ["Activation is decided end-to-end: no credential import; post-import the owner creates ONE dashboard automation (label-added trigger → branded email directing members to Log in → Forgot password), then the importer applies the label in API waves for rate control and re-targeting. Enable the automation only after the import window (AUTO-02 pause choreography)."],
+  "setupRequirements": [
+    "Activation is decided end-to-end: no credential import; post-import the owner creates ONE dashboard automation (label-added trigger → branded email directing members to Log in → Forgot password), then the importer applies the label in API waves for rate control and re-targeting. Enable the automation only after the import window (AUTO-02 pause choreography)."
+  ],
   "evidence": [
-    { "type": "repo-research", "path": "research/import-api-suitability/orders-contacts-members.md" }
-  ]
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/member-object",
+      "note": "object page (docs-survey sweep 2026-08-11)"
+    }
+  ],
+  "intendedFields": [
+    {
+      "targetPath": "member.loginEmail",
+      "sourcePaths": [
+        "email",
+        "loginEmail"
+      ]
+    },
+    {
+      "targetPath": "member.contact.firstName",
+      "sourcePaths": [
+        "first_name",
+        "firstName"
+      ]
+    },
+    {
+      "targetPath": "member.contact.lastName",
+      "sourcePaths": [
+        "last_name",
+        "lastName"
+      ]
+    },
+    {
+      "targetPath": "member.contact.phones[]",
+      "sourcePaths": [
+        "phones[]",
+        "phone"
+      ]
+    },
+    {
+      "targetPath": "member.contact.addresses[]",
+      "sourcePaths": [
+        "addresses[]"
+      ]
+    }
+  ],
+  "readBackProjection": {
+    "identity": "member-id-login-email-contact-id",
+    "serverOwned": [
+      {
+        "path": "member.updatedDate",
+        "reason": "server timestamp"
+      }
+    ],
+    "read": [
+      "GET /members/v1/members/{id}?fieldsets=FULL",
+      "GET /contacts/v5/contacts/{member.contactId}"
+    ],
+    "rows": [
+      {
+        "writePath": "member.contact.firstName",
+        "readPath": "contact.name.first"
+      },
+      {
+        "writePath": "member.contact.lastName",
+        "readPath": "contact.name.last"
+      },
+      {
+        "writePath": "member.contact.phones[]",
+        "readPath": "contact.phone.phone + contact.additionalPhones[].phone",
+        "compare": "set"
+      },
+      {
+        "writePath": "member.contact.addresses[]",
+        "readPath": "contact.addresses[].address",
+        "compare": "content"
+      }
+    ]
+  }
 }

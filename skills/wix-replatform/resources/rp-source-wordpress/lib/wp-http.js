@@ -12,7 +12,9 @@
 //     self-contained.
 //
 // Keep this file dependency-free (Node built-ins / global fetch only) so the
-// vendored copy needs no install step.
+// vendored copy needs no install step. The one sibling module it reaches for --
+// ./gateway-summary.mjs -- is loaded lazily, inside fetchGatewaySummary(), so a
+// vendored copy that never reads gateway configuration still runs standalone.
 
 const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_RATE_LIMIT_RPM = 120;
@@ -27,6 +29,18 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+class DeadlineExceededError extends Error {
+  constructor() {
+    super('WordPress request deadline exceeded');
+    this.name = 'DeadlineExceededError';
+    this.code = 'deadline-exceeded';
+  }
+}
+
+function remainingDeadlineMs(deadlineAt) {
+  return deadlineAt === null ? Infinity : Math.max(0, deadlineAt - Date.now());
+}
+
 // Configure the shared throttle. Call once before issuing requests.
 function configureRateLimit({ rateLimitRpm = DEFAULT_RATE_LIMIT_RPM, maxRetries = DEFAULT_MAX_RETRIES } = {}) {
   const rpm = Number.isFinite(rateLimitRpm) && rateLimitRpm >= 1 ? rateLimitRpm : DEFAULT_RATE_LIMIT_RPM;
@@ -34,13 +48,16 @@ function configureRateLimit({ rateLimitRpm = DEFAULT_RATE_LIMIT_RPM, maxRetries 
   rateState.maxRetries = Number.isFinite(maxRetries) && maxRetries >= 0 ? maxRetries : DEFAULT_MAX_RETRIES;
 }
 
-async function applyThrottle(progress) {
+async function applyThrottle(progress, deadlineAt = null) {
   if (rateState.minIntervalMs <= 0) {
     return;
   }
   const elapsed = Date.now() - rateState.lastRequestAt;
   const wait = rateState.minIntervalMs - elapsed;
   if (wait > 0) {
+    // A per-media-chunk deadline includes pacing. Do not start a wait that cannot
+    // finish inside it; returning immediately is what keeps the stated worst-case bound real.
+    if (wait >= remainingDeadlineMs(deadlineAt)) throw new DeadlineExceededError();
     if (progress) {
       await progress.withHeartbeat({ phase: 'discovery', step: 'rate-limit', message: 'Still waiting for WordPress rate limit' }, () => sleep(wait));
     } else {
@@ -102,13 +119,127 @@ function buildApiUrl(baseUrl, routePath, query = {}) {
   return url;
 }
 
-async function fetchJson(baseUrl, routePath, { headers, method = 'GET', query, timeoutMs = DEFAULT_TIMEOUT_MS, progress = null, progressContext = {} }) {
+// ---------------------------------------------------------------------------
+// Payment-gateway route denial
+//
+// `GET /wc/v3/payment_gateways` (and `/{id}`) returns each gateway's ENTIRE settings object.
+// On a site with a real gateway connected that includes the live API key and secret. Anything
+// a tool returns is in the model's context, the transcript, and potentially a durable run
+// artifact -- discovery's generic sampler writes sampled records to disk -- so there is no
+// careful-handling mitigation available above this line.
+//
+// The denial sits HERE, in the transport, rather than in a caller, for one reason: discovery
+// accepts `--include-route <path>` to force-sample any route. A control above that flag is a
+// control an operator can switch off by accident. This one is below it, so no CLI argument and
+// no future caller can route around it.
+//
+// It consults NOTHING but the route path. There is deliberately no `{ allowGatewayRoute }`, no
+// `{ skipDenyList }`, no capability token, no environment variable and no "internal caller"
+// parameter -- each of those is the exposure with extra steps. Their absence is asserted by
+// tests/source-wordpress/gateway-route-deny-contract-test.js.
+//
+// Honest limit: this guards the shared transport, not the network. Code that builds a URL and
+// calls global fetch itself is outside its reach; that is covered by the instructions in
+// rp-source-wordpress/SKILL.md and the codegen prohibition in rp-import-codegen/SKILL.md, not
+// by this function.
+// ---------------------------------------------------------------------------
+
+const GATEWAY_COLLECTION_ROUTE = '/wc/v3/payment_gateways';
+
+// Both shapes: the collection and the parameterized item route. Matching only the collection
+// would leave the exposure fully open -- the item route is the one that returns settings.
+// `v\d+` rather than `v3` because wc/v1 and wc/v2 expose the same route.
+const GATEWAY_ROUTE_PATTERN = /^\/wc\/v\d+\/payment_gateways(\/.*)?$/;
+
+class GatewayRouteDeniedError extends Error {
+  constructor(routePath) {
+    super(
+      `Refusing to request "${routePath}": WooCommerce payment-gateway routes return each gateway's `
+      + 'full settings object, including live API keys and secrets. Read gateway configuration through '
+      + 'fetchGatewaySummary(), which reduces the response with lib/gateway-summary.mjs and returns names '
+      + 'and states without credential values. No option, flag or override lifts this.',
+    );
+    this.name = 'GatewayRouteDeniedError';
+    this.code = 'GATEWAY_ROUTE_DENIED';
+    this.routePath = routePath;
+  }
+}
+
+// Normalize before matching, so a query string, a trailing slash, a doubled slash, a percent
+// escape, an accidental /wp-json prefix or a mixed-case spelling cannot walk past the pattern.
+function normalizeRouteForDeny(routePath) {
+  let route = typeof routePath === 'string' ? routePath : '';
+  try {
+    route = decodeURIComponent(route);
+  } catch {
+    // A malformed escape sequence is not a reason to skip the check — carry on with the raw text.
+  }
+  route = route.split('#')[0].split('?')[0].trim().toLowerCase();
+  route = route.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  if (!route.startsWith('/')) {
+    route = `/${route}`;
+  }
+  route = route.replace(/^\/wp-json(?=\/|$)/, '').replace(/\/+$/, '');
+  return route === '' ? '/' : route;
+}
+
+/** Whether this route path returns payment-gateway configuration and must never be requested. */
+function isDeniedGatewayRoute(routePath) {
+  return GATEWAY_ROUTE_PATTERN.test(normalizeRouteForDeny(routePath));
+}
+
+// The undenied transport. MODULE-PRIVATE, and it stays that way: exporting it, or adding a
+// parameter to fetchJson that reaches it, recreates the hole the deny rule closes. The only
+// caller outside fetchJson is fetchGatewaySummary below, which hands the raw response straight
+// to a pure reducer and lets it go out of scope.
+async function fetchJsonUnchecked(baseUrl, routePath, {
+  headers,
+  method = 'GET',
+  query,
+  body,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  deadlineMs,
+  progress = null,
+  progressContext = {},
+}) {
   const url = buildApiUrl(baseUrl, routePath, query);
+  // One absolute deadline spans throttle waits, every attempt, response-body reads and every
+  // retry wait. Calls that omit deadlineMs retain the transport's existing per-attempt timeout.
+  const deadlineAt = Number.isFinite(deadlineMs) && deadlineMs >= 0 ? Date.now() + deadlineMs : null;
+  // `body` is a small, generic escape hatch for profile-declared entities whose read path
+  // is not a plain GET collection (see plugin-knowledge.js buildRequestOverrides) — it is
+  // never set on the default GET-with-query sampling path.
+  const requestInit = {
+    method,
+    headers,
+    ...(body !== undefined ? { body } : {}),
+  };
+
+  const deadlineResult = (attempt, error = new DeadlineExceededError()) => ({
+    ok: false,
+    status: 0,
+    statusText: 'Deadline Exceeded',
+    url: url.toString(),
+    headers: {},
+    json: undefined,
+    text: '',
+    error,
+    retries: attempt,
+  });
 
   for (let attempt = 0; ; attempt += 1) {
-    await applyThrottle(progress);
+    try {
+      await applyThrottle(progress, deadlineAt);
+    } catch (error) {
+      if (error && error.code === 'deadline-exceeded') return deadlineResult(attempt, error);
+      throw error;
+    }
+    const remaining = remainingDeadlineMs(deadlineAt);
+    if (remaining <= 0) return deadlineResult(attempt);
+    const attemptTimeoutMs = Math.min(timeoutMs, remaining);
+    const deadlineControlsAttempt = deadlineAt !== null && remaining <= timeoutMs;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), attemptTimeoutMs);
 
     try {
       const response = progress
@@ -118,13 +249,11 @@ async function fetchJson(baseUrl, routePath, { headers, method = 'GET', query, t
           ...progressContext,
           message: `Still waiting on WordPress ${method} ${routePath || '/'}`,
         }, () => fetch(url, {
-          method,
-          headers,
+          ...requestInit,
           signal: controller.signal,
         }))
         : await fetch(url, {
-          method,
-          headers,
+          ...requestInit,
           signal: controller.signal,
         });
       const text = await response.text();
@@ -134,6 +263,7 @@ async function fetchJson(baseUrl, routePath, { headers, method = 'GET', query, t
       // honoring Retry-After when the server provides it.
       if ((response.status === 429 || response.status === 503) && attempt < rateState.maxRetries) {
         const backoff = retryAfterMs(responseHeaders) ?? Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attempt);
+        if (backoff >= remainingDeadlineMs(deadlineAt)) return deadlineResult(attempt);
         if (progress) {
           progress.warn(`WordPress ${response.status} response; backing off before retry`, {
             phase: 'discovery',
@@ -175,6 +305,9 @@ async function fetchJson(baseUrl, routePath, { headers, method = 'GET', query, t
         retries: attempt,
       };
     } catch (error) {
+      if (error.name === 'AbortError' && deadlineControlsAttempt) {
+        return deadlineResult(attempt);
+      }
       return {
         ok: false,
         status: 0,
@@ -190,6 +323,61 @@ async function fetchJson(baseUrl, routePath, { headers, method = 'GET', query, t
       clearTimeout(timeout);
     }
   }
+}
+
+/**
+ * The WordPress transport every reader uses.
+ *
+ * Identical to the core above except that it refuses payment-gateway routes BEFORE issuing the
+ * request. The refusal throws rather than returning a result object: a caller that treats a
+ * denial as "the route returned nothing" would carry on and record an empty entity, and a
+ * security control that reads as an empty result is not a control.
+ */
+async function fetchJson(baseUrl, routePath, options) {
+  if (isDeniedGatewayRoute(routePath)) {
+    throw new GatewayRouteDeniedError(routePath);
+  }
+  return fetchJsonUnchecked(baseUrl, routePath, options);
+}
+
+/**
+ * The ONE sanctioned way to read payment-gateway configuration.
+ *
+ * Note the direction of the dependency: this module imports the reducer, not the reverse. The
+ * raw response never leaves this function's scope -- it goes straight into a pure function that
+ * cannot make a request, and only that function's §1-shaped output is resolved. So there is no
+ * exemption to keep narrow, because there is no hole: `gateway-summary.mjs` has no transport to
+ * reach, and `fetchJson` has no way to be talked into the route.
+ *
+ * Refuses outright when the shared secret-value guard is not operational. A guard that quietly
+ * evaluates an empty pattern set returns display values verbatim, and an allowlisted
+ * `description` is free text a vendor controls -- so an unusable guard means we do not read.
+ *
+ * Loaded with dynamic import(), not require(): the reducer is ESM, this module is CommonJS and
+ * is vendored into generated migration projects, and import() is the one form that works from
+ * both on every Node version. Lazy, so a vendored copy that never reads gateway configuration
+ * -- which is every generated reader, by prohibition -- needs no sibling file at all.
+ */
+async function fetchGatewaySummary(baseUrl, { headers, timeoutMs = DEFAULT_TIMEOUT_MS, progress = null, progressContext = {} } = {}) {
+  const { reduceGatewayResponse, guardUnusableReason } = await import('./gateway-summary.mjs');
+
+  const guardProblem = guardUnusableReason();
+  if (guardProblem) {
+    throw new Error(
+      `Refusing to read payment-gateway configuration: the shared secret-value guard is not operational (${guardProblem}). `
+      + 'Fix secret-value-patterns.v1.json before reading gateway settings.',
+    );
+  }
+
+  const response = await fetchJsonUnchecked(baseUrl, GATEWAY_COLLECTION_ROUTE, {
+    headers,
+    method: 'GET',
+    timeoutMs,
+    progress,
+    progressContext: { step: 'gateway-summary', ...progressContext },
+  });
+
+  return reduceGatewayResponse(response);
 }
 
 // Total record count for a collection. WordPress returns it in X-WP-Total;
@@ -236,6 +424,7 @@ module.exports = {
   DEFAULT_RATE_LIMIT_RPM,
   DEFAULT_MAX_RETRIES,
   MAX_BACKOFF_MS,
+  DeadlineExceededError,
   sleep,
   configureRateLimit,
   retryAfterMs,
@@ -243,6 +432,12 @@ module.exports = {
   normalizeBaseUrl,
   buildApiUrl,
   fetchJson,
+  // NOTE what is deliberately NOT here: the undenied transport, under any name. The gateway
+  // deny rule is only worth as much as this export list.
+  GATEWAY_COLLECTION_ROUTE,
+  GatewayRouteDeniedError,
+  isDeniedGatewayRoute,
+  fetchGatewaySummary,
   parseTotalHeader,
   parseTotalPagesHeader,
   shouldContinueCollectionPaging,

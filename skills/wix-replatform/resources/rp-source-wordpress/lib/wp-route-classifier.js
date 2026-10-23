@@ -1,9 +1,17 @@
 'use strict';
 
+const { isDeniedGatewayRoute } = require('./wp-http.js');
+
 const ROUTE_CATEGORIES = new Set([
   'backend_data',
   'backend_metadata',
   'public_commerce_data',
+  // A route whose response carries live credentials. Distinct from the other exclusions
+  // because those describe scope ("this is presentation, not data"), while this one describes
+  // danger: the route holds data we genuinely want (which gateways exist, which are enabled)
+  // wrapped around a secret we must never receive. Naming it makes the intent visible in the
+  // classification output instead of surfacing only as a transport-level refusal.
+  'excluded_credential_bearing',
   'excluded_frontend',
   'excluded_template_editor',
   'excluded_runtime_session',
@@ -102,8 +110,20 @@ const BACKEND_DATA_RULES = [
   ['/wc/v3/orders*', 'wc.data.orders', 'WooCommerce orders are canonical store data'],
   ['/wc/v3/refunds*', 'wc.data.refunds', 'WooCommerce refunds are canonical store data'],
   ['/wc/v3/customers*', 'wc.data.customers', 'WooCommerce customers are canonical store data'],
+  // Must precede /wc/v3/taxes* (first-match-wins) — it's a prefix of that route.
+  ['/wc/v3/taxes/classes*', 'wc.data.tax-classes', 'WooCommerce tax classes are canonical store data'],
   ['/wc/v3/taxes*', 'wc.data.taxes', 'WooCommerce taxes are canonical store data'],
-  ['/wc/v3/tax_classes*', 'wc.data.tax-classes', 'WooCommerce tax classes are canonical store data'],
+  // The store's OWN configuration: address, currency, which countries it sells to, whether tax
+  // is calculated. Canonical store data, not marketplace noise — it was landing in
+  // excluded_unsupported and was never sampled on any run, so a migrated site published with an
+  // empty business address and nobody noticed.
+  // NOTE the REST index advertises the PARAMETERIZED form `/wc/v3/settings/(?P<group>...)`, not
+  // this literal, so this rule alone does not cause a fetch — the group is read directly by the
+  // caller, the same way a shipping zone's /locations and /methods sub-resources are. The rule
+  // exists so that when the literal IS advertised it is classified as data rather than excluded.
+  ['/wc/v3/settings/general', 'wc.data.store-settings-general', 'WooCommerce general settings hold the store address, currency and selling countries — canonical store configuration'],
+  ['/wc/v3/shipping/zones', 'wc.data.shipping-zones', 'WooCommerce shipping zones are canonical store configuration'],
+  ['/wc/v3/shipping_methods', 'wc.data.shipping-method-types', 'WooCommerce shipping method types are canonical store configuration'],
 ];
 
 const BACKEND_METADATA_RULES = [
@@ -121,11 +141,69 @@ const BACKEND_METADATA_RULES = [
   },
 ];
 
-const KNOWN_PLUGIN_DATA_RULES = [
-  ['/ssp/v1/*', 'plugin.data.ssp', 'Seriously Simple Podcasting routes expose durable podcast records'],
-  ['/tribe/events/v1/events', 'plugin.data.tribe-events', 'events routes expose durable event records'],
-  ['/wp/v2/tribe_events', 'plugin.data.wp-tribe-events', 'event custom post type routes expose durable event records'],
+// Route -> extra query parameters the sampler must send to see the WHOLE collection.
+//
+// A WP REST collection route is free to apply a default filter when the caller sends no
+// parameters, and several do. Discovery samples with `per_page` and nothing else, so it
+// silently sees the filtered subset and the plan under-counts — the entity looks smaller
+// than it is and the hidden records never reach the mapper. This is a CLASS of bug, not one
+// route: any route with a defaulted status/type/scope filter has it.
+//
+// The fix is a table, not a special case in the sampler: add the route and the parameters
+// that turn the filter off, with the reason. Kept next to the other route pattern tables
+// (BACKEND_DATA_RULES et al.) because these are facts about core routes; patterns use the
+// same `*` suffix matching, longest pattern wins, and a route with no entry gets `{}`.
+const ROUTE_DEFAULT_QUERY_RULES = [
+  [
+    '/wc/v3/products/reviews*',
+    { status: 'all' },
+    'WooCommerce defaults product reviews to status=approved, hiding hold/spam/trash rows; observed live 2026-08-16: on-hold reviews are invisible to the plan unless status=all is passed',
+  ],
 ];
+
+function defaultQueryRuleFor(routePath) {
+  const normalized = normalizeRoutePath(routePath);
+  return ROUTE_DEFAULT_QUERY_RULES
+    .filter(([pattern]) => routeMatchesPattern(normalized, pattern))
+    .sort((a, b) => b[0].length - a[0].length)[0] || null;
+}
+
+// The query parameters to add when sampling `routePath`, or {} when the route has no
+// documented default filter. Copied so a caller cannot mutate the rule table; callers merge
+// their own paging parameters over the result.
+function defaultQueryFor(routePath) {
+  const rule = defaultQueryRuleFor(routePath);
+  return rule ? { ...rule[1] } : {};
+}
+
+// The human-readable reason a default query applies, for the discovery note that tells a
+// reader why this route was sampled with extra parameters. Null when none applies.
+function defaultQueryReasonFor(routePath) {
+  const rule = defaultQueryRuleFor(routePath);
+  return rule ? rule[2] : null;
+}
+
+// Plugin route rules are DATA, not code: they come from the declarative profiles under
+// plugins/. Adding or correcting a plugin is a JSON edit plus a fixture, never a change
+// here. Loaded once and memoized; tests inject rules directly via overrides.pluginRules.
+let memoizedPluginRules = null;
+
+function defaultPluginRules() {
+  if (memoizedPluginRules) return memoizedPluginRules;
+  try {
+    // Required lazily so this module stays usable (with no plugin rules) if the profile
+    // directory is absent, e.g. a partial install.
+    const { pluginsRoot, buildRouteRules } = require('./plugin-knowledge.js');
+    memoizedPluginRules = buildRouteRules(pluginsRoot());
+  } catch (error) {
+    memoizedPluginRules = { dataRules: [], excludeRules: [], loadError: error.message };
+  }
+  return memoizedPluginRules;
+}
+
+function resetPluginRuleCache() {
+  memoizedPluginRules = null;
+}
 
 const LEGACY_WC_PREFIXES = [
   '/wc/v1/products',
@@ -134,14 +212,14 @@ const LEGACY_WC_PREFIXES = [
   '/wc/v1/refunds',
   '/wc/v1/customers',
   '/wc/v1/taxes',
-  '/wc/v1/tax_classes',
+  '/wc/v1/taxes/classes',
   '/wc/v2/products',
   '/wc/v2/coupons',
   '/wc/v2/orders',
   '/wc/v2/refunds',
   '/wc/v2/customers',
   '/wc/v2/taxes',
-  '/wc/v2/tax_classes',
+  '/wc/v2/taxes/classes',
 ];
 
 function normalizeRoutePath(routePath) {
@@ -163,6 +241,23 @@ function routeMatchesPattern(routePath, pattern) {
   return route === pattern;
 }
 
+// A WP REST index parameterized route looks like /wc/v3/orders/(?P<id>[\d]+)/notes.
+// Normalizing every parameter segment to the same {parentId} placeholder a plugin-rest-child
+// entity's `route` template uses lets that template be checked against the index without
+// needing to know (or match) the parameter's name.
+function normalizeIndexRouteTemplate(routePath) {
+  return routePath.replace(/\(\?P<[^>]+>[^)]*\)/g, '{parentId}');
+}
+
+// Whether the site's REST index advertises a route matching a plugin-rest-child entity's
+// templated route (e.g. /wc/v3/orders/{parentId}/notes). This is a presence check only — it
+// says the sub-resource exists on this site, not that any parent record actually has data
+// there; that requires a live per-parent sample (see wp-discovery.js sampleChildEntities).
+function childRouteAdvertised(restIndexRoutes, template) {
+  const routes = restIndexRoutes && typeof restIndexRoutes === 'object' ? Object.keys(restIndexRoutes) : [];
+  return routes.some((route) => normalizeIndexRouteTemplate(route) === template);
+}
+
 function findMatchingRule(routePath, rules) {
   for (const rule of rules) {
     const [pattern, ruleId, reason] = rule;
@@ -172,6 +267,21 @@ function findMatchingRule(routePath, rules) {
   }
   return null;
 }
+
+// Route patterns for the credential-bearing category, listed so coreRulePatterns() can refuse a
+// plugin profile that tries to declare one of them as a data route. The MATCH itself is
+// isDeniedGatewayRoute() in wp-http.js — one definition of "this is a gateway route" driving
+// both the classifier and the transport deny, so the two layers cannot drift into disagreeing
+// about which routes they cover.
+const CREDENTIAL_BEARING_PATTERNS = [
+  '/wc/v1/payment_gateways*',
+  '/wc/v2/payment_gateways*',
+  '/wc/v3/payment_gateways*',
+];
+
+const CREDENTIAL_BEARING_REASON =
+  'WooCommerce payment-gateway routes return each gateway\'s full settings object, including live '
+  + 'API keys and secrets; read gateway identity and enablement through fetchGatewaySummary() instead';
 
 function actionForCategory(category) {
   if (category === 'backend_data' || category === 'public_commerce_data') {
@@ -191,7 +301,7 @@ function makeClassification(candidate, category, reason, ruleId, extra = {}) {
     reason,
     ruleId,
     sampleByDefault: category === 'backend_data',
-    canIncludeByOverride: category !== 'backend_data',
+    canIncludeByOverride: category !== 'backend_data' && category !== 'excluded_credential_bearing',
     includedByOverride: false,
     excludedByOverride: false,
     effectiveAction: actionForCategory(category),
@@ -268,23 +378,72 @@ function classifyLegacyWooCommerceRoute(candidate, routeSet) {
   );
 }
 
+const EXCLUSION_RULE_GROUPS = [
+  ['excluded_frontend', FRONTEND_RULES],
+  ['excluded_template_editor', TEMPLATE_EDITOR_RULES],
+  ['excluded_runtime_session', RUNTIME_RULES],
+  ['excluded_admin_dashboard', ADMIN_RULES],
+  ['excluded_marketplace_setup', MARKETPLACE_RULES],
+  ['excluded_diagnostics', DIAGNOSTIC_RULES],
+  ['excluded_integration', INTEGRATION_RULES],
+];
+
+function findExclusion(routePath) {
+  for (const [category, rules] of EXCLUSION_RULE_GROUPS) {
+    const rule = findMatchingRule(routePath, rules);
+    if (rule) return { category, ...rule };
+  }
+  return null;
+}
+
+// Every route pattern owned by the classifier itself. Exported so the plugin knowledge
+// validator can refuse a profile route that silently shadows a core rule.
+function coreRulePatterns() {
+  const patterns = new Set(CREDENTIAL_BEARING_PATTERNS);
+  for (const [, rules] of EXCLUSION_RULE_GROUPS) {
+    for (const [pattern] of rules) patterns.add(pattern);
+  }
+  for (const [pattern] of BACKEND_DATA_RULES) patterns.add(pattern);
+  for (const rule of BACKEND_METADATA_RULES) patterns.add(rule.pattern);
+  return patterns;
+}
+
 function classifyBaseRoute(candidate, routeSet, options = {}) {
   const routePath = candidate.routePath;
-  const ruleGroups = [
-    ['excluded_frontend', FRONTEND_RULES],
-    ['excluded_template_editor', TEMPLATE_EDITOR_RULES],
-    ['excluded_runtime_session', RUNTIME_RULES],
-    ['excluded_admin_dashboard', ADMIN_RULES],
-    ['excluded_marketplace_setup', MARKETPLACE_RULES],
-    ['excluded_diagnostics', DIAGNOSTIC_RULES],
-    ['excluded_integration', INTEGRATION_RULES],
-  ];
+  const pluginRules = options.pluginRules || { dataRules: [], excludeRules: [] };
 
-  for (const [category, rules] of ruleGroups) {
-    const rule = findMatchingRule(routePath, rules);
-    if (rule) {
-      return makeClassification(candidate, category, rule.reason, rule.ruleId);
-    }
+  // FIRST, above the plugin profile rules and above every exclusion family. A profile's
+  // explicitly-listed data route beats an exclusion family by design, which is exactly why this
+  // check has to sit above that mechanism rather than inside it — a credential-bearing route is
+  // not a scope judgement a plugin author gets to overturn.
+  if (isDeniedGatewayRoute(routePath)) {
+    return makeClassification(candidate, 'excluded_credential_bearing', CREDENTIAL_BEARING_REASON, 'wc.credential-bearing.payment-gateways');
+  }
+
+  // Precedence: profile excludeRoutes > profile data routes > existing
+  // category rules > collection-shape fallback > unsupported.default. Profile data routes
+  // beat exclusion families because an explicitly listed route IS the per-capability
+  // opt-in; profiles cannot use a broad wildcard to reopen a family (validator enforces
+  // at least two concrete leading segments).
+  const pluginExclusion = findMatchingRule(routePath, pluginRules.excludeRules);
+  if (pluginExclusion) {
+    const existing = findExclusion(routePath);
+    return makeClassification(
+      candidate,
+      existing ? existing.category : 'excluded_unsupported',
+      pluginExclusion.reason,
+      pluginExclusion.ruleId,
+    );
+  }
+
+  const pluginData = findMatchingRule(routePath, pluginRules.dataRules);
+  if (pluginData) {
+    return makeClassification(candidate, 'backend_data', pluginData.reason, pluginData.ruleId);
+  }
+
+  const exclusion = findExclusion(routePath);
+  if (exclusion) {
+    return makeClassification(candidate, exclusion.category, exclusion.reason, exclusion.ruleId);
   }
 
   const storeCatalogClassification = classifyStoreCatalogRoute(candidate, routeSet, options);
@@ -309,9 +468,24 @@ function classifyBaseRoute(candidate, routeSet, options = {}) {
     });
   }
 
-  const pluginRule = findMatchingRule(routePath, KNOWN_PLUGIN_DATA_RULES);
-  if (pluginRule) {
-    return makeClassification(candidate, 'backend_data', pluginRule.reason, pluginRule.ruleId);
+  // Registered non-core post types and taxonomies are persisted-record collections by
+  // definition, so /wp/v2/types + /wp/v2/taxonomies are positive evidence rather than a
+  // heuristic. This is the rule that makes custom post types discoverable at all:
+  // VERIFIED LIVE 2026-07-30 that the WordPress REST index advertises `schema` on ZERO
+  // routes, so the collection-shape fallbacks below — which
+  // require hasSchema() — never fire in production. Without this rule a plugin CPT is
+  // invisible unless someone hardcodes its route.
+  const registered = options.registeredRestBases instanceof Map
+    ? options.registeredRestBases.get(routePath)
+    : null;
+  if (registered) {
+    return makeClassification(
+      candidate,
+      'backend_data',
+      `${registered.kind === 'taxonomy' ? 'taxonomy' : 'post type'} "${registered.slug}" is registered and REST-visible, so its collection holds persisted records`,
+      'wp.data.registered-type',
+      { registeredType: registered.slug, registeredKind: registered.kind, hierarchical: registered.hierarchical === true },
+    );
   }
 
   if (candidate.namespace === 'wp/v2' && candidateHasCollectionShape(candidate) && hasSchema(candidate)) {
@@ -355,7 +529,44 @@ function normalizeOverrides(overrides = {}) {
     excludeRoutes: normalizeList(overrides.excludeRoutes).map(normalizeRoutePath),
     overrideReason: overrides.overrideReason ? String(overrides.overrideReason) : null,
     commerceMode: overrides.commerceMode === 'public' ? 'public' : 'authenticated',
+    // Tests and callers may inject rules; otherwise the checked-in profiles are used.
+    pluginRules: overrides.pluginRules || defaultPluginRules(),
+    registeredRestBases: overrides.registeredRestBases instanceof Map ? overrides.registeredRestBases : null,
   };
+}
+
+// Build the route -> registered-type lookup consumed by the wp.data.registered-type rule.
+// Core types/taxonomies are excluded: they already have explicit allowlist rules, or are
+// deliberately excluded site-composition surfaces.
+const CORE_POST_TYPE_SLUGS = new Set([
+  'post', 'page', 'attachment', 'nav_menu_item', 'wp_block', 'wp_template',
+  'wp_template_part', 'wp_navigation', 'wp_font_family', 'wp_font_face', 'wp_global_styles',
+  'product', 'product_variation', 'shop_order', 'shop_order_refund', 'shop_coupon',
+]);
+const CORE_TAXONOMY_SLUGS = new Set([
+  'category', 'post_tag', 'nav_menu', 'link_category', 'post_format', 'wp_pattern_category',
+  'product_cat', 'product_tag', 'product_brand', 'product_shipping_class', 'product_type', 'product_visibility',
+]);
+
+function buildRegisteredRestBases({ types = null, taxonomies = null } = {}) {
+  const map = new Map();
+  const add = (kind, slug, entry, coreSlugs) => {
+    if (!entry || coreSlugs.has(slug)) return;
+    if (entry.show_in_rest === false) return;
+    const restBase = entry.rest_base || entry.slug || slug;
+    if (!restBase) return;
+    const namespace = entry.rest_namespace || 'wp/v2';
+    map.set(`/${namespace}/${restBase}`, {
+      kind,
+      slug,
+      restBase,
+      hierarchical: entry.hierarchical === true,
+      attachedToTypes: Array.isArray(entry.types) ? [...entry.types] : [],
+    });
+  };
+  for (const [slug, entry] of Object.entries(types || {})) add('post-type', slug, entry, CORE_POST_TYPE_SLUGS);
+  for (const [slug, entry] of Object.entries(taxonomies || {})) add('taxonomy', slug, entry, CORE_TAXONOMY_SLUGS);
+  return map;
 }
 
 function isIncludedCategory(category, includeExcludedCategories) {
@@ -406,8 +617,19 @@ function classifyRoutes(candidates, overrides = {}) {
       };
     }
 
+    // `--include-route` and `--include-excluded-category` are operator overrides for scope
+    // judgements. They are not an override for a route that hands back live credentials, so a
+    // credential-bearing route stays `skip` no matter what was passed. The transport refuses it
+    // as well (wp-http.js); this layer is what keeps the CLI's own report honest rather than
+    // promising a sample it will never take.
     const includeRoute = normalizedOverrides.includeRoutes.includes(candidate.routePath);
     const includeCategory = isIncludedCategory(classification.category, normalizedOverrides.includeExcludedCategories);
+    if ((includeRoute || includeCategory) && classification.category === 'excluded_credential_bearing') {
+      return {
+        ...classification,
+        reason: `${classification.reason}; requested by override and refused`,
+      };
+    }
     if (includeRoute || includeCategory) {
       return {
         ...classification,
@@ -437,8 +659,22 @@ function summarizeSkippedByCategory(classifications) {
 
 module.exports = {
   ROUTE_CATEGORIES,
+  CREDENTIAL_BEARING_PATTERNS,
+  // Re-exported so the plugin-profile validator can refuse a credential-bearing route without
+  // reaching into the transport module itself.
+  isCredentialBearingRoute: isDeniedGatewayRoute,
   classifyRoutes,
   normalizeOverrides,
   routeMatchesPattern,
+  childRouteAdvertised,
   summarizeSkippedByCategory,
+  coreRulePatterns,
+  ROUTE_DEFAULT_QUERY_RULES,
+  defaultQueryFor,
+  defaultQueryReasonFor,
+  defaultPluginRules,
+  resetPluginRuleCache,
+  buildRegisteredRestBases,
+  CORE_POST_TYPE_SLUGS,
+  CORE_TAXONOMY_SLUGS,
 };

@@ -29,16 +29,58 @@ const { execFileSync } = require('node:child_process');
 const biSink = require('./bi-sink.js');
 
 // 1.1.0 — added `skills_commit` to the run-start record and rollup (additive).
-// 1.2.0 — BI sink (spec 0007): added `telemetry_health.bi_push_failures`, the
+// 1.2.0 — BI sink: added `telemetry_health.bi_push_failures`, the
 //         `bi_push_failed`/`bi_push_truncated` journal record types (additive;
 //         readers per the external reader contract skip unknown record types).
-const TELEMETRY_SCHEMA_VERSION = '1.2.0';
+// 1.3.0 — added the `discovered_entity_types` dimension and its finalize
+//         cross-check flags (`discovered_entity_types_null_after_discovery`,
+//         `volume_row_missing:<type>`), so a discovered entity class silently
+//         absent from `volumes` is mechanically visible (additive; local-only —
+//         not a registered BI column).
+// 1.4.0 — BI backlog healing: `bi_push_ok` watermark + `bi_push_skipped`
+//         journal record types, `telemetry_health.bi_push_skipped`, and a full
+//         idempotent re-push whenever a session boundary (resume, identity
+//         arrival) or an event push finds journal rows with no confirming
+//         watermark. Before this, mid-run push failures were healed only by
+//         finalize's full re-push — a run that halted and never finalized
+//         stranded its tail in the local journal forever.
+//         Additive; readers per the external
+//         reader contract skip unknown record types.
+// 1.5.0 — `transcript_digest` record type — a deterministic parse
+//         of the Claude Code session transcript (cost, turn counts, tool
+//         failures, retry-loop signatures, hook errors, per-stage wall time),
+//         computed by a script rather than self-reported. Carried by
+//         `replay()`/`assembleDocument()` into `rollup.transcript_digest`, so
+//         `finalize`'s existing BI push carries it too — no new BI call, no
+//         new free text, no scrub work (every field is counts/versions/tool
+//         names). Additive; readers per the external reader contract skip
+//         unknown record types.
+const TELEMETRY_SCHEMA_VERSION = '1.5.0';
 const FREE_TEXT_MAX = 400;
 const SHAPES_KEPT_PER_CLASS = 3;
 const SHAPES_MAX_PER_CALL = 10;
 const EVIDENCE_REFS_MAX = 5;
 // A resume gap below this is treated as in-session noise, not a wait interval.
 const IMPLICIT_WAIT_MIN_MS = 60 * 1000;
+// Automatic resume of a stale, unfinalized journal (resumeIfStale). Every value here is an
+// unverified engineering setting — confirm at the first live runs, never report as measured.
+// The manual route script cannot know which sitting it belongs to, so it treats this much
+// journal silence as an execution boundary (a heuristic, not a detected session): one quiet
+// sitting of >= 15 minutes is counted as two sessions, and a real break shorter than this is
+// left to the agent's own `start`. Deliberately NOT IMPLICIT_WAIT_MIN_MS — stages routinely run
+// longer than a minute without a journal write.
+const ROUTE_RESUME_MIN_GAP_MS = 15 * 60 * 1000;
+// A session opened less than this long ago belongs to the same execution: the supervisor joins
+// it instead of opening another, and an explicit `start` joins an automatic one. Separate from
+// IMPLICIT_WAIT_MIN_MS even though the value matches.
+const SESSION_ADOPT_WINDOW_MS = 60 * 1000;
+// Transport cap on the automatic heal; at the cap the request is cancelled, not abandoned.
+const HEAL_DEADLINE_MS = 3000;
+// Journal-lock waits: automatic resume gives up (busy no-op), marker appends are skipped
+// (backlog stays for the next heal), explicit commands throw (non-gating in the CLI).
+const LOCK_WAIT_MS = 2000;
+const MARKER_LOCK_WAIT_MS = 1000;
+const COMMAND_LOCK_WAIT_MS = 5000;
 // A wait at least this long with no halt_needs_user event in its stage means the
 // capture lost *why* the run stalled — flagged at finalize, never silent.
 const WAIT_WITHOUT_HALT_FLAG_MS = 5 * 60 * 1000;
@@ -58,7 +100,7 @@ const STAGE_OUTCOMES = ['passed', 'halted', 'failed', 'skipped'];
 const TERMINAL_STATES = ['completed', 'halted_needs_user', 'failed', 'abandoned_by_user'];
 const SEVERITIES = ['blocking', 'degraded', 'cosmetic', 'info'];
 const SOURCE_PLATFORMS = ['wordpress', 'woocommerce', 'shopify', 'csv', 'other'];
-const DELIVERY_MODES = ['management', 'website'];
+const DELIVERY_MODES = ['management', 'website', 'management_and_website'];
 const DESTINATION_STRATEGIES = ['new_site', 'existing_site'];
 const OPERATOR_ACCEPTANCE = ['accepted', 'rework_needed', 'rejected', 'unknown'];
 const VOLUME_TARGETS = ['native', 'cms', 'none'];
@@ -358,6 +400,64 @@ function validateMeter(input, { openStage, lastStage }) {
   return out;
 }
 
+// --- source key/value reads ----------------------------------------------
+//
+// Per-run accounting for the ONE capability that widened what this pipeline can read out of a
+// source site: key-scoped access to key/value ("EAV") tables. Four counts and a table list.
+//
+// KEY NAMES ARE NOT TELEMETRY. A run's own artifacts hold those; what is worth aggregating
+// ACROSS runs is `redacted_values` -- a non-zero total means some site somewhere keeps a
+// credential where nobody expected one, and that is a fleet-level signal no single run can
+// see. Table names are bare WordPress table names (`postmeta`), which are structural, not
+// customer data. Anything finer-grained stays local.
+const SOURCE_READ_COUNT_KEYS = ['discovery_queries', 'scoped_queries', 'tier_refusals', 'redacted_values'];
+const SOURCE_READ_ALLOWED_KEYS = new Set([...SOURCE_READ_COUNT_KEYS, 'discovery_tables', 'scoped_tables']);
+const SOURCE_READ_TABLE_KEYS = ['discovery_tables', 'scoped_tables'];
+const SOURCE_READ_MAX_TABLES = 50;
+
+function validateSourceRead(input) {
+  const errors = [];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ValidationError(['source-read payload must be a JSON object']);
+  }
+  for (const key of Object.keys(input)) {
+    if (!SOURCE_READ_ALLOWED_KEYS.has(key)) {
+      errors.push(`unknown source-read field: ${key} (allowed: ${[...SOURCE_READ_ALLOWED_KEYS].join(', ')})`);
+    }
+  }
+  const out = {};
+  let any = false;
+  for (const key of SOURCE_READ_COUNT_KEYS) {
+    if (input[key] === undefined || input[key] === null) continue;
+    const value = input[key];
+    if (!Number.isFinite(value) || value < 0 || Math.floor(value) !== value) {
+      errors.push(`${key} must be a non-negative integer`);
+      continue;
+    }
+    out[key] = value;
+    any = true;
+  }
+  for (const key of SOURCE_READ_TABLE_KEYS) {
+    if (input[key] === undefined || input[key] === null) continue;
+    const value = input[key];
+    if (!Array.isArray(value) || value.some((t) => typeof t !== 'string' || !/^[A-Za-z0-9_]+$/.test(t))) {
+      errors.push(`${key} must be an array of bare table names (^[A-Za-z0-9_]+$)`);
+      continue;
+    }
+    if (value.length > SOURCE_READ_MAX_TABLES) {
+      errors.push(`${key} lists ${value.length} tables, more than the ${SOURCE_READ_MAX_TABLES} this field carries`);
+      continue;
+    }
+    out[key] = [...new Set(value)];
+    any = true;
+  }
+  if (!any) errors.push(`source-read needs at least one measurement (${[...SOURCE_READ_ALLOWED_KEYS].join(', ')})`);
+  if (errors.length > 0) {
+    throw new ValidationError(errors, 'source-read records counted reads only — never key names, and never a value');
+  }
+  return out;
+}
+
 // A pricing snapshot makes historical cost recomputable when list prices change. Rates are per
 // MILLION tokens, matching how model pricing is published.
 function validatePricingSnapshot(errors, value) {
@@ -410,6 +510,13 @@ const DIM_VALIDATORS = {
   source_extensions: (errors, v) => {
     if (!Array.isArray(v) || v.length > 64 || v.some((item) => typeof item !== 'string' || item.length > 48)) {
       errors.push('source_extensions must be an array of short extension/plugin class names');
+      return undefined;
+    }
+    return [...new Set(v.map(normalizeToken).filter(Boolean))];
+  },
+  discovered_entity_types: (errors, v) => {
+    if (!Array.isArray(v) || v.length > 64 || v.some((item) => typeof item !== 'string' || item.length > 48)) {
+      errors.push('discovered_entity_types must be an array of short entity class tokens (e.g. product, post, event)');
       return undefined;
     }
     return [...new Set(v.map(normalizeToken).filter(Boolean))];
@@ -537,7 +644,7 @@ function validateEvent(input, context) {
   }
 
   if (typeof input.skill !== 'string' || !/^[a-z][a-z0-9-]*$/.test(input.skill)) {
-    errors.push('skill is required — the active rp-* resource (e.g. "rp-mapper") or "replatform"');
+    errors.push('skill is required — the active rp-* resource (e.g. "rp-mapper") or "wix-replatform"');
   }
 
   checkEnum(errors, 'severity', input.severity, SEVERITIES);
@@ -809,6 +916,120 @@ function validateFinalizeInput(input, context) {
   };
 }
 
+// --- transcript_digest validation ---------------------------------
+// Every field is derived, machine-computed data (transcript-digest.js), never
+// agent free text — so the gate here checks shape and bounds, not prose rules.
+
+const TOOL_NAME_MAX = 80;
+
+function checkToolName(errors, field, value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > TOOL_NAME_MAX || /\s/.test(value)) {
+    errors.push(`${field} must be a short tool name (no whitespace, max ${TOOL_NAME_MAX} chars)`);
+    return null;
+  }
+  return value;
+}
+
+function validateNamedCountList(errors, field, value, { max = 10 } = {}) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > max) {
+    errors.push(`${field} must be an array of at most ${max} entries`);
+    return [];
+  }
+  return value.map((entry, i) => {
+    if (!entry || typeof entry !== 'object') {
+      errors.push(`${field}[${i}] must be an object`);
+      return null;
+    }
+    return entry;
+  }).filter(Boolean);
+}
+
+function validateTranscriptDigest(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ValidationError(['transcript_digest payload must be a JSON object']);
+  }
+  const errors = [];
+  const known = new Set(['source', 'cost', 'interaction', 'time', 'tools', 'signals']);
+  for (const key of Object.keys(input)) {
+    if (!known.has(key)) errors.push(`unknown transcript_digest field: ${key}`);
+  }
+
+  const source = input.source || {};
+  const sourceOut = {
+    sessions: checkCount(errors, 'source.sessions', source.sessions, { defaultValue: 1, min: 1 }),
+    transcript_turns: checkCount(errors, 'source.transcript_turns', source.transcript_turns),
+    cc_version: null,
+    tail_complete: typeof source.tail_complete === 'boolean' ? source.tail_complete : null,
+  };
+  if (sourceOut.tail_complete === null) errors.push('source.tail_complete must be a boolean');
+  if (source.cc_version !== undefined && source.cc_version !== null) {
+    if (typeof source.cc_version !== 'string' || source.cc_version.length > 32) {
+      errors.push('source.cc_version must be a short version string');
+    } else {
+      sourceOut.cc_version = source.cc_version;
+    }
+  }
+
+  const cost = input.cost || {};
+  const costOut = {
+    input_tokens: checkCount(errors, 'cost.input_tokens', cost.input_tokens),
+    output_tokens: checkCount(errors, 'cost.output_tokens', cost.output_tokens),
+    cache_read_input_tokens: checkCount(errors, 'cost.cache_read_input_tokens', cost.cache_read_input_tokens),
+    cache_creation_input_tokens: checkCount(errors, 'cost.cache_creation_input_tokens', cost.cache_creation_input_tokens),
+  };
+
+  const interaction = input.interaction || {};
+  const interactionOut = {
+    human_turns: checkCount(errors, 'interaction.human_turns', interaction.human_turns),
+    agent_turns: checkCount(errors, 'interaction.agent_turns', interaction.agent_turns),
+    sidechain_turns: checkCount(errors, 'interaction.sidechain_turns', interaction.sidechain_turns),
+  };
+
+  const time = input.time || {};
+  const timeOut = {
+    wall_ms: checkCount(errors, 'time.wall_ms', time.wall_ms),
+    active_ms: checkCount(errors, 'time.active_ms', time.active_ms),
+    idle_ms: checkCount(errors, 'time.idle_ms', time.idle_ms),
+    longest_gap_ms: checkCount(errors, 'time.longest_gap_ms', time.longest_gap_ms),
+  };
+
+  const tools = input.tools || {};
+  const topFailing = validateNamedCountList(errors, 'tools.top_failing', tools.top_failing).map((entry, i) => ({
+    tool: checkToolName(errors, `tools.top_failing[${i}].tool`, entry.tool),
+    n: checkCount(errors, `tools.top_failing[${i}].n`, entry.n, { defaultValue: 1, min: 1 }),
+  }));
+  const toolsOut = {
+    calls: checkCount(errors, 'tools.calls', tools.calls),
+    failures: checkCount(errors, 'tools.failures', tools.failures),
+    top_failing: topFailing,
+  };
+
+  const signals = input.signals || {};
+  const retryLoops = validateNamedCountList(errors, 'signals.retry_loops', signals.retry_loops).map((entry, i) => {
+    let stage = null;
+    if (entry.stage !== undefined && entry.stage !== null) {
+      if (checkEnum(errors, `signals.retry_loops[${i}].stage`, entry.stage, STAGES)) stage = entry.stage;
+    }
+    return {
+      tool: checkToolName(errors, `signals.retry_loops[${i}].tool`, entry.tool),
+      repeats: checkCount(errors, `signals.retry_loops[${i}].repeats`, entry.repeats, { defaultValue: 1, min: 1 }),
+      stage,
+    };
+  });
+  const signalsOut = {
+    retry_loops: retryLoops,
+    hook_blocks: checkCount(errors, 'signals.hook_blocks', signals.hook_blocks),
+    hook_errors: checkCount(errors, 'signals.hook_errors', signals.hook_errors),
+    files_edited_mid_run: checkCount(errors, 'signals.files_edited_mid_run', signals.files_edited_mid_run),
+  };
+
+  if (errors.length > 0) throw new ValidationError(errors);
+  return {
+    source: sourceOut, cost: costOut, interaction: interactionOut, time: timeOut, tools: toolsOut, signals: signalsOut,
+  };
+}
+
 // --- journal ------------------------------------------------------------------
 
 function readJournalFile(file) {
@@ -837,6 +1058,92 @@ function appendJournal(projectDir, record) {
   fs.appendFileSync(file, `${JSON.stringify(record)}\n`, 'utf8');
 }
 
+// Several records in ONE appendFileSync, so a transaction is all-or-a-torn-suffix.
+function appendJournalRecords(projectDir, records) {
+  if (records.length === 0) return;
+  const file = journalPath(projectDir);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, records.map((r) => `${JSON.stringify(r)}\n`).join(''), 'utf8');
+}
+
+// --- journal lock -----------------------------------------------------------------
+
+const LOCK_CLAIM_RE = /^([^.]+)\.(\d+)\.[a-f0-9-]+\.owner$/;
+
+function sleepSync(ms) {
+  if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function lockBusyError(lockPath, detail) {
+  const error = new ValidationError(
+    [`telemetry journal is locked by another process (${detail}): ${lockPath}`],
+    'another telemetry writer is active on this project; retry the call',
+  );
+  error.code = 'ELOCKBUSY';
+  return error;
+}
+
+// Test-only hook: when RP_TELEMETRY_TEST_LOCK_HOLD_UNTIL names a file, a lock holder waits
+// (bounded) until that file exists before running its critical section, so a test can force
+// the lock acquisition order between two processes. Unset in every real run.
+function testHoldHook() {
+  const until = process.env.RP_TELEMETRY_TEST_LOCK_HOLD_UNTIL;
+  if (!until) return;
+  const deadline = Date.now() + 10000;
+  while (!fs.existsSync(until) && Date.now() < deadline) sleepSync(20);
+}
+
+// One writer per project journal. Same claim-file algorithm as local-state's withStateLock
+// (a unique <host>.<pid>.<uuid>.owner claim published before scanning; a same-host dead-PID
+// claim is removed; the container directory is never deleted), in `telemetry/.lock/` — never
+// the importer's `state/.lock`. Synchronous on purpose: the critical section is local I/O
+// only (a fresh read, seq computation and one append), never a network call, so the lock is
+// never held across an await and the command API keeps its sync functions sync. Contention
+// retries every ~50 ms up to `waitMs`; a claim from another host cannot be checked and is
+// treated as busy at once. Busy → ValidationError with code ELOCKBUSY.
+function withJournalLock(projectDir, fn, { waitMs = COMMAND_LOCK_WAIT_MS } = {}) {
+  const lockPath = path.join(telemetryDir(projectDir), '.lock');
+  fs.mkdirSync(lockPath, { recursive: true });
+  const host = Buffer.from(os.hostname()).toString('base64url');
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const claim = `${host}.${process.pid}.${crypto.randomUUID()}.owner`;
+    const claimPath = path.join(lockPath, claim);
+    fs.writeFileSync(claimPath, JSON.stringify({ pid: process.pid, host, acquiredAt: new Date().toISOString() }), { flag: 'wx', mode: 0o600 });
+    let blocker = null;
+    try {
+      for (const entry of fs.readdirSync(lockPath)) {
+        if (entry === claim) continue;
+        const match = LOCK_CLAIM_RE.exec(entry);
+        if (!match || match[1] !== host) { blocker = { foreign: true, detail: `claim ${entry} cannot be checked locally` }; break; }
+        try {
+          process.kill(Number(match[2]), 0);
+        } catch (error) {
+          if (error.code === 'ESRCH') { fs.rmSync(path.join(lockPath, entry), { force: true }); continue; }
+          if (error.code !== 'EPERM') throw error;
+        }
+        blocker = { foreign: false, detail: `held by PID ${match[2]}` };
+        break;
+      }
+    } catch (error) {
+      fs.rmSync(claimPath, { force: true });
+      throw error;
+    }
+    if (!blocker) {
+      try {
+        testHoldHook();
+        return fn();
+      } finally {
+        fs.rmSync(claimPath, { force: true });
+      }
+    }
+    fs.rmSync(claimPath, { force: true });
+    const remaining = deadline - Date.now();
+    if (blocker.foreign || remaining <= 0) throw lockBusyError(lockPath, blocker.detail);
+    sleepSync(Math.min(remaining, 25 + Math.floor(Math.random() * 50)));
+  }
+}
+
 function replay(records) {
   const state = {
     runStart: null,
@@ -848,6 +1155,7 @@ function replay(records) {
     entries: [],
     waits: [],
     meters: [],
+    sourceReads: [],
     openStage: null,
     openStageStart: null,
     lastStage: null,
@@ -855,19 +1163,39 @@ function replay(records) {
     scrubHits: 0,
     biPushFailures: 0,
     biPushTruncated: 0,
+    biPushSkipped: 0,
+    lastBiPushOkSeq: 0,
+    lastEventSeq: 0,
     finalize: null,
     lastTs: null,
+    // The activity clock: the MAXIMUM parseable ts over every record that is not a transport
+    // marker (bi_push_*). Markers are bookkeeping about delivery and may be appended late with
+    // the initiating call's older ts, so they never move it, and a maximum never goes backwards.
+    lastActivityTs: null,
+    // The current attempt's latest session opener (run_start or session_start), in file order.
+    lastOpener: null,
+    transcriptDigest: null,
   };
+  let lastActivityMs = -Infinity;
   for (const record of records) {
     state.seq = Math.max(state.seq, record.seq || 0);
     state.lastTs = record.ts || state.lastTs;
+    if (typeof record.type === 'string' && !record.type.startsWith('bi_push_') && typeof record.ts === 'string') {
+      const ms = tsMs(record.ts);
+      if (Number.isFinite(ms) && ms > lastActivityMs) {
+        lastActivityMs = ms;
+        state.lastActivityTs = record.ts;
+      }
+    }
     switch (record.type) {
       case 'run_start':
         state.runStart = record;
+        state.lastOpener = record;
         Object.assign(state.dims, record.dims || {});
         break;
       case 'session_start':
         state.sessionCount = record.session;
+        state.lastOpener = record;
         break;
       case 'dims':
         Object.assign(state.dims, record.dims || {});
@@ -898,9 +1226,15 @@ function replay(records) {
         // own invocation. Summing is the only reading that survives a resume.
         state.meters.push(record.meter);
         break;
+      case 'source_read':
+        // Same accumulate-don't-overwrite reasoning: a run reads a source site across several
+        // stages and possibly across a resume, and only the sum is the run's real total.
+        state.sourceReads.push(record.source_read);
+        break;
       case 'event':
         state.events.push(record);
         state.scrubHits += record.scrub_hits || 0;
+        state.lastEventSeq = Math.max(state.lastEventSeq, record.seq || 0);
         break;
       case 'rejected':
         state.rejected.push(record);
@@ -911,8 +1245,24 @@ function replay(records) {
       case 'bi_push_truncated':
         state.biPushTruncated += record.rows || 1;
         break;
+      case 'bi_push_skipped':
+        state.biPushSkipped += record.rows || 1;
+        break;
+      case 'bi_push_ok':
+        state.lastBiPushOkSeq = Math.max(state.lastBiPushOkSeq, record.through_seq || 0);
+        break;
       case 'finalize':
         state.finalize = record;
+        break;
+      case 'transcript_digest':
+        state.transcriptDigest = {
+          source: record.source,
+          cost: record.cost,
+          interaction: record.interaction,
+          time: record.time,
+          tools: record.tools,
+          signals: record.signals,
+        };
         break;
       default:
         break;
@@ -1108,7 +1458,7 @@ function computeCost(stages, pricingSnapshot, model) {
 }
 
 const MANIFEST_EXCLUDE_DIRS = new Set(['config', 'data', 'preview', 'node_modules', 'frontend', 'telemetry']);
-// .ndjson: the pipeline's audit logs (logs/audit-*.ndjson) are spec-named
+// .ndjson: the pipeline's audit logs (logs/audit-*.ndjson) are named
 // evidence — a pipeline_defect deep-dive depends on them being in the bundle.
 const MANIFEST_EXTENSIONS = new Set(['.md', '.json', '.jsonl', '.ndjson', '.js', '.mjs', '.cjs', '.ts', '.sh', '.yaml', '.yml']);
 
@@ -1236,6 +1586,20 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
   if (state.biPushTruncated > 0) {
     flags.push(`bi_push_truncated:${state.biPushTruncated}`);
   }
+  // Rows swallowed by RP_TELEMETRY_BI_DISABLED while operator identity was
+  // known. Legitimate only for tests/offline dev — on a production run this
+  // flag means the kill-switch leaked into the session.
+  if (state.biPushSkipped > 0) {
+    flags.push('bi_sink_disabled_during_run');
+  }
+  // No operator identity ever resolved, so this run pushed NOTHING to BI and is
+  // invisible to cross-run review — the run is complete and correct on disk, and
+  // that is exactly why this needs saying out loud. Before this flag existed the
+  // only trace was `sent: 0` inside the finalize payload, which is how four of
+  // six local projects went missing unnoticed.
+  if (!biSink.isGuid(dims.wix_user_id)) {
+    flags.push('operator_identity_unresolved');
+  }
   // A stalled wait whose stage has no halt_needs_user event lost the "why" of
   // the stall — the single most actionable signal for where runs stall.
   const haltStages = new Set(events.filter((e) => e.event_type === 'halt_needs_user').map((e) => e.stage));
@@ -1255,6 +1619,21 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
   if (discoveryPassed && (dims.source_extensions === undefined || dims.source_extensions === null)
     && dims.source_platform !== 'csv') {
     flags.push('source_extensions_null_after_discovery');
+  }
+  // Same rationale for entity classes — and they exist for every source platform,
+  // csv included, so no exemption. Stamp [] explicitly for an empty source.
+  if (discoveryPassed && (dims.discovered_entity_types === undefined || dims.discovered_entity_types === null)) {
+    flags.push('discovered_entity_types_null_after_discovery');
+  }
+  // The demand signal for unsupported verticals is the volume rows (target
+  // "none", discovered/skipped counts). A discovered class with no volume row
+  // under-reports that demand invisibly, so cross-check on a completed run —
+  // earlier terminal states legitimately finalize before volumes exist.
+  if (payload.terminal_state === 'completed' && Array.isArray(dims.discovered_entity_types)) {
+    const volumeTypes = new Set(payload.volumes.map((v) => v.entity_type));
+    for (const entityType of dims.discovered_entity_types) {
+      if (!volumeTypes.has(entityType)) flags.push(`volume_row_missing:${entityType}`);
+    }
   }
 
   const evidence = walkEvidence(projectDir);
@@ -1280,6 +1659,7 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
     source_platform_version: dims.source_platform_version ?? null,
     source_site_url: dims.source_site_url ?? null,
     source_extensions: dims.source_extensions ?? null,
+    discovered_entity_types: dims.discovered_entity_types ?? null,
     source_acquisition: dims.source_acquisition ?? null,
     delivery_mode: dims.delivery_mode ?? null,
     destination_strategy: dims.destination_strategy ?? null,
@@ -1294,6 +1674,7 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
       dropped_events: dropped,
       scrub_hits: state.scrubHits,
       bi_push_failures: state.biPushFailures,
+      bi_push_skipped: state.biPushSkipped,
       flags,
     },
     event_count_by_type: eventCountByType,
@@ -1301,6 +1682,11 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
     waiting_ms: waitingMs,
     timing,
     cost,
+    transcript_digest: state.transcriptDigest,
+    // ALWAYS present, even when the run never touched a key/value table -- an
+    // all-zero object says "this run read no key/value data", which is a different and useful
+    // fact from a missing field, and only one of the two can be aggregated across runs.
+    source_reads: summarizeSourceReads(state),
     model_pricing_snapshot: dims.model_pricing_snapshot ?? null,
     run_started: runStart.ts,
     run_ended: finalizeTs,
@@ -1421,29 +1807,128 @@ function resolveSkillsCommit() {
   return null;
 }
 
-// --- BI sink (spec 0007) ----------------------------------------------------------
+// The operator's Wix user id — the routing key the BI sink refuses to push
+// without (bi-sink rule 3). Auto-stamped like skills_version/skills_commit
+// above, and for the same reason: a value nobody thinks to pass is a value that
+// never arrives. Runs from 2026-07 to 2026-08 shipped with no resolution step
+// at all, so any run whose caller didn't happen to hand over a GUID pushed
+// exactly zero rows and left no trace in BI.
+//
+// Source: `~/.wix/auth/account.json`, written by `wix login`. The migration
+// flow already requires that login (rp-execute-setup mints its site token from
+// the same CLI session), so the file is present by the time telemetry starts,
+// and it is the operator's own artifact — this works identically for a Wix
+// employee and a customer. `userInfo.userId` there is the same GUID that lands
+// in `events.dbo.users_10` as `logged_user_id` (verified 2026-09-01).
+//
+// Deliberately NOT used, for the record:
+//   - `wix whoami` returns only an email ("Logged in as <email>"), and BI
+//     routing needs a GUID. No public endpoint resolves email -> user id.
+//   - the site-mute response's `mutedBy.wixUserId` would work but makes
+//     identity depend on a side-effecting call that only happens after
+//     provisioning; identity is needed at `start`.
+//   - `account.id` / `accountOwner` from the account APIs are the ACCOUNT
+//     guid, not the user's — one user can own several accounts, so those
+//     would silently attribute runs to the wrong id.
+// The right long-term fix is a public "who am I" endpoint; the capability
+// exists internally (`Oauth2Ng/UserInfo` returns `sub`) but is not exposed.
+//
+// Fail-soft by contract: the path is CLI-internal and undocumented, so any
+// miss (no login, moved file, malformed JSON, non-GUID value) returns null and
+// the run proceeds unattributed but never blocked. Telemetry must never fail a
+// migration.
+//
+// An unattributed run still reaches BI as nothing at all, and that is on
+// purpose: routing such runs under a fabricated subject was implemented and
+// tested against live BI on 2026-09-02 — frog answered 2xx and ingested zero
+// rows, so it reported success while losing the data. Journaling the loss
+// (`no_operator_identity` + the `operator_identity_unresolved` flag) beats
+// faking a subject. Making unattributed runs countable needs a BI-side
+// anonymous event.
+function resolveOperatorIdentity() {
+  return require('../../../lib/operator-identity').resolveOperatorIdentity();
+}
 
-// Push rows to BI and journal any failures/truncation so telemetry loss is
-// visible in telemetry_health, never silent. Never throws — BI unreachable,
+// --- BI sink ----------------------------------------------------------
+
+// Push rows to BI and journal any failures/truncation/skips so telemetry loss
+// is visible in telemetry_health, never silent. Never throws — BI unreachable,
 // slow, or rejecting is a telemetry failure, not a run failure. Returns the
-// last journal seq used plus sent/failed row counts.
-async function pushToBi(projectDir, ts, seq, rows, loggedUserId, target) {
-  const result = await biSink.pushRows(rows, loggedUserId);
+// last journal seq used plus sent/failed/skipped row counts.
+//
+// `throughSeq` is the healing watermark: when every row of a push lands, a
+// `bi_push_ok` record asserts "all pushable journal content with seq <=
+// through_seq is in BI". Anything journaled past the watermark — because a
+// push failed, the sink was disabled, or the journal predates the watermark
+// record type — is backlog, and the next push opportunity re-sends it in full
+// (idempotent: the reviewer dedupes on the natural keys, latest row wins).
+//
+// The transport runs with no journal lock held. Its markers are appended afterwards under a
+// fresh lock with a fresh `seq` from a fresh read (the `seq` argument is only the fallback
+// return value when nothing is appended), keeping the initiating call's `ts` — safe because
+// the activity clock ignores bi_push_* records. `signal` (optional) cancels the transport;
+// `markerLockWaitMs` bounds the marker lock, and a busy marker lock skips the markers (no
+// bi_push_ok → the backlog stays and the next heal re-sends). Returns `aborted` and
+// `markersSkipped` besides the counts.
+async function pushToBi(projectDir, ts, seq, rows, loggedUserId, target, {
+  throughSeq, signal, markerLockWaitMs = COMMAND_LOCK_WAIT_MS,
+} = {}) {
+  const result = await biSink.pushRows(rows, loggedUserId, signal ? { signal } : undefined);
+  const markers = [];
+  if (result.skipped > 0) {
+    markers.push({ type: 'bi_push_skipped', ts, target, rows: result.skipped });
+  }
   if (result.truncated > 0) {
-    seq += 1;
-    appendJournal(projectDir, { type: 'bi_push_truncated', ts, seq, target, rows: result.truncated });
+    markers.push({ type: 'bi_push_truncated', ts, target, rows: result.truncated });
   }
   for (const failure of result.failures) {
-    seq += 1;
-    appendJournal(projectDir, {
-      type: 'bi_push_failed', ts, seq, target, rows: failure.rows, detail: failure.detail,
-    });
+    markers.push({ type: 'bi_push_failed', ts, target, rows: failure.rows, detail: failure.detail });
+  }
+  if (throughSeq !== undefined && result.sent > 0 && result.failures.length === 0 && result.skipped === 0) {
+    markers.push({ type: 'bi_push_ok', ts, target, through_seq: throughSeq });
+  }
+  let markersSkipped = false;
+  if (markers.length > 0) {
+    try {
+      seq = withJournalLock(projectDir, () => {
+        const fresh = readJournal(projectDir);
+        // The journal was archived meanwhile: never create a marker-only journal.
+        if (!fresh) return null;
+        let next = replay(fresh.records).seq;
+        const stamped = markers.map((marker) => {
+          next += 1;
+          const { type, ...rest } = marker;
+          return { type, ts: rest.ts, seq: next, ...rest };
+        });
+        appendJournalRecords(projectDir, stamped);
+        return next;
+      }, { waitMs: markerLockWaitMs }) ?? seq;
+    } catch (error) {
+      if (error && error.code !== 'ELOCKBUSY') throw error;
+      markersSkipped = true;
+    }
   }
   return {
     seq,
     sent: result.sent,
     failed: result.failures.reduce((sum, f) => sum + f.rows, 0),
+    skipped: result.skipped,
+    aborted: result.failures.some((f) => f.detail === 'aborted'),
+    markersSkipped,
   };
+}
+
+// True when journal content that belongs in BI has no confirming watermark:
+// a prior push failed or was skipped, or the journal predates schema 1.4.0.
+function biBacklog(state) {
+  return state.lastBiPushOkSeq === 0 || state.lastBiPushOkSeq < state.lastEventSeq;
+}
+
+// The full idempotent re-push set: the started row plus every folded event
+// class (the finalized rollup only exists at finalize, which builds its own).
+function healRows(state, wixUserId, extraEventRecords = []) {
+  const folded = foldEvents([...state.events, ...extraEventRecords], state.runStart.run_id);
+  return [biSink.startedRunRow(state.runStart, wixUserId), ...folded.map(biSink.eventRow)];
 }
 
 // The folded BI row for one event class: prior journal records of the class plus
@@ -1459,91 +1944,244 @@ function foldedRowForClass(state, eventRecord) {
 
 // --- public command API ---------------------------------------------------------
 
-async function start(projectDir, dimsInput, { now } = {}) {
+// --- supervisor liveness -------------------------------------------------------
+
+// The command-line supervisor's liveness record (run-controller.js `activePath`). Read directly
+// rather than required, so the recorder never depends on the orchestrator's modules.
+function supervisorActivePath(projectDir) {
+  return path.join(projectDir, 'state', 'runner', 'active.json');
+}
+
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return Boolean(error && error.code === 'EPERM');
+  }
+}
+
+// The live supervisor record, or null: `active.json` exists, has `status: 'running'`, and its
+// `pid` is alive on this host. Missing, unreadable, non-running or dead-PID → null.
+function liveSupervisor(projectDir) {
+  try {
+    const active = JSON.parse(fs.readFileSync(supervisorActivePath(projectDir), 'utf8'));
+    if (!active || active.status !== 'running' || !pidAlive(active.pid)) return null;
+    return active;
+  } catch {
+    return null;
+  }
+}
+
+function defaultIsSupervised(projectDir) {
+  return liveSupervisor(projectDir) !== null;
+}
+
+// `startedAt` of the live supervisor run, or null when there is no live supervisor or its
+// record carries no parseable `startedAt`.
+function defaultSupervisorStartedAt(projectDir) {
+  const active = liveSupervisor(projectDir);
+  if (!active || typeof active.startedAt !== 'string' || !Number.isFinite(tsMs(active.startedAt))) return null;
+  return active.startedAt;
+}
+
+// --- shared resume records --------------------------------------------------------
+
+// The one place the resume records are built, for both explicit `start()` and automatic
+// `resumeIfStale()`: close an open wait, or impute the dead interval as waiting when the gap
+// since the last ACTIVITY is at least IMPLICIT_WAIT_MIN_MS; then one `session_start` (carrying
+// `trigger` only when automatic); then a `dims` record when there is anything to add. Identity
+// is resolved exactly as `start()` always has when neither the call nor the journal has it.
+// Pure: returns the records with their seqs; the caller appends them in one write.
+function buildResumeRecords(state, ts, dims, { trigger = null, resolveIdentity = resolveOperatorIdentity } = {}) {
+  const records = [];
+  let seq = state.seq;
+  let closedWait = false;
+  let imputedWaitMs = 0;
+  if (state.openWait) {
+    seq += 1;
+    records.push({ type: 'wait_end', ts, seq });
+    closedWait = true;
+  } else if (state.lastActivityTs && tsMs(ts) - tsMs(state.lastActivityTs) >= IMPLICIT_WAIT_MIN_MS) {
+    // The run stopped without an open wait (e.g. a crash); the dead interval
+    // is waiting time, not active time.
+    const stage = state.openStage || state.lastStage || 'config';
+    seq += 1;
+    records.push({ type: 'wait_start', ts: state.lastActivityTs, seq, stage, imputed: true });
+    seq += 1;
+    records.push({ type: 'wait_end', ts, seq, imputed: true });
+    closedWait = true;
+    imputedWaitMs = tsMs(ts) - tsMs(state.lastActivityTs);
+  }
+  seq += 1;
+  records.push(trigger
+    ? { type: 'session_start', ts, seq, session: state.sessionCount + 1, trigger }
+    : { type: 'session_start', ts, seq, session: state.sessionCount + 1 });
+  // A run that opened without identity — begun before the recorder resolved
+  // it, or with the CLI not yet logged in — gets it here, so the heal has a
+  // route. Journaled as dims like any other late-arriving dimension.
+  const identity = resolveMissingIdentity(state, dims, resolveIdentity);
+  if (Object.keys(dims).length > 0) {
+    seq += 1;
+    records.push({ type: 'dims', ts, seq, dims });
+  }
+  return { records, seq, closedWait, imputedWaitMs, userId: identity };
+}
+
+// Adds a resolved wix_user_id to `dims` when neither the call nor the journal carries one, and
+// returns the identity the heal routes under (call dims first, then the journal), or null.
+function resolveMissingIdentity(state, dims, resolveIdentity) {
+  if (!biSink.isGuid(dims.wix_user_id) && !biSink.isGuid(state.dims.wix_user_id)) {
+    const resolvedUserId = resolveIdentity();
+    if (resolvedUserId) dims.wix_user_id = resolvedUserId;
+  }
+  if (biSink.isGuid(dims.wix_user_id)) return dims.wix_user_id;
+  return biSink.isGuid(state.dims.wix_user_id) ? state.dims.wix_user_id : null;
+}
+
+// Does an explicit `start()` join the current attempt's latest session opener instead of
+// opening another session? Measured from the opener itself, never from the latest activity:
+// recent activity after an old automatic opener does not make that session "just opened".
+//   - window: the opener is an automatic (`trigger`-bearing) session_start and
+//     0 <= now - opener.ts < SESSION_ADOPT_WINDOW_MS;
+//   - live supervisor run: a live supervisor owns the project with a parseable startedAt, and
+//     startedAt - opener.ts < SESSION_ADOPT_WINDOW_MS (one supervisor process is one session).
+function startAdopts(state, ts, supervisorStartedAt) {
+  const opener = state.lastOpener;
+  if (!opener || typeof opener.ts !== 'string') return false;
+  const openerMs = tsMs(opener.ts);
+  if (!Number.isFinite(openerMs)) return false;
+  const age = tsMs(ts) - openerMs;
+  if (opener.type === 'session_start' && opener.trigger && age >= 0 && age < SESSION_ADOPT_WINDOW_MS) return true;
+  const startedAt = supervisorStartedAt();
+  const startedMs = typeof startedAt === 'string' ? tsMs(startedAt) : NaN;
+  // Strictly inside the window, like every other adoption boundary: an opener exactly a
+  // window before startedAt is an earlier execution's session, not this run's.
+  return Number.isFinite(startedMs) && openerMs > startedMs - SESSION_ADOPT_WINDOW_MS;
+}
+
+// --- public command API ---------------------------------------------------------
+
+// `resolveIdentity` is injectable for one reason: tests need to construct a run
+// with no operator identity, and on any real machine with a logged-in CLI that
+// state is otherwise unreachable. Production callers (the CLI) never pass it.
+// `supervisorStartedAt` is injectable for the same reason (tests need no real supervisor);
+// the default reads the live supervisor's `active.json`.
+async function start(projectDir, dimsInput, {
+  now, resolveIdentity = resolveOperatorIdentity, supervisorStartedAt,
+} = {}) {
   const ts = nowIso(now);
   const dims = validateDims(dimsInput);
-  const journal = readJournal(projectDir);
+  const readStartedAt = supervisorStartedAt || (() => defaultSupervisorStartedAt(projectDir));
 
-  if (journal) {
-    const state = replay(journal.records);
-    if (!state.runStart) {
-      throw new ValidationError(['telemetry journal is corrupt: missing run-start record']);
+  // Everything local happens under the journal lock from a fresh read, so a concurrent
+  // automatic resume and this call can never both open a session or reuse a seq. The BI push
+  // runs after the lock is released.
+  const plan = withJournalLock(projectDir, () => {
+    const journal = readJournal(projectDir);
+    if (journal) {
+      const state = replay(journal.records);
+      if (!state.runStart) {
+        throw new ValidationError(['telemetry journal is corrupt: missing run-start record']);
+      }
+      if (state.finalize) {
+        archiveFinalizedJournal(projectDir, journal, state);
+      } else if (startAdopts(state, ts, readStartedAt)) {
+        // Join the session automatic recovery (or this supervisor run) already opened: no
+        // second session_start, no imputed wait. The caller's dims (and resolved identity)
+        // still land; the heal runs only when there is backlog.
+        const userId = resolveMissingIdentity(state, dims, resolveIdentity);
+        let seq = state.seq;
+        if (Object.keys(dims).length > 0) {
+          seq += 1;
+          appendJournal(projectDir, { type: 'dims', ts, seq, dims });
+        }
+        return {
+          kind: 'adopted', state, seq, userId, heal: Boolean(userId) && biBacklog(state),
+        };
+      } else {
+        // Resume: same run_id, same attempt, one more session. Cross-session user
+        // latency lands in waiting_ms, never in a phantom second run.
+        const built = buildResumeRecords(state, ts, dims, { resolveIdentity });
+        appendJournalRecords(projectDir, built.records);
+        return {
+          kind: 'resumed', state, seq: built.seq, userId: built.userId, heal: Boolean(built.userId),
+        };
+      }
     }
-    if (state.finalize) {
-      archiveFinalizedJournal(projectDir, journal, state);
-    } else {
-      // Resume: same run_id, same attempt, one more session. Cross-session user
-      // latency lands in waiting_ms, never in a phantom second run.
-      let seq = state.seq;
-      if (state.openWait) {
-        seq += 1;
-        appendJournal(projectDir, { type: 'wait_end', ts, seq });
-      } else if (state.lastTs && tsMs(ts) - tsMs(state.lastTs) >= IMPLICIT_WAIT_MIN_MS) {
-        // The run stopped without an open wait (e.g. a crash); the dead interval
-        // is waiting time, not active time.
-        const stage = state.openStage || state.lastStage || 'config';
-        seq += 1;
-        appendJournal(projectDir, { type: 'wait_start', ts: state.lastTs, seq, stage, imputed: true });
-        seq += 1;
-        appendJournal(projectDir, { type: 'wait_end', ts, seq, imputed: true });
-      }
-      seq += 1;
-      appendJournal(projectDir, { type: 'session_start', ts, seq, session: state.sessionCount + 1 });
-      if (Object.keys(dims).length > 0) {
-        seq += 1;
-        appendJournal(projectDir, { type: 'dims', ts, seq, dims });
-      }
-      // Operator identity arriving on a resume means the phase:started row could
-      // not have been sent yet — send it now (dedup makes a re-send harmless).
-      if (biSink.isGuid(dims.wix_user_id)) {
-        await pushToBi(projectDir, ts, seq,
-          [biSink.startedRunRow(state.runStart, dims.wix_user_id)], dims.wix_user_id, 'run_started');
-      }
-      return {
-        resumed: true,
-        run_id: state.runStart.run_id,
-        attempt: state.runStart.attempt,
-        session_count: state.sessionCount + 1,
-        open_stage: state.openStage,
-      };
+
+    const attempt = lastFinalizedAttempt(projectDir) + 1;
+    const runtimeEnv = {
+      os: `${os.platform()} ${os.release()}`,
+      node_version: process.version,
+      agent_runtime: (dims.runtime_env && dims.runtime_env.agent_runtime) || null,
+      model: (dims.runtime_env && dims.runtime_env.model) || null,
+      ...(dims.runtime_env || {}),
+    };
+    delete dims.runtime_env;
+    const skillsVersion = dims.skills_version || resolveSkillsVersion();
+    delete dims.skills_version;
+    const skillsCommit = dims.skills_commit || resolveSkillsCommit();
+    delete dims.skills_commit;
+    // Same precedence as the provenance stamps above: an explicitly passed
+    // wix_user_id wins (a runtime with better provenance than the CLI session),
+    // otherwise resolve it ourselves. Unlike those, it stays in `dims` — it is a
+    // run dimension the rollup and every BI push key off.
+    if (!biSink.isGuid(dims.wix_user_id)) {
+      const resolvedUserId = resolveIdentity();
+      if (resolvedUserId) dims.wix_user_id = resolvedUserId;
     }
+
+    const record = {
+      type: 'run_start',
+      ts,
+      seq: 1,
+      run_id: crypto.randomUUID(),
+      project_id: path.basename(path.resolve(projectDir)),
+      attempt,
+      session: 1,
+      schema_version: TELEMETRY_SCHEMA_VERSION,
+      skills_version: skillsVersion,
+      skills_commit: skillsCommit,
+      runtime_env: runtimeEnv,
+      dims,
+    };
+    appendJournal(projectDir, record);
+    return { kind: 'new', record, attempt, skillsVersion, skillsCommit };
+  });
+
+  if (plan.kind === 'adopted' || plan.kind === 'resumed') {
+    const { state } = plan;
+    // Session-boundary heal: re-push the started row and every folded event
+    // class whenever operator identity is known — from this call's dims or
+    // the journal. A halted run may never reach finalize's full re-push, so
+    // the resume is the one reliable moment to recover rows the previous
+    // session's transport lost (re-sends are harmless: reviewer-side dedup).
+    if (plan.heal) {
+      await pushToBi(projectDir, ts, plan.seq, healRows(state, plan.userId),
+        plan.userId, 'resume_heal', { throughSeq: plan.seq });
+    }
+    return {
+      resumed: true,
+      ...(plan.kind === 'adopted' ? { adopted: true } : {}),
+      run_id: state.runStart.run_id,
+      attempt: state.runStart.attempt,
+      session_count: plan.kind === 'adopted' ? state.sessionCount : state.sessionCount + 1,
+      open_stage: state.openStage,
+    };
   }
 
-  const attempt = lastFinalizedAttempt(projectDir) + 1;
-  const runtimeEnv = {
-    os: `${os.platform()} ${os.release()}`,
-    node_version: process.version,
-    agent_runtime: (dims.runtime_env && dims.runtime_env.agent_runtime) || null,
-    model: (dims.runtime_env && dims.runtime_env.model) || null,
-    ...(dims.runtime_env || {}),
-  };
-  delete dims.runtime_env;
-  const skillsVersion = dims.skills_version || resolveSkillsVersion();
-  delete dims.skills_version;
-  const skillsCommit = dims.skills_commit || resolveSkillsCommit();
-  delete dims.skills_commit;
-
-  const record = {
-    type: 'run_start',
-    ts,
-    seq: 1,
-    run_id: crypto.randomUUID(),
-    project_id: path.basename(path.resolve(projectDir)),
-    attempt,
-    session: 1,
-    schema_version: TELEMETRY_SCHEMA_VERSION,
-    skills_version: skillsVersion,
-    skills_commit: skillsCommit,
-    runtime_env: runtimeEnv,
-    dims,
-  };
-  appendJournal(projectDir, record);
-  // Emit `replatform_run` phase:started (spec 0007). Without a GUID operator
-  // identity there is no BI route yet — a later dims call carrying wix_user_id
-  // (or the finalize re-push) sends it then.
-  if (biSink.isGuid(dims.wix_user_id)) {
+  const { record, attempt, skillsVersion, skillsCommit } = plan;
+  // Emit `replatform_run` phase:started. Without a GUID operator identity there is
+  // no BI route yet — a later dims call carrying wix_user_id (or the finalize
+  // re-push) sends it then. Routing an unattributed run under a fabricated subject
+  // was tried and verified not to work: BI returns 2xx and ingests
+  // nothing, which is a silent loss dressed as a success.
+  if (biSink.isGuid(record.dims.wix_user_id)) {
     await pushToBi(projectDir, ts, record.seq,
-      [biSink.startedRunRow(record, dims.wix_user_id)], dims.wix_user_id, 'run_started');
+      [biSink.startedRunRow(record, record.dims.wix_user_id)], record.dims.wix_user_id, 'run_started',
+      { throughSeq: record.seq });
   }
   return {
     resumed: false,
@@ -1556,58 +2194,203 @@ async function start(projectDir, dimsInput, { now } = {}) {
   };
 }
 
+// --- automatic resume of a stale, unfinalized journal ------------------------------
+
+const RESUME_TRIGGERS = ['route', 'supervisor'];
+
+function validateResumeOptions(options) {
+  const errors = [];
+  if (!RESUME_TRIGGERS.includes(options.trigger)) {
+    errors.push(`trigger must be one of ${RESUME_TRIGGERS.join(', ')} (got: ${options.trigger})`);
+  }
+  for (const key of ['minGapMs', 'healDeadlineMs', 'lockWaitMs', 'markerLockWaitMs']) {
+    const value = options[key];
+    if (value !== undefined && !(Number.isInteger(value) && value >= 0)) {
+      errors.push(`${key} must be a finite integer >= 0 (got: ${value})`);
+    }
+  }
+  if (options.now !== undefined) {
+    const parsed = options.now instanceof Date ? options.now.getTime() : (typeof options.now === 'string' ? Date.parse(options.now) : NaN);
+    if (!Number.isFinite(parsed)) errors.push(`now must parse to a finite time (got: ${options.now})`);
+  }
+  if (options.isSupervised !== undefined && typeof options.isSupervised !== 'function') {
+    errors.push('isSupervised must be a function');
+  }
+  if (errors.length > 0) throw new ValidationError(errors);
+}
+
+// Classification rows 2–8 (row 1, `supervised`, is decided before any read). Returns the
+// no-op reason, or null when the journal should be resumed.
+function classifyForResume(journal, ts, trigger, minGapMs) {
+  if (!journal) return { reason: 'absent' };
+  const state = replay(journal.records);
+  if (!state.runStart) return { reason: 'unreadable' };
+  if (state.finalize) return { reason: 'finalized' };
+  const lastActivityMs = state.lastActivityTs ? tsMs(state.lastActivityTs) : NaN;
+  if (!Number.isFinite(lastActivityMs)) return { reason: 'invalid_timestamp' };
+  const nowMs = tsMs(ts);
+  if (nowMs < lastActivityMs) return { reason: 'clock_skew' };
+  if (trigger === 'supervisor' && state.lastOpener) {
+    const openerMs = tsMs(state.lastOpener.ts);
+    if (Number.isFinite(openerMs) && nowMs - openerMs >= 0 && nowMs - openerMs < SESSION_ADOPT_WINDOW_MS) {
+      return { reason: 'adopted' };
+    }
+  }
+  if (nowMs - lastActivityMs < minGapMs) return { reason: 'recent' };
+  return { reason: null, state };
+}
+
+function readJournalOrNull(projectDir) {
+  const file = journalPath(projectDir);
+  if (!fs.existsSync(file)) return null;
+  return readJournalFile(file);
+}
+
+// Called by the two fixed places that notice a resumed execution — the start of a
+// supervisor run (`trigger: 'supervisor'`, once per process) and the manual route script
+// (`trigger: 'route'`, before every stage). Records "a new session started" on an OPEN,
+// readable journal that nobody told; everything else (no journal, only finished ones, a
+// damaged file) belongs to preflight recovery and is left untouched.
+//
+// Only invalid options throw (ValidationError). Every journal, lock, clock and transport
+// condition returns a result, and a no-op performs local reads only: no lock, no write, no
+// network. A resume takes the journal lock, re-classifies from a fresh read, appends its
+// records in one write, releases the lock, then heals BI under a hard, cancelling deadline.
+async function resumeIfStale(projectDir, options = {}) {
+  validateResumeOptions(options);
+  const {
+    trigger,
+    now,
+    minGapMs = trigger === 'supervisor' ? 0 : ROUTE_RESUME_MIN_GAP_MS,
+    healDeadlineMs = HEAL_DEADLINE_MS,
+    lockWaitMs = LOCK_WAIT_MS,
+    markerLockWaitMs = MARKER_LOCK_WAIT_MS,
+    isSupervised = () => defaultIsSupervised(projectDir),
+    resolveIdentity = resolveOperatorIdentity,
+  } = options;
+  const ts = nowIso(now);
+  const noop = (reason) => ({ resumed: false, reason, trigger });
+
+  // Row 1: while a supervisor run is live, it already recorded this execution.
+  if (trigger === 'route' && isSupervised()) return noop('supervised');
+
+  // Unlocked pre-read: a no-op stays read-only. Only a candidate for resume takes the lock.
+  const pre = classifyForResume(readJournalOrNull(projectDir), ts, trigger, minGapMs);
+  if (pre.reason) return noop(pre.reason);
+
+  let tx;
+  try {
+    tx = withJournalLock(projectDir, () => {
+      const fresh = classifyForResume(readJournalOrNull(projectDir), ts, trigger, minGapMs);
+      if (fresh.reason) return { reason: fresh.reason };
+      const built = buildResumeRecords(fresh.state, ts, {}, { trigger, resolveIdentity });
+      appendJournalRecords(projectDir, built.records);
+      return { reason: null, state: fresh.state, built };
+    }, { waitMs: lockWaitMs });
+  } catch (error) {
+    if (error && error.code === 'ELOCKBUSY') return noop('busy');
+    throw error;
+  }
+  if (tx.reason) return noop(tx.reason);
+
+  const { state, built } = tx;
+  let heal = 'no_identity';
+  if (built.userId) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), healDeadlineMs);
+    try {
+      const pushed = await pushToBi(projectDir, ts, built.seq, healRows(state, built.userId),
+        built.userId, 'resume_heal', { throughSeq: built.seq, signal: controller.signal, markerLockWaitMs });
+      if (pushed.aborted) heal = 'deadline';
+      else if (pushed.skipped > 0) heal = 'disabled';
+      else if (pushed.failed === 0) heal = 'ok';
+      else if (pushed.sent > 0) heal = 'partial';
+      else heal = 'failed';
+    } catch {
+      heal = controller.signal.aborted ? 'deadline' : 'failed';
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return {
+    resumed: true,
+    reason: 'resumed',
+    trigger,
+    run_id: state.runStart.run_id,
+    attempt: state.runStart.attempt,
+    session_count: state.sessionCount + 1,
+    closed_wait: built.closedWait,
+    imputed_wait_ms: built.imputedWaitMs,
+    heal,
+  };
+}
+
 async function dims(projectDir, dimsInput, { now } = {}) {
   const ts = nowIso(now);
-  const { state } = requireActiveRun(projectDir);
-  const validated = validateDims(dimsInput);
-  if (Object.keys(validated).length === 0) {
-    throw new ValidationError(['dims payload contains no known dimension fields']);
-  }
-  appendJournal(projectDir, { type: 'dims', ts, seq: state.seq + 1, dims: validated });
-  // Identity becoming known mid-run unlocks the BI route: send the
-  // phase:started row that start() had to hold back.
+  const { state, validated } = withJournalLock(projectDir, () => {
+    const { state: fresh } = requireActiveRun(projectDir);
+    const checked = validateDims(dimsInput);
+    if (Object.keys(checked).length === 0) {
+      throw new ValidationError(['dims payload contains no known dimension fields']);
+    }
+    appendJournal(projectDir, { type: 'dims', ts, seq: fresh.seq + 1, dims: checked });
+    return { state: fresh, validated: checked };
+  });
+  // Identity becoming known mid-run unlocks the BI route: heal the whole
+  // backlog (started row + every folded event class), not just the started
+  // row — held-back event rows must not wait on a finalize that may never come.
   if (biSink.isGuid(validated.wix_user_id)) {
     await pushToBi(projectDir, ts, state.seq + 1,
-      [biSink.startedRunRow(state.runStart, validated.wix_user_id)], validated.wix_user_id, 'run_started');
+      healRows(state, validated.wix_user_id), validated.wix_user_id, 'identity_heal',
+      { throughSeq: state.seq + 1 });
   }
   return { recorded: Object.keys(validated) };
 }
 
 async function record(projectDir, eventInput, { now } = {}) {
   const ts = nowIso(now);
-  const { state } = requireActiveRun(projectDir);
-  let validated;
-  try {
-    validated = validateEvent(eventInput, state);
-  } catch (error) {
-    if (error instanceof ValidationError) {
-      // The schema gate refused the call: count it so telemetry loss is never
-      // silent, then surface the errors for a retry.
-      appendJournal(projectDir, {
-        type: 'rejected',
-        ts,
-        seq: state.seq + 1,
-        class_key: error.hint || null,
-        reasons: error.errors,
-      });
-      error.hint = 'fix the listed fields and retry the record call';
+  const { state, validated, eventRecord } = withJournalLock(projectDir, () => {
+    const { state: fresh } = requireActiveRun(projectDir);
+    let checked;
+    try {
+      checked = validateEvent(eventInput, fresh);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // The schema gate refused the call: count it so telemetry loss is never
+        // silent, then surface the errors for a retry.
+        appendJournal(projectDir, {
+          type: 'rejected',
+          ts,
+          seq: fresh.seq + 1,
+          class_key: error.hint || null,
+          reasons: error.errors,
+        });
+        error.hint = 'fix the listed fields and retry the record call';
+      }
+      throw error;
     }
-    throw error;
-  }
-  const eventRecord = {
-    type: 'event',
-    ts,
-    seq: state.seq + 1,
-    class_key: validated.classKey,
-    scrub_hits: validated.scrubHits,
-    event: validated.event,
-  };
-  appendJournal(projectDir, eventRecord);
-  // Emit the folded `replatform_run_event` row (spec 0007). No identity yet →
-  // hold back; the finalize full re-push sends every folded class regardless.
+    const built = {
+      type: 'event',
+      ts,
+      seq: fresh.seq + 1,
+      class_key: checked.classKey,
+      scrub_hits: checked.scrubHits,
+      event: checked.event,
+    };
+    appendJournal(projectDir, built);
+    return { state: fresh, validated: checked, eventRecord: built };
+  });
+  // Emit the folded `replatform_run_event` row. No identity yet →
+  // hold back; the next heal point (resume, identity dims, finalize) sends
+  // every folded class. With backlog behind the watermark, this push carries
+  // the full heal set instead of just the new class — an event push is often
+  // the first working transport after a failure.
   if (biSink.isGuid(state.dims.wix_user_id)) {
-    await pushToBi(projectDir, ts, eventRecord.seq,
-      [foldedRowForClass(state, eventRecord)], state.dims.wix_user_id, 'run_event');
+    const rows = biBacklog(state)
+      ? healRows(state, state.dims.wix_user_id, [eventRecord])
+      : [foldedRowForClass(state, eventRecord)];
+    await pushToBi(projectDir, ts, eventRecord.seq, rows, state.dims.wix_user_id, 'run_event',
+      { throughSeq: eventRecord.seq });
   }
   const priorInClass = state.events.filter((r) => r.class_key === validated.classKey).length;
   return {
@@ -1620,6 +2403,10 @@ async function record(projectDir, eventInput, { now } = {}) {
 }
 
 function stage(projectDir, action, stageName, { outcome, now } = {}) {
+  return withJournalLock(projectDir, () => stageLocked(projectDir, action, stageName, { outcome, now }));
+}
+
+function stageLocked(projectDir, action, stageName, { outcome, now } = {}) {
   const ts = nowIso(now);
   const { state } = requireActiveRun(projectDir);
   const errors = [];
@@ -1664,84 +2451,173 @@ function stage(projectDir, action, stageName, { outcome, now } = {}) {
 // known by the agent runtime rather than by whatever closed the stage.
 function meter(projectDir, input, { now } = {}) {
   const ts = nowIso(now);
-  const { state } = requireActiveRun(projectDir);
-  const payload = validateMeter(input, { openStage: state.openStage, lastStage: state.lastStage });
-  appendJournal(projectDir, { type: 'meter', ts, seq: state.seq + 1, stage: payload.stage, meter: payload });
+  const payload = withJournalLock(projectDir, () => {
+    const { state } = requireActiveRun(projectDir);
+    const checked = validateMeter(input, { openStage: state.openStage, lastStage: state.lastStage });
+    appendJournal(projectDir, { type: 'meter', ts, seq: state.seq + 1, stage: checked.stage, meter: checked });
+    return checked;
+  });
   const recorded = Object.keys(payload).filter((k) => k !== 'stage');
   return { metered: true, stage: payload.stage, fields: recorded };
 }
 
+// Counts key/value source reads for the run. Accumulates across calls, so a
+// caller may report per-batch rather than having to hold a running total itself.
+function sourceRead(projectDir, input, { now } = {}) {
+  const ts = nowIso(now);
+  const payload = withJournalLock(projectDir, () => {
+    const { state } = requireActiveRun(projectDir);
+    const checked = validateSourceRead(input);
+    appendJournal(projectDir, { type: 'source_read', ts, seq: state.seq + 1, source_read: checked });
+    return checked;
+  });
+  return { recorded: true, fields: Object.keys(payload) };
+}
+
+/**
+ * The run's totals, as the source-read accounting defines them. `redacted_values` is summed from EVERY
+ * response's redactionMetadata, not only key/value reads -- the guard applies to every read,
+ * and an earlier draft of the response contract made that total impossible to compute
+ * correctly by nesting the counter inside a key/value-only object.
+ */
+function summarizeSourceReads(state) {
+  const totals = { discovery_queries: 0, scoped_queries: 0, tier_refusals: 0, redacted_values: 0 };
+  const discoveryTables = new Set();
+  const scopedTables = new Set();
+  for (const read of state.sourceReads || []) {
+    for (const key of SOURCE_READ_COUNT_KEYS) totals[key] += read[key] || 0;
+    for (const table of read.discovery_tables || []) discoveryTables.add(table);
+    for (const table of read.scoped_tables || []) scopedTables.add(table);
+  }
+  return {
+    ...totals,
+    discovery_tables: [...discoveryTables].sort(),
+    scoped_tables: [...scopedTables].sort(),
+  };
+}
+
+// Records the one `transcript_digest` per run: a script-computed
+// parse of the Claude Code session transcript, never an agent self-report. No
+// BI push here — the fields ride to BI inside `finalize`'s existing push, once
+// `rollup.transcript_digest` carries them. A second call in the same run
+// overwrites the prior one (replay keeps the latest), which is what an offline
+// re-run against a more complete transcript is for.
+async function transcriptDigest(projectDir, payload, { now } = {}) {
+  const ts = nowIso(now);
+  const seq = withJournalLock(projectDir, () => {
+    const { state } = requireActiveRun(projectDir);
+    const validated = validateTranscriptDigest(payload);
+    const next = state.seq + 1;
+    appendJournal(projectDir, { type: 'transcript_digest', ts, seq: next, run_id: state.runStart.run_id, ...validated });
+    return next;
+  });
+  return { recorded: true, seq };
+}
+
 async function wait(projectDir, action, { now, haltSubtype, skill, what } = {}) {
   const ts = nowIso(now);
-  const { state } = requireActiveRun(projectDir);
-  if (action === 'start') {
-    if (state.openWait) {
-      throw new ValidationError(['a wait interval is already open']);
-    }
-    const attributedStage = state.openStage || state.lastStage || 'config';
-    let seq = state.seq;
-    let haltRecorded = false;
-    if (haltSubtype !== undefined && haltSubtype !== null) {
-      // The paired halt_needs_user event is emitted mechanically so a stalled
-      // run never loses the "why" to a missed record call.
-      const validated = validateEvent({
-        event_type: 'halt_needs_user',
-        subtype: haltSubtype,
-        stage: attributedStage,
-        skill: skill || 'replatform',
-        severity: 'blocking',
-        what_happened: what || `Run halted at ${attributedStage} waiting on the user (${haltSubtype}).`,
-      }, state);
-      seq += 1;
-      const eventRecord = {
-        type: 'event', ts, seq, class_key: validated.classKey, scrub_hits: validated.scrubHits, event: validated.event,
-      };
-      appendJournal(projectDir, eventRecord);
-      if (biSink.isGuid(state.dims.wix_user_id)) {
-        const pushed = await pushToBi(projectDir, ts, seq,
-          [foldedRowForClass(state, eventRecord)], state.dims.wix_user_id, 'run_event');
-        seq = pushed.seq;
+  const first = withJournalLock(projectDir, () => {
+    const { state } = requireActiveRun(projectDir);
+    if (action === 'start') {
+      if (state.openWait) {
+        throw new ValidationError(['a wait interval is already open']);
       }
-      haltRecorded = true;
-    } else if (skill !== undefined || what !== undefined) {
-      throw new ValidationError(['--skill/--what on wait start are only valid together with --halt <subtype>']);
+      const attributedStage = state.openStage || state.lastStage || 'config';
+      if (haltSubtype !== undefined && haltSubtype !== null) {
+        // The paired halt_needs_user event is emitted mechanically so a stalled
+        // run never loses the "why" to a missed record call.
+        const validated = validateEvent({
+          event_type: 'halt_needs_user',
+          subtype: haltSubtype,
+          stage: attributedStage,
+          skill: skill || 'wix-replatform',
+          severity: 'blocking',
+          what_happened: what || `Run halted at ${attributedStage} waiting on the user (${haltSubtype}).`,
+        }, state);
+        const eventRecord = {
+          type: 'event', ts, seq: state.seq + 1, class_key: validated.classKey, scrub_hits: validated.scrubHits, event: validated.event,
+        };
+        appendJournal(projectDir, eventRecord);
+        return { kind: 'halt', state, attributedStage, eventRecord };
+      }
+      if (skill !== undefined || what !== undefined) {
+        throw new ValidationError(['--skill/--what on wait start are only valid together with --halt <subtype>']);
+      }
+      appendJournal(projectDir, { type: 'wait_start', ts, seq: state.seq + 1, stage: attributedStage });
+      return { kind: 'started', attributedStage };
     }
-    seq += 1;
-    appendJournal(projectDir, { type: 'wait_start', ts, seq, stage: attributedStage });
-    return { waiting: true, stage: attributedStage, halt_recorded: haltRecorded };
-  }
-  if (action === 'end') {
-    if (!state.openWait) {
-      throw new ValidationError(['no wait interval is open']);
+    if (action === 'end') {
+      if (!state.openWait) {
+        throw new ValidationError(['no wait interval is open']);
+      }
+      appendJournal(projectDir, { type: 'wait_end', ts, seq: state.seq + 1 });
+      return { kind: 'ended', waitedMs: Math.max(0, tsMs(ts) - tsMs(state.openWait.start)) };
     }
-    appendJournal(projectDir, { type: 'wait_end', ts, seq: state.seq + 1 });
-    return { waiting: false, waited_ms: Math.max(0, tsMs(ts) - tsMs(state.openWait.start)) };
+    throw new ValidationError([`wait action must be start or end (got: ${action})`]);
+  });
+  if (first.kind === 'ended') return { waiting: false, waited_ms: first.waitedMs };
+  if (first.kind === 'started') return { waiting: true, stage: first.attributedStage, halt_recorded: false };
+
+  const { state, attributedStage, eventRecord } = first;
+  if (biSink.isGuid(state.dims.wix_user_id)) {
+    const rows = biBacklog(state)
+      ? healRows(state, state.dims.wix_user_id, [eventRecord])
+      : [foldedRowForClass(state, eventRecord)];
+    await pushToBi(projectDir, ts, eventRecord.seq, rows, state.dims.wix_user_id, 'run_event',
+      { throughSeq: eventRecord.seq });
   }
-  throw new ValidationError([`wait action must be start or end (got: ${action})`]);
+  // The wait opens after the push's markers, with a seq from a fresh read.
+  withJournalLock(projectDir, () => {
+    const { state: fresh } = requireActiveRun(projectDir);
+    appendJournal(projectDir, { type: 'wait_start', ts, seq: fresh.seq + 1, stage: attributedStage });
+  });
+  return { waiting: true, stage: attributedStage, halt_recorded: true };
 }
 
 async function finalize(projectDir, rollupInput, { now } = {}) {
   const ts = nowIso(now);
-  const { journal, state } = requireActiveRun(projectDir);
-  const payload = validateFinalizeInput(rollupInput, state);
-
-  let seq = state.seq;
-  if (state.openWait) {
+  const { state, payload, provisionalJournal, noIdentityRows } = withJournalLock(projectDir, () => {
+    const { state: fresh } = requireActiveRun(projectDir);
+    const checked = validateFinalizeInput(rollupInput, fresh);
+    const records = [];
+    let seq = fresh.seq;
+    if (fresh.openWait) {
+      seq += 1;
+      records.push({ type: 'wait_end', ts, seq });
+    }
+    if (fresh.openStage) {
+      seq += 1;
+      records.push({
+        type: 'stage_end',
+        ts,
+        seq,
+        stage: fresh.openStage,
+        outcome: OUTCOME_FOR_TERMINAL[checked.terminal_state],
+      });
+    }
     seq += 1;
-    appendJournal(projectDir, { type: 'wait_end', ts, seq });
-  }
-  if (state.openStage) {
-    seq += 1;
-    appendJournal(projectDir, {
-      type: 'stage_end',
-      ts,
-      seq,
-      stage: state.openStage,
-      outcome: OUTCOME_FOR_TERMINAL[payload.terminal_state],
-    });
-  }
-  seq += 1;
-  appendJournal(projectDir, { type: 'finalize', ts, seq, payload });
+    records.push({ type: 'finalize', ts, seq, payload: checked });
+    appendJournalRecords(projectDir, records);
+    let provisionalJournal = readJournal(projectDir);
+    // A no-identity outcome has no transport call to await, so persist its
+    // failure marker in this same transaction as finalize.  Otherwise another
+    // process can archive the finalized journal before the later archival
+    // transaction gets a chance to record the loss.
+    let noIdentityRows = 0;
+    if (!biSink.disabled()) {
+      const provisional = assembleDocument(projectDir, provisionalJournal.records, provisionalJournal.malformed);
+      if (!biSink.isGuid(provisional.document.rollup.wix_user_id)) {
+        noIdentityRows = provisional.document.events.length + 2;
+        appendJournal(projectDir, {
+          type: 'bi_push_failed', ts, seq: replay(provisionalJournal.records).seq + 1,
+          target: 'finalize', rows: noIdentityRows, detail: 'no_operator_identity',
+        });
+        provisionalJournal = readJournal(projectDir);
+      }
+    }
+    return { state: fresh, payload: checked, provisionalJournal, noIdentityRows };
+  });
+  const finalizeSeq = replay(provisionalJournal.records).seq;
 
   // BI push before archival, so a failed push is journaled into the run and
   // lands in the archived telemetry_health. The full re-push (started row +
@@ -1751,9 +2627,8 @@ async function finalize(projectDir, rollupInput, { now } = {}) {
   // own health can't include this push's outcome (it is assembled first) — if
   // the push fails there is no BI row at all, and the local document, which is
   // authoritative, records the failure.
-  let biPush = { sent: 0, failed: 0 };
-  if (!biSink.disabled()) {
-    const provisionalJournal = readJournal(projectDir);
+  let biPush = { sent: 0, failed: 0, skipped: 0 };
+  {
     const provisional = assembleDocument(projectDir, provisionalJournal.records, provisionalJournal.malformed);
     const rollup = provisional.document.rollup;
     if (biSink.isGuid(rollup.wix_user_id)) {
@@ -1762,24 +2637,35 @@ async function finalize(projectDir, rollupInput, { now } = {}) {
         ...provisional.document.events.map(biSink.eventRow),
         biSink.finalizedRunRow(rollup),
       ];
-      const pushed = await pushToBi(projectDir, ts, seq, rows, rollup.wix_user_id, 'finalize');
-      seq = pushed.seq;
-      biPush = { sent: pushed.sent, failed: pushed.failed };
-    } else {
+      // A disabled sink lands here too: pushRows reports the rows as skipped
+      // and pushToBi journals them, so the kill-switch is never silent.
+      const pushed = await pushToBi(projectDir, ts, finalizeSeq, rows, rollup.wix_user_id, 'finalize',
+        { throughSeq: finalizeSeq });
+      biPush = { sent: pushed.sent, failed: pushed.failed, skipped: pushed.skipped };
+    } else if (!biSink.disabled()) {
       // No operator identity by run end: the run is unroutable in BI. Journal
-      // it as a push failure — this is real telemetry loss, not a hold-back.
-      const rowCount = provisional.document.events.length + 2;
-      seq += 1;
-      appendJournal(projectDir, {
-        type: 'bi_push_failed', ts, seq, target: 'finalize', rows: rowCount, detail: 'no_operator_identity',
-      });
-      biPush = { sent: 0, failed: rowCount };
+      // it as a push failure — this is real telemetry loss, not a hold-back,
+      // and recording it is strictly better than faking a routable subject
+      // (verified 2026-09-02: fabricated subjects ingest nothing).
+      biPush = { sent: 0, failed: noIdentityRows, skipped: 0 };
     }
   }
 
-  const finalJournal = readJournal(projectDir);
-  const finalState = replay(finalJournal.records);
-  const assembled = archiveFinalizedJournal(projectDir, finalJournal, finalState);
+  const { finalState, assembled } = withJournalLock(projectDir, () => {
+    let finalJournal = readJournal(projectDir);
+    let current = finalJournal ? replay(finalJournal.records) : null;
+    if (!current || !current.runStart || current.runStart.run_id !== state.runStart.run_id || !current.finalize) {
+      // Another writer already completed this finalize's archival (for example a `start`
+      // that found the finalize record); read the archived journal instead.
+      finalJournal = readJournalFile(path.join(runsDir(projectDir), `${archiveName(state)}.jsonl`));
+      current = replay(finalJournal.records);
+      return {
+        finalState: current,
+        assembled: assembleDocument(projectDir, finalJournal.records, finalJournal.malformed),
+      };
+    }
+    return { finalState: current, assembled: archiveFinalizedJournal(projectDir, finalJournal, current) };
+  });
 
   const health = assembled.document.rollup.telemetry_health;
   return {
@@ -1889,6 +2775,8 @@ function status(projectDir) {
     distinct_classes: new Set(state.events.map((r) => r.class_key)).size,
     rejected_calls: state.rejected.length,
     last_seq: state.seq,
+    bi_push_ok_seq: state.lastBiPushOkSeq,
+    bi_backlog: state.runStart ? biBacklog(state) : true,
   };
 }
 
@@ -1907,15 +2795,31 @@ module.exports = {
   validateDims,
   validateEvent,
   validateFinalizeInput,
+  validateTranscriptDigest,
   journalPath,
   signalPath,
   runsDir,
   readJournal,
+  replay,
   start,
+  resumeIfStale,
+  withJournalLock,
+  ROUTE_RESUME_MIN_GAP_MS,
+  SESSION_ADOPT_WINDOW_MS,
+  HEAL_DEADLINE_MS,
+  LOCK_WAIT_MS,
+  MARKER_LOCK_WAIT_MS,
+  IMPLICIT_WAIT_MIN_MS,
+  biBacklog,
   dims,
   record,
   stage,
   meter,
+  sourceRead,
+  summarizeSourceReads,
+  validateSourceRead,
+  SOURCE_READ_COUNT_KEYS,
+  transcriptDigest,
   wait,
   finalize,
   rebuild,

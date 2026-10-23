@@ -2,6 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { auditPath: linkAuditPath, readLinkAudit, writeLinkAudit, validateLinkAudit } = require('./link-audit.js');
 
 const SCHEMA_VERSION = 1;
 
@@ -15,7 +16,7 @@ const URL_STATUS = new Set([
   'manual_review',
 ]);
 const UNRESOLVED_STATUS = new Set(['open', 'resolved', 'manual_review']);
-const REDIRECT_STATUS = new Set(['planned']);
+const REDIRECT_STATUS = new Set(['planned', 'retired']);
 const BASE_PATH_STATUS = new Set(['planned', 'verified', 'unverified', 'manual_review']);
 
 function urlPreservationDir(projectDir) {
@@ -36,6 +37,29 @@ function redirectsPath(projectDir) {
 
 function unresolvedPath(projectDir) {
   return path.join(urlPreservationDir(projectDir), 'unresolved.ndjson');
+}
+
+// Post-build redirect application/verification state. `redirects.ndjson` stays the import's
+// plan record; these files carry the stronger claims (installed, verified) separately.
+const EXTENDED_FILES = Object.freeze({
+  sourceRedirects: 'source-redirects.ndjson',
+  sourceRedirectCoverage: 'source-redirect-coverage.json',
+  sourceDomains: 'source-domains.json',
+  finalRoutes: 'final-routes.json',
+  launchPlan: 'launch-plan.json',
+  redirectPlan: 'redirect-plan.json',
+  redirectExecution: 'redirect-execution.ndjson',
+  urlVerification: 'url-verification.ndjson',
+  applyStatus: 'redirect-apply-status.json',
+});
+
+function statePath(projectDir, name) {
+  if (!EXTENDED_FILES[name]) throw new Error(`unknown url-preservation state file: ${name}`);
+  return path.join(urlPreservationDir(projectDir), EXTENDED_FILES[name]);
+}
+
+function relativeStatePath(name) {
+  return `state/url-preservation/${EXTENDED_FILES[name]}`;
 }
 
 async function mkdirp(dirPath) {
@@ -297,6 +321,39 @@ async function loadRedirects(projectDir) {
   return { rows, byKey: foldRows(rows, redirectKey) };
 }
 
+// The generated importer's historical redirect file can contain source-rule rows rather
+// than keyed URL-preservation rows. Planning must retain each such address for manual
+// review without letting one incompatible row abort the rest of the report.
+async function loadRedirectsForPlanning(projectDir) {
+  let raw;
+  try {
+    raw = await fs.readFile(redirectsPath(projectDir), 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return { byKey: {}, rejected: [] };
+    throw error;
+  }
+  const valid = [];
+  const rejected = [];
+  for (const [index, text] of raw.split(/\r?\n/).entries()) {
+    if (!text.trim()) continue;
+    let row;
+    try { row = JSON.parse(text); } catch { row = null; }
+    const checked = validateRedirectRow(row, { allowThrow: false });
+    const sourceRuleFields = row && typeof row === 'object' &&
+      ['statusCode', 'enabled', 'recordedAt'].some((key) => Object.hasOwn(row, key));
+    if (checked.ok && !sourceRuleFields) valid.push(row);
+    else rejected.push({
+      line: index + 1,
+      sourceRelativeUrl: row && typeof row.sourceRelativeUrl === 'string' ? row.sourceRelativeUrl : null,
+      reason: sourceRuleFields ? 'import_redirect_source_rule_shape' : 'import_redirect_invalid_row',
+      recordedDestination: row && typeof row.targetRelativeUrl === 'string' ? row.targetRelativeUrl : null,
+      recordedStatus: row ? { status: typeof row.status === 'string' ? row.status : null, statusCode: Number.isInteger(row.statusCode) ? row.statusCode : null, enabled: typeof row.enabled === 'boolean' ? row.enabled : null } : null,
+    });
+  }
+  return { byKey: Object.fromEntries(Object.entries(foldRows(valid, redirectKey))
+    .filter(([, row]) => row.status === 'planned')), rejected };
+}
+
 async function loadUnresolved(projectDir) {
   const rows = await readNdjson(unresolvedPath(projectDir));
   for (const row of rows) {
@@ -365,6 +422,273 @@ async function initUrlPreservationState(projectDir) {
   return actions;
 }
 
+// --- post-build redirect state (apply/verify) --------------------------------------------
+
+const SOURCE_RULE_MATCH = new Set(['exact', 'prefix', 'regex', 'contains', 'suffix', 'other']);
+const COVERAGE_STATUS = new Set(['extracted', 'confirmed_empty', 'unreadable', 'unsupported']);
+const ORIGIN_ROLES = new Set(['production', 'alias']);
+const CUTOVER_STATUS = new Set(['source_serving', 'destination_serving']);
+const READINESS = new Set(['ready', 'pending', 'unknown']);
+const FRONTEND_REDIRECT_SUPPORT = new Set(['honors_wix_redirects', 'unverified', 'unsupported']);
+const EXECUTION_DISPOSITIONS = new Set([
+  'write_intent', 'installed', 'already_present', 'failed', 'outcome_unknown', 'manual_review',
+]);
+const VERIFICATION_STAGES = new Set(['preparation', 'verified_public']);
+const VERIFICATION_RESULTS = new Set(['verified_direct', 'verified_redirect', 'failed', 'not_verified']);
+
+function validateSourceRedirectRow(row, options = {}) {
+  return validateRow(row, {
+    label: options.label || 'source redirect row',
+    allowThrow: options.allowThrow,
+    required: ['ruleKey', 'provider', 'stableId', 'source', 'matchType'],
+    validate: (candidate, label, errors) => {
+      if (typeof candidate.enabled !== 'boolean') errors.push(`${label}.enabled must be a boolean`);
+      if (!SOURCE_RULE_MATCH.has(candidate.matchType)) errors.push(`${label}.matchType must be one of: ${[...SOURCE_RULE_MATCH].join(', ')}`);
+      if (!candidate.storage || typeof candidate.storage !== 'object' || !candidate.storage.kind) errors.push(`${label}.storage.kind is required (provenance)`);
+      if (candidate.statusCode !== null && candidate.statusCode !== undefined && !Number.isInteger(candidate.statusCode)) errors.push(`${label}.statusCode must be an integer or null`);
+    },
+  });
+}
+
+function validateCoverage(doc) {
+  assertObject(doc, 'source-redirect-coverage.json');
+  if (doc.schemaVersion !== SCHEMA_VERSION) throw new Error(`source-redirect-coverage.json schemaVersion must be ${SCHEMA_VERSION}`);
+  if (!Array.isArray(doc.providers)) throw new Error('source-redirect-coverage.json providers must be an array');
+  for (const [index, row] of doc.providers.entries()) {
+    const label = `source-redirect-coverage.providers[${index}]`;
+    assertObject(row, label);
+    if (!row.provider || typeof row.provider !== 'string') throw new Error(`${label}.provider is required`);
+    if (!COVERAGE_STATUS.has(row.status)) throw new Error(`${label}.status must be one of: ${[...COVERAGE_STATUS].join(', ')}`);
+  }
+  return doc;
+}
+
+function normalizeOrigin(origin, label) {
+  assertObject(origin, label);
+  if (origin.scheme !== 'http' && origin.scheme !== 'https') throw new Error(`${label}.scheme must be http or https`);
+  if (!origin.hostname || typeof origin.hostname !== 'string') throw new Error(`${label}.hostname is required`);
+  let hostname;
+  try {
+    hostname = new URL(`${origin.scheme}://${origin.hostname}`).hostname;
+  } catch {
+    throw new Error(`${label}.hostname is not a valid hostname`);
+  }
+  // IDN input is accepted and stored in its ASCII (punycode) form.
+  const defaultPort = origin.scheme === 'https' ? 443 : 80;
+  const effectivePort = origin.effectivePort === undefined ? defaultPort : origin.effectivePort;
+  if (!Number.isInteger(effectivePort) || effectivePort < 1 || effectivePort > 65535) throw new Error(`${label}.effectivePort must be a TCP port`);
+  if (!ORIGIN_ROLES.has(origin.role)) throw new Error(`${label}.role must be one of: ${[...ORIGIN_ROLES].join(', ')}`);
+  if (!CUTOVER_STATUS.has(origin.cutoverStatus)) throw new Error(`${label}.cutoverStatus must be one of: ${[...CUTOVER_STATUS].join(', ')}`);
+  return { scheme: origin.scheme, hostname, effectivePort, role: origin.role, cutoverStatus: origin.cutoverStatus };
+}
+
+function originKey(origin) {
+  return `${origin.scheme}://${origin.hostname}:${origin.effectivePort}`;
+}
+
+// Minimal declared-origin schema. Aliases are never synthesized: only what is listed here is
+// an origin of the production site.
+function validateSourceDomains(doc) {
+  assertObject(doc, 'source-domains.json');
+  if (doc.schemaVersion !== SCHEMA_VERSION) throw new Error(`source-domains.json schemaVersion must be ${SCHEMA_VERSION}`);
+  if (!Array.isArray(doc.origins) || doc.origins.length === 0) throw new Error('source-domains.json origins must be a non-empty array');
+  const origins = doc.origins.map((origin, index) => normalizeOrigin(origin, `source-domains.origins[${index}]`));
+  const keys = new Set();
+  for (const origin of origins) {
+    const key = originKey(origin);
+    if (keys.has(key)) throw new Error(`source-domains.json declares ${key} twice`);
+    keys.add(key);
+  }
+  if (!origins.some((origin) => origin.role === 'production')) throw new Error('source-domains.json needs one production origin');
+  const productionHosts = new Set(origins.filter((o) => o.role === 'production').map((o) => o.hostname));
+  if (productionHosts.size !== 1) throw new Error('source-domains.json production origins must share one hostname');
+  if (doc.domains !== undefined && !Array.isArray(doc.domains)) {
+    throw new Error('source-domains.json domains must be an array when present');
+  }
+  return { schemaVersion: SCHEMA_VERSION, productionHostname: [...productionHosts][0], origins,
+    ...(doc.domains ? { domains: doc.domains } : {}) };
+}
+
+function validateFinalRoutes(doc) {
+  assertObject(doc, 'final-routes.json');
+  if (doc.schemaVersion !== SCHEMA_VERSION) throw new Error(`final-routes.json schemaVersion must be ${SCHEMA_VERSION}`);
+  for (const field of ['siteId', 'deploymentId']) {
+    if (!doc[field] || typeof doc[field] !== 'string') throw new Error(`final-routes.json ${field} is required`);
+  }
+  if (!Array.isArray(doc.routes)) throw new Error('final-routes.json routes must be an array');
+  doc.routes.forEach((route, index) => {
+    const label = `final-routes.routes[${index}]`;
+    assertObject(route, label);
+    for (const field of ['sourceKey', 'targetEntityType', 'targetEntityId', 'relativeUrl', 'pageMarker']) {
+      if (!route[field] || typeof route[field] !== 'string') throw new Error(`${label}.${field} is required`);
+    }
+    if (!route.relativeUrl.startsWith('/')) throw new Error(`${label}.relativeUrl must be site-relative`);
+  });
+  return doc;
+}
+
+function validateLaunchPlan(doc) {
+  assertObject(doc, 'launch-plan.json');
+  if (doc.schemaVersion !== SCHEMA_VERSION) throw new Error(`launch-plan.json schemaVersion must be ${SCHEMA_VERSION}`);
+  for (const field of ['siteId', 'deploymentId', 'productionHostname']) {
+    if (!doc[field] || typeof doc[field] !== 'string') throw new Error(`launch-plan.json ${field} is required`);
+  }
+  for (const field of ['domainAssociation', 'https']) {
+    if (!READINESS.has(doc[field])) throw new Error(`launch-plan.json ${field} must be one of: ${[...READINESS].join(', ')}`);
+  }
+  assertObject(doc.frontend, 'launch-plan.json frontend');
+  if (!doc.frontend.model || typeof doc.frontend.model !== 'string') throw new Error('launch-plan.json frontend.model is required');
+  if (!FRONTEND_REDIRECT_SUPPORT.has(doc.frontend.redirectSupport)) {
+    throw new Error(`launch-plan.json frontend.redirectSupport must be one of: ${[...FRONTEND_REDIRECT_SUPPORT].join(', ')}`);
+  }
+  if (doc.frontend.redirectSupport === 'honors_wix_redirects' && !doc.frontend.evidenceRef) {
+    throw new Error('launch-plan.json frontend.evidenceRef is required when redirectSupport is honors_wix_redirects');
+  }
+  if (doc.dnsInstructions !== undefined) {
+    assertObject(doc.dnsInstructions, 'launch-plan.json dnsInstructions');
+    if (doc.dnsInstructions.registrarTransferRequired === true || doc.dnsInstructions.changesMailRecords === true) {
+      throw new Error('launch-plan.json website DNS instructions must not require a registrar transfer or mail-record changes');
+    }
+  }
+  return doc;
+}
+
+function validateExecutionRow(row, options = {}) {
+  return validateRow(row, {
+    label: options.label || 'redirect execution row',
+    allowThrow: options.allowThrow,
+    required: ['runId', 'planDigest', 'deploymentId', 'siteId', 'ruleKey', 'from', 'to', 'disposition', 'recordedAt'],
+    validate: (candidate, label, errors) => {
+      if (!EXECUTION_DISPOSITIONS.has(candidate.disposition)) errors.push(`${label}.disposition must be one of: ${[...EXECUTION_DISPOSITIONS].join(', ')}`);
+      if (!Array.isArray(candidate.origins)) errors.push(`${label}.origins must be an array`);
+      if (!Array.isArray(candidate.reasonCodes)) errors.push(`${label}.reasonCodes must be an array`);
+      if (candidate.disposition === 'write_intent' && !candidate.inventoryDigest) errors.push(`${label}.inventoryDigest is required on write_intent`);
+      validateTimestamp(candidate, 'recordedAt', label, errors);
+    },
+  });
+}
+
+function validateVerificationRow(row, options = {}) {
+  return validateRow(row, {
+    label: options.label || 'url verification row',
+    allowThrow: options.allowThrow,
+    required: ['checkpointKey', 'obligationKey', 'planDigest', 'deploymentId', 'stage', 'effectiveEndpoint', 'originalUrl', 'result', 'checkedAt'],
+    validate: (candidate, label, errors) => {
+      if (!VERIFICATION_STAGES.has(candidate.stage)) errors.push(`${label}.stage must be one of: ${[...VERIFICATION_STAGES].join(', ')}`);
+      if (!VERIFICATION_RESULTS.has(candidate.result)) errors.push(`${label}.result must be one of: ${[...VERIFICATION_RESULTS].join(', ')}`);
+      if (!Array.isArray(candidate.trace)) errors.push(`${label}.trace must be an array`);
+      validateTimestamp(candidate, 'checkedAt', label, errors);
+    },
+  });
+}
+
+// Durable append: the row is on disk before the caller does the I/O it announces.
+async function appendNdjsonDurable(filePath, row) {
+  await mkdirp(path.dirname(filePath));
+  const handle = await fs.open(filePath, 'a+');
+  try {
+    // A crash can leave a torn final line; start on a fresh line so the new row stays valid.
+    const { size } = await handle.stat();
+    let prefix = '';
+    if (size > 0) {
+      const last = Buffer.alloc(1);
+      await handle.read(last, 0, 1, size - 1);
+      if (last[0] !== 0x0a) prefix = '\n';
+    }
+    await handle.write(`${prefix}${JSON.stringify(row)}\n`);
+    await handle.datasync();
+  } finally {
+    await handle.close();
+  }
+}
+
+// Latest-valid-row reader for execution/verification logs: a torn trailing line (crash mid-
+// append) or a malformed row is rejected and reported, never folded and never fatal.
+async function readValidatedNdjson(filePath, validate) {
+  let raw;
+  try {
+    raw = await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return { rows: [], rejected: [] };
+    throw error;
+  }
+  const rows = [];
+  const rejected = [];
+  raw.split(/\r?\n/).forEach((line, index) => {
+    if (!line.trim()) return;
+    let parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch (error) {
+      rejected.push({ line: index + 1, reason: `invalid JSON: ${error.message}` });
+      return;
+    }
+    const result = validate(parsed, { allowThrow: false });
+    if (result.ok) rows.push(parsed);
+    else rejected.push({ line: index + 1, reason: result.errors.join('; ') });
+  });
+  return { rows, rejected };
+}
+
+async function readJsonIfPresent(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function loadSourceRedirects(projectDir) {
+  const rows = await readNdjson(statePath(projectDir, 'sourceRedirects'));
+  for (const row of rows) validateSourceRedirectRow(row);
+  const byKey = foldRows(rows, (row) => row.ruleKey);
+  return { rows, byKey, latest: Object.values(byKey) };
+}
+
+async function appendSourceRedirectRow(projectDir, row) {
+  validateSourceRedirectRow(row);
+  await appendNdjson(statePath(projectDir, 'sourceRedirects'), row);
+  return row;
+}
+
+async function loadRedirectExecution(projectDir) {
+  const { rows, rejected } = await readValidatedNdjson(statePath(projectDir, 'redirectExecution'), validateExecutionRow);
+  return { rows, rejected, byKey: foldRows(rows, (row) => row.ruleKey) };
+}
+
+async function appendRedirectExecutionRow(projectDir, row) {
+  validateExecutionRow(row);
+  await appendNdjsonDurable(statePath(projectDir, 'redirectExecution'), row);
+  return row;
+}
+
+async function loadUrlVerification(projectDir) {
+  const { rows, rejected } = await readValidatedNdjson(statePath(projectDir, 'urlVerification'), validateVerificationRow);
+  return { rows, rejected, byCheckpoint: foldRows(rows, (row) => row.checkpointKey) };
+}
+
+async function appendUrlVerificationRow(projectDir, row) {
+  validateVerificationRow(row);
+  await appendNdjsonDurable(statePath(projectDir, 'urlVerification'), row);
+  return row;
+}
+
+async function writeStateJson(projectDir, name, doc) {
+  await writeJsonAtomic(statePath(projectDir, name), doc);
+  return doc;
+}
+
+async function loadStateJson(projectDir, name) {
+  const doc = await readJsonIfPresent(statePath(projectDir, name));
+  if (doc === null) return null;
+  if (name === 'sourceDomains') return validateSourceDomains(doc);
+  if (name === 'finalRoutes') return validateFinalRoutes(doc);
+  if (name === 'launchPlan') return validateLaunchPlan(doc);
+  if (name === 'sourceRedirectCoverage') return validateCoverage(doc);
+  return doc;
+}
+
 module.exports = {
   SCHEMA_VERSION,
   urlPreservationDir,
@@ -372,6 +696,10 @@ module.exports = {
   urlLedgerPath,
   redirectsPath,
   unresolvedPath,
+  linkAuditPath,
+  readLinkAudit,
+  writeLinkAudit,
+  validateLinkAudit,
   ledgerKey,
   redirectKey,
   unresolvedKey,
@@ -386,6 +714,26 @@ module.exports = {
   appendUnresolvedRow,
   loadUrlLedger,
   loadRedirects,
+  loadRedirectsForPlanning,
   loadUnresolved,
   initUrlPreservationState,
+  EXTENDED_FILES,
+  statePath,
+  relativeStatePath,
+  originKey,
+  validateSourceRedirectRow,
+  validateCoverage,
+  validateSourceDomains,
+  validateFinalRoutes,
+  validateLaunchPlan,
+  validateExecutionRow,
+  validateVerificationRow,
+  loadSourceRedirects,
+  appendSourceRedirectRow,
+  loadRedirectExecution,
+  appendRedirectExecutionRow,
+  loadUrlVerification,
+  appendUrlVerificationRow,
+  writeStateJson,
+  loadStateJson,
 };

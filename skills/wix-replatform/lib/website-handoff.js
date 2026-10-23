@@ -1,0 +1,1220 @@
+'use strict';
+
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { readEnvFile } = require('./config-env.js');
+const { getDecisionValue, isExplicitUserOneClick } = require('./orchestration-decisions.js');
+const { hashArtifact } = require('./artifact-freshness.js');
+const { appendExecutionLog } = require('./execution-log.js');
+const { emptyPermanentLossesLine, handoffVoucherSignal } = require('./completion-report.js');
+const { coverageDisagreements } = require('./import-recovery.js');
+const { readLinkAudit, linkOperatorActions, RELATIVE_PATH: LINK_AUDIT_PATH } = require('./link-audit.js');
+
+const SCHEMA_VERSION = 2;
+// Bumped to 2 when `liveImportSummary` and `recoveryLog` joined HANDOFF_ARTIFACTS, so a
+// fingerprint recorded under the old shape covers fewer inputs than this one does. A stored
+// fingerprint from version 1 must resolve to "regenerate", never to a silent pass.
+const FRESHNESS_SCHEMA_VERSION = 3;
+const HANDOFF_ARTIFACTS = {
+  decisions: 'orchestration/decisions.json',
+  sourceSchema: 'source-schema.json',
+  mappingPlan: 'mapping/mapping-plan.json',
+  mappingGaps: 'mapping/review/mapping-gaps.json',
+  setupPlan: 'setup/setup-plan.json',
+  setupRequirements: 'setup/setup-requirements.json',
+  setupBlockers: 'setup/setup-blockers.json',
+  wixEnv: 'config/wix.env',
+  frontendConfig: 'frontend/wix.config.json',
+  completionReport: 'execution/completion-report.json',
+  linkAudit: LINK_AUDIT_PATH,
+  // A late recovery pass must re-stale the handoff. Without these two, a recovery
+  // run could change what actually landed and leave a handoff generated before it looking fresh.
+  liveImportSummary: 'execution/live-import-summary.json',
+  recoveryLog: 'execution/recovery-log.json',
+};
+
+const POST_EXECUTION_HANDOFF_FILE = 'execution/review/migration-handoff.md';
+const POST_EXECUTION_HANDOFF_JSON = 'execution/review/migration-handoff.json';
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJsonIfExists(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function readEnvIfExists(filePath) {
+  try {
+    return await readEnvFile(filePath);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return {};
+    }
+    throw error;
+  }
+}
+
+function rel(projectDir, targetPath) {
+  return path.relative(projectDir, targetPath).replace(/\\/g, '/');
+}
+
+function inferMigrationProjectRoot(projectDir) {
+  const normalized = path.resolve(projectDir);
+  const parent = path.dirname(normalized);
+  if (path.basename(parent) === 'migrations') {
+    return `migrations/${path.basename(normalized)}`;
+  }
+  return path.basename(normalized);
+}
+
+function ensureArray(value) {
+  if (Array.isArray(value)) return value;
+  return [];
+}
+
+function firstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function stableJson(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function handoffFingerprint(inputFreshness) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(inputFreshness)).digest('hex')}`;
+}
+
+function uniqueBy(items, keyFn) {
+  const out = [];
+  const seen = new Set();
+  for (const item of items) {
+    const key = keyFn(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function normalizeSiteStrategy(value) {
+  if (value === 'new_site' || value === 'new') return 'new';
+  if (value === 'existing_site' || value === 'existing') return 'existing';
+  return value || null;
+}
+
+function normalizeScopeValue(value) {
+  if (typeof value === 'string' && value.trim()) {
+    return { scope: value.trim(), explicitUrls: [] };
+  }
+  if (value && typeof value === 'object') {
+    return {
+      scope: firstNonEmptyString(value.scope, value.selectedScope),
+      explicitUrls: ensureArray(value.explicitUrls).filter((item) => typeof item === 'string' && item.trim()),
+    };
+  }
+  return { scope: null, explicitUrls: [] };
+}
+
+function chooseAutoScope(scopeSuggestions) {
+  const items = ensureArray(scopeSuggestions);
+  const available = new Set(
+    items
+      .map((item) => (item && typeof item.scope === 'string' ? item.scope.trim() : ''))
+      .filter(Boolean),
+  );
+  for (const scope of ['full', 'ecommerce', 'blog', 'home']) {
+    if (available.has(scope)) {
+      return scope;
+    }
+  }
+  return 'home';
+}
+
+// Accepts every key a mapping plan may carry its per-entity rows under. `entityDecisions` is
+// the vocabulary rp-mapper uses for its own `mapping/entity-decisions/<entity>.json` artifacts,
+// so a plan written in that vocabulary must resolve here too — omitting it produced a handoff
+// that reported zero dynamic routes, zero collections and zero apps while still returning ok.
+//
+// BUG FIX: `mappingPlan.entities` is itself an ARRAY of per-entity objects in the real, shipped
+// rp-mapper output -- never a plain object keyed by entity name. `typeof [] === 'object'` in
+// JS, so the object-shaped branch below used to match an array too, and `Object.entries()` on
+// an array yields index-keyed pairs (`['0', firstRow]`, `['1', secondRow]`, ...) -- every real
+// entity silently became `sourceEntity: '0'`, `'1'`, `'2'`, etc. instead of its real name. This
+// made the entity-QA gate (`entity-qa-attestation.js`) permanently unsatisfiable for
+// every real full-mode migration: an honest, fully-covering attestation still failed with every
+// real entity flagged `entity_qa_unexpected_entity` and every fake numeric-index row flagged
+// `entity_qa_missing_entity`. The array case must be handled on its own, pulling each row's own
+// identifying field -- `entityKey` is the canonical, normalized name already used everywhere
+// else (`completion-report.json`'s own `entity` field matches it exactly); `sourceEntityRef` is
+// a *different*, more verbose plugin-sourcing reference on some mapping-plan rows
+// (e.g. `entityKey: 'seo-meta'` vs. `sourceEntityRef: 'plugin.wordpress-seo.seo-meta'`) and must
+// never be preferred over `entityKey` when both are present.
+function readEntityMappings(mappingPlan) {
+  if (!mappingPlan || typeof mappingPlan !== 'object') return [];
+  if (Array.isArray(mappingPlan.entityMappings)) return mappingPlan.entityMappings;
+  if (Array.isArray(mappingPlan.entityDecisions)) return mappingPlan.entityDecisions;
+  if (Array.isArray(mappingPlan.mappings)) return mappingPlan.mappings;
+  if (Array.isArray(mappingPlan.entities)) {
+    return mappingPlan.entities.map((row) => ({
+      ...(row || {}),
+      sourceEntity: firstNonEmptyString((row || {}).entityKey, (row || {}).sourceEntityRef, (row || {}).targetEntity),
+    }));
+  }
+  if (mappingPlan.entities && typeof mappingPlan.entities === 'object') {
+    return Object.entries(mappingPlan.entities).map(([sourceEntity, value]) => ({
+      sourceEntity,
+      ...(value || {}),
+    }));
+  }
+  return [];
+}
+
+function readSetupRequirements(setupRequirements) {
+  if (Array.isArray(setupRequirements)) return setupRequirements;
+  if (!setupRequirements || typeof setupRequirements !== 'object') return [];
+  if (Array.isArray(setupRequirements.requirements)) return setupRequirements.requirements;
+  if (Array.isArray(setupRequirements.items)) return setupRequirements.items;
+  return [];
+}
+
+function readSetupBlockers(setupBlockers) {
+  if (Array.isArray(setupBlockers)) return setupBlockers;
+  if (!setupBlockers || typeof setupBlockers !== 'object') return [];
+  if (Array.isArray(setupBlockers.blockers)) return setupBlockers.blockers;
+  if (Array.isArray(setupBlockers.items)) return setupBlockers.items;
+  return [];
+}
+
+function readMappingGaps(mappingPlan, mappingGaps) {
+  if (Array.isArray(mappingGaps)) return mappingGaps;
+  if (mappingGaps && Array.isArray(mappingGaps.gaps)) return mappingGaps.gaps;
+  if (mappingPlan && Array.isArray(mappingPlan.faithfulnessLedger)) return mappingPlan.faithfulnessLedger;
+  return [];
+}
+
+function normalizeAppRequirement(item) {
+  if (!item || typeof item !== 'object') return null;
+  const appName = firstNonEmptyString(item.appName, item.name, item.app, item.displayName);
+  if (!appName) return null;
+  return {
+    appName,
+    appDefId: firstNonEmptyString(item.appDefId, item.appId, item.id),
+    purpose: firstNonEmptyString(item.purpose, item.reason, item.description),
+    requiredByEntities: ensureArray(item.requiredByEntities || item.requiredBy || item.entities),
+    status: firstNonEmptyString(item.status, item.requirementStatus),
+    automation: firstNonEmptyString(item.automation, item.automationMode),
+    verificationSource: firstNonEmptyString(item.verificationSource, item.source),
+  };
+}
+
+function normalizeCollectionRequirement(item) {
+  if (!item || typeof item !== 'object') return null;
+  const collectionName = firstNonEmptyString(item.collectionName, item.name, item.collectionId);
+  if (!collectionName) return null;
+  return {
+    collectionName,
+    collectionId: firstNonEmptyString(item.collectionId, item.dataCollectionId),
+    collectionPurpose: firstNonEmptyString(item.collectionPurpose, item.purpose, item.description),
+    requiredByEntities: ensureArray(item.requiredByEntities || item.requiredBy || item.entities),
+    fields: ensureArray(item.fields),
+    references: ensureArray(item.references),
+    automation: firstNonEmptyString(item.automation, item.automationMode),
+    verificationSource: firstNonEmptyString(item.verificationSource, item.source),
+  };
+}
+
+function routeKindForEntity(mapping) {
+  const explicit = firstNonEmptyString(mapping.routeKind, mapping.templateKind);
+  if (explicit) return explicit;
+  if (mapping.targetStrategy === 'static_page') return 'static';
+  if (mapping.targetDomain === 'cms' || mapping.targetDomain === 'stores' || mapping.targetDomain === 'blog') return 'dynamic';
+  return 'dynamic';
+}
+
+function normalizeBoolean(value) {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function normalizeRouteIntent(entityMappings) {
+  const staticRoutes = [];
+  const dynamicRoutes = [];
+  const redirectIntents = [];
+  const slugPolicies = [];
+  const nativeDataSources = [];
+
+  for (const mapping of entityMappings) {
+    const urlPolicy = mapping && typeof mapping.urlPolicy === 'object'
+      ? mapping.urlPolicy
+      : (mapping && typeof mapping.urlPreservation === 'object' ? mapping.urlPreservation : null);
+    if (!urlPolicy || urlPolicy.public !== true) {
+      continue;
+    }
+
+    const route = {
+      sourceEntity: firstNonEmptyString(mapping.sourceEntity, mapping.entityName),
+      sourceSemantics: firstNonEmptyString(mapping.sourceSemantics),
+      targetRef: firstNonEmptyString(mapping.targetRef),
+      targetDomain: firstNonEmptyString(mapping.targetDomain),
+      targetEntity: firstNonEmptyString(mapping.targetEntity),
+      targetClassification: firstNonEmptyString(mapping.targetClassification),
+      sourceBasePath: firstNonEmptyString(urlPolicy.sourceBasePath),
+      sourceSlugField: firstNonEmptyString(urlPolicy.sourceSlugField),
+      sourceUrlField: firstNonEmptyString(urlPolicy.sourceUrlField),
+      targetBasePath: firstNonEmptyString(urlPolicy.targetBasePath),
+      targetSlugField: firstNonEmptyString(urlPolicy.targetSlugField),
+      preserveBasePath: normalizeBoolean(urlPolicy.preserveBasePath),
+      preserveSlug: normalizeBoolean(urlPolicy.preserveSlug),
+      redirectMode: firstNonEmptyString(urlPolicy.redirectMode),
+      routeKind: routeKindForEntity(mapping),
+    };
+
+    if (route.routeKind === 'static') {
+      staticRoutes.push(route);
+    } else {
+      dynamicRoutes.push(route);
+      nativeDataSources.push({
+        sourceEntity: route.sourceEntity,
+        targetRef: route.targetRef,
+        targetDomain: route.targetDomain,
+        targetEntity: route.targetEntity,
+        targetClassification: route.targetClassification,
+        routeKind: route.routeKind,
+        sourceBasePath: route.sourceBasePath,
+        targetBasePath: route.targetBasePath,
+        preserveSlug: route.preserveSlug,
+      });
+    }
+
+    slugPolicies.push({
+      sourceEntity: route.sourceEntity,
+      sourceBasePath: route.sourceBasePath,
+      sourceSlugField: route.sourceSlugField,
+      targetBasePath: route.targetBasePath,
+      targetSlugField: route.targetSlugField,
+      preserveBasePath: route.preserveBasePath,
+      preserveSlug: route.preserveSlug,
+    });
+
+    if (route.redirectMode && route.redirectMode !== 'none') {
+      redirectIntents.push({
+        sourceEntity: route.sourceEntity,
+        sourceBasePath: route.sourceBasePath,
+        targetBasePath: route.targetBasePath,
+        redirectMode: route.redirectMode,
+      });
+    }
+  }
+
+  return {
+    routeIntent: {
+      staticRoutes,
+      dynamicRoutes,
+      redirectIntents,
+      slugPolicies,
+    },
+    nativeDataSources: uniqueBy(nativeDataSources, (item) =>
+      [item.targetRef, item.sourceEntity, item.sourceBasePath].filter(Boolean).join('|')),
+  };
+}
+
+function normalizeRequirementBinding(requirement) {
+  if (!requirement || typeof requirement !== 'object') return null;
+  return {
+    requirementId: firstNonEmptyString(requirement.requirementId, requirement.id),
+    requirementClass: firstNonEmptyString(requirement.requirementClass, requirement.class),
+    name: firstNonEmptyString(requirement.name),
+    requiredBy: ensureArray(requirement.requiredBy),
+    expectedState: requirement.expectedState || null,
+    automation: firstNonEmptyString(requirement.automation, requirement.automationMode),
+    verificationStatus: firstNonEmptyString(requirement.verificationStatus, requirement.status),
+    dependencyIds: ensureArray(requirement.dependencyIds),
+    notes: firstNonEmptyString(requirement.notes),
+  };
+}
+
+function extractCmsCollections(setupPlan, setupRequirements) {
+  const fromPlan = ensureArray(setupPlan && setupPlan.requiredCollections)
+    .map(normalizeCollectionRequirement)
+    .filter(Boolean);
+  const fromRequirements = readSetupRequirements(setupRequirements)
+    .filter((item) => {
+      const klass = firstNonEmptyString(item.requirementClass, item.class, item.type);
+      return klass && /collection/i.test(klass);
+    })
+    .map((item) => normalizeCollectionRequirement({
+      collectionName: firstNonEmptyString(
+        item.collectionName,
+        item.name,
+        item.expectedState && (item.expectedState.collectionName || item.expectedState.collectionId),
+      ),
+      collectionId: item.expectedState && firstNonEmptyString(item.expectedState.collectionId),
+      collectionPurpose: firstNonEmptyString(item.notes),
+      requiredByEntities: ensureArray(item.requiredBy),
+      fields: ensureArray(item.expectedState && item.expectedState.fields),
+      references: ensureArray(item.expectedState && item.expectedState.references),
+      automation: firstNonEmptyString(item.automation, item.automationMode),
+      verificationSource: firstNonEmptyString(item.verificationStatus, item.source),
+    }))
+    .filter(Boolean);
+  return uniqueBy([...fromPlan, ...fromRequirements], (item) => item.collectionId || item.collectionName);
+}
+
+function extractManualBlockers(setupRequirements, setupBlockers) {
+  const blockers = readSetupBlockers(setupBlockers).map((item) => ({
+    code: firstNonEmptyString(item.code),
+    severity: firstNonEmptyString(item.severity),
+    requirementId: firstNonEmptyString(item.requirementId),
+    description: firstNonEmptyString(item.description),
+    whyBlocked: firstNonEmptyString(item.whyBlocked),
+    recommendedAction: firstNonEmptyString(item.recommendedAction),
+  }));
+  const manualRequirements = readSetupRequirements(setupRequirements)
+    .filter((item) => {
+      const automation = firstNonEmptyString(item.automation, item.automationMode);
+      const verificationStatus = firstNonEmptyString(item.verificationStatus, item.status);
+      return automation === 'manual' || automation === 'blocked' || verificationStatus === 'blocked';
+    })
+    .map((item) => ({
+      code: firstNonEmptyString(item.requirementClass, item.class, item.type),
+      severity: firstNonEmptyString(item.severity, 'blocker'),
+      requirementId: firstNonEmptyString(item.requirementId, item.id),
+      description: firstNonEmptyString(item.name, item.notes),
+      whyBlocked: firstNonEmptyString(item.notes),
+      recommendedAction: firstNonEmptyString(item.recommendedAction),
+    }));
+  return uniqueBy([...blockers, ...manualRequirements], (item) =>
+    item.requirementId || `${item.code || 'blocker'}|${item.description || ''}`);
+}
+
+function extractMappingSummary(entityMappings, mappingPlan, mappingGaps) {
+  const entities = entityMappings.map((mapping) => ({
+    sourceEntity: firstNonEmptyString(mapping.sourceEntity, mapping.entityName),
+    sourceSemantics: firstNonEmptyString(mapping.sourceSemantics),
+    targetRef: firstNonEmptyString(mapping.targetRef),
+    targetDomain: firstNonEmptyString(mapping.targetDomain),
+    targetEntity: firstNonEmptyString(mapping.targetEntity),
+    targetClassification: firstNonEmptyString(mapping.targetClassification),
+    status: firstNonEmptyString(mapping.status),
+    urlPolicy: mapping.urlPolicy || null,
+  }));
+  const gaps = readMappingGaps(mappingPlan, mappingGaps).map((gap) => ({
+    code: firstNonEmptyString(gap.code),
+    severity: firstNonEmptyString(gap.severity),
+    entityName: firstNonEmptyString(gap.entityName, gap.sourceEntity),
+    gapType: firstNonEmptyString(gap.gapType),
+    description: firstNonEmptyString(gap.description),
+    recommendedHandling: firstNonEmptyString(gap.recommendedHandling),
+  }));
+  return { entities, gaps };
+}
+
+function extractLocale(sourceSchema) {
+  return firstNonEmptyString(
+    sourceSchema && sourceSchema.locale,
+    sourceSchema && sourceSchema.language,
+    sourceSchema && sourceSchema.sourceMeta && sourceSchema.sourceMeta.locale,
+    sourceSchema && sourceSchema.sourceMeta && sourceSchema.sourceMeta.language,
+  );
+}
+
+function extractDirection(sourceSchema) {
+  return firstNonEmptyString(
+    sourceSchema && sourceSchema.direction,
+    sourceSchema && sourceSchema.sourceMeta && sourceSchema.sourceMeta.direction,
+  );
+}
+
+function inferWebsiteScopeOptions(routeIntent, mappingSummary) {
+  const suggestions = [{ scope: 'home', reason: 'Always available as the minimum storefront continuation scope.' }];
+  const dynamicRoutes = ensureArray(routeIntent && routeIntent.dynamicRoutes);
+  const sourceEntities = new Set(dynamicRoutes.map((route) => route.sourceEntity).filter(Boolean));
+  const mappedEntities = new Set(ensureArray(mappingSummary && mappingSummary.entities).map((entity) => entity.sourceEntity).filter(Boolean));
+
+  const hasEcommerce = sourceEntities.has('product') || sourceEntities.has('product_category');
+  const hasBlog = sourceEntities.has('post') || sourceEntities.has('blog_category') || sourceEntities.has('blog_tag');
+  const hasCms = Array.from(mappedEntities).some((name) => /^page$|cms|resource|guide/i.test(String(name)));
+
+  if (hasEcommerce) {
+    suggestions.push({ scope: 'ecommerce', reason: 'Stores product and/or category routes were discovered in the migration mapping.' });
+  }
+  if (hasBlog) {
+    suggestions.push({ scope: 'blog', reason: 'Blog or knowledge-base post routes were discovered in the migration mapping.' });
+  }
+  if (hasEcommerce || hasBlog || hasCms) {
+    suggestions.push({ scope: 'full', reason: 'Multiple public route families were discovered, so a fuller storefront clone may be appropriate.' });
+  }
+  suggestions.push({ scope: 'specific', reason: 'Use explicit URLs when the user wants a curated subset of pages instead of a broad area.' });
+  return uniqueBy(suggestions, (item) => item.scope);
+}
+
+function buildFrontendProjectDir(projectDir, frontendConfigPath) {
+  if (frontendConfigPath) {
+    return rel(projectDir, path.dirname(frontendConfigPath));
+  }
+  return 'frontend';
+}
+
+function createInputFreshness(projectDir) {
+  const artifacts = {};
+  for (const [name, relativePath] of Object.entries(HANDOFF_ARTIFACTS)) {
+    artifacts[name] = {
+      path: relativePath,
+      sha256: hashArtifact(projectDir, relativePath),
+    };
+  }
+  return {
+    schemaVersion: FRESHNESS_SCHEMA_VERSION,
+    generatedAt: new Date().toISOString(),
+    artifacts,
+  };
+}
+
+function compareInputFreshness(current, recorded) {
+  const changes = [];
+  if (!recorded || typeof recorded !== 'object') {
+    return { ok: false, stale: true, changes: [{ field: 'inputFreshness', reason: 'missing' }] };
+  }
+  if (recorded.schemaVersion !== FRESHNESS_SCHEMA_VERSION) {
+    changes.push({
+      field: 'inputFreshness.schemaVersion',
+      expected: recorded.schemaVersion,
+      actual: FRESHNESS_SCHEMA_VERSION,
+    });
+  }
+  for (const [name, currentEntry] of Object.entries(current.artifacts || {})) {
+    const recordedEntry = (recorded.artifacts && recorded.artifacts[name]) || {};
+    if (currentEntry.sha256 !== recordedEntry.sha256) {
+      changes.push({
+        field: `inputFreshness.artifacts.${name}.sha256`,
+        path: currentEntry.path,
+        expected: recordedEntry.sha256 || null,
+        actual: currentEntry.sha256 || null,
+      });
+    }
+  }
+  return {
+    ok: changes.length === 0,
+    stale: changes.length > 0,
+    changes,
+  };
+}
+
+function renderSummary(handoff) {
+  const lines = [
+    '# Website Handoff Summary',
+    '',
+    `Generated: ${handoff.generatedAt}`,
+    '',
+    `- Delivery mode: ${handoff.deliveryMode}`,
+    `- Website scope: ${handoff.websiteScope.selectedScope || 'not yet selected'}`,
+    `- Destination strategy: ${handoff.destination.siteStrategy || 'unknown'}`,
+    `- Destination site id: ${handoff.destination.siteId || 'not yet resolved'}`,
+    `- Frontend phase allowed now: ${handoff.frontendPhase.allowedNow}`,
+    '',
+    '## Scope Suggestions',
+    '',
+  ];
+
+  if (handoff.websiteScope.scopeSuggestions.length === 0) {
+    lines.push('- None.');
+  } else {
+    for (const suggestion of handoff.websiteScope.scopeSuggestions) {
+      lines.push(`- ${suggestion.scope}: ${suggestion.reason}`);
+    }
+  }
+
+  lines.push(
+    '',
+    '## Dynamic Route Families',
+    '',
+  );
+
+  if (handoff.routeIntent.dynamicRoutes.length === 0) {
+    lines.push('- None declared yet.');
+  } else {
+    for (const route of handoff.routeIntent.dynamicRoutes) {
+      lines.push(
+        `- ${route.sourceEntity || 'unknown'} -> ${route.targetRef || [route.targetDomain, route.targetEntity].filter(Boolean).join('/')} ` +
+        `(source base path: ${route.sourceBasePath || 'n/a'}, target base path: ${route.targetBasePath || 'deferred'})`,
+      );
+    }
+  }
+
+  lines.push('', '## Wix Bindings', '');
+  if (handoff.bindings.wixApps.length === 0) {
+    lines.push('- No Wix app bindings declared.');
+  } else {
+    for (const app of handoff.bindings.wixApps) {
+      lines.push(`- ${app.appName}${app.appDefId ? ` (${app.appDefId})` : ''}`);
+    }
+  }
+
+  lines.push('', '## CMS Collections', '');
+  if (handoff.bindings.cmsCollections.length === 0) {
+    lines.push('- No CMS collections declared.');
+  } else {
+    for (const collection of handoff.bindings.cmsCollections) {
+      lines.push(`- ${collection.collectionName}`);
+    }
+  }
+
+  lines.push('', '## Manual Blockers', '');
+  if (handoff.setupContract.manualBlockers.length === 0) {
+    lines.push('- None.');
+  } else {
+    for (const blocker of handoff.setupContract.manualBlockers) {
+      lines.push(`- ${blocker.requirementId || blocker.code || 'blocker'}: ${blocker.description || blocker.whyBlocked || 'see setup artifacts'}`);
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+async function writeFileAtomic(filePath, text) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tempPath, text, 'utf8');
+  await fs.rename(tempPath, filePath);
+}
+
+// Read from the contract, not retyped. This file declared two paths of its own and therefore did
+// not know the third field existed -- so it reported "provisioned" on a receipt that verified two
+// of three, which is precisely the drift the contract adapter exists to prevent.
+const invoiceContract = require('../resources/rp-target-wix/lib/order-invoice-contract.js');
+const dataExtensionSchema = require('../resources/rp-target-wix/lib/data-extension-schema.js');
+const INVOICE_FILE_ID_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.fileId}`;
+const INVOICE_NUMBER_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.number}`;
+const INVOICE_URL_PATH = `extendedFields.namespaces._user_fields.${invoiceContract.ROLES.url}`;
+
+// The member-facing document contract.
+//
+// The handoff is generated BEFORE the import runs, so it cannot carry per-order file ids -- they
+// do not exist yet, and there could be thousands of them. What it carries is the CONTRACT: where
+// the values live on an order once written, that a preserved document is a private file rather
+// than a URL, and that the only way to hand one to a member is a backend that takes an ORDER id
+// and resolves the file server-side.
+//
+// That last part is the load-bearing bit. A frontend that accepts a file id from the client lets
+// any member pull any other member's tax invoice, so the contract states the rule rather than
+// leaving the frontend to infer it.
+function buildMemberDocuments({ extendedFieldVerification, invoiceOutcome }) {
+  // The SAME judgement the writer makes, made by the same function. Two readings of one receipt
+  // is a contradiction waiting to happen, and it happened: this file filtered failed entries out
+  // and unioned the rest, while the writer requires every entry on the current contract to have
+  // passed. A receipt with one passing and one failing entry told the frontend the fields were
+  // there while the writer refused every write against them.
+  const writePaths = invoiceContract.writePaths('_user_fields');
+  const fieldsProvisioned = dataExtensionSchema.validateExtendedFieldWriterReferences({
+    writePaths,
+    setupVerification: extendedFieldVerification,
+    contractVersion: invoiceContract.version(),
+  }).valid;
+
+  return {
+    invoices: {
+      // null, not false, when the import has not reported yet: "we do not know" and "there are
+      // none" are different answers, and a frontend must not render "no invoices" for the first.
+      preserved: invoiceOutcome ? Boolean(invoiceOutcome.preserved) : null,
+      strategy: (invoiceOutcome && invoiceOutcome.strategy) || null,
+      fieldsProvisioned,
+      fileIdPath: INVOICE_FILE_ID_PATH,
+      numberPath: INVOICE_NUMBER_PATH,
+      // The original link: clickable now, and it rots. The frontend should prefer the authorized
+      // download and treat this as a fallback that may already be dead.
+      originalLinkPath: INVOICE_URL_PATH,
+      download: {
+        generator: 'skills/wix-headless-replatform/scripts/generate-invoice-download-backend.mjs',
+        // What the generator emits, so a frontend has an address to POST to rather than a rule to
+        // reimplement. The route is real: it resolves the member, the order and the file through
+        // the Wix SDK, and it needs no `locals` wiring from the app.
+        endpoint: '/api/invoice-download',
+        method: 'POST',
+        acceptsOnly: ['orderId'],
+        rejects: ['fileId'],
+        expiryMinutes: 10,
+        rule: 'The backend takes an order id, checks the current member may read that order, and resolves the file server-side. It must never accept a file id from the client.',
+      },
+      notes: [
+        'A preserved document is a PRIVATE Media file. It has no public URL; a short-lived download URL is minted on demand.',
+        'An order may carry a number with no document. Render the number as a reference rather than a broken link.',
+        fieldsProvisioned
+          ? null
+          : 'The order fields are not provisioned yet, so no order carries these values. Run setup before building against them.',
+      ].filter(Boolean),
+    },
+  };
+}
+
+async function generateWebsiteHandoff(projectDir) {
+  const handoffDir = path.join(projectDir, 'website');
+  const decisionsPath = path.join(projectDir, HANDOFF_ARTIFACTS.decisions);
+  const sourceSchemaPath = path.join(projectDir, HANDOFF_ARTIFACTS.sourceSchema);
+  const mappingPlanPath = path.join(projectDir, HANDOFF_ARTIFACTS.mappingPlan);
+  const mappingGapsPath = path.join(projectDir, HANDOFF_ARTIFACTS.mappingGaps);
+  const setupPlanPath = path.join(projectDir, HANDOFF_ARTIFACTS.setupPlan);
+  const setupRequirementsPath = path.join(projectDir, HANDOFF_ARTIFACTS.setupRequirements);
+  const setupBlockersPath = path.join(projectDir, HANDOFF_ARTIFACTS.setupBlockers);
+  const wixEnvPath = path.join(projectDir, HANDOFF_ARTIFACTS.wixEnv);
+  const frontendConfigPath = path.join(projectDir, HANDOFF_ARTIFACTS.frontendConfig);
+  const completionReportPath = path.join(projectDir, HANDOFF_ARTIFACTS.completionReport);
+
+  const decisions = await readJsonIfExists(decisionsPath);
+  let sourceSchema = await readJsonIfExists(sourceSchemaPath);
+  let mappingPlan = await readJsonIfExists(mappingPlanPath);
+  const quickPlan = await readJsonIfExists(path.join(projectDir, 'quick-mode', 'plan.json'));
+  const mappingGaps = await readJsonIfExists(mappingGapsPath);
+  const setupPlan = await readJsonIfExists(setupPlanPath);
+  const setupRequirements = await readJsonIfExists(setupRequirementsPath);
+  const setupBlockers = await readJsonIfExists(setupBlockersPath);
+  const extendedFieldVerification = await readJsonIfExists(path.join(projectDir, 'setup', 'extended-field-verification.json'));
+  const invoiceOutcome = await readJsonIfExists(path.join(projectDir, 'import', 'invoice-outcome.json'));
+  const wixEnv = await readEnvIfExists(wixEnvPath);
+  const frontendConfig = await readJsonIfExists(frontendConfigPath);
+  const completionReportExists = await pathExists(completionReportPath);
+  const linkAudit = await readLinkAudit(projectDir);
+
+  const deliveryMode = firstNonEmptyString(
+    getDecisionValue(decisions || {}, 'deliveryMode'),
+    wixEnv.WIX_DELIVERY_MODE,
+  );
+  if (!deliveryMode) {
+    throw new Error('website handoff requires deliveryMode to be decided');
+  }
+  if (!sourceSchema && quickPlan) sourceSchema = { sourceUrl: quickPlan.sourceUrl, platform: quickPlan.adapter?.id?.replace(/^quick-/, '') };
+  if (!mappingPlan && quickPlan) mappingPlan = { entities: (quickPlan.entities || []).map((entity) => ({ sourceEntity: entity.id, target: entity.target })) };
+  if (!sourceSchema) {
+    throw new Error('website handoff requires source-schema.json');
+  }
+  if (!mappingPlan) {
+    throw new Error('website handoff requires mapping/mapping-plan.json');
+  }
+  if (!setupPlan) {
+    throw new Error('website handoff requires setup/setup-plan.json');
+  }
+  if (!setupRequirements) {
+    throw new Error('website handoff requires setup/setup-requirements.json');
+  }
+
+  const entityMappings = readEntityMappings(mappingPlan);
+  /*
+   * A mapping plan that exists but yields no per-entity rows means its rows are under a key
+   * this reader does not know — not that the migration has no entities. Reporting that as a
+   * clean handoff with zero routes is the failure mode this guard exists to prevent: the
+   * frontend build would be handed no bindings at all with nothing signalling the loss.
+   */
+  const handoffWarnings = [];
+  if (mappingPlan && typeof mappingPlan === 'object' && entityMappings.length === 0) {
+    handoffWarnings.push({
+      code: 'mapping_plan_yielded_no_entities',
+      severity: 'blocker',
+      message: 'mapping/mapping-plan.json was read but produced no per-entity rows. Its rows are '
+        + 'probably under an unrecognized key; route intent, CMS bindings and app requirements '
+        + 'will all be empty until that is corrected.',
+      keysSeen: Object.keys(mappingPlan).slice(0, 20),
+      acceptedKeys: ['entityMappings', 'entityDecisions', 'mappings', 'entities'],
+    });
+  }
+  const apps = uniqueBy(
+    ensureArray(setupPlan.requiredApps).map(normalizeAppRequirement).filter(Boolean),
+    (item) => item.appDefId || item.appName,
+  );
+  const { routeIntent, nativeDataSources } = normalizeRouteIntent(entityMappings);
+  const cmsCollections = extractCmsCollections(setupPlan, setupRequirements);
+  const mappingSummary = extractMappingSummary(entityMappings, mappingPlan, mappingGaps);
+  const manualBlockers = extractManualBlockers(setupRequirements, setupBlockers);
+  const frontendConfigAbsolute = frontendConfig ? frontendConfigPath : null;
+  const inputFreshness = createInputFreshness(projectDir);
+  const automationMode = isExplicitUserOneClick(decisions || {}) ? 'one_click' : 'manual';
+  const faceliftMode = getDecisionValue(decisions || {}, 'faceliftMode');
+  const scopeDecision = normalizeScopeValue(getDecisionValue(decisions || {}, 'websiteScope'));
+  const scopeSuggestions = inferWebsiteScopeOptions(routeIntent, mappingSummary);
+  const autoSelectedScope = !scopeDecision.scope && deliveryMode === 'management_and_website' && automationMode === 'one_click'
+    ? chooseAutoScope(scopeSuggestions)
+    : null;
+  const selectedScope = scopeDecision.scope || autoSelectedScope;
+
+  const handoff = {
+    schemaVersion: SCHEMA_VERSION,
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    migrationProject: {
+      name: path.basename(projectDir),
+      root: inferMigrationProjectRoot(projectDir),
+    },
+    source: {
+      url: firstNonEmptyString(
+        sourceSchema.sourceUrl,
+        getDecisionValue(decisions || {}, 'sourceUrl'),
+      ),
+      platform: firstNonEmptyString(
+        sourceSchema.platform,
+        getDecisionValue(decisions || {}, 'sourcePlatform'),
+      ),
+      locale: extractLocale(sourceSchema),
+      direction: extractDirection(sourceSchema),
+    },
+    deliveryMode,
+    automationMode: automationMode || 'manual',
+    facelift: {
+      requested: faceliftMode === 'requested',
+      requestedBy: faceliftMode === 'requested' ? 'user' : null,
+      constraints: ['preserve_brand_identity', 'preserve_site_structure', 'preserve_content'],
+    },
+    memberDocuments: buildMemberDocuments({ extendedFieldVerification, invoiceOutcome }),
+    websiteScope: {
+      selectedScope,
+      explicitUrls: scopeDecision.explicitUrls,
+      scopeSuggestions,
+      selectedFromDecision: Boolean(scopeDecision.scope),
+      autoSelectedInOneClickMode: Boolean(autoSelectedScope),
+      defaultStandaloneScope: 'home',
+    },
+    destination: {
+      siteStrategy: normalizeSiteStrategy(
+        firstNonEmptyString(
+          getDecisionValue(decisions || {}, 'targetSiteStrategy'),
+          wixEnv.WIX_SITE_STRATEGY,
+        ),
+      ),
+      siteId: firstNonEmptyString(wixEnv.WIX_SITE_ID),
+      appId: firstNonEmptyString(
+        frontendConfig && (frontendConfig.appId || frontendConfig.applicationId),
+        wixEnv.WIX_APP_ID,
+      ),
+      frontendProjectDir: buildFrontendProjectDir(projectDir, frontendConfigAbsolute),
+    },
+    frontendPhase: {
+      allowedNow: completionReportExists ? 'build' : 'plan',
+      buildAllowedAfter: 'backend-import-complete',
+      parallelPlanAllowed: true,
+      recommendedParallelExecution: 'subagent_after_handoff',
+    },
+    routeIntent,
+    bindings: {
+      wixApps: apps,
+      cmsCollections,
+      nativeDataSources,
+    },
+    setupContract: {
+      requiredApps: apps,
+      collections: cmsCollections,
+      manualBlockers,
+    },
+    mappingSummary,
+    artifacts: {
+      mappingPlan: HANDOFF_ARTIFACTS.mappingPlan,
+      setupRequirements: HANDOFF_ARTIFACTS.setupRequirements,
+      setupPlan: HANDOFF_ARTIFACTS.setupPlan,
+      urlPreservationState: 'state/url-preservation/',
+      ...(linkAudit ? { linkAudit: LINK_AUDIT_PATH } : {}),
+    },
+    ...(linkAudit ? { linkAudit: { stage: linkAudit.stage, counts: linkAudit.counts, missingCutoverUiIntegration: true, pendingDestinations: linkAudit.pendingDestinations.map((row) => ({ id: row.id, pageFamily: row.pageFamily, occurrenceIds: row.occurrenceIds })), unresolved: linkAudit.unresolved.map((row) => ({ id: row.id, reason: row.reason, occurrenceIds: row.occurrenceIds })) }, operatorActions: linkOperatorActions(linkAudit) } : {}),
+    inputFreshness,
+    warnings: handoffWarnings,
+    handoffFingerprint: handoffFingerprint(inputFreshness),
+  };
+
+  const summary = renderSummary(handoff);
+  const handoffPath = path.join(handoffDir, 'handoff.json');
+  const summaryPath = path.join(handoffDir, 'handoff-summary.md');
+  await writeFileAtomic(handoffPath, `${stableJson(handoff)}\n`);
+  await writeFileAtomic(summaryPath, summary);
+
+  return {
+    handoffPath,
+    summaryPath,
+    handoff,
+  };
+}
+
+async function validateWebsiteHandoff(projectDir) {
+  const handoffPath = path.join(projectDir, 'website', 'handoff.json');
+  const handoff = await readJsonIfExists(handoffPath);
+  if (!handoff) {
+    return {
+      ok: false,
+      present: false,
+      stale: true,
+      changes: [{ field: 'website/handoff.json', reason: 'missing' }],
+      handoff: null,
+    };
+  }
+  const current = createInputFreshness(projectDir);
+  const comparison = compareInputFreshness(current, handoff.inputFreshness);
+  const blockingWarnings = ensureArray(handoff.warnings).filter((warning) => warning && warning.severity === 'blocker');
+  return {
+    ok: comparison.ok && blockingWarnings.length === 0,
+    present: true,
+    stale: comparison.stale,
+    changes: comparison.changes,
+    blockingWarnings,
+    handoff,
+    current,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Post-execution handoff.
+//
+// `generateWebsiteHandoff` above is the BACKEND-TO-FRONTEND package: a website build needs its
+// bindings contract before it starts, so that document keeps being produced when it is, from the
+// plan, because at that point the plan is all there is. What it must never be is the run's
+// account of the migration -- that is what produced a confident document saying "No CMS
+// collections declared" about a run that landed three.
+//
+// This generator is the account of the migration. It runs after the last write, refuses without
+// a final outcome record, and reads what LANDED, not what was planned.
+// ---------------------------------------------------------------------------------------------
+
+const SETUP_VERIFICATION_FILE = 'setup/setup-verification.json';
+
+function verificationRequirements(setupVerification) {
+  if (!setupVerification || typeof setupVerification !== 'object') return [];
+  return ensureArray(setupVerification.requirements);
+}
+
+function requirementKind(requirement) {
+  return firstNonEmptyString(requirement.kind, requirement.requirementClass, requirement.class, requirement.type) || '';
+}
+
+// What actually got provisioned, read off the setup verification receipt rather than the plan.
+function extractLandedBindings(setupVerification) {
+  const rows = verificationRequirements(setupVerification);
+  const cmsCollections = uniqueBy(
+    rows
+      .filter((row) => /collection/i.test(requirementKind(row)) && row.status === 'passed')
+      .map((row) => ({
+        collectionName: firstNonEmptyString(row.collectionName, row.name, row.id),
+        collectionId: firstNonEmptyString(row.collectionId, row.id),
+      }))
+      .filter((row) => row.collectionName || row.collectionId),
+    (row) => row.collectionId || row.collectionName,
+  );
+  const wixApps = uniqueBy(
+    rows
+      .filter((row) => /app/i.test(requirementKind(row)) && row.status === 'passed')
+      .map((row) => ({
+        appName: firstNonEmptyString(row.appName, row.name, row.id),
+        appDefId: firstNonEmptyString(row.appDefId, row.id),
+      }))
+      .filter((row) => row.appName || row.appDefId),
+    (row) => row.appDefId || row.appName,
+  );
+  return { cmsCollections, wixApps };
+}
+
+// An "open blocker" is a setup requirement the run never got past, plus anything the completion
+// report recorded as still needing a human. Both are execution facts; neither is in the plan.
+function extractOpenBlockers(setupVerification, completionReport) {
+  const fromVerification = verificationRequirements(setupVerification)
+    .filter((row) => row.status && row.status !== 'passed')
+    .map((row) => ({
+      requirementId: firstNonEmptyString(row.id, row.requirementId) || 'requirement',
+      status: row.status,
+      description: firstNonEmptyString(row.description, row.name, row.notes) || 'see setup verification receipt',
+    }));
+  const fromReport = ensureArray(completionReport && completionReport.blockedDataRequests)
+    .filter((request) => request && request.status !== 'fulfilled')
+    .map((request) => ({
+      requirementId: request.sourceEntityRef,
+      status: request.status,
+      description: request.whatUserCanDoNext || 'blocked source data',
+    }));
+  return uniqueBy([...fromVerification, ...fromReport], (row) => row.requirementId);
+}
+
+function section(lines, title, rows, renderRow, emptyMessage = '- None.') {
+  lines.push('', `## ${title}`, '');
+  if (!rows.length) {
+    lines.push(emptyMessage);
+    return;
+  }
+  for (const row of rows) lines.push(renderRow(row));
+}
+
+function handoffCauseLine(row) {
+  // The whole point: an unverified cause renders as those two words and nothing
+  // more. No cause text, because a hypothesis printed next to "unverified" is read as a finding.
+  if (row.causeConfidence !== 'verified-source' && row.causeConfidence !== 'verified-target') {
+    return 'cause unverified';
+  }
+  return `${row.cause} (${row.causeConfidence}; established by ${row.check.kind} on ${row.check.target} -> ${row.check.result})`;
+}
+
+// The handoff never recounts and never re-derives the run-id binding itself -- it
+// renders the already-bound block the completion report carries.
+function coverageDisagreementLines(coverageCheck) {
+  const lines = coverageDisagreements(coverageCheck)
+    .map((item) => `${item.key}.${item.bucket} (held ${item.held}, journal ${item.journal})`);
+  for (const key of (coverageCheck && coverageCheck.unmatched) || []) {
+    lines.push(`${key} (not found in the journal for this run)`);
+  }
+  for (const type of (coverageCheck && coverageCheck.unmatchedJournalEntities) || []) {
+    lines.push(`${type} (journal rows with no summary key)`);
+  }
+  return lines;
+}
+
+function importOperatorPrompt({ projectName, runId, coverageCheck }) {
+  const disagreeing = coverageDisagreementLines(coverageCheck);
+  const list = disagreeing.length ? disagreeing.join(', ') : 'none -- the check itself did not confirm a result';
+  return '> Requires Import Operator. In the original migration environment for '
+    + `\`${projectName}\`, open Claude Code or Codex and run: "Investigate the live-import count `
+    + `cross-check for run \`${runId}\`. Read \`execution/live-import-summary.json\` `
+    + '`coverageCheck`, `execution/execution-log.md`, and the live attempt journal rows for that '
+    + `run. For each disagreeing counter (\`${list}\`), explain the cause and either fix the `
+    + 'importer and rerun the affected entity so the new pass\'s completion report shows '
+    + '`agrees`, or record `unresolved`/`losses` rows that account for the gap. Do not edit the '
+    + 'held counters to match the journal."';
+}
+
+// Renders only for a run that declared participation in this contract
+// (`coverageCheckExpected`, or an actually-supplied run-matched check) -- a run that never adopted
+// it is unaffected, exactly like its completion status and operator actions. A clean, run-matched agreement needs no operator attention here.
+function renderCoverageCheckSection(lines, handoff) {
+  const coverageCheck = handoff.coverageCheck || null;
+  const participates = Boolean(handoff.coverageCheckExpected) || Boolean(coverageCheck && coverageCheck.supplied === true);
+  const cleanAgreement = Boolean(coverageCheck && coverageCheck.supplied === true && coverageCheck.status === 'agrees');
+  if (!participates || cleanAgreement) {
+    return;
+  }
+  lines.push('', '## Count cross-check', '');
+  // A check is rendered as "supplied" only when `supplied === true`.
+  // `completionReport.coverageCheck` can still carry another run's raw entities/unmatched/
+  // unmatchedJournalEntities fields even when `supplied: false` (e.g. a stale/foreign run id
+  // on disk, which is treated exactly like an omitted check) -- that data must never reach
+  // the disagreement lines or the operator prompt below. An omitted check renders identically
+  // here no matter *why* it was omitted (absent vs. a foreign run's block).
+  const suppliedCheck = coverageCheck && coverageCheck.supplied === true ? coverageCheck : null;
+  const status = suppliedCheck ? suppliedCheck.status : 'no run-matched check';
+  lines.push(`- Status: ${status}`);
+  for (const line of coverageDisagreementLines(suppliedCheck)) {
+    lines.push(`- ${line}`);
+  }
+  lines.push(
+    '',
+    importOperatorPrompt({ projectName: handoff.projectName, runId: handoff.runId || 'not recorded', coverageCheck: suppliedCheck }),
+  );
+}
+
+// What the source held that never reached Wix, and what the Cutover Operator does
+// about it in Wix. Source-side recovery (routes, credentials, force-includes) is Import Operator
+// work before execution and is never asked of the Cutover Operator here. Rendered only from a
+// joined (schema v2) completion report; an older report has no such field and no section.
+function renderSourceCoverageSection(lines, handoff) {
+  if (!Array.isArray(handoff.sourceCoverage)) return;
+  lines.push('', '## Not migrated from the source', '');
+  if (handoff.sourceCoverageRecorded === false) {
+    lines.push('- Source coverage was not recorded for this run, so capabilities the source could not expose are unknown. Treat the run as not verified for source coverage.');
+    return;
+  }
+  if (!handoff.sourceCoverage.length) {
+    lines.push('- None.');
+    return;
+  }
+  for (const row of handoff.sourceCoverage) {
+    const label = row.capability || row.sourceEntity;
+    const handling = row.recommendedHandling ? ` Recommended handling: ${row.recommendedHandling}` : '';
+    lines.push(`- ${label} (${row.reason}; ${row.treatment}): ${row.cutoverAction}${handling}`);
+  }
+}
+
+// Section order is the contract, not a preference: urgent operator actions render ABOVE the
+// per-entity counts. Buried at position forty in a list of outcomes, a live money exposure the
+// merchant can only fix while their old platform is still the system of record is not a warning,
+// it is trivia.
+function renderPostExecutionHandoff(handoff) {
+  const lines = ['# Migration Handoff', ''];
+
+  section(lines, 'Urgent Operator Actions', handoff.operatorActions, (row) =>
+    `- [${row.severity}] ${row.code}: ${row.action} (${row.affectedCount === null ? 'affected count unknown' : `${row.affectedCount} affected`}; act now because ${row.deadlineReason})`,
+    handoff.discoveredSetActions?.length ? '' : '- None.');
+
+  for (const row of handoff.discoveredSetActions || []) {
+    const owner = row.action?.owner === 'Import Operator' ? '**Requires Import Operator**' : row.action?.owner;
+    lines.push(`- ${row.censusId}: ${row.outcome}. ${owner}: ${row.action?.action}. Affected count: ${row.action?.affectedCount ?? 'unknown'}. ${row.action?.consequence}. Timing: ${row.action?.timing}. Resolves when: ${row.action?.resolvedWhen}`);
+    if (row.action?.importOperatorPrompt) lines.push('', '**Copy prompt for Import Operator**', '', '```text', row.action.importOperatorPrompt, '```', '');
+  }
+
+  lines.push('', '## Per-Entity Reconciliation', '', '| Entity | Extracted | In scope | Landed | Unreconciled |', '| --- | --- | --- | --- | --- |');
+  if (!handoff.entityCompleteness.length) {
+    lines.push('| (none) | 0 | 0 | 0 | 0 |');
+  } else {
+    for (const row of handoff.entityCompleteness) {
+      lines.push(`| ${row.entity}/${row.subtype} | ${row.extracted} | ${row.inScope} | ${row.imported + row.alreadyPresentByCrosswalk} | ${row.expectedReconciled - row.reconciled} |`);
+    }
+  }
+
+  renderCoverageCheckSection(lines, handoff);
+
+  section(lines, 'Permanent Losses', handoff.losses, (row) =>
+    `- ${row.entity}: ${row.count} lost (${row.reasonCode}); ${row.whyNoRetry}; ${handoffCauseLine(row)}`,
+  emptyPermanentLossesLine(handoff.exclusions));
+  section(lines, 'Deliberate Exclusions', handoff.exclusions, (row) =>
+    `- ${row.entity}: ${row.count} excluded (${row.reasonCode}); ${row.rationale}; operator gate recorded: ${row.operatorGateRecorded}`);
+  section(lines, 'Unresolved And Orphaned', handoff.unresolved, (row) =>
+    `- ${row.entity}: ${row.count} ${row.kind}; ${handoffCauseLine(row)}`);
+  section(lines, 'Fields Dropped For The Destination', handoff.droppedFields, (row) =>
+    `- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
+
+  if (handoff.unexplainedShortfalls.length) {
+    lines.push('', '## Unexplained Shortfalls', '');
+    for (const row of handoff.unexplainedShortfalls) lines.push(`- ${row.message}`);
+  }
+
+  renderSourceCoverageSection(lines, handoff);
+
+  section(lines, 'Wix Bindings Installed', handoff.landedBindings.wixApps, (row) =>
+    `- ${row.appName}${row.appDefId && row.appDefId !== row.appName ? ` (${row.appDefId})` : ''}`);
+  section(lines, 'CMS Collections Created', handoff.landedBindings.cmsCollections, (row) =>
+    `- ${row.collectionName}`);
+  section(lines, 'Open Manual Blockers', handoff.openBlockers, (row) =>
+    `- ${row.requirementId} [${row.status}]: ${row.description}`);
+  section(lines, 'Imported Redirect Targets', handoff.redirectTargetPlanning?.rules || [], (row) => {
+    const safe = (value) => String(value || '').replace(/[\r\n]/g, ' ');
+    return `- ${safe(row.sourceStableKey)}: ${safe(row.source)} → ${safe(row.target)}; ${safe(row.disposition)} (${safe(row.reason)})`;
+  });
+
+  lines.push(
+    '',
+    '## Generation Provenance',
+    '',
+    `- Generated at: ${handoff.generatedAt}`,
+    `- Run id: ${handoff.runId || 'not recorded'}`,
+    `- Run's last write: ${handoff.lastWriteAt}`,
+    `- Final outcome status: ${handoff.status}`,
+    ...(handoff.backendStatus && handoff.status !== handoff.backendStatus ? [`- Import status (completion report): ${handoff.backendStatus}; open discovered-set rows: ${handoff.discoveredSet?.openCount}`] : []),
+    `- Rendered from: ${HANDOFF_ARTIFACTS.completionReport}, ${SETUP_VERIFICATION_FILE}`,
+    '',
+  );
+  return `${lines.join('\n')}\n`;
+}
+
+// Refuses rather than producing a clean document. A handoff with nothing behind it is exactly
+// the artifact this guard exists to stop, so the failure is a typed refusal the router can act on
+// -- never a document.
+async function generatePostExecutionHandoff(projectDir, { runId = null, appendLog = true } = {}) {
+  const completionReport = await readJsonIfExists(path.join(projectDir, HANDOFF_ARTIFACTS.completionReport));
+  if (!completionReport) {
+    return { ok: false, reason: 'missing_completion_report', handoffPath: null, summaryPath: null, handoff: null };
+  }
+  if (!completionReport.lastWriteAt) {
+    return { ok: false, reason: 'completion_report_missing_last_write', handoffPath: null, summaryPath: null, handoff: null };
+  }
+  const { STATUS_FILE, discoveredSetStatusFreshness, deriveFinalStatus } = require('./discovered-set-status.js');
+  const discoveredSetStatus = completionReport.managementImportMode === 'quick' ? null : await readJsonIfExists(path.join(projectDir, STATUS_FILE));
+  if (completionReport.managementImportMode !== 'quick') {
+    if (!discoveredSetStatus) return { ok: false, reason: 'discovered_set_status_missing' };
+    const freshness = await discoveredSetStatusFreshness(projectDir, discoveredSetStatus);
+    if (!freshness.ok) return { ok: false, reason: 'discovered_set_status_stale', staleInputs: freshness.staleInputs };
+  }
+  const setupVerification = await readJsonIfExists(path.join(projectDir, SETUP_VERIFICATION_FILE));
+  const redirectReport = await readJsonIfExists(path.join(projectDir, 'execution/url-rewrite-report.json'));
+  const redirectTargetPlanning = redirectReport || null;
+  const generatedAt = new Date().toISOString();
+  // Compared against the report's own recorded last write, never a file mtime -- an mtime is
+  // refreshed by a copy and proves nothing about when the last record landed.
+  if (Date.parse(generatedAt) <= Date.parse(completionReport.lastWriteAt)) {
+    return { ok: false, reason: 'handoff_predates_last_write', handoffPath: null, summaryPath: null, handoff: null };
+  }
+
+  const handoff = {
+    schemaVersion: 1,
+    generatedAt,
+    runId: completionReport.runId || runId || null,
+    lastWriteAt: completionReport.lastWriteAt,
+    status: deriveFinalStatus(completionReport.status, discoveredSetStatus),
+    backendStatus: completionReport.status,
+    discoveredSet: discoveredSetStatus ? { path: STATUS_FILE, sha256: hashArtifact(projectDir, STATUS_FILE), openCount: discoveredSetStatus.openCount } : null,
+    discoveredSetActions: discoveredSetStatus ? discoveredSetStatus.rows.filter(row => row.open && row.kind !== 'source-coverage').map(({ censusId, outcome, action }) => ({ censusId, outcome, action })) : [],
+    // Rendered from the report's durable rows, never recounted.
+    operatorActions: ensureArray(completionReport.operatorActions),
+    ...(completionReport.linkAudit ? { linkAudit: completionReport.linkAudit } : {}),
+    // The handoff's own record is not thinner than the report on the voucher urgency
+    // signal. Scoped to these three fields and narrowed to the fixed voucher messages -- a
+    // caller's free-text warning can carry record values, which are kept out of here.
+    ...handoffVoucherSignal(completionReport),
+    // Copied through verbatim -- the binding to `input.runId` already happened
+    // on the completion report, and this never recounts or re-derives it.
+    coverageCheck: completionReport.coverageCheck || null,
+    coverageCheckExpected: Boolean(completionReport.coverageCheckExpected),
+    projectName: path.basename(projectDir),
+    entityCompleteness: ensureArray(completionReport.entityCompleteness),
+    losses: ensureArray(completionReport.losses),
+    exclusions: ensureArray(completionReport.exclusions),
+    unresolved: ensureArray(completionReport.unresolved),
+    droppedFields: ensureArray(completionReport.droppedFields),
+    unexplainedShortfalls: ensureArray(completionReport.unexplainedShortfalls),
+    // Copied through from the joined report, never re-derived.
+    ...(Array.isArray(completionReport.sourceCoverage)
+      ? { sourceCoverage: completionReport.sourceCoverage, sourceCoverageRecorded: completionReport.sourceCoverageRecorded !== false }
+      : {}),
+    landedBindings: extractLandedBindings(setupVerification),
+    openBlockers: extractOpenBlockers(setupVerification, completionReport),
+    redirectTargetPlanning,
+    sources: [HANDOFF_ARTIFACTS.completionReport, SETUP_VERIFICATION_FILE,
+      ...(discoveredSetStatus ? [STATUS_FILE] : []),
+      ...(redirectTargetPlanning ? ['execution/url-rewrite-report.json'] : [])],
+  };
+
+  const document = renderPostExecutionHandoff(handoff);
+  const handoffPath = path.join(projectDir, POST_EXECUTION_HANDOFF_FILE);
+  const jsonPath = path.join(projectDir, POST_EXECUTION_HANDOFF_JSON);
+  await writeFileAtomic(jsonPath, `${stableJson(handoff)}\n`);
+  await writeFileAtomic(handoffPath, document);
+  if (appendLog) {
+    await appendExecutionLog(projectDir, {
+      runId: handoff.runId || runId || 'unknown-run',
+      phase: 'completion',
+      event: 'handoff_generated',
+      detail: `post-execution handoff generated from the final outcome record (status ${handoff.status})`,
+      artifacts: [POST_EXECUTION_HANDOFF_FILE, POST_EXECUTION_HANDOFF_JSON],
+    });
+  }
+  return { ok: true, reason: null, handoffPath, jsonPath, handoff, document };
+}
+
+async function loadPostExecutionHandoff(projectDir) {
+  return readJsonIfExists(path.join(projectDir, POST_EXECUTION_HANDOFF_JSON));
+}
+
+module.exports = {
+  SCHEMA_VERSION,
+  HANDOFF_ARTIFACTS,
+  FRESHNESS_SCHEMA_VERSION,
+  POST_EXECUTION_HANDOFF_FILE,
+  POST_EXECUTION_HANDOFF_JSON,
+  SETUP_VERIFICATION_FILE,
+  extractLandedBindings,
+  extractOpenBlockers,
+  renderPostExecutionHandoff,
+  generatePostExecutionHandoff,
+  loadPostExecutionHandoff,
+  // Exported so the entity-row contract is testable: which keys a mapping plan may carry its
+  // per-entity rows under is the difference between a real handoff and a silently empty one.
+  readEntityMappings,
+  handoffFingerprint,
+  createInputFreshness,
+  compareInputFreshness,
+  generateWebsiteHandoff,
+  validateWebsiteHandoff,
+};

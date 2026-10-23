@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wix.com/replatform/0083/foundation.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "id", "pageKey", "status", "tokens", "fonts", "primitives", "globalCssIntent", "evidenceRefs", "acceptance", "gapRefs", "hash"],
+  "properties": {
+    "schemaVersion": { "const": "0083.1" }, "kind": { "const": "foundation" }, "id": { "type": "string" }, "pageKey": { "const": "home" }, "status": { "enum": ["accepted", "provisional"] },
+    "tokens": { "type": "object" }, "fonts": { "type": "object" }, "primitives": { "type": "array" }, "globalCssIntent": { "type": "object" }, "evidenceRefs": { "type": "array" }, "acceptance": { "type": "object" }, "gapRefs": { "type": "array" }, "dependencyHashes": { "type": "array" }, "hash": { "type": "string" }, "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

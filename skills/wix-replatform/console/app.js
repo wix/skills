@@ -1,0 +1,117 @@
+const token = new URLSearchParams(location.search).get('token');
+const q = (s) => document.querySelector(s); let selected = null; let events = []; let stream;
+const api = async (path, options = {}) => { const join = path.includes('?') ? '&' : '?'; const res = await fetch(`${path}${join}token=${encodeURIComponent(token)}`, { ...options, headers: { 'content-type': 'application/json', ...(options.headers || {}) } }); const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Request failed'); return data; };
+const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+function routeState() { const params = new URLSearchParams(location.search); return { project: params.get('project'), request: params.get('request'), artifact: params.get('artifact'), cursor: params.get('cursor') }; }
+function updateRoute(values) { const url = new URL(location.href); for (const [key, value] of Object.entries(values)) { if (value === null || value === undefined || value === '') url.searchParams.delete(key); else url.searchParams.set(key, value); } history.replaceState(null, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`); }
+function statusName(s) { if (/_running$/.test(s || '')) return 'Ready to continue'; return ({ running:'Running', waiting_for_user:'Waiting for you', awaiting_user_action:'Waiting for you', blocked:'Blocked', canceled:'Canceled', interrupted:'Interrupted', timed_out:'Timed out', completed:'Completed', failed:'Failed' })[s] || 'Ready to start'; }
+function readable(value) { return String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+function structuredArtifact(file) {
+  const structured = /(?:application\/(?:json|x-ndjson)|(?:json|jsonl|ndjson))/.test(`${file.mediaType} ${file.path}`.toLowerCase());
+  if (!structured) return null;
+  try {
+    const isLines = /(?:jsonl|ndjson)/.test(`${file.mediaType} ${file.path}`.toLowerCase());
+    return isLines ? file.content.split('\n').filter(Boolean).map((line) => JSON.parse(line)) : JSON.parse(file.content);
+  } catch { return null; }
+}
+function jsonMarkup(value) {
+  const raw = JSON.stringify(value, null, 2);
+  return raw.replace(/("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g, (match, string, colon, literal) => {
+    const kind = string ? (colon ? 'json-key' : 'json-string') : literal ? 'json-literal' : 'json-number';
+    return `<span class="${kind}">${esc(string || literal || match)}</span>${colon || ''}`;
+  });
+}
+function fileLanguage(file) {
+  const source = `${file.mediaType || ''} ${file.path || ''}`.toLowerCase();
+  if (/(?:application\/(?:json|x-ndjson)|(?:json|jsonl|ndjson))/.test(source)) return 'json';
+  if (/(?:javascript|ecmascript|\.m?js\b|\.cjs\b)/.test(source)) return 'javascript';
+  if (/(?:typescript|\.tsx?\b)/.test(source)) return 'typescript';
+  if (/(?:text\/css|\.css\b)/.test(source)) return 'css';
+  if (/(?:text\/html|\.html?\b)/.test(source)) return 'html';
+  if (/(?:text\/markdown|\.md\b)/.test(source)) return 'markdown';
+  return 'text';
+}
+function codeMarkup(content, language) {
+  const escaped = esc(content);
+  if (language === 'json') return escaped;
+  if (language === 'html') return escaped.replace(/(&lt;\/?)([A-Za-z][\w-]*)([^&]*?)(\/??&gt;)/g, '$1<span class="syntax-tag">$2</span>$3$4');
+  if (language === 'markdown') return escaped.replace(/^(#{1,6}\s.*)$/gm, '<span class="syntax-heading">$1</span>').replace(/(`[^`]+`)/g, '<span class="syntax-code">$1</span>');
+  if (language === 'javascript' || language === 'typescript') return escaped.replace(/(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g, '<span class="syntax-comment">$1</span>').replace(/\b(const|let|var|function|async|await|return|if|else|for|while|class|new|import|from|export|throw|try|catch)\b/g, '<span class="syntax-keyword">$1</span>');
+  if (language === 'css') return escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syntax-comment">$1</span>').replace(/(^|\n)([^{}\n]+)(?=\s*\{)/g, '$1<span class="syntax-selector">$2</span>');
+  return escaped;
+}
+async function projects() { try { const data = await api('/api/projects'); q('#projects').innerHTML = data.projects.map((p) => `<button class="project ${p.project === selected ? 'active':''}" data-project="${esc(p.project)}">${esc(p.project)}<small>${esc(statusName(p.router?.state || p.activeRun?.status || p.orchestration?.status))}</small></button>`).join('') || '<p class="muted">No migration projects yet.</p>'; document.querySelectorAll('[data-project]').forEach((b) => b.onclick = () => openProject(b.dataset.project)); } catch (e) { q('#projects').textContent = e.message; } }
+function eventMarkup(event) { return `<details class="event ${event.type === 'heartbeat' ? 'heartbeat':''}" data-event-id="${esc(event.eventId || '')}"><summary><strong>${esc(readable(event.type))}</strong><small>${esc(event.message || '')} · ${esc(event.timestamp ? new Date(event.timestamp).toLocaleString() : 'just now')}</small></summary><pre>${esc(JSON.stringify(event, null, 2))}</pre></details>`; }
+function appendActivity(event) { const feed = q('.activity-feed'); if (!feed) return; feed.querySelector('.empty-activity')?.remove(); feed.insertAdjacentHTML('afterbegin', eventMarkup(event)); }
+function taskIcon(state) { return state === 'running' ? '<span class="spinner" aria-hidden="true"></span>' : state === 'completed' ? '<span class="task-check" aria-hidden="true">✓</span>' : '<span class="task-state-icon" aria-hidden="true">•</span>'; }
+function workMarkup(data) {
+  const tasks = data?.tasks || []; const agents = data?.agents || []; const runningTasks = tasks.filter((task) => task.state === 'running').length; const runningAgents = agents.filter((agent) => agent.state === 'running').length;
+  if (!tasks.length) return `<div class="work-heading"><div><h3>Work</h3><p class="muted">Persisted work state</p></div><p class="muted">No tasks recorded</p></div><p class="muted">Work details will appear after the supervisor records a route. Observed activity below is not treated as task state.</p>`;
+  const rows = tasks.map((task) => {
+    const assigned = agents.filter((agent) => agent.taskId === task.taskId); const active = assigned.filter((agent) => agent.state === 'running');
+    const agentRows = assigned.length ? `<ul class="agent-list">${assigned.map((agent) => `<li class="agent-row agent-${esc(agent.state)} ${agent.parentAgentId ? 'agent-child':''}">${agent.state === 'running' ? '<span class="spinner small" aria-hidden="true"></span>' : agent.state === 'completed' ? '<span class="task-check" aria-hidden="true">✓</span>' : '<span class="task-state-icon" aria-hidden="true">•</span>'}<span>${esc(agent.label)}</span><span class="muted">${esc(readable(agent.state))}</span></li>`).join('')}</ul>` : '<p class="agent-empty muted">No agent has been recorded for this task.</p>';
+    const topology = active.length && !active.some((agent) => agent.parentAgentId) ? '<p class="agent-empty muted">No additional agent detail reported.</p>' : '';
+    return `<li class="task-row task-${esc(task.state)}" data-task-id="${esc(task.taskId)}"><div class="task-main">${taskIcon(task.state)}<div><div class="task-title ${task.state === 'completed' ? 'task-completed':''}">${esc(task.title)}</div><div class="muted">${esc(readable(task.state))}${task.route?.reason ? ` · ${esc(readable(task.route.reason))}` : ''}</div></div></div>${agentRows}${topology}</li>`;
+  }).join('');
+  return `<div class="work-heading"><div><h3>Work</h3><p class="muted">Persisted work state</p></div><p class="work-summary">${runningTasks ? `${runningTasks} running task${runningTasks === 1 ? '' : 's'}` : 'No running tasks'} · ${runningAgents} active agent${runningAgents === 1 ? '' : 's'}</p></div><ul class="task-list">${rows}</ul>`;
+}
+function renderWork(tasks) { const panel = q('#work-panel'); if (panel) panel.innerHTML = workMarkup(tasks); }
+function panelMarkup(status, requests) {
+  const state = status.activeRun?.status || status.latestResult?.outcome || status.orchestration?.status || 'ready'; const pending = requests.find((r) => r.status === 'pending');
+  const attention = pending ? `<div class="attention"><div><strong>${esc(pending.title)}</strong><p>${esc(pending.prompt)}</p></div><button class="primary" id="open-request">Review decision</button></div>` : '';
+  const rawState = status.router?.reason || status.latestResult?.nextAction || 'ready';
+  return { state, pending, attention, current: `<div class="card"><h3>Current state</h3><p>${esc(readable(rawState))}</p><p class="muted">Technical state: ${esc(rawState)}</p><div class="actions">${!status.activeRun && state !== 'completed' ? '<button class="primary" id="resume">Resume</button>' : ''}${status.activeRun ? '<button class="danger" id="cancel">Stop migration</button>' : ''}</div></div>`, requests: `<div class="card" style="margin-top:16px"><h3>Requests</h3><p class="muted">${requests.length} total · ${requests.filter((r)=>r.status==='pending').length} pending</p></div>` };
+}
+function bindPanels(pending) {
+  if (pending) q('#open-request').onclick = () => requestView(pending); if (q('#resume')) q('#resume').onclick = () => start(true); if (q('#cancel')) q('#cancel').onclick = cancelRun;
+}
+function renderDurablePanels(status, requests) {
+  const panel = panelMarkup(status, requests); const statusLine = q('#status-line'); if (!statusLine) return;
+  statusLine.innerHTML = `<span class="pill">${esc(statusName(panel.state))}</span><span>${status.eventStream?.lastEventAt ? `Last observed ${esc(new Date(status.eventStream.lastEventAt).toLocaleString())}` : 'No recent observation'}</span>`;
+  q('#attention-area').innerHTML = panel.attention; q('#current-state-card').innerHTML = panel.current; q('#requests-card').innerHTML = panel.requests; bindPanels(panel.pending);
+}
+function render(status, requests, tasks) {
+  const rows = events.slice(-200).reverse().map(eventMarkup).join('') || '<p class="muted empty-activity">No observed activity yet.</p>';
+  q('#content').innerHTML = `<h1>${esc(selected)}</h1><div class="status" id="status-line"></div><div id="attention-area"></div><section class="card work-card" id="work-panel">${workMarkup(tasks)}</section><div class="grid"><div class="card activity-card"><h3>Observed activity</h3><div class="activity-feed" aria-label="Observed migration activity">${rows}</div></div><div><div id="current-state-card"></div><div id="requests-card"></div></div></div>`;
+  renderDurablePanels(status, requests);
+}
+async function refreshTasks() { if (!selected) return null; const tasks = await api(`/api/tasks?project=${encodeURIComponent(selected)}`); renderWork(tasks); return tasks; }
+async function refresh() { if (!selected) return null; const [status, requests, tasks] = await Promise.all([api(`/api/status?project=${encodeURIComponent(selected)}`), api(`/api/requests?project=${encodeURIComponent(selected)}`), api(`/api/tasks?project=${encodeURIComponent(selected)}`)]); render(status, requests, tasks); return { status, requests, tasks }; }
+let durableRefreshTimer;
+function scheduleDurableRefresh() { if (durableRefreshTimer || !selected) return; durableRefreshTimer = setTimeout(async () => { durableRefreshTimer = null; try { const [status, requests, tasks] = await Promise.all([api(`/api/status?project=${encodeURIComponent(selected)}`), api(`/api/requests?project=${encodeURIComponent(selected)}`), api(`/api/tasks?project=${encodeURIComponent(selected)}`)]); renderDurablePanels(status, requests); renderWork(tasks); projects().catch(() => {}); } catch {} }, 100); }
+function connect() { stream?.close(); if (!selected) return; stream = new EventSource(`/api/events?project=${encodeURIComponent(selected)}&token=${encodeURIComponent(token)}`); stream.onopen = () => { q('#connection').textContent = 'Live'; scheduleDurableRefresh(); }; stream.onerror = () => q('#connection').textContent = 'Reconnecting…'; stream.addEventListener('migration', (message) => { const event = JSON.parse(message.data); if (events.some((x) => x.eventId && x.eventId === event.eventId)) return; events.push(event); appendActivity(event); scheduleDurableRefresh(); }); }
+async function openProject(project, { updateUrl = true } = {}) { if (updateUrl) updateRoute({ project, request: null, artifact: null, cursor: null }); selected = project; events = []; await projects(); const state = await refresh(); connect(); return state; }
+function cancelRun() { const d = modal(`<form class="dialog-body" id="cancel-form"><h1>Stop migration?</h1><p>This asks the supervisor to stop gracefully. Recovery artifacts are preserved, and you can resume later.</p><label>Reason<input id="cancel-reason" value="canceled by operator"></label><p class="error" id="cancel-error"></p><div class="footer"><button type="button" data-close>Keep running</button><button class="danger" type="submit">Stop migration</button></div></form>`); q('#cancel-form').onsubmit = async (event) => { event.preventDefault(); try { await api('/api/cancel', { method:'POST', body:JSON.stringify({ project:selected, reason:q('#cancel-reason').value }) }); d.close(); await refresh(); } catch (e) { q('#cancel-error').textContent = e.message; } }; }
+function modal(html, { onClose = null } = {}) { const d = q('#dialog'); d.innerHTML = html; if (!d.open) d.showModal(); d.querySelector('[data-close]')?.addEventListener('click', () => d.close()); d.onclose = onClose; return d; }
+async function showArtifact(item, cursor = 0, opener = null, { updateUrl = true } = {}) { const d = q('#file-dialog'); if (opener) d.returnFocus = opener; if (updateUrl) updateRoute({ artifact: item, cursor: String(cursor) }); try { const file = await api(`/api/show?project=${encodeURIComponent(selected)}&item=${encodeURIComponent(item)}&cursor=${cursor}`); const language = fileLanguage(file); const parsed = structuredArtifact(file); const content = parsed === null ? codeMarkup(file.content, language) : jsonMarkup(parsed); d.innerHTML = `<div class="dialog-body"><h1>${esc(file.path)}</h1><p class="muted">${esc(file.mediaType)} · showing ${file.emittedBytes} of ${file.totalBytes} bytes</p><pre class="file-preview language-${language}${parsed === null ? '' : ' structured-json'}" aria-label="${esc(file.path)} preview">${content}</pre><div class="footer">${file.nextCursor !== null ? '<button id="more">Show more</button>' : '<span></span>'}<button data-close>Close</button></div></div>`; if (!d.open) d.showModal(); d.querySelector('[data-close]').onclick = () => d.close(); d.onclose = () => { updateRoute({ artifact: null, cursor: null }); d.returnFocus?.focus(); d.returnFocus = null; }; if (file.nextCursor !== null) d.querySelector('#more').onclick = () => showArtifact(item, file.nextCursor); } catch (e) { alert(e.message); } }
+async function loadWixAccount() {
+  const result = q('#wix-account-result'); const acknowledgement = q('#ack');
+  if (!result) return;
+  result.textContent = 'Checking the local Wix CLI account…';
+  try {
+    const account = await api('/api/account');
+    if (account.authState === 'authenticated' && account.identity) {
+      result.innerHTML = `<strong>Authenticated Wix CLI identity</strong><code>${esc(account.identity)}</code><span class="muted">Reported directly by <code>wix whoami</code>. Confirm that this account is authorized before continuing.</span>`;
+      acknowledgement?.removeAttribute('disabled');
+    } else result.innerHTML = `<strong>Wix CLI identity could not be confirmed</strong><span class="error">${esc(account.reason || 'Run wix login, then refresh this check.')}</span>`;
+  } catch (error) { result.innerHTML = `<strong>Wix CLI identity could not be confirmed</strong><span class="error">${esc(error.message)}</span>`; }
+}
+async function requestView(row, { updateUrl = true } = {}) {
+  const request = await api(`/api/show?project=${encodeURIComponent(selected)}&item=${encodeURIComponent(row.requestId)}`);
+  if (updateUrl) updateRoute({ project: selected, request: request.requestId, artifact: null, cursor: null });
+  const artifacts = request.artifactRefs.map((a) => `<div class="artifact"><span><strong>${esc(a.path)}</strong><br><span class="muted">${esc(a.mediaType)}</span></span><button data-artifact="${esc(a.path)}">Open</button></div>`).join('');
+  const operatorInstructions = request.operatorInstructions ? `<section class="operator-instructions"><p><strong>Open Terminal and run this:</strong></p><pre class="file-preview" aria-label="Terminal command">${esc(request.operatorInstructions.command)}</pre><button type="button" id="copy-terminal-command">Copy command</button><p class="muted">${esc(request.operatorInstructions.confirmation)}</p></section>` : '';
+  const destinationAccountCheck = request.kind === 'manual_action' && request.stage === 'destination'; let response = '';
+  if (request.response.mode === 'choice') response = `<fieldset><legend>Your decision</legend>${request.choices.map((c) => `<label class="choice"><input required type="radio" name="answer" value="${esc(c.id)}">${esc(c.label)}${c.description ? `<small>${esc(c.description)}</small>`:''}</label>`).join('')}</fieldset><label>Review note <span class="muted">(optional)</span><textarea id="answer-note" maxlength="10000" placeholder="Add context for this decision"></textarea></label>`;
+  else if (request.response.mode === 'text') response = '<label>Response<textarea id="answer" maxlength="10000" required></textarea></label>';
+  else response = destinationAccountCheck ? '<label>Confirmation<textarea id="ack-note" maxlength="10000" required placeholder="I confirm the CLI identity is authorized to create this destination."></textarea></label><p class="muted">Your confirmation will be recorded with the required acknowledgement.</p>' : '<label class="choice"><input type="checkbox" id="ack" required>I completed the required manual step.</label>';
+  const accountCheck = destinationAccountCheck ? '<section class="account-check" aria-live="polite"><div><p class="account-heading">Current Wix CLI account</p><div id="wix-account-result">Checking the local Wix CLI account…</div></div><button type="button" id="refresh-wix-account">Refresh</button></section>' : '';
+  const d = modal(`<form class="dialog-body" id="answer-form"><div class="pill">${esc(request.kind)}</div><h1>${esc(request.title)}</h1><p>${esc(request.prompt)}</p>${operatorInstructions}${accountCheck}${artifacts}${response}<p class="error" id="form-error"></p><div class="footer"><button type="button" data-close>Cancel</button><span><button type="submit" name="mode" value="save">Save answer only</button> <button class="primary" type="submit" name="mode" value="continue">Submit and resume</button></span></div></form>`, { onClose: () => updateRoute({ request: null, artifact: null, cursor: null }) });
+  d.querySelectorAll('[data-artifact]').forEach((b) => b.onclick = (event) => showArtifact(b.dataset.artifact, 0, event.currentTarget));
+  d.querySelector('#copy-terminal-command')?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(request.operatorInstructions.command); d.querySelector('#copy-terminal-command').textContent = 'Copied'; } catch { d.querySelector('#copy-terminal-command').textContent = 'Copy unavailable'; } });
+  if (destinationAccountCheck) { q('#refresh-wix-account').onclick = loadWixAccount; loadWixAccount(); }
+  q('#answer-form').onsubmit = async (event) => { event.preventDefault(); const submit = event.submitter.value; const payload = { project:selected, requestId:request.requestId, continue:submit === 'continue' }; if (request.response.mode === 'choice') { payload.choice = new FormData(event.currentTarget).get('answer'); const note = q('#answer-note').value.trim(); if (note) payload.note = note; } else if (request.response.mode === 'text') payload.text = q('#answer').value; else if (destinationAccountCheck) { payload.acknowledged = true; payload.note = q('#ack-note').value.trim(); } else payload.acknowledged = q('#ack').checked; try { await api('/api/answer', { method:'POST', body:JSON.stringify(payload) }); d.close(); await refresh(); } catch (e) { q('#form-error').textContent = e.message; } };
+}
+function start(resume = false) { if (resume) return api('/api/run', {method:'POST',body:JSON.stringify({project:selected,resume:true})}).then(refresh).catch((e)=>alert(e.message)); const d = modal(`<form class="dialog-body" id="new-form"><h1>New migration</h1><div class="form-grid"><label>Project name<input name="project" required pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,99}"></label><label>Source URL<input name="sourceUrl" type="url"></label><label>Source mode<select name="sourceMode"><option value="public_content">Public content</option><option value="authenticated_api">Authenticated API</option><option value="private_data">Private data</option><option value="files_only">Files only</option></select></label><label>Delivery mode<select name="deliveryMode"><option value="management">Management</option><option value="website">Website</option><option value="management_and_website">Management + website</option></select></label><label>Destination<input name="destination" placeholder="new or existing:site-id" value="new"></label><label>Agent<select name="agent"><option value="auto">Automatic</option><option value="codex">Codex</option><option value="claude">Claude</option></select></label><label>Import mode<select name="managementImportMode"><option value="standard">Standard</option><option value="quick">Quick</option></select></label></div><label>Files (optional)<input id="files" type="file" multiple></label><p class="error" id="new-error"></p><div class="footer"><button type="button" data-close>Cancel</button><button class="primary">Check and start migration</button></div></form>`); q('#new-form').onsubmit = async (e) => { e.preventDefault(); const data = Object.fromEntries(new FormData(e.currentTarget)); try { const doctor = await api(`/api/doctor?agent=${encodeURIComponent(data.agent)}`); if (!doctor.adapters.some((adapter) => adapter.ok)) throw new Error('No selected agent is ready. Complete the local authentication/prerequisite shown by replatform doctor, then retry.'); const files=[]; for (const file of q('#files').files) { const base64 = await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=reject;r.readAsDataURL(file);}); const result=await api('/api/upload',{method:'POST',body:JSON.stringify({project:data.project,name:file.name,contentBase64:base64})});files.push(result.name); } await api('/api/run',{method:'POST',body:JSON.stringify({project:data.project,options:{...data,files}})}); d.close(); await openProject(data.project); } catch (err) { q('#new-error').textContent=err.message; } }; }
+async function restoreRoute() { const route = routeState(); if (!route.project) return; const state = await openProject(route.project, { updateUrl: false }); if (!route.request) return; const row = state?.requests.find((item) => item.requestId === route.request && item.status === 'pending'); if (!row) { updateRoute({ request: null, artifact: null, cursor: null }); return; } await requestView(row, { updateUrl: false }); if (route.artifact) await showArtifact(route.artifact, Number(route.cursor) || 0, null, { updateUrl: false }); }
+q('#new-project').onclick = () => start(false); projects().then(restoreRoute).catch((error) => { q('#content').textContent = error.message; });
