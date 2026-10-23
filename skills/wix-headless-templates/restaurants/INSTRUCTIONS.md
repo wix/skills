@@ -28,7 +28,7 @@ components, plus your home page.
 | `wix/media.ts` · `wix/money.ts` | `imgAttrs(url, sizes)` — every `<img>` attribute for a DTO image (`src`, `srcSet`, `sizes`, lazy): `<img {...imgAttrs(item.imageUrl, "6rem")} alt={item.name} />`; `imgSrc()` / `imgSrcSet()` / `formatMoney()` underneath, already used by everything shipped |
 | `wix/restaurants/types.ts` | the DTOs (`MenuData`, `MenuSection`, `MenuItem`, `OrderSelection`, `OrderCart`, `OrderingStatus`, `ReservationLocationInfo`, `ReservationSlot`, …) — contracts below |
 | `wix/restaurants/menu.ts` | `fetchMenus` — the whole display-ordered menu tree, every price formatted with the site's currency + locale (read once from the eCommerce settings, `fetchSiteMoney`); the transport only — the id-array stitching, the item mapping, the money formatting, and the **modifier rule engine** (`initialSelection`, `toggleModifier`, `validateSelection`, `itemPrice`, `needsSelection`, `ruleLabel`) are in `menu-core.ts` beside it (shared with the REST layer) |
-| `wix/restaurants/ordering.ts` · `order-store.ts` | the operation's state (`resolveOrdering`), each menu's ordering settings under it (`fetchMenuOrdering`), the operation's fulfillment methods, dish add-to-cart (Orders-app `catalogReference` with the selection) + eCom Cart V2 + the hosted checkout, and the shared cart state (module store — spans Astro islands); the request shapes, the availability-window check, and the refusal checks are in `ordering-core.ts` |
+| `wix/restaurants/ordering.ts` · `order-store.ts` | the operation's state (`resolveOrdering`), each menu's ordering settings under it (`fetchMenuOrdering`), the operation's fulfillment methods and times, dish add-to-cart (Orders-app `catalogReference` with the selection) + eCom Cart V2, the order's pickup/delivery + time (the cart's delivery method) + the hosted checkout, and the shared cart state (module store — spans Astro islands); the request shapes, the availability-window check, and the refusal checks are in `ordering-core.ts` |
 | `wix/restaurants/reservations.ts` | locations (enabled for online reservations, with name/address/timezone/approval/form config), AVAILABLE slots in the location's timezone, `holdReservation` → `completeReservation` (automatic approval), `requestReservation` (manual approval, no hold); the mappers, the form validation, and the reservee body are in `reservations-core.ts` |
 | `wix/restaurants/time-core.ts` | wall-clock arithmetic in an IANA zone with `Intl` only (`zonedIso`, `zonedDayKey`, `zonedTimeLabel`, `zonedDateTimeLabel`) — what the two cores and the stores use for the restaurant's timezone |
 | `wix/restaurants/menu-store.ts` · `reservation-store.ts` | the menu-browsing and reservation state machines, framework-free (`createMenuStore()`, `createReservationStore()` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
@@ -100,8 +100,11 @@ else. Look at the seeded menu before designing (how many menus, sections, photos
   modifiers disabled.
 - **Cart:** lines with quantity stepper and remove, `descriptionLines` under the name, `subtotal`
   as given, checkout as a button in the drawer; the order survives a reload (same visitor token) —
-  nothing to wire. Fulfillment (pickup/delivery, time) is collected on the hosted checkout;
-  `fulfillment` (the operation's methods, fees formatted) is for a line of copy in the drawer, not a picker.
+  nothing to wire. Pickup/delivery and the time are chosen in the drawer, before checkout: a
+  Pickup/Delivery switch when `fulfillment` has both types, a time select from `fulfillmentTimes`
+  of that type (ASAP first, labelled in `orderingStatus.timeZone`), and for delivery street, city
+  and postal code (country and subdivision default to the restaurant's) with the
+  delivery fee and minimum; the CTA calls `chooseFulfillment(choice)` then `checkout()`.
 - **Reservations:** only AVAILABLE times offered, labelled in the restaurant's timezone; the query
   date defaults to today at the restaurant; `approval === "AUTOMATIC"` → hold → details form with
   the `holdSecondsLeft` countdown → confirm; `approval === "MANUAL"` (or `slot.manualApproval`) →
@@ -151,12 +154,18 @@ else. Look at the seeded menu before designing (how many menus, sections, photos
 //   orderingStatus: { operationId, status: "ENABLED"|"DISABLED"|"PAUSED_UNTIL"|"NONE",
 //                     pausedUntilIso, timeZone, fulfillmentIds, defaultFulfillmentType }|null,
 //   menuOrderable(menuId): boolean|null,    // false → this menu takes no online orders now (no add control); null = unknown, let the add try
-//   fulfillment: [{ id, type: "PICKUP"|"DELIVERY", name, fee, minOrderPrice }]|null,  // formatted; display only
+//   fulfillment: [{ id, type: "PICKUP"|"DELIVERY", name, fee, minOrderPrice }]|null,  // formatted; which types the picker offers
+//   fulfillmentTimes: [{ type, code, asap, startIso, endIso }]|null,   // ASAP first, then today's slots; AVAILABLE only
+//   fulfillmentChoice: { type, time?, address? }|null,                  // what chooseFulfillment last set
+//   chooseFulfillment({ type: "PICKUP"|"DELIVERY", time?: FulfillmentTime /* omitted → ASAP */,
+//                       address?: { addressLine, city, postalCode?, country?, subdivision? } /* delivery; country defaults to the restaurant's */ }),
+//                                           // rejects (and sets .error) on an address outside every delivery area
+//   loadFulfillmentTimes(dayKey?),          // another day's slots, "YYYY-MM-DD" at the restaurant
 //   busy /* the DRAWER's flag: any cart operation in flight */, pendingItemId /* the item whose add is in
 //   flight, else null — a dish card's add control disables on THIS, never on busy */, error, open,
 //   addToOrder(item, { menuId, sectionId }, quantity?, selection?),  // the DTO + ids from the render context — see hard rules
 //   updateQuantity(lineItemId, qty), removeLine(lineItemId),
-//   checkout(),                             // browser redirects to the Wix-hosted checkout
+//   checkout(),                             // browser redirects to the Wix-hosted checkout (pickup ASAP if nothing was chosen)
 //   openCart(), closeCart(), refresh() }
 // OrderLine = { lineItemId, itemName, quantity, unitPrice, linePrice, imageUrl,
 //               descriptionLines /* variant, modifiers, note — as the platform labels them */,
@@ -301,7 +310,8 @@ the stores replace the hooks, and you write the components in your framework to 
   (`start()` when mounted, `stop()` when unmounted), `createReservationStore()` per reservation
   surface, the order store as-is (module-level: `subscribeOrderCart`/`getOrderCartState`,
   `isMenuOrderable`, `addOrderLine(item, { menuId, sectionId }, quantity?, selection?)`,
-  `updateOrderLineQuantity`, `removeLineFromOrder`, `goToOrderCheckout`, `setOrderCartOpen`).
+  `updateOrderLineQuantity`, `removeLineFromOrder`, `chooseFulfillment`, `loadFulfillmentTimes`,
+  `goToOrderCheckout`, `setOrderCartOpen`).
   State in, actions out — exactly the hooks' contracts above; the dish sheet's local state is an
   `OrderSelection` driven by the `menu-core` helpers;
 - your dish card, sheet, cart drawer, and reservation form to the recommended defaults above — the
@@ -323,14 +333,14 @@ root (config, plan, seed output) is never the upload. Same function names and DT
 above, so the contracts on this page hold unchanged: `fetchMenus`, `fetchSiteMoney` from
 `./js/wix/menu.js`; `resolveOrdering`, `resolveOperationId`, `fetchMenuOrdering`,
 `fetchFulfillmentMethods`, `fetchOrderCart`, `addToOrder(item, { menuId, sectionId }, quantity?,
-selection?)`, `updateOrderQuantity`, `removeOrderLine`, `orderCheckoutUrl` from
+selection?)`, `updateOrderQuantity`, `removeOrderLine`, `fetchFulfillmentTimes`, `setOrderFulfillment`, `orderCheckoutUrl` from
 `./js/wix/ordering.js`; `fetchReservationLocations`, `fetchReservationSlots`, `holdReservation`,
 `completeReservation`, `requestReservation` from `./js/wix/reservations.js`; the selection helpers
 from `./js/wix/menu-core.js`. The state machines ship too: `createMenuStore` from
 `./js/wix/menu-store.js` (`start()` once the page is up; `initialMenus` when you already have
 them), `./js/wix/order-store.js` (the cart — `subscribeOrderCart`/`getOrderCartState`,
 `isMenuOrderable`, `addOrderLine`, `updateOrderLineQuantity`, `removeLineFromOrder`,
-`goToOrderCheckout`, `setOrderCartOpen`), and `createReservationStore` from
+`chooseFulfillment`, `loadFulfillmentTimes`, `goToOrderCheckout`, `setOrderCartOpen`), and `createReservationStore` from
 `./js/wix/reservation-store.js` (the whole reservation flow). No components ship — you write the
 rendering in plain JS: one render function per surface that reads `getState()`, called from
 `subscribe`, with the surface's controls calling the store's actions. The drawer opens after every
@@ -387,7 +397,7 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 ## Hard rules
 
 - **Data and ordering logic only through the shipped exports** — `useOrderCart`/`addToOrder`
-  own the restaurant `catalogReference` (the Orders app id + `operationId`/`menuId`/`sectionId`
+  own the restaurant `catalogReference` (the Orders app id + `operationId`/`menuId`/`menuSectionId`
   — all three — plus the visitor's choices as `options.priceVariant`, `options.modifierGroups`,
   `options.specialRequests`), the line-refusal checks, and the checkout redirect. Never
   re-derive any of it, never hand-build a checkout URL; extend by adding a function in
@@ -418,13 +428,15 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
   (`orderingStatus.status`, `pausedUntilIso`); `menuOrderable(id) === false` → no add controls and
   one notice for that menu; `onlineReservationsEnabled === false` → a "call us to book" notice (the
   toggle is premium-gated). Never mock menus, dishes, prices, slots, or availability.
-- **Fulfillment is collected on the hosted checkout** — pickup vs delivery, the time, the address.
-  The shipped layer does not pre-qualify it (no ASAP/scheduled slot picker, no delivery-address
-  check before checkout): that is a documented gap, not something to build ad hoc from the
-  operation's scheduling fields. `fulfillment` is display copy ("Pickup and delivery", fees) only.
+- **Fulfillment is set on the cart before checkout** — the hosted checkout has no pickup/delivery
+  or time picker for restaurant orders and refuses one without them ("There was an issue updating
+  your fulfillment details…"). Set it with `chooseFulfillment` (times from `fulfillmentTimes`, the
+  address for delivery); `checkout()` falls back to pickup ASAP only when nothing was chosen, and
+  says "Choose pickup or delivery" when the restaurant has no pickup. Never build the delivery
+  method code yourself.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.
 - **Cart totals come from `cart`** — never summed or hardcoded in the client; fees, tax, and
-  delivery resolve on the hosted checkout. The sheet's `itemPrice` is a preview of one line, not a total.
+  delivery are shown on the hosted checkout. The sheet's `itemPrice` is a preview of one line, not a total.
 - **Browsing, ordering and reserving need no login.** They run on the visitor session the
   shipped client already holds; don't add a members/auth flow unless the brief asks for accounts.
 - **Call every hook before any conditional return.** Hooks first, branches after.

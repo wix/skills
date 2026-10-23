@@ -10,6 +10,7 @@ import {
   addItemToCart,
   removeFromCart as apiRemove,
   updateCartItemQuantity as apiQty,
+  setOrderFulfillment,
   checkout as apiCheckout,
 } from "@/rest/wix-restaurants-ordering";
 
@@ -44,12 +45,14 @@ export function OrderCartProvider({ children }) {
   };
   const removeItem = async (lineItemId) => { setLoading(true); try { setCart(await apiRemove(lineItemId)); } finally { setLoading(false); } };
   const updateQuantity = async (lineItemId, qty) => { setLoading(true); try { setCart(await apiQty(lineItemId, qty)); } finally { setLoading(false); } };
+  // Pickup/delivery + time (+ the delivery address) on the cart — see setOrderFulfillment for the codes.
+  const setFulfillment = async (code, address) => { setLoading(true); try { setCart(await setOrderFulfillment(code, address)); } finally { setLoading(false); } };
   const checkout = async () => { setLoading(true); try { window.location.href = await apiCheckout(); } finally { setLoading(false); } };
 
   return (
     <OrderCartContext.Provider value={{
       cart, operation, ordering: Boolean(operation), itemCount, isOpen, setIsOpen, loading,
-      addItem, removeItem, updateQuantity, checkout, refreshCart,
+      addItem, removeItem, updateQuantity, setFulfillment, checkout, refreshCart,
     }}>
       {children}
     </OrderCartContext.Provider>

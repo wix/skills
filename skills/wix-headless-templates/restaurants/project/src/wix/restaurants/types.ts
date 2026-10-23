@@ -190,7 +190,7 @@ export interface MenuOrderingInfo {
   };
 }
 
-/** A pickup/delivery method the operation offers (the buyer picks one on the hosted checkout). */
+/** A pickup/delivery method the operation offers (display: name, fee, minimum). */
 export interface FulfillmentMethodInfo {
   id: string;
   type: "PICKUP" | "DELIVERY";
@@ -201,6 +201,38 @@ export interface FulfillmentMethodInfo {
   /** Formatted minimum order ("" when none). */
   minOrderPrice: string;
   minOrderPriceAmount: string;
+}
+
+/**
+ * A time the order can be fulfilled at, from the operation's time slots. `code` is what the cart's
+ * delivery method takes ("PICKUP|ASAP", or "PICKUP|<startMs>|<endMs>" for a scheduled slot).
+ */
+export interface FulfillmentTime {
+  type: "PICKUP" | "DELIVERY";
+  code: string;
+  asap: boolean;
+  /** ISO start/end (equal for a point in time); render in OrderingStatus.timeZone. */
+  startIso: string;
+  endIso: string;
+}
+
+/**
+ * A delivery address. country (ISO-3166 alpha-2) and subdivision ("US-CA") default to the
+ * restaurant's when omitted — delivery is local.
+ */
+export interface DeliveryAddress {
+  addressLine: string;
+  city: string;
+  postalCode?: string;
+  country?: string;
+  subdivision?: string;
+}
+
+/** The visitor's fulfillment: pickup or delivery, a time (omitted → ASAP), and the address for delivery. */
+export interface FulfillmentChoice {
+  type: "PICKUP" | "DELIVERY";
+  time?: FulfillmentTime;
+  address?: DeliveryAddress;
 }
 
 export interface OrderLine {
@@ -227,6 +259,8 @@ export interface OrderCart {
   /** Formatted subtotal (after discounts) — from the cart estimate, not hand-summed. */
   subtotal: string;
   currency: string;
+  /** The fulfillment code set on the cart ("PICKUP|ASAP", …); "" when none is set yet. */
+  fulfillmentCode: string;
 }
 
 /** A custom question the owner added to the reservation form. */

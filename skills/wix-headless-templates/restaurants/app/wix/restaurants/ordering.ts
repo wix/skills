@@ -4,11 +4,13 @@
 // the transport only. Copy as-is; extend by calling these exports, never by editing them. The
 // request shapes are exact and rewriting them is how carts break:
 //   - the catalogReference appId is the ORDERS app (9a5d83fd-…), never the Stores id;
-//   - options MUST carry operationId + menuId + sectionId (all three);
+//   - options MUST carry operationId + menuId + menuSectionId (sectionId rides along);
 //   - the visitor's choices ride in options.priceVariant / options.modifierGroups /
-//     options.specialRequests, the keys Wix's own ordering code sends (built in ordering-core).
+//     options.specialRequests, the keys Wix's own ordering code sends (built in ordering-core);
+//   - the fulfillment (pickup/delivery + time) is the cart's delivery method code, set BEFORE the
+//     checkout redirect: the hosted checkout has no picker for it and refuses the order without it.
 // Failures are loud: throws on a missing or paused ordering operation, an invalid selection,
-// unavailable lines, and an empty order at checkout — surface the message, don't swallow it.
+// unavailable lines, an undeliverable address, and an empty order at checkout — surface the message.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/menu-ordering-settings/query-menu-ordering-settings.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/fulfillment-methods/list-fulfillment-methods.md
@@ -17,6 +19,10 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/add-line-items-to-current-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-line-items.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/set-delivery-method-for-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/update-current-cart.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/calculate-available-time-slots-for-date.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/calculate-first-available-time-slot-per-fulfillment-type.md
 import {
   operations as operationsModule,
   fulfillmentMethods as fulfillmentModule,
@@ -25,25 +31,32 @@ import {
 } from "@wix/restaurants";
 import { currentCartV2 } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";
-import { wixModule } from "../sdk";
+import { wixFetch, wixModule } from "../sdk";
 import { imgSrc } from "../media";
 import { fetchSiteMoney } from "./menu";
 import { initialSelection, nextCursor, validateSelection, type Raw } from "./menu-core";
 import {
+  NOT_DELIVERABLE,
   RESTAURANTS_ORDERS_APP_ID,
   assertOrderAdded,
   assertOrderCheckoutable,
   assertOrderContext,
   assertOrderable,
   estimateSubtotal,
+  fulfillmentAddress,
+  fulfillmentCode,
   orderCatalogItem,
   rawId,
   resolveOperation,
+  restaurantToday,
+  slotsDateQuery,
   toFulfillmentMethods,
+  toFulfillmentTimes,
   toMenuOrderingMap,
   toOrderCart,
+  toRestaurantRegion,
 } from "./ordering-core";
-import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
+import type { FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
 
 export { RESTAURANTS_ORDERS_APP_ID };
 
@@ -98,12 +111,24 @@ export async function fetchMenuOrdering(): Promise<Record<string, MenuOrderingIn
 
 /**
  * The operation's enabled pickup/delivery methods (operation.fulfillmentIds only), fees and
- * minimums formatted in the site currency — for display; the buyer picks one on the hosted checkout.
+ * minimums formatted in the site currency — what the fulfillment picker offers.
  */
 export async function fetchFulfillmentMethods(): Promise<FulfillmentMethodInfo[]> {
   try {
-    const [status, money] = await Promise.all([resolveOrdering(), fetchSiteMoney()]);
+    const [status, money, raws] = await Promise.all([resolveOrdering(), fetchSiteMoney(), listFulfillmentRaws()]);
+    return toFulfillmentMethods(raws, status.fulfillmentIds, money);
+  } catch {
+    return []; // ordering still works without the list (pickup ASAP)
+  }
+}
+
+// The operation's raw fulfillment methods (operation.fulfillmentIds only), read once per session.
+let fulfillmentRawsPromise: Promise<Raw[]> | null = null;
+function listFulfillmentRaws(): Promise<Raw[]> {
+  fulfillmentRawsPromise ??= (async () => {
+    const status = await resolveOrdering();
     if (!status.fulfillmentIds.length) return [];
+    const wanted = new Set(status.fulfillmentIds);
     const raws: Raw[] = [];
     let cursor: string | null = null;
     do {
@@ -111,10 +136,12 @@ export async function fetchFulfillmentMethods(): Promise<FulfillmentMethodInfo[]
       raws.push(...((res.fulfillmentMethods ?? []) as Raw[]));
       cursor = nextCursor(res);
     } while (cursor);
-    return toFulfillmentMethods(raws, status.fulfillmentIds, money);
-  } catch {
-    return []; // display nicety — ordering still works without the list
-  }
+    return raws.filter((m) => wanted.has(rawId(m)));
+  })().catch((e) => {
+    fulfillmentRawsPromise = null; // transient failure — allow a retry on the next call
+    throw e;
+  });
+  return fulfillmentRawsPromise;
 }
 
 // A line's attributes.image may come back absent — join the menu items' images by the line's
@@ -212,17 +239,72 @@ export async function removeOrderLine(lineItemId: string): Promise<OrderCart> {
   return readCartWithSubtotal(cart as Raw);
 }
 
+// A raw Cart V2 / operations call under the SDK's auth, for the few calls this transport makes
+// by path. Throws an Error carrying the API's code (`.code`).
+async function wixJson(path: string, init?: RequestInit): Promise<Raw> {
+  const res = await wixFetch(path, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
+  const body: Raw = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(body?.message || `Request failed (${res.status})`) as Error & { code?: string };
+    err.code = body?.details?.applicationError?.code;
+    throw err;
+  }
+  return body;
+}
+
+/**
+ * The times the order can be fulfilled at: ASAP for each type, then the scheduled slots of `dayKey`
+ * ("YYYY-MM-DD" at the restaurant; default today). AVAILABLE only, ASAP first. [] when there is no
+ * operation. Pass the chosen entry to setOrderFulfillment as `time`.
+ */
+export async function fetchFulfillmentTimes(dayKey?: string): Promise<FulfillmentTime[]> {
+  const { operationId, timeZone } = await resolveOrdering();
+  if (!operationId) return [];
+  const base = `/restaurants-operations/v1/operations/${operationId}`;
+  const day = new URLSearchParams(slotsDateQuery(dayKey ?? restaurantToday(timeZone)));
+  const [asap, slots] = await Promise.all([
+    wixJson(`${base}/first-available-time-slot-per-fulfillment-type`, { method: "GET" }),
+    wixJson(`${base}/available-time-slots-per-date?${day}`, { method: "GET" }),
+  ]);
+  return toFulfillmentTimes(asap, slots);
+}
+
+/**
+ * Set how and when the order is fulfilled: pickup or delivery, a time from fetchFulfillmentTimes
+ * (omitted → ASAP), and for delivery the address (street, city; country and subdivision default to
+ * the restaurant's). Pickup puts the restaurant's country on the cart, which Wix requires before
+ * any delivery method. Throws NOT_DELIVERABLE when the address is outside every delivery area.
+ */
+export async function setOrderFulfillment(choice: FulfillmentChoice): Promise<OrderCart> {
+  const address = fulfillmentAddress(choice, toRestaurantRegion(await listFulfillmentRaws()));
+  await wixJson("/ecom/v2/carts/current", { method: "PATCH", body: JSON.stringify({ cart: { deliveryInfo: { address } } }) });
+  try {
+    const res = await wixJson("/ecom/v2/carts/current/set-delivery-method", { method: "POST", body: JSON.stringify({ deliveryMethod: { code: fulfillmentCode(choice) } }) });
+    return readCartWithSubtotal(res.cart ?? null);
+  } catch (e) {
+    if ((e as { code?: string }).code === "DELIVERY_METHOD_NOT_FOUND") {
+      throw new Error(choice.type === "DELIVERY" ? NOT_DELIVERABLE : "This pickup time isn't available. Choose another time.");
+    }
+    throw e;
+  }
+}
+
 /**
  * Start the Wix-hosted checkout for the current order and return the URL to navigate to.
- * The cart's id IS the checkout id — no separate checkout-creation call. Fulfillment
- * (pickup/delivery + time) and payment are collected on the hosted page. Call from the
- * browser: the return origin must be window.location.origin (https), never a server-derived
- * request origin (http behind the proxy → the return redirect 403s).
+ * The cart's id IS the checkout id — no separate checkout-creation call. The fulfillment must be
+ * on the cart first (setOrderFulfillment); a cart with none gets pickup ASAP. Payment is collected
+ * on the hosted page. Call from the browser: the return origin must be window.location.origin
+ * (https), never a server-derived request origin (http behind the proxy → the return redirect 403s).
  */
 export async function orderCheckoutUrl(): Promise<string> {
   const { cart } = await cartApi.getCurrentCart();
   const raw = cart as Raw;
   assertOrderCheckoutable(raw);
+  if (!raw.deliveryInfo?.method?.code) {
+    await setOrderFulfillment({ type: "PICKUP" }).catch(() => {
+      throw new Error("Choose pickup or delivery before checkout.");
+    });
+  }
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const session = await redirects.createRedirectSession({
     ecomCheckout: { checkoutId: rawId(raw) },

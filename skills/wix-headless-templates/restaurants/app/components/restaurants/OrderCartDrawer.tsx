@@ -1,13 +1,46 @@
-// REFERENCE slide-over order cart with quantity stepper, remove, live subtotal, and the
-// Wix-hosted checkout. Mount ONCE per page; opens via useOrderCart().openCart(). Correct and
-// complete; per the skill's model you design your own chrome on useOrderCart.
+// REFERENCE slide-over order cart with quantity stepper, remove, live subtotal, pickup/delivery
+// with a time (and the address for delivery), and the Wix-hosted checkout. Mount ONCE per page;
+// opens via useOrderCart().openCart(). Correct and complete; per the skill's model you design your
+// own chrome on useOrderCart.
+import { useState } from "react";
 import { useOrderCart } from "../../hooks/restaurants/useOrderCart";
 import { imgAttrs } from "../../wix/media";
+import { zonedDateTimeLabel, zonedDayKey, zonedTimeLabel } from "../../wix/restaurants/time-core";
+import type { FulfillmentChoice } from "../../wix/restaurants/types";
 
 export default function OrderCartDrawer() {
-  const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout } = useOrderCart();
+  const { cart, open, closeCart, busy, error, updateQuantity, removeLine, checkout, fulfillment, fulfillmentTimes, orderingStatus, chooseFulfillment } = useOrderCart();
+  const types = [...new Set((fulfillment ?? []).map((m) => m.type))];
+  const [type, setType] = useState<"PICKUP" | "DELIVERY" | null>(null);
+  const [timeCode, setTimeCode] = useState("");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   if (!open) return null;
   const lines = cart?.lines ?? [];
+  const chosenType = type ?? (types.includes("PICKUP") || !types.length ? "PICKUP" : "DELIVERY");
+  const times = (fulfillmentTimes ?? []).filter((t) => t.type === chosenType);
+  const tz = orderingStatus?.timeZone ?? "";
+  const today = zonedDayKey(new Date(), tz);
+  // A slot on a later day than today (at the restaurant) carries its date: "Fri, Oct 24, 9:00 AM".
+  const timeLabel = (iso: string, asap: boolean) => {
+    const d = new Date(iso);
+    if (asap) return `As soon as possible (about ${zonedTimeLabel(d, tz)})`;
+    return zonedDayKey(d, tz) === today ? zonedTimeLabel(d, tz) : zonedDateTimeLabel(d, tz);
+  };
+  const deliveryMethod = (fulfillment ?? []).find((m) => m.type === "DELIVERY");
+
+  async function placeOrder() {
+    const choice: FulfillmentChoice = {
+      type: chosenType,
+      time: times.find((t) => t.code === timeCode),
+      ...(chosenType === "DELIVERY"
+        ? { address: { addressLine: street, city, postalCode } } // country and subdivision: the restaurant's
+        : {}),
+    };
+    await chooseFulfillment(choice); // the hosted checkout refuses an order with no fulfillment
+    await checkout();
+  }
 
   return (
     <div
@@ -104,11 +137,55 @@ export default function OrderCartDrawer() {
                 <strong className="font-semibold">{cart.subtotal}</strong>
               </div>
             )}
+            {types.length > 1 && (
+              <div role="radiogroup" aria-label="Pickup or delivery" className="mb-3 grid grid-cols-2 gap-2">
+                {(["PICKUP", "DELIVERY"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={chosenType === t}
+                    onClick={() => { setType(t); setTimeCode(""); }}
+                    className={`rounded-control border py-2 text-sm ${chosenType === t ? "border-primary font-semibold" : "border-border text-muted-foreground"}`}
+                  >
+                    {t === "PICKUP" ? "Pickup" : "Delivery"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {chosenType === "DELIVERY" && (
+              <div className="mb-3 grid gap-2">
+                <input aria-label="Street address" placeholder="Street address" value={street} onChange={(e) => setStreet(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input aria-label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
+                  <input aria-label="Postal code" placeholder="Postal code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="rounded-control border border-border bg-background px-3 py-2 text-sm" />
+                </div>
+                {deliveryMethod && (deliveryMethod.fee || deliveryMethod.minOrderPrice) && (
+                  <p className="text-xs text-muted-foreground">
+                    {[deliveryMethod.fee && `Delivery ${deliveryMethod.fee}`, deliveryMethod.minOrderPrice && `minimum order ${deliveryMethod.minOrderPrice}`].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </div>
+            )}
+            {times.length > 0 && (
+              <select
+                aria-label={chosenType === "PICKUP" ? "Pickup time" : "Delivery time"}
+                value={timeCode}
+                onChange={(e) => setTimeCode(e.target.value)}
+                className="mb-4 w-full rounded-control border border-border bg-background px-3 py-2 text-sm"
+              >
+                {times.map((t) => (
+                  <option key={t.code} value={t.asap ? "" : t.code}>
+                    {timeLabel(t.startIso, t.asap)}
+                  </option>
+                ))}
+              </select>
+            )}
             {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
             <button
               type="button"
               disabled={busy}
-              onClick={() => checkout().catch(() => {})}
+              onClick={() => placeOrder().catch(() => {})}
               className="w-full rounded-control bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "One moment…" : "Checkout"}
