@@ -184,15 +184,15 @@ export function fulfillmentCode(choice: Pick<FulfillmentChoice, "type" | "time">
 const epochMs = (iso: unknown): number => new Date(String(iso ?? "")).getTime();
 
 /**
- * The operation's time slots → FulfillmentTime[] (AVAILABLE only, earliest first). `asapSlots` is
+ * The operation's time slots → FulfillmentTime[] (ASAP first, then earliest first). `asapSlots` is
  * the first-available response (one ASAP entry per type), `daySlots` a per-date response; both carry
- * `timeslotsPerFulfillmentType` (the API spells the type field `fulfilmentType`).
+ * `timeslotsPerFulfillmentType` (the API spells the type field `fulfilmentType`). The calls return
+ * only orderable slots (blocked ones are left out), so there is nothing to filter.
  */
 export function toFulfillmentTimes(asapSlots: Raw | null | undefined, daySlots: Raw | null | undefined): FulfillmentTime[] {
   const out: FulfillmentTime[] = [];
   const seen = new Set<string>();
   for (const raw of [...((asapSlots?.timeslotsPerFulfillmentType ?? []) as Raw[]), ...((daySlots?.timeslotsPerFulfillmentType ?? []) as Raw[])]) {
-    if (raw.timeSlotStatus && raw.timeSlotStatus !== "AVAILABLE") continue;
     const type = (raw.fulfilmentType ?? raw.fulfillmentType) === "DELIVERY" ? "DELIVERY" : "PICKUP";
     const slot: Raw = raw.timeSlot ?? {};
     const start = epochMs(slot.startTime), end = epochMs(slot.endTime ?? slot.startTime);
@@ -210,6 +210,18 @@ export function toFulfillmentTimes(asapSlots: Raw | null | undefined, daySlots: 
 export function slotsDateQuery(dayKey: string): Record<string, string> {
   const [year, month, day] = dayKey.split("-").map(Number);
   return { "date.day": String(day), "date.month": String(month), "date.year": String(year) };
+}
+
+/**
+ * The time-slot calls' `deliveryAddress.*` query for a delivery address, so the delivery slots are
+ * those of the methods that deliver there ({} when there's no street or city yet).
+ */
+export function slotsAddressQuery(address: DeliveryAddress | undefined, region: { country: string; subdivision: string }): Record<string, string> {
+  if (!address?.addressLine?.trim() || !address.city?.trim()) return {};
+  const a = fulfillmentAddress({ type: "DELIVERY", address }, region) as DeliveryAddress;
+  const q: Record<string, string> = {};
+  for (const [k, v] of Object.entries(a)) if (v) q[`deliveryAddress.${k}`] = String(v);
+  return q;
 }
 
 /** Today at the restaurant, "YYYY-MM-DD" (the operation's timezone; "" → the visitor's). */

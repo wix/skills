@@ -150,8 +150,10 @@ async function restaurantRegion() {
  * pickup/delivery or time picker for restaurant orders and refuses the order without one.
  *   code: "PICKUP|ASAP" · "DELIVERY|ASAP" · "<TYPE>|<startEpochMs>|<endEpochMs>" for a scheduled slot
  *         (slots: GET /restaurants-operations/v1/operations/{operationId}/available-time-slots-per-date
- *          ?date.day=&date.month=&date.year= → timeslotsPerFulfillmentType[].timeSlot.startTime/endTime,
- *          AVAILABLE only).
+ *          ?date.day=&date.month=&date.year= → timeslotsPerFulfillmentType[].timeSlot.startTime/endTime;
+ *          only orderable slots come back. For delivery add the address as deliveryAddress.addressLine /
+ *          .city / .postalCode / .country / .subdivision: delivery slots are then only those of methods
+ *          that deliver there).
  *   address: for delivery, { addressLine, city, postalCode?, country?, subdivision? } — the street goes in
  *          addressLine (addressLine1 is dropped); country/subdivision default to the restaurant's.
  * Throws "We don't deliver to this address…" when a delivery address is outside every delivery area.

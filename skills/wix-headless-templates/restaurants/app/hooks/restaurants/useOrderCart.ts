@@ -15,7 +15,7 @@ import {
   updateOrderLineQuantity,
   type OrderCartState,
 } from "../../wix/restaurants/order-store";
-import type { FulfillmentChoice, MenuItem, OrderSelection } from "../../wix/restaurants/types";
+import type { DeliveryAddress, FulfillmentChoice, MenuItem, OrderSelection } from "../../wix/restaurants/types";
 
 const SERVER_STATE = getOrderCartState();
 
@@ -33,8 +33,8 @@ export interface UseOrderCart extends OrderCartState {
   removeLine: (lineItemId: string) => Promise<void>;
   /** Set pickup or delivery, the time (a fulfillmentTimes entry; omitted → ASAP), and the delivery address. */
   chooseFulfillment: (choice: FulfillmentChoice) => Promise<void>;
-  /** Reload fulfillmentTimes for another day ("YYYY-MM-DD" at the restaurant). */
-  loadFulfillmentTimes: (dayKey?: string) => Promise<void>;
+  /** Reload fulfillmentTimes for another day ("YYYY-MM-DD" at the restaurant) and/or a delivery address. */
+  loadFulfillmentTimes: (dayKey?: string, address?: DeliveryAddress) => Promise<void>;
   checkout: () => Promise<void>;
   openCart: () => void;
   closeCart: () => void;

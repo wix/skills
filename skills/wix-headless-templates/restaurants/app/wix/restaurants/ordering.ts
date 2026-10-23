@@ -49,6 +49,7 @@ import {
   rawId,
   resolveOperation,
   restaurantToday,
+  slotsAddressQuery,
   slotsDateQuery,
   toFulfillmentMethods,
   toFulfillmentTimes,
@@ -56,7 +57,7 @@ import {
   toOrderCart,
   toRestaurantRegion,
 } from "./ordering-core";
-import type { FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
+import type { DeliveryAddress, FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
 
 export { RESTAURANTS_ORDERS_APP_ID };
 
@@ -254,16 +255,19 @@ async function wixJson(path: string, init?: RequestInit): Promise<Raw> {
 
 /**
  * The times the order can be fulfilled at: ASAP for each type, then the scheduled slots of `dayKey`
- * ("YYYY-MM-DD" at the restaurant; default today). AVAILABLE only, ASAP first. [] when there is no
- * operation. Pass the chosen entry to setOrderFulfillment as `time`.
+ * ("YYYY-MM-DD" at the restaurant; default today), ASAP first. Pass the delivery `address` once the
+ * visitor has entered it: the delivery times are then those of the methods that deliver there (none
+ * when no method does). [] when there is no operation. Pass the chosen entry to setOrderFulfillment as `time`.
  */
-export async function fetchFulfillmentTimes(dayKey?: string): Promise<FulfillmentTime[]> {
+export async function fetchFulfillmentTimes(dayKey?: string, address?: DeliveryAddress): Promise<FulfillmentTime[]> {
   const { operationId, timeZone } = await resolveOrdering();
   if (!operationId) return [];
   const base = `/restaurants-operations/v1/operations/${operationId}`;
-  const day = new URLSearchParams(slotsDateQuery(dayKey ?? restaurantToday(timeZone)));
+  const where = slotsAddressQuery(address, address ? toRestaurantRegion(await listFulfillmentRaws()) : { country: "", subdivision: "" });
+  const day = new URLSearchParams({ ...slotsDateQuery(dayKey ?? restaurantToday(timeZone)), ...where });
+  const first = new URLSearchParams(where).toString();
   const [asap, slots] = await Promise.all([
-    wixJson(`${base}/first-available-time-slot-per-fulfillment-type`, { method: "GET" }),
+    wixJson(`${base}/first-available-time-slot-per-fulfillment-type${first ? `?${first}` : ""}`, { method: "GET" }),
     wixJson(`${base}/available-time-slots-per-date?${day}`, { method: "GET" }),
   ]);
   return toFulfillmentTimes(asap, slots);

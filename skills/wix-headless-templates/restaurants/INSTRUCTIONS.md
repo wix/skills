@@ -103,7 +103,8 @@ else. Look at the seeded menu before designing (how many menus, sections, photos
   nothing to wire. Pickup/delivery and the time are chosen in the drawer, before checkout: a
   Pickup/Delivery switch when `fulfillment` has both types, a time select from `fulfillmentTimes`
   of that type (ASAP first, labelled in `orderingStatus.timeZone`), and for delivery street, city
-  and postal code (country and subdivision default to the restaurant's) with the
+  and postal code (country and subdivision default to the restaurant's; on blur the drawer reloads the
+  times with that address, so delivery times are only those of methods that deliver there) with the
   delivery fee and minimum; the CTA calls `chooseFulfillment(choice)` then `checkout()`.
 - **Reservations:** only AVAILABLE times offered, labelled in the restaurant's timezone; the query
   date defaults to today at the restaurant; `approval === "AUTOMATIC"` → hold → details form with
@@ -155,12 +156,13 @@ else. Look at the seeded menu before designing (how many menus, sections, photos
 //                     pausedUntilIso, timeZone, fulfillmentIds, defaultFulfillmentType }|null,
 //   menuOrderable(menuId): boolean|null,    // false → this menu takes no online orders now (no add control); null = unknown, let the add try
 //   fulfillment: [{ id, type: "PICKUP"|"DELIVERY", name, fee, minOrderPrice }]|null,  // formatted; which types the picker offers
-//   fulfillmentTimes: [{ type, code, asap, startIso, endIso }]|null,   // ASAP first, then today's slots; AVAILABLE only
+//   fulfillmentTimes: [{ type, code, asap, startIso, endIso }]|null,   // ASAP first, then today's slots (orderable only)
 //   fulfillmentChoice: { type, time?, address? }|null,                  // what chooseFulfillment last set
 //   chooseFulfillment({ type: "PICKUP"|"DELIVERY", time?: FulfillmentTime /* omitted → ASAP */,
 //                       address?: { addressLine, city, postalCode?, country?, subdivision? } /* delivery; country defaults to the restaurant's */ }),
 //                                           // rejects (and sets .error) on an address outside every delivery area
-//   loadFulfillmentTimes(dayKey?),          // another day's slots, "YYYY-MM-DD" at the restaurant
+//   loadFulfillmentTimes(dayKey?, address?), // another day's slots ("YYYY-MM-DD" at the restaurant); with the delivery
+//                                           // address, delivery times are only those of methods that deliver there
 //   busy /* the DRAWER's flag: any cart operation in flight */, pendingItemId /* the item whose add is in
 //   flight, else null — a dish card's add control disables on THIS, never on busy */, error, open,
 //   addToOrder(item, { menuId, sectionId }, quantity?, selection?),  // the DTO + ids from the render context — see hard rules
