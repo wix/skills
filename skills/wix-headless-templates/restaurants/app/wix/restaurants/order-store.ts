@@ -4,16 +4,18 @@
 // Consume it through useOrderCart() (hooks/), or subscribe directly. Besides the cart it holds
 // the site's ordering gates: the operation's state and each menu's ordering settings, so an add
 // control can read "accepting orders?" and "is THIS menu orderable now?" without a fetch of its own.
-import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
+import type { FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderSelection, OrderingStatus } from "./types";
 import { menuOrderable } from "./ordering-core";
 import {
   addToOrder as apiAdd,
   fetchFulfillmentMethods,
+  fetchFulfillmentTimes,
   fetchMenuOrdering,
   fetchOrderCart,
   orderCheckoutUrl,
   removeOrderLine as apiRemove,
   resolveOrdering,
+  setOrderFulfillment,
   updateOrderQuantity as apiUpdate,
 } from "./ordering";
 
@@ -25,8 +27,12 @@ export interface OrderCartState {
   orderingStatus: OrderingStatus | null;
   /** Per-menu ordering settings under the operation, keyed by menuId; null while loading or when unreadable. */
   menuOrdering: Record<string, MenuOrderingInfo> | null;
-  /** The operation's enabled pickup/delivery methods, for display; null while loading. */
+  /** The operation's enabled pickup/delivery methods (names, fees, minimums); null while loading. */
   fulfillment: FulfillmentMethodInfo[] | null;
+  /** When the order can be fulfilled (ASAP first, then today's slots); null while loading or unreadable. */
+  fulfillmentTimes: FulfillmentTime[] | null;
+  /** The fulfillment last set on the cart through chooseFulfillment; null → none chosen (checkout uses pickup ASAP). */
+  fulfillmentChoice: FulfillmentChoice | null;
   /**
    * True while any cart operation is in flight — the DRAWER's flag (its steppers, remove and
    * checkout controls), not a dish card's: a card disables its own add control on `pendingItemId`,
@@ -41,7 +47,7 @@ export interface OrderCartState {
   open: boolean;
 }
 
-const EMPTY: OrderCartState = { cart: null, ordering: null, orderingStatus: null, menuOrdering: null, fulfillment: null, busy: false, pendingItemId: null, error: null, open: false };
+const EMPTY: OrderCartState = { cart: null, ordering: null, orderingStatus: null, menuOrdering: null, fulfillment: null, fulfillmentTimes: null, fulfillmentChoice: null, busy: false, pendingItemId: null, error: null, open: false };
 
 let state: OrderCartState = EMPTY;
 const listeners = new Set<() => void>();
@@ -65,6 +71,7 @@ export function subscribeOrderCart(listener: () => void): () => void {
     void resolveOrdering().then((s) => setState({ ordering: s.status === "ENABLED", orderingStatus: s }));
     void fetchMenuOrdering().then((m) => setState({ menuOrdering: m })).catch(() => setState({ menuOrdering: null }));
     void fetchFulfillmentMethods().then((f) => setState({ fulfillment: f }));
+    void loadFulfillmentTimes();
   }
   return () => listeners.delete(listener);
 }
@@ -124,7 +131,26 @@ export async function removeLineFromOrder(lineItemId: string): Promise<void> {
   await run(() => apiRemove(lineItemId));
 }
 
-/** Navigate to the Wix-hosted checkout. Never hand-build a checkout URL. */
+/** Load the fulfillment times for `dayKey` ("YYYY-MM-DD" at the restaurant; default today). */
+export async function loadFulfillmentTimes(dayKey?: string): Promise<void> {
+  try {
+    setState({ fulfillmentTimes: await fetchFulfillmentTimes(dayKey) });
+  } catch {
+    setState({ fulfillmentTimes: null }); // unreadable — checkout still works on ASAP
+  }
+}
+
+/**
+ * Set pickup or delivery, the time (a fulfillmentTimes entry; omitted → ASAP) and, for delivery,
+ * the address on the order. Throws (and sets .error) when the address isn't delivered to or the
+ * time is gone.
+ */
+export async function chooseFulfillment(choice: FulfillmentChoice): Promise<void> {
+  await run(() => setOrderFulfillment(choice));
+  setState({ fulfillmentChoice: choice });
+}
+
+/** Navigate to the Wix-hosted checkout (pickup ASAP when no fulfillment was chosen). Never hand-build a checkout URL. */
 export async function goToOrderCheckout(): Promise<void> {
   setState({ busy: true, error: null });
   try {

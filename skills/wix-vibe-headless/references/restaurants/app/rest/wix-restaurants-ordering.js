@@ -54,7 +54,9 @@ export async function getDefaultOperation() {
 /**
  * Add a restaurant menu item to the visitor's current eCom cart.
  *
- * Requires operationId (from listOperations/getDefaultOperation), menuId, and sectionId.
+ * Requires operationId (from listOperations/getDefaultOperation), menuId, and sectionId. The section
+ * is sent as options.menuSectionId (what Restaurants' checkout validates the dish against — a line
+ * without it is refused at checkout as "no longer available") and as sectionId.
  * Throws if any is missing, or if the added line is not AVAILABLE.
  *
  * Variant selection and modifier up-charges on the cart line are not covered here — the
@@ -72,7 +74,7 @@ export async function addItemToCart(itemId, { operationId, menuId, sectionId, on
   if (!operationId || !menuId || !sectionId) {
     throw new Error("addItemToCart: operationId, menuId and sectionId are all required for a restaurant line item.");
   }
-  const options = { operationId, menuId, sectionId };
+  const options = { operationId, menuId, menuSectionId: sectionId, sectionId };
   if (onlineOrderingPageUrl) options.onlineOrderingPageUrl = onlineOrderingPageUrl;
 
   const res = await wixApiRequest("/ecom/v2/carts/current/add-line-items", {
@@ -126,9 +128,64 @@ export async function removeFromCart(lineItemId) {
 }
 
 /**
+ * The restaurant's country and subdivision ("US-CA") from its pickup address (or a delivery
+ * area's center). The cart needs a country before any delivery method is accepted, pickup
+ * included (DELIVERY_METHOD_MISSING_ADDRESS); Wix pre-fills one only from the visitor's location.
+ * GET https://www.wixapis.com/fulfillment-methods/v1/fulfillment-methods
+ */
+async function restaurantRegion() {
+  const res = await wixApiRequest("/fulfillment-methods/v1/fulfillment-methods", { method: "GET" });
+  for (const m of res?.fulfillmentMethods ?? []) {
+    if (!m.enabled) continue;
+    const a = m.pickupOptions?.address ?? m.deliveryOptions?.deliveryArea?.radiusOptions?.centerPointAddress;
+    if (!a?.country) continue;
+    const sub = a.subdivision ?? "";
+    return { country: a.country, subdivision: sub && !sub.includes("-") ? `${a.country}-${sub}` : sub };
+  }
+  return { country: "", subdivision: "" };
+}
+
+/**
+ * Set how and when the order is fulfilled — the cart's delivery method. The hosted checkout has no
+ * pickup/delivery or time picker for restaurant orders and refuses the order without one.
+ *   code: "PICKUP|ASAP" · "DELIVERY|ASAP" · "<TYPE>|<startEpochMs>|<endEpochMs>" for a scheduled slot
+ *         (slots: GET /restaurants-operations/v1/operations/{operationId}/available-time-slots-per-date
+ *          ?date.day=&date.month=&date.year= → timeslotsPerFulfillmentType[].timeSlot.startTime/endTime,
+ *          AVAILABLE only).
+ *   address: for delivery, { addressLine, city, postalCode?, country?, subdivision? } — the street goes in
+ *          addressLine (addressLine1 is dropped); country/subdivision default to the restaurant's.
+ * Throws "We don't deliver to this address…" when a delivery address is outside every delivery area.
+ * PATCH https://www.wixapis.com/ecom/v2/carts/current  { cart: { deliveryInfo: { address } } }
+ * POST  https://www.wixapis.com/ecom/v2/carts/current/set-delivery-method  { deliveryMethod: { code } }
+ * @returns {Promise<object>} Updated cart.
+ */
+export async function setOrderFulfillment(code, address) {
+  const region = await restaurantRegion();
+  const isDelivery = code.startsWith("DELIVERY|");
+  if (isDelivery && (!address?.addressLine?.trim() || !address?.city?.trim())) {
+    throw new Error("Enter a delivery address: street and city.");
+  }
+  const country = (isDelivery && address?.country) || region.country;
+  if (!country) throw new Error("The restaurant's country is unknown: set a pickup address in Restaurants settings.");
+  const subdivision = (isDelivery && address?.subdivision) || (country === region.country ? region.subdivision : "");
+  const cartAddress = isDelivery ? { ...address, country, ...(subdivision ? { subdivision } : {}) } : { country, ...(subdivision ? { subdivision } : {}) };
+  await wixApiRequest("/ecom/v2/carts/current", { method: "PATCH", body: { cart: { deliveryInfo: { address: cartAddress } } } });
+  try {
+    const res = await wixApiRequest("/ecom/v2/carts/current/set-delivery-method", { method: "POST", body: { deliveryMethod: { code } } });
+    return res?.cart;
+  } catch (e) {
+    if (e?.body?.details?.applicationError?.code === "DELIVERY_METHOD_NOT_FOUND") {
+      throw new Error(isDelivery ? "We don't deliver to this address. Choose pickup or another address." : "This pickup time isn't available. Choose another time.");
+    }
+    throw e;
+  }
+}
+
+/**
  * Start the hosted checkout for the current cart and return the Wix-hosted checkout URL.
  * In Cart V2 the cart id IS the checkout id — there is no separate checkout-creation call; the
- * redirect session is created straight from the current cart's id.
+ * redirect session is created straight from the current cart's id. The fulfillment must be on the
+ * cart first (setOrderFulfillment); a cart with none gets pickup ASAP.
  * Throws on empty cart, unavailable lines, or a missing redirect URL.
  * Redirect with: window.location.href = await checkout()
  * @returns {Promise<string>}
@@ -143,6 +200,11 @@ export async function checkout() {
     throw new Error(`Cannot check out: ${unavailable.length} item(s) not available — ${names}.`);
   }
   if (!cart.id) throw new Error("Failed to check out: the current cart has no id.");
+  if (!cart.deliveryInfo?.method?.code) {
+    await setOrderFulfillment("PICKUP|ASAP").catch(() => {
+      throw new Error("Choose pickup or delivery before checkout.");
+    });
+  }
 
   const redirect = await wixApiRequest("/headless/v1/redirect-session", {
     method: "POST",

@@ -3,9 +3,11 @@
 import { useSyncExternalStore } from "react";
 import {
   addOrderLine,
+  chooseFulfillment,
   getOrderCartState,
   goToOrderCheckout,
   isMenuOrderable,
+  loadFulfillmentTimes,
   refreshOrderCart,
   removeLineFromOrder,
   setOrderCartOpen,
@@ -13,7 +15,7 @@ import {
   updateOrderLineQuantity,
   type OrderCartState,
 } from "../../wix/restaurants/order-store";
-import type { MenuItem, OrderSelection } from "../../wix/restaurants/types";
+import type { FulfillmentChoice, MenuItem, OrderSelection } from "../../wix/restaurants/types";
 
 const SERVER_STATE = getOrderCartState();
 
@@ -29,6 +31,10 @@ export interface UseOrderCart extends OrderCartState {
   menuOrderable: (menuId: string) => boolean | null;
   updateQuantity: (lineItemId: string, quantity: number) => Promise<void>;
   removeLine: (lineItemId: string) => Promise<void>;
+  /** Set pickup or delivery, the time (a fulfillmentTimes entry; omitted → ASAP), and the delivery address. */
+  chooseFulfillment: (choice: FulfillmentChoice) => Promise<void>;
+  /** Reload fulfillmentTimes for another day ("YYYY-MM-DD" at the restaurant). */
+  loadFulfillmentTimes: (dayKey?: string) => Promise<void>;
   checkout: () => Promise<void>;
   openCart: () => void;
   closeCart: () => void;
@@ -44,6 +50,8 @@ export function useOrderCart(): UseOrderCart {
     menuOrderable: isMenuOrderable,
     updateQuantity: updateOrderLineQuantity,
     removeLine: removeLineFromOrder,
+    chooseFulfillment,
+    loadFulfillmentTimes,
     checkout: goToOrderCheckout,
     openCart: () => setOrderCartOpen(true),
     closeCart: () => setOrderCartOpen(false),

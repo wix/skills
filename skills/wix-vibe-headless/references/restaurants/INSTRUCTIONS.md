@@ -212,7 +212,10 @@ const { menus } = await getFullMenu();            // [] when no menus → show t
 // useOrderCart() gives:
 // { cart, operation, ordering, itemCount, isOpen, setIsOpen, loading,
 //   addItem(item, { menuId, sectionId }, qty=1),   // needs the menu/section the item was shown under
-//   removeItem(lineItemId), updateQuantity(lineItemId, qty), checkout(), refreshCart() }
+//   removeItem(lineItemId), updateQuantity(lineItemId, qty),
+//   setFulfillment(code, address?),                // "PICKUP|ASAP" · "DELIVERY|ASAP" · "<TYPE>|<startMs>|<endMs>"; address for delivery
+//   checkout(),                                    // pickup ASAP when no fulfillment was set
+//   refreshCart() }
 // `ordering` is false when no ordering Operation is configured — show an "ordering unavailable" state.
 
 // Load-bearing field paths (the shipped components already do these):
@@ -259,7 +262,7 @@ file under `src/`, or look it up via the documentation skill available in your e
 ## Hard rules
 - Header/footer live in a `Layout` around `<Outlet/>` (STEP 3) — never edit the shipped `Menu`/`Reservations` to add chrome.
 - The Layout's fixed top region owns positioning: `<WixManageBanner/>` above `<Header/>`; your `Header` is plain in-flow markup (not `position:fixed`).
-- Order through the shipped cart: `addItem()` → `checkout()` (redirect-session) — never a hand-built `/checkout`, ordering, or reservation URL.
+- Order through the shipped cart: `addItem()` → `setFulfillment()` → `checkout()` (redirect-session) — never a hand-built `/checkout`, ordering, or reservation URL. The hosted checkout has no pickup/delivery or time picker for restaurant orders: a pickup/delivery choice and a time (ASAP, or a slot from the operation's `available-time-slots-per-date`) are set with `setFulfillment` before `checkout()`; without one, `checkout()` uses pickup ASAP.
 - Reservations: offer only `AVAILABLE` slots; pass the hold's `revision` into reserve; `firstName` + `phone` (E.164) are mandatory.
 - Render live Wix data or the shipped empty / "unavailable" state — never mock menus, items, prices, operations, locations, slots, or reviews.
 

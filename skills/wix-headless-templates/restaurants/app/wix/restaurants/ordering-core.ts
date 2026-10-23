@@ -1,15 +1,16 @@
 // Online-ordering rules and DTO mapping — transport-agnostic, imported by both ./ordering.ts (SDK)
 // and the REST twin in templates/restaurants/rest/ordering.ts (fetch). The restaurant cart rides
 // on the eCom current cart (Cart V2); what makes a line a RESTAURANT line is the catalogReference
-// built here: the Orders app id plus options { operationId, menuId, sectionId } and, exactly as
+// built here: the Orders app id plus options { operationId, menuId, menuSectionId } (sectionId is
+// sent too; Restaurants' checkout check reads menuSectionId) and, exactly as
 // Wix's own ordering code sends them, the visitor's choices: options.priceVariant { id,
 // formattedPrice }, options.modifierGroups [{ id, modifiers: [{ id, price, formattedPrice }] }],
 // options.specialRequests. Raw entities carry `_id` (SDK) or `id` (REST). Has its own formatMoney
 // (a copy of ../money.ts) so it stands alone when stripped. Imports are type-only except the zone
 // helpers from ./time-core (deployed beside this file).
-import type { FulfillmentMethodInfo, MenuItem, MenuOrderingInfo, OrderCart, OrderLine, OrderSelection, OrderingStatus, SiteMoney, WeeklyWindow } from "./types";
+import type { DeliveryAddress, FulfillmentChoice, FulfillmentMethodInfo, FulfillmentTime, MenuItem, MenuOrderingInfo, OrderCart, OrderLine, OrderSelection, OrderingStatus, SiteMoney, WeeklyWindow } from "./types";
 import type { ImgSrc, Raw } from "./menu-core";
-import { zonedMinutes, zonedParts } from "./time-core";
+import { zonedDayKey, zonedMinutes, zonedParts } from "./time-core";
 
 /** The Restaurants Orders app id — every restaurant cart line's catalogReference.appId. */
 export const RESTAURANTS_ORDERS_APP_ID = "9a5d83fd-8570-482e-81ab-cfa88942ee60";
@@ -169,6 +170,86 @@ export function toFulfillmentMethods(raws: Raw[], fulfillmentIds: string[], mone
     }));
 }
 
+// ---- fulfillment choice ----------------------------------------------------------------------------------
+// Restaurants reads the order's fulfillment from the cart's delivery method code, and the hosted
+// checkout offers no pickup/delivery choice until one is set: "<TYPE>|ASAP" or
+// "<TYPE>|<startEpochMs>|<endEpochMs>" for a scheduled slot.
+
+/** The cart delivery-method code for a choice (no time → ASAP). */
+export function fulfillmentCode(choice: Pick<FulfillmentChoice, "type" | "time">): string {
+  if (choice.time && choice.time.type !== choice.type) throw new Error("The chosen time is for a different fulfillment type.");
+  return choice.time?.code ?? `${choice.type}|ASAP`;
+}
+
+const epochMs = (iso: unknown): number => new Date(String(iso ?? "")).getTime();
+
+/**
+ * The operation's time slots → FulfillmentTime[] (AVAILABLE only, earliest first). `asapSlots` is
+ * the first-available response (one ASAP entry per type), `daySlots` a per-date response; both carry
+ * `timeslotsPerFulfillmentType` (the API spells the type field `fulfilmentType`).
+ */
+export function toFulfillmentTimes(asapSlots: Raw | null | undefined, daySlots: Raw | null | undefined): FulfillmentTime[] {
+  const out: FulfillmentTime[] = [];
+  const seen = new Set<string>();
+  for (const raw of [...((asapSlots?.timeslotsPerFulfillmentType ?? []) as Raw[]), ...((daySlots?.timeslotsPerFulfillmentType ?? []) as Raw[])]) {
+    if (raw.timeSlotStatus && raw.timeSlotStatus !== "AVAILABLE") continue;
+    const type = (raw.fulfilmentType ?? raw.fulfillmentType) === "DELIVERY" ? "DELIVERY" : "PICKUP";
+    const slot: Raw = raw.timeSlot ?? {};
+    const start = epochMs(slot.startTime), end = epochMs(slot.endTime ?? slot.startTime);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    const asap = slot.orderSchedulingType === "ASAP";
+    const code = asap ? `${type}|ASAP` : `${type}|${start}|${end}`;
+    if (seen.has(code)) continue;
+    seen.add(code);
+    out.push({ type, code, asap, startIso: new Date(start).toISOString(), endIso: new Date(end).toISOString() });
+  }
+  return out.sort((a, b) => Number(b.asap) - Number(a.asap) || a.startIso.localeCompare(b.startIso));
+}
+
+/** The per-date slots query for a "YYYY-MM-DD" day at the restaurant (`date.day`, `date.month`, `date.year`). */
+export function slotsDateQuery(dayKey: string): Record<string, string> {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return { "date.day": String(day), "date.month": String(month), "date.year": String(year) };
+}
+
+/** Today at the restaurant, "YYYY-MM-DD" (the operation's timezone; "" → the visitor's). */
+export const restaurantToday = (timeZone: string, now: Date = new Date()): string => zonedDayKey(now, timeZone);
+
+/**
+ * The restaurant's country and subdivision ("US-CA"), from its pickup address or its delivery
+ * area's center. The cart needs a country before ANY delivery method — pickup included — is
+ * accepted (DELIVERY_METHOD_MISSING_ADDRESS), and Wix pre-fills one only from the visitor's location.
+ */
+export function toRestaurantRegion(rawMethods: Raw[]): { country: string; subdivision: string } {
+  for (const m of rawMethods) {
+    const a: Raw = m.pickupOptions?.address ?? m.deliveryOptions?.deliveryArea?.radiusOptions?.centerPointAddress ?? {};
+    if (!a.country) continue;
+    const sub = String(a.subdivision ?? "");
+    return { country: a.country, subdivision: sub && !sub.includes("-") ? `${a.country}-${sub}` : sub };
+  }
+  return { country: "", subdivision: "" };
+}
+
+/**
+ * The address a choice puts on the cart: the delivery address with the restaurant's country and
+ * subdivision filled in, or for pickup just the restaurant's country. Refuses a delivery choice
+ * without the fields Restaurants requires (street, city, country).
+ */
+export function fulfillmentAddress(choice: FulfillmentChoice, region: { country: string; subdivision: string }): DeliveryAddress | { country: string; subdivision?: string } {
+  if (choice.type !== "DELIVERY") {
+    if (!region.country) throw new Error("Pickup isn't set up for online orders. Choose delivery.");
+    return { country: region.country, ...(region.subdivision ? { subdivision: region.subdivision } : {}) };
+  }
+  const a = choice.address;
+  const country = a?.country?.trim() || region.country;
+  const subdivision = a?.subdivision?.trim() || (country === region.country ? region.subdivision : "");
+  if (!a?.addressLine?.trim() || !a.city?.trim() || !country) throw new Error("Enter a delivery address: street and city.");
+  return { ...a, country, ...(subdivision ? { subdivision } : {}) };
+}
+
+/** The message for a delivery method the cart refused: the address is outside every delivery area. */
+export const NOT_DELIVERABLE = "We don't deliver to this address. Choose pickup or another address.";
+
 // ---- cart --------------------------------------------------------------------------------------------------------
 
 export function toOrderLine(raw: Raw, currency: string, imgSrc: ImgSrc): OrderLine {
@@ -192,10 +273,11 @@ export function toOrderLine(raw: Raw, currency: string, imgSrc: ImgSrc): OrderLi
 export function toOrderCart(raw: Raw | null, subtotal: string, imgSrc: ImgSrc): OrderCart {
   const currency = cartCurrency(raw);
   const lines = ((raw?.lineItems ?? []) as Raw[]).map((l) => toOrderLine(l, currency, imgSrc));
-  return { lines, itemCount: lines.reduce((n, l) => n + l.quantity, 0), subtotal, currency };
+  const delivery: Raw = raw?.deliveryInfo ?? {};
+  return { lines, itemCount: lines.reduce((n, l) => n + l.quantity, 0), subtotal, currency, fulfillmentCode: delivery.method?.code ?? "" };
 }
 
-/** The after-discount subtotal from a cart estimate; "" when unknown. Fees, tax, delivery resolve at checkout. */
+/** The after-discount subtotal from a cart estimate; "" when unknown. Fees and tax resolve at checkout. */
 export function estimateSubtotal(estimate: Raw | null | undefined, raw: Raw): string {
   return formatMoney(estimate?.summary?.priceSummary?.subtotal, cartCurrency(raw));
 }
@@ -243,6 +325,7 @@ export function orderCatalogItem(
       options: {
         operationId: ctx.operationId,
         menuId: ctx.menuId,
+        menuSectionId: ctx.sectionId, // what Restaurants' checkout validates the dish against
         sectionId: ctx.sectionId,
         ...(variant ? { priceVariant: { id: variant.variantId, formattedPrice: variant.price } } : {}),
         ...(modifierGroups.length ? { modifierGroups } : {}),
