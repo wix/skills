@@ -163,7 +163,7 @@ export function toGoal(campaignGoal: Raw | null | undefined, metrics: Raw[] | nu
   const ended = hasEnd && end!.getTime() < now.getTime();
   const left = hasEnd && !ended ? end!.getTime() - now.getTime() : 0;
   return {
-    raised: m.totalAmount ? formatMoney(m.totalAmount, currency) : formatAmount(0, currency),
+    raised: metrics == null ? "" : m.totalAmount ? formatMoney(m.totalAmount, currency) : formatAmount(0, currency),
     target: formatMoney(campaignGoal.targetAmount, currency),
     raisedAmount,
     targetAmount,
@@ -360,12 +360,16 @@ export function toInput(options: DonationOptions, sel: DonationSelection): Donat
  */
 export function donationLineItem(campaignId: string, input: DonationInput): Raw {
   if (!campaignId) throw new Error("A campaign id is required to donate.");
+  if ((typeof input.amount !== "number" && typeof input.amount !== "string") || String(input.amount).trim() === "") throw new Error("Enter a positive donation amount.");
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a positive donation amount.");
+  if (!FREQUENCIES.includes(input.frequency)) throw new Error("Choose a supported donation frequency.");
   return {
     quantity: 1,
     catalogReference: {
       appId: DONATIONS_APP_ID,
       catalogItemId: campaignId,
-      options: { amount: input.amount, frequency: input.frequency, ...(input.coverFee ? { donorCoveringFees: true } : {}) },
+      options: { amount, ...(input.frequency !== "ONE_TIME" ? { frequency: input.frequency } : {}), ...(input.coverFee ? { donorCoveringFees: true } : {}) },
     },
   };
 }
@@ -424,13 +428,12 @@ export function redirectUrl(session: Raw | null | undefined): string {
   return url;
 }
 
-/** A checkout failure as the visitor should read it; the raw message is kept when no rule applies. */
-export function checkoutError(e: unknown): Error {
-  const msg = e instanceof Error ? e.message : String(e);
-  if (/premium|payment method|payments? (is|are) not (set up|enabled)|PAYMENT_METHOD/i.test(msg)) {
-    return new Error("Donations aren't switched on yet — the site owner needs a premium plan and a connected payment method.");
-  }
-  return e instanceof Error ? e : new Error(msg || "Checkout couldn't start — please try again.");
+/** Preserve diagnostic status/body/cause; payment setup must not be guessed from a generic failure. */
+export function checkoutError(e: unknown, stage?: "cart" | "redirect", cartId?: string): Error & { stage?: string; cartId?: string } {
+  const error: Error & { stage?: string; cartId?: string } = e instanceof Error ? e : new Error(String(e) || "Checkout couldn't start — please try again.", { cause: e });
+  if (stage) error.stage = stage;
+  if (cartId) error.cartId = cartId;
+  return error;
 }
 
 // ---- the receipt ----------------------------------------------------------------------------------

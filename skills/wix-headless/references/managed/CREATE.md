@@ -108,7 +108,7 @@ Either way, `CONTENT.md` §1 (the business's category must read literally above 
 a page a first-time visitor can't identify isn't done yet, regardless of voice.
 
 **If a loaded vertical ships an experience overlay** — `references/inline-recipes/experience-<vertical>.md`
-(today: `experience-store.md`) — read it after `DESIGN.md`/`CONTENT.md`. It carries that vertical's own
+(today: `experience-store.md`, `experience-donations.md`) — read it after `DESIGN.md`/`CONTENT.md`. It carries that vertical's own
 design and copy bar (what its surfaces must show, how to derive the direction from its content); the
 general files stay the floor.
 

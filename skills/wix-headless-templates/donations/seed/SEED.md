@@ -10,10 +10,14 @@ if needed, creates the campaigns, verifies each reads back, then attaches cover 
 node <SKILL_ROOT>/templates/donations/seed/seed-donations.mjs plan.json
 ```
 
-`plan.json` is plain data — write it from the brief. **Default to one campaign** that exercises every
-form branch: 3 preset amounts with impact text, one-time + monthly, a goal with an end date, a custom
-amount with a minimum, the note and the cover-fee prompt on. A second campaign (say, without a goal)
-only when the brief lists several causes. Every campaign gets a cover image — the default is an
+`plan.json` is plain data — write it from the brief. Read existing campaigns and confirm the target
+site and proposed changes before seeding. For a new setup, default to one approved cause; add more
+only when the brief names them. Suggest a small set of amounts and custom-giving rules for approval;
+do not invent impact claims, a goal or a deadline just to exercise form branches. Configure recurring
+giving, notes and fee coverage as intended by the owner. A frontend-only request never reseeds.
+The example below illustrates fields, not organization facts or mandatory settings.
+For ongoing campaign edits, use the [management recipe](../../../wix-manage/references/donations/create-and-update-donation-campaigns.md).
+Every campaign gets a cover image — the default is an
 `imagePrompt` (AI-generated, ~1 Wix AI credit per image, account-billed): brand-contextual — subject,
 mood, palette, lighting — always ending "no text, no watermarks"; a real subject of the cause, not
 abstract decoration. For an asset the user supplied use `imageMediaId` (a file already in the site's Media Manager, such as one the user uploaded there: used as it is, no copy; a `static.wixstatic.com/media/<file id>` URL of a site file counts as one), `imagePath` (a file on this machine) or
@@ -72,9 +76,10 @@ images only (`imagePath` / `imageUrl`) — never an `imagePrompt` beside supplie
 
 ## What the seed cannot do — tell the owner
 
-- **Completing a donation needs a premium plan and a connected payment method** (dashboard → Accept
-  Payments). The seed creates campaigns on any site; the hosted checkout refuses the payment until
-  then. Recurring frequencies additionally need a payment provider that supports recurring payments.
+- **Accepting real payments needs a payments-capable plan and a connected eligible provider**
+  (dashboard → Accept Payments). Creating a campaign, cart or redirect session is not proof that a
+  charge can succeed. Do not blame malformed cart options on premium. Recurring frequencies also
+  need a provider that supports recurring payments.
 - The result JSON's `installed` field says whether each app install succeeded; a Donations install that
   is refused through the installer API is added from the dashboard's App Market instead.
 - Cover images: the update's Image shape and field-mask requirement were inferred from the SDK, not

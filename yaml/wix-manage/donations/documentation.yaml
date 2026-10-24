@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Donations Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/donations/create-and-update-donation-campaigns.md
+      title: Create and Update Donation Campaigns
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/donations
+      tags: [ecommerce, donations]

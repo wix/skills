@@ -1,6 +1,6 @@
 // Post-install deploy — run by base44.md STEP 1 with the vertical(s) the app needs:
 //   node deploy.cjs <vertical> [<vertical> …] --client-id <id> --metasite-id <id>
-//   (storefront | bookings | blog | cms | forms | portfolio | pricing-plans | events | members | restaurants)
+//   (storefront | bookings | blog | cms | forms | portfolio | pricing-plans | events | members | restaurants | donations)
 // Pass the two ids from the prompt and this writes src/rest/wix-config.js for you — see WRITE below.
 // Retyping those ids into the file by hand is how a storefront ships with a dead client id.
 // ONE mechanism: recursively copy `app/` -> /app/src. The shared transport (app/rest/wix-client.js,
@@ -16,16 +16,35 @@
 // NOTE: .cjs on purpose — the app is an ESM package ("type":"module"); a .js here would load as ESM
 // and require()/module.exports would throw.
 const { existsSync, cpSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
+const { createHash } = require('crypto');
 
 const REF = '/app/.agents/skills/wix-vibe-headless/references';
 const WIX_CONFIG = '/app/src/rest/wix-config.js';
 const NAV_ADAPTER = '/app/src/lib/nav.js';
-const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants'];
+const VERTICALS = ['storefront', 'bookings', 'blog', 'cms', 'forms', 'portfolio', 'pricing-plans', 'events', 'members', 'restaurants', 'donations'];
 
 // force:false + errorOnExist:false — fill in only files that AREN'T there yet; never overwrite.
 // A re-run (e.g. the "files missing? re-run" fallback) then restores what's missing without
 // clobbering the agent's edits (wired App.jsx, home/header components) from the first deploy.
 const COPY = { recursive: true, force: false, errorOnExist: false };
+
+// Only this exact shipped legacy transport is safe to replace. Any customization needs a merge.
+const LEGACY_TRANSPORT_SHA256 = '10d53e5e06ac3da62f93d41cfd618b6169c5bb1a5ba07fb58ec7700aad42889e';
+function prepareDonationsTransport() {
+  const src = `${REF}/shared/app/rest/wix-client.js`;
+  const dest = '/app/src/rest/wix-client.js';
+  if (!existsSync(src)) return { error: 'Donations needs the shared Wix transport. Reinstall the skill and retry deployment.' };
+  if (!existsSync(dest)) return { status: 'from_shared_tree' };
+  const existing = readFileSync(dest, 'utf8');
+  if (/^export const WIX_API_SUPPORTS_STRICT_PAYMENT_ERRORS = true;$/m.test(existing)) {
+    return { status: 'already_supported' };
+  }
+  if (createHash('sha256').update(existing).digest('hex') === LEGACY_TRANSPORT_SHA256) {
+    cpSync(src, dest, { force: true });
+    return { status: 'upgraded_unmodified_legacy' };
+  }
+  return { error: 'Donations was not deployed: src/rest/wix-client.js is customized or incompatible and was left unchanged. Merge strict payment-error support and the WIX_API_SUPPORTS_STRICT_PAYMENT_ERRORS export from the shared transport, then re-run deployment.' };
+}
 
 // --- members vertical only: replace leftover Base44 auth pages -------------------------------
 //
@@ -155,40 +174,48 @@ const deployed = { verticals: [] };
 const aliased = [...new Set(positional.filter((a) => ALIASES[a]))].map((a) => `${a} -> ${ALIASES[a]}`);
 if (aliased.length) deployed.aliased = aliased;
 
-// Nav adapter — before the shared copy, which carries the react-router default at the same path.
-deployed.template = detectTemplate();
-deployed.navAdapter = installNavAdapter(deployed.template);
-
-// Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/, lib/nav.js).
-if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
-
-// Each named vertical — its app/ (UI + app/rest/ helpers) -> src/.
-const unknown = requested.filter((v) => !VERTICALS.includes(v));
-for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
-  if (!existsSync(`${REF}/${vertical}/app`)) continue;
-  cpSync(`${REF}/${vertical}/app`, '/app/src', COPY);
-  deployed.verticals.push(vertical);
-  if (vertical === 'members') deployed.authPagesFixed = replaceMembersAuthLeftovers();
-}
-
-if (unknown.length) {
-  deployed.error = `unknown vertical(s) ${unknown.map((v) => `"${v}"`).join(', ')} — expected: ${VERTICALS.join(', ')}`;
-}
-if (!requested.length) {
-  deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
-}
-
-const onDisk = readWixConfig();
-const finalClientId = onDisk.clientId || clientId;
-const finalMetaSiteId = onDisk.metaSiteId || metaSiteId;
-
-if (!finalClientId || !finalMetaSiteId) {
-  deployed.wixConfig = 'skipped — no ids provided';
-} else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
-  deployed.wixConfig = 'already_set';
+const donationsTransport = requested.includes('donations') ? prepareDonationsTransport() : null;
+if (donationsTransport?.error) {
+  deployed.error = donationsTransport.error;
+  process.exitCode = 1;
 } else {
-  writeWixConfig(finalClientId, finalMetaSiteId);
-  deployed.wixConfig = 'written';
+  if (donationsTransport) deployed.donationsTransport = donationsTransport.status;
+
+  // Nav adapter — before the shared copy, which carries the react-router default at the same path.
+  deployed.template = detectTemplate();
+  deployed.navAdapter = installNavAdapter(deployed.template);
+
+  // Shared transport — always (app/rest/wix-client.js, wix-config.js -> src/rest/, lib/nav.js).
+  if (existsSync(`${REF}/shared/app`)) cpSync(`${REF}/shared/app`, '/app/src', COPY);
+
+  // Each named vertical — its app/ (UI + app/rest/ helpers) -> src/.
+  const unknown = requested.filter((v) => !VERTICALS.includes(v));
+  for (const vertical of requested.filter((v) => VERTICALS.includes(v))) {
+    if (!existsSync(`${REF}/${vertical}/app`)) continue;
+    cpSync(`${REF}/${vertical}/app`, '/app/src', COPY);
+    deployed.verticals.push(vertical);
+    if (vertical === 'members') deployed.authPagesFixed = replaceMembersAuthLeftovers();
+  }
+
+  if (unknown.length) {
+    deployed.error = `unknown vertical(s) ${unknown.map((v) => `"${v}"`).join(', ')} — expected: ${VERTICALS.join(', ')}`;
+  }
+  if (!requested.length) {
+    deployed.note = 'no vertical given — deployed the shared transport only; re-run: node deploy.cjs <vertical> [<vertical> …]';
+  }
+
+  const onDisk = readWixConfig();
+  const finalClientId = onDisk.clientId || clientId;
+  const finalMetaSiteId = onDisk.metaSiteId || metaSiteId;
+
+  if (!finalClientId || !finalMetaSiteId) {
+    deployed.wixConfig = 'skipped — no ids provided';
+  } else if (finalClientId === onDisk.clientId && finalMetaSiteId === onDisk.metaSiteId) {
+    deployed.wixConfig = 'already_set';
+  } else {
+    writeWixConfig(finalClientId, finalMetaSiteId);
+    deployed.wixConfig = 'written';
+  }
 }
 
 console.log(JSON.stringify(deployed));

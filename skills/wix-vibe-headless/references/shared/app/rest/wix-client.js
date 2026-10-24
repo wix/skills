@@ -13,6 +13,7 @@ export { WIX_CLIENT_ID } from "./wix-config.js";
 import { WIX_CLIENT_ID } from "./wix-config.js";
 
 export const WIX_API_BASE = "https://www.wixapis.com";
+export const WIX_API_SUPPORTS_STRICT_PAYMENT_ERRORS = true;
 const OAUTH_TOKEN_URL = `${WIX_API_BASE}/oauth2/token`;
 
 // Scope the storage key by client id so two headless sites served from the same
@@ -135,10 +136,10 @@ async function getAccessToken() {
  * resolves the path against the Wix API base, parses JSON, surfaces errors.
  *
  * @param {string} path
- * @param {{ method?: "GET"|"POST"|"PUT"|"DELETE", body?: unknown, query?: Record<string, string | undefined> }} [options]
+ * @param {{ method?: "GET"|"POST"|"PUT"|"DELETE", body?: unknown, query?: Record<string, string | undefined>, throwOnPaymentRequired?: boolean }} [options]
  */
 export async function wixApiRequest(path, options = {}) {
-  const { method = "POST", body, query } = options;
+  const { method = "POST", body, query, throwOnPaymentRequired = false } = options;
   const token = await getAccessToken();
 
   const url = new URL(path.startsWith("http") ? path : `${WIX_API_BASE}${path}`);
@@ -162,7 +163,7 @@ export async function wixApiRequest(path, options = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 402) {
+  if (res.status === 402 && !throwOnPaymentRequired) {
     // This API requires an active plan / premium feature on the site.
     console.warn("Wix: Payment required (402) — this API needs an active plan/premium feature.");
     return;

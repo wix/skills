@@ -154,9 +154,9 @@ export function createDonationStore(campaign: CampaignDetail, { origin, paths }:
         // stays "submitting" — the browser is leaving for the hosted checkout
       } catch (e) {
         submitting = false;
-        error = e instanceof Error ? e.message : String(e);
+        error = "We couldn't open checkout. Please try again.";
         emit();
-        throw e;
+        throw e; // the caller retains the original API status/body; never replace the cause
       }
     },
   };

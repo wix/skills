@@ -6,8 +6,19 @@ typed end-to-end. **The presentation is yours**: you design and implement the ca
 campaigns index, the campaign page's layout around the shipped form, the home page and the brand. You
 never write checkout logic; you never skip designing.
 
+Read [Donations experience](../../wix-headless/references/inline-recipes/experience-donations.md)
+before designing the donor surfaces. If that sibling skill is not installed, read the
+[published overlay](https://www.wix.com/skills/wix-headless/references/inline-recipes/experience-donations.md).
+It supplies the short,
+framework-independent page/form quality bar; the code contracts below supply the implementation.
+Apply its intent/draft recovery requirements in the UI layer: extend the supplied form/store where
+needed, retaining its validation and checkout exports. In-memory defaults alone do not survive an
+external checkout. Do not put donor notes in route parameters or reset them on an unverified return.
+
 A donation is an eCom cart (Cart V2) with one line that references the campaign; in V2 the cart IS the
 checkout, so the cart's id is the id the redirect session takes — there is no separate checkout entity.
+The cart's donation `options.amount` is a **number**, even though campaign price amounts are strings.
+Omit `options.frequency` for one-time giving; send only `WEEK`, `MONTH`, `YEAR` for recurring giving.
 Wix's hosted checkout takes the payment and the donor's details, and the eCom order is the receipt. The campaign entity carries
 **no description and no slug**: the story on a campaign page is the site's own copy, and routes key by
 the campaign id (`/donate/<id>`).
@@ -65,23 +76,9 @@ Astro stack additionally gets:
 
 Plus the **theme** (`@theme` block, one edit) and the **chrome** (`SiteLayout`, one pass).
 
-### What a complete donations site shows (recommended defaults)
-
-Defaults for a brief that says nothing about them; the prompt wins where it differs. Look at the
-campaigns before designing (how many, goals or not, frequencies, presets, images).
-
-- **Campaign page:** the Donate CTA and the amount picker in the first screen at 390px wide; the
-  frequency picker only when the campaign offers more than one frequency (the form decides); the
-  custom amount only when enabled; the story after the form on phones, beside it on desktop.
-- **Closed campaigns** (goal reached / expired): the progress and a closing message — never a Donate
-  button. `DonateForm` renders your `children` then; the card shows the state, not a CTA.
-- **Goal figures only from the DTO:** raised, target, percent, count, time left come from the metrics
-  API and the owner's goal. A campaign without a goal shows no progress; a goal whose raised total
-  couldn't be read shows the target alone.
-- **Copy:** nothing the owner didn't supply — no donor counts beyond `donationCount`, no "tax
-  deductible", no urgency the owner didn't set, no Wix IDs in visible text.
-- **Thank-you page:** the shipped island's rules — thanks with the order's facts when they can be
-  read, thanks without them otherwise, never "paid" unless the order says so.
+The shared Donations experience overlay above owns page composition, mobile density, truthful
+progress/copy and return-state quality. The contracts below own the wiring; apply both rather than
+maintaining a second set of design rules here.
 
 ### The contracts your components consume (tested and work as they are; read the source when something is off or the brief wants more)
 
@@ -107,7 +104,8 @@ campaigns before designing (how many, goals or not, frequencies, presets, images
 //   submitting, error, available /* campaign.acceptsDonations */,
 //   selectPreset(n), selectCustom(), setCustomAmount(text), setFrequency(f), setCoverFee(b), setNote(s),
 //   donate(): Promise<void> }  // resolves as the browser navigates to the hosted checkout (or with
-//                              // messages showing); rejects with a visitor-facing message — surface it
+//                              // messages showing); rejects with the original diagnostic error;
+//                              // render state.error for the visitor, not the raw API response
 // <DonateForm campaign={c} options? children? className? buttonClassName? /> wraps it: you only place
 // it; it decides what to render, what to say, and shows its own errors.
 
@@ -288,6 +286,18 @@ Wix as a return target must be one the host serves (SKILL.md step 1) — pass it
 - **Browsing and donating need no login.** They run on the visitor session the shipped client already
   holds; don't gate campaigns behind sign-in.
 
+## Verify the donation handoff
+
+Before calling this build working, follow the bounded anonymous API smoke test in
+[How to Code Donations](../../wix-headless/references/inline-recipes/how-to-code-donations.md#5-verify-before-handoff):
+campaign read → one Cart V2 → calculated line/totals → redirect session, using the same visitor.
+Use the sibling file when installed, otherwise
+`https://www.wix.com/skills/wix-headless/references/inline-recipes/how-to-code-donations.md`.
+Do not add a V1 Create Checkout step. A local test or a session URL is not proof of payment. Report
+API, hosted-checkout and payment verification separately; no payment without explicit authorization.
+For `ITEM_NOT_FOUND_IN_CATALOG`, inspect numeric amount, app/campaign IDs and frequency first, not
+reinstallation or premium. Keep sanitized error code/body/stage for diagnosis; do not swallow failures.
+
 ## Out of scope (don't improvise these)
 
 A donor's history or receipts page (member-only order reads), managing a recurring donation (Wix's
@@ -308,16 +318,19 @@ Hand the owner these links — `{siteId}` is `siteId` in `wix.config.json` (the 
 | Accept payments — connect a payment method | `wix-cashier/payments` |
 | Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
-**Taking real donations needs a connected payment method plus a premium plan.** Until both are done, a visitor who reaches hosted checkout sees **"We can't accept online payments. Contact us for help with your order."** Recurring frequencies (`WEEK`/`MONTH`/`YEAR`) additionally need a
+**Taking real donations needs a connected payment method plus a payments-capable plan.** Cart/session
+creation can succeed before these are ready; it does not prove a charge can succeed. Do not use a
+premium explanation for a malformed catalog reference. A visitor can encounter an unavailable-payments
+message at hosted checkout until setup is complete. Recurring frequencies (`WEEK`/`MONTH`/`YEAR`) additionally need a
 payment provider that supports recurring payments. Mention it; don't treat it as a code failure. The
 cover-fee 2.9% is added to every recurring charge.
 
 ## Seeding
 
 Per `seed/SEED.md` — plain-data `plan.json` into `seed-donations.mjs` from the project root. Seed one
-campaign that exercises every form branch (3 presets with impact text, one-time + monthly, a goal with
-an end date, a custom amount with a minimum, note and cover-fee on, a cover image); a second campaign
-only when the brief lists several causes.
+approved cause for a new setup unless the brief lists several. Do not invent impact claims, goals or
+deadlines to exercise every form branch, and never reseed for a frontend-only request. Optional form
+states can be tested in local fixtures. Ongoing edits use the shared management recipe linked there.
 
 ## Caveats — verified against the SDK, not yet against a live site
 
@@ -344,5 +357,5 @@ first real site and read the owning file if one bites.
   provisions eCom, is unverified; the seed installs both and reports each result.
 - **Dashboard route.** The `app/<appDefId>` link redirects to the app's slug route; the slug itself
   was not resolved live.
-- The `donorCoveringFees` option key and the fixed 2.9% come from the Wix widget's source, not a
-  public reference page.
+- The `donorCoveringFees` flag, 2.9% and one-time frequency omission are documented in the public
+  [donation eCommerce integration](https://dev.wix.com/docs/api-reference/business-solutions/donations/donation-campaigns/e-commerce-integration-with-donation-campaigns).

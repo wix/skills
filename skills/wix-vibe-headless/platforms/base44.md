@@ -25,6 +25,7 @@ Run this through exec_tool, exactly as written — installs all three skills, de
 | vertical | pick it when the app needs to |
 |---|---|
 | `storefront` | sell products |
+| `donations` | accept one-time or recurring contributions to Wix Donations campaigns — not a generic form or membership plan |
 | `bookings` | take appointments or service bookings |
 | `rentals` | rent out an item for a length the customer picks (by the hour or by the day) |
 | `blog` | publish articles |
