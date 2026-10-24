@@ -1,8 +1,7 @@
 # The kit's run as Wix API calls
 
-Read when the commands this skill is built on cannot run where you are, or stopped: your shell
-can't reach Wix, there is no shell, or the install, the
-CLI or the login is blocked. Wix is then reachable through the Wix MCP: every call below is an
+Read when the kit does not run where you are, or stopped: no Node, no route to npm (the install
+and the build need it), no shell at all, or the install, the CLI or the login is blocked. Wix is then reachable through the Wix MCP: every call below is an
 `ExecuteWixAPI` call, and files reach the site through the upload recipe. With no Wix MCP tools in
 your tool list (a plugin's skills can be on disk while its Wix connector is not connected), ask the
 user to connect Wix to this chat first. It walks the run of
@@ -52,9 +51,11 @@ doesn't list is a wrong path; find the file there before writing anything in its
 hold, served or on disk, is current when its size in bytes matches the manifest's; a file whose size
 differs is read online.
 
-What such a run does not produce: the Astro build and its release. Those need a machine with the
-CLI. Everything else the kit does to a site, it does through calls you can make, the frontend
-included: step 5 ships it as static files.
+What such a run does not produce: the Astro build. A build needs the kit running where you are (Node,
+and `npm` reaching the registry); then the run is SKILL.md's plugin route (`setup.mjs --site --app`, `astro build`, the build released by
+`UploadHeadlessWebsiteFiles`), and sections 2 to 4 here are the calls it makes through
+`ExecuteWixAPI`. Everything else the kit does to a site, it does through calls you can make, the
+frontend included: step 5 ships it as static files.
 
 ## 0. Identity
 
@@ -124,9 +125,10 @@ half a run.
 A payment (a cart, a paid booking, a ticket, a plan, a donation) ends in Wix's hosted checkout,
 reached through a redirect session, and is wired on the first pass, payments connected or not.
 
-The Astro pages cannot be released here: that is a run with a machine and a CLI login, which
-attaches to this site (`guides/existing-site.md`) rather than making a new one. What ships from here
-is static files, dropped onto the site from step 2 through
+The Astro pages are not built here: the kit does not run where you are. A later run where it does
+takes this site (SKILL.md's plugin route with `--site --app`, or `guides/existing-site.md` with the
+CLI) rather than making a new one; its release replaces the pages dropped here, at the same URL.
+What ships from here is static files, dropped onto the site from step 2 through
 `{MANAGE}/references/sites/upload-static-site.md`: the Wix MCP's upload tool, or a script that
 downloads what the site serves, edits it and drops it back, so only what changed is written. Which
 files depends on whether the compose can run, and on what writing them costs: when files reach the
@@ -197,6 +199,6 @@ failing call is fixed first, on the site or in the page. The closing reports the
 
 ## 6. Closing
 
-SKILL.md step 5's closing, with two additions: the site id, so a run with a machine attaches to this
-site (`guides/existing-site.md`) instead of making a new one; and, when files were dropped, that a
-change re-drops the whole set.
+SKILL.md step 5's closing, with two additions: the site id and the `appId`, so a run where the kit
+runs takes this site (`setup.mjs --site --app`, or `guides/existing-site.md`) instead of making a new one;
+and, when files were dropped, that a change re-drops the whole set.

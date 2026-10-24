@@ -86,19 +86,67 @@ doesn't express — or once the site exists and the work turns to managing or ex
   content seed) — the index fills within about half a minute of the install. Playbook:
   `templates/shared/capabilities/site-search/INSTRUCTIONS.md`.
 
+### The scripts
+
+`<SKILL_ROOT>/install/` holds plain Node scripts, no build step, each with a header comment that
+says what it does and how it is called. They are the deterministic steps of the run: each copies,
+composes, installs or seeds, and prints one JSON object (or one JSON event per line) saying what it
+found and did. Read any of them when you want to know what a step does before running it, or when a
+step's output surprises you; the templates' seed modules are the reference for the Wix calls a
+vertical needs, in the order that works.
+
+| Script | Does |
+|---|---|
+| `templates.mjs` | Finds the shipped code (the `wix-headless-templates` skill beside this one), or fetches it once as a sparse clone; prints its folder. |
+| `context.mjs` | Reads `wix.config.json` and `.env.local`, pulls the env on the CLI route when it is missing, and prints the folder's shape, the deploy site and the content site, the publisher (`cli` or `plugin`) and whether npm reaches the registry. Changes nothing. |
+| `setup.mjs` | One call from the folder and the brief to a project ready for the brand layer: scaffolds (or, with `--site --app`, copies the composed template and writes the config and env), deploys the vertical's code, writes the agent config files, starts the install, and seeds a site it created. |
+| `attach.mjs` | `setup.mjs` for a site that already exists: does what `wix create` does after creating one (OAuth app, hosting, env, `wix.config.json`) against the site id given, then scaffolds, deploys and installs; seeds only with `--plan`; with `--hosting self`, puts the given origins on the OAuth app's allow-list instead of Wix hosting. |
+| `deploy.mjs` | Composes a vertical's code layers into the project for the stack (`astro`, `react`, `lib`, `static`), adds its dependencies, and keeps the lock valid for `npm ci` (`lock.mjs`). |
+| `install.mjs` | The one dependency install: decides none, `npm install` or `npm ci` from the lock and what `node_modules` already holds; writes `.install-exit`. |
+| `bootstrap.mjs` | CLI route only: checks the Wix CLI and runs the device-code login, one JSON event per line. |
+| `check.mjs` | Compares this installed skill and its templates with the repository they came from; read-only, prints the commands that would update. |
+| `agents-md.mjs`, `env-ignore.mjs` | Write a new project's `AGENTS.md`, `CLAUDE.md` and `.gemini/settings.json`; keep `.env.local` out of git. |
+| `proc.mjs`, `background.mjs`, `pins.json` | npm and npx started the same way on every OS; the detached install and seed; the pinned CLI and template versions. |
+| `templates/<vertical>/seed/seed-*.mjs`, `read-site.mjs` | The vertical's seed from a plan, and a read of what the site already holds. `SEED.md` beside them is the plan's contract. |
+
 ## The run
 
-Needed throughout: Node ≥ 22.12 (Astro 7; the Wix CLI alone runs on 20.11), git, a logged-in Wix CLI (`npx @wix/cli@latest whoami`;
-`npx @wix/cli@latest login` is a device-code flow: surface the URL and code to the user, never
-read tokens into context), and the two companion skills installed beside this one, `wix-docs`
-and `wix-manage`. `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login
-when there is none; the cold-start page, `https://www.wix.com/skills/headless-cold-start/headless-kit.md`,
-gets a machine with none of this, the skills included, to that point. In a folder that
+Needed throughout: Node ≥ 24.18, git, the two companion skills installed beside this one,
+`wix-docs` and `wix-manage`, and one of two ways to Wix. `node <SKILL_ROOT>/install/context.mjs`
+prints which one this machine has, as `publisher`:
+
+- **`plugin`** — no Wix CLI session on this machine; the Wix MCP's tools are in your tool list
+  (`ExecuteWixAPI`, `UploadHeadlessWebsiteFiles`: a Wix plugin or connector, connected); and `npm`
+  reaches the registry, so the kit runs here. The MCP carries the user's login. The site is provisioned through `ExecuteWixAPI` with the recipe
+  `wix-manage/references/sites/create-headless-site.md` (the provision call returns the
+  `metaSiteId` and the site's OAuth client `appId`); step 3's setup takes both as `--site` and
+  `--app` and runs no CLI; the seed is an `ExecuteWixAPI` script written from the vertical's
+  `SEED.md` (`guides/api-run.md` section 4); the release is `npx astro build`, then the build
+  uploaded with `UploadHeadlessWebsiteFiles` (step 5), attached in one call where the client shows
+  `attachments` as a local path, or in two calls with `curl` to the URLs the first returns, from a
+  shell that reaches the internet (the URLs are on Amazon S3; `curl -sI https://s3.amazonaws.com`
+  shows `Server: AmazonS3` where they work, and a sandbox limited to a few hosts gets a proxy's
+  refusal without that header). The tool releases the build to the site's Wix hosting, stores the project's source in the
+  site's Code Store repository, and returns the live URL. The plugin route asks for no login.
+- **`cli`** — where the Wix MCP is not connected, or a Wix CLI session is already on this machine:
+  a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
+  device-code flow: surface the URL and code to the user, never read tokens into context).
+  `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login when there is none;
+  `wix create`, `wix env pull` and `wix release` do what the steps below say.
+
+The cold-start page, `https://www.wix.com/skills/headless-cold-start/headless-kit.md`, gets a
+machine with none of this, the skills included, to that point. The four skills this run reads
+(`wix-headless-kit`, `wix-headless-templates`, `wix-docs`, `wix-manage`) are on disk after that
+install (`.agents/skills/`, or a plugin's folder), or served by the client's skill tool (text to
+read, not files: the scripts and the templates run only from disk), or online at
+`https://www.wix.com/skills/<skill>/<path>`, where `<skill>.manifest.json` lists every file with its
+size and a folder's `_content` returns its files at once; `<SKILL_ROOT>` below is the kit's folder
+on disk. In a folder that
 already holds a `wix.config.json`, `node <SKILL_ROOT>/install/context.mjs` first: it runs
-`wix env pull` when `.env.local` is missing and prints the folder's **shape** (`folder.shape`, the
-cases of step 3, with the `next` for each) and the two identities a project has — the deploy site
-(the config, where `wix release` goes) and the content site (the env, whose app the SDK client runs
-as and whose dashboard manages the business). They are one site, except on a **migration preview**
+`wix env pull` when `.env.local` is missing (on the CLI route) and prints the folder's **shape**
+(`folder.shape`, the cases of step 3, with the `next` for each) and the two identities a project
+has — the deploy site (the config, where the release goes) and the content site (the env, whose
+app the SDK client runs as and whose dashboard manages the business). They are one site, except on a **migration preview**
 (`guides/migration.md`), where the env names the site being migrated. Every script here reads that
 context; the site a call targets is never guessed from the config alone. Then fetch the shipped
 code once: `node <SKILL_ROOT>/install/templates.mjs`. It prints the folder; the `templates/…`
@@ -191,10 +239,10 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
 
    | the folder holds | shape | what setup does | seeded by setup |
    |---|---|---|---|
-   | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site | **yes**, from `--plan` |
+   | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site. On the plugin route, `--site <metaSiteId> --app <appId>`: the ids the provision call returned for a new site, or, for a site that exists with no project (a dropped site), its id and the companion app's id from `get-or-create` (`guides/existing-site.md`); the composed template is copied in and `wix.config.json` and `.env.local` written for that site, no CLI | **yes**, from `--plan`, on the CLI route. On the plugin route setup takes no `--plan` and seeds nothing: the plan is seeded through `ExecuteWixAPI` (`guides/api-run.md` section 4) |
    | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | **yes**, from `--plan` |
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
-   | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys. That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
+   | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: on the CLI route `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys; on the plugin route `setup.mjs --site --app` with the config's ids, in an empty folder, then the build released by `UploadHeadlessWebsiteFiles` (`guides/existing-site.md`). That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
    | a config and a frontend (a `package.json`, or `index.html` inside the folder `site.outputDirectory` names) | **wix-project** → refuses | iterate: never scaffold, `init` or reseed. `deploy.mjs <vertical…> --stack <stack>` adds a solution (the client id comes from `.env.local`, the config as the fallback), then one install, `node <SKILL_ROOT>/install/install.mjs` (nothing when `node_modules` already satisfies the lock); a change is file edits; then release | no |
    | a config, a `package.json`, `public/index.html` and no `src/pages/` (a site published through the drop flow, on its Wix Dev Machine) | **static-in-astro** → refuses | the pages stay plain files in `public/`: `deploy.mjs <vertical…> --stack static --out public` puts the REST layer in `public/js/wix/`, the pages are wired in place (reference mode), and no Astro pages are added; release with `build` then `release`, the URL stays | no |
    | a config and the CLI's blank Astro starter with no work of its own (`wix-astro-blank`, only the blank template's packages: a Dev Machine's never-released site, a bare `wix create`) | **blank-starter** → refuses | `attach.mjs --business-name <brand> --vertical <v…> [--plan plan.json]` on the config's site: the vertical's composed template takes the starter's place (its lockfile with it), the install and the seed start detached; build the brand layer while they run | **yes**, from `--plan`: the site was made for this run and is empty, unless `read-site.mjs` shows content |
@@ -226,7 +274,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
 
    `--vertical` is required and picks which shipped code deploys AND which seed runs. The
    `ready_for_brand_layer` event says `mode` (`create`, `adopt`, `migrate`, `published-static`),
-   `shape`, the stack, and the `next` for that stack, including how it releases.
+   `shape`, the stack, `publisher` (`cli` or `plugin`), and the `next` for that stack, including how
+   it releases.
 
    setup scaffolds with `--skip-git`: it composes its own steps and leaves version control to
    you / the enclosing repo, so it does **not** create the scaffold's usual git repo + initial
@@ -256,6 +305,10 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    A code change on an existing project is done when it is **released** (step 5) and the live
    URL shows it — not when a dev server or a local build shows it. A management change (a
    recipe against the site) needs no release; the frontend reads it live.
+   A site released through the upload tool keeps its source in its Code Store repository: a later
+   change, in any session, downloads it (`guides/existing-site.md`), edits, builds and uploads with
+   the downloaded revision as `expectedHeadRevisionId`. One site keeps one writer path: such a site
+   is not changed through `wix release` or a plain drop.
 
 4. **Design and build the presentation while the install finishes** — in the project dir from
    the `ready_for_brand_layer` event, per the vertical's `INSTRUCTIONS.md`: set the `@theme`
@@ -284,7 +337,34 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
    or `wait` on its pid), not on a file. Then
    **build & release once** (managed), as the `next` of the `ready_for_brand_layer` event says
-   for the stack: Astro → `npx @wix/cli@latest build` then `npx @wix/cli@latest release`;
+   for the stack and the publisher: Astro on the CLI route → `npx @wix/cli@latest build` then
+   `npx @wix/cli@latest release`; Astro on the plugin route → `npx astro build` from the project
+   root, then `UploadHeadlessWebsiteFiles` with the site's `siteId`, in one of two forms (the `next`
+   carries the zip commands, with Python's `zipfile` where there is no `zip` binary):
+   - **attached**, one call: the project zipped without `node_modules` (`.wix/build-metadata.json`
+     and `dist/` in it), passed as `attachments`. The build is released and the source in the same
+     zip is stored.
+   - **two calls**, from a shell that reaches the internet (the upload URLs are on Amazon S3:
+     `curl -sI https://s3.amazonaws.com` shows `Server: AmazonS3` where they work; a sandbox
+     limited to a few hosts gets a proxy's refusal without that header, and cannot release a build
+     this way): the build zip (`zip -qr build.zip dist .wix`) and the source zip, the project
+     without `node_modules`, `dist`, `.wix`, `.astro`, `.env*`, `.agents`
+     (`zip -qr source.zip . -x 'node_modules/*' 'dist/*' '.wix/*' '.astro/*' '.agents/*' '.env*' 'build.zip'`).
+     First `{ siteId, prepare: true, size }`, `size` being `wc -c < build.zip`: the reply gives a
+     `curl -X PUT ... --data-binary @build.zip "<putUrl>"`, one for the source zip when the site's
+     repository takes it, the repository's `headRevisionId`, and the exact second call. Run the
+     curls as given, then `{ siteId, uploadKey, sourceUploadId, expectedHeadRevisionId }`.
+
+   The service deploys, commits the source to the site's Code Store repository, then releases; a
+   refused commit releases nothing. `expectedHeadRevisionId` is the revision the project started
+   from: the one it was downloaded at, or for a project started in this run the `headRevisionId`
+   the prepare returned. Left out, the release works only on a repository with nothing in it yet;
+   otherwise it answers `EXPECTED_HEAD_REQUIRED` and releases nothing. A 409
+   `CODE_STORE_HEAD_CHANGED` means the repository moved since: download it again
+   (`guides/existing-site.md`), carry the change over, build and upload. A 404 on the second call
+   means the upload expired: prepare again. The result carries the live URL; a release replaces
+   static pages dropped on the site before, at the same URL.
+   Otherwise:
    React or another bundler → the project's own build, then `npx @wix/cli@latest release` of
    the build folder named in `wix.config.json` (deep URLs must answer 200 directly, step 1);
    static → `release` alone. If the install failed, run it once more and then build. Don't
@@ -307,8 +387,8 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    need a premium plan). Both are the owner's steps, not a defect in the site. When the run started
    from the owner's own pages, name what those pages promised that the released site does not do.
    **Copy the live URL verbatim from the
-   `wix release` output — never retype it from memory** (a mistyped subdomain hands the user
-   a 404). Before you sign off, run the feedback self-check over the whole session
+   release output (the CLI's, or the upload tool's result) — never retype it from memory** (a
+   mistyped subdomain hands the user a 404). Before you sign off, run the feedback self-check over the whole session
    (`guides/feedback.md`): anything that cost more turns than it should have, including what you
    recovered from silently, is signal; if anything qualifies, offer to relay it as you deliver the
    links, and send only after an explicit yes.
@@ -324,9 +404,11 @@ browser versus the server, the OAuth allow-list for a self-hosted origin, pre-re
 how to close such a run. A public site is still better served by managed Astro; say so when you
 close.
 
-Without a machine at all, or when the install, the CLI or the login is blocked where you are,
-read `<SKILL_ROOT>/guides/api-run.md`: the same run, step by step, as the Wix API calls the
-scripts make and the files beside this skill that carry the contracts.
+Where the kit does not run (no route to npm, no Node), or when the install, the CLI or the login is
+blocked where you are, read `<SKILL_ROOT>/guides/api-run.md`: the same run, step by step, as the Wix API calls the
+scripts make and the files beside this skill that carry the contracts. On the plugin route the same
+guide is the reference for the calls that go through `ExecuteWixAPI` (the provision call, the seed);
+the build and the release are this skill's step 5.
 
 ## Verticals
 

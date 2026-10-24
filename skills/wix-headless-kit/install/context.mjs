@@ -17,6 +17,7 @@
 // identity, and the Astro build refuses to run without it. Non-interactive (CI=1); a failure is
 // reported in `pullError` and the config's ids stand in, so a caller can still work offline.
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { failure, npmSync } from "./proc.mjs";
 const PINS = JSON.parse(readFileSync(new URL("./pins.json", import.meta.url), "utf8"));
@@ -57,6 +58,22 @@ export function readWixConfig(cwd) {
   const file = join(cwd, "wix.config.json");
   if (!existsSync(file)) return null;
   try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
+}
+
+/**
+ * Where a release goes from this machine. `cli`: the Wix CLI's session file is here
+ * (`~/.wix/auth/account.json`, what `wix login` writes), so `wix release` and `wix env pull` work.
+ * `plugin`: no session; the Wix MCP's tools carry the user's login, the site is provisioned through
+ * them, and the Astro build is released by its upload tool.
+ */
+export function publisher() {
+  return existsSync(join(homedir(), ".wix", "auth", "account.json")) ? "cli" : "plugin";
+}
+
+/** Whether the kit runs here: `npm ping` against the configured registry, ten seconds at most. */
+export function npmReachable() {
+  const r = npmSync("npm", ["ping", "--no-fund", "--no-audit"], { encoding: "utf8", timeout: 10_000, env: { ...process.env, CI: "1" } });
+  return { ok: r.status === 0, detail: r.status === 0 ? null : failure(r, "npm ping failed").trim().slice(-200) };
 }
 
 const ENV_PULL = ["-y", WIX_CLI, "env", "pull"];
@@ -165,7 +182,7 @@ export function folderShape(cwd = process.cwd(), { migrationActive = false } = {
     migration: "setup.mjs (MIGRATE): the shipped code into the starter the download carries (or the composed template around a bare config); the site being migrated owns its content — guides/migration.md",
     "static-in-astro": "a dropped site on its Dev Machine: the pages are plain files in public/, served as they are. deploy.mjs <vertical…> --stack static --out public puts the REST layer in public/js/wix/; wire the pages in place with <script type=\"module\">: do the least that makes them work: connect each control the pages show and add only what a control can't work without (more only when the brief asks), and no Astro pages. Read the site (read-site.mjs); run the vertical's seed module with a plan only for content the brief supplies or describes. Release with npx @wix/cli@latest build && npx @wix/cli@latest release; the URL stays",
     "blank-starter": "attach.mjs --business-name <brand> --vertical <v…> [--plan plan.json] (the site comes from wix.config.json): the CLI's blank starter with no work of its own, as a Dev Machine or a bare wix create leaves it. attach deploys the vertical onto it with its composed lock and starts the install and the seed detached: build the brand layer while they run, then sync on .install-exit and .seed-exit before release (SKILL.md step 3). Read the site first (read-site.mjs) when it may already hold content",
-    "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then one install: node <SKILL_ROOT>/install/install.mjs (it skips when node_modules already satisfies the lock); file edits for a change; release. Read the site (read-site.mjs) before any seed module runs",
+    "wix-project": "iterate: never scaffold, init or reseed. deploy.mjs <vertical…> --stack <stack> adds a solution, then one install: node <SKILL_ROOT>/install/install.mjs (it skips when node_modules already satisfies the lock); file edits for a change; release. Read the site (read-site.mjs) before any seed module runs. On the plugin route, a project downloaded from the site's Code Store repository has no .env.local: setup.mjs --vertical <v> --site <siteId> --app <appId> writes it (and installs when node_modules is missing); the release is UploadHeadlessWebsiteFiles with the downloaded revision as expectedHeadRevisionId (SKILL.md step 5)",
     "published-static": "setup.mjs --vertical <v>: the config's site, no init; site/ becomes the upload and the REST layer lands in site/js/wix/; move the pages, styles and assets into site/. Nothing is seeded: read the site, then run the vertical's seed module with a plan when the brief gives content; release keeps the URL",
   };
   let shape;
@@ -193,7 +210,8 @@ export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
   const deploy = { siteId: config.siteId ?? config.projectId ?? null, appId: config.appId ?? null };
   const envFile = join(cwd, ".env.local");
   let pulled = false, pullError;
-  if (deploy.siteId && (pull === true || (pull === "auto" && !existsSync(envFile)))) {
+  // Only a machine with a CLI session can pull; on the plugin route setup.mjs wrote the env file.
+  if (deploy.siteId && publisher() === "cli" && (pull === true || (pull === "auto" && !existsSync(envFile)))) {
     const r = pullEnv(cwd);
     if (r.ok) pulled = r.via;
     else pullError = r.error;
@@ -214,7 +232,7 @@ export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
   if (active && migration.parentSiteId === deploy.siteId) {
     warnings.push("the migration's parent site is the deploy site itself — nothing is being migrated");
   }
-  return { folder: folderShape(cwd, { migrationActive: active }), deploy, content, migration, env: { file: envFile, present: Object.keys(env).length > 0, pulled }, ...(pullError ? { pullError } : {}), warnings };
+  return { folder: folderShape(cwd, { migrationActive: active }), publisher: publisher(), npm: npmReachable(), deploy, content, migration, env: { file: envFile, present: Object.keys(env).length > 0, pulled }, ...(pullError ? { pullError } : {}), warnings };
 }
 
 // ---- CLI ----------------------------------------------------------------------------------------

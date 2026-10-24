@@ -5,10 +5,14 @@
 //
 //   node <SKILL_ROOT>/install/setup.mjs --vertical <storefront|bookings|…>[,<vertical>…] \
 //        [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] \
-//        [--subfolder [--folder-name <npm-safe-name>]]
+//        [--site <metaSiteId> --app <appId>] [--subfolder [--folder-name <npm-safe-name>]]
 //
 //   empty (or loose files: a CSV, a brief) → CREATE: `wix create` with the vertical's composed template
 //     (templates/<vertical>/project), placed in the current directory (`--business-name` required).
+//     With --site and --app (a site provisioned through the Wix MCP: the metaSiteId and appId the
+//     provision call returned) the CLI is not run: the composed template is copied in, wix.config.json
+//     and .env.local are written for that site, and the release is the Wix MCP's upload tool with the
+//     Astro build (the plugin route). The seed runs through ExecuteWixAPI there, not here.
 //   a frontend, no wix.config.json (a package.json, or an index.html at the root) → ADOPT: `init` in
 //     place gives the project a new, empty site, then deploy. `--stack` required.
 //   CREATE and ADOPT are the two cases that seed: the run made the site, it is empty by construction,
@@ -20,6 +24,9 @@
 //     drop flow and downloaded): the config's site, no init; site/ becomes the upload, the REST layer
 //     deploys there, the pages move in (the agent's step). Nothing seeded.
 //   a config and a frontend (package.json, or index.html in the output folder) → refuses: iterate.
+//     With --site and --app matching the config and no .env.local (a project downloaded from the
+//     site's Code Store repository): writes .env.local as the plugin create does, installs when
+//     node_modules is missing, and nothing else: no scaffold, no deploy, no seed.
 //   a config and nothing else → refuses: attach.mjs's case.
 //
 // Setup seeds only a site it created in this run. A site that existed before the run is never seeded
@@ -31,7 +38,7 @@
 // steps — the dependency install and the seed — running detached in the background (logs and
 // completion markers in the final event), so the caller can build the brand layer while they finish.
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_CONFIG_FILES, writeAgentsMd } from "./agents-md.mjs";
@@ -65,13 +72,18 @@ const planPath = flag("plan");
 const verticals = (flag("vertical") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
 const vertical = verticals[0] ?? null;
 const stackFlag = flag("stack");
+// The plugin route: a site already provisioned through the Wix MCP, named by the two ids the provision
+// call returned. No Wix CLI is run anywhere in this call; the release is the MCP's upload tool.
+const siteFlag = flag("site");
+const appFlag = flag("app");
+const publisher = siteFlag ? "plugin" : "cli";
 // Opt-in: keep a CREATE's project in a subfolder instead of the current directory.
 const subfolder = argv.includes("--subfolder");
 // The shipped code: the repository's templates/ (a checkout, the cache, or fetched now, in a second).
 let TEMPLATES;
 try { TEMPLATES = templatesDir(); } catch (e) { fail("templates", e.message); }
 const knownVerticals = listVerticals(TEMPLATES);
-const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--subfolder]`;
+const usage = `usage: setup.mjs --vertical <${knownVerticals.join("|")}>[,<vertical>…] [--plan plan.json] [--business-name "<Brand>"] [--stack astro|react|lib|static] [--site <metaSiteId> --app <appId>] [--subfolder]`;
 // --vertical is REQUIRED: a defaulted vertical deploys the wrong code and runs the wrong seed.
 if (!vertical) fail("args", usage);
 for (const v of verticals) {
@@ -81,6 +93,43 @@ if (stackFlag && !["astro", "react", "lib", "static"].includes(stackFlag)) {
   fail("args", `unknown --stack "${stackFlag}" — astro, react, lib or static`);
 }
 if (planPath && !existsSync(planPath)) fail("args", `plan file not found: ${planPath}`);
+if (!!siteFlag !== !!appFlag) fail("args", "--site and --app go together: the metaSiteId and the appId the provision call returned");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (siteFlag && !(UUID.test(siteFlag) && UUID.test(appFlag))) fail("args", "--site and --app are UUIDs (the provision call's metaSiteId and appId)");
+if (siteFlag && stackFlag && stackFlag !== "astro") fail("args", `--site takes the astro stack: the composed template is copied in and released as a build; --stack ${stackFlag} does not apply`);
+
+// The env the plugin route's build reads: the public client id, the cloud provider the hosting runs
+// the server build on, and stand-ins for the three values the hosting runtime injects at release (the
+// build only checks they exist).
+const writePluginEnv = (dir) => writeFileSync(join(dir, ".env.local"), [
+  "# Read by the build. WIX_CLIENT_ID is the site's public OAuth client id (the provision call's appId).",
+  "# The hosting runtime injects the real values of the last three at release; the build only checks they exist.",
+  `WIX_CLIENT_ID="${appFlag}"`,
+  'WIX_CLOUD_PROVIDER="KUBERNETES"',
+  'WIX_CLIENT_INSTANCE_ID="set-at-release"',
+  'WIX_CLIENT_PUBLIC_KEY="set-at-release"',
+  'WIX_CLIENT_SECRET="set-at-release"',
+  "",
+].join("\n"));
+
+// The plugin route's install: in the foreground, since it runs where a process may not outlive the
+// tool call that started it; the event says it is done.
+const foregroundInstall = (dir) => {
+  const installLog = join(dir, "npm-install.log");
+  emit("installing", { log: installLog, foreground: true });
+  const r = spawnSync("node", [join(SKILL_ROOT, "install", "install.mjs")], { cwd: dir, encoding: "utf8", timeout: 280_000 });
+  writeFileSync(installLog, `${r.stdout ?? ""}${r.stderr ?? ""}`);
+  let result = {};
+  try { result = JSON.parse((r.stdout ?? "").trim().split("\n").pop()); } catch { /* the log has it */ }
+  if (r.status !== 0) fail("install", failure(r, `install exited ${r.status}; see ${installLog}`).slice(-600));
+  const marker = join(dir, ".install-exit");
+  emit("install_done", { ...result, exit: existsSync(marker) ? readFileSync(marker, "utf8").trim() : String(r.status), log: installLog });
+};
+
+// The plugin route's release of an Astro project: the build, the two zips, the upload tool.
+const ZIP_PY = (name, skip) => `python3 -c "import zipfile,pathlib as P; X=(${skip.map((s) => `'${s}'`).join(",")}); z=zipfile.ZipFile('${name}','w',zipfile.ZIP_DEFLATED); [z.write(p) for p in P.Path('.').rglob('*') if p.is_file() and p.parts[0] not in X and not p.name.startswith('.env') and str(p) not in ('project.zip','build.zip','source.zip')]; z.close()"`;
+const pluginRelease = (head) =>
+  `npx astro build from the project root (the Wix hosting adapter writes .wix/build-metadata.json and dist/), then release with the Wix MCP's UploadHeadlessWebsiteFiles, siteId ${siteFlag}, in one of two forms. Attached: one zip of the project without node_modules (zip -qr project.zip . -x 'node_modules/*' '.astro/*' '.agents/*' '.env*'; without a zip binary: ${ZIP_PY("project.zip", ["node_modules", ".astro", ".agents"])}) passed as attachments. From a shell that reaches the internet (the upload URLs are on Amazon S3: curl -sI https://s3.amazonaws.com shows Server: AmazonS3 where they work; a sandbox limited to a few hosts gets a proxy's refusal without that header and cannot release this way): the build zip (zip -qr build.zip dist .wix) and the source zip (zip -qr source.zip . -x 'node_modules/*' 'dist/*' '.wix/*' '.astro/*' '.agents/*' '.env*' 'build.zip'; without a zip binary: ${ZIP_PY("source.zip", ["node_modules", "dist", ".wix", ".astro", ".agents"])}), then { siteId, prepare: true, size } with size from wc -c < build.zip, the curl -X PUT commands its reply gives, run as given, and the second call it names, { siteId, uploadKey, sourceUploadId, expectedHeadRevisionId }. ${head} The tool releases the build to the site's Wix hosting, stores the source in the site's Code Store repository and returns the live URL; EXPECTED_HEAD_REQUIRED or a 409 CODE_STORE_HEAD_CHANGED released nothing (SKILL.md step 5). Not wix build, not wix release: this run has no Wix CLI session`;
 
 // ---- 0 · read the folder --------------------------------------------------------------------------
 const cwd = process.cwd();
@@ -89,8 +138,25 @@ const pkg = has("package.json") ? JSON.parse(readFileSync(join(cwd, "package.jso
 let ctx = null;
 let shape = folderShape(cwd).shape;
 if (has("wix.config.json")) {
-  ctx = siteContext({ cwd }); // pulls .env.local when missing — where a migration is declared
+  ctx = siteContext({ cwd, ...(siteFlag ? { pull: false } : {}) }); // pulls .env.local when missing — where a migration is declared
   shape = ctx.folder.shape;
+  // A project downloaded from the site's Code Store repository: the config and the frontend came with
+  // it, the env did not. Only the env is written, and the install runs when node_modules is missing.
+  if (siteFlag && pkg && shape !== "migration" && ctx.deploy.siteId === siteFlag && !has(".env.local")) {
+    if (ctx.deploy.appId && ctx.deploy.appId !== appFlag) fail("args", `--app ${appFlag} differs from wix.config.json appId ${ctx.deploy.appId}`);
+    emit("folder", { mode: "iterate", shape, stack: "astro", publisher, project: pkg.name ?? basename(cwd), deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings });
+    writePluginEnv(cwd);
+    ignoreEnvLocal(cwd);
+    emit("env_written", { file: join(cwd, ".env.local"), clientId: appFlag });
+    if (!has("node_modules")) foregroundInstall(cwd);
+    else emit("install_skipped", { reason: "node_modules is there" });
+    emit("ready_for_brand_layer", {
+      mode: "iterate", shape, stack: "astro", publisher, verticals, projectDir: cwd, siteId: siteFlag,
+      dashboardUrl: `https://manage.wix.com/dashboard/${siteFlag}`, install: null, seed: null,
+      next: `a project downloaded from the site's Code Store repository: nothing scaffolded, deployed or seeded. Edit the files the change needs (deploy.mjs <vertical…> --stack astro adds a solution, then node ${join(SKILL_ROOT, "install", "install.mjs")}); then ${pluginRelease("expectedHeadRevisionId is the revision.id the download returned, in either form.")}`,
+    });
+    process.exit(0);
+  }
   if (shape !== "migration" && shape !== "published-static") {
     fail("place", `this folder is already a Wix project (wix.config.json), shape "${shape}": nothing to set up. ${ctx.folder.next} (SKILL.md step 3)` + (ctx.pullError ? ` — note: env pull failed here (${ctx.pullError.slice(0, 120)})` : ""));
   }
@@ -99,6 +165,7 @@ if (has("wix.config.json")) {
   }
 }
 const mode = { migration: "migrate", "published-static": "published-static", project: "adopt", empty: "create" }[shape];
+if (siteFlag && mode !== "create") fail("args", `--site applies to an empty folder (shape "empty"); this folder is "${shape}": ${folderShape(cwd).next}`);
 const migrating = mode === "migrate";
 const publishedStatic = mode === "published-static";
 const hasProject = shape === "project";
@@ -106,7 +173,7 @@ if (mode === "adopt" && !stackFlag) {
   fail("args", "adopting a project on disk needs --stack astro|react|lib|static — the stack you resolved in SKILL.md step 1 for this project");
 }
 const stack = publishedStatic ? "static" : (stackFlag ?? "astro");
-emit("folder", { mode, shape, stack, project: hasProject ? (pkg?.name ?? basename(cwd)) : null, ...(ctx ? { deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings } : {}), ...(migrating ? { migration: ctx.migration } : {}) });
+emit("folder", { mode, shape, stack, publisher, project: hasProject ? (pkg?.name ?? basename(cwd)) : null, ...(ctx ? { deploySiteId: ctx.deploy.siteId, warnings: ctx.warnings } : {}), ...(migrating ? { migration: ctx.migration } : {}) });
 
 let projectDir = cwd;
 let folderName = null;
@@ -123,6 +190,23 @@ if (mode === "create") {
   projectDir = resolve(cwd, folderName);
   if (existsSync(join(projectDir, "wix.config.json"))) {
     emit("scaffold_skipped", { reason: "project already exists", folder: folderName });
+  } else if (siteFlag) {
+    // ---- 1 · a site provisioned through the Wix MCP: the template copied in, the config and the env
+    // written here; no CLI. The env is what the build reads: the public client id, the cloud provider
+    // the hosting runs the server build on, and stand-ins for the three values the hosting runtime
+    // injects at release (the build only checks they exist).
+    const template = join(templatesDir({ need: `${vertical}/project` }), vertical, "project");
+    emit("scaffolding", { folder: folderName, template, siteId: siteFlag, from: "the Wix MCP's provision call" });
+    mkdirSync(projectDir, { recursive: true });
+    cpSync(template, projectDir, { recursive: true, force: false, errorOnExist: false });
+    const pkgPath = join(projectDir, "package.json");
+    if (existsSync(pkgPath)) {
+      const scaffolded = JSON.parse(readFileSync(pkgPath, "utf8"));
+      scaffolded.name = folderName || "site";
+      writeFileSync(pkgPath, JSON.stringify(scaffolded, null, 2) + "\n");
+    }
+    writeFileSync(join(projectDir, "wix.config.json"), JSON.stringify({ siteId: siteFlag, appId: appFlag }, null, 2) + "\n");
+    writePluginEnv(projectDir);
   } else {
     // The composed template: the CLI copies it in place of its blank one, creates the site and
     // writes wix.config.json; the vertical's code and its lockfile arrive with it. Any other
@@ -257,9 +341,13 @@ emit("agent_configs", writeAgentsMd(projectDir, { skill: basename(SKILL_ROOT), s
 let install = null;
 if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
   const installLog = join(projectDir, "npm-install.log");
-  startBackground("install", [], { cwd: projectDir, log: installLog });
-  install = { log: installLog, doneMarker: ".install-exit", success: "file contains 0" };
-  emit("install_started", install);
+  if (publisher === "plugin") {
+    foregroundInstall(projectDir);
+  } else {
+    startBackground("install", [], { cwd: projectDir, log: installLog });
+    install = { log: installLog, doneMarker: ".install-exit", success: "file contains 0" };
+    emit("install_started", install);
+  }
 }
 
 // ---- 4 · start the seed, detached (a site this run created, with a plan) ---------------------------
@@ -271,10 +359,12 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
 // idempotent by name.
 const madeTheSite = mode === "create" || mode === "adopt";
 let seed = null;
-if (planPath && !madeTheSite) {
+if (planPath && publisher === "plugin") {
+  emit("seed_skipped", { reason: `the seed modules run with the Wix CLI's session, and this run has none: on the plugin route the plan is seeded through ExecuteWixAPI, as ${join(SKILL_ROOT, "guides", "api-run.md")} section 4 describes, with the vertical's SEED.md (${join(TEMPLATES, vertical, "seed", "SEED.md")}) as the contract` });
+} else if (planPath && !madeTheSite) {
   emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (${join(TEMPLATES, vertical, "seed", "read-site.mjs")}), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
 }
-if (planPath && madeTheSite) {
+if (planPath && madeTheSite && publisher === "cli") {
   const seedDir = join(TEMPLATES, vertical, "seed");
   const seedName = existsSync(seedDir)
     ? readdirSync(seedDir).find((f) => f.startsWith("seed-") && f.endsWith(".mjs"))
@@ -288,7 +378,9 @@ if (planPath && madeTheSite) {
 }
 
 // ---- done ----------------------------------------------------------------------------------------
-const release = {
+const release = publisher === "plugin" ? {
+  astro: pluginRelease("expectedHeadRevisionId is the headRevisionId the prepare returned; an attached release of this new site's first build leaves it out (the repository has nothing in it yet)."),
+}[stack] : {
   astro: `npx ${WIX_CLI} build, then npx ${WIX_CLI} release`,
   react: `the project's own build, then npx ${WIX_CLI} release of the build folder named in wix.config.json (what Wix hosting serves and how routes must be shaped: SKILL.md step 1)`,
   lib: `the project's own build, then npx ${WIX_CLI} release of the build folder named in wix.config.json (SKILL.md step 1)`,
@@ -301,6 +393,7 @@ emit("ready_for_brand_layer", {
   mode,
   shape,
   stack,
+  publisher,
   verticals,
   projectDir,
   siteId: migrating ? ctx.content.siteId : siteId,
@@ -314,6 +407,8 @@ emit("ready_for_brand_layer", {
     (publishedStatic ? "a published static site: its pages are live on this site already and keep their URL; move index.html, the other pages, styles and assets into site/ (the root keeps the config, the plan, the seed output and the skills) and wire the solution into the page that needs it; " : "") +
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
+      : madeTheSite && publisher === "plugin"
+      ? `the site is new and empty: seed it through ExecuteWixAPI (guides/api-run.md section 4, the plan per step 2 and the vertical's SEED.md as the contract${planPath ? `, the plan ${planPath}` : ", a plan drafted from the brief"}), and name the placeholder content in the closing message; theme + write the home page; `
       : madeTheSite
       ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
       : `nothing was seeded (setup seeds only a site it created): read what the site holds with ${join(TEMPLATES, vertical, "seed", "read-site.mjs")}, then run ${join(TEMPLATES, vertical, "seed")}/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +

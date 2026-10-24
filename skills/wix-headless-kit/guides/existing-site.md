@@ -10,6 +10,37 @@ part below applies there too, against the migrated site.) `<SKILL_ROOT>` is the 
 in the folder `node <SKILL_ROOT>/install/templates.mjs` prints (`<templates>` below; SKILL.md, "The
 model").
 
+**A site with a Code Store repository** (one released through the upload tool, in this session or
+an earlier one): the project is there, and it is continued, not rebuilt. Its repository is the
+managed project whose id is the site's app id: the `appId` in `wix.config.json` when the folder has
+one, else `POST https://manage.wix.com/_api/companion-apps/v1/companion-apps/get-or-create` with
+body `{}`, whose `companionApp.id` it is. Both calls go through `ExecuteWixAPI` in site scope
+(`siteId` set); an account-scoped token is refused (403).
+
+```text
+POST https://www.wixapis.com/codestore/v2/git-code-store-projects/<appId>/generate-download-url
+{}
+→ { downloadUrl, revision: { id } }
+```
+
+```bash
+curl -o project.zip "<downloadUrl>"    # signed, 5 minutes, no Wix auth
+unzip -q project.zip -d . && rm project.zip
+node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> --site <siteId> --app <appId>
+```
+
+Keep `revision.id`: it is the release's `expectedHeadRevisionId`. The download has no `.env.local`;
+setup writes it, installs when `node_modules` is missing, and scaffolds, deploys and seeds nothing.
+Then edit, `npx astro build`, and upload as SKILL.md step 5 says, with that revision. A 404
+(`NOT_FOUND`, `GIT_BRANCH_NOT_FOUND`) means the site has no project yet: a dropped site has none, its
+pages live only in the drop. On the plugin route that is the create flow against this site: `get-or-create` above gives the
+`appId`, then in an empty folder `node <SKILL_ROOT>/install/setup.mjs --vertical <vertical> --site
+<siteId> --app <appId>`, build, and release through `UploadHeadlessWebsiteFiles` with the
+`headRevisionId` the prepare returns (the drop's import commit, or none); the release replaces the
+dropped pages at the same URL and stores the project. The site owns its content: read it first, and
+seed only what the brief supplies or asks to add. On the CLI route the sections below apply, and the
+first release creates the repository.
+
 **Read the site, then run attach.** First, one call tells you what
 the site is — its name, currency, and the Wix apps installed on it:
 
