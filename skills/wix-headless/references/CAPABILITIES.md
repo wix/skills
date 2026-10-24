@@ -19,7 +19,12 @@ Each built vertical has three parts (the latter two scoped to `create`/backend-o
 
 ## Built verticals — installed, seeded, and described in the Handoff
 
-The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · rentals · pricing-plans · restaurants · portfolio** (with `forms` as the floor when nothing richer is named).
+The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · rentals · pricing-plans · restaurants · portfolio · donations** (with `forms` as the floor when nothing richer is named).
+
+### donations — accept contributions to a cause
+- **Intent:** donate / fundraising / charitable giving / donation campaign / recurring donation. This is not a generic contact form, merchandise purchase or Pricing Plans membership.
+- **Required site features:** a clear giving entry point; live campaign discovery when there are several causes (a single-cause form otherwise); campaign detail with the configured amount/frequency choices and optional features; a working hosted checkout handoff; an honest return/thank-you state.
+- **Implementation checklist:** design from the cause and supplied content; bound mobile imagery so the giving decision is easy to reach; show configured impact text, custom limits, notes and optional fee coverage; make recurring commitments explicit; progress only when configured/readable; no fabricated tax, donor or impact claims. Read the shared Donations experience reference linked by `how-to-code-donations.md`.
 
 ### stores — sell products
 - **Intent:** sell / shop / products / catalog / merch / store.

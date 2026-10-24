@@ -33,14 +33,14 @@ export default function GoalProgress({ goal, className = "", compact = false }: 
             {goal.target}
           </span>
         </p>
-        <p className="text-sm font-semibold text-foreground">{goal.percent}%</p>
+        {goal.raised && <p className="text-sm font-semibold text-foreground">{goal.percent}%</p>}
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-control bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={width} aria-label="Progress toward the goal">
+      {goal.raised && <div className="mt-2 h-2 w-full overflow-hidden rounded-control bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={width} aria-label="Progress toward the goal">
         <div className="h-full rounded-control bg-primary transition-[width]" style={{ width: `${width}%` }} />
-      </div>
-      {(!compact || timeLeft) && (
+      </div>}
+      {((!compact && goal.raised) || timeLeft) && (
         <p className="mt-2 flex justify-between text-xs text-muted-foreground">
-          {!compact && <span>{goal.donationCount === 1 ? "1 donation" : `${goal.donationCount} donations`}</span>}
+          {!compact && goal.raised && <span>{goal.donationCount === 1 ? "1 donation" : `${goal.donationCount} donations`}</span>}
           {timeLeft && <span>{timeLeft}</span>}
         </p>
       )}

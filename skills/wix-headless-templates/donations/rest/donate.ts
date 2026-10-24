@@ -42,10 +42,14 @@ export async function donationCheckoutUrl(campaignId: string, input: DonationInp
     const res = await wixRequest<Raw>("/ecom/v2/carts", { body: cartBody(campaignId, input) });
     cartId = cartIdOf(res);
   } catch (e) {
-    throw checkoutError(e);
+    throw checkoutError(e, "cart");
   }
-  const session = await wixRequest<Raw>("/headless/v1/redirect-session", { body: redirectBody(cartId, campaignId, site, paths) });
-  return redirectUrl(session);
+  try {
+    const session = await wixRequest<Raw>("/headless/v1/redirect-session", { body: redirectBody(cartId, campaignId, site, paths) });
+    return redirectUrl(session);
+  } catch (e) {
+    throw checkoutError(e, "redirect", cartId);
+  }
 }
 
 /**

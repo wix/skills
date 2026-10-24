@@ -26,17 +26,17 @@ function siteCurrency(): Promise<string> {
 }
 
 /** The campaign's currency: the metrics' when a donation exists, else the site's. */
-async function currencyFor(metrics: Raw[]): Promise<string> {
+async function currencyFor(metrics: Raw[] | null): Promise<string> {
   return currencyOf(metrics) || (await siteCurrency());
 }
 
 // GET /donation-campaigns/v2/donation-campaigns/{id}/metrics → { currencyMetricsList: [{ currencyCode, donationCount, totalAmount }] }
-async function metricsOf(campaignId: string): Promise<Raw[]> {
+async function metricsOf(campaignId: string): Promise<Raw[] | null> {
   try {
     const res = await wixRequest<Raw>(`${BASE}/${campaignId}/metrics`, { method: "GET" });
     return (res?.currencyMetricsList ?? []) as Raw[];
   } catch {
-    return []; // metrics are a nicety — the campaign stays correct without them
+    return null; // unavailable is not a successfully-read zero total
   }
 }
 
@@ -65,7 +65,7 @@ export async function fetchCampaign(campaignId: string): Promise<CampaignDetail 
     throw e;
   }
   if (!raw || isArchived(raw)) return null; // an archived campaign is reachable by id but never shows a form
-  const metrics = await metricsOf(campaignId);
+  const metrics = raw.campaignGoal ? await metricsOf(campaignId) : [];
   return toDetail(raw, metrics, await currencyFor(metrics), imgSrc);
 }
 

@@ -8,7 +8,7 @@
 // donations (goal reached / expired) it renders `children` — your closing message — or nothing.
 // The redirect itself is useDonation → donationCheckoutUrl; nothing here builds a URL or marks
 // anything paid.
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useDonation, type UseDonationOptions } from "../../hooks/donations/useDonation";
 import type { CampaignDetail } from "../../wix/donations/types";
 
@@ -23,7 +23,7 @@ export interface DonateFormProps {
 }
 
 const choice = (selected: boolean) =>
-  `cursor-pointer rounded-md border px-4 py-3 text-sm transition-colors ${
+  `relative block cursor-pointer rounded-md border px-4 py-3 text-sm transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary ${
     selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"
   }`;
 
@@ -36,10 +36,10 @@ export default function DonateForm({
 }: DonateFormProps) {
   const d = useDonation(campaign, options);
   const o = campaign.options;
+  const fid = `donate-${campaign.id}-${useId()}`;
   if (!d.available) return children ? <>{children}</> : null;
 
   const show = (field: keyof typeof d.messages) => (d.showErrors && d.messages[field] ? d.messages[field] : null);
-  const fid = `donate-${campaign.id}`;
 
   return (
     <form
@@ -47,43 +47,65 @@ export default function DonateForm({
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        void d.donate().catch(() => {});
+        const form = e.currentTarget;
+        void d.donate().then(() => {
+          if (!d.valid) {
+            // Wait for the store's validation state to render; do not steal focus while typing.
+            requestAnimationFrame(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+          }
+        }).catch((error) => {
+          // The store shows a recoverable message; keep safe diagnostics, not donor data or tokens.
+          console.error("Donation checkout failed", {
+            stage: error?.stage ?? "checkout",
+            status: error?.status,
+            code: error?.body?.details?.applicationError?.code ?? error?.details?.applicationError?.code ?? error?.body?.code,
+          });
+        });
       }}
     >
       {o.frequencies.length > 1 && (
-        <fieldset>
+        <fieldset disabled={d.submitting}>
           <legend className="eyebrow mb-2">How often</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {o.frequencies.map((f) => (
-              <button key={f.value} type="button" role="radio" aria-checked={d.frequency === f.value} className={choice(d.frequency === f.value)} onClick={() => d.setFrequency(f.value)}>
+              <label key={f.value} className={choice(d.frequency === f.value)}>
+                <input type="radio" name={`${fid}-frequency`} value={f.value} checked={d.frequency === f.value}
+                  onChange={() => d.setFrequency(f.value)} className="sr-only"
+                  aria-invalid={!!show("frequency")} aria-describedby={show("frequency") ? `${fid}-frequency-error` : undefined} />
                 {f.label}
-              </button>
+              </label>
             ))}
           </div>
-          {show("frequency") && <p className="mt-2 text-sm text-destructive" role="alert">{show("frequency")}</p>}
+          {show("frequency") && <p id={`${fid}-frequency-error`} className="mt-2 text-sm text-destructive" role="alert">{show("frequency")}</p>}
         </fieldset>
       )}
 
       {(o.presets.length > 0 || o.customAmount.enabled) && (
-        <fieldset>
+        <fieldset disabled={d.submitting}>
           <legend className="eyebrow mb-2">Amount</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {o.presets.map((p) => {
               const selected = !d.customMode && d.presetAmount === p.amount;
               return (
-                <button key={p.amount} type="button" role="radio" aria-checked={selected} className={`${choice(selected)} text-left`} onClick={() => d.selectPreset(p.amount)}>
+                <label key={p.amount} className={`${choice(selected)} text-left`}>
+                  <input type="radio" name={`${fid}-amount-choice`} value={p.amount} checked={selected}
+                    onChange={() => d.selectPreset(p.amount)} className="sr-only"
+                    aria-invalid={!!show("amount")} aria-describedby={show("amount") ? `${fid}-amount-error` : undefined} />
                   <span className="block text-base font-semibold">{p.label}</span>
                   {p.impact && <span className={`mt-0.5 block text-xs ${selected ? "opacity-80" : "text-muted-foreground"}`}>{p.impact}</span>}
-                </button>
+                </label>
               );
             })}
             {o.customAmount.enabled && o.presets.length > 0 && (
-              <button type="button" role="radio" aria-checked={d.customMode} className={choice(d.customMode)} onClick={() => d.selectCustom()}>
+              <label className={choice(d.customMode)}>
+                <input type="radio" name={`${fid}-amount-choice`} value="custom" checked={d.customMode}
+                  onChange={() => d.selectCustom()} className="sr-only"
+                  aria-invalid={!!show("amount")} aria-describedby={show("amount") ? `${fid}-amount-error` : undefined} />
                 Other amount
-              </button>
+              </label>
             )}
           </div>
-          {show("amount") && <p className="mt-2 text-sm text-destructive" role="alert">{show("amount")}</p>}
+          {show("amount") && <p id={`${fid}-amount-error`} className="mt-2 text-sm text-destructive" role="alert">{show("amount")}</p>}
           {d.customMode && (
             <div className="mt-3">
               <label htmlFor={`${fid}-amount`} className="sr-only">
@@ -95,19 +117,20 @@ export default function DonateForm({
                   id={`${fid}-amount`}
                   inputMode="decimal"
                   autoComplete="off"
-                  className="w-full bg-transparent py-3 text-base text-foreground outline-none"
+                  className="min-w-0 flex-1 bg-transparent py-3 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   placeholder={o.customAmount.minLabel ? `${o.customAmount.minLabel} or more` : "Enter an amount"}
                   value={d.customAmount}
                   onChange={(e) => d.setCustomAmount(e.target.value)}
                   aria-invalid={!!show("customAmount")}
+                  aria-describedby={show("customAmount") || o.customAmount.minLabel || o.customAmount.maxLabel ? `${fid}-custom-help` : undefined}
                 />
               </div>
               {(o.customAmount.minLabel || o.customAmount.maxLabel) && !show("customAmount") && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p id={`${fid}-custom-help`} className="mt-1 text-xs text-muted-foreground">
                   {[o.customAmount.minLabel && `Minimum ${o.customAmount.minLabel}`, o.customAmount.maxLabel && `Maximum ${o.customAmount.maxLabel}`].filter(Boolean).join(" · ")}
                 </p>
               )}
-              {show("customAmount") && <p className="mt-1 text-sm text-destructive" role="alert">{show("customAmount")}</p>}
+              {show("customAmount") && <p id={`${fid}-custom-help`} className="mt-1 text-sm text-destructive" role="alert">{show("customAmount")}</p>}
             </div>
           )}
         </fieldset>
@@ -115,7 +138,7 @@ export default function DonateForm({
 
       {o.askCoverFee && (
         <label className="flex items-start gap-3 text-sm text-foreground">
-          <input type="checkbox" className="mt-0.5" checked={d.coverFee} onChange={(e) => d.setCoverFee(e.target.checked)} />
+          <input type="checkbox" className="mt-0.5" checked={d.coverFee} disabled={d.submitting} onChange={(e) => d.setCoverFee(e.target.checked)} />
           <span>
             {d.feeLabel ? `Add ${d.feeLabel} to cover the processing fees` : "Cover the processing fees (2.9%)"}
             {d.frequency && d.frequency !== "ONE_TIME" && <span className="text-muted-foreground"> — on every payment</span>}
@@ -132,14 +155,17 @@ export default function DonateForm({
             id={`${fid}-note`}
             rows={3}
             maxLength={o.commentMaxLength}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
             value={d.note}
             onChange={(e) => d.setNote(e.target.value)}
+            disabled={d.submitting}
+            aria-invalid={!!show("note")}
+            aria-describedby={`${fid}-note-hint${show("note") ? ` ${fid}-note-error` : ""}`}
           />
-          <p className="mt-1 text-right text-xs text-muted-foreground">
+          <p id={`${fid}-note-hint`} className="mt-1 text-right text-xs text-muted-foreground">
             {d.note.length}/{o.commentMaxLength}
           </p>
-          {show("note") && <p className="text-sm text-destructive" role="alert">{show("note")}</p>}
+          {show("note") && <p id={`${fid}-note-error`} className="text-sm text-destructive" role="alert">{show("note")}</p>}
         </div>
       )}
 

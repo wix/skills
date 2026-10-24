@@ -27,6 +27,7 @@ For each capability in `verticals[]`, install its app by `appDefId` (these are t
 - **pricing-plans** → `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`
 - **restaurants** → `b278a256-2757-4f19-9313-c05c783bec92` (Wix Restaurants **Menus** — the seedable core). Online ordering and table reservations are **separate optional apps**, install only if intent calls for them: Orders (New) → `9a5d83fd-8570-482e-81ab-cfa88942ee60`, Table Reservations → `f9c07de2-5341-40c6-b096-8eb39de391fb`. **Experiences** (special dining occasions guests reserve — chef's tables, tasting menus; see `CAPABILITIES.md`) are a **feature of the Table Reservations app, not a separate install** — installing Table Reservations is all that's needed to create and book them (`setup-restaurant-experiences.md`).
 - **portfolio** → `d90652a2-f5a1-4c7c-84c4-d4cdcc41f130` (Wix Portfolio; the install ships a default sample collection + projects — `setup-portfolio.md` STEP 0 cleans them)
+- **donations** → `333b456e-dd48-4d6b-b32b-9fd48d74e163` (Wix Donations), plus Checkout & Orders `1380b703-ce81-ff05-f115-39571d94dfcd`. Confirm installed state and authorized changes first; do not reinstall to fix a malformed cart payload.
 - **cms** → **no install** (Wix Data is core) — skip
 
 For any vertical added later, its appDefId is in the docs — "Apps Created by Wix": <https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md>.

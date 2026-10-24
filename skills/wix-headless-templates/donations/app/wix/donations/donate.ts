@@ -47,10 +47,14 @@ export async function donationCheckoutUrl(campaignId: string, input: DonationInp
     const cart: Raw = await cartV2Api.createCart(cartBody(campaignId, input) as any);
     cartId = cartIdOf(cart);
   } catch (e) {
-    throw checkoutError(e);
+    throw checkoutError(e, "cart");
   }
-  const session: Raw = await redirects.createRedirectSession(redirectBody(cartId, campaignId, site, paths) as any);
-  return redirectUrl(session);
+  try {
+    const session: Raw = await redirects.createRedirectSession(redirectBody(cartId, campaignId, site, paths) as any);
+    return redirectUrl(session);
+  } catch (e) {
+    throw checkoutError(e, "redirect", cartId);
+  }
 }
 
 /**

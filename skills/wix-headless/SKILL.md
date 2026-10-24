@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Connect Wix business services (Stores, Bookings, CMS, Blog, Events, Forms, and more) to a Wix Headless frontend — infer the needed capabilities, install the apps, seed backend content, and produce an SDK-integration guide. For managed (Wix-hosted) projects it can also build the frontend: scaffold a new site (create) or wire an existing/brought-in design (connect), then build and release. Works across managed, self-managed, and stripe project types. Triggers: set up a Wix Headless backend, add Wix business features to my app, build or host a Wix site, connect/implement this design with Wix."
+description: "Connect Wix business services (Stores, Bookings, Donations, CMS, Blog, Events, Forms, and more) to a Wix Headless frontend — infer the needed capabilities, install the apps, seed backend content, and produce an SDK-integration guide. For managed (Wix-hosted) projects it can also build the frontend: scaffold a new site (create) or wire an existing/brought-in design (connect), then build and release. Works across managed, self-managed, and stripe project types. Triggers: set up a Wix Headless backend, add Wix business features to my app, accept donations, build or host a Wix site, connect/implement this design with Wix."
 allowed-tools:
   - Bash(curl *)
   - Bash(npx @wix/cli@latest *)
@@ -107,6 +107,11 @@ Each Wix call uses the universal call shape (`SETUP.md` §1) with `$TOKEN`/`$SIT
 
 > **Don't smoke-test the frontend locally unless the user asks to verify.** The deliverable is the built-and-released site (managed) or the SDK guide (backend-only) — not a local test report. By **default do not** start a dev server (`wix dev` / `astro dev` / `npm run dev`) to curl pages, drive the cart / booking / login flow, or launch a headless browser: correctness comes from following the recipes, real errors surface at `wix build` / `wix release`, and a headless run can't complete an interactive login or a real payment anyway — so these loops routinely burn minutes of wall for little signal (this is distinct from, and in addition to, the "release once at the very end" rule — that one only bans extra *build+release* cycles, not dev-server testing). **Only** spin up a dev server and smoke-test when the user's prompt **explicitly asks to verify / test / confirm it works** — and then keep it to a single lightweight pass (pages compile and render), not a full purchase/booking/login drive. The one post-release check in `<TYPE_DIR>/DEPLOYMENT.md` is the sanctioned verification.
 
+**Donations exception to the smoke-test policy above:** for a build that accepts donations, follow
+the bounded anonymous API handoff check in `references/inline-recipes/how-to-code-donations.md`
+before claiming it works. It does not authorize a payment or campaign mutation, and does not require
+a dev-server testing loop. That recipe also defines the separate hosted-checkout and payment checks.
+
 ## Path resolution
 
 Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL.md`); hold the absolute path in scratch. Then resolve the project type to its folder and hold it too:
@@ -123,7 +128,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
 | Design — fallback visual quality bar for the built frontend, when the user gave no design direction of their own (managed **create** only) | `<SKILL_ROOT>/references/DESIGN.md` |
 | Content — fallback copy quality bar for the built frontend, when the user gave no copy/voice direction of their own (managed **create** only) | `<SKILL_ROOT>/references/CONTENT.md` |
-| Experience overlays — a vertical's own design + copy bar on top of DESIGN/CONTENT (optional per vertical; read when that vertical is loaded) | `<SKILL_ROOT>/references/inline-recipes/experience-<vertical>.md` (today: `experience-store.md`) |
+| Experience overlays — a vertical's own design + copy bar on top of DESIGN/CONTENT (optional per vertical; read when that vertical is loaded) | `<SKILL_ROOT>/references/inline-recipes/experience-<vertical>.md` (today: `experience-store.md`, `experience-donations.md`) |
 | AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
 | Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
