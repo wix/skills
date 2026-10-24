@@ -16,6 +16,7 @@
 // `env pull` runs here when `.env.local` is missing (or --refresh): it is the source of the content
 // identity, and the Astro build refuses to run without it. Non-interactive (CI=1); a failure is
 // reported in `pullError` and the config's ids stand in, so a caller can still work offline.
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -74,6 +75,28 @@ export function publisher() {
 export function npmReachable() {
   const r = npmSync("npm", ["ping", "--no-fund", "--no-audit"], { encoding: "utf8", timeout: 10_000, env: { ...process.env, CI: "1" } });
   return { ok: r.status === 0, detail: r.status === 0 ? null : failure(r, "npm ping failed").trim().slice(-200) };
+}
+
+/**
+ * Whether a build can travel from this shell: the upload tool's presigned URLs are on Amazon S3, and a
+ * sandbox limited to a few hosts gets a proxy's answer there instead of S3's (`Server: AmazonS3`). Measured
+ * with one HEAD request, five seconds at most; the client's attachment carrier is not measurable here.
+ */
+export async function s3Reachable() {
+  // curl first: it is what the shell's upload would use and it honours the shell's proxy settings.
+  const c = spawnSync("curl", ["-sI", "-m", "5", "https://s3.amazonaws.com"], { encoding: "utf8" });
+  if (c.status === 0 && c.stdout) {
+    const server = (c.stdout.match(/^server:\s*(.+)$/im) ?? [])[1]?.trim() ?? "";
+    return { ok: /amazons3/i.test(server), detail: server ? `server: ${server}` : `${c.stdout.split("\n")[0].trim()}, no server header` };
+  }
+  if (c.status !== null && c.error?.code !== "ENOENT") return { ok: false, detail: `curl exited ${c.status}` };
+  try {
+    const r = await fetch("https://s3.amazonaws.com", { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(5_000) });
+    const server = r.headers.get("server") ?? "";
+    return { ok: /amazons3/i.test(server), detail: server ? `server: ${server}` : `status ${r.status}, no server header` };
+  } catch (e) {
+    return { ok: false, detail: String(e?.cause?.code ?? e?.message ?? e).slice(0, 120) };
+  }
 }
 
 const ENV_PULL = ["-y", WIX_CLI, "env", "pull"];
@@ -239,5 +262,8 @@ export function siteContext({ cwd = process.cwd(), pull = "auto" } = {}) {
 if (process.argv[1] && /context\.mjs$/.test(process.argv[1])) {
   const argv = process.argv.slice(2);
   const pull = argv.includes("--no-pull") ? false : argv.includes("--refresh") ? true : "auto";
-  console.log(JSON.stringify(siteContext({ pull }), null, 2));
+  // The carrier is measured only when printing: the scripts that read siteContext() do not decide the route.
+  const ctx = siteContext({ pull });
+  ctx.carrier = { s3: await s3Reachable() };
+  console.log(JSON.stringify(ctx, null, 2));
 }

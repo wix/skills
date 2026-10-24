@@ -98,7 +98,7 @@ vertical needs, in the order that works.
 | Script | Does |
 |---|---|
 | `templates.mjs` | Finds the shipped code (the `wix-headless-templates` skill beside this one), or fetches it once as a sparse clone; prints its folder. |
-| `context.mjs` | Reads `wix.config.json` and `.env.local`, pulls the env on the CLI route when it is missing, and prints the folder's shape, the deploy site and the content site, the publisher (`cli` or `plugin`) and whether npm reaches the registry. Changes nothing. |
+| `context.mjs` | Reads `wix.config.json` and `.env.local`, pulls the env on the CLI route when it is missing, and prints the folder's shape, the deploy site and the content site, the publisher (`cli` or `plugin`), whether npm reaches the registry, and whether the upload tool's S3 host answers from this shell (`carrier.s3`). Changes nothing. |
 | `setup.mjs` | One call from the folder and the brief to a project ready for the brand layer: scaffolds (or, with `--site --app`, copies the composed template and writes the config and env), deploys the vertical's code, writes the agent config files, starts the install, and seeds a site it created. |
 | `attach.mjs` | `setup.mjs` for a site that already exists: does what `wix create` does after creating one (OAuth app, hosting, env, `wix.config.json`) against the site id given, then scaffolds, deploys and installs; seeds only with `--plan`; with `--hosting self`, puts the given origins on the OAuth app's allow-list instead of Wix hosting. |
 | `deploy.mjs` | Composes a vertical's code layers into the project for the stack (`astro`, `react`, `lib`, `static`), adds its dependencies, and keeps the lock valid for `npm ci` (`lock.mjs`). |
@@ -128,6 +128,11 @@ prints which one this machine has, as `publisher`:
   shows `Server: AmazonS3` where they work, and a sandbox limited to a few hosts gets a proxy's
   refusal without that header). The tool releases the build to the site's Wix hosting, stores the project's source in the
   site's Code Store repository, and returns the live URL. The plugin route asks for no login.
+  **The carrier is settled before the build**, from `context.mjs`'s `carrier.s3` and from how the
+  client shows `attachments`: with neither, the Astro build has no way to the site, so the
+  frontend is the static stack instead, `deploy.mjs <vertical> --stack static` (step 1) with the
+  pages dropped by `UploadHeadlessWebsiteFiles` in its `files` form (`guides/api-run.md` step 5);
+  the site, the apps and the seed go through `ExecuteWixAPI` the same way.
 - **`cli`** — where the Wix MCP is not connected, or a Wix CLI session is already on this machine:
   a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
   device-code flow: surface the URL and code to the user, never read tokens into context).
