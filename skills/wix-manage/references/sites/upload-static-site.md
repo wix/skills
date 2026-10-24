@@ -193,8 +193,8 @@ by one of two carriers. Check before starting, measured rather than assumed:
 
 | Carrier | Check |
 | --- | --- |
-| Attachments | Your client passes `attachments` as files (a local path swapped for a download URL when the call is made). |
-| A shell that reaches the internet | `curl -sI https://s3.amazonaws.com` shows `Server: AmazonS3`. The upload URLs are on Amazon S3; a sandbox limited to a few hosts gets a proxy's refusal instead, which is an HTTP answer without that header. |
+| Attachments | Your client passes `attachments` as files (a local path swapped for a download URL when the call is made). The tool's `attachments` description names the clients that do; a client that is not named, or that shows no way to pass a file, has no attachment carrier, whatever its shell can do. |
+| A shell that reaches the internet | `curl -sI -m 25 https://s3.amazonaws.com` answers with S3's own headers: `x-amz-request-id`, and `Server: AmazonS3` unless a proxy in front rewrote the Server header to its own name. The upload URLs are on Amazon S3; a sandbox limited to a few hosts gets a proxy's refusal instead, an HTTP answer with neither header. A sandbox proxy can take ten seconds to answer. |
 
 With neither, no build is released from here. For a new site, publish static
 pages instead. For a site already released as a build, report that it cannot be

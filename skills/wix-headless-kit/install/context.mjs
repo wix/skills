@@ -71,29 +71,40 @@ export function publisher() {
   return existsSync(join(homedir(), ".wix", "auth", "account.json")) ? "cli" : "plugin";
 }
 
-/** Whether the kit runs here: `npm ping` against the configured registry, ten seconds at most. */
+/**
+ * Whether the kit runs here: `npm ping` against the configured registry, thirty seconds at most. A chat
+ * host's sandbox answers through a proxy that can take six seconds to the first byte (measured on one
+ * 2026-10-24), so a short limit reads an open sandbox as closed.
+ */
 export function npmReachable() {
-  const r = npmSync("npm", ["ping", "--no-fund", "--no-audit"], { encoding: "utf8", timeout: 10_000, env: { ...process.env, CI: "1" } });
+  const r = npmSync("npm", ["ping", "--no-fund", "--no-audit"], { encoding: "utf8", timeout: 30_000, env: { ...process.env, CI: "1" } });
   return { ok: r.status === 0, detail: r.status === 0 ? null : failure(r, "npm ping failed").trim().slice(-200) };
 }
 
 /**
  * Whether a build can travel from this shell: the upload tool's presigned URLs are on Amazon S3, and a
  * sandbox limited to a few hosts gets a proxy's answer there instead of S3's (`Server: AmazonS3`). Measured
- * with one HEAD request, five seconds at most; the client's attachment carrier is not measurable here.
+ * with one HEAD request, twenty-five seconds at most (a sandbox proxy can take ten seconds to answer, and a
+ * short limit reads an open sandbox as closed); the client's attachment carrier is not measurable here.
  */
 export async function s3Reachable() {
   // curl first: it is what the shell's upload would use and it honours the shell's proxy settings.
-  const c = spawnSync("curl", ["-sI", "-m", "5", "https://s3.amazonaws.com"], { encoding: "utf8" });
+  // S3 answered when its own headers are there: `x-amz-request-id` always, `Server: AmazonS3` unless a
+  // proxy in front rewrote the Server header (one chat host's proxy answers `server: envoy` and keeps the
+  // x-amz headers). A proxy that refuses the host answers with neither.
+  const fromS3 = (headers) => /^x-amz-request-id:/im.test(headers) || /^server:\s*amazons3/im.test(headers);
+  const c = spawnSync("curl", ["-sI", "-m", "25", "https://s3.amazonaws.com"], { encoding: "utf8" });
   if (c.status === 0 && c.stdout) {
     const server = (c.stdout.match(/^server:\s*(.+)$/im) ?? [])[1]?.trim() ?? "";
-    return { ok: /amazons3/i.test(server), detail: server ? `server: ${server}` : `${c.stdout.split("\n")[0].trim()}, no server header` };
+    const amz = /^x-amz-request-id:/im.test(c.stdout);
+    return { ok: fromS3(c.stdout), detail: `${c.stdout.split("\n")[0].trim()}${server ? `, server: ${server}` : ""}${amz ? ", x-amz-request-id present" : ", no S3 headers"}` };
   }
   if (c.status !== null && c.error?.code !== "ENOENT") return { ok: false, detail: `curl exited ${c.status}` };
   try {
-    const r = await fetch("https://s3.amazonaws.com", { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(5_000) });
+    const r = await fetch("https://s3.amazonaws.com", { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(25_000) });
     const server = r.headers.get("server") ?? "";
-    return { ok: /amazons3/i.test(server), detail: server ? `server: ${server}` : `status ${r.status}, no server header` };
+    const amz = r.headers.has("x-amz-request-id");
+    return { ok: amz || /amazons3/i.test(server), detail: `status ${r.status}${server ? `, server: ${server}` : ""}${amz ? ", x-amz-request-id present" : ", no S3 headers"}` };
   } catch (e) {
     return { ok: false, detail: String(e?.cause?.code ?? e?.message ?? e).slice(0, 120) };
   }
