@@ -1,6 +1,6 @@
 ---
 name: "Upload a Website or HTML Files"
-description: Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated and anonymous publishing, verification, and connecting a Wix business backend. Use for files the user supplies or pages you create for them. Not for migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
+description: Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspect its deployed files and edit them on the same site and URL. Covers file and ZIP uploads, selective additions, replacements and deletions while preserving other files, full-site replacement, authenticated and anonymous publishing, verification, and connecting a Wix business backend; a Wix Astro build is released as a server-rendered site rather than dropped. Use for files the user supplies or pages you create for them. Not for migrating a live site from another platform by URL or CSV (use Site Import), embedding code in an editor-built Wix site, or uploading assets to Media Manager.
 ---
 
 # Upload a Website or HTML Files
@@ -16,6 +16,7 @@ site and are not atomic against another editor.
 | Request | Flow |
 | --- | --- |
 | Publish files as a new site | [Choose an upload route](#before-the-calls), [create once](#create-the-site), upload, [verify](#verify-and-report). |
+| Publish a Wix Astro build | [Create once](#create-the-site) for a new site, then [release it](#release-a-wix-astro-build); it is not dropped. |
 | Inspect or edit a deployed site | [Find its ID](#find-an-existing-site), then [list, read or patch](#change-it-later). Do not create another site. |
 | Replace the entire deployed frontend | Confirm replacement of the serving frontend, then drop the complete intended file set on the same ID. |
 | Make a shop, bookings, forms or other business controls work | [Connect a backend](#connect-a-backend) on the same site. A static upload alone does not make them functional. |
@@ -28,7 +29,8 @@ to inspect files authorizes no writes. Do not create from a template: that
 creates an empty site rather than publishing the supplied files.
 
 Quick reference: [upload through MCP](#drop-through-the-wix-mcp) ·
-[upload with curl](#drop-with-curl) · [list/read](#list-and-read) ·
+[upload with curl](#drop-with-curl) ·
+[release an Astro build](#release-a-wix-astro-build) · [list/read](#list-and-read) ·
 [patch](#patch-files) · [ZIP fallback](#download-edit-drop-fallback) ·
 [images](#images) · [limits/errors](#limits-and-failures).
 
@@ -55,6 +57,18 @@ do not provision an empty site.
 Build projects that need dependencies first, and upload only their static
 output. If your environment cannot build the project, ask for the build output.
 For a Wix business project, follow [Connect a backend](#connect-a-backend).
+
+### Static pages or a Wix Astro build
+
+| What you have | How it goes live |
+| --- | --- |
+| Static pages: HTML, CSS, JS, images, or a static build's output | **Dropped**, by every route in this recipe. |
+| A Wix Astro build: `.wix/build-metadata.json` beside `dist/`, written by `astro build` with the Wix hosting adapter | **Released** as a server-rendered site, by `UploadHeadlessWebsiteFiles` only: [release a Wix Astro build](#release-a-wix-astro-build). Never dropped. |
+
+A build's `dist/client/` dropped as static pages loses its server pages, and a
+drop or patch on a site whose live release is a build replaces the build with
+static files; nothing on the server stops that. [Change it later](#change-it-later)
+tells the two apart before any edit.
 
 The JavaScript examples below run in `ExecuteWixAPI`, not directly in a shell
 or browser. Without MCP, use the curl examples and edit downloaded files locally;
@@ -167,6 +181,45 @@ curl -sS -X POST \
 A single ZIP part also works: it is unpacked server-side with one wrapping
 folder stripped. `siteUrl` is the final address.
 
+## Release a Wix Astro build
+
+This recipe releases a build you have. Making one is the Wix Headless kit's run
+(`https://www.wix.com/skills/headless-cold-start/headless-kit.md`), which states
+its own requirements: Node, a reachable npm registry, the project's install. A
+sandbox with no network cannot make one.
+
+**Who releases from here:** the build has to reach `UploadHeadlessWebsiteFiles`,
+by one of two carriers. Check before starting, measured rather than assumed:
+
+| Carrier | Check |
+| --- | --- |
+| Attachments | Your client passes `attachments` as files (a local path swapped for a download URL when the call is made). |
+| A shell that reaches the internet | `curl -sI https://s3.amazonaws.com` shows `Server: AmazonS3`. The upload URLs are on Amazon S3; a sandbox limited to a few hosts gets a proxy's refusal instead, which is an HTTP answer without that header. |
+
+With neither, no build is released from here. For a new site, publish static
+pages instead. For a site already released as a build, report that it cannot be
+changed from this environment, and change nothing.
+
+A build goes through `UploadHeadlessWebsiteFiles` and nothing else: no drop
+route takes it. The site stays the same, at the same URL, now server-rendered.
+
+- **Attached:** zip the project from its root after `astro build`, leaving out
+  `node_modules`, `.env*` and caches, and pass the ZIP as `attachments`. The
+  tool releases the build and stores the rest as the project's source in the
+  site's Code Store repository, where a later session continues from. A ZIP of
+  only `.wix/` and `dist/` releases too, storing no source.
+- **From a shell, without attachments:** two calls. `{ siteId, prepare: true, size }`
+  with the ZIP's `size` (`wc -c < build.zip`) answers with `curl` commands for
+  the build ZIP and, when the site's repository takes it, a source ZIP; run them
+  as given, then make the second call it names, with `uploadKey`. A 404 on the
+  second call means the upload URL expired: prepare again.
+
+`expectedHeadRevisionId` is the repository revision the project started from:
+the `headRevisionId` the prepare returned for a project made in this run, or
+the `revision.id` it was [downloaded at](#a-site-released-as-a-wix-astro-build).
+`EXPECTED_HEAD_REQUIRED` or a 409 means the repository holds newer work:
+download it, carry the change over, and release again.
+
 ## Find an existing site
 
 Reuse the ID from the earlier upload. If only a name or URL is known, query the
@@ -192,7 +245,66 @@ Unclaimed anonymous sites instead use their saved ID and
 
 ## Change it later
 
-Use the same site ID and URL. With `ExecuteWixAPI`, prefer its file helpers
+Use the same site ID and URL. The file helpers and the ZIP fallback below edit
+static pages: they read the site's last drop and drop the result. A site whose
+live release is a Wix Astro build is changed in its project instead; a drop or
+patch there replaces the build with static files, and the server does not stop
+it. So first tell what is live.
+
+When this conversation published the site, or the user says how it was made,
+you know. Otherwise one read-only call tells, in `ExecuteWixAPI`:
+
+```javascript
+async function run() {
+  return wix.request({ scope: 'account', method: 'GET',
+    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/META_SITE_ID/files' });
+}
+// 200 { revision, files: [{ path, size }] }: the live site is its last static drop
+```
+
+| Answer | What is live | Do |
+| --- | --- | --- |
+| `200` | Its last static drop | [Edit the static pages](#a-site-of-static-pages). |
+| `409 LIVE_SITE_CHANGED` | A release replaced the last drop: a Wix Astro build | [Change the project](#a-site-released-as-a-wix-astro-build). No drop, no patch. |
+| `404 SITE_CODE_NOT_FOUND` | Nothing was ever dropped | Open the live URL. Pages there mean a build released without a drop: change the project. Nothing there means an empty site: drop as for a new one. |
+
+### A site released as a Wix Astro build
+
+The project lives in the site's Code Store repository, which is the managed
+project whose id is the site's app id: `appId` in `wix.config.json`, or the
+companion app. In `ExecuteWixAPI`, in site scope:
+
+```javascript
+async function run() {
+  const siteId = 'META_SITE_ID';
+  const app = await wix.request({ scope: 'site', siteId, method: 'POST',
+    url: 'https://manage.wix.com/_api/companion-apps/v1/companion-apps/get-or-create', body: {} });
+  const appId = app.data.companionApp.id;
+  try {
+    const dl = await wix.request({ scope: 'site', siteId, method: 'POST',
+      url: `https://www.wixapis.com/codestore/v2/git-code-store-projects/${appId}/generate-download-url`, body: {} });
+    return { appId, downloadUrl: dl.data.downloadUrl, revision: dl.data.revision };
+  } catch (e) {
+    return { appId, repository: false, error: String(e.message).slice(0, 200) };
+  }
+}
+```
+
+- **A download URL:** from a shell, `curl -o project.zip "<downloadUrl>"` (the
+  URL is signed and lasts 5 minutes; `ExecuteWixAPI` cannot fetch it), unpack,
+  `npm ci`, make the change, `npx astro build`, and
+  [release the build](#release-a-wix-astro-build) with `revision.id` as
+  `expectedHeadRevisionId`. The download holds the project without
+  `node_modules` or `.env*` files. Without a shell that can build, report that
+  the site is a server-rendered project and change nothing.
+- **A 404 (`NOT_FOUND`, `GIT_BRANCH_NOT_FOUND`), or a repository whose root
+  holds `index.html` rather than a project:** the project's source was not
+  stored with the release. The site can be changed only from the project where
+  it was built; report that, and change nothing here.
+
+### A site of static pages
+
+With `ExecuteWixAPI`, prefer its file helpers
 for selective edits, not `UploadHeadlessWebsiteFiles`: sending only changed
 files to that upload tool would remove omitted files. Without MCP, go directly
 to the [ZIP fallback](#download-edit-drop-fallback).
@@ -466,12 +578,15 @@ Wix MCP.
   `index.html` or `index.htm`.
 - 20 MB per file and site; `UploadHeadlessWebsiteFiles` limits each call
   to 10 MB. Patch also limits the final snapshot to 2,000 files.
-- Drop serves static files, not unbuilt project source.
+- Drop serves static files, not unbuilt project source. A Wix Astro build is
+  [released](#release-a-wix-astro-build), not dropped.
 
 | Failure | Action |
 | --- | --- |
 | `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
 | Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
+| `409 LIVE_SITE_CHANGED` from the files endpoint or a patch | The live site is a Wix Astro build, not its last drop: [change the project](#a-site-released-as-a-wix-astro-build). Do not drop. |
+| Release `400 EXPECTED_HEAD_REQUIRED` / `409` | The repository holds newer work than the project started from: download it, carry the change over, release again. |
 | Drop/upload `500` | Inspect current state before retrying once; retain the request ID if it fails again and offer the drop page. Hand-built malformed multipart can also cause this: use `wix.multipart`. |
 | Anonymous `404` | The hour expired or the site was claimed; do not create a replacement without explaining. |
 
