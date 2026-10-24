@@ -212,7 +212,11 @@ route takes it. The site stays the same, at the same URL, now server-rendered.
   with the ZIP's `size` (`wc -c < build.zip`) answers with `curl` commands for
   the build ZIP and, when the site's repository takes it, a source ZIP; run them
   as given, then make the second call it names, with `uploadKey`. A 404 on the
-  second call means the upload URL expired: prepare again.
+  second call means the upload URL expired: prepare again. A prepared upload is
+  finished by that second call and by nothing else: a release made another way
+  (the ZIP attached, say) leaves the prepared upload behind and releases without
+  its source, so a prepare that failed on the way is prepared again, not replaced
+  by another carrier.
 
 `expectedHeadRevisionId` is the repository revision the project started from:
 the `headRevisionId` the prepare returned for a project made in this run, or
