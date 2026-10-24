@@ -124,15 +124,17 @@ prints which one this machine has, as `publisher`:
   `SEED.md` (`guides/api-run.md` section 4); the release is `npx astro build`, then the build
   uploaded with `UploadHeadlessWebsiteFiles` (step 5), attached in one call where the client shows
   `attachments` as a local path, or in two calls with `curl` to the URLs the first returns, from a
-  shell that reaches the internet (the URLs are on Amazon S3; `curl -sI https://s3.amazonaws.com`
-  shows `Server: AmazonS3` where they work, and a sandbox limited to a few hosts gets a proxy's
-  refusal without that header). The tool releases the build to the site's Wix hosting, stores the project's source in the
+  shell that reaches the internet (the URLs are on Amazon S3; `curl -sI -m 25 https://s3.amazonaws.com`
+  answers with S3's own headers where they work, `x-amz-request-id` and usually `Server: AmazonS3`,
+  and a sandbox limited to a few hosts gets a proxy's refusal with neither). The tool releases the build to the site's Wix hosting, stores the project's source in the
   site's Code Store repository, and returns the live URL. The plugin route asks for no login.
-  **The carrier is settled before the build**, from `context.mjs`'s `carrier.s3` and from how the
-  client shows `attachments`: with neither, the Astro build has no way to the site, so the
-  frontend is the static stack instead, `deploy.mjs <vertical> --stack static` (step 1) with the
-  pages dropped by `UploadHeadlessWebsiteFiles` in its `files` form (`guides/api-run.md` step 5);
-  the site, the apps and the seed go through `ExecuteWixAPI` the same way.
+  **The carrier is settled before the build**, from `context.mjs`'s `carrier.s3` and from whether
+  the client hands `attachments` over as files (the tool's `attachments` description names the
+  clients that do): with neither, the Astro build has no way to the site and the run is
+  `guides/api-run.md`, the site, the apps and the seed through `ExecuteWixAPI` and the frontend as
+  a few small static pages dropped in the tool's `files` form, written against the kit's REST
+  twins and cores as reference (its step 5); the compose is not run, since every file it writes
+  would have to be written out as text.
 - **`cli`** — where the Wix MCP is not connected, or a Wix CLI session is already on this machine:
   a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
   device-code flow: surface the URL and code to the user, never read tokens into context).
@@ -350,9 +352,9 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
      and `dist/` in it), passed as `attachments`. The build is released and the source in the same
      zip is stored.
    - **two calls**, from a shell that reaches the internet (the upload URLs are on Amazon S3:
-     `curl -sI https://s3.amazonaws.com` shows `Server: AmazonS3` where they work; a sandbox
-     limited to a few hosts gets a proxy's refusal without that header, and cannot release a build
-     this way): the build zip (`zip -qr build.zip dist .wix`) and the source zip, the project
+     `curl -sI -m 25 https://s3.amazonaws.com` answers with S3's own headers where they work,
+     `x-amz-request-id` and usually `Server: AmazonS3`; a sandbox limited to a few hosts gets a
+     proxy's refusal with neither, and cannot release a build this way): the build zip (`zip -qr build.zip dist .wix`) and the source zip, the project
      without `node_modules`, `dist`, `.wix`, `.astro`, `.env*`, `.agents`
      (`zip -qr source.zip . -x 'node_modules/*' 'dist/*' '.wix/*' '.astro/*' '.agents/*' '.env*' 'build.zip'`).
      First `{ siteId, prepare: true, size }`, `size` being `wc -c < build.zip`: the reply gives a

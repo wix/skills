@@ -22,17 +22,20 @@ is built:
   Node but no route to npm does not qualify.
 - **The build reaches the upload tool**: `UploadHeadlessWebsiteFiles` takes it as an attachment (a
   client that shows `attachments` as a local path swaps the path for a download URL when the call is
-  made), or, from a shell that reaches the internet, by `curl` to the presigned URLs the tool
+  made; the tool's `attachments` description names the clients that do, and a client that does not
+  has no attachment carrier, whatever its shell can do), or, from a shell that reaches the internet, by `curl` to the presigned URLs the tool
   returns: a first call prepares the upload, a second releases it, and no process has to outlive a
-  tool call. The URLs are on Amazon S3: `curl -sI https://s3.amazonaws.com` shows `Server: AmazonS3`
-  where they work; a sandbox limited to a few hosts gets a proxy's refusal without that header, and
-  has a shell but not this carrier. A sandbox with the MCP, Node and npm but neither carrier can
+  tool call. The URLs are on Amazon S3: `curl -sI -m 25 https://s3.amazonaws.com` answers with S3's
+  own headers where they work (`x-amz-request-id`; `Server: AmazonS3` unless a proxy in front rewrote
+  it to its own name); a sandbox limited to a few hosts gets a proxy's refusal with neither, and has a
+  shell but not this carrier. A sandbox proxy can take ten seconds to answer, so a short timeout reads
+  an open sandbox as closed. A sandbox with the MCP, Node and npm but neither carrier can
   build an Astro project and never release it: the plugin route is not for it.
 
 | | Wix MCP connected | no Wix MCP tools |
 |---|---|---|
 | the kit runs here, the build reaches the upload tool | **the plugin route.** The site is provisioned through `ExecuteWixAPI`, the kit's Astro project is built here with `astro build`, and the build is released by `UploadHeadlessWebsiteFiles`: one call with the zip attached, or two calls with `curl` between them from a shell that reaches the internet. No Wix CLI, no login, no bootstrap. | **the CLI route.** The bootstrap checks the Wix CLI and logs the user in (a device code the user approves in their own browser); `wix create` makes the site, `wix release` publishes. |
-| the kit runs here, no carrier for a build | **the plugin route with static pages.** The site is provisioned and seeded through `ExecuteWixAPI` as above; the frontend is the kit's static stack, `deploy.mjs <vertical> --stack static` (the REST layer composed into the pages' folder, `wix-headless-kit/SKILL.md` step 1), and the pages are dropped onto the site by `UploadHeadlessWebsiteFiles` in its `files` text form, as the upload recipe says (`wix-headless-kit/guides/api-run.md` step 5). No Astro build. | the CLI route, as above. |
+| the kit runs here, no carrier for a build | **the API-call guide** (`wix-headless-kit/guides/api-run.md`): the site, the apps and the seed through `ExecuteWixAPI` as above, and the frontend as static pages dropped in the upload tool's `files` text form. Its step 5 sizes the pages to that carrier: every file sent is text written out, so the pages are a few small files that call the site as a visitor, with the kit's REST twins and cores read as the reference; the compose, whose ten modules would all have to be written out, is not run. No Astro build. | the CLI route, as above. |
 | the kit does not run here | **the API-call guide**: the same run as Wix API calls through `ExecuteWixAPI`, the frontend as static pages dropped onto the site (`wix-headless-kit/guides/api-run.md`). | ask the user to connect Wix to this chat (the Wix connector or MCP server, in the client's settings; a plugin's connector included), then the row above. |
 
 A Wix CLI session already on the machine (`~/.wix/auth/account.json`, what `wix login` writes) makes
