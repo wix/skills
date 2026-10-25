@@ -211,7 +211,8 @@ route takes it. The site stays the same, at the same URL, now server-rendered.
 - **From a shell, without attachments:** two calls. `{ siteId, prepare: true, size }`
   with the ZIP's `size` (`wc -c < build.zip`) answers with `curl` commands for
   the build ZIP and, when the site's repository takes it, a source ZIP; run them
-  as given, then make the second call it names, with `uploadKey`. A 404 on the
+  as given, then make the second call it names:
+  `{ siteId, uploadKey, sourceUploadId?, expectedHeadRevisionId?, releaseNotes? }`. A 404 on the
   second call means the upload URL expired: prepare again. A prepared upload is
   finished by that second call and by nothing else: a release made another way
   (the ZIP attached, say) leaves the prepared upload behind and releases without
