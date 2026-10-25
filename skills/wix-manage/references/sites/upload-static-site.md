@@ -476,12 +476,14 @@ If a call fails after publishing, inspect the current snapshot before retrying:
 the write may have succeeded and only its subsequent verification failed.
 Avoid repeating a mutation merely because the last call returned an error.
 
-Give the live URL, what changed, what was verified, and any missing assets.
-On first authenticated publish (or after claim), also give
-`https://manage.wix.com/dashboard/{metaSiteId}` and
-[domain connection](../domains/domain-search-purchase-and-connect.md) options
-for a Wix-purchased or existing domain. For an unclaimed anonymous site, give
-the live URL and private save link instead, not a dashboard link.
+Give the user two links, each on its own line and named for what it is: the
+live site, `{siteUrl}`, and the site's dashboard,
+`https://manage.wix.com/dashboard/{metaSiteId}`. Every publish and every edit
+closes with both. Then what changed, what was verified, any missing assets, and
+[domain connection](../domains/domain-search-purchase-and-connect.md) options:
+a domain bought through Wix, or one the user already owns. For an unclaimed
+anonymous site, give the live URL and private save link instead, not a
+dashboard link.
 
 ## Connect a backend
 
