@@ -28,9 +28,15 @@
     "./skills/wix-vibe-headless",
     "./skills/wix-docs",
     "./skills/wix-export",
-    "./skills/wix-import"
+    "./skills/wix-import",
+    "./skills/wix-readme"
   ],
   "mcpServers": "./.mcp.json",
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/wix-readme/SKILL.md"
+    }
+  },
   "interface": {
     "displayName": "Wix",
     "shortDescription": "Build Wix apps, headless websites, and manage your Wix business from Codex",

@@ -22,6 +22,7 @@ Build Wix apps and headless websites, and manage your Wix business, from Antigra
   - `wix-headless-templates`: the shipped per-solution code `wix-headless-kit` builds from.
   - `wix-vibe-headless`: connect an existing front end to a live Wix site over client-only REST.
   - `wix-docs`: look up an exact Wix endpoint, field or schema before writing code.
+  - `wix-readme`: the index of the plugin: its skills and the Wix MCP tools, with what each does.
 
 ## Requirements
 

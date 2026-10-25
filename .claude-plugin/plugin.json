@@ -19,7 +19,8 @@
     "./skills/wix-vibe-headless",
     "./skills/wix-docs",
     "./skills/wix-export",
-    "./skills/wix-import"
+    "./skills/wix-import",
+    "./skills/wix-readme"
   ],
   "mcpServers": "./.mcp.json"
 }
