@@ -118,6 +118,8 @@ You have two endpoints:
      }'
    ```
 
+   **With `publish: true`, the post is live once this call returns 200, even if the response reads `draftPost.status: "UNPUBLISHED"`.** The same response carries `changeOrigin: "PUBLISH"` and `hasUnpublishedChanges: false`. Do not call Publish Draft Post, search for a publish endpoint, or create the post again. To confirm it is live, read it back with [Get Post](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/get-post): `GET https://www.wixapis.com/blog/v3/posts/{draftPost.id}` returns 200 with `post.id` equal to `draftPost.id` and a `post.firstPublishedDate`.
+
 #### Bulk-create endpoint (preferred for multiple posts)
 
 > **⚠️ Body shape — read this carefully. Each item in `draftPosts` is a FLAT post object: `{title, memberId, richContent, media?, ...}`. Do NOT wrap each item in a `draftPost` field.** Unlike the single-post endpoint (which uses `{draftPost: {...}}` because the request is one post), the bulk endpoint puts each post DIRECTLY inside the `draftPosts` array.
