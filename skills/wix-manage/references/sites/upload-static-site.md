@@ -105,14 +105,14 @@ when available for Wix skill/docs URLs, with web fetch as fallback.
 ## Create the site
 
 Create only for a new site. Use the page title, at most 40 characters. Keep
-`origin: 'drop'`, empty `seedOptions`, and both synchronous steps:
+`origin: 'agent'` and both synchronous steps:
 
 ```javascript
 async function run() {
   return wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-    body: { origin: 'drop',
-      newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' }, seedOptions: [] },
+    body: { origin: 'agent',
+      newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' } },
       synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] }
   });
 }
@@ -124,7 +124,7 @@ The shell equivalent:
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"origin":"drop","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[]},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
+  -d '{"origin":"agent","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"}},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
 ## Drop through the Wix MCP

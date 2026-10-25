@@ -77,7 +77,7 @@ A brief that needs no solution (a game, a landing page, a tool) is a run of two 
 ## 2. The site
 
 The CLI's `npm create @wix/new` is one call: `POST /headless-business-setup/v1/headless-business/provision`,
-with `origin: "drop"`, a name, and the solutions to install as `seedOptions`. The recipe
+with `origin: "agent"` and a name. The recipe
 is `{MANAGE}/references/sites/create-headless-site.md`; it returns the `metaSiteId` and the
 site's OAuth client `appId`. Do not create a site any other way: a project from Create Project or
 a template is neither headless nor publishable, and a later run with a machine cannot attach to it.

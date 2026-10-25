@@ -25,6 +25,7 @@ curl -X POST \
   -d '{
     "oAuthApp": {
       "name": "My Storefront",
+      "origin": "agent",
       "loginUrl": "https://example.com/login",
       "allowedRedirectUris": ["https://example.com/callback"],
       "allowedRedirectDomains": ["example.com"]
