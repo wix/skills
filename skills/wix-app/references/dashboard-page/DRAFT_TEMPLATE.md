@@ -1,6 +1,6 @@
 # Draft Template — the starting point for every dashboard page
 
-**Start here for any Dashboard Page request, before writing a shell, provider, or router from scratch.** The templates themselves ship inside the installed `@wix/patterns`: whole, working pages that the package type-checks against its own release, so they never drift from the version your code compiles against. This file says how to find one, where its files go in a Wix CLI app, and what this skill adds on top. Which template fits, and the wiring each one must keep, is the package's answer — read it there.
+**Start here for any Dashboard Page request, before writing a shell, provider, or router.** Page templates ship inside the installed `@wix/patterns`. This file covers finding and placing their files in a Wix CLI app; the package's `Page Templates.md` chooses the template and explains its wiring.
 
 Go through [WIX_PATTERNS_DOCS.md § Prerequisites](../WIX_PATTERNS_DOCS.md#prerequisites) first for `<pkgRoot>`; every path below is relative to it.
 
@@ -12,7 +12,7 @@ One call lists every page template with its files, plus the guide that chooses b
 node <pkgRoot>/bin/patterns-lookup.cjs --templates
 ```
 
-It also takes names (`--templates Table useTableCollection …`), so the patterns names you already know you'll need can go in the same call ([WIX_PATTERNS_DOCS.md § 1](../WIX_PATTERNS_DOCS.md#1--the-index)). If the script is missing (an older `@wix/patterns`), list those entries from `<pkgRoot>/dist/docs/index.json` in one probe.
+Add known symbols to the same call (`--templates Table useTableCollection`). Without the script, probe the Templates entries in `<pkgRoot>/dist/docs/index.json` once.
 
 **No `Templates` entries means the install predates them — upgrade `@wix/patterns`.** Do not rebuild a page from memory or from an older copy of this skill instead: the templates exist so the shell, provider nesting and router wiring come from the package.
 
@@ -53,6 +53,8 @@ Then copy **every** file `--templates` lists for it into the generated folder (`
 
 - **Theme the entry file.** In it, replace the template's `WixDesignSystemProvider` and its `@wix/design-system/styles.global.css` import with the app's `BusinessManagerTheme` — written once per app ([BUSINESS_MANAGER_THEME.md § 2](../BUSINESS_MANAGER_THEME.md#2-the-wrapper--write-this-file-once-per-app)), kept in the entry file so it sits above `WixPatternsProvider`. **Business Manager passes none of the redesign through the extension's iframe**, so the bare provider renders the pre-redesign look while `tsc`, `wix build` and `wix preview` all pass.
 
+**If the page needs tabs:** Start from a Patterns template. When tabs navigate between different sections, use WDS `Tabs`, reuse the template’s provider and router, and keep Patterns components for managing each section’s entities. Adapt the routes and navigation together so opening an entity and returning selects the correct section. When tabs only filter the same entity list, pass Patterns `TabsFilter` to the Table’s `tabs` prop.
+
 ## 4. Replace the data file
 
 Each template's data file (`items-api.ts`, `settings-api.ts`) is an in-memory stand-in with the signatures the pages call. Replace the bodies, keep the signatures:
@@ -79,7 +81,7 @@ npm dedupe
 find node_modules -path '*@wix/patterns/package.json' -not -path '*/dist/*'
 ```
 
-More than one line is a bug that `tsc` and `wix build` both pass. Declared ranges produce it when `@wix/patterns` ships ahead of `@wix/patterns-cms`, or a lockfile holds an older one. Run the second `npm install` line above, then the check again.
+More than one copy breaks shared context despite passing `tsc` and build. Align the versions with the second install command above, then check again.
 
 ### Turning `query.search` into a query
 
