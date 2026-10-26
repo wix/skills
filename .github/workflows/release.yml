@@ -1,28 +1,30 @@
 name: Publish @wix/agent-skills to npm
 
-# pull_request_target, not pull_request: under pull_request, closing a PR without merging runs this
-# workflow from the PR's own copy, with this job's secrets. pull_request_target always runs main's.
+# Runs on every push to main that touches package.json (the mirror sync of a release bump lands as
+# such a push) and publishes when the version it names is not on npm yet. A push run's OIDC token
+# carries ref refs/heads/main, which npm trusted publishing accepts; the pull_request_target runs
+# used before were refused with a PUT 404 (2026-10-07, 2026-10-25) and needed a manual dispatch.
 on:
-  pull_request_target:
-    types: [closed]
-  # Manual fallback: publishes whatever version main's package.json names. Needed on 2026-10-07 when
-  # the pull_request_target run's OIDC token was refused by npm trusted publishing (PUT 404).
+  push:
+    branches: [main]
+    paths: [package.json]
+  # Manual fallback: publishes whatever version main's package.json names, if not published yet.
   workflow_dispatch:
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
   contents: write # to push the release tag
 
+concurrency:
+  group: publish-agent-skills
+  cancel-in-progress: false
+
 jobs:
   publish:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true &&
-       contains(github.event.pull_request.labels.*.name, 'release'))
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main (post-merge)
+      - name: Checkout main
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: main
@@ -37,12 +39,23 @@ jobs:
 
       - name: Resolve version
         id: version
-        run: echo "tag=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          if npm view "@wix/agent-skills@${VERSION}" version >/dev/null 2>&1; then
+            echo "published=true" >> $GITHUB_OUTPUT
+            echo "@wix/agent-skills@${VERSION} is already on npm; nothing to publish."
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publish to npm (trusted publishing)
+        if: steps.version.outputs.published == 'false'
         run: npm publish --provenance --access=public
 
       - name: Tag the release commit
+        if: steps.version.outputs.published == 'false'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
