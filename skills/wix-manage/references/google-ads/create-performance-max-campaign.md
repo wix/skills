@@ -4,7 +4,7 @@ description: "Creates and launches a Google Ads Performance Max (PMAX) campaign 
 ---
 # RECIPE: Create and Launch a Performance Max Campaign
 
-A **Performance Max (PMAX)** campaign runs across every Google channel from a single **asset group** — a bundle of headlines, descriptions, images, and (optionally) videos that Google mixes into ads. There are three flavors, set by `campaignType`:
+A **Performance Max (PMAX)** campaign runs across every Google channel from a single **asset group** — a bundle of headlines, descriptions, and images that Google mixes into ads. There are three flavors, set by `campaignType`:
 
 - **`PERFORMANCE_MAX`** — general multi-channel campaign.
 - **`PERFORMANCE_MAX_LEADS`** — lead-gen variant (phone/form conversions, search-theme signals, negative keywords, a ~28-day learning phase). **Requires** at least one asset group with headlines, descriptions, and images; assets are validated synchronously, so bad assets fail the create call immediately.
@@ -110,19 +110,19 @@ Use `recommendedBudgetAmountMicros` as `budget.amountMicros`, or present the `bu
 
 ## Assemble & create the campaign (in PAUSED)
 
-An **asset group** lives at `performanceMaxCampaign.assetGroups[]`. Its creative assets go under `assetGroupAssets.assets[]` — each asset sets **exactly one** payload field plus its `assetFieldType`. For a PMAX Leads asset group, meet Google's minimums or the create call fails with `NOT_ENOUGH_ASSETS`:
+An **asset group** lives at `performanceMaxCampaign.assetGroups[]`. Its creative assets go under `assetGroupAssets.assets[]` — each asset sets **exactly one** payload field plus its `assetFieldType`. For a PMAX Leads asset group, keep each asset type within its count below, or the create call fails with `INVALID_ASSET_GROUP_ASSETS`:
 
 | Asset | Payload field | `assetFieldType` | Count | Max chars |
 | --- | --- | --- | --- | --- |
 | Short headline | `headlineAsset.text` | `HEADLINE` | 3–15 | 30 |
-| Long headline | `longHeadlineAsset.text` | `LONG_HEADLINE` | exactly 1 | 90 |
-| Description | `descriptionAsset.text` | `DESCRIPTION` | 2–4 | 90 |
+| Long headline | `longHeadlineAsset.text` | `LONG_HEADLINE` | 1–5 | 90 |
+| Description | `descriptionAsset.text` | `DESCRIPTION` | 2–5 | 90 |
 | Business name | `businessNameAsset.text` | `BUSINESS_NAME` | exactly 1 | 25 |
-| Landscape image (1.91:1) | `imageAsset.{name,url}` | `MARKETING_IMAGE` | ≥1 | — |
-| Square image (1:1) | `imageAsset.{name,url}` | `SQUARE_MARKETING_IMAGE` | ≥1 | — |
-| Logo (1:1) | `imageAsset.{name,url}` | `LOGO` | ≥1 | — |
-| CTA button | `callToActionSelectionAsset.callToAction` | `CALL_TO_ACTION_SELECTION` | optional | `LEARN_MORE` \| `SHOP_NOW` \| `SIGN_UP` \| `CONTACT_US` |
-| YouTube video | `youtubeVideoAsset.{title,id}` | `YOUTUBE_VIDEO` | optional (1–5) | 11-char video id |
+| Landscape image (1.91:1) | `imageAsset.{name,url}` | `MARKETING_IMAGE` | 1–20 | — |
+| Square image (1:1) | `imageAsset.{name,url}` | `SQUARE_MARKETING_IMAGE` | 1–20 | — |
+| Logo (1:1) | `imageAsset.{name,url}` | `LOGO` | 1–5 | — |
+
+Call-to-action, YouTube video, and media bundle assets are not supported — leave them out of the asset group.
 
 Image `url` must be a Wix Media Manager URL (`static.wixstatic.com`) — the STEP 2 generated images already are; for other images, upload via the Media Manager first (see [Upload Media to Wix](../media/upload-media-to-wix.md)). Search themes go under `assetGroupSignals.signals[]` (PMAX Leads).
 
@@ -155,7 +155,7 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
             { "businessNameAsset": { "text": "Sunrise Bakery" }, "assetFieldType": "BUSINESS_NAME" },
             { "imageAsset": { "name": "storefront-banner", "url": "https://static.wixstatic.com/media/abc123.jpg" }, "assetFieldType": "MARKETING_IMAGE" },
             { "imageAsset": { "name": "product-square",    "url": "https://static.wixstatic.com/media/def456.jpg" }, "assetFieldType": "SQUARE_MARKETING_IMAGE" },
-            { "callToActionSelectionAsset": { "callToAction": "SHOP_NOW" }, "assetFieldType": "CALL_TO_ACTION_SELECTION" }
+            { "imageAsset": { "name": "bakery-logo",       "url": "https://static.wixstatic.com/media/ghi789.png" }, "assetFieldType": "LOGO" }
           ] },
           "assetGroupSignals": { "signals": [
             { "searchTheme": { "text": "artisan bakery" } },
@@ -192,7 +192,7 @@ Returns the campaign with an updated `status`. Ads begin serving across Google c
 | --- | --- | --- |
 | `ACCOUNT_NOT_FOUND` | No Google Ads account | Run [install-and-create-account](install-and-create-account.md) |
 | `INVALID_ARGUMENT` / `NOT_ENOUGH_ASSETS` | Asset group below minimums | Add assets to meet the per-type counts in the table |
-| `INVALID_ARGUMENT` / `INVALID_ASSET_GROUP_ASSETS` | An asset is malformed or violates Google requirements | Fix the offending asset (length, type, url) |
+| `INVALID_ARGUMENT` / `INVALID_ASSET_GROUP_ASSETS` | An asset type's count is outside its range in the table, an asset type is unsupported, or an asset is malformed | Fix the count or the offending asset (length, type, url) |
 | `INVALID_ARGUMENT` / `INVALID_IMAGE_FORMAT` | Image format/dimensions unsupported | Use a supported ratio/size; regenerate via image-asset-suggestions |
 | `INVALID_ARGUMENT` / `DUPLICATE_IMAGE_ASSETS` / `DUPLICATE_ASSET` | Same asset provided twice | Deduplicate the asset group |
 | `INVALID_ARGUMENT` / `SEARCH_THEME_POLICY_VIOLATION` / `POLICY_VIOLATION` | A signal/asset violates Google policy | Remove or rewrite the flagged item |
