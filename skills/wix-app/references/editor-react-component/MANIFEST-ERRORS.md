@@ -23,12 +23,13 @@ After each fix, re-run `npx wix build && npx wix generate manifest` to confirm.
 ## Warnings
 
 The build can also print non-fatal warnings such as
-`[css] … styles selectors that matched no element in the extraction render`.
+`.item is missing from initial render (<file>)`.
 Read every warning and fix it; this is mandatory, with one exception below.
 
-- **A part's own class** (`.errorMessage`, `.item`) means the part is not
-  mounted in the extraction render. Keep it mounted per `PARTS.md`, then
-  re-run build and manifest generation.
+- **A `.tsx` file in parentheses**, or **a part's own class** (`.errorMessage`,
+  `.item`) in a `.css` file, means the part is not mounted in the extraction
+  render. Keep it mounted and hide it with `hidden` or CSS per `PARTS.md`,
+  then re-run build and manifest generation.
 - **A class applied only by state** (`.contentOpen` from `open && styles.contentOpen`)
   is expected: the part is mounted and only the state look is absent. Leave the
   markup and CSS unchanged; do not force the state on or remove the styling.

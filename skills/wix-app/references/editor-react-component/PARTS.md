@@ -71,7 +71,7 @@ const item = current ?? placeholderItem; // placeholder shows only while hidden
 <div hidden={phase !== 'question'}>
   <h3
     {...elementProps?.quizQuestion}
-    className={classNames('quiz-question', styles.question, elementProps?.quizQuestion?.className)}
+    className={clsx('quiz-question', styles.question, elementProps?.quizQuestion?.className)}
   >
     {item.question}
   </h3>

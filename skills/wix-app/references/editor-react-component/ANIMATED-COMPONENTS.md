@@ -197,7 +197,7 @@ Wire the named part completely:
 <button
   type="button"
   {...elementProps?.myAnimationPlayButton}
-  className={classNames(
+  className={clsx(
     'my-animation-play-button',
     styles.playButton,
     elementProps?.myAnimationPlayButton?.className,

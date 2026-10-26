@@ -6,16 +6,6 @@ eligible interaction (`hover`, `focus`, `disabled`, `invalid`) or per a
 selectable value in its data (`selected`, `active`, `checked`, …). Author states
 in the component's `.tsx` and `.module.css`.
 
-## Contents
-
-- [Choose Supported States](#1-choose-supported-states)
-- [Name the State Class](#2-name-the-state-class)
-- [Author CSS](#3-author-css)
-- [Wire React](#4-wire-react)
-- [Use Prop-Triggered States on the Root Only](#5-use-prop-triggered-states-on-the-root-only)
-- [Expose Open/Collapsed Toggles](#6-expose-opencollapsed-toggles)
-- [Checklist](#checklist)
-
 ## 1. Choose Supported States
 
 | Element | Author these states |
@@ -48,7 +38,7 @@ Flat: the element's own global class + `--<state>`. Because inner-part
 global classes are prefixed with the component name, the state class is prefixed too —
 e.g. `pricing-card-cta--hover`, `pricing-card-plan-row--selected`. Never bare
 (`cta--hover` collides with other components) and never
-nested (`card__row--selected`).
+nested (`card__row--selected`). Add it only to an element that has its base class.
 
 ## 3. Author CSS
 
@@ -58,7 +48,7 @@ state selector. When both set the same property, write the state selector
 value as the part's resting `defaultValue`, even though runtime CSS renders
 correctly.
 
-- **Native design state** — pair the pseudo-class with the `:global` modifier.
+- **Native (`hover`, `focus`, `disabled`, `invalid`)** — pair the pseudo-class with the `:global` modifier.
   Every exposed native state needs both selectors in the same rule; do not
   split the pair across states. A standalone `:focus-visible` accessibility
   rule on a non-input control is not an editor design state and has no global
@@ -101,10 +91,9 @@ The local static accessibility scan cannot measure rendered color contrast.
 - **Native** — render the correct interactive element (`<button>`, an
   interactive `role`, or a handler). No custom state class is needed, but the
   element must still satisfy the accessibility contract for its semantics.
-- **Custom** — toggle the global state class from the element's data, except
-  for open/collapsed content (§6). Every state class toggled in TSX needs a
-  matching `:global()` rule in §3; without one the manifest generator silently
-  drops the state.
+- **Custom** — each `:global()` state rule must have a matching class toggle
+  driven by component logic or data, or a root prop trigger (§5). Open/collapsed
+  content uses §6.
 - **Inner elements** — every named inner element gets an `elementProps` entry;
   spread it so editor-driven states reach it. On a raw HTML element also merge
   `elementProps?.<key>.className` inline; on a skill-built sub-component the
@@ -115,14 +104,14 @@ The local static accessibility scan cannot measure rendered color contrast.
 <button
   type="button"
   {...elementProps?.pricingCardCta}
-  className={classNames('pricing-card-cta', styles.cta, elementProps?.pricingCardCta?.className)}
+  className={clsx('pricing-card-cta', styles.cta, elementProps?.pricingCardCta?.className)}
 >
   {label}
 </button>
 
 <li
   {...elementProps?.pricingCardPlanRow}
-  className={classNames(
+  className={clsx(
     'pricing-card-plan-row',
     styles.planRow,
     row.selected && 'pricing-card-plan-row--selected',
@@ -205,7 +194,7 @@ React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
   {...elementProps?.infoPanelContent}
   aria-hidden={!open}
   {...(!open && { inert: '' })}
-  className={classNames(
+  className={clsx(
     'info-panel-content',
     styles.content,
     open && styles.contentOpen,
@@ -229,7 +218,7 @@ React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
 - [ ] Non-input controls retain a standalone `:focus-visible` keyboard indicator.
 - [ ] Custom state classes are flat, global, and prefixed by component and part.
 - [ ] Named inner parts spread and merge their `elementProps` entry.
-- [ ] Every state class toggled in TSX has a matching `:global()` CSS rule.
+- [ ] Custom CSS state rules and their class toggles or root prop triggers match.
 - [ ] `ElementState<boolean>` is used only for a component-level root state.
 - [ ] An open/collapsed component exposes a props-only `isOpen` root state,
       syncs internal state from it, always renders its content, and adds no

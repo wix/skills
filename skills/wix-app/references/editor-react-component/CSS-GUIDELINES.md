@@ -3,9 +3,6 @@
 Use these rules for the scaffolded `<component-name>.module.css` file and any
 colocated CSS Modules owned by internal sub-components.
 
-**Visual intent.** When the request specifies how the component should look —
-mood, palette, layout style, or a reference — follow that direction. Default to a modern, refined look — intentional layout, pleasing proportions, polished and deliberate styling.
-
 ## Contents
 
 - [Classes and Named Parts](#classes-and-named-parts)
@@ -15,12 +12,11 @@ mood, palette, layout style, or a reference — follow that direction. Default t
 - [Responsiveness and Direction](#responsiveness-and-direction)
 - [Editable Values](#editable-values)
 - [Interaction and Motion](#interaction-and-motion)
-- [Default Visual Quality](#default-visual-quality)
 - [Checklist](#checklist)
 
 ## Classes and Named Parts
 
-Apply classes with `classnames`:
+Apply classes with `clsx` (`import clsx from 'clsx'`):
 
 | Element | Classes |
 | --- | --- |
@@ -37,7 +33,7 @@ spread its `elementProps` entry and merge the injected class.
 ```tsx
 <h2
   {...elementProps?.profileCardHeading}
-  className={classNames(
+  className={clsx(
     'profile-card-heading',
     styles.heading,
     elementProps?.profileCardHeading?.className,
@@ -71,11 +67,11 @@ Do not use compound selectors, tag selectors, child/sibling combinators, or CSS
 nesting for editable styling. They make an element's editor surface depend on
 DOM context.
 
-Narrow exception: a relationship selector may control behavior-only visibility
-when the behavior requires ancestor state and the rule does not define editable
-appearance. A hover-revealed play/pause control is the canonical case. Keep all
-of the control's size, color, border, typography, and state styling on its own
-single-class rules.
+Narrow exceptions, neither defining editable appearance: a relationship
+selector for behavior-only visibility that needs ancestor state (a
+hover-revealed play/pause control), and an icon part's layout-only `svg` rule
+(`VECTOR-ART.md`). Keep each control's size, color, border, typography, and state
+styling on its own single-class rules.
 
 ## Root Layout
 
@@ -218,11 +214,14 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
 }
 ```
 
+- **Replaceable**: follow `VECTOR-ART.md`.
+
 ## Interaction and Motion
 
 - Set `pointer-events: auto` on the root and each interactive element.
-- Pair native interaction selectors with the matching editor-injected global
-  state modifier. Toggle custom state modifiers from component data.
+- Pair native design states (`hover`, `focus`, `disabled`, `invalid`) with
+  the matching editor-injected global modifier. Custom modifiers need a class
+  toggle from component logic/data or a root prop trigger (`DESIGN-STATES.md` §5).
 - Do not add decorative transitions or animations.
 - When motion is functionally required, list the exact transition properties;
   never use `transition: all` or an implicit `all` shorthand.
@@ -232,32 +231,6 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
   transition: height 0.2s ease;
 }
 ```
-
-## Default Visual Quality
-
-Create a clear hierarchy with at least two techniques that fit the component:
-a defined surface, border or soft shadow, type scale or weight, spacing, an
-accent, or visible interaction states. Use these neutral defaults unless the
-request or existing design provides better values:
-
-- 16px or larger body text, 14px or larger labels, and 600–700 weight for titles
-- 8–16px spacing inside controls and 16–32px spacing inside containers
-- 8–12px corner radii for cards and controls; `50%` for circular media
-- a subtle border or soft shadow when a card, panel, or control needs separation
-- touch targets at least 44 by 44px and visible keyboard focus states
-
-### Foreground and Background Ownership
-
-If the component is a self-contained block (card, panel, banner, accordion item), give the root a background. An inline control meant to blend in (link, ghost button, icon button) may leave it transparent.
-
-- On a transparent root, don't hardcode text or icon colors; inherit them from the parent.
-- Set the background and main text/icon color together on the same element. Any secondary text (captions, hints, icons) must still be readable against that same background.
-- If an interactive state changes the background, set the foreground color in that state too. Don't assume a color inherited from a parent or from a previous state will still look right on the new background.
-- In every default and interactive state, meet WCAG AA contrast: 4.5:1 for body text and 3:1 for large text and UI controls.
-
-A neutral owned surface may use a light background with dark primary and
-secondary foregrounds, plus one accessible accent. The exact colors are not a
-contract; the contrast relationship is.
 
 ## Checklist
 
@@ -273,8 +246,5 @@ contract; the contrast relationship is.
 - [ ] Every part that sets `font-size` also sets `font-family`, on the part that
       should own the typography control.
 - [ ] Interactive elements expose pointer events and accessible design states.
-- [ ] Visual containers have deliberate hierarchy rather than bare scaffolding.
-- [ ] Every explicit foreground has a known contrasting background; transparent
-      components inherit foregrounds from their host.
 - [ ] No unexposed descendant paints an opaque surface; promote it to a named
       part instead.
