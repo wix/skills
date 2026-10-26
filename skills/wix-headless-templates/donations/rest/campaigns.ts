@@ -16,7 +16,6 @@ const BASE = "/donation-campaigns/v2/donation-campaigns";
 // A campaign nobody has donated to yet has no metrics entry, and the entity carries no currency code:
 // the site's currency then comes from the eCommerce settings, read once.
 // GET /_api/ecommerce-settings/v1/ecommerce-settings?fields=BUSINESS_INFO → { ecommerceSettings: { businessInfo: { currency } } }
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
 let siteCurrencyPromise: Promise<string> | null = null;
 function siteCurrency(): Promise<string> {
   siteCurrencyPromise ??= wixRequest<Raw>("/_api/ecommerce-settings/v1/ecommerce-settings", { method: "GET", query: { fields: ["BUSINESS_INFO"] } })

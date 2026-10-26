@@ -3,7 +3,7 @@
 import { runReader } from "../../shared/seed/read-site.mjs";
 
 const FAQ_APP_ID = "14c92d28-031e-7910-c9a8-a670011e062d";
-const D = "https://dev.wix.com/docs/rest/business-management/faq-app/faq";
+const D = "https://dev.wix.com/docs/api-reference/business-management/faq-app";
 
 await runReader({
   vertical: "faq",

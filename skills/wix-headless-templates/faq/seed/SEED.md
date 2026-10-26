@@ -82,7 +82,7 @@ partial re-seed.
 
 ## Verification caveats
 
-The FAQ API's reference pages exist (`dev.wix.com/docs/rest/business-management/faq-app/…`) and
+The FAQ API's reference pages exist (`dev.wix.com/docs/api-reference/business-management/faq-app/…`) and
 every path, verb, and body here follows them; the following were not checked on a live site:
 
 - Whether the create endpoints answer 409 on a duplicate title/question or create a second copy. The

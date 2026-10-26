@@ -6,7 +6,7 @@
 // order yourself, never hand-build a checkout URL.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/orders/get-order.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/get-order.md
 import { wixRequest } from "../../shared/rest/client.js";
 import {
   cartBody,

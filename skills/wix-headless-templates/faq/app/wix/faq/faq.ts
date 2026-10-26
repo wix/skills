@@ -3,8 +3,8 @@
 // rules and mappers live in ./faq-core (shared with the REST twin in templates/faq/rest/); this file
 // is the transport only. Copy as-is; extend by adding functions, not by editing these. The vertical
 // is read-only: authoring stays in the dashboard.
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/category-v2/query-categories.md
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/question-entry-v2/query-question-entries.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/category-v2/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/question-entry-v2/query-question-entries.md
 import { category as categoryModule, questionEntry as questionModule } from "@wix/faq";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";

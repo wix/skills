@@ -7,7 +7,8 @@ const API = "https://www.wixapis.com";
 // cannot be repriced afterwards. A new site starts in the currency of the account that created
 // it, not the business's. Reads can report the old currency for a few seconds after this returns;
 // that lag is expected and self-resolves.
-// docs: https://dev.wix.com/docs/rest/business-management/site-properties/properties/update-site-properties
+// No reference page documents this PATCH any more (Update Site Properties left the docs). The docs
+// cover the same field only under Update Business Region, a different endpoint and body.
 export async function setSiteCurrency(ctx, currency) {
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error(`currency must be a 3-letter ISO code, got "${currency}"`);
   const res = await fetch(`${API}/site-properties/v4/properties`, {

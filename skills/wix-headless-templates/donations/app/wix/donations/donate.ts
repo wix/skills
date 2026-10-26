@@ -6,7 +6,7 @@
 // (shared with the REST twin); this file is the transport only. Copy as-is.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/create-cart.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/orders/get-order.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/get-order.md
 import { cartV2 as cartV2Module, orders as ordersModule } from "@wix/ecom";
 import { redirects as redirectsModule } from "@wix/redirects";
 import { wixModule } from "../sdk";

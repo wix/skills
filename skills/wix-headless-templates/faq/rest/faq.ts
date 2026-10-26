@@ -5,8 +5,8 @@
 // them is not documented — the reference shows an elevated example — so a 403 here means the site's
 // read needs a server-side path, not that the body is wrong (INSTRUCTIONS.md, verification caveats).
 // Porting: keep the paths, keep the bodies, port the core once.
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/category-v2/query-categories.md
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/question-entry-v2/query-question-entries.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/category-v2/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/question-entry-v2/query-question-entries.md
 import { wixRequest } from "../../shared/rest/client.js";
 import { imgSrc } from "../../shared/rest/media.js";
 import {

@@ -69,7 +69,7 @@ visitor tokens only, which cover what a visitor may see and nothing here.
 
 Unchanged from SKILL.md step 2 and its Verticals table: the brief names the business, the table
 names the solutions it needs. Read each solution's `{TEMPLATES}/{solution}/INSTRUCTIONS.md` for
-what it covers and `{TEMPLATES}/{solution}/seed/SEED.md` for what a seeded site holds.
+what it covers and `{TEMPLATES}/{solution}/seed/SEED.md` (`{solution}` is the template folder name, e.g. `storefront`, `bookings`) for what a seeded site holds.
 
 A brief that needs no solution (a game, a landing page, a tool) is a run of two steps: the site
 (step 2, with no `seedOptions`) and the frontend (step 5). No apps, no seed.

@@ -3,7 +3,7 @@
 import { runReader } from "../../shared/seed/read-site.mjs";
 
 const MEMBERS_AREA_APP_ID = "14cc59bc-f0b7-15b8-e1c7-89ce41d0e0c9";
-const D = "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/members";
+const D = "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members";
 
 await runReader({
   vertical: "members",

@@ -25,7 +25,7 @@ import { readFileSync } from "node:fs";
 
 const API = "https://www.wixapis.com";
 const FAQ_APP_ID = "14c92d28-031e-7910-c9a8-a670011e062d";
-const D = "https://dev.wix.com/docs/rest/business-management/faq-app/faq";
+const D = "https://dev.wix.com/docs/api-reference/business-management/faq-app";
 /** The API's page cap (CursorPaging.limit max 100). */
 const PAGE_LIMIT = 100;
 /** sortOrder step — increments of 10 leave room to insert between items later (the reference's own tip). */
@@ -134,14 +134,14 @@ export async function installFaqApp(ctx) {
 }
 
 // Existing categories, straight from the query (the source of truth for what persisted).
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/category-v2/query-categories.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/category-v2/query-categories.md
 export async function readCategories(ctx) {
   const r = await reqRetryOnce(ctx, "/faq/v2/categories/query", { body: { query: { cursorPaging: { limit: PAGE_LIMIT } } } });
   return (r.categories ?? []).map((c) => ({ id: rawId(c), title: c.title ?? "", sortOrder: typeof c.sortOrder === "number" ? c.sortOrder : null }));
 }
 
 // Every existing question (paged by cursor; PLAIN_TEXT keeps the read light — only the text is compared).
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/question-entry-v2/query-question-entries.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/question-entry-v2/query-question-entries.md
 export async function readQuestions(ctx) {
   const out = [];
   let cursor = null;
@@ -164,7 +164,7 @@ export async function readQuestions(ctx) {
 //  2. Idempotency — an already-present title (a partial-failure re-run, Wix's sample content) is kept.
 // New categories append after the existing ones: sortOrder = max(existing) + 10, +20, …
 // Body is NESTED: { category: { title, sortOrder } } → { category: { id, … } }.
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/category-v2/create-category.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/category-v2/create-category.md
 export async function ensureCategories(ctx, titles) {
   let existing = await readCategories(ctx);
   const byTitle = () => new Map(existing.map((c) => [norm(c.title), c]));
@@ -196,7 +196,7 @@ export async function ensureCategories(ctx, titles) {
 
 // One question, one call (the SDK exports no bulk create). Body is NESTED: { questionEntry: { … } } →
 // { questionEntry: { id, slug, … } }. `question` and `categoryId` are required; the answer is a oneof.
-// docs: https://dev.wix.com/docs/rest/business-management/faq-app/faq/question-entry-v2/create-question-entry.md
+// docs: https://dev.wix.com/docs/api-reference/business-management/faq-app/question-entry-v2/create-question-entry.md
 export async function createQuestion(ctx, { question, categoryId, sortOrder, labels, answer }, idx) {
   const body = {
     questionEntry: {

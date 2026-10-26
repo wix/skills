@@ -22,7 +22,6 @@ const settingsApi = wixModule(ecommerceSettings);
 // The metrics list is EMPTY on a campaign nobody has donated to yet, and the campaign entity carries
 // formatted amounts but no currency code — so a fresh site would format nothing. The site's currency
 // comes from the eCommerce settings then (BUSINESS_INFO), read once per process; "" when refused.
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
 let siteCurrencyPromise: Promise<string> | null = null;
 function siteCurrency(): Promise<string> {
   siteCurrencyPromise ??= settingsApi

@@ -296,7 +296,7 @@ without telling the owner.
 
 ## Verification caveats
 
-The FAQ API's reference exists (`https://dev.wix.com/docs/rest/business-management/faq-app/…`) and the
+The FAQ API's reference exists (`https://dev.wix.com/docs/api-reference/business-management/faq-app/…`) and the
 shipped calls follow it: `POST /faq/v2/categories/query`, `POST /faq/v2/question-entries/query`, the
 `RICH_CONTENT` content format and the `SHARE_LINKS` field set. Not confirmed on a live site, and
 guarded in the code:

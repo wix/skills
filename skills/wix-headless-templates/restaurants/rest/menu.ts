@@ -6,7 +6,6 @@
 // port the core once. Entities carry `id` here (the SDK spells it `_id`); the core accepts both.
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/list-menus.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/list-items.md
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
 import { wixRequest } from "../../shared/rest/client.js";
 import { imgSrc } from "../../shared/rest/media.js";
 import {
