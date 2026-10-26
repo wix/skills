@@ -37,6 +37,83 @@ It may be, that user refers to schema by its `displayName` rather than `id`, if 
 
 ---
 
+## Writing Image Fields
+
+Read the collection schema before setting an image: `IMAGE` takes an HTTP URL or
+`wix:image://` string; `MEDIA_IMAGE` takes a structured object. Never put a bare media ID,
+a URL string, or an editor media-search result directly into a `MEDIA_IMAGE` field.
+The API can return 200 and store an invalid string unchanged; an identical read-back
+is not proof that the image can render.
+
+1. Reuse the selected image if it is already in the site's Media Manager. For a new
+   external image, follow [Upload Media to Wix](../media/upload-media-to-wix.md).
+   If the user requested a generated image, first follow
+   [Generate an Image with AI](../media/generate-image-with-ai.md), then import it.
+   Confirm before importing or changing site data unless the user already authorized it.
+2. Build the field value from the Media Manager file descriptor: use
+   `file.media.image.image` for image metadata, with `file.id`, `file.url`, and
+   `file.displayName` as fallbacks for the ID, URL, and filename. Import can return
+   `PENDING` without image metadata; fetch the ready descriptor using the upload
+   recipe before using dimensions. Do not invent IDs or dimensions.
+3. For a Wix-hosted image, preserve `id`, `url`, `width`, `height`, `filename`, and
+   `altText` when available, and include a full `uri`:
+   `wix:image://v1/{id}/{encodedFilename}#originWidth={width}&originHeight={height}`.
+   An editor search result's `uri` may be only a media ID; resolve its file descriptor
+   and build the CMS value rather than copying that result. An external image may
+   instead use `{ "url": "https://example.com/photo.jpg", "altText": "Photo" }`;
+   not every supported object requires all the Wix-hosted metadata.
+4. Insert the object under `dataItem.data.<fieldKey>`, or patch an existing item
+   with `SET_FIELD` as below. For `IMAGE`, use the image URL or full Wix URI string
+   instead of the object. Leave the collection's existing field type unchanged.
+5. Read the item back and check the field against its declared type: for
+   `MEDIA_IMAGE`, require an object with a usable image source and the intended
+   image identity, not a string echoed by the API. Preserve unrelated item fields.
+   When browser access is available, check the image in the CMS or bound view.
+   Otherwise report that the structured value was saved and that rendering was
+   not visually verified. If generation or import fails, report the missing image;
+   do not write a placeholder or claim it was added.
+
+**Example — replace only the `image` field on an existing item**:
+
+`PATCH https://www.wixapis.com/wix-data/v2/items/{dataItemId}`
+
+The values below stand for metadata from the selected file, not values to fabricate.
+
+```json
+{
+  "dataCollectionId": "Milkshakes",
+  "patch": {
+    "dataItemId": "<dataItemId>",
+    "fieldModifications": [
+      {
+        "fieldPath": "image",
+        "action": "SET_FIELD",
+        "setFieldOptions": {
+          "value": {
+            "id": "<mediaId>",
+            "url": "https://static.wixstatic.com/media/<mediaId>",
+            "uri": "wix:image://v1/<mediaId>/Rainbow.jpg#originWidth=1024&originHeight=1024",
+            "filename": "Rainbow.jpg",
+            "width": 1024,
+            "height": 1024,
+            "altText": "Rainbow milkshake"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+Verify with `GET https://www.wixapis.com/wix-data/v2/items/{dataItemId}?dataCollectionId=Milkshakes`
+and inspect `dataItem.data.image`.
+
+References: [Patch Data Item](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/patch-data-item),
+[Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file),
+and [Importing Files](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/importing-files).
+
+---
+
 ## Insert Data Item
 
 **Endpoint**: `POST https://www.wixapis.com/wix-data/v2/items`
@@ -612,7 +689,7 @@ The method article documents the same expansion as `"includeReferences": [{ "fie
 | `IMAGE` | Image reference (HTTP url or wix:image://v1/{mediaId}/{friendlyName}) | `"wix:image://v1/3f72369f2219e2ee853e9e3df0217ce1.jpg/Colorful%20Business%20Cards.jpg"` |
 | `VIDEO` | Video reference (HTTP url or wix:video://v1/{mediaId}/{friendlyName}) | `"wix:video://v1/11062b_484182533ede4b9a81329daf20238867/Sketching%20Design%20Concepts#posterUri=11062b_484182533ede4b9a81329daf20238867f000.jpg&posterWidth=1920&posterHeight=1080"` |
 | `DOCUMENT` | Document reference  (HTTP url or wix:document://v1/{mediaId}) | `"wix:document://v1/..."` |
-| `MEDIA_IMAGE` | Wix Media Image | `{ "id": "<mediaId>", "url": "http://...", "height": 640, "width": 480, "altText": "Picture" }` |
+| `MEDIA_IMAGE` | Structured image object, never a bare ID or URL string; see [Writing Image Fields](cms-data-items-crud.md#writing-image-fields) | `{ "id": "<mediaId>", "url": "https://static.wixstatic.com/media/<mediaId>", "uri": "wix:image://v1/<mediaId>/Photo.jpg#originWidth=480&originHeight=640", "height": 640, "width": 480, "altText": "Picture" }` |
 | `MEDIA_VECTOR_ART` | Wix Media Vector Art | `{ "uri": "wix:vector://v1/...", "viewBox": "0 0 100 100", "contentType": "shape", "svgContent": "<svg>...</svg>" }` |
 | `URL` | Web URL | `"https://example.com"` |
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
