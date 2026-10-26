@@ -43,12 +43,12 @@ Rules:
   when requested. Keep implementation handlers internal.
 - Use `Array<T>`, not `T[]`, for exported arrays.
 - Use a native link for a CTA with a real `href`, or a native button for an
-  action. Never fall back to `href="#"`: it has no meaningful destination.
+  action. Never use `href="#"`: it has no destination.
 
 ## Numeric Range Constraints
 
-Use inline `@min` and `@max` JSDoc tags for fixed-domain numeric props. Manifest
-generation reads the tags automatically.
+Use inline `@min`, `@max` JSDoc tags for fixed-domain numeric props. Manifest
+generation reads them automatically.
 
 ```ts
 export type RatingProps = {
@@ -57,12 +57,12 @@ export type RatingProps = {
 };
 ```
 
-Use fixed bounds for ratings, percentages, playback speed, columns, etc. Omit
-for open-ended values or indices tied to a dynamic collection.
+Use for ratings, percentages, columns; omit for open-ended values or indices
+tied to a dynamic collection.
 
 ## Named Parts and `elementProps`
 
-Treat an independently editable inner element as a named part. Wiring rules:
+An independently editable inner element is a named part:
 
 - Root receives top-level `id`, `className`, `direction`, `a11y` — no
   `elementProps` entry.
@@ -75,7 +75,7 @@ On a raw HTML element, spread the entry and explicitly merge its injected
 ```tsx
 <a
   {...elementProps?.planCardCta}
-  className={classNames(
+  className={clsx(
     'plan-card-cta',
     styles.cta,
     elementProps?.planCardCta?.className,
@@ -118,12 +118,12 @@ does not inherit the component's direction.
 
 ### Array Props
 
-Array elements must be objects with named keys for semantics and extensibility.
+Array elements must be objects with named keys for semantics and extensibility. Always declare array-item fields optional.
 
 ```ts
 type GalleryProps = {
-  images: Array<{ image: Image; caption?: string }>;
-  tags: Array<{ label: string }>;
+  images: Array<{ image?: Image; caption?: string }>;
+  tags: Array<{ label?: string }>;
 };
 ```
 
@@ -131,22 +131,25 @@ Do not export `Array<string>`, `Array<Image>`, `Array<Array<T>>`, or nested
 arrays inside items.
 
 The parent owns the array. Item sub-components receive one item, not the
-collection. Do not add an `id` field for React keys—use the item's semantic
-named fields instead. Prefer: (1) a stable unique field (`value`, `uri`, `label`, …), (2)
-else slug a user-facing string (`name`, `label`), (3) else the array index.
+collection. Do not add an `id` field for React keys—use semantic named fields.
+Prefer: (1) a stable unique field (`value`, `uri`, `label`, …), (2) else slug a
+user-facing string (`name`, `label`), (3) else the index.
 
 ## Active-Item Components
 
-Apply this contract when an array-driven UI shows one item body at a time (tabs,
-slides, steps). Skip for always-visible lists, multi-select, or multi-expand.
+Apply when an array-driven UI shows one item body at a time (tabs, slides,
+steps). Skip for always-visible lists, multi-select, or multi-expand.
 
-- Every item needs `name: string` (used for hat-selector labels).
+- Declare `name` only when a part renders it; the hat shows `name`, else
+  "Item N". A visible per-item trigger label (tabs, steps) is the `name` field.
+  Slides, cards, carousels with no per-item label: no `name`. Never declare an
+  item field no part renders.
 - **Import and use `ActiveItemIndex<'arrayPropName'>`** from
   `@wix/react-component-utils`. The type argument must match the array prop name
   exactly, and `defaultProps` must set the index to `0`.
-- Render all bodies with `.map()`. Active body gets --active; inactive bodies get functional CSS visibility, aria-hidden, and inert.
-- With React 18 types, spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; this emits the boolean HTML attribute without a TypeScript prop error. Use the app's typecheck instead of a scratch TypeScript project.
-- Provide keyboard navigation and the matching ARIA pattern.
+- Render all bodies with `.map()`. Active body gets `--active`; inactive bodies get CSS visibility, `aria-hidden`, and `inert`.
+- React 18 types: spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; it emits the boolean attribute without a type error. Typecheck with the app, not a scratch project.
+- Keyboard navigation and the matching ARIA pattern.
 
 ```ts
 import type { A11y, Direction } from '@wix/editor-react-types';
@@ -180,7 +183,7 @@ one representation of it.
 Common fields in the installed types: `Image` has required `url: string` and
 optional `uri`, `alt`, `width`, `height`; `Link` has optional `href`, `target`
 (`'_self' | '_blank'`), and `rel`. Use `image.url` for `<img src>`,
-`image.alt` for its alternative text, and `link.href` for `<a href>`.
+`image.alt` for alt text, and `link.href` for `<a href>`.
 
 Do not represent media as a URL/source string or split its metadata across
 primitive props. Preserve the media object through the public contract so the
@@ -216,7 +219,7 @@ export const defaultProps = {
 ```
 
 Use distinct Wix-hosted defaults per image slot; keep all fallback data in
-`defaultProps` so rendering never hardcodes a second fallback in JSX.
+`defaultProps` so JSX never hardcodes a second fallback.
 
 Use this pool in order, cycling only when more than five defaults are needed:
 
@@ -227,8 +230,6 @@ Use this pool in order, cycling only when more than five defaults are needed:
 | 3 | `11062b_3682ebfcb08e4da5b3168b62819a1e68~mv2.jpg` | Palm tree sunset |
 | 4 | `11062b_45e67783d39c4963ab9e4fc418173233~mv2.jpg` | Abstract pink waves |
 | 5 | `11062b_4c11f014b0d04948b2e6f554076bc40a~mv2.jpg` | Coastal village aerial |
-
-For one image use entry 1; for multiple slots use a different entry each.
 
 ## Internal File Splitting
 
@@ -248,7 +249,7 @@ component-name/
 └── component-name.module.css
 ```
 
-Do not extract tiny fragments merely to satisfy a line-count threshold.
+Do not extract tiny fragments just to pass a line-count threshold.
 
 ## Checklist
 
@@ -256,7 +257,7 @@ Do not extract tiny fragments merely to satisfy a line-count threshold.
 - [ ] Props hold authored data/behavior; derived values stay internal.
 - [ ] Fixed-domain numeric props use `@min`/`@max` JSDoc tags.
 - [ ] Named inner parts have `elementProps` wiring; leaf components avoid exported `children`.
-- [ ] One-body-visible arrays use the active-item contract and render all bodies.
+- [ ] One-body-visible arrays use the active-item contract and render all bodies; `name` only when a part renders it.
 - [ ] Array elements are objects with semantic named fields. No separate `id` field added to item types; React keys use item fields (stable unique → slug → index), not a typed `id`.
 - [ ] Authored media uses the corresponding Wix media type, not URL/source strings or flattened metadata.
 - [ ] Defaults live only in the props file (no JSX fallbacks).

@@ -32,7 +32,7 @@ Use this pattern:
 ```tsx
 <div
   {...elementProps?.audioPlayerProgressBar}
-  className={classNames(
+  className={clsx(
     'audio-player-progress-bar',
     styles.progressBar,
     elementProps?.audioPlayerProgressBar?.className,

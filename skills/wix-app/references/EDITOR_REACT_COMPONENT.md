@@ -21,18 +21,17 @@ Supplementary files are allowed; keep scaffold roles intact.
 
 ## Required Reading (blocking)
 
-Before writing code, open and read in full every reference in the matching
-row. An unopened one is a failed run. Open paths directly; never skim or
-grep instead.
+Before writing code, read every reference in the matched row in full.
+Unopened references fail the run—open paths directly; no skim or grep.
 
 | Scope | Required references |
 | --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md), [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`VISUAL-QUALITY.md`](editor-react-component/VISUAL-QUALITY.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md), [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
 | Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
 | Changing public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
 | Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
-| Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) |
+| Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`VISUAL-QUALITY.md`](editor-react-component/VISUAL-QUALITY.md) |
 | Creating or changing layout/content | [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
 | Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
 | Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
@@ -47,14 +46,13 @@ grep instead.
    ```
 
    Never rerun the scaffold for an existing component.
-   Write a meaningful `description` in 1-2 plain sentences (max 300 chars): what
-   the user sees, when to use it, and capabilities that affect that choice.
-   Don't repeat the name or add implementation details.
+   Write a meaningful `description` (max 300 chars, 1-2 sentences): what users see,
+   when to use it, and capability tradeoffs—no name repeat or implementation detail.
 
 2. **Run the dependency preflight.**
 
    ```bash
-   deps=(@wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)
+   deps=(@wix/react-component-schema @wix/react-component-utils @wix/editor-react-types clsx deepmerge-ts)
    dev=(@babel/parser @babel/traverse @babel/types eslint eslint-plugin-jsx-a11y @typescript-eslint/parser 'typescript@<7' @types/eslint-plugin-jsx-a11y jsdom axe-core)
 
    node - "${deps[@]}" "${dev[@]}" <<'JS' || {
@@ -63,7 +61,7 @@ grep instead.
      .map(p => p.replace(/@<7$/, ''))
      .filter(p => !require.resolve.paths(p)?.some(d => fs.existsSync(path.join(d, p, 'package.json'))));
    if (missing.length) {
-     console.error(`Missing dependencies: ${missing.join(', ')}`);
+     console.error(`Missing: ${missing.join(', ')}`);
      process.exit(1);
    }
    JS
@@ -74,27 +72,26 @@ grep instead.
    }
    ```
 
-3. **Plan.** Identify props, root, parts, and states; open all required references first.
-   Use them and the scaffold before inspecting package declarations; inspect
-   only for undocumented APIs or fields, or typecheck failures. Declarations
-   govern API shapes; retain editor rules.
+3. **Plan.** Identify props, root, parts, and states; open required references first.
+   Use them and the scaffold before package declarations—only for undocumented APIs
+   or typecheck failures. Declarations govern API shapes; keep editor rules.
 
 4. **Implement.** Keep props, logic, and styles in their scaffolded editable
    files. Format edited source files with the app's formatter. Never edit or format `*.generated.ts`.
 
-5. **Run the accessibility review (mandatory).** Once the JSX is complete, run from the
-   same folder (`<SKILL_ROOT>` is the directory containing the active `SKILL.md`):
+5. **Run the a11y review (mandatory).** After JSX, run from the
+   same folder (`<SKILL_ROOT>` contains the active `SKILL.md`):
 
    ```bash
    node <SKILL_ROOT>/scripts/scan-a11y-review.cjs src/extensions/site/components/<component-name>
    ```
 
-   Follow [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md); fix and
+   Follow [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md); fix and
    rerun at most twice, then report remaining findings.
 
 6. **Configure the editor extension.** For creation or a requested sizing,
    installation, or manifest change, apply
-   [`editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
+   [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md)
    to the extension; otherwise leave it unchanged. Synchronize preview
    `requiredDataFields` and `rootClassName`.
 
@@ -105,15 +102,15 @@ grep instead.
    npx wix build && npx wix generate manifest
    ```
 
-   Run `npx tsc --noEmit`, relevant tests/lint, and the accessibility review.
+   Run `npx tsc --noEmit`, relevant tests/lint, and the a11y review.
    If later edits affect a check, rerun that check. Inspect the manifest when generated; never hand-repair it.
    Diagnose failures with
-   [`editor-react-component/MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
+   [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
 
-   For creation/layout changes, complete the routed overflow resize review.
+   For creation/layout changes, run the overflow resize review.
 
-8. **Report.** Summarize files, checks, blockers, unrun checks.
-   List required references as read/unread; read any unread one and fix first.
+8. **Report.** Summarize files, checks, blockers, and skipped checks.
+   List references read/unread; fix unread before closing.
 
 ## Reference Policy
 
@@ -133,10 +130,11 @@ trigger. Preserve unrelated behavior. References are leaves.
 | Animation, video, carousel, or other playable/looped/autoplaying content | [`ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Site/runtime/editor context hooks needed | [`SITE-CONTEXT-HOOKS.md`](editor-react-component/SITE-CONTEXT-HOOKS.md) (+ [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) when design-mode behavior differs) |
 | Branded, themed, or brand-aware component requested | [`BRANDED-COMPONENTS.md`](editor-react-component/BRANDED-COMPONENTS.md) |
+| Owner-replaceable icon/SVG (not fixed UI glyphs) | [`VECTOR-ART.md`](editor-react-component/VECTOR-ART.md) |
 
 ## Non-Negotiables
 
-- React 18 only; do not assume React 19 runtime features.
+- React 18 only; no React 19 runtime features.
 - Include typed `id`, `className`, `direction`, and `a11y` support.
 - Elected root: `dir={direction}`, fallback-direction class, logical CSS for
   direction-sensitive layout.
@@ -148,13 +146,13 @@ trigger. Preserve unrelated behavior. References are leaves.
 - Named parts: global class, module class, and `elementProps` (root uses
   top-level props).
 - Every visible text: a text prop plus a named part; no JSX text literals.
-- Native design states: interactive elements only, never a non-interactive root
-  or part; pair selectors with injected modifiers; toggle custom state classes
-  from data, each with a matching `:global()` rule.
+- Native design states: interactive elements only; pair selectors with injected
+  modifiers. Custom states need a class toggle from logic or data, or a root prop
+  trigger; styled states need matching `:global()` rules.
 - Open/close/reveal: props-only root
   `isOpen: ElementState<boolean>` synced to state; module classes, no `--open` class.
-- Single-visible-body arrays: `name` per item, `ActiveItemIndex<'prop'>`, render
-  all bodies, hide inactive accessibly.
+- Single-visible-body arrays: `ActiveItemIndex<'prop'>`, render all bodies,
+  hide inactive accessibly; item `name` only when rendered.
 - No arrays inside array items; keep group fields flat (no object props).
 - Autoplay/loop: play/pause control, honor reduced motion, suppress autoplay in
   editor design mode.
