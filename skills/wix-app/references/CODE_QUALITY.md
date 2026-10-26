@@ -8,7 +8,7 @@ Applies to all generated code across every Wix CLI app extension type. Each per-
 - Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`).
 - Treat optional values, refs, and array indexing results as possibly undefined and handle them explicitly.
 - Use exhaustive checks for unions (e.g., `switch` with a `never` check) and return total values (no implicit `undefined`).
-- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead.
+- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead. The one exception is a `// @ts-ignore` directly above an import of a context provider's hook by its `moduleSpecifier`: TypeScript cannot resolve that specifier, because the site's import map supplies it only at runtime.
 
 ## Core Principles
 
