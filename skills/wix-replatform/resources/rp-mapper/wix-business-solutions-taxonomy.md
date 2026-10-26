@@ -96,9 +96,9 @@ Primary entities:
 
 | Entity | What it does | Docs |
 | --- | --- | --- |
-| `cart` | First phase of the purchase flow; holds line items, buyer references, discounts, and pricing context before checkout | [About the eCommerce Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart/cart/introduction) |
-| `current-cart` | Visitor/member scoped cart used in live purchase flows | [About the eCommerce Current Cart API](https://dev.wix.com/docs/sdk/backend-modules/ecom/current-cart/introduction) |
-| `checkout` | Second phase of purchase flow; holds calculated prices, tax, billing, shipping, and discount state before order creation | [About the eCommerce Checkout API](https://dev.wix.com/docs/sdk/backend-modules/ecom/checkout/introduction) |
+| `cart` | First phase of the purchase flow; holds line items, buyer references, discounts, and pricing context before checkout | [About the Cart API (Cart V2, replaces the eCommerce Cart API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/introduction) |
+| `current-cart` | Visitor/member scoped cart used in live purchase flows | [About the Cart API (Cart V2, its Current Cart service)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/introduction?apiView=SDK) |
+| `checkout` | Second phase of purchase flow; holds calculated prices, tax, billing, shipping, and discount state before order creation | [About the Cart API (Cart V2, replaces the eCommerce Checkout API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart-v2/introduction?apiView=SDK) |
 | `order` | Final commerce record for completed or externally recorded purchases | [About the Orders API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/introduction) |
 | `order-billing` | Payment capture, void, and refund operations for eCommerce orders | [About the Order Billing API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/order-billing/introduction) |
 
@@ -179,7 +179,7 @@ Primary entities:
 | `ticket-definition` | Ticket type template such as General Admission or VIP | [Event Management introduction](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/introduction) |
 | `ticket` | Purchased ticket with guest and check-in state | [About the Tickets API](https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/tickets/introduction?apiView=SDK) |
 | `event-order` | Ticket purchase and registration order lifecycle | [About the Orders API](https://dev.wix.com/docs/sdk/backend-modules/events/orders/on-order-initiated) |
-| `rsvp` | RSVP response and attendance state for non-ticketed events | [About RSVP API](https://dev.wix.com/docs/sdk/backend-modules/events/rsvp/introduction) |
+| `rsvp` | RSVP response and attendance state for non-ticketed events | [About the RSVP API](https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/introduction?apiView=SDK) |
 | `event-guest` | Unified guest record across ticketed and RSVP events | [About the Event Guests API](https://dev.wix.com/docs/api-reference/business-solutions/events/registration/event-guests/introduction?apiView=SDK) |
 | `events-registration` | Registration layer connecting RSVP, ticketing, and guests | [About Events Registration](https://dev.wix.com/docs/api-reference/business-solutions/events/registration/introduction) |
 
@@ -212,7 +212,7 @@ Primary entities:
 | `reservation` | Reservation lifecycle record for a party at a restaurant | [About the Reservations API](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/wix-restaurants-new/reservations/reservations/introduction) |
 | `restaurant-time-slot` | Availability window for reservation booking | [Reservations API introduction](https://dev.wix.com/docs/rest/business-solutions/restaurants/wix-restaurants-new/reservations/introduction) |
 | `experience` | Special dining experience such as chef's table or tasting menu | [Experiences API](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/wix-restaurants-new/reservations/experiences/introduction) |
-| `restaurant-order-legacy` | Legacy restaurant order model from the original Restaurants Orders app | [About Wix Restaurants Orders](https://dev.wix.com/docs/rest/business-solutions/restaurants/wix-restaurants/orders/introduction) |
+| `restaurant-order-legacy` | Legacy restaurant order model from the original Restaurants Orders app | [Restaurants Online Orders (the legacy Orders docs are removed)](https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders) |
 
 Mapper notes:
 - Restaurants spans multiple subdomains: menus, reservations, and in some cases restaurant ordering.

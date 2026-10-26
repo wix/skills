@@ -9,7 +9,6 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifier-groups/list-modifier-groups.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-modifiers/list-modifiers.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/item-labels/list-labels.md
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/ecommerce-settings/get-ecommerce-settings.md
 import {
   menus as menusModule,
   sections as sectionsModule,

@@ -152,4 +152,3 @@ Returns `{}`. Errors with `ACCOUNT_NOT_FOUND` if no account exists.
 - [Account Service](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-account-v1/introduction)
 - [Create Account](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-account-v1/create-account)
 - [Get Account For Current Site](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-account-v1/get-account-for-current-site)
-- [Get Incentives](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-incentives)

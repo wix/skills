@@ -13,8 +13,8 @@
 // scope and 403s. The resolved create IS the confirmation — show a thank-you; the entry appears
 // in the owner's dashboard. A site that must LIST what visitors submitted needs `cms` instead.
 //
-// docs: https://dev.wix.com/docs/sdk/business-solutions/forms/submissions/create-submission.md
-// docs: https://dev.wix.com/docs/sdk/business-solutions/forms/submissions/get-media-upload-url.md
+// docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/create-submission.md?apiView=SDK
+// docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/get-media-upload-url.md?apiView=SDK
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-submissions/about-submission-values.md
 // docs: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session.md
 import { submissions as submissionsModule } from "@wix/forms";

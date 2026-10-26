@@ -118,7 +118,7 @@ export async function installBlogApp(ctx) {
 
 // Every post create needs a REAL author memberId — a fabricated id fails with
 // "memberIds ... do not exist". A provisioned site has the owner as members[0].
-// docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/members/list-members.md
+// docs: https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members.md
 export async function getAuthorMemberId(ctx) {
   const r = await req(ctx, "/members/v1/members?fieldsets=PUBLIC&paging.limit=1", { method: "GET" });
   const id = r.members?.[0]?.id;

@@ -68,7 +68,7 @@ Append `.md` to read:
 - [`rest-api-authentication`](https://dev.wix.com/docs/api-reference/articles/authentication/rest-api-authentication) — headers, token kinds
 - [`retrieve-tokens`](https://dev.wix.com/docs/api-reference/business-management/headless/authentication/retrieve-tokens) — the `/oauth2/token` contract, all grant types
 - [`about-authentication`](https://dev.wix.com/docs/go-headless/authentication/about-authentication) — visitor vs member sessions
-- [`create-an-oauth-app-for-visitors-and-members`](https://dev.wix.com/docs/go-headless/getting-started/setup/authentication/create-an-oauth-app-for-visitors-and-members) — where the client id comes from
+- [`create-oauth-app`](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app) — where the client id comes from
 - [`set-up-a-headless-client`](https://dev.wix.com/docs/go-headless/authentication/setup/set-up-a-headless-client) — wiring the client
 
 ## Dynamic Site Context — "what IS this site?"

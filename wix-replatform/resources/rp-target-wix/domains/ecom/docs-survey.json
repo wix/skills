@@ -274,15 +274,6 @@
       "reviewedOn": "2026-08-11"
     },
     {
-      "id": "api-reference/business-solutions/e-commerce/purchase-flow/skills",
-      "title": "Skills",
-      "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/skills",
-      "group": "Purchase Flow",
-      "verdict": "not-relevant",
-      "reason": "AI-skill documentation page, not a data surface.",
-      "reviewedOn": "2026-08-11"
-    },
-    {
       "id": "api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles",
       "title": "Delivery Profiles",
       "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles",

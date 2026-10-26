@@ -237,7 +237,7 @@ metrics, members-only posts)? Extend with `wixApiRequest`, but look up the exact
 in the **official Wix API reference** first — never guess. Each helper in `wix-blog.js` links its
 reference page inline.
 - Blog API reference: https://dev.wix.com/docs/api-reference/business-solutions/blog.md
-- Rendering `richContent` (Ricos document): https://dev.wix.com/docs/ricos/api-reference/ricos-document
+- Rendering `richContent` (Ricos document): https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/document-object
 - **Members-only posts** → the **members** vertical: once a member is logged in, the shipped read
   helpers return the gated content with no extra code (member *writes* — comments, likes — are not
   included; add them as an authenticated `wixApiRequest` call).

@@ -107,4 +107,3 @@ Returns `lowOffer` / `mediumOffer` / `highOffer`, each with `incentiveId`, `awar
 - [Get Keyword Theme Suggestions](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-keyword-theme-suggestions)
 - [Get Geo Options](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-geo-options)
 - [Get Budget Suggestions](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-budget-suggestions)
-- [Get Incentives](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/google-suggestion-v1/get-incentives)

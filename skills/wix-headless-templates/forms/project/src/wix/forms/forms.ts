@@ -13,8 +13,8 @@
 // implicit visitor access so a published site can render its own forms. Do NOT add a backend, a
 // connector token, or auth.elevate to make a form load.
 //
-// docs: https://dev.wix.com/docs/sdk/business-solutions/forms/forms/get-form.md
-// docs: https://dev.wix.com/docs/sdk/business-solutions/forms/forms/list-forms.md
+// docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form.md
+// docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms.md
 // docs: https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields.md
 import { wixFetch } from "../sdk";
 import { imgSrc } from "../media";

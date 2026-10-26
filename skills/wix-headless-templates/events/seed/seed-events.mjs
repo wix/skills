@@ -85,7 +85,7 @@ function buildRegistration(ev) {
 // Forms API AFTER the event exists (Create Event ignores form.controls; probed live 2026-09-28). The
 // control lands as a count input (options "0".."N") plus a names list capped at N — the shape the
 // site's form reader (events-core toRsvpForm) reads its max from — and takes effect at once.
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/forms/add-control.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/form/add-control.md
 export async function addGuestControl(ctx, eventId, guests) {
   const n = Number(guests);
   if (!Number.isInteger(n) || n < 1) return false;

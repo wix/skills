@@ -13,7 +13,7 @@ Ricos is Wix's rich content format used across various Wix applications (Blog, S
 - **Convert to Ricos**: Transform HTML, Markdown, or plain text into a Ricos document
 - **Convert from Ricos**: Transform a Ricos document back to HTML, Markdown, or plain text
 
-Learn more about [Rich Content](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-rich-content) and [Ricos document structure](https://dev.wix.com/docs/ricos/getting-started/introduction).
+Learn more about [Rich Content](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-rich-content) and [Ricos document structure](https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/document-object).
 
 ## Required API Endpoints
 

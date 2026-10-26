@@ -12,7 +12,7 @@
 //   manual client (React SPA, lib) — the shared seam holds a VISITOR token; pass a call bound to the
 //             member's client instead, e.g. from templates/members' client.ts strategy:
 //             `createClient({ auth: membersAuth, modules: { orders } }).orders.memberListOrders`.
-// docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/member-list-orders.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/member-orders-service-list-orders.md
 import { orders as ordersModule } from "@wix/pricing-plans";
 import { wixModule } from "../sdk";
 import { hasPlanAccess, memberOrdersQuery, type MemberOrdersQuery } from "./plan-access-core";

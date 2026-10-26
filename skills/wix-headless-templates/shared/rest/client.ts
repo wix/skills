@@ -14,7 +14,7 @@
 //   server (a Python/PHP/Go port) — the SHOPPER'S SESSION, one token set per shopper. Never one
 //             process-wide token for everyone: that is one shared cart for all visitors.
 //             This is the only part of a port that isn't line-for-line.
-// docs: https://dev.wix.com/docs/go-headless/coding/authentication/visitors.md
+// docs: https://dev.wix.com/docs/go-headless/authentication/visitors/authenticate-visitors-rest.md
 import { WIX_CLIENT_ID } from "./config.js";
 
 export const WIX_API_BASE = "https://www.wixapis.com";
