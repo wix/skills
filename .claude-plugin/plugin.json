@@ -16,10 +16,7 @@
     "./skills/wix-app",
     "./skills/wix-manage",
     "./skills/wix-headless-kit",
-    "./skills/wix-vibe-headless",
     "./skills/wix-docs",
-    "./skills/wix-export",
-    "./skills/wix-import",
     "./skills/wix-readme"
   ],
   "mcpServers": "./.mcp.json"

@@ -1,40 +1,39 @@
 ---
-name: "Create and Publish a Social Media Post (with AI generation)"
-description: "End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Settles the post content with you first, then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'."
+name: "Create and Publish a Social Media Post"
+description: "End-to-end flow to create a social media post, with its text written for you or your own, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can write a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), with your own image, and suggest captions and titles. Settles the post content with you first, then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'."
 ---
-# RECIPE: Create and Publish a Social Media Post (with AI generation)
+# RECIPE: Create and Publish a Social Media Post
 
 ## THE PROTOCOL (read this first — every rule is mandatory)
 
 Run every post request through these steps, in this order. The principle is **value first**: settle *what the post is* and show it to the user before you touch delivery. Don't open with connection or plan checks — reach those only once there's an approved post to deliver. Skip a question only when the user's own words in this conversation already answered it.
 
 1. **Channel + subject first — no API calls yet.** Determine the target channel from the request; if the user didn't name one, ask. Then get, in the user's own words, what the post is **about**: a free-text idea, or a specific site asset (a product, blog post, event, booking, coupon, or category). The subject is a **hard gate** — a reply that answers only part of a question (an account pick, a bare "you decide") does not supply it, and you must never derive a topic from the site's profile or content on your own. Ask again and wait.
-2. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
+2. **Ask: own or generated?** "Do you already have the post text, or should I write it? And which image goes with it: one of your site's, or one you upload?" The image is always the user's own. Wait for the answer.
 3. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, coupon, or category)?" Offer the asset option explicitly, every time. Wait for the answer.
 4. **Route exactly one way:**
    - User has their own text → use it **verbatim**; skip generation → go to STEP 3 (choose type), then STEP 6 (assemble).
-   - Idea → `generate-post-data` with `userInput` (STEP 2a; returns caption **and** image).
-   - Asset → resolve the asset id, then `generate-post-data` with `siteAssets` (STEP 2a).
+   - Idea → `generate-post-data` with `userInput` and the user's `media` (STEP 2a; returns the caption with that image).
+   - Asset → resolve the asset id, then `generate-post-data` with `siteAssets` and the asset's image as `media` (STEP 2a).
    - User explicitly wants **only** a caption → `generate-text` (STEP 2b).
-   - User wants an **existing image edited** → `generate-image` (STEP 2c; requires a source image URL).
 
-   To get an **AI image from a bare idea**, that's `generate-post-data` — it returns a generated image as part of the post. `generate-image` only *edits* an existing image (it returns 400 without a source image); there is no endpoint that turns a prompt into a standalone image.
+   No step produces an image. The post's image is the user's: a site asset's image, a file they upload, or a Media Manager file (**Media handling** in STEP 3).
 5. **Show it and get approval.** Present the tool's actual output — the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final post **before** any delivery step.
-6. **Only now, check delivery — just-in-time.** After the user approves, confirm the channel is connected (STEP 4; connect if needed) and check the plan for publish vs. schedule (STEP 5). This is where connection/plan problems surface — never lead with them. If `SCHEDULE_POST` is disabled, never present scheduling. A positive `quotaInfo.limit` with `remainingUsage: 0` means that action's quota is used up (offer the other action if enabled — a near-future schedule works like publish-now); `limit: 0` means unmetered, so treat the action as available. AI generation is **never** plan-gated; never tell the user it is.
+6. **Only now, check delivery — just-in-time.** After the user approves, confirm the channel is connected (STEP 4; connect if needed) and check the plan for publish vs. schedule (STEP 5). This is where connection/plan problems surface — never lead with them. If `SCHEDULE_POST` is disabled, never present scheduling. A positive `quotaInfo.limit` with `remainingUsage: 0` means that action's quota is used up (offer the other action if enabled — a near-future schedule works like publish-now); `limit: 0` means unmetered, so treat the action as available. Generation is **never** plan-gated; never tell the user it is.
 7. **Publish exactly what was approved.** Create the draft (STEP 6) from the approved content plus the account's IDs, then publish or schedule (STEP 7). For a scheduled time, verify the resolved `scheduledDate` is **strictly in the future** right before the call (a "today at 9am"-style time can resolve to the past). Reuse the approved caption, image, and draft on any retry; never regenerate after approval.
 
 The rest of this recipe is the reference for executing each step.
 
 ---
 
-This recipe creates a post — called an **item** — and publishes it to one of a site's connected social channels, or schedules it for a future date. You can generate the post content with AI (STEP 2) or bring your own. Each item targets a single channel, and its `type` and content must match a combination the channel supports.
+This recipe creates a post — called an **item** — and publishes it to one of a site's connected social channels, or schedules it for a future date. You can have the post text written (STEP 2) or bring your own; the image is always the user's own. Each item targets a single channel, and its `type` and content must match a combination the channel supports.
 
 Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 **Prerequisites:**
 - AI generation (STEP 2) is available on every site — it is **not** plan-gated. Offer it by default; skip it only if the user brings their own caption and media.
 - To *deliver* the post, the target channel must be connected by the site owner (checked in STEP 4; connect it there if not) and the plan must allow the action (STEP 5).
-- Post media must be a **Wix Media Manager URL** (`static.wixstatic.com`); see **Media handling** in STEP 3. Images edited in STEP 2c are already hosted there.
+- Post media must be a **Wix Media Manager URL** (`static.wixstatic.com`); see **Media handling** in STEP 3.
 
 **Flow (value-first):** STEP 1 settle channel + subject → STEP 2 generate the content (offer this proactively) → STEP 3 choose channel/type → **show the post and get approval** → STEP 4 confirm the channel is connected (connect if needed) → STEP 5 check premium → STEP 6 create the draft → STEP 7 publish or schedule. Generation and approval come first so the user sees value before any connection or plan gate; the delivery checks (STEP 4–5) run just-in-time, right before creating and publishing.
 
@@ -53,9 +52,9 @@ Then follow THE PROTOCOL rules 2–4 to decide own-vs-generated and idea-vs-asse
 
 ---
 
-## STEP 2: Generate the post content with AI
+## STEP 2: Generate the post text
 
-AI generation isn't gated by the plan (no premium check applies), so offer it by default. **THE PROTOCOL at the top of this recipe governs this step**: hold the subject gate (rule 1), ask own-or-generated (rule 2), offer idea-or-asset (rule 3), and route per rule 4. Never hand-write the caption or title; producing the post means calling the API below and presenting *its* output.
+Generation isn't gated by the plan (no premium check applies), so offer it by default. **THE PROTOCOL at the top of this recipe governs this step**: hold the subject gate (rule 1), ask own-or-generated (rule 2), offer idea-or-asset (rule 3), and route per rule 4. Never hand-write the caption or title; producing the post means calling the API below and presenting *its* output.
 
 ### 2a. Generate a full post — from an idea and/or the site's own assets
 
@@ -75,12 +74,12 @@ Produces ready-to-use, per-channel payloads that drop into STEP 6. **This is the
   | `EVENT` | Wix Events | `POST https://www.wixapis.com/events/v3/events/query` (body `{ "query": { "paging": { "limit": 10 } } }` — `paging.limit` must be > 0) | [Query Events](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events) |
   | `BOOKINGS_SERVICE` | Wix Bookings | `POST https://www.wixapis.com/bookings/v2/services/query` (body `{ "query": {} }`) | [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services) |
 
-- `media` — candidate images to include, as `{ "type": "IMAGE", "url": "<public-url>" }` (images only).
+- `media` — the user's images to include, as `{ "type": "IMAGE", "url": "<public-url>" }` (images only). Always pass at least one: a site asset's image, an uploaded file, or a Media Manager file.
 - `channels` — which channels to generate for. Omit to get one result for each of `INSTAGRAM`, `FACEBOOK`, `LINKEDIN`, `PINTEREST`, `GBP`, and `TIKTOK`.
 
 Provide `userInput`, `siteAssets`, or both.
 
-**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content, X/Twitter posts, or story/reel/video formats — for those, use 2b (caption) and 2c (image edit) and assemble the content object yourself in STEP 6.
+**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content, X/Twitter posts, or story/reel/video formats — for those, use 2b (caption) and assemble the content object yourself in STEP 6.
 
 **Example — from an idea + an image, for Instagram and Facebook:**
 
@@ -117,7 +116,7 @@ Provide `userInput`, `siteAssets`, or both.
 }
 ```
 
-Use the payload for your chosen channel as the content object in STEP 6. When you pass no `media` of your own, `generate-post-data` returns an AI-generated image in `mediaWrapper.media[]` — review the **whole** payload with the user and surface that media, not just the caption (see STEP 3's approval note). The generated image's URL may live on a temporary external host rather than `static.wixstatic.com`; treat it like any external image — import it to the Media Manager (see **Media handling** in STEP 3) and use the imported URL in the post.
+Use the payload for your chosen channel as the content object in STEP 6. Pass the user's `media` on every call, so `mediaWrapper.media[]` holds their image; a result whose media is not the image you passed is not used. Review the **whole** payload with the user, the caption and the media (see STEP 3's approval note).
 
 ### 2b. Generate only a caption or title
 
@@ -138,33 +137,6 @@ Use when the user just wants caption suggestions to place into a post.
 ```
 
 **Expected response:** `{ "results": [ { "caption": "…", "title": "…" } ] }`. Put the chosen `caption` (and `title` where the channel uses one) into the content object in STEP 6.
-
-### 2c. Edit an image with AI
-
-Transforms an existing **source image** according to a text prompt (e.g. add a sale banner to a product photo, restyle a background). This is AI image-to-image editing — it requires a source image and does **not** generate an image from a prompt alone. Runs asynchronously.
-
-**API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/generate-image`
-
-Both `userInput` (prompt) and `imageUrl` (the source image to edit) are required:
-
-```json
-{
-  "userInput": "Add a bright summer-sale banner to the product photo",
-  "imageUrl": "https://static.wixstatic.com/media/cf2434_source-product-photo.jpg"
-}
-```
-
-**Response:** `{ "status": "OK", "executionId": "b7c2f0a1-4e6d-4a8b-9c3f-2d5e1a7b0c94" }`.
-
-**Poll** for the result: `GET https://www.wixapis.com/social-publisher/v1/generated-image/{executionId}` about every few seconds, for up to ~2 minutes, until `status` is `READY` or `FAILED`:
-
-```json
-{ "status": "READY", "imageUrl": "https://static.wixstatic.com/media/cf2434_generated-image.jpg", "fileId": "cf2434_abc123def456~mv2.jpg" }
-```
-
-`status` values: `IN_PROGRESS` (keep polling; if still `IN_PROGRESS` after ~2 minutes, stop and report), `READY` (use `imageUrl` — and `fileId` — as the post media), `FAILED`. A `404 GENERATED_IMAGE_NOT_FOUND` means the `executionId` is invalid or expired. The generated image is also saved to the site's "Social Marketing AI Media" Media Manager folder.
-
----
 
 ## STEP 3: Choose the channel and type (then show the post and get approval)
 
@@ -188,11 +160,11 @@ For the target channel from STEP 1, pick the item `type` and the matching conten
 
 Notes:
 - Media items in `mediaWrapper.media[]` are `{ "type": "IMAGE" | "VIDEO", "url": "<public-url>" }`.
-- Instagram and story types **require** media (GBP needs `description` and/or media). There's no way to produce a standalone image from a prompt (2c only edits an existing image; 2a returns an image only *as part of* a generated post), so if the user has none and doesn't want a full 2a generation, source one — see **Media handling** below.
+- Instagram and story types **require** media (GBP needs `description` and/or media). The image is the user's own; if they have none at hand, take one of the site's assets or ask for an upload — see **Media handling** below.
 - `caption` is the text field for Instagram, Facebook, LinkedIn, and X/Twitter; `description` for YouTube, Pinterest, Google Business Profile, and TikTok.
 - The account-derived IDs (`pageId`, `boardId`, `locationId`, `authorId`, `channelId`, `privacyLevel`) come from the account object fetched in STEP 4b — see the field-path table there.
 - TikTok `privacyLevel` must be one of the account's `privacyLevelOptions` (from STEP 4b) — one of `PUBLIC_TO_EVERYONE`, `FOLLOWER_OF_CREATOR`, `MUTUAL_FOLLOW_FRIENDS`, `SELF_ONLY`.
-- Text length limits: Instagram `caption` ≤ 2200 (about 30 hashtags / 20 mentions); Pinterest `title` ≤ 100, `description` ≤ 800, `link` ≤ 2048; Google Business Profile `description` ≤ 1500; TikTok photo `title` ≤ 90 and `description` ≤ 4000, TikTok video `description` ≤ 2200. AI-generated captions/titles (STEP 2b) are ≤ 1000.
+- Text length limits: Instagram `caption` ≤ 2200 (about 30 hashtags / 20 mentions); Pinterest `title` ≤ 100, `description` ≤ 800, `link` ≤ 2048; Google Business Profile `description` ≤ 1500; TikTok photo `title` ≤ 90 and `description` ≤ 4000, TikTok video `description` ≤ 2200. Generated captions/titles (STEP 2b) are ≤ 1000.
 - GBP `callToAction` (optional) is one of `BOOK`, `ORDER`, `SHOP`, `LEARN_MORE`, `SIGN_UP`.
 - `TWITTER` (X) works like any other channel **only through July 31, 2026**; after that it's no longer functional (see STEP 7). Treat an `UNSUPPORTED_CHANNEL` error as authoritative.
 
@@ -201,8 +173,8 @@ Notes:
 **Media handling.** Post media **must be a Wix Media Manager URL** — `static.wixstatic.com` for images, `video.wixstatic.com` for videos. Always use one, even for media that came from elsewhere. (The API only validates a generic URL and won't reject a non-Wix link, but don't rely on that: an external URL has to stay reachable when the post publishes — a real risk for scheduled posts — and skips the Media Manager processing channels expect. Treat a Wix URL as required.) In the content object, `url` is that Wix URL; `fileId` is optional when `url` is supplied.
 
 Getting media into the Media Manager:
-- **Already there** (a site asset's image, a STEP 2c generated image, or a previously uploaded file) → use its `static.wixstatic.com` `url` directly.
-- **A public external URL** (including a 2a AI-generated image on a temp host) → import it; Wix fetches it server-side, no local download: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "<external-url>", "mimeType": "image/jpeg", "displayName": "post.jpg" }`.
+- **Already there** (a site asset's image or a previously uploaded file) → use its `static.wixstatic.com` `url` directly.
+- **A public external URL** → import it; Wix fetches it server-side, no local download: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "<external-url>", "mimeType": "image/jpeg", "displayName": "post.jpg" }`.
 - **A local file (no public URL)** → `POST https://www.wixapis.com/site-media/v1/files/generate-upload-url`, then **`PUT` the raw file bytes to the returned `uploadUrl`** (set `Content-Type` to the file's MIME type); the response returns the file descriptor. See the Media Manager Upload API.
 
 After import/upload the file returns `operationStatus: PENDING` — poll `GET https://www.wixapis.com/site-media/v1/files/{id}` until `operationStatus` is `READY`, then use its `static.wixstatic.com` `url` in the post.
@@ -487,14 +459,13 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | `428 INELIGIBLE_FOR_FEATURE` on Get Connect Url | Site has hit its plan's cap on **number of connected channels** (e.g. free = 1), not a channel-specific block | Explain the channel-count limit; offer to upgrade, or find the already-connected channel (List Accounts / ask) and offer to post there. Don't suggest connecting a *different* new channel (same cap), don't suggest disconnecting/switching, don't retry the connect flow |
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | Publish fails on a missing account-derived ID (e.g. LinkedIn `/author :: field is required`) | The `authorId`/`pageId`/`boardId`/`locationId`/`channelId`/`privacyLevel` wasn't added to the content object | Read it from the STEP 4b account object per the field-path table and add it before publishing |
-| Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 5 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
 | `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Plan doesn't cover the action, or its quota is 0/exhausted (see the `quotaInfo` from STEP 5) | Don't retry; offer the other action if enabled (schedule vs publish now), or advise upgrading |
 | `SCHEDULED_TIME_ALREADY_PASSED` (or a generic/HTML `400`) on schedule | The resolved `scheduledDate` is in the past — usually a relative time like "today at 9am" that resolved to a past instant | Recompute the wall-clock time in the site's timezone, validate the ISO instant is `> Date.now()`, and advance to the next future occurrence (or confirm a later time) before retrying — don't send-and-catch |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on create or publish | An item with the same `referenceId` already exists | Expected when safely retrying a create/publish that already succeeded — don't retry with a new `referenceId` |
 | `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
-| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 2c) |
+| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL from the user's own media |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
 | An error arrives as an **HTML page** with only an HTTP status (no error code) | Some gateways render branded HTML error pages to non-browser callers, hiding the structured error | Interpret by status + endpoint: 428 on Get Connect Url = channel-count cap (handle per that row); 428 on publish/schedule = plan or quota gate. A 400 on `List Accounts` = channel not connected, but you shouldn't reach it — gate on `long-lived-token-status` (STEP 4a). Never read the page as "app not installed" or a random outage |
@@ -509,8 +480,6 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [Get Feature Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/premium-feature-v1/get-feature-data)
 - [Generate Post Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-post-data)
 - [Generate Text](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-text)
-- [Generate Image](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-image)
-- [Get Generated Image](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/get-generated-image)
 - [Create Draft Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/create-draft-item)
 - [Publish Item By ID](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/publish-item-by-id)
 - [Reschedule Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/reschedule-item)

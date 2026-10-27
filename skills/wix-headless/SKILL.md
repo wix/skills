@@ -1,23 +1,6 @@
 ---
 name: wix-headless
 description: "Connect Wix business services (Stores, Bookings, Donations, CMS, Blog, Events, Forms, and more) to a Wix Headless frontend — infer the needed capabilities, install the apps, seed backend content, and produce an SDK-integration guide. For managed (Wix-hosted) projects it can also build the frontend: scaffold a new site (create) or wire an existing/brought-in design (connect), then build and release. Works across managed, self-managed, and stripe project types. Triggers: set up a Wix Headless backend, add Wix business features to my app, accept donations, build or host a Wix site, connect/implement this design with Wix."
-allowed-tools:
-  - Bash(curl *)
-  - Bash(npx @wix/cli@latest *)
-  - Bash(npx @wix/cli *)
-  - Bash(npm create @wix/new@latest *)
-  - Bash(npm install *)
-  - Bash(npm run *)
-  - Bash(node *)
-  - Bash(cd *)
-  - Bash(ls *)
-  - Bash(mkdir *)
-  - Bash(cp *)
-  - Bash(mv *)
-  - Bash(uuidgen)
-  - Read
-  - Write
-  - Edit
 ---
 
 # Wix Headless

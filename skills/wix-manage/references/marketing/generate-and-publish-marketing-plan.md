@@ -1,6 +1,6 @@
 ---
 name: "Generate a Marketing Plan and Schedule Its Posts"
-description: "End-to-end flow to generate an AI-powered social media marketing plan for a site and schedule its generated posts for publishing, using the Wix Marketing Plan API. Recommends configuring marketing settings (goal, tone, cadence, content pillars) before the first generation, generates the plan asynchronously, polls until it's ready, then schedules the DRAFT posts. Includes generating posts for additional activities. Use for 'generate a marketing plan', 'create a social media plan/calendar', or 'schedule my plan's posts' requests."
+description: "End-to-end flow to generate a site's social media marketing plan with the Wix Marketing Plan API and schedule the post drafts it returns. Recommends configuring marketing settings (goal, tone, cadence, content pillars) before the first generation, generates the plan asynchronously, polls until it's ready, then schedules the DRAFT posts. Includes generating posts for additional activities. Use for 'generate a marketing plan', 'create a social media plan/calendar', or 'schedule my plan's posts' requests."
 ---
 # RECIPE: Generate a Marketing Plan and Schedule Its Posts
 
@@ -12,7 +12,7 @@ Walk every marketing-plan request through this conversation, in this order. Skip
 2. **Decide the settings with the user.** For each setting they want to change, use their words. If they want help choosing, fetch the selectable values (`GET .../marketing-settings/plan-goal-options`, `GET .../marketing-settings/defaults`) and propose suggestions for them to confirm. Write only values the user gave or confirmed; leave everything else to the site defaults. Never fabricate a goal, tone, or topic list on their behalf, and never put `language`, `targetLocations`, or `businessLocation` in the request or claim the call changed them.
 3. **Save, then offer to generate.** Upsert the confirmed settings (STEP 1, `fieldMask` as a comma-separated string matching exactly what you send), then offer to generate the plan — or, if a plan already exists, to regenerate it so the new settings take effect (settings are read only at generation time; use the keyword-research variant when `topics` changed). Poll until `ACTIVE` (STEPs 2-3).
 4. **Present the plan from the API data only.** Show the returned activities and their post drafts. Never invent activities, dates, or captions and present them as "the plan" — if it isn't in the response, it isn't in the plan (also applies to STEP 5's post generation).
-5. **Show before scheduling.** Scheduling publishes AI-generated drafts. Before Schedule Drafts (STEP 4), show each draft's caption and media (render the image inline, or give its URL) and get explicit approval. Schedule exactly what was approved — never regenerate after approval.
+5. **Show before scheduling.** Scheduling publishes the drafts the plan returned. Before Schedule Drafts (STEP 4), show each draft's caption and media (render the image inline, or give its URL) and get explicit approval. Schedule exactly what was approved — never regenerate after approval.
 6. **Diff the schedule response.** Only drafts for Publisher-connected channels are scheduled; the rest silently stay `DRAFT`. Compare the returned `SCHEDULED` ids against the ids you sent, and tell the user which drafts didn't schedule and which channel needs connecting (STEP 4).
 7. **Respect cutoffs and gates.** Skip `TWITTER` drafts dated after July 31, 2026. `FAILED_PRECONDITION` on Schedule Drafts means the plan lacks the premium scheduling feature: say so once and stop; it is not a transient error to retry.
 
@@ -20,7 +20,7 @@ The rest of this recipe is the reference for executing each step.
 
 ---
 
-This recipe generates a site's AI marketing plan — a schedule of marketing activities (social campaigns, blog posts, emails) from today through the end of next month — and schedules the social posts it generates. Generation is **asynchronous and non-deterministic**: you fire it, poll until it's ready, then act on the results.
+This recipe generates a site's marketing plan — a schedule of marketing activities (social campaigns, blog posts, emails) from today through the end of next month — and schedules the social posts it generates. Generation is **asynchronous and non-deterministic**: you fire it, poll until it's ready, then act on the results.
 
 Base URL for all endpoints: `https://www.wixapis.com/promote/marketing-plan-service/v1`.
 
@@ -143,7 +143,7 @@ Posts are generated automatically only for the **near-term** activities (how far
 
 ## STEP 4: Schedule the draft posts
 
-Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are AI-generated and scheduling publishes them, so never schedule content the user hasn't reviewed. Skip `TWITTER` drafts whose activity date falls after **July 31, 2026** — X is sunset then, and a post scheduled past the cutoff will never publish.
+Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are the plan's words, not the user's, and scheduling publishes them, so never schedule content the user hasn't reviewed. Skip `TWITTER` drafts whose activity date falls after **July 31, 2026** — X is sunset then, and a post scheduled past the cutoff will never publish.
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan/schedule-drafts`
 
