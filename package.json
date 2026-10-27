@@ -15,8 +15,13 @@
     "version": "node .github/scripts/sync-plugin-versions.mjs && git add .claude-plugin/plugin.json .codex-plugin/plugin.json .cursor-plugin/plugin.json plugin.json gemini-extension.json antigravity/wix/plugin.json skills/wix-headless-kit/install/pins.json"
   },
   "files": [
-    "skills/**",
-    "!skills/wix-headless-cold-start/**",
+    "skills/wix-app/**",
+    "skills/wix-design-system/**",
+    "skills/wix-docs/**",
+    "skills/wix-headless-kit/**",
+    "skills/wix-headless-templates/**",
+    "skills/wix-manage/**",
+    "skills/wix-readme/**",
     "README.md",
     "LICENSE"
   ],

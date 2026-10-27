@@ -17,10 +17,7 @@
     "./skills/wix-manage",
     "./skills/wix-headless-kit",
     "./skills/wix-headless-templates",
-    "./skills/wix-vibe-headless",
     "./skills/wix-docs",
-    "./skills/wix-export",
-    "./skills/wix-import",
     "./skills/wix-readme"
   ],
   "logo": "assets/logo.svg"
