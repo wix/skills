@@ -503,14 +503,12 @@ bookings already supplies that consent; do not stop at a static mock.
 Use the headless skill on the **same site, appId and URL**, not another site.
 [Claim an anonymous site](#claim-it-into-the-users-account) first.
 
-- With a build-capable shell, read
-  `https://www.wix.com/skills/headless-cold-start/headless-kit.md`. It installs
-  the skills, checks CLI login, then hands off to the kit for deployment,
-  seeding, build and release. Start from the site's downloaded ZIP, unpacked
-  into a project folder.
-- With MCP execution only, read
-  `https://www.wix.com/skills/wix-headless-kit/guides/api-run.md` for the API
-  route, then upload the frontend as above.
+Read Wix's headless guide, `https://www.wix.com/headless/skill.md` (what
+`StartHeadlessBuild` returns), and follow it whole. It measures where you are
+(the Wix MCP's tools, whether the kit runs here, whether a build reaches the
+upload tool) and routes the run itself: the kit's build and release, or the
+same run as Wix API calls with the frontend dropped as static pages. Start from
+the site's downloaded ZIP when the site already serves pages.
 
 ## Images
 
