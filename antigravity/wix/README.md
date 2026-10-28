@@ -18,8 +18,7 @@ Build Wix apps and headless websites, and manage your Wix business, from Antigra
   - `wix-app`: build and review Wix CLI app extensions, and prepare an app for the Wix App Market.
   - `wix-design-system`: Wix Design System component reference.
   - `wix-manage`: REST recipes for configuring Wix business solutions: stores, bookings, payments, CMS, and more.
-  - `wix-headless-kit`: build and release a headless site fast on shipped, per-solution code.
-  - `wix-headless-templates`: the shipped per-solution code `wix-headless-kit` builds from.
+  - `wix-headless-kit`: build and release a headless site fast on shipped, per-solution code. The kit fetches that code (`wix-headless-templates`) the first time it builds a site.
   - `wix-docs`: look up an exact Wix endpoint, field or schema before writing code.
   - `wix-readme`: the index of the plugin: its skills and the Wix MCP tools, with what each does.
 
