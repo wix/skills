@@ -34,25 +34,48 @@ tools (the user's login to Wix) and the skills this page names, together, with n
 With the Wix tools in your tool list, the build is their calls: the site, its apps, its content,
 and pages that read it, published on the site. **No shell, Node, npm or install.** Every call runs
 as the site owner through `ExecuteWixAPI`, which carries the user's login; files reach the site
-through `UploadHeadlessWebsiteFiles`. The reference for each step is the kit's own code, read from
-where your client serves the skills (the section "Where the skills' files are"): `{SKILL_ROOT}` is
-`wix-headless-kit`, `{TEMPLATES}` is `wix-headless-templates`, `{MANAGE}` is `wix-manage`,
-`{DOCS}` is `wix-docs`. Read the file, make the calls it makes.
+through `UploadHeadlessWebsiteFiles`. The reference for each step is the kit's own code, read
+online through `ReadFullDocsArticle` from `https://www.wix.com/skills/{skill}/{path}`: `{SKILL_ROOT}`
+is `wix-headless-kit`, `{TEMPLATES}` is `headless-templates`, `{MANAGE}` is `wix-manage`, `{DOCS}` is
+`wix-docs`. A folder's URL lists its files (`https://www.wix.com/skills/headless-templates/blog/rest/`
+names the five files there): read a folder's listing first and its files by the names it gives,
+never by a name you supply. A copy your client serves or holds on disk is a release behind the
+registry; read it only when the online read fails. Read the file, make the calls it makes.
 
 | step | what you do | the call | the reference |
 |---|---|---|---|
 | 1 | the brief names the business; pick the solutions it needs (`{solution}` below is the template folder: `storefront`, `bookings`, `blog`, …). A brief that needs none (a landing page, a game) is steps 2, 5 and 6 only | | `{SKILL_ROOT}/SKILL.md` "Verticals"; `{TEMPLATES}/{solution}/INSTRUCTIONS.md` |
-| 2 | create the site, its solutions installed with it | `POST /headless-business-setup/v1/headless-business/provision`, the solutions in `seedOptions` (`STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`); returns `metaSiteId` and the OAuth client `appId` | `{MANAGE}/references/sites/upload-static-site.md`, section "Create the site" |
+| 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
 | 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
-| 5 | write pages that read the site as a visitor, check them, upload them | the calls in the solution's `rest/*.ts` with a visitor token minted from `appId`; one `ExecuteWixAPI` script makes each control's calls before the upload; `UploadHeadlessWebsiteFiles` with the files | `{TEMPLATES}/shared/rest/client.ts` (the token and the request); `{TEMPLATES}/{solution}/rest/*.ts` (the calls); `{TEMPLATES}/{solution}/app/wix/{solution}/*-core.ts` (how a response is read); a call they don't cover: `{DOCS}` |
+| 5 | write pages that read the site as a visitor, check them, upload them | the calls in the solution's `rest/*.ts` with a visitor token minted from `appId`; one `ExecuteWixAPI` script makes each control's calls before the upload; `UploadHeadlessWebsiteFiles` with the files | `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then the `*-core.ts` files (how a response is read); a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; the check's result; the owner's steps with their links; the site id and `appId` for a later run | |
+
+**Step 2, the provision.** Send this, changing only the name and the solutions. `seedOptions` is a
+list inside `newMetasite`, one entry per solution, each with `businessSolution` set to one of
+`STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`; a site with none of them
+leaves `seedOptions` out. Any other shape is accepted and installs nothing, with no error.
+
+```javascript
+async function run() {
+  return wix.request({ scope: 'account', method: 'POST',
+    url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
+    body: {
+      origin: 'agent',
+      newMetasite: {
+        namingStrategy: { metaSiteName: 'The Light Journal' },
+        seedOptions: [{ businessSolution: 'BLOG', clearTemplateContent: true, seedDemoContent: false }]
+      },
+      synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP']
+    }
+  });
+}
+// result.data: { metaSiteId, appId }
+```
 
 Four things runs have shown go wrong unless said:
 
-- **The provision body goes as the recipe writes it**: the name under `newMetasite`, `seedOptions`
-  with `clearTemplateContent: true` and `seedDemoContent: false`. Nothing else creates a headless
-  site. A site that already exists is read first, never seeded unasked: its dynamic context
+- **Nothing else creates a headless site.** A site that already exists is read first, never seeded unasked: its dynamic context
   (`GetSiteContext`, or `POST /_api/dynamic-context/v1/dynamic-context/markdown` with `{ siteId }`)
   names its apps, and `{SKILL_ROOT}/guides/existing-site.md` says how it continues.
 - **A fresh install provisions in the background for a few seconds.** The scripts encode the wait
@@ -61,9 +84,12 @@ Four things runs have shown go wrong unless said:
   Keep it. `wix.request` returns `{ status, data }`; the body is `data`.
 - **A page cannot be opened here**, so a wrong shape fails silently in the browser. Before the
   upload, make each control's calls as a visitor in one `ExecuteWixAPI` script, with the bodies
-  from `rest/*.ts`, and run the responses through the cores; a failing call is fixed first. A
-  payment ends in Wix's hosted checkout through a redirect session, wired whether or not payments
-  are connected. Pages with the content written into them are a mock of the site, not the site.
+  from the solution's `rest/` files, and run the responses through the cores. The check passes
+  when the read returns what step 4 created, by name. An empty 200 right after the seed is the
+  fresh-install window or a wrong query: wait a few seconds and read again, then compare your
+  query with the kit's file; nothing is uploaded until the content comes back. A payment ends in
+  Wix's hosted checkout through a redirect session, wired whether or not payments are connected.
+  Pages with the content written into them are a mock of the site, not the site.
 - **A response has a size limit.** Pages sent as text go one or two files per call; a later file
   joins through the recipe's "Change it later", which preserves the rest. Pages in a zip go as one
   attachment where your client hands `attachments` over as files.
@@ -101,20 +127,23 @@ dropped. A site released as a build is continued from its Code Store repository
 ## Where the skills' files are
 
 The run reads four skills, `wix-headless-kit`, `wix-headless-templates`, `wix-docs` and
-`wix-manage`, and each may be in one of three places:
+`wix-manage`. Each is in three places, used for three different things:
 
+- **online, the registry**, where the run reads them: `https://www.wix.com/skills/<skill>/<path>`
+  (`headless-templates` for `wix-headless-templates`; both forms resolve), through the Wix MCP's
+  `ReadFullDocsArticle`, or your client's own fetch where it reaches the registry. A folder's URL
+  lists its files; read the listing, then the files by the names it gives. A small folder's
+  `_content` returns its files in one response (a solution's `rest/` or `seed/` folder; not its
+  cores, which run past what a tool result carries). Every file with its size in bytes is in
+  `https://www.wix.com/skills/<skill>.manifest.json`, too large to read whole in a chat client. The
+  same files are in `https://github.com/wix/skills` under `skills/{skill}/`.
 - **served by your client's skill tool** (a skills list and read tool, a `Skill` tool), the
-  plugin's skills: text to read, not files. List them through that tool first: a catalog shown at
-  the start can leave skills out. A file a served copy lacks is read online.
-- **on disk**: `.agents/skills/<skill>/` after an install, or a plugin's folder on the sandbox disk.
-  Read and run from there. The kit's scripts and the templates run only from disk.
-- **online, the registry**: `https://www.wix.com/skills/<skill>/<path>` (`headless-templates` for
-  `wix-headless-templates`; both forms resolve). Every file of a skill, with its size in bytes, is in
-  `https://www.wix.com/skills/<skill>.manifest.json`, and a folder's `_content` returns its files in
-  one response. Open the manifest once before the first file and take each path from it: a path it
-  doesn't list is a wrong path. Read online pages through the Wix MCP's `ReadFullDocsArticle` when
-  the client's own fetch is blocked. A copy you hold is current when its byte size matches the
-  manifest's. The same files are in `https://github.com/wix/skills` under `skills/{skill}/`.
+  plugin's skills: text, a release behind the registry. How you know the plugin is there, and the
+  copy to read when an online read fails. List them through that tool rather than trust a catalog
+  shown at the start, which can leave skills out.
+- **on disk**, where the kit runs: `.agents/skills/<skill>/` after the install below, which fetches
+  the current copies. The kit's scripts and the templates run only from disk. A plugin's folder on
+  the sandbox disk is a served copy, a release behind; the install replaces it.
 
 The install, for a machine where the kit runs (the Astro build, or the CLI route). Repeat `--skill`
 per skill; a comma-separated list is not parsed; `CI=1` keeps the output plain:
