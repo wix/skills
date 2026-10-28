@@ -1,5 +1,7 @@
 # Realtime Permissions Provider Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Realtime Permissions Provider SPI controls who can receive messages on your app's [Wix Realtime](https://dev.wix.com/docs/sdk/core-modules/realtime/realtime/introduction) channels. When a subscriber from another app attempts a cross-app subscription to one of your channels, Wix calls your `checkSubscriberPermissions` handler and waits synchronously for the answer. Without a registered provider, Wix denies all cross-app subscription attempts by default.

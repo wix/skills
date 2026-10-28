@@ -1,5 +1,7 @@
 # Validations Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Validations SPI lets you add custom validation rules to the checkout process. You can validate cart contents, order totals, quantities, or any business logic requirement. Implement the `getValidationViolations` handler — it evaluates the order and returns any violations.

@@ -1,5 +1,7 @@
 # Availability Time Slots Configuration Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Availability Time Slots Configuration SPI lets you customize how Wix calculates available time slots for booking services: duration, split interval, buffer time, locations, and required/available resources. Wix calls your `listAvailabilityTimeSlotConfigurations` handler whenever a customer views available times or books a service. [Resources](https://dev.wix.com/docs/api-reference/business-solutions/bookings/resources/resources-v2/introduction) must already exist before time slot calculation runs.

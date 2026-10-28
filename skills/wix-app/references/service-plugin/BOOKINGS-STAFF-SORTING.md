@@ -1,5 +1,7 @@
 # Bookings Staff Sorting Provider Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Staff Sorting Provider SPI lets you implement custom staff assignment algorithms for Wix Bookings. When a booking slot has multiple available staff members, Wix calls your plugin to determine the priority order. Implement the `sortStaffMembers` handler — it returns the available staff members reordered by priority.

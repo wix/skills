@@ -1,5 +1,7 @@
 # Bookings Pricing Provider Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## ⚠️ Requires manual sign-up before it's live
 
 Unlike every other SPI in this skill, this integration isn't self-serve. Before Wix will ever call your handler on a real site, email `bookings-integration@wix.com` with subject "Bookings Pricing Integration" and include: your business type, a few words about your business/market, the URL of the site hosting your app, and your app ID. Wix reviews the request and replies by email. **Implement and build the plugin, but tell the user this sign-up step is required and still pending** — don't present the feature as live just because the code compiles and builds.

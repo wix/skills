@@ -316,7 +316,7 @@ Who the extension runs as decides everything below — the Category column in [E
 
 **Route out only when the method acts on the business as a whole**, which a visitor or member genuinely cannot do: `archiveLocation`, `queryLocations`, catalog and inventory writes, `bookings.confirmBooking`, order management. **When the method's docs show the call elevated, route it out and elevate there** — from any host, dashboard included, because `auth.elevate` only works in backend code, so the endpoint is the only place the documented pattern can run.
 
-**When you're unsure, call it directly and let it fail.** A method a site extension may not call returns a permission error you see immediately; a method wrongly routed and elevated *succeeds* and silently returns the wrong data or acts for the wrong person. Some method pages carry a prose note that settles it — `get-my-member`: "This method requires visitor or member authentication." Authoritative when present (the SDK lookup prints it as the method's `note`), but only a minority of pages have one, so its absence decides nothing.
+**When you're unsure in a site, editor, or dashboard extension, call it directly and let it fail.** A method a site extension may not call returns a permission error you see immediately; a method wrongly routed and elevated *succeeds* and silently returns the wrong data or acts for the wrong person. Some method pages carry a prose note that settles it — `get-my-member`: "This method requires visitor or member authentication." Authoritative when present (the SDK lookup prints it as the method's `note`), but only a minority of pages have one, so its absence decides nothing.
 
 Two signals never settle it: the scope name — the methods whose scope name points the wrong way are rules in [sdk-curated.json](scripts/sdk-curated.json), which the [SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity) prints as `note` — and the SDK schema line's client prefix, which varies by docs channel for the same method, so carries nothing and isn't worth re-deriving.
 
@@ -356,7 +356,7 @@ Use the Extension Types Reference Table and decision content above. State extens
    - Backend events → `references/backend-event/COMMON-EVENTS.md`
    - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
-   - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
+   - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md`, then the SPI file its References table links
    - App Tools (AI assistant tools) → read `references/APP_TOOLS.md`; it links to `references/app-tools/TOOLS.md` (declaration) and `references/service-plugin/TOOLS_PROVIDER.md` (handler)
 4. **Verify the specific method/event exists** in references
 5. **For vertical entities, run the [SDK lookup](#sdk-lookup-one-call-for-every-vertical-entity)** once, with every entity; use MCP discovery only for what neither the references nor the lookup answer

@@ -1,5 +1,7 @@
 # Shipping Rates Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Shipping Rates SPI lets you provide custom shipping options and calculate shipping costs based on order details, destination, weight, or any custom logic. Implement the `getShippingRates` handler — it returns the available shipping options with their costs.

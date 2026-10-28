@@ -1,5 +1,7 @@
 # Gift Cards Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Gift Vouchers Provider SPI allows you to integrate external gift card or voucher systems with Wix eCommerce. This enables customers to redeem gift cards, check balances, and void transactions.

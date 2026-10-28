@@ -1,5 +1,7 @@
 # Additional Fees Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Additional Fees SPI lets you add custom fees to orders during checkout (handling fees, rush delivery charges, global order fees, etc.). Implement the `calculateAdditionalFees` handler — it calculates and returns the fees to apply.

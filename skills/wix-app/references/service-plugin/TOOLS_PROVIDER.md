@@ -1,5 +1,7 @@
 # Tools Provider Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Tools Provider SPI lets your app handle tool invocations from the Wix AI assistant. Implement the `runTool` handler — it receives the tool's `methodName` and a JSON `payload`, runs your business logic, and returns a response the AI assistant uses to answer the user.
