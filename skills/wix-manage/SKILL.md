@@ -173,8 +173,11 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 
 ## Domains
 
+### [Check Domain Availability](references/domains/check-domain-availability.md)
+Answer whether a domain name, or several at once, is available to register through Wix — a stand-alone "is example.com available?" question with no request to buy or connect.
+
 ### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
-Buy a domain through Wix or connect one the user already owns — intent, availability, suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path including ownership lookup and binding a domain to a site.
+Buy a domain through Wix or connect one the user already owns — intent, suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path including ownership lookup and binding a domain to a site. Availability checks are not done here: they all use Check Domain Availability.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
