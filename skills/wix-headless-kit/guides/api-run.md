@@ -30,7 +30,9 @@ This skill is one of a set, and the guide reads from three of them:
 - `{DOCS}` — `wix-docs`: how to look up the Wix API and SDK documentation and confirm a method's
   exact shape before writing a call.
 
-Installed, they sit beside each other wherever your client keeps them: under `.agents/skills/` after
+With the Wix plugin, the way in for every client that takes plugins, these four are its skills,
+read from where the client serves them, with nothing to install or read online. Installed, they
+sit beside each other wherever your client keeps them: under `.agents/skills/` after
 `npx skills add` or a similar skills folder, or in a plugin's folder. A skill your client offers you
 by name is read from there, or through the client's skill tool when it is served rather than a file,
 with no install, clone or online read. List them first, through that tool or the folder: a catalog

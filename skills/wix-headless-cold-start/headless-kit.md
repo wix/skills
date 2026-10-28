@@ -9,6 +9,24 @@ description: "Build and release a Wix Headless site from a single prompt, on shi
 order.** Read this page, and every skill page it names, whole: a fetch that summarizes drops the
 commands.
 
+## The plugin, first
+
+The Wix plugin is the way to Wix for every client that takes plugins: it carries the Wix MCP's
+tools (the user's login to Wix) and the skills this page names, together, with nothing to install.
+
+1. **Look for it.** The Wix tools in your tool list (`WixREADME`, `ExecuteWixAPI`,
+   `UploadHeadlessWebsiteFiles`, the documentation searches and the rest) are the plugin's
+   connection to Wix, signed in as the user. Its skills are
+   beside them, served by the client (its skill tool or skills list, or the plugin's folder on
+   disk); list them rather than trust a catalog shown at the start, which can leave them out.
+2. **Have it: use it.** Its tools are the way to Wix, and its skills are the ones to read, from
+   where the client serves them. Nothing below installs or signs in again.
+3. **Lack it: suggest it.** Tell the user the Wix plugin, from the client's plugin directory, is
+   the one step that connects Wix and brings the skills, and ask them to install and connect it;
+   then continue here with the plugin. A client that takes no plugin connects the Wix connector or
+   MCP server from its settings instead. The Wix CLI route below is for a machine with a shell
+   that reaches Wix and no plugin.
+
 ## The whole cold start (details in the phases below)
 
 Three facts about where you are decide the run, and each is measured, not assumed, before anything
@@ -36,7 +54,7 @@ is built:
 |---|---|---|
 | the kit runs here, the build reaches the upload tool | **the plugin route.** The site is provisioned through `ExecuteWixAPI`, the kit's Astro project is built here with `astro build`, and the build is released by `UploadHeadlessWebsiteFiles`: one call with the zip attached, or two calls with `curl` between them from a shell that reaches the internet. No Wix CLI, no login, no bootstrap. | **the CLI route.** The bootstrap checks the Wix CLI and logs the user in (a device code the user approves in their own browser); `wix create` makes the site, `wix release` publishes. |
 | the kit runs here, no carrier for a build | **the API-call guide** (`wix-headless-kit/guides/api-run.md`): the site, the apps and the seed through `ExecuteWixAPI` as above, and the frontend as static pages dropped in the upload tool's `files` text form. Its step 5 sizes the pages to that carrier: every file sent is text written out, so the pages are a few small files that call the site as a visitor, with the kit's REST twins and cores read as the reference; the compose, whose ten modules would all have to be written out, is not run. No Astro build. | the CLI route, as above. |
-| the kit does not run here | **the API-call guide**: the same run as Wix API calls through `ExecuteWixAPI`, the frontend as static pages dropped onto the site (`wix-headless-kit/guides/api-run.md`). | ask the user to connect Wix to this chat (the Wix connector or MCP server, in the client's settings; a plugin's connector included), then the row above. |
+| the kit does not run here | **the API-call guide**: the same run as Wix API calls through `ExecuteWixAPI`, the frontend as static pages dropped onto the site (`wix-headless-kit/guides/api-run.md`). | the plugin, as above: suggest it, have the user install and connect it, then the row above. |
 
 A Wix CLI session already on the machine (`~/.wix/auth/account.json`, what `wix login` writes) makes
 it the CLI route whatever else is there. `node .agents/skills/wix-headless-kit/install/context.mjs`
@@ -103,10 +121,12 @@ lower version, install or upgrade Node first — do **not** work around it:
 - **Linux:** `nvm install 24 && nvm use 24` (or your distro's Node 24+ package)
 - **Windows:** `winget install OpenJS.NodeJS.LTS` (or download from nodejs.org)
 
-## Phase 1 — Install the skills you don't have
+## Phase 1 — The skills: the plugin's, or an install
 
-Install the skill and its two companions (`CI=1` forces plain non-interactive CLI output —
-keep it on every command). Repeat `--skill` per skill; a comma-separated list is not parsed:
+With the plugin, the skills are its, read from where the client serves them (a file they lack is
+read online), and this phase is done. Without it, install the skill and its two companions
+(`CI=1` forces plain non-interactive CLI output — keep it on every command). Repeat `--skill` per
+skill; a comma-separated list is not parsed:
 
 ```bash
 CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
@@ -122,11 +142,10 @@ node .agents/skills/wix-headless-kit/install/templates.mjs
   beside the kit when that skill is installed too, else under `wix-headless-kit/templates/`; every
   kit script finds it either way.
 
-They land under `.agents/skills/`. When the skills are already on disk, by a plugin or an earlier
-install, skip this phase and use them where they are; a file they lack (an older copy may not have
-`wix-headless-kit`) is read online. A served copy (the client's skill tool) does not replace the
-install: the scripts and the templates run from disk. A copy older than the registry's is replaced
-by the install above; `node .agents/skills/wix-headless-kit/install/check.mjs` says whether one is.
+They land under `.agents/skills/`. A served copy (the client's skill tool) is text to read, not
+files: where the kit runs, the scripts and the templates need the install above even when the
+served copies are there. A copy older than the registry's is replaced by the install above;
+`node .agents/skills/wix-headless-kit/install/check.mjs` says whether one is.
 
 ## Phase 2 — The way to Wix
 
