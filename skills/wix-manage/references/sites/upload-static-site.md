@@ -11,6 +11,14 @@ simulate a patch by downloading the current ZIP, merging changes, and dropping
 the complete result. They preserve omitted files, but still transfer the full
 site and are not atomic against another editor.
 
+**What this recipe publishes is static pages.** A site whose content lives in Wix
+(a blog, a store, bookings, events, a CMS, forms, members, payments, among
+others) is a Wix Headless build: the solution's app on the site, its content in Wix, pages that
+read it. That build is Wix's headless guide,
+`https://www.wix.com/headless/skill.md`; this recipe is its site call and its
+drop, not the build. Pages with that content written into them are a mock of
+the site, not the site, and a request for a working one is not met by a mock.
+
 ## Choose the task
 
 | Request | Flow |
@@ -19,7 +27,7 @@ site and are not atomic against another editor.
 | Publish a Wix Astro build | [Create once](#create-the-site) for a new site, then [release it](#release-a-wix-astro-build); it is not dropped. |
 | Inspect or edit a deployed site | [Find its ID](#find-an-existing-site), then [list, read or patch](#change-it-later). Do not create another site. |
 | Replace the entire deployed frontend | Confirm replacement of the serving frontend, then drop the complete intended file set on the same ID. |
-| Make a shop, bookings, forms or other business controls work | [Connect a backend](#connect-a-backend) on the same site. A static upload alone does not make them functional. |
+| A blog, a store, bookings, events, a CMS, forms, members, payments, and the like: anything whose content lives in Wix | Wix's headless guide, `https://www.wix.com/headless/skill.md`, on the site this recipe creates ([Connect a backend](#connect-a-backend)). A static upload alone does not make them functional. |
 | Publish without a login | [Anonymous upload and release](#publish-anonymously), then claim or give the private save link. |
 | Migrate a live site by URL or CSV/TSV | [Site Import](site-import.md), not this recipe. |
 | Add an embed to an editor-built site / upload media assets | Use the editor / [Upload Media to Wix](../media/upload-media-to-wix.md), respectively. |
@@ -56,7 +64,8 @@ do not provision an empty site.
 
 Build projects that need dependencies first, and upload only their static
 output. If your environment cannot build the project, ask for the build output.
-For a Wix business project, follow [Connect a backend](#connect-a-backend).
+For a site whose content lives in Wix, read `https://www.wix.com/headless/skill.md`
+before the first call ([Connect a backend](#connect-a-backend)).
 
 ### Static pages or a Wix Astro build
 
@@ -125,6 +134,10 @@ async function run() {
 }
 // result.data: { metaSiteId, appId }
 ```
+
+A site whose content lives in Wix continues in the headless guide,
+`https://www.wix.com/headless/skill.md`: the content is seeded through the API and
+the pages read it. The drops below are for static pages.
 
 The shell equivalent:
 
