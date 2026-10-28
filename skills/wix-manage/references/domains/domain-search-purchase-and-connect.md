@@ -1,8 +1,9 @@
 ---
 name: "Domain Search, Purchase and Connect"
-description: Buy a domain through Wix or connect one the user already owns — intent, availability,
-  suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path
-  including ownership lookup and binding a domain to a site.
+description: Buy a domain through Wix or connect one the user already owns — intent, suggestions,
+  site resolution, registration, privacy, cart and checkout, plus the connect path including
+  ownership lookup and binding a domain to a site. Availability checks are not done here: they all use
+  Check Domain Availability.
 ---
 
 # Domain Search, Purchase and Connect
@@ -12,7 +13,7 @@ part it points into — §A4b, §P3, §C0c, §R4.3.
 
 | Part | Sections | Covers |
 |------|----------|--------|
-| **Part A** — Entry and Routing | §A1 – §A8 | Intent, availability, suggestions, and the routing decision. **Start here.** |
+| **Part A** — Entry and Routing | §A1 – §A8 | Intent, the availability step of a buy or connect, suggestions, and the routing decision. **Start here.** |
 | **Part P** — Purchase Path | §P1 – §P10 | Buying a domain from Wix |
 | **Part C** — Connect Path | §C0 – §C7 | Connecting a domain the user already owns |
 | **Part R** — Reference | §R1 – §R9 | Endpoints, product IDs, URL templates, site resolution, ownership lookup, error handling |
@@ -44,7 +45,7 @@ perform the connection itself (**US-42 – US-45**) or only hand over a link. §
 The user wants to:
 
 - Buy / purchase / register / get a domain
-- Search for an available domain, or check if one is available
+- Look for a domain name to buy
 - Brainstorm a domain name from a business idea
 - Connect / assign / add a domain to their Wix site
 - Connect / assign / add a sub domain to their Wix site
@@ -54,9 +55,18 @@ Typical openers: *"buy me a domain"*, *"I want to purchase a domain"*, *"get me 
 *"I need to connect coolbrand.com to my site"*, *"I need to connect a domain mybakery.net to my Wix site"*,
 *"I have coolbrand.com and want to connect it"*, *"I need a domain for my pancakes restaurant"*."
 
-**If the user mentions anything domain-related, this is the right flow.** Asking a clarifying
+⛔ **Availability checks are never done by this recipe.** Every check of whether a domain is available,
+taken, free or registered goes through [Check Domain Availability](check-domain-availability.md) — whether
+the user only asks (*"is mybakery.com available?"*, *"can I get mybakery.com?"* with no wish to buy yet, a
+list of domains to check) **or** the check is a step inside a purchase or a connect. Read that skill, run the
+check as it describes, then come back with the result: §A4 only decides what happens next. When the user
+only asked about availability, the answer is given there and ends there; come back here only when the user
+then wants to buy or connect. Never call the availability endpoints from this recipe.
+
+**If the user mentions anything else domain-related, this is the right flow.** Asking a clarifying
 question is expected behaviour, not a dead end — stay here and ask. Only leave for requests that are
-completely unrelated to domains ("change my site colors", "how do I add a blog").
+completely unrelated to domains ("change my site colors", "how do I add a blog"), and for a bare
+availability question (above).
 
 **UX rule for everything below:** keep it natural, never expose internal mechanics, and reveal
 information only when it changes what the user has to do next. See §R9.
@@ -66,7 +76,7 @@ information only when it changes what the user has to do next. See §R9.
 ## A1.1 ⛔ Out of Scope — Hard Boundary
 
 This skill sells Wix domains and connects domains to Wix sites. **That is the whole job.** It has
-exactly three information sources: `check-domain-availability`, `suggest-domains`, and the
+exactly three information sources: `check-domain-availability` (read [Check Domain Availability](check-domain-availability.md)), `suggest-domains`, and the
 authenticated Wix endpoints in §R4.2. Nothing else.
 
 **Never do any of these, even if you have the tools and the user would find it useful:**
@@ -107,7 +117,8 @@ Two things to establish: the **domain** and the **intent**.
 | Wanting **a** domain — indefinite article, no domain named: *"I want a domain for my site"*, *"I need a domain for my pancakes restaurant"* | **PURCHASE** | §A3 |
 | "connect it **to my site**", "assign it to my site", "bind it to my site", "point it at my site", "put it on my site" | **CONNECT → a site** | §A3 |
 | "connect it **to Wix**", "add it to Wix", "bring it into Wix", "I have", "I own", "transfer it over" | **CONNECT → Wix** | §A3 |
-| A specific domain, no buy/connect word | **UNKNOWN** | §A3 — the availability check in §A4 settles it |
+| A specific domain, no buy/connect word, and no question about whether it is available | **UNKNOWN** | §A3 — the availability check (run with Check Domain Availability) and §A4 settle it |
+| A specific domain, and the only question is whether it is available, taken or free | Not this recipe | [Check Domain Availability](check-domain-availability.md) |
 | Neither, and no domain | **UNKNOWN** | Ask: *"Would you like to purchase a new domain or connect one you already own?"* |
 
 ### The two senses of "connect" (US-51)
@@ -291,10 +302,12 @@ already settled, so the plan check is the next step and the question is never re
 
 ---
 
-## A4. Availability Check (US-07, US-08, US-09)
+## A4. What the Availability Result Means (US-07, US-08, US-09)
 
-Check the normalized domain **silently** — no "let me check", no "one moment". Endpoint and response
-shape: §R4.1.
+Check the normalized domain **silently** — no "let me check", no "one moment". This recipe does not run the
+check: read [Check Domain Availability](check-domain-availability.md) and run it as that skill describes
+(endpoints, request, response, errors), here as everywhere. This section only decides what happens next. Inside this flow §A4a, §A4b and §A6 decide the reply; the
+"Reading the result" table in that skill does not apply. Result mapping: §R4.1.
 
 ### A4a — `available: true` (US-08)
 
@@ -2047,32 +2060,17 @@ retry.
 
 > Do **not** use the `GetSuggestedDomains` tool. Always use the v2 endpoint below.
 
-**Check domain availability**
+**Check domain availability** — every check in this flow uses [Check Domain Availability](check-domain-availability.md) (request, response, errors); never call the endpoints from here. In this flow its results map as follows:
 
-```
-GET https://www.wixapis.com/domain-search/v2/check-domain-availability?domain={domain}
-```
+| Result | Meaning here |
+|--------|--------------|
+| `availability.available: true` | Buyable → §A4a |
+| `availability.available: false` and `availability.premium: false` | Taken → §A4b. |
+| `availability.premium: true`, whatever `available` says | A premium domain, buyable → §A4a. Say nothing about "premium": its prices come from the offering call (§P3). |
+| HTTP 400, `details.applicationError.code === "DOMAINS_UNSUPPORTED_TLD"` | Unsupported TLD → §A6. The `availability` object is absent. |
 
-```json
-{ "availability": { "domain": "cozycuts.com", "available": false, "premium": false, "premiumType": "UNKNOWN_PREMIUM_TYPE" } }
-```
-
-| Field | Meaning |
-|-------|---------|
-| `availability.available: true` | Not registered — buyable |
-| `availability.available: false` | Registered — taken |
-| `availability.premium` | ⚠️ **Ignore completely.** This is domain *pricing tier*, not Wix site Premium status. Site Premium comes only from `premiumStatus` (§R4.2). |
-
-**Unsupported TLD** is not a field on the success body — it is an **HTTP 400 error body**:
-
-```json
-{ "message": "Unsupported TLD for domain name myshop.ws",
-  "details": { "applicationError": { "code": "DOMAINS_UNSUPPORTED_TLD",
-                                     "description": "Unsupported TLD for domain name myshop.ws" } } }
-```
-
-Detect it at `details.applicationError.code === "DOMAINS_UNSUPPORTED_TLD"`. Do **not** look for
-`availability.available` on this response — the `availability` object is absent.
+`availability.premium` is a pricing tier of the domain, not the Wix Premium plan of a site. Site
+Premium comes only from `premiumStatus` (§R4.2).
 
 **Suggest domains**
 
@@ -2507,7 +2505,8 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
   `lowestCyclePrice` precisely because someone will be tempted; both are unverified in this skill and
   neither is a substitute for saying which period the price covers. Print the period, not a rate.
 - Re-check availability for a domain that came from the suggest endpoint.
-- Use `availability.premium` to decide anything.
+- Run an availability check without [Check Domain Availability](check-domain-availability.md), or call its endpoints from this recipe.
+- Use `availability.premium` for anything but the premium-domain row in §R4.1, or as the site's Premium status.
 - Fetch list of sites when a `siteId` is already in context. A partial roster the host preloaded is
   not that — see Case A.
 - **Announce a site count instead of the sites.** *"You have 93 sites — want me to list them?"* asks
