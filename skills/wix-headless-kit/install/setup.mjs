@@ -360,7 +360,7 @@ if (stack !== "static" && existsSync(join(projectDir, "package.json"))) {
 const madeTheSite = mode === "create" || mode === "adopt";
 let seed = null;
 if (planPath && publisher === "plugin") {
-  emit("seed_skipped", { reason: `the seed modules run with the Wix CLI's session, and this run has none: on the plugin route the plan is seeded through ExecuteWixAPI, as ${join(SKILL_ROOT, "guides", "api-run.md")} section 4 describes, with the vertical's SEED.md (${join(TEMPLATES, vertical, "seed", "SEED.md")}) as the contract` });
+  emit("seed_skipped", { reason: `the seed modules run with the Wix CLI's session, and this run has none: on the plugin route the plan is seeded through ExecuteWixAPI, as the cold start's run describes (step 4, https://www.wix.com/headless/skill.md), with the vertical's SEED.md (${join(TEMPLATES, vertical, "seed", "SEED.md")}) as the contract` });
 } else if (planPath && !madeTheSite) {
   emit("seed_skipped", { reason: `${mode}: the site existed before this run; setup seeds only a site it created. Read what the site holds (${join(TEMPLATES, vertical, "seed", "read-site.mjs")}), then run templates/${vertical}/seed/seed-*.mjs ${planPath} yourself when the brief supplies or describes content` });
 }
@@ -408,7 +408,7 @@ emit("ready_for_brand_layer", {
     (mode === "migrate"
       ? "a migration preview: the site being migrated owns its content (read it with the vertical's read-site.mjs when the brief allows probing; never seed it); theme + write the home page; "
       : madeTheSite && publisher === "plugin"
-      ? `the site is new and empty: seed it through ExecuteWixAPI (guides/api-run.md section 4, the plan per step 2 and the vertical's SEED.md as the contract${planPath ? `, the plan ${planPath}` : ", a plan drafted from the brief"}), and name the placeholder content in the closing message; theme + write the home page; `
+      ? `the site is new and empty: seed it through ExecuteWixAPI (the cold start's run, step 4, the plan per step 2 and the vertical's SEED.md as the contract${planPath ? `, the plan ${planPath}` : ", a plan drafted from the brief"}), and name the placeholder content in the closing message; theme + write the home page; `
       : madeTheSite
       ? (planPath ? "theme + write the home page; " : "the site is new and empty and no plan was given, so nothing was seeded yet: seed it now (a plan per step 2 — the brief's content, or one drafted per the vertical's SEED.md — then the vertical's seed module), and name the placeholder content in the closing message; theme + write the home page; ")
       : `nothing was seeded (setup seeds only a site it created): read what the site holds with ${join(TEMPLATES, vertical, "seed", "read-site.mjs")}, then run ${join(TEMPLATES, vertical, "seed")}/seed-*.mjs <plan> when the brief supplies or describes content; theme + write the home page; `) +

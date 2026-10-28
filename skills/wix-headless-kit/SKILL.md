@@ -122,7 +122,7 @@ prints which one this machine has, as `publisher`:
   installs with the site (the provision call returns the
   `metaSiteId` and the site's OAuth client `appId`); step 3's setup takes both as `--site` and
   `--app` and runs no CLI; the seed is an `ExecuteWixAPI` script written from the vertical's
-  `SEED.md` (`guides/api-run.md` section 4); the release is `npx astro build`, then the build
+  `SEED.md` (the cold start's run, step 4); the release is `npx astro build`, then the build
   uploaded with `UploadHeadlessWebsiteFiles` (step 5), attached in one call where the client shows
   `attachments` as a local path, or in two calls with `curl` to the URLs the first returns, from a
   shell that reaches the internet (the URLs are on Amazon S3; `curl -sI -m 25 https://s3.amazonaws.com`
@@ -131,11 +131,11 @@ prints which one this machine has, as `publisher`:
   site's Code Store repository, and returns the live URL. The plugin route asks for no login.
   **The carrier is settled before the build**, from `context.mjs`'s `carrier.s3` and from whether
   the client hands `attachments` over as files (the tool's `attachments` description names the
-  clients that do): with neither, the Astro build has no way to the site and the run is
-  `guides/api-run.md`, the site, the apps and the seed through `ExecuteWixAPI` and the frontend as
-  a few small static pages dropped in the tool's `files` form, written against the kit's REST
-  twins and cores as reference (its step 5); the compose is not run, since every file it writes
-  would have to be written out as text.
+  clients that do): with neither, the Astro build has no way to the site and the run is the cold
+  start's "The run, through the plugin": the site, the apps and the seed through `ExecuteWixAPI`
+  and the frontend as a few small static pages dropped with the upload tool, written against the
+  kit's REST twins and cores as reference (its step 5); the compose is not run, since every file
+  it writes would have to be written out as text.
 - **`cli`** — where the Wix MCP is not connected, or a Wix CLI session is already on this machine:
   a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
   device-code flow: surface the URL and code to the user, never read tokens into context).
@@ -247,7 +247,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
 
    | the folder holds | shape | what setup does | seeded by setup |
    |---|---|---|---|
-   | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site. On the plugin route, `--site <metaSiteId> --app <appId>`: the ids the provision call returned for a new site, or, for a site that exists with no project (a dropped site), its id and the companion app's id from `get-or-create` (`guides/existing-site.md`); the composed template is copied in and `wix.config.json` and `.env.local` written for that site, no CLI | **yes**, from `--plan`, on the CLI route. On the plugin route setup takes no `--plan` and seeds nothing: the plan is seeded through `ExecuteWixAPI` (`guides/api-run.md` section 4) |
+   | nothing, or loose files (a CSV, a brief) | **empty** → create | `wix create` with the vertical's composed template, here; `--business-name` names the site. On the plugin route, `--site <metaSiteId> --app <appId>`: the ids the provision call returned for a new site, or, for a site that exists with no project (a dropped site), its id and the companion app's id from `get-or-create` (`guides/existing-site.md`); the composed template is copied in and `wix.config.json` and `.env.local` written for that site, no CLI | **yes**, from `--plan`, on the CLI route. On the plugin route setup takes no `--plan` and seeds nothing: the plan is seeded through `ExecuteWixAPI` (the cold start's run, step 4) |
    | a frontend, no config (a `package.json`, or `index.html` at the root: someone's Astro, Vite, Next, plain HTML) | **project** → adopt | `init` in place gives it a new, empty site, then deploys; `--stack` from step 1 is required; make the project what that stack needs on Wix hosting (step 1) before or right after | **yes**, from `--plan` |
    | a config whose `.env.local` declares an active editor migration (`EDITOR_MIGRATION_STATUS=ACTIVE`), with or without the blank Astro starter the download carries | **migration** → migrate | the shipped code into the starter (or the composed template around a bare config), deployed with the migrated site's app as the client, the install starts; `ready_for_brand_layer` says `mode: "migrate"`, the parent as `siteId`, the child as `deploySiteId` (`guides/migration.md`) | no, ever |
    | a config, no frontend | **config-only** → refuses | the site exists and has no frontend yet: on the CLI route `attach.mjs` (below) takes the site from the config, reuses its hosting, scaffolds and deploys; on the plugin route `setup.mjs --site --app` with the config's ids, in an empty folder, then the build released by `UploadHeadlessWebsiteFiles` (`guides/existing-site.md`). That config is what `init` leaves behind, and `init` always creates a site: this site was made for this run and is empty | **yes**: draft the plan as for create, then `attach.mjs --plan` |
@@ -413,10 +413,11 @@ how to close such a run. A public site is still better served by managed Astro; 
 close.
 
 Where the kit does not run (no route to npm, no Node), or when the install, the CLI or the login is
-blocked where you are, read `<SKILL_ROOT>/guides/api-run.md`: the same run, step by step, as the Wix API calls the
-scripts make and the files beside this skill that carry the contracts. On the plugin route the same
-guide is the reference for the calls that go through `ExecuteWixAPI` (the provision call, the seed);
-the build and the release are this skill's step 5.
+blocked where you are, the run is the cold start's "The run, through the plugin"
+(`wix-headless-cold-start/headless-kit.md`, `https://www.wix.com/headless/skill.md`): the same run,
+step by step, as the Wix API calls the scripts make and the files beside this skill that carry the
+contracts. On the plugin route the same steps are the reference for the calls that go through
+`ExecuteWixAPI` (the provision call, the seed); the build and the release are this skill's step 5.
 
 ## Verticals
 
