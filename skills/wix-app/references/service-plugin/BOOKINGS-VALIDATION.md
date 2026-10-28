@@ -1,5 +1,7 @@
 # Bookings Validation Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Bookings Validation SPI lets you implement custom validation logic for booking operations. When a customer creates, cancels, or reschedules a booking (single-service or multi-service), Wix calls the handler matching that operation before it executes. Return `valid: true` to allow the operation or `valid: false` to block it with a customer-facing message.

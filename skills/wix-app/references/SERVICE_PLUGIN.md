@@ -3,6 +3,11 @@
 
 Service plugins are a set of APIs defined by Wix that let you inject custom logic into the existing backend flows of Wix business solutions or introduce entirely new flows. When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations), Bookings customization (staff sorting, booking validation, policies, pricing, availability), Realtime channel permissions, and exposing tools to the Wix AI assistant.
 
+## Rules every service plugin must follow
+
+- **Elevate every SDK call.** Service plugins run without a visitor or member session, so a bare Wix SDK call throws. Wrap each one in `auth.elevate` from `@wix/essentials` — reads, lookups, fallback and retry paths included. See [Elevating Permissions for API Calls](#elevating-permissions-for-api-calls).
+- **Log `error.message`, never the error object.** SDK errors can be circular, and `console.error(msg, error)` can throw, turning a handled failure into a 500.
+
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` is one of:
@@ -64,7 +69,7 @@ The scaffolded `plugin.ts` imports the relevant module from the SPI's package (`
 
 ## Elevating Permissions for API Calls
 
-When making Wix API calls from service plugins, wrap the SDK method with `auth.elevate` from `@wix/essentials` before calling it. The pattern is identical for every Wix SDK module (`@wix/data`, `@wix/ecom`, `@wix/stores`, etc.):
+Wrap the SDK method with `auth.elevate` before calling it (see the rules above). The pattern is identical for every Wix SDK module (`@wix/data`, `@wix/ecom`, `@wix/stores`, etc.):
 
 ```typescript
 import { auth } from "@wix/essentials";

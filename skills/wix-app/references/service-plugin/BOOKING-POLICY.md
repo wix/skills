@@ -1,5 +1,7 @@
 # Booking Policy Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Booking Policy SPI lets you provide dynamic booking policies instead of a service's single static policy. Wix calls your `listBookingPolicies` handler whenever it needs to know how early/late a service can be booked or whether online booking is allowed — for example, when a customer loads the booking calendar or books a service. Your implementation can return a different policy for the same service based on your own criteria (e.g., customer type, time of year).

@@ -1,5 +1,7 @@
 # Payment Settings Service Plugin Reference
 
+> **Before writing code, read [SERVICE_PLUGIN.md](../SERVICE_PLUGIN.md#rules-every-service-plugin-must-follow)** — it holds the elevation and error-logging rules every service plugin needs.
+
 ## Overview
 
 The Payment Settings SPI lets you integrate custom payment settings with the Wix eCommerce payment process. It's called during payment processing (e.g., when a customer enters credit card details) and returns settings that Wix passes to the payment provider. A common use case is enforcing 3D Secure (3DS) for certain transactions. Implement the `getPaymentSettings` handler.
