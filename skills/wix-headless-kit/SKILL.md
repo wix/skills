@@ -118,7 +118,8 @@ prints which one this machine has, as `publisher`:
 - **`plugin`** — no Wix CLI session on this machine; the Wix MCP's tools are in your tool list
   (`ExecuteWixAPI`, `UploadHeadlessWebsiteFiles`: a Wix plugin or connector, connected); and `npm`
   reaches the registry, so the kit runs here. The MCP carries the user's login. The site is provisioned through `ExecuteWixAPI` with the recipe
-  `wix-manage/references/sites/create-headless-site.md` (the provision call returns the
+  `wix-manage/references/sites/create-headless-site.md`, the vertical in `seedOptions` so its app
+  installs with the site (the provision call returns the
   `metaSiteId` and the site's OAuth client `appId`); step 3's setup takes both as `--site` and
   `--app` and runs no CLI; the seed is an `ExecuteWixAPI` script written from the vertical's
   `SEED.md` (`guides/api-run.md` section 4); the release is `npx astro build`, then the build
