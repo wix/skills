@@ -18,6 +18,10 @@ read it. That build is Wix's headless guide,
 `https://www.wix.com/headless/skill.md`; this recipe is its site call and its
 drop, not the build. Pages with that content written into them are a mock of
 the site, not the site, and a request for a working one is not met by a mock.
+The build runs from here with no shell, as the guide's "The run, through the
+plugin": the provision below with the solution in `seedOptions`, the content
+created through `ExecuteWixAPI`, and pages that read it dropped with the upload
+tool.
 
 ## Choose the task
 
@@ -507,21 +511,14 @@ dashboard link.
 
 ## Connect a backend
 
-A static page cannot itself provide stores, payments, bookings, CMS, members
-or forms. For an uploaded mock, publish it, then name the nonfunctional
-buy/book/order/join/submit/pay controls, what Wix solution and content would
-be created, and ask before connecting. A request for a working shop or real
-bookings already supplies that consent; do not stop at a static mock.
-
-Use the headless skill on the **same site, appId and URL**, not another site.
-[Claim an anonymous site](#claim-it-into-the-users-account) first.
-
-Read Wix's headless guide, `https://www.wix.com/headless/skill.md` (what
-`StartHeadlessBuild` returns), and follow it whole. It measures where you are
-(the Wix MCP's tools, whether the kit runs here, whether a build reaches the
-upload tool) and routes the run itself: the kit's build and release, or the
-same run as Wix API calls with the frontend dropped as static pages. Start from
-the site's downloaded ZIP when the site already serves pages.
+A static page cannot itself provide stores, payments, bookings, a CMS, members
+or forms. A site that needs them continues in Wix's headless guide,
+`https://www.wix.com/headless/skill.md` (what `StartHeadlessBuild` returns),
+section "The run, through the plugin": the same site, `appId` and URL, the
+solution installed, its content created through `ExecuteWixAPI`, the pages
+rewritten to read it and uploaded here again. A request for a working shop or
+real bookings already supplies the consent; do not stop at a static mock. An
+anonymous site is [claimed](#claim-it-into-the-users-account) first.
 
 ## Images
 
