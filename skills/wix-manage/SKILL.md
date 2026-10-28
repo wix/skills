@@ -258,6 +258,12 @@ Create, inspect, update and archive Wix Donations campaigns, including suggested
 ### [Events Dashboard Navigation](references/events/events-dashboard-navigation.md)
 "Builds direct links to Wix Events dashboard pages on manage.wix.com — the published and draft event lists, a new event, categories, staff, a recurring series' occurrences, and one event's pages: overview, edit, tickets, guests (RSVP or ticketed), orders, schedule, registration settings and form, and policies. Pairs each Events entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
+### [Event Registration Form](references/events/event-registration-form.md)
+"Customizes the registration form of a Wix event with the Events Form API — adding, editing, reordering and removing questions, the additional-guests field, and the messages guests see after registering or when registration is closed. Use when the user wants to add or require a question on an event's RSVP or checkout form, let guests bring a plus-one, or reword a confirmation message."
+
+### [Event Schedule, Policies and Categories](references/events/event-schedule-policies-and-categories.md)
+"Configures what appears around a Wix event on its page — the schedule or agenda, the policies guests accept (terms, refunds), and event categories. Use when the user wants to add an agenda or timetable to an event, add terms or a refund policy, or group events into categories such as workshops or concerts."
+
 ---
 
 ## Forms
