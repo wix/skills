@@ -18,6 +18,5 @@ to be in two steps:
 2. **Integrate Wix Headless into it**: a Wix Business Solution built on shipped code (a
    store, a blog, bookings, events, a CMS, forms, members and more, with its pages,
    data layer and seed) comes from the Wix Headless kit, starting at its cold start,
-   https://www.wix.com/skills/headless-cold-start/headless-kit.md. It takes a machine
-   from nothing (the skills, the Wix CLI sign-in) to a built, seeded, released site on
-   the same site and URL; the upload recipe says how to run it with no shell of your own.
+   https://www.wix.com/headless/skill.md. It measures where you are and routes the run,
+   with a shell or without, to a built, seeded, released site on the same site and URL.
