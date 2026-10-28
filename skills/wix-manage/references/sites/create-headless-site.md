@@ -11,8 +11,10 @@ to be in two steps:
 
 1. **Create the site and put its pages live**: [Upload a Website or HTML Files](upload-static-site.md),
    online at https://dev.wix.com/docs/api-reference/account-level/sites/skills/upload-a-website-or-html-files.md.
-   It holds the call that creates the site, then uploads the pages, the user's or
-   ones you write, and changes them later on the same site and URL.
+   Its section "Create the site" holds the one call that creates the site, with the
+   request body to send as written (the name goes under `newMetasite`; a flat `name` is
+   rejected). It then uploads the pages, the user's or ones you write, and changes them
+   later on the same site and URL.
 2. **Integrate Wix Headless into it**: a Wix Business Solution built on shipped code (a
    store, a blog, bookings, events, a CMS, forms, members and more, with its pages,
    data layer and seed) comes from the Wix Headless kit, starting at its cold start,

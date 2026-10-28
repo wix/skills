@@ -76,11 +76,12 @@ A brief that needs no solution (a game, a landing page, a tool) is a run of two 
 
 ## 2. The site
 
-The CLI's `npm create @wix/new` is one call: `POST /headless-business-setup/v1/headless-business/provision`,
-with `origin: "agent"` and a name. The recipe
-is `{MANAGE}/references/sites/create-headless-site.md`; it returns the `metaSiteId` and the
-site's OAuth client `appId`. Do not create a site any other way: a project from Create Project or
-a template is neither headless nor publishable, and a later run with a machine cannot attach to it.
+The CLI's `npm create @wix/new` is one call: `POST /headless-business-setup/v1/headless-business/provision`.
+Its request body is in `{MANAGE}/references/sites/upload-static-site.md`, section "Create the
+site": send it as written (the name goes under `newMetasite`; a flat `name` is rejected with
+"exactly one metasite_target must be set"). It returns the `metaSiteId` and the site's OAuth
+client `appId`. Do not create a site any other way: a project from Create Project or a template
+is neither headless nor publishable, and a later run with a machine cannot attach to it.
 
 A site that already exists (the brief names it) is read first, never seeded unasked: SKILL.md
 step 2 and `{SKILL_ROOT}/guides/existing-site.md` apply as written.
