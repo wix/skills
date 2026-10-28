@@ -105,14 +105,21 @@ when available for Wix skill/docs URLs, with web fetch as fallback.
 ## Create the site
 
 Create only for a new site. Use the page title, at most 40 characters. Keep
-`origin: 'agent'` and both synchronous steps:
+`origin: 'agent'` and both synchronous steps. A site that carries a Wix business solution
+names it in `seedOptions`, one entry per solution from `STORES`, `BLOG`, `BOOKINGS`,
+`EVENTS`, `PORTFOLIO`, `PRICING_PLANS`: the provision installs that app on the site, with
+no demo content. A static site sends no `seedOptions`.
 
 ```javascript
 async function run() {
   return wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: { origin: 'agent',
-      newMetasite: { namingStrategy: { metaSiteName: 'Northwind Studio' } },
+      newMetasite: {
+        namingStrategy: { metaSiteName: 'Northwind Studio' },
+        // a blog site; leave seedOptions out for static pages
+        seedOptions: [{ businessSolution: 'BLOG', clearTemplateContent: true, seedDemoContent: false }]
+      },
       synchronousSteps: ['SET_METASITE_NAME', 'CONFIGURE_HEADLESS_APP'] }
   });
 }
@@ -124,7 +131,7 @@ The shell equivalent:
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"origin":"agent","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"}},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
+  -d '{"origin":"agent","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[{"businessSolution":"BLOG","clearTemplateContent":true,"seedDemoContent":false}]},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
 ## Drop through the Wix MCP
