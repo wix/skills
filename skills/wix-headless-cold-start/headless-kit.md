@@ -60,7 +60,7 @@ folder's files one by one.
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
 | 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
-| 5 | write pages that read the site as a visitor, upload them | the kit's code ported into the pages: `client.ts` as is, the calls in the solution's `rest/*.ts`, its cores reading the responses, with a visitor token minted from `appId`; a check, if made, as below; `UploadHeadlessWebsiteFiles` with the files | all read before a page is written: `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then the `*-core.ts` files (how a response is read); a call they don't cover: `{DOCS}` |
+| 5 | read the solution's cores, then write pages that read the site as a visitor, upload them | the kit's code ported into the pages: `client.ts` as is, the calls in the solution's `rest/*.ts`, the responses read the way its `*-core.ts` files read them, with a visitor token minted from `appId`. Every field a page shows comes from those core files; a page written before they were read is written again. A check, if made, as below; `UploadHeadlessWebsiteFiles` with the files | in this order, each read whole before a page is written: the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then every `*-core.ts` and `types.ts` (how a response is read: the fields a page shows); `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
 **Step 2, the provision.** Send this, changing only the name and the solutions. `seedOptions` is a
@@ -97,8 +97,10 @@ and Donations install more than one app). Run its calls in its order, with its w
 `wix.request` returns `{ status, data }`; the body is `data`.
 
 **Step 5, the pages.** The pages read the content from the site; none of it is written into them.
-A payment ends in Wix's hosted checkout through a redirect session, wired whether or not payments
-are connected.
+A product's name, price, options and stock, a cart line's name, quantity and price, a post's title
+and body: each is read from the response the way the solution's `*-core.ts` reads it, never from a
+field name you supply. A payment ends in Wix's hosted checkout through a redirect session, wired
+whether or not payments are connected.
 
 **Step 5, a check.** A check of the pages before the upload makes their calls as a visitor, in one
 `ExecuteWixAPI` script: mint the token as `client.ts` does, send each control's calls with
