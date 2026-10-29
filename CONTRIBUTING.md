@@ -45,6 +45,5 @@ from the generated output, so an accepted edit persists only once the maintainer
 that source.**
 
 Public fixes remain welcome. The Automations maintainer ports accepted changes back before
-syncing again, so they survive regeneration. See the
-[Automations maintenance guide](yaml/wix-manage/automations/README.md).
+syncing again, so they survive regeneration.
 <!-- /automations-sync-maintenance -->
