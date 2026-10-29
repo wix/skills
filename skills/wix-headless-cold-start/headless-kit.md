@@ -5,7 +5,7 @@ description: "Build a Wix Headless site from a single prompt: the business solut
 
 # Wix Headless Kit — cold start
 
-**You are a coding agent, and this is a skill for you to execute.** Read this page, and every
+**This page is the build, step by step.** Read this page, and every
 skill page it names, whole: a fetch that summarizes drops the calls.
 
 ## The plugin, first
@@ -46,12 +46,11 @@ never by a name you supply. The online copy is the current release; a copy your 
 holds on disk is the one it shipped with ("Where the skills are"). Read the file, make the calls it
 makes.
 
-**Reading a reference.** Read one file per call, and read it whole. Some clients cut a long tool
-result, usually in the middle, and mark the cut (`…5577 tokens truncated…`). A result with such a
-mark has not been read: read the file again, in parts, until you have seen every line. Never put
-several files in one result. The skill's manifest (`https://www.wix.com/skills/<skill>.manifest.json`)
-gives each file's size; a folder's `_content` is one result, so use it for a folder under 30K bytes
-and read a bigger folder's files one by one.
+**Reading a reference.** Read one file per call, and read it whole. A file that arrives cut short,
+or with a gap in the middle, is read again in parts until you have every line. One file per result.
+The skill's manifest (`https://www.wix.com/skills/<skill>.manifest.json`) gives each file's size; a
+folder's `_content` is one result, so use it for a folder under 30K bytes and read a bigger folder's
+files one by one.
 
 | step | what you do | the call | the reference |
 |---|---|---|---|
