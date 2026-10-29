@@ -21,9 +21,10 @@ tools (the user's login to Wix) and the skills this page names, together, with n
 2. **Have it: use it.** Its tools are the way to Wix, and its skills are the ones to read, from
    where the client serves them. The run below is made of their calls. Nothing installs or signs
    in again.
-3. **Lack it: suggest it.** Tell the user the Wix plugin, from the client's plugin directory, is
-   the one step that connects Wix and brings the skills, and ask them to install and connect it;
-   then continue here with the plugin. A client that takes no plugin gets the same two pieces
+3. **Lack it: find it, suggest it.** Search your client's plugin directory for the Wix plugin, with
+   the client's own plugin commands or tools where it has them, and suggest it to the user as the
+   directory names it, with how to install it there: the one step that connects Wix and brings the
+   skills. Ask them to install and connect it; then continue here with the plugin. A client that takes no plugin gets the same two pieces
    apart: the Wix MCP server (the Wix connector) from its settings, which is the tools and the
    login, and the skills installed or read online, as "Where the skills are" describes; the run
    is then the same. The Wix CLI route at the end of this page is for a machine with no plugin
@@ -32,8 +33,9 @@ tools (the user's login to Wix) and the skills this page names, together, with n
 ## The run, through the plugin
 
 With the Wix tools in your tool list, the build is their calls: the site, its apps, its content,
-and pages that read it, published on the site. **The tools are all it needs**; the Astro build
-further down is the one step that needs more, and what decides it is measured. Every call runs
+and pages that read it, published on the site. The tools alone are enough for the whole run. Where
+the kit can also run on this machine, the pages can instead be the kit's Astro build, described
+further down; two facts about the machine, measured there, decide it. Every call runs
 as the site owner through `ExecuteWixAPI`, which carries the user's login; files reach the site
 through `UploadHeadlessWebsiteFiles`. The reference for each step is the kit's own code, read
 online through `ReadFullDocsArticle` from `https://www.wix.com/skills/{skill}/{path}`: `{SKILL_ROOT}`
@@ -50,8 +52,8 @@ makes.
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
 | 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
-| 5 | write pages that read the site as a visitor, check them, upload them | the calls in the solution's `rest/*.ts` with a visitor token minted from `appId`; one `ExecuteWixAPI` script makes each control's calls before the upload; `UploadHeadlessWebsiteFiles` with the files | `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then the `*-core.ts` files (how a response is read); a call they don't cover: `{DOCS}` |
-| 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; the check's result; the owner's steps with their links; the site id and `appId` for a later run | |
+| 5 | write pages that read the site as a visitor, upload them | the kit's code ported into the pages: `client.ts` as is, the calls in the solution's `rest/*.ts`, its cores reading the responses, with a visitor token minted from `appId`; a check, if made, as below; `UploadHeadlessWebsiteFiles` with the files | all read before a page is written: `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then the `*-core.ts` files (how a response is read); a call they don't cover: `{DOCS}` |
+| 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
 **Step 2, the provision.** Send this, changing only the name and the solutions. `seedOptions` is a
 list inside `newMetasite`, one entry per solution, each with `businessSolution` set to one of
@@ -75,26 +77,32 @@ async function run() {
 // result.data: { metaSiteId, appId }
 ```
 
-Four things runs have shown go wrong unless said:
+**A site that already exists.** The provision is the one call that creates a headless site. A
+site that exists is read first and continued: its dynamic context (`GetSiteContext`, or
+`POST /_api/dynamic-context/v1/dynamic-context/markdown` with `{ siteId }`) names its apps, and
+`{SKILL_ROOT}/guides/existing-site.md` says how it continues; it is seeded only when asked.
 
-- **Nothing else creates a headless site.** A site that already exists is read first, never seeded unasked: its dynamic context
-  (`GetSiteContext`, or `POST /_api/dynamic-context/v1/dynamic-context/markdown` with `{ siteId }`)
-  names its apps, and `{SKILL_ROOT}/guides/existing-site.md` says how it continues.
-- **A fresh install provisions in the background for a few seconds.** The scripts encode the wait
-  each app needs (Bookings polls for the owner's staff resource before creating services; Blog and
-  FAQ verify a created category persisted; Restaurants and Donations install more than one app).
-  Keep it. `wix.request` returns `{ status, data }`; the body is `data`.
-- **A page cannot be opened here**, so a wrong shape fails silently in the browser. Before the
-  upload, make each control's calls as a visitor in one `ExecuteWixAPI` script, with the bodies
-  from the solution's `rest/` files, and run the responses through the cores. The check passes
-  when the read returns what step 4 created, by name. An empty 200 right after the seed is the
-  fresh-install window or a wrong query: wait a few seconds and read again, then compare your
-  query with the kit's file; nothing is uploaded until the content comes back. A payment ends in
-  Wix's hosted checkout through a redirect session, wired whether or not payments are connected.
-  Pages with the content written into them are a mock of the site, not the site.
-- **A response has a size limit.** Pages sent as text go one or two files per call; a later file
-  joins through the recipe's "Change it later", which preserves the rest. Pages in a zip go as one
-  attachment where your client hands `attachments` over as files.
+**Step 4, the content.** A fresh install finishes provisioning in the background over a few
+seconds, and each script waits for what its app needs (Bookings polls for the owner's staff
+resource before creating services; Blog and FAQ verify a created category persisted; Restaurants
+and Donations install more than one app). Run its calls in its order, with its waits.
+`wix.request` returns `{ status, data }`; the body is `data`.
+
+**Step 5, the pages.** The pages read the content from the site; none of it is written into them.
+A payment ends in Wix's hosted checkout through a redirect session, wired whether or not payments
+are connected.
+
+**Step 5, a check.** A check of the pages before the upload makes their calls as a visitor, in one
+`ExecuteWixAPI` script: mint the token as `client.ts` does, send each control's calls with
+`fetch()` and that token, with the bodies from the solution's `rest/` files, and run the responses
+through the cores. `wix.request` sends the owner's token whatever token it is given, so a check
+through it reads what the owner sees. The check passes when the read returns what step 4 created,
+by name. Right after the seed, an empty 200 is the fresh-install window or the query: read again
+after a few seconds, then compare the query with the kit's file.
+
+**Step 5, the upload.** A response has a size limit, so pages sent as text go one or two files per
+call; a later file joins through the recipe's "Change it later", which preserves the rest. Pages in
+a zip go as one attachment where your client hands `attachments` over as files.
 
 ## The pages, built instead: the kit's Astro build
 

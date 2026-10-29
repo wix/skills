@@ -173,6 +173,9 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 
 ## Domains
 
+### [Analyse Domain](references/domains/analyse-domain.md)
+Report on the domains in the user's own Wix account — what kind a domain is, which site it is on, when it expires and whether it renews, its add-ons, DNS propagation and SSL state — for one domain, or by listing and filtering the account's domains.
+
 ### [Check Domain Availability](references/domains/check-domain-availability.md)
 Answer whether a domain name, or several at once, is available to register through Wix — a stand-alone "is example.com available?" question with no request to buy or connect.
 
