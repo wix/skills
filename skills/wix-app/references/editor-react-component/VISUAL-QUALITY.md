@@ -4,7 +4,8 @@ Use this reference for a component's default look: hierarchy, spacing, and
 foreground/background contrast.
 
 **Visual intent.** When the request specifies how the component should look —
-mood, palette, layout style, or a reference — follow that direction. Default to a modern, refined look — intentional layout, pleasing proportions, polished and deliberate styling.
+mood, palette, layout style, or a reference — follow that direction; for code,
+a design, or images the user supplies, follow `USER-SOURCES.md`. Default to a modern, refined look — intentional layout, pleasing proportions, polished and deliberate styling.
 
 ## Default Visual Quality
 

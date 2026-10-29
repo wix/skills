@@ -173,18 +173,24 @@ A dynamic runtime value may use a narrowly scoped custom property set from
 JSX; keep the style rule in CSS and expose no visual prop for it.
 
 ```css
-/* Typography: set both longhands; a size without a family gives the
-   `font` control no default. */
+/* Typography: set the `font` shorthand only. One declaration gives the
+   `font` control its default; separate longhands (`font-size`, `line-height`,
+   …) are exported as overrides and make a themed text style read as custom. */
+.cta {
+  font: 600 14px/1.3 'Inter', sans-serif;
+}
+
+/* Avoid: separate font longhands on a part that owns the typography control. */
 .cta {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  line-height: 1.3;
 }
 
-/* Avoid: a module-only wrapper isn't editable; its size silently
+/* Avoid: a module-only wrapper isn't editable; its font silently
    overrides the parent's typography control. */
 .cta-label {
-  font-size: 14px;
+  font: 14px 'Inter', sans-serif;
 }
 ```
 
@@ -243,8 +249,9 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
 - [ ] A sizing chain exists only on bounded growing axes.
 - [ ] Layout is container-driven and uses logical inline properties.
 - [ ] Static styling stays in CSS; custom properties exist only when needed.
-- [ ] Every part that sets `font-size` also sets `font-family`, on the part that
-      should own the typography control.
+- [ ] Typography is set with the `font` shorthand only, on the part that should
+      own the typography control: no separate `font-family`, `font-size`,
+      `font-weight`, `font-style`, `font-stretch`, `font-variant` or `line-height`.
 - [ ] Interactive elements expose pointer events and accessible design states.
 - [ ] No unexposed descendant paints an opaque surface; promote it to a named
       part instead.

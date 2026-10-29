@@ -2,6 +2,7 @@
 
 Use this reference when planning or editing the component's React implementation.
 The entry workflow remains authoritative; this file owns implementation decisions.
+When the user supplies code to build from, also follow `USER-SOURCES.md`.
 
 ## Plan the Component
 
@@ -12,7 +13,8 @@ contracts changed by the request:
 2. Separate user-authored content and stable behavior from derived values and
    visual styling.
 3. Identify interaction and selectable states affected by the request.
-4. Include common callbacks by capability; keep implementation handlers internal.
+4. Inputs use typed value callbacks and parent-owned values; non-input actions
+   include common callbacks by capability. Keep implementation handlers internal.
 5. Identify runtime concerns such as browser APIs, autoplay, editor-only
    behavior, or live site context before implementation.
 
@@ -48,8 +50,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
 - When local state intentionally mirrors a prop, synchronize it when that prop
   changes. Do not use effect-managed state for a value that can be derived
   during render.
-- Internal handlers run component behavior, then notify optional callbacks.
-  Callback presence never enables controlled mode.
+- Inputs render the supplied value and notify `onValueChange` with the proposed
+  typed value; the parent/context supplies the accepted value. Other stateful
+  widgets keep their internal behavior before notifying optional callbacks.
+  Callback presence never selects controlled mode.
 
 ### Structure and Parts
 
@@ -57,7 +61,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
   solely to hold `id`, `dir`, classes, or ARIA attributes.
 - Give every named inner part a matching `elementProps` entry and spread it onto
   that element. Merge its injected `className` on raw HTML elements.
-- Keep structural wrappers and decorative elements module-class-only.
+- Keep structural wrappers and decorative elements module-class-only, unless one
+  carries a state class: then it is a named part.
 - Use semantic HTML for controls, lists, navigation, headings, and landmarks.
 
 ### Accessibility and Direction
@@ -83,6 +88,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
 - [ ] Native and custom design states in scope are wired to their affected parts.
 - [ ] Render output is deterministic and SSR-safe.
 - [ ] Direction and accessibility contracts are wired to the correct elements.
-- [ ] Public handlers use supported SDK names; internal handlers stay internal.
+- [ ] Public callback signatures match their value/DOM contract; internal handlers stay internal.
 - [ ] CSS changed by the request keeps editable selectors flat and scoped.
 - [ ] The accessibility review command passes, or its remaining findings are triaged.

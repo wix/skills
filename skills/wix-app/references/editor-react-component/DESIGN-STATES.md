@@ -37,8 +37,9 @@ active-index prop rather than storing a per-item boolean.
 Flat: the element's own global class + `--<state>`. Because inner-part
 global classes are prefixed with the component name, the state class is prefixed too —
 e.g. `pricing-card-cta--hover`, `pricing-card-plan-row--selected`. Never bare
-(`cta--hover` collides with other components) and never
-nested (`card__row--selected`). Add it only to an element that has its base class.
+(`cta--hover`) or nested (`card__row--selected`). Give every inner element with a state class a global base class; it is a named part
+(`PARTS.md`), not just a module class:
+`clsx('x-slide', styles.slide, active && 'x-slide--active')`.
 
 ## 3. Author CSS
 
@@ -70,8 +71,7 @@ The local static accessibility scan cannot measure rendered color contrast.
 }
 .cta {
   background: #6366f1;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font: 14px 'Inter', sans-serif;
   color: #ffffff;
 } /* resting */
 .cta:global(.pricing-card-cta--disabled),
@@ -217,6 +217,8 @@ React.useEffect(() => setOpen(Boolean(isOpen)), [isOpen]);
       prefixed global modifier.
 - [ ] Non-input controls retain a standalone `:focus-visible` keyboard indicator.
 - [ ] Custom state classes are flat, global, and prefixed by component and part.
+- [ ] Every inner element with a state class gets a global base class and is treated
+      as a named part.
 - [ ] Named inner parts spread and merge their `elementProps` entry.
 - [ ] Custom CSS state rules and their class toggles or root prop triggers match.
 - [ ] `ElementState<boolean>` is used only for a component-level root state.
