@@ -2,6 +2,8 @@
 
 Business Manager (the Wix site dashboard) was redesigned with the Harmony theme. **A dashboard extension runs in its own iframe and inherits none of it.** `WixDesignSystemProvider` alone gives the pre-redesign look — classic icons, pre-redesign button sizes and skins — rendered inside redesigned platform chrome.
 
+**A page built on `@wix/patterns` needs a second wrapper.** Patterns switches its own Harmony layout on an experiment that doesn't reach the iframe either — [BUSINESS_MANAGER_PATTERNS.md](BUSINESS_MANAGER_PATTERNS.md).
+
 **No automated check catches this.** `tsc`, `wix build` and `wix preview` all pass on an unthemed surface — every import resolves and every component renders. The failure is purely visual, so wire it from the start.
 
 Verified against `@wix/design-system` 1.330.0 and `@wix/wix-ui-icons-common` 3.189.28 — both providers are root exports, `IconTheme` is typed `'default' | 'odeditor'`, and `themes/odeditor.global.css`, `lazy`, `lazy/system` and `core` all ship.
@@ -61,7 +63,7 @@ Duplicating these four providers per entry file is how one surface silently drif
 | `WixDesignSystemIconThemeProvider` + `IconThemeProvider` | Icons stay classic — heavier strokes, wrong sizes beside redesigned components |
 | `WixDesignSystemDefaultPropsProvider` | Buttons and inputs render pre-redesign unless every call site passes `size`/`skin` by hand |
 
-**Order is outermost-first and fixed**, and `WixPatternsProvider` goes *inside* the wrapper: the defaults provider must sit above the components it supplies defaults to, and the WDS leaf UI inside a patterns shell is exactly that.
+**Order is outermost-first and fixed**, and `WixPatternsProvider` goes *inside* the wrapper, with `BusinessManagerPatternsTheme` between them: the defaults provider must sit above the components it supplies defaults to, and the WDS leaf UI inside a patterns shell is exactly that.
 
 A prop on a component still wins over the provider, so a one-off `size="medium"` is fine. **A nested `WixDesignSystemDefaultPropsProvider` replaces these defaults rather than merging**, so don't add a second for one subtree. And don't pass `features={{ newColorsBranding: true }}` — it predates the theme and is not a substitute.
 
@@ -77,6 +79,8 @@ A prop on a component still wins over the provider, so a one-off `size="medium"`
 | Plugin | the generated plugin component | [DASHBOARD_PLUGIN.md](DASHBOARD_PLUGIN.md#theme) |
 
 Each surface's own doc shows the wrapper already in place. Copy that file as-is rather than re-adding providers by hand. A plugin is the least forgiving of the three: it renders inside a redesigned first-party page, so an unthemed one is surrounded by the very styling it is missing.
+
+**Any surface that renders `WixPatternsProvider` also takes `BusinessManagerPatternsTheme`**, directly inside `BusinessManagerTheme` — [BUSINESS_MANAGER_PATTERNS.md](BUSINESS_MANAGER_PATTERNS.md).
 
 ## 4. Import icons from the lazy entry point
 
@@ -101,6 +105,7 @@ Everything you style yourself — which `--wds-*` token replaces a hardcoded val
 ## 6. Verify
 
 - The entry file wraps the page in `BusinessManagerTheme`, and that file imports both stylesheets and nests all four providers in order.
+- On a patterns page, the collection toolbar's Filter button has no border and the search is not pill-shaped ([BUSINESS_MANAGER_PATTERNS.md § 4](BUSINESS_MANAGER_PATTERNS.md#4-verify)).
 - Every icon comes from `@wix/wix-ui-icons-common/lazy` (not the package root, and not `/lazy/system`).
 - `grep -rn "style={{" src/` and `grep -rn "#[0-9A-Fa-f]\{3,6\}" src/` return nothing for the page's own files, or only lines carrying a justification comment.
 - In devtools, a component's colours resolve from `--wds-*` properties. A literal means that element is still custom-styled.
