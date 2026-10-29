@@ -102,6 +102,10 @@ useEffect(() => setSiteUrl(resolvedUrl), []);
 - **`popup: true` pages are lightboxes**, not navigable pages. Filter them out of
   breadcrumbs, menus, and page pickers.
 
+Each value also has a `slug` field (the page's own URL segment), and a page with
+a `parentPageId` also has a `parentSlug` field. Live sites don't fill these
+fields yet, so key and walk pages by id.
+
 ```tsx
 import { usePages, useCurrentPageId, useMainPageId } from '@wix/react-component-utils';
 

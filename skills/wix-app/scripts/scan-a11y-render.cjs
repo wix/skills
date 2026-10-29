@@ -95,7 +95,7 @@ const NOT_CHECKED_BY_JSDOM = [
 ];
 
 const SITE_URL = 'https://example.wixsite.com/site';
-const HOME_PAGE = { id: 'home', title: 'Home', path: '/', popup: false };
+const HOME_PAGE = { id: 'home', title: 'Home', slug: 'home', path: '/', popup: false };
 
 /** Plain-object stand-ins for the site services `@wix/react-component-utils` hooks read. */
 const SERVICES = {
@@ -104,7 +104,14 @@ const SERVICES = {
   '@wix/site-service-device-info': { deviceType: 'Desktop', reducedMotion: false },
   '@wix/site-service-locale': { language: 'en', direction: 'ltr' },
   '@wix/site-service-pages': {
-    pages: { [HOME_PAGE.id]: { title: HOME_PAGE.title, path: HOME_PAGE.path, popup: false } },
+    pages: {
+      [HOME_PAGE.id]: {
+        title: HOME_PAGE.title,
+        slug: HOME_PAGE.slug,
+        path: HOME_PAGE.path,
+        popup: false,
+      },
+    },
     mainPage: HOME_PAGE,
     currentPage: HOME_PAGE,
   },

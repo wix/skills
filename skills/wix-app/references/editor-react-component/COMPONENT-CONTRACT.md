@@ -39,8 +39,8 @@ Rules:
   code. Do not add one-off ARIA props or spread the whole object.
 - Expose only content and behavior that the site owner controls. Keep derived
   values internal.
-- Default to common optional SDK callbacks by capability; add specialized ones
-  when requested. Keep implementation handlers internal.
+- Inputs use parent-owned `value` + typed `onValueChange`; actions use SDK
+  callbacks. Keep DOM handlers internal; preserve APIs.
 - Use `Array<T>`, not `T[]`, for exported arrays.
 - Use a native link for a CTA with a real `href`, or a native button for an
   action. Never use `href="#"`: it has no destination.
@@ -118,7 +118,7 @@ does not inherit the component's direction.
 
 ### Array Props
 
-Array elements must be objects with named keys for semantics and extensibility. Always declare array-item fields optional.
+Array elements must be objects with named keys. Always declare array-item fields optional.
 
 ```ts
 type GalleryProps = {
@@ -147,8 +147,8 @@ steps). Skip for always-visible lists, multi-select, or multi-expand.
 - **Import and use `ActiveItemIndex<'arrayPropName'>`** from
   `@wix/react-component-utils`. The type argument must match the array prop name
   exactly, and `defaultProps` must set the index to `0`.
-- Render all bodies with `.map()`. Active body gets `--active`; inactive bodies get CSS visibility, `aria-hidden`, and `inert`.
-- React 18 types: spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; it emits the boolean attribute without a type error. Typecheck with the app, not a scratch project.
+- Render all bodies with `.map()`. Active body is a named part with `<base>--active`; inactive bodies get CSS visibility, `aria-hidden`, and `inert`.
+- React 18 types: spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; it emits the boolean attribute, no type error. Typecheck with the app, not a scratch project.
 - Keyboard navigation and the matching ARIA pattern.
 
 ```ts
@@ -177,10 +177,10 @@ export const defaultProps = {
 Use `Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText` from
 `@wix/editor-react-types`. Model authored media with the corresponding Wix
 media type, whether it is a top-level prop or a field in an array item. Name
-the field for the media itself (`image`, `video`, `audio`, and so on), not for
+the field for the media itself (`image`, `video`, `audio`), not for
 one representation of it.
 
-Common fields in the installed types: `Image` has required `url: string` and
+In the installed types, `Image` has required `url: string` and
 optional `uri`, `alt`, `width`, `height`; `Link` has optional `href`, `target`
 (`'_self' | '_blank'`), and `rel`. Use `image.url` for `<img src>`,
 `image.alt` for alt text, and `link.href` for `<a href>`.
@@ -200,10 +200,11 @@ fields. Do not bypass errors with `any`, casts, or replacement media types.
 
 Export `defaultProps` from `<component-name>.props.ts`, including defaults for
 root and nested `a11y` fields. Both `component.tsx` and the extension consume
-this object; never duplicate these defaults in destructuring or JSX.
+this object; never duplicate them in destructuring or JSX.
 
 All rendered media must come from Wix-hosted services, local assets, or props.
-No external hosts or third-party runtime dependencies.
+No external hosts (upload user images). Third-party runtime packages must
+be imported by the user's code.
 
 For `Image` defaults, populate only `uri`, `url`, and `alt`; the editor fills
 dimensions and focal-point metadata.
@@ -211,25 +212,18 @@ dimensions and focal-point metadata.
 ```ts
 export const defaultProps = {
   image: {
-    url: 'https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg',
-    uri: '11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg',
-    alt: 'Tropical beach viewed from above',
+    url: 'https://static.wixstatic.com/media/ce4244dfd3b04dc89590b76a98d868b8.jpg',
+    uri: 'ce4244dfd3b04dc89590b76a98d868b8.jpg',
+    alt: 'Black wired headphones on a light wooden table',
   },
 } as const satisfies Omit<ExampleComponentProps, 'id' | 'className'>;
 ```
 
-Use distinct Wix-hosted defaults per image slot; keep all fallback data in
-`defaultProps` so JSX never hardcodes a second fallback.
+Use distinct defaults per slot; keep fallback data in `defaultProps` so
+JSX never hardcodes a second one.
 
-Use this pool in order, cycling only when more than five defaults are needed:
-
-| # | `fileName` | Description |
-| --- | --- | --- |
-| 1 | `11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg` | Tropical beach aerial |
-| 2 | `11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg` | Dead Sea landscape |
-| 3 | `11062b_3682ebfcb08e4da5b3168b62819a1e68~mv2.jpg` | Palm tree sunset |
-| 4 | `11062b_45e67783d39c4963ab9e4fc418173233~mv2.jpg` | Abstract pink waves |
-| 5 | `11062b_4c11f014b0d04948b2e6f554076bc40a~mv2.jpg` | Coastal village aerial |
+When no supplied asset fits the slot (`USER-SOURCES.md`), choose image
+defaults from the pool in `DEFAULT-IMAGES.md`.
 
 ## Internal File Splitting
 

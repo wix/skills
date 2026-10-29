@@ -17,7 +17,7 @@ Keep the Wix CLI scaffold and file roles:
 | `<component-name>.generated.ts` | NEVER edit | Generated manifest |
 | `<component-name>.extension.ts` | Edit narrowly | Supported partial manifest overrides |
 
-Supplementary files are allowed; keep scaffold roles intact.
+Keep scaffold roles.
 
 ## Required Reading (blocking)
 
@@ -26,13 +26,14 @@ Unopened references fail the run—open paths directly; no skim or grep.
 
 | Scope | Required references |
 | --- | --- |
-| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`VISUAL-QUALITY.md`](editor-react-component/VISUAL-QUALITY.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md), [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
+| Creating a component | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`VISUAL-QUALITY.md`](editor-react-component/VISUAL-QUALITY.md), [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md), [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md), [`OVERFLOW.md`](editor-react-component/OVERFLOW.md), [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md), [`DEFAULT-IMAGES.md`](editor-react-component/DEFAULT-IMAGES.md) |
 | Editing React or JSX | [`REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) |
 | Changing public contract, semantic root, or named parts | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PARTS.md`](editor-react-component/PARTS.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) |
 | Changing public data props or elected root global class | [`COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) |
 | Item array where only one body is visible | [`COMPONENT-CONTRACT.md`](editor-react-component/COMPONENT-CONTRACT.md), [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md), [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md), [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Creating or changing CSS | [`CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md), [`VISUAL-QUALITY.md`](editor-react-component/VISUAL-QUALITY.md) |
 | Creating or changing layout/content | [`OVERFLOW.md`](editor-react-component/OVERFLOW.md) |
+| Changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Root direction contract, direction-sensitive behavior, or `ReactNode` slot | [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) |
 | Sizing, installation, or manifest overrides | [`EDITOR-EXTENSION-CONFIGURATION.md`](editor-react-component/EDITOR-EXTENSION-CONFIGURATION.md) |
 
@@ -86,7 +87,7 @@ Unopened references fail the run—open paths directly; no skim or grep.
    node <SKILL_ROOT>/scripts/scan-a11y-review.cjs src/extensions/site/components/<component-name>
    ```
 
-   Follow [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md); fix and
+   Follow `ACCESSIBILITY.md`; fix and
    rerun at most twice, then report remaining findings.
 
 6. **Configure the editor extension.** For creation or a requested sizing,
@@ -104,8 +105,7 @@ Unopened references fail the run—open paths directly; no skim or grep.
 
    Run `npx tsc --noEmit`, relevant tests/lint, and the a11y review.
    If later edits affect a check, rerun that check. Inspect the manifest when generated; never hand-repair it.
-   Diagnose failures with
-   [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md).
+   Diagnose failures with `MANIFEST-ERRORS.md`.
 
    For creation/layout changes, run the overflow resize review.
 
@@ -123,7 +123,6 @@ trigger. Preserve unrelated behavior. References are leaves.
 | --- | --- |
 | Interactive/selectable part, custom state, or open/reveal toggle | [`DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) |
 | Disabled or invalid state | [`DISABLED-INVALID.md`](editor-react-component/DISABLED-INVALID.md) |
-| Creating interactive components or changing interactions/callbacks | [`FUNCTION-HANDLERS.md`](editor-react-component/FUNCTION-HANDLERS.md) |
 | Browser APIs, effects, or time-dependent output | [`SSR.md`](editor-react-component/SSR.md) |
 | Non-established CSS feature or DOM API, or user asks for one by name | [`BROWSER-SUPPORT.md`](editor-react-component/BROWSER-SUPPORT.md) |
 | `npx wix build` or manifest generation errors or warns | [`MANIFEST-ERRORS.md`](editor-react-component/MANIFEST-ERRORS.md) |

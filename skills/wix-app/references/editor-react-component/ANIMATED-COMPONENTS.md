@@ -12,7 +12,7 @@ Apply whenever the component has `autoPlay` or startable/loopable primary conten
 - Slideshow, carousel, slider, or gallery that advances slides/cards
 - Lottie / JSON vector animations
 - Animated GIFs or animated SVGs
-- Canvas / WebGL animation loops
+- Canvas / WebGL animation loops (also follow `CANVAS-COMPONENTS.md`)
 - Any video-like playing surface
 
 **Key rule:** If the component accepts an `autoPlay` prop — even if the

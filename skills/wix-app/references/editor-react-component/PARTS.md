@@ -31,8 +31,12 @@ would plausibly control independently in the editor. It receives:
 
 Apply this filter to every candidate:
 
-- A state or variant (`selected`, `active`, `checked`, `disabled`) is not a part.
-  Implement it as a prefixed design-state modifier on the affected part.
+- A state or variant (`selected`, `active`, `checked`, `disabled`) is not a
+  separate part. Implement it as a prefixed design-state modifier on the
+  affected part.
+- An inner element that carries a design-state class is a named part, even if it
+  would be a layout wrapper or parent-owned child: give it a global base class
+  and an `elementProps` entry. The root keeps its own rules.
 - A hidden and shown version of the same element is one part, not two.
 - A grouping or layout-only wrapper is not a part. A wrapper that isn't
   visually transparent is no longer layout-only — promote it to a named part.
@@ -88,7 +92,7 @@ For each candidate, ask:
 
 > Would the controls for this element be a strict subset of its parent's controls?
 
-If yes, remove the part. Then check the root in reverse: if it has one child part
+If yes, remove the part, unless it carries a state class. Then check the root in reverse: if it has one child part
 and no independent surface, remove the wrapper and promote the child.
 
 ## Checklist
@@ -97,4 +101,5 @@ and no independent surface, remove the wrapper and promote the child.
 - [ ] The root has no `elementProps` entry or duplicate prefixed part class.
 - [ ] Each inner part offers independent data or styling control.
 - [ ] Every named inner part has global/module classes and `elementProps` wiring.
-- [ ] States, wrappers, decorations, and positional variants are not extra parts.
+- [ ] States, decorations, and positional variants are not extra parts. A wrapper
+      is a part only if it has its own surface or carries a state class.

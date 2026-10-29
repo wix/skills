@@ -31,7 +31,24 @@ For a new component, the extension should continue to:
   the editor
 - apply `defaultProps` from `<component-name>.props.ts` through
   `withEditorElementDefaults`
-- merge layout overrides into the editor element after applying defaults
+- add layout overrides to the editor element after applying defaults, in the
+  scaffold's own shape
+
+The current scaffold spreads the defaults; keep that and set `layout` beside
+them. The generated element has no `layout`, so don't spread one:
+
+```ts
+editorElement: {
+  ...editorElementWithDefaults,
+  layout: {
+    resizeDirection: LAYOUT.RESIZE_DIRECTION.horizontalAndVertical,
+    contentResizeDirection: LAYOUT.CONTENT_RESIZE_DIRECTION.vertical,
+  },
+},
+```
+
+Never wrap the override in `deepmerge(...)` or `merge(...)`: its type loses
+`selector` and `displayName`, so `tsc` fails once the manifest is generated.
 
 For an existing component, preserve its generated export shape. Older
 extensions may import and spread `manifest.editorElement` and
@@ -95,7 +112,7 @@ The scaffold's `installation` object accepts `staticContainer` next to
 ## Checklist
 
 - [ ] Defaults are applied to the generated editor element before layout
-      overrides are merged.
+      overrides are spread in; no `deepmerge(...)` around the override.
 - [ ] Client and editor resources still point to their generated entry files.
 - [ ] The extension and `component.tsx` consume the same `defaultProps` source.
 - [ ] Initial sizing and resize axes match component behavior.
