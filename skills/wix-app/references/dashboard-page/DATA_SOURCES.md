@@ -92,11 +92,11 @@ a batch endpoint given `[]` is a wasted round trip at best.
 
 ## Filter syntax
 
-`searchOrders` takes a `CursorSearch`: `{ cursorPaging, filter, sort }`, where `filter` is a
-Mongo-shaped `Record<string, any>` — `{ paymentStatus: { $in: [...] } }`,
-`{ _createdDate: { $gte, $lte } }`, `{ number: { $startsWith } }`. Enum values come from the
-declaration, not from memory: order payment status has ten, `PENDING_MERCHANT` and
-`PARTIALLY_REFUNDED` among them.
+`searchOrders` takes `{ cursorPaging, filter, sort }`. `filter` is `Record<string, any>`, so a
+wrong field or operator still compiles: take both from the method's supported-filters table. An
+exact order number is `{ number: { $eq: orderNumber } }`. A date range is two `$and` clauses, not
+`$gte` and `$lte` on one field ([QUERY_AND_PAGING.md](QUERY_AND_PAGING.md#one-operator-per-field)).
+Read enums from the declaration.
 
 ## The SDK is not the REST API
 
@@ -177,6 +177,5 @@ whose availability is the *intersection* of every scope it touches.
 
 ## Querying and paging
 
-Filter field paths, WQL's one-operator-per-field rule, and the two cursor-paging traps are in
-[QUERY_AND_PAGING.md](QUERY_AND_PAGING.md). Read it before writing `fetchData` — every rule there
-was a shipped bug first.
+Filter field paths, the one-operator-per-field rule, and the two cursor-paging traps are in
+[QUERY_AND_PAGING.md](QUERY_AND_PAGING.md). Read it before writing `fetchData`.
