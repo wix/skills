@@ -262,7 +262,7 @@ Read the reference file listed above before writing the surface.
 
 `deploy.mjs forms --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts` (the
 visitor client, configured with the public client id), `media.ts`, `money.ts`, and `wix/forms/` —
-`forms.ts`, `submissions.ts`, `types.ts`, the two `*-core.ts` rule files, and `form-store.ts`.
+`forms.ts`, `submissions.ts`, `types.ts`, the `*-core.ts` rule files, and `form-store.ts`.
 None of it is React. The hook doesn't ship on this stack; the store replaces it, and you write
 the controls in your framework to the contracts on this page:
 
