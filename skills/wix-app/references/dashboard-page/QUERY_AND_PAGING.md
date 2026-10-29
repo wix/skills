@@ -3,15 +3,14 @@
 > [DATA_SOURCES.md](DATA_SOURCES.md) covers finding the method and its fields; this page is about
 > calling it.
 
-Filters are written in **WQL**, which is shared across the platform — the rules below come from
-[About the Wix API Query Language][wql], not from one endpoint's behaviour, so they hold for
-`@wix/ecom`, `@wix/stores`, `@wix/bookings` and the rest alike.
+Filters are written in **WQL**. [About the Wix API Query Language][wql] defines the syntax and the
+operators. It does not say which fields or operators an endpoint accepts; each endpoint decides
+that. The rules below come from calls to real endpoints.
 
 ## The filterable fields are a closed list, published per endpoint
 
-> "This endpoint declares which fields it can filter and sort by, and with which operators; that
-> list is closed and covers this endpoint only. Anything else errors or silently returns the wrong
-> rows." — [WQL][wql]
+Each endpoint publishes the fields it can filter and sort by, and the operators each field takes.
+Stay inside that list. A field or operator outside it can compile and still fail at runtime.
 
 So a field path is never inferable from the entity shape, and the endpoint's own prose is not
 authoritative either. **Most query endpoints publish a "Supported Filters and Sorting" page**, and
@@ -85,15 +84,13 @@ $or: [
 
 ## One operator per field
 
-> "The filter is written in WQL, where each field takes a single operator, so conditions are
-> combined with the logical operators instead: `$and` and `$or` take an array of expressions,
-> `$not` takes one, and they can nest. They are WQL syntax, not field capabilities." — [WQL][wql]
-
-A date range written the obvious way therefore fails, and the error quotes the whole object back as
-the offending "operator", which reads like a parser bug and is actually the rule:
+Give each field one operator. Two operators on one field compile and then fail at runtime. The
+error quotes the whole object back as the bad value, which reads like a parser bug. The code and
+text differ by service:
 
 ```ts
-{ startDate: { $gte: from, $lte: to } }   // INVALID_FILTER — unknownOperator
+{ _createdDate: { $gte: from, $lte: to } } // searchOrders: INVALID_QUERY_FILTER — "Map($gte -> …, $lte -> …) is not a valid dateTime filter value"
+{ startDate: { $gte: from, $lte: to } }    // INVALID_FILTER — unknownOperator
 ```
 
 Ranges are two clauses under `$and`; `$or` nests inside it:
