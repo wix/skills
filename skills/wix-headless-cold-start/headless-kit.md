@@ -46,12 +46,19 @@ never by a name you supply. The online copy is the current release; a copy your 
 holds on disk is the one it shipped with ("Where the skills are"). Read the file, make the calls it
 makes.
 
+**Reading a reference.** Read one file per call, and read it whole. Some clients cut a long tool
+result, usually in the middle, and mark the cut (`…5577 tokens truncated…`). A result with such a
+mark has not been read: read the file again, in parts, until you have seen every line. Never put
+several files in one result. The skill's manifest (`https://www.wix.com/skills/<skill>.manifest.json`)
+gives each file's size; a folder's `_content` is one result, so use it for a folder under 30K bytes
+and read a bigger folder's files one by one.
+
 | step | what you do | the call | the reference |
 |---|---|---|---|
 | 1 | the brief names the business; pick the solutions it needs (`{solution}` below is the template folder: `storefront`, `bookings`, `blog`, …). A brief that needs none (a landing page, a game) is steps 2, 5 and 6 only | | `{SKILL_ROOT}/SKILL.md` "Verticals"; `{TEMPLATES}/{solution}/INSTRUCTIONS.md` |
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
-| 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
+| 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
 | 5 | write pages that read the site as a visitor, upload them | the kit's code ported into the pages: `client.ts` as is, the calls in the solution's `rest/*.ts`, its cores reading the responses, with a visitor token minted from `appId`; a check, if made, as below; `UploadHeadlessWebsiteFiles` with the files | all read before a page is written: `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then the `*-core.ts` files (how a response is read); a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
@@ -158,8 +165,8 @@ have them:
 3. **Read online.** `https://www.wix.com/skills/<skill>/<path>` (`headless-templates` for
    `wix-headless-templates`), through the Wix MCP's `ReadFullDocsArticle` or your client's own
    fetch. A folder's URL lists its files; read the listing, then the files by the names it gives. A
-   small folder's `_content` returns its files in one response (a solution's `rest/` or `seed/`; not
-   its cores). The same files are in `https://github.com/wix/skills` under `skills/<skill>/`. This is
+   folder's `_content` returns its files in one response, for a folder under 30K bytes ("Reading a
+   reference"). The same files are in `https://github.com/wix/skills` under `skills/<skill>/`. This is
    the current release; `node {SKILL_ROOT}/install/check.mjs` says whether a disk copy is behind it.
 
 The templates (12 MB) are not in the plugin's folder: every kit script fetches them on first use, a
