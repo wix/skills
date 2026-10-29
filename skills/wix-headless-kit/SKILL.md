@@ -111,7 +111,7 @@ vertical needs, in the order that works.
 
 ## The run
 
-Needed throughout: Node ≥ 24.18, git, the two companion skills installed beside this one,
+Needed throughout: Node ≥ 22.12 (the Astro build's line; the CLI route's Wix CLI wants ≥ 24.18), git, the two companion skills installed beside this one,
 `wix-docs` and `wix-manage`, and one of two ways to Wix. `node <SKILL_ROOT>/install/context.mjs`
 prints which one this machine has, as `publisher`:
 

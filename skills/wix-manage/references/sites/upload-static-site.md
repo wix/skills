@@ -18,7 +18,7 @@ read it. That build is Wix's headless guide,
 `https://www.wix.com/headless/skill.md`; this recipe is its site call and its
 drop, not the build. Pages with that content written into them are a mock of
 the site, not the site, and a request for a working one is not met by a mock.
-The build runs from here with no shell, as the guide's "The run, through the
+The build runs from here through the tools alone, as the guide's "The run, through the
 plugin": the provision below with the solution in `seedOptions`, the content
 created through `ExecuteWixAPI`, and pages that read it dropped with the upload
 tool.
@@ -324,8 +324,8 @@ async function run() {
   `npm ci`, make the change, `npx astro build`, and
   [release the build](#release-a-wix-astro-build) with `revision.id` as
   `expectedHeadRevisionId`. The download holds the project without
-  `node_modules` or `.env*` files. Without a shell that can build, report that
-  the site is a server-rendered project and change nothing.
+  `node_modules` or `.env*` files. Where the kit cannot run (the guide's measured
+  facts), report that the site is a server-rendered project and change nothing.
 - **A 404 (`NOT_FOUND`, `GIT_BRANCH_NOT_FOUND`), or a repository whose root
   holds `index.html` rather than a project:** the project's source was not
   stored with the release. The site can be changed only from the project where
