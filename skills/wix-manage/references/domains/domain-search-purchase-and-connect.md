@@ -68,6 +68,14 @@ question is expected behaviour, not a dead end — stay here and ask. Only leave
 completely unrelated to domains ("change my site colors", "how do I add a blog"), and for a bare
 availability question (above).
 
+A question about the state of a domain already in the user's account — when it expires, whether it
+renews, which site it is on, its add-ons, DNS or SSL status, or which of their domains match a
+condition — belongs to [Analyse Domain](analyse-domain.md). Answer it there; come back here only when
+the user then wants to buy or connect. The lookup in §R4.3 stays here: it serves the connect flow and
+checks whether the domain is assigned to a site or unassigned. Analyse Domain answers a different
+question, the domain's state (registered or connected, expiry, renewal, DNS), from the domain views,
+and uses this same lookup only as a fallback when a domain has no domain view. Don't swap one for the other.
+
 **UX rule for everything below:** keep it natural, never expose internal mechanics, and reveal
 information only when it changes what the user has to do next. See §R9.
 
