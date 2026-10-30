@@ -60,7 +60,7 @@ folder's files one by one.
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
 | 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
-| 5 | write pages on the solution's modules, upload them, put the modules beside them | the pages import the solution's published browser modules (its `client.ts`, `rest/*.ts` and cores, already built) and use what their functions return; `UploadHeadlessWebsiteFiles` with the pages, then one `ExecuteWixAPI` call copies the modules into the site (below). The pages' design is the solution's design job | the functions and their arguments: the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the modules export the same functions; a re-exported one is defined in the core it comes from); what they return: `{TEMPLATES}/{solution}/app/wix/{solution}/types.ts`; the design: `{TEMPLATES}/{solution}/INSTRUCTIONS.md`, `{TEMPLATES}/shared/DESIGN.md`, `{TEMPLATES}/shared/CONTENT.md`; a call they don't cover: `{DOCS}` |
+| 5 | write pages on the solution's modules, upload them, put the modules beside them | the pages import the solution's published browser modules (its `client.ts`, `rest/*.ts` and cores, already built) and use what their functions return; `UploadHeadlessWebsiteFiles` with the pages, then one `ExecuteWixAPI` call copies the modules into the site (below). The pages' design is the solution's design job | the functions and their arguments: the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the modules export the same functions); what they return: `{TEMPLATES}/{solution}/app/wix/{solution}/types.ts`; the design: `{TEMPLATES}/{solution}/INSTRUCTIONS.md`, `{TEMPLATES}/shared/DESIGN.md`, `{TEMPLATES}/shared/CONTENT.md`; a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
 **Step 2, the provision.** Send this, changing only the name and the solutions. `seedOptions` is a
@@ -95,15 +95,14 @@ seconds, and each script waits for what its app needs (Bookings polls for the ow
 resource before creating services; Blog and FAQ verify a created category persisted; Restaurants
 and Donations install more than one app). Run its calls in its order, with its waits.
 `wix.request` returns `{ status, data }`; the body is `data`. A write that succeeded says nothing
-about the shape the pages read: a create body and a query response are different objects, and the
-pages see neither, only the shapes in the solution's `types.ts`.
+about the shape of the visitor's read: a create body and a query response are different objects,
+and the read's shape is in the solution's `*-core.ts`.
 
 **Step 5, the pages.** The pages read the content from the site; none of it is written into them.
 They call the solution's modules and show what they return: every field a page shows, a name, an
 amount, a date, a count, a body of text, is a field of a shape in the solution's `types.ts`, never a
 field of a raw Wix response and never a Wix call of the page's own. The modules are the kit's code
-itself, so the cores are not ported. A function a `rest/` file re-exports (`export { … }` of a name
-it imports) is defined in the core it imports it from, and that definition gives its arguments. A field that can be empty (an image, a description, a
+itself, so the cores are not read or ported. A field that can be empty (an image, a description, a
 price on request) has a designed empty state wherever it appears. A payment ends in Wix's hosted
 checkout through the solution's checkout function.
 
