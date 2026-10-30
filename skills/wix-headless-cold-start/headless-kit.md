@@ -94,13 +94,16 @@ site that exists is read first and continued: its dynamic context (`GetSiteConte
 seconds, and each script waits for what its app needs (Bookings polls for the owner's staff
 resource before creating services; Blog and FAQ verify a created category persisted; Restaurants
 and Donations install more than one app). Run its calls in its order, with its waits.
-`wix.request` returns `{ status, data }`; the body is `data`.
+`wix.request` returns `{ status, data }`; the body is `data`. A write that succeeded says nothing
+about the shape of the visitor's read: a create body and a query response are different objects,
+and the read's shape is in the solution's `*-core.ts`.
 
 **Step 5, the pages.** The pages read the content from the site; none of it is written into them.
-A product's name, price, options and stock, a cart line's name, quantity and price, a post's title
-and body: each is read from the response the way the solution's `*-core.ts` reads it, never from a
-field name you supply. A payment ends in Wix's hosted checkout through a redirect session, wired
-whether or not payments are connected.
+Every field a page shows, a name, an amount, a date, a count, a body of text, is read from the
+response the way the solution's `*-core.ts` reads it, never from a field name you supply. The
+core's mapping is ported as it is, not reproduced from memory of it; a feature whose core function
+you have not read to the end is not written yet. A payment ends in Wix's hosted checkout through a
+redirect session, wired whether or not payments are connected.
 
 **Step 5, a check.** A check of the pages before the upload makes their calls as a visitor, in one
 `ExecuteWixAPI` script: mint the token as `client.ts` does, send each control's calls with
@@ -108,7 +111,8 @@ whether or not payments are connected.
 through the cores. `wix.request` sends the owner's token whatever token it is given, so a check
 through it reads what the owner sees. The check passes when the read returns what step 4 created,
 by name. Right after the seed, an empty 200 is the fresh-install window or the query: read again
-after a few seconds, then compare the query with the kit's file.
+after a few seconds, then compare the query with the kit's file. The site is done when the fields
+its pages show were seen on a visitor's response, not when the upload succeeded.
 
 **Step 5, the upload.** A response has a size limit, so pages sent as text go one or two files per
 call; a later file joins through the recipe's "Change it later", which preserves the rest. Pages in
