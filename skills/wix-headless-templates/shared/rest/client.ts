@@ -94,21 +94,30 @@ export function clearTokens(): void {
   store.save({ accessToken: "", refreshToken: "", expiresAt: 0 });
 }
 
+// The mint or refresh in flight. Calls that start together on a new session (a page loading the
+// catalog and the cart at once) share it: two anonymous mints are two visitors, two carts.
+let pending: Promise<string> | null = null;
+
 /** A valid access token: cached, refreshed when expired, minted on first use. */
 export async function accessToken(): Promise<string> {
   const t = store.load();
   if (t && t.expiresAt - 60_000 > Date.now()) return t.accessToken;
-  let fresh: Tokens | undefined;
-  if (t?.refreshToken) {
-    try {
-      fresh = await mintTokens({ grantType: "refresh_token", refreshToken: t.refreshToken }, t.role ?? "visitor");
-    } catch {
-      /* fall through to a new visitor */
+  pending ??= (async () => {
+    let fresh: Tokens | undefined;
+    if (t?.refreshToken) {
+      try {
+        fresh = await mintTokens({ grantType: "refresh_token", refreshToken: t.refreshToken }, t.role ?? "visitor");
+      } catch {
+        /* fall through to a new visitor */
+      }
     }
-  }
-  fresh ??= await mintTokens({ grantType: "anonymous" });
-  store.save(fresh);
-  return fresh.accessToken;
+    fresh ??= await mintTokens({ grantType: "anonymous" });
+    store.save(fresh);
+    return fresh.accessToken;
+  })().finally(() => {
+    pending = null;
+  });
+  return pending;
 }
 
 export class WixApiError extends Error {
