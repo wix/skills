@@ -3,8 +3,11 @@
 // port to another language). Every rule about ordering, grouping, search, deep links, the answer's
 // Ricos-to-HTML rendering, the FAQPage structured data, and the wire spelling of a query lives HERE,
 // once. A raw entity may come from the SDK (`_id`) or from REST (`id`); the mappers accept both.
-// Imports are type-only so a strip to JS emits no imports.
+// Its one runtime import is the shared Ricos renderer, deployed beside it on every stack.
+import { escapeHtml, richContentToHtml, richContentToText } from "../rich-content";
 import type { FaqCategory, FaqData, FaqQuestion, FaqQuestionPage, FaqSection, FetchQuestionsOptions } from "./types";
+
+export { escapeHtml, imageValue, richContentToHtml, richContentToText } from "../rich-content";
 
 /** A raw FAQ entity (Category, QuestionEntry) as either transport returns it. */
 export type Raw = Record<string, any>;
@@ -49,7 +52,8 @@ export function toQuestion(raw: Raw, imgSrc: ImgSrc): FaqQuestion {
   let answerHtml = "";
   let answerText = "";
   if (raw.richContent?.nodes) {
-    answerHtml = richContentToHtml(raw.richContent, imgSrc);
+    // Every answer heading renders as h4: the page's h1 is the FAQ title, h2 the category, h3 the question.
+    answerHtml = richContentToHtml(raw.richContent, imgSrc, { headingLevel: () => 4, imageWidth: ANSWER_IMAGE_WIDTH, imageHeight: ANSWER_IMAGE_HEIGHT });
     answerText = richContentToText(raw.richContent);
   } else if (typeof raw.plainText === "string" && raw.plainText) {
     answerHtml = plainTextToHtml(raw.plainText);
@@ -227,129 +231,7 @@ export function faqJsonLd(qs: FaqQuestion[], pageUrl?: string): Record<string, u
   };
 }
 
-// ---- Ricos → HTML / text --------------------------------------------------------------------------------
-// The subset FAQ answers use. Text is always escaped, attribute values are escaped, no inline styles, no
-// event attributes; a node type outside the table degrades to its text; `htmlData` is never emitted.
-
-export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-const isHttpUrl = (u: unknown): u is string => typeof u === "string" && /^https?:\/\//i.test(u);
-
-/** Ricos Link → the anchor's attributes, or null when the URL is not http(s) (javascript:, data:, relative). */
-function linkAttrs(link: Raw | undefined): string | null {
-  if (!link) return null;
-  if (isHttpUrl(link.url)) {
-    const rel = ["noopener", "noreferrer"];
-    if (link.rel?.nofollow) rel.push("nofollow");
-    if (link.rel?.sponsored) rel.push("sponsored");
-    if (link.rel?.ugc) rel.push("ugc");
-    const target = link.target === "BLANK" ? ` target="_blank"` : "";
-    return `href="${escapeHtml(link.url)}" rel="${rel.join(" ")}"${target}`;
-  }
-  if (typeof link.anchor === "string" && link.anchor) return `href="#${escapeHtml(link.anchor)}"`;
-  return null;
-}
-
-/** One TEXT node → inline HTML: escaped text wrapped by its decorations (unknown decorations keep the text). */
-function textNodeToHtml(node: Raw): string {
-  let html = escapeHtml(String(node.textData?.text ?? ""));
-  for (const d of (node.textData?.decorations ?? []) as Raw[]) {
-    switch (d?.type) {
-      case "BOLD":
-        // The editor writes fontWeightValue 700 for bold and a lighter weight to un-bold inside a bold block.
-        if (typeof d.fontWeightValue !== "number" || d.fontWeightValue >= 600) html = `<strong>${html}</strong>`;
-        break;
-      case "ITALIC":
-        if (d.italicData !== false) html = `<em>${html}</em>`;
-        break;
-      case "UNDERLINE": html = `<u>${html}</u>`; break;
-      case "STRIKETHROUGH": html = `<s>${html}</s>`; break;
-      case "SUPERSCRIPT": html = `<sup>${html}</sup>`; break;
-      case "SUBSCRIPT": html = `<sub>${html}</sub>`; break;
-      case "LINK": {
-        const attrs = linkAttrs(d.linkData?.link);
-        if (attrs) html = `<a ${attrs}>${html}</a>`;
-        break;
-      }
-      case "ANCHOR":
-        if (typeof d.anchorData?.anchor === "string" && d.anchorData.anchor) html = `<a href="#${escapeHtml(d.anchorData.anchor)}">${html}</a>`;
-        break;
-      default:
-        break; // COLOR, FONT_SIZE, FONT_FAMILY, MENTION, SPOILER, SKETCH, EXTERNAL — text kept, styling dropped
-    }
-  }
-  return html;
-}
-
-/**
- * The media value in the form imgSrc scales: `wix:image://v1/<id>/<id>#originWidth=W&originHeight=H`
- * (the Ricos FileSource has no filename; the id stands in — the scaler reads only the id). An absolute
- * https URL passes through; anything else is no image.
- */
-export function imageValue(image: Raw | undefined): string {
-  const src = image?.src;
-  if (!src) return "";
-  if (typeof src.id === "string" && src.id) {
-    const size = image?.width && image?.height ? `#originWidth=${image.width}&originHeight=${image.height}` : "";
-    return `wix:image://v1/${src.id}/${src.id}${size}`;
-  }
-  return isHttpUrl(src.url) ? src.url : "";
-}
-
-function childrenToHtml(node: Raw, imgSrc: ImgSrc): string {
-  return ((node.nodes ?? []) as Raw[]).map((n) => nodeToHtml(n, imgSrc)).join("");
-}
-
-function nodeToHtml(node: Raw, imgSrc: ImgSrc): string {
-  switch (node?.type) {
-    case "TEXT": return textNodeToHtml(node);
-    case "PARAGRAPH": return `<p>${childrenToHtml(node, imgSrc)}</p>`;
-    // Every answer heading renders as h4: the page's h1 is the FAQ title, h2 the category, h3 the question.
-    case "HEADING": return `<h4>${childrenToHtml(node, imgSrc)}</h4>`;
-    case "BULLETED_LIST": return `<ul>${childrenToHtml(node, imgSrc)}</ul>`;
-    case "ORDERED_LIST": return `<ol>${childrenToHtml(node, imgSrc)}</ol>`;
-    case "LIST_ITEM": return `<li>${childrenToHtml(node, imgSrc)}</li>`;
-    case "BLOCKQUOTE": return `<blockquote>${childrenToHtml(node, imgSrc)}</blockquote>`;
-    case "CODE_BLOCK": return `<pre><code>${childrenToHtml(node, imgSrc)}</code></pre>`;
-    case "DIVIDER": return "<hr>";
-    case "IMAGE": {
-      const src = imgSrc(imageValue(node.imageData?.image), ANSWER_IMAGE_WIDTH, ANSWER_IMAGE_HEIGHT);
-      if (!src) return "";
-      const alt = escapeHtml(String(node.imageData?.altText ?? ""));
-      const img = `<img src="${escapeHtml(src)}" alt="${alt}" loading="lazy" decoding="async">`;
-      const attrs = linkAttrs(node.imageData?.link);
-      return attrs ? `<a ${attrs}>${img}</a>` : img;
-    }
-    default: {
-      // TABLE, COLLAPSIBLE_LIST, VIDEO, GIF, GALLERY, HTML, EMBED, APP_EMBED, BUTTON, … — text only.
-      const text = nodeToText(node).trim();
-      return text ? `<p>${escapeHtml(text)}</p>` : "";
-    }
-  }
-}
-
-/** Sanitized HTML for a Ricos document ("" for none). */
-export function richContentToHtml(rc: Raw | null | undefined, imgSrc: ImgSrc): string {
-  return ((rc?.nodes ?? []) as Raw[]).map((n) => nodeToHtml(n, imgSrc)).join("");
-}
-
-const INLINE_TYPES = new Set(["TEXT"]);
-
-function nodeToText(node: Raw): string {
-  if (node?.type === "TEXT") return String(node.textData?.text ?? "");
-  if (node?.type === "BUTTON") return String(node.buttonData?.text ?? "");
-  const children = (node?.nodes ?? []) as Raw[];
-  const parts = children.map(nodeToText);
-  // Blocks join with newlines; inline runs concatenate.
-  return children.every((c) => INLINE_TYPES.has(c?.type)) ? parts.join("") : parts.filter(Boolean).join("\n");
-}
-
-/** Plain text of a Ricos document — one line per block ("" for none). */
-export function richContentToText(rc: Raw | null | undefined): string {
-  return ((rc?.nodes ?? []) as Raw[]).map(nodeToText).filter(Boolean).join("\n").trim();
-}
+// ---- Ricos → HTML / text: the shared renderer (../rich-content), headings at h4 under the question.
 
 /** A plainText answer → one <p> per blank-line paragraph, single newlines as <br>. */
 export function plainTextToHtml(text: string): string {

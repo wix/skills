@@ -3,8 +3,9 @@
 // static site or a port to another language). Every rule about statuses, fieldsets, prices,
 // dates, images, categories, and the organizer's RSVP form lives HERE, once. A raw event may come
 // from the SDK (`_id`, mainImage as a wix:image string, Date objects) or from REST (`id`, mainImage
-// as { id, url }, ISO strings); the mappers accept both. Imports are type-only so a strip to JS
-// emits no imports.
+// as { id, url }, ISO strings); the mappers accept both. Its one runtime import is the shared Ricos
+// renderer, deployed beside it on every stack.
+import { richContentToHtml } from "../rich-content";
 import type {
   EventCategory,
   EventDetail,
@@ -349,6 +350,8 @@ export function toDetail(raw: Raw, imgSrc: ImgSrc): EventDetail {
   return {
     ...summary,
     aboutParagraphs: toParagraphs(raw.description, raw.detailedDescription),
+    // An empty description (the dashboard saves one empty paragraph) is "", as aboutParagraphs is [].
+    aboutHtml: richContentToHtml(raw.description, imgSrc).replace(/<p>\s*<\/p>/g, ""),
     formatted: {
       startDate: formatted.startDate ?? "",
       startTime: formatted.startTime ?? "",

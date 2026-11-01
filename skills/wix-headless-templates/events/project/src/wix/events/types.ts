@@ -123,6 +123,8 @@ export interface TaxSettings {
 export interface EventDetail extends EventSummary {
   /** Long description as plain paragraphs (extracted from the rich content; may be empty). */
   aboutParagraphs: string[];
+  /** The same description as sanitized HTML ("" for none): headings, lists, links, images. Set it as innerHTML. */
+  aboutHtml: string;
   /** Wix's formatted schedule parts ("" for a TBD schedule; end parts "" when the end date is hidden). */
   formatted: { startDate: string; startTime: string; endDate: string; endTime: string };
   /** Full formatted street address ("" for ONLINE/TBD). */

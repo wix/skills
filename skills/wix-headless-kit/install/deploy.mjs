@@ -287,6 +287,8 @@ if (stack === "static") {
   }
   // Only files that aren't there yet — a re-run restores, never clobbers (same as the copy below).
   cpSync(join(REF, "shared", "rest"), JS, COPY);
+  // The Ricos renderer the cores import (../rich-content in the app layout), the same file on every stack.
+  cpSync(join(REF, "shared", "app", "wix", "rich-content.ts"), join(JS, "rich-content.ts"), COPY);
   // Every layer with a rest/ twin: the requested verticals, plus the site-search capability when the
   // plan turns it on (same shape — rest/ beside app/wix/<name>/ — at templates/shared/capabilities).
   const layers = requested.map((vertical) => [vertical, join(REF, vertical)]);
@@ -313,6 +315,7 @@ if (stack === "static") {
       // ../app/wix/<vertical>/cart-core.js); flat in one folder, every import is a sibling.
       const fixed = src
         .replace(/from\s+"\.{1,2}\/(?:[^"]*\/)([^"/]+)"/g, 'from "./$1"')
+        .replace(/from\s+"\.\.\/([^"/]+)"/g, 'from "./$1"')
         .replace(/from\s+"\.\/types(?:\.js)?"/g, `from "./${vertical}-types.js"`);
       if (fixed !== src) writeFileSync(fp, fixed);
     }

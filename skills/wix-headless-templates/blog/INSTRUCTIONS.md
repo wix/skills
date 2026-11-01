@@ -119,6 +119,7 @@ Tested and working as they are; read the source when something is off or the bri
 // formatCount(n) → "1.2K" (formatCount(n, "full") → "1,234"); "" for undefined.
 // postPath(slug) · categoryPath(slug) · tagPath(slug) → the only hrefs (slugs may contain "/").
 // PostDetail adds: richContent (Ricos JSON | null — render ONLY via RichContent),
+//   bodyHtml (the same body as sanitized HTML, for a stack without RichContent; "" when richContent is null),
 //   paragraphs (plain-text fallback body), updatedLabel/updatedISO ("" unless republished),
 //   seoTitle /* owner's override, else title */, seoDescription /* override → excerpt → body, 500 chars */,
 //   relatedPostIds, commentingEnabled, referenceId /* the comments thread; "" = none */.
@@ -227,9 +228,8 @@ read these first; they are tested code for exactly that behaviour:
    `needsSignIn`, the form disabled while `saving`.
 5. `components/blog/RichContent.tsx` — what the body renderer is: the `@wix/ricos` viewer, a React
    component that needs a bundler. On these stacks it doesn't run; the body renders from
-   `post.paragraphs` (one `<p>` per entry) and a comment from `comment.text`, and headings, lists,
-   quotes, and inline images flatten to text — say so in the closing message. A blog whose posts
-   carry structure stays on Astro.
+   `post.bodyHtml` (the core's sanitized HTML, set as the innerHTML of the body's wrapper;
+   `post.paragraphs` when it is "") and a comment from `comment.text`.
 
 All under `templates/blog/app/`.
 
@@ -263,7 +263,8 @@ the components in your framework to the contracts on this page:
   `createCommentsStore({ referenceId })` per thread (only when `commentingEnabled && referenceId`).
   State in, actions out — exactly the hooks' contracts above;
 - the body: `@wix/ricos` is a React component — without React it doesn't render; use
-  `post.paragraphs` (and `comment.text`) and say so in the closing message.
+  `post.bodyHtml` as the innerHTML of the body's wrapper (`post.paragraphs` when it is "") and
+  `comment.text`.
 
 Routes `/blog`, `/blog/:slug` (null → your 404 view), `/blog/category/:slug`, `/blog/tag/:slug`
 (`fetchCategoryBySlug`/`fetchTagBySlug` → `createBlogFeedStore({ initialCategoryId })` or a plain
@@ -290,10 +291,11 @@ the rendering in plain JS: one render function per surface that reads `getState(
 `subscribe`, with the surface's controls calling the store's actions. Pages are `blog.html`,
 `post.html?slug=…`, `category.html?slug=…`, `tag.html?slug=…` (Wix static hosting serves files, not
 directories — name the file and link to it; on this stack pass your own `postHref`-style helpers to
-your renderers, the path helpers describe the Astro routes). The body renders from
-`post.paragraphs` and a comment from `comment.text` (no Ricos viewer without a bundler — see the
-reference files note). Set `document.title` and the meta description from `post.seoTitle` and
-`post.seoDescription` once the post loads, as the Astro page does. The visitor token persists in
+your renderers, the path helpers describe the Astro routes). The body is `post.bodyHtml`, set as
+the innerHTML of the body's wrapper (`post.paragraphs` when it is ""), and a comment is
+`comment.text` (no Ricos viewer without a bundler — see the reference files note). Set
+`document.title` and the meta description from `post.seoTitle` and `post.seoDescription` once the
+post loads, as the Astro page does. The visitor token persists in
 `localStorage` on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
@@ -306,8 +308,9 @@ browser-side code and the readable spec. Reads render on the server: port `js/wi
 the same DTO shapes as dicts, one anonymous visitor token per process for these public reads (mint
 and refresh per `client.ts`) — and render the feed, the category/tag pages, and the post page in your
 templates to the contracts above, so titles and excerpts are in the HTML; post-page tags from
-`post.seoTitle` and `post.seoDescription`. The body is `paragraphs` server-side too (the Ricos
-viewer is React). Likes and comments run on the visitor's behalf — they are browser-side only, on
+`post.seoTitle` and `post.seoDescription`. The body is `richContentToHtml` (`js/wix/rich-content.ts`)
+ported with the rest, over `richContent` (the Ricos viewer is React). Likes and comments run on the
+visitor's behalf — they are browser-side only, on
 `./js/wix/post-store.js` and `./js/wix/comments-store.js` exactly as the static wiring above (never
 through the process-wide token: a like or a comment would be attributed to it). The feed's category
 filter and load-more can run client-side on `./js/wix/blog-feed-store.js` the same way, or as plain
@@ -362,8 +365,8 @@ Routes on Wix hosting: the host serves files only, so a clean route answers 404 
 
 - **The body renders only through `RichContent`** where it deploys (Astro, React) — a post body
   is a Ricos document, not HTML and not text: never `set:html`/innerHTML it, never stringify its
-  nodes, never write your own node walker. Where it doesn't deploy, `paragraphs` is the honest
-  body, and the closing message says so.
+  nodes, never write your own node walker. Where it doesn't deploy, the body is `bodyHtml`, the
+  shipped renderer's sanitized HTML, set as the innerHTML of one wrapper (`paragraphs` when it is "").
 - **Data logic only through the shipped exports** — never rewrite their internals or re-derive a
   request shape; extend by adding a function in `wix/blog/` (API contracts: the `wix-docs` skill).
 - **Route by `slug` through the shipped path helpers** — `postPath`, `categoryPath`, `tagPath`;
