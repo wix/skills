@@ -101,7 +101,7 @@ export interface BlogCategory {
   /** The category's SEO title ("" when the owner set none) — the <title> of a category page. */
   title: string;
   description: string;
-  /** Number of posts in the category (hide empty categories with it). */
+  /** Number of posts in the category, checked against the latest posts (hide empty categories with it). */
   postCount: number;
   /** Resolved https cover URL ("" when none). */
   coverUrl: string;

@@ -6,10 +6,11 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/get-category-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/get-tag-by-slug.md
-import { categories as categoriesModule, tags as tagsModule } from "@wix/blog";
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
+import { categories as categoriesModule, posts as postsModule, tags as tagsModule } from "@wix/blog";
 import { wixModule } from "../sdk";
 import { imgSrc } from "../media";
-import { TAG_BY_IDS_LIMIT, TAXONOMY_LIMIT, inIdOrder, toCategory, toTag, type FetchCategoriesOptions } from "./taxonomy-core";
+import { RECENT_POSTS_LIMIT, TAG_BY_IDS_LIMIT, TAXONOMY_LIMIT, inIdOrder, toCategory, toTag, withPostCounts, type FetchCategoriesOptions } from "./taxonomy-core";
 import type { Raw } from "./posts-core";
 import type { BlogCategory, BlogTag } from "./types";
 
@@ -17,14 +18,20 @@ export { inIdOrder, type FetchCategoriesOptions };
 
 const categories = wixModule(categoriesModule);
 const tags = wixModule(tagsModule);
+const posts = wixModule(postsModule);
 
-/** Categories in menu order (displayPosition); `withPosts` drops empty ones at the source — non-fatal (empty array on failure). */
-export async function fetchBlogCategories({ withPosts = false }: FetchCategoriesOptions = {}): Promise<BlogCategory[]> {
+/**
+ * Categories in menu order (displayPosition), each postCount checked against the latest posts
+ * (withPostCounts); `withPosts` drops empty ones. Non-fatal: [] on failure; without the posts, Wix's counts.
+ */
+export async function fetchBlogCategories(o: FetchCategoriesOptions = {}): Promise<BlogCategory[]> {
   try {
-    let q = categories.queryCategories().ascending("displayPosition").limit(TAXONOMY_LIMIT);
-    if (withPosts) q = q.gt("postCount", 0);
-    const res = await q.find();
-    return (res.items ?? []).map((c: Raw) => toCategory(c, imgSrc)).filter((c) => c.id);
+    const [res, recent] = await Promise.all([
+      categories.queryCategories().ascending("displayPosition").limit(TAXONOMY_LIMIT).find(),
+      posts.queryPosts().descending("firstPublishedDate").limit(RECENT_POSTS_LIMIT).find().catch(() => null),
+    ]);
+    const list = (res.items ?? []).map((c: Raw) => toCategory(c, imgSrc)).filter((c) => c.id);
+    return withPostCounts(list, (recent?.items ?? []) as Raw[], o);
   } catch {
     return [];
   }
