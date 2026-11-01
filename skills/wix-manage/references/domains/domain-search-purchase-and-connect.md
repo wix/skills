@@ -995,15 +995,41 @@ On success, go to §P6.
 
 ## P6. Privacy Protection (US-25, US-26)
 
-Present all three options, Privacy + DNSSEC marked recommended. Prices come from the offering call
-with the addon product type (§R4.2); match each returned product by its ID.
-**If a price is not available, omit it — never invent one.**
+The options come from the offering call with the addon product type (§R4.2), **scoped to the
+domain's TLD** — the same body shape as §P3, leading dot included:
+
+```
+POST https://manage.wix.com/_api/premium-purchase-platform-serverless/v1/offering/b3d86a1d-9db3-4f69-bd54-c132808856b1
+Body: { "purchaseContext": { "params": { "tld": ".{TLD}" } } }
+```
+
+⛔ **Never call it without the `tld`.** The paid addons vary by TLD — `.com.au`, `.com.br`, `.info`
+and `.biz`, for example, have no Privacy + DNSSEC. An unscoped answer is not an answer for this
+domain.
+
+Match each entry in `products[]` by its ID against the product-ID table at the end of this section.
+**Offer only the paid addons whose IDs came back.** "No protection" is always offered.
+
+| Paid addons returned | What to show |
+|----------------------|--------------|
+| Privacy + DNSSEC **and** Privacy only | All three options, Privacy + DNSSEC marked *(recommended)* |
+| Privacy only | Privacy only *(recommended)* and No protection. No DNSSEC line, no mention of it |
+| Privacy + DNSSEC only | Privacy + DNSSEC *(recommended)* and No protection |
+| Neither | Skip the question. Say once that the registration will be public (*"Privacy protection isn't available for .{TLD}, so the registration will be public."*) and go to §P7 — **no addon line item** in §P8 |
+
+⛔ **Never put an addon product ID in the cart that this TLD-scoped call did not return.** An addon
+the response left out is not offered at all — not without a price, not as *"recommended"*, not on
+request. Checkout rejects it (`MissingDomainBundleMetadata`) and the user is left with a cart that
+cannot be paid.
 
 The addon response has the **same shape as §P3's** — one `pricingDetails[]` entry per cycle, with
 `finalPrice` and `renewalPrice` on each. The registration period is already chosen by the time you
 get here, so **read the row whose `cycle.cycleDuration.count` matches the chosen term** and take
 `finalPrice.total.formattedAmount` from it. Never sum, never divide, never take the 1-year row and
 multiply.
+
+Message **shape** — one line per option the response allows, built from the table above. The full
+form, when both paid addons came back:
 
 > How would you like to protect your registration?
 >
@@ -1013,9 +1039,18 @@ multiply.
 >
 > At checkout, prices may be shown in your local currency.
 
-The currency note is required here too (§R10). It qualifies the two `{price}` figures and not
-*"Free"* — free is not a currency amount. So if **neither** priced option came back with a figure,
-this message shows no price at all and the note does not appear.
+When Privacy + DNSSEC did not come back, its line is gone and Privacy only takes the recommendation:
+
+> How would you like to protect your registration?
+>
+> - **Privacy only** *(recommended)* — Hides your personal contact info from public records — {price}
+> - **No protection** — Your contact info will be publicly visible — Free
+>
+> At checkout, prices may be shown in your local currency.
+
+The currency note is required here too (§R10). It qualifies the `{price}` figures and not
+*"Free"* — free is not a currency amount. So it appears only when at least one priced option is
+shown; a message with no price in it carries no note.
 
 `{price}` carries the term, and the term is whatever the user picked:
 
@@ -1031,10 +1066,10 @@ user's head. (Those two figures illustrate the shape and are never printed to a 
 rule.)
 
 `{price}` is whatever the addon offering call returned for that product ID. **"No protection" is the
-only one whose price is known ahead of time — it is Free.** For the other two: if you did not get a
-price back, drop the ` — {price}` suffix and present the option without one. The same rule as §P3
-applies — a figure you did not receive in this conversation is a fabrication, and the wording above
-is a template, not a price list.
+only one whose price is known ahead of time — it is Free.** A paid addon is shown only because the
+response returned it, so its price comes from that same entry. If a returned addon has no row for the
+chosen term, do not offer it. The same rule as §P3 applies — a figure you did not receive in this
+conversation is a fabrication, and the wording above is a template, not a price list.
 
 | Choice | Addon product ID |
 |--------|------------------|
@@ -1044,7 +1079,7 @@ is a template, not a price list.
 
 Addon product type for all three: `b3d86a1d-9db3-4f69-bd54-c132808856b1`.
 
-The user may pick any of the three (US-26) — recommend, never push. "No protection" is a legitimate
+The user may pick any option shown (US-26) — recommend, never push. "No protection" is a legitimate
 answer; accept it without a warning.
 
 ---
@@ -1114,8 +1149,10 @@ Three calls, in order, **silently**:
 
 - The addon cycle duration must match the domain's.
 - `core: "true"` goes on the domain line item only.
-- Include the addon line item for all three privacy choices, including "No protection" — it is a
-  product, not an absence.
+- Include the addon line item for whichever option the user picked in §P6, including "No protection" —
+  it is a product, not an absence. The one exception is an ID the TLD-scoped addon call did not return:
+  that line item is left out, and so is the whole addon line when §P6 skipped the question.
+- ⛔ Never add an addon product ID the TLD-scoped call in §P6 did not return — checkout fails on it.
 - Never announce any of these three calls. The only thing the user sees is
   *"Setting up your order..."*.
 
@@ -1145,7 +1182,8 @@ the message (§R10). This is the screen the user actually reads before paying, s
 the note matters most.
 
 For "No protection", the second line reads `- **No protection** — Free`. It has no renewal clause —
-`$0.00` does not renew at anything worth saying.
+`$0.00` does not renew at anything worth saying. When the cart has no addon line item (§P8), the
+summary has no second line.
 
 ### The renewal clause — two forms, and only two
 
@@ -1225,6 +1263,7 @@ The user's only remaining step is payment; say nothing more.
 - Continue to §P3 after the user accepted a bundle link — that is the end of the flow.
 - Put `msid` on a standalone checkout link, or leave it off when a Premium site is attached.
 - Re-check availability for a domain that came from the suggest endpoint.
+- **Offer, recommend or add to the cart a paid addon the TLD-scoped addon call did not return** (§P6).
 - Narrate cart operations, contact saving, or the premium re-check.
 
 ✅ **Always:**
@@ -2120,7 +2159,7 @@ Wix session auth automatically — do not add headers.
 | List the user's sites | fetch list of sites |
 | Site Premium status | `GET https://manage.wix.com/_api/premium-store/plans/premiumStatus?metaSiteId={siteId}` |
 | Domain cycles + pricing | `POST https://manage.wix.com/_api/premium-purchase-platform-serverless/v1/offering/72af0602-1321-4897-8299-f507480b2bb8`<br>Body: `{ "purchaseContext": { "params": { "tld": ".{TLD}" } } }` |
-| Privacy addon pricing | Same offering endpoint with the addon product type id `b3d86a1d-9db3-4f69-bd54-c132808856b1` |
+| Privacy addon pricing | Same offering endpoint with the addon product type id `b3d86a1d-9db3-4f69-bd54-c132808856b1`<br>Body: `{ "purchaseContext": { "params": { "tld": ".{TLD}" } } }` — the returned `products[]` is the set of addons this TLD offers (§P6) |
 | TLD coupon eligibility | `com.wixpress.premium.domain.tlds.DomainTld/ListTlds`<br>Body: `{ "filter": { "tlds": ["{TLD_WITHOUT_DOT}"] } }` |
 | Active Premium sale | `getPremiumSale` context call → `wix.premium.store.v1.sales/GetSale` |
 | Existing contacts | `GET https://manage.wix.com/v1/domain-registration-intents/preview/{domain}` |
@@ -2401,7 +2440,7 @@ of it is known from this call and all of it is forbidden by §R9. A successful b
 |------|-----|
 | Domain product **type** | `72af0602-1321-4897-8299-f507480b2bb8` |
 | Domain product **id** | Read `products[0].productId` from the offering response — never hardcode |
-| Addon product **type** (all three) | `b3d86a1d-9db3-4f69-bd54-c132808856b1` |
+| Addon product **type** (all three) | `b3d86a1d-9db3-4f69-bd54-c132808856b1` — not every TLD offers every paid addon (§P6) |
 | Privacy + DNSSEC | `f8211619-d9f6-4312-9d03-f2958bbd08aa` |
 | Privacy only | `22a84545-4ac0-4490-a434-45a1ebc479fb` |
 | No protection | `b9d89ff0-f29b-4bfd-a3f0-6e34ae65120d` |

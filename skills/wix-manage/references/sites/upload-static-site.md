@@ -6,10 +6,10 @@ description: Publish HTML, CSS, JavaScript or a static build as a Wix Headless w
 # Upload a Website or HTML Files
 
 Wix serves uploaded static files at a `*.wix-site-host.com` URL. **A raw drop
-replaces the entire file set: omitted files disappear.** The file helpers below
-simulate a patch by downloading the current ZIP, merging changes, and dropping
-the complete result. They preserve omitted files, but still transfer the full
-site and are not atomic against another editor.
+replaces the entire file set: omitted files disappear.** `UploadHeadlessWebsiteFiles`
+and the file helpers below merge instead: they download the current files, apply
+the changes, and drop the result. They preserve omitted files, but still
+transfer the full site and are not atomic against another editor.
 
 **What this recipe publishes is static pages.** A site whose content lives in Wix
 (a blog, a store, bookings, events, a CMS, forms, members, payments, among
@@ -30,7 +30,7 @@ tool.
 | Publish files as a new site | [Choose an upload route](#before-the-calls), [create once](#create-the-site), upload, [verify](#verify-and-report). |
 | Publish a Wix Astro build | [Create once](#create-the-site) for a new site, then [release it](#release-a-wix-astro-build); it is not dropped. |
 | Inspect or edit a deployed site | [Find its ID](#find-an-existing-site), then [list, read or patch](#change-it-later). Do not create another site. |
-| Replace the entire deployed frontend | Confirm replacement of the serving frontend, then drop the complete intended file set on the same ID. |
+| Replace the entire deployed frontend | Confirm replacement of the serving frontend, then upload the complete intended file set on the same ID with `replaceAll: true`, or drop it raw. |
 | A blog, a store, bookings, events, a CMS, forms, members, payments, and the like: anything whose content lives in Wix | Wix's headless guide, `https://www.wix.com/headless/skill.md`, on the site this recipe creates ([Connect a backend](#connect-a-backend)). A static upload alone does not make them functional. |
 | Publish without a login | [Anonymous upload and release](#publish-anonymously), then claim or give the private save link. |
 | Migrate a live site by URL or CSV/TSV | [Site Import](site-import.md), not this recipe. |
@@ -51,8 +51,9 @@ Quick reference: [upload through MCP](#drop-through-the-wix-mcp) ·
 Choose an already-authenticated route that can access the files, not by the
 client's name. Check the available tools before choosing:
 
-- **Wix MCP connected:** use `UploadHeadlessWebsiteFiles` for a complete
-  upload and `ExecuteWixAPI` for API scripts and list/read/patch helpers.
+- **Wix MCP connected:** use `UploadHeadlessWebsiteFiles` to upload files (the
+  whole site the first time, the changed files later) and `ExecuteWixAPI` for API
+  scripts and list/read/patch helpers.
   `ExecuteWixAPI` supplies authenticated `wix.request({ scope: 'account', ... })`,
   returning `{ status, data }`; no token or extra CLI login is needed.
 - **Shell reaches Wix:** check `curl -sI https://www.wixapis.com` for an HTTP
@@ -90,6 +91,9 @@ not public SDK methods.
 
 For external file inputs on either MCP tool, use only parameters in its visible schema.
 Prefer resolved `attachments`: they transport files without retyping them.
+An attachment carries only its file name, not the folder it came from: a file
+attached on its own lands at the top of the site, so attach a site with folders
+as one ZIP.
 If an attachment arrives unresolved as a local path, retrying that path cannot
 work; use supported text input or [another image route](#images).
 `files` text input uses this unescaped format:
@@ -154,11 +158,14 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 ## Drop through the Wix MCP
 
 If `UploadHeadlessWebsiteFiles` is available, pass the existing
-`metaSiteId` as `siteId` and the **complete** files. It creates no site,
-replaces all files, adds attribution, and returns the live URL and dashboard.
-Prefer a ZIP attachment containing the whole site, including images; a single
-wrapping folder is stripped. Its limit is 10 MB per call. Otherwise use the
-`files` text format above.
+`metaSiteId` as `siteId` and the files: the whole site on a first upload, only
+the changed files later. It creates no site. On a site that already has files it
+writes the files sent and keeps the rest; `deletePaths` removes files, and
+`replaceAll: true` keeps only the files sent. It adds attribution, and returns
+the live URL, the dashboard and the site's files.
+Prefer a ZIP attachment containing the whole site, including images: it keeps
+the site's folders, and a single wrapping folder is stripped. Its limit is
+10 MB per call. Otherwise use the `files` text format above.
 
 Without that tool, use `ExecuteWixAPI`. File inputs belong in the
 external `files` or `attachments` parameter, not inside `code`; the script
@@ -333,9 +340,9 @@ async function run() {
 
 ### A site of static pages
 
-With `ExecuteWixAPI`, prefer its file helpers
-for selective edits, not `UploadHeadlessWebsiteFiles`: sending only changed
-files to that upload tool would remove omitted files. Without MCP, go directly
+Both MCP routes keep the files an edit does not send: `UploadHeadlessWebsiteFiles`
+with the changed files, or `ExecuteWixAPI`'s file helpers below, which also edit
+a page in place without sending it back through you. Without MCP, go directly
 to the [ZIP fallback](#download-edit-drop-fallback).
 
 The server may have helpers newer than the client's visible description.
@@ -351,8 +358,7 @@ async function run() {
 ```
 
 If false, use the [ZIP fallback](#download-edit-drop-fallback). Do not retry a
-missing helper or invent `UploadHeadlessWebsiteFiles` parameters such as `mode: 'merge'`.
-These execution helpers do not change the full-replacement upload contract.
+missing helper, or pass a parameter the tool's visible schema does not list.
 List/read/inline edits work without external file inputs.
 
 ### List and read
