@@ -117,12 +117,11 @@ page in a folder imports the same files:
 ```
 
 Each file is named after the `rest/` file or store it was built from and exports the same functions;
-the `.ts` beside it is its source. The files of every solution on the site share the one folder,
-the layout the solution's `INSTRUCTIONS.md` describes for a static site.
-Upload the pages with `UploadHeadlessWebsiteFiles` first; an upload replaces every file on the site,
-so the modules go in after it, and again after any later full upload. Then one `ExecuteWixAPI` call
-with the site's `siteId` copies the solutions' modules and the shared client into the site, as the
-templates build them, and writes the site's `appId` as the client id:
+it opens with its declarations: what it exports, their arguments and what they return. The files
+of every solution on the site share the one folder, the layout the solution's `INSTRUCTIONS.md`
+describes for a static site. Upload the pages with `UploadHeadlessWebsiteFiles` first. Then one
+`ExecuteWixAPI` call with the site's `siteId` copies the solutions' modules and the shared client
+into the site, as the templates build them, and writes the site's `appId` as the client id:
 
 ```javascript
 async function run() {

@@ -192,8 +192,8 @@ build folder, an SSR build is hosted by you. Page tags from the first questions.
 
 Read the reference files listed above before writing any surface.
 
-When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
-for reading), the pages import it from there. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
+with its declarations), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `fetchFaq`, `fetchQuestions`, `fetchCategories`,
 `fetchQuestionById` from `./js/wix/faq.js`; `anchorId`, `faqDeepLink`, `groupByCategory` from
 `./js/wix/faq-core.js`. The state machine ships too: `seedFaq`, `subscribeFaq`, `getFaqState` and
