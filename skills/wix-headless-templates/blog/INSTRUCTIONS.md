@@ -275,8 +275,8 @@ tags from `post.seoTitle` and `post.seoDescription`.
 
 Read the reference files listed above before writing any surface.
 
-When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
-for reading), the pages import it from there. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
+with its declarations), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchPosts`, `fetchPostBySlug`,
 `fetchRelatedPosts`, `postMetaLine`, `postPath`, `categoryPath`, `tagPath`, `formatCount` from
 `./js/wix/posts.js`; `fetchBlogCategories`, `fetchBlogTags`, `fetchTagsByIds`, `fetchCategoryBySlug`,

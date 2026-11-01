@@ -328,8 +328,8 @@ build is hosted by you.
 
 Read the reference files listed above before writing any surface.
 
-When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
-for reading), the pages import it from there. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
+with its declarations), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchMenus`, `fetchSiteMoney` from
 `./js/wix/menu.js`; `resolveOrdering`, `resolveOperationId`, `fetchMenuOrdering`,
 `fetchFulfillmentMethods`, `fetchOrderCart`, `addToOrder(item, { menuId, sectionId }, quantity?,

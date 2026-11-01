@@ -202,8 +202,8 @@ is your copy — campaigns carry no `seoData`.
 
 Read the reference files listed above before writing any surface.
 
-When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
-for reading), the pages import it from there. Same function names and DTOs as the table above, so
+When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
+with its declarations), the pages import it from there. Same function names and DTOs as the table above, so
 the contracts on this page hold unchanged: `fetchCampaigns`, `fetchCampaign` from
 `./js/wix/campaigns.js`; `donationCheckoutUrl`, `fetchDonationReceipt` from `./js/wix/donate.js`. The
 state machines ship too: `createCampaignsStore` from `./js/wix/campaigns-store.js`,

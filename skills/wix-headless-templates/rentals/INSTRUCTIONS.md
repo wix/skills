@@ -193,8 +193,8 @@ the build folder, an SSR build is hosted by you. Rental-page tags from the `Rent
 
 Read the reference files listed above before writing any surface.
 
-When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
-for reading), the pages import it from there. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
+with its declarations), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `fetchRentals`, `fetchRentalBySlug`, `fetchStarts`,
 `fetchEndOptions`, `fetchQuote`, `fetchRentalForm`, `rentResource` from `./js/wix/rentals.js`. The
 state machines ship too: `createRentalsStore` from `./js/wix/rentals-store.js` and
