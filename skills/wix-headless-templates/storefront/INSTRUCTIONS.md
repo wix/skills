@@ -543,10 +543,8 @@ from the entity's `seoData`.
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs storefront --stack static --out site` put the REST layer in `site/js/wix/` (browser
-ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `searchCatalog`, `fetchFacetData`, `fetchProductBySlug`,
 `fetchCategories`, `fetchCategoryBySlug`, `fetchInventory`, `fetchBackInStockEnabled`,
 `requestBackInStock`, `resolveVariant`, `choiceAvailability` from `./js/wix/catalog.js`;
@@ -565,7 +563,7 @@ overlays follow the CartDrawer contract (root-level, scroll lock, Escape, focus 
 `shop.html`, `category.html?slug=…`,
 `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
 once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
-its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

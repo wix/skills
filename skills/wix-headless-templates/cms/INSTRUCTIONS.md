@@ -262,10 +262,8 @@ pointing at the build folder, an SSR build is hosted by you. Page tags from the 
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-`deploy.mjs cms --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM, the
-`.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, plan, seed output) is never the upload. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `queryItems`, `getItemBy`, `getItemById`,
 `countItems`, `distinctValues` (and the writes, `linkItems`/`unlinkItems` included) from
 `./js/wix/items.js`; `getCollectionSchema` from `./js/wix/collections.js`; `formatDate` from
@@ -280,7 +278,7 @@ hosting serves files, not directories — name the file and link to it). Set `do
 the meta description from the item's fields once it loads. The visitor token persists in
 `localStorage` on its own; never mint per page. Reads work on any collection whose `read` is
 `ANYONE`; a write from the page succeeds only where the seed opened that verb (403 → a permissions
-step). `npx @wix/cli@latest release` uploads `site/`.
+step).
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

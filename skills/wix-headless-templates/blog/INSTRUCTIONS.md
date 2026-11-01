@@ -275,10 +275,8 @@ tags from `post.seoTitle` and `post.seoDescription`.
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs blog --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchPosts`, `fetchPostBySlug`,
 `fetchRelatedPosts`, `postMetaLine`, `postPath`, `categoryPath`, `tagPath`, `formatCount` from
 `./js/wix/posts.js`; `fetchBlogCategories`, `fetchBlogTags`, `fetchTagsByIds`, `fetchCategoryBySlug`,
@@ -296,7 +294,7 @@ your renderers, the path helpers describe the Astro routes). The body renders fr
 `post.paragraphs` and a comment from `comment.text` (no Ricos viewer without a bundler — see the
 reference files note). Set `document.title` and the meta description from `post.seoTitle` and
 `post.seoDescription` once the post loads, as the Astro page does. The visitor token persists in
-`localStorage` on its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+`localStorage` on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

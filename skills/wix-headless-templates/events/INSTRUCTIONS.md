@@ -28,10 +28,10 @@ and your home page.
 | `wix/events/events.ts` | `fetchEventsPage` / `fetchEvents` (live events, soonest first, paged), `fetchEventBySlug`, `fetchEventById` (the post-checkout confirmation read), `fetchOccurrences` (a recurring series' dates), `fetchCategories` (the pills) — the transport; the rules and DTO mappers are in `events-core.ts` beside it (shared with the REST layer) |
 | `wix/events/registration.ts` | `fetchTicketTiers`, `startTicketCheckout`, `submitRsvp` — the exact reserve→redirect sequence and the RSVP body built from the organizer's form; rules in `registration-core.ts` beside it |
 | `wix/events/orders.ts` | `fetchOrder(eventId, orderNumber)` — the confirmation page's order (invoice, status, ticket PDF); mapper in `orders-core.ts` |
-| `wix/events/events-store.ts` · `registration-store.ts` · `order-store.ts` | the listing, registration and confirmation state machines, framework-free (`createEventsStore()`, `createRegistrationStore(event)`, `createOrderStore({ orderNumber, eventId })` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
+| `wix/events/events-store.ts` · `registration-store.ts` · `events-order-store.ts` | the listing, registration and confirmation state machines, framework-free (`createEventsStore()`, `createRegistrationStore(event)`, `createOrderStore({ orderNumber, eventId })` — `getState`/`subscribe` + actions, one instance per surface); the hooks below bind them to React, every other stack uses them directly |
 | `hooks/events/useEvents.ts` | React binding of `events-store.ts`: listing, category filter, load more — contract below |
 | `hooks/events/useEventRegistration.ts` | React binding of `registration-store.ts`: tiers, quantities, donation amounts, totals, checkout, the RSVP form — contract below |
-| `hooks/events/useEventConfirmation.ts` | React binding of `order-store.ts`: the event, the order, the tickets-ready poll — contract below |
+| `hooks/events/useEventConfirmation.ts` | React binding of `events-order-store.ts`: the event, the order, the tickets-ready poll — contract below |
 | `components/events/EventRegistrationView.tsx` | the registration controls for one event — branches on the registration state and type (closed / scheduled / paused; the tier picker with fixed, free, donation and pricing-option tiers, sold-out and sale-period badges, tax and fee lines, running totals and the gated CTA; the organizer's RSVP form with the guest picker and its confirmed / waitlisted / declined states; the external link) — **wire as-is** in your event page's registration column (`<EventRegistrationView client:only="react" event={event} />`); build your own on `useEventRegistration` only when the brief wants more |
 | `components/events/EventConfirmationView.tsx` | the hosted checkout's thank-you island — reads `?orderNumber=&eventId=`, the order's status, invoice and ticket download once Wix has generated the tickets, the event for context, an honest "no order" state on a direct visit, and a confirmation without details when the order can't be read — **wire as-is** |
 | `components/events/EventsView.tsx` (+ `EventCard`) | **reference** listing — correct and plain; the shipped `events.astro` mounts it so the site works before you design; you build your own on `useEvents` and swap the import |
@@ -189,7 +189,7 @@ and redesign the markup between them; the registration column stays
 
 On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives. The state
 machines behind the hooks do arrive — `wix/events/events-store.ts`, `registration-store.ts`,
-`order-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
+`events-order-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
 `getState()`, call its actions. Their `*State` interfaces are the render contract; read those. What
 you write is the rendering — index, event page, tier picker, RSVP form, confirmation — and for that
 read these first; they are tested code for exactly that behaviour:
@@ -231,7 +231,7 @@ Read the reference files listed above before writing any surface.
 `deploy.mjs events --stack lib` put the data layer in `src/wix/` and nothing else: `sdk.ts` (the
 visitor client, configured with the public client id), `media.ts`, `money.ts`, and `wix/events/`
 — `events.ts`, `registration.ts`, `orders.ts`, `types.ts`, the `*-core.ts` rules, and the three
-stores `events-store.ts`, `registration-store.ts`, `order-store.ts`. None of it is React. The hooks
+stores `events-store.ts`, `registration-store.ts`, `events-order-store.ts`. None of it is React. The hooks
 and components don't ship on this stack; the stores replace the hooks, and you write the components
 in your framework to the contracts on this page:
 
@@ -252,17 +252,15 @@ build is hosted by you. Page title and description from the event's `title` / `s
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs events --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchEventsPage`, `fetchEvents`,
 `fetchEventBySlug`, `fetchEventById`, `fetchOccurrences`, `fetchCategories` from
 `./js/wix/events.js`; `fetchTicketTiers`, `startTicketCheckout`, `submitRsvp` from
 `./js/wix/registration.js`; `fetchOrder` from `./js/wix/orders.js`. The state machines ship too:
 `createEventsStore` from `./js/wix/events-store.js` (`start()` once the page is up;
 `setActiveCategoryId`, `loadMore`), `createRegistrationStore` from
-`./js/wix/registration-store.js`, and `createOrderStore` from `./js/wix/order-store.js`. No
+`./js/wix/registration-store.js`, and `createOrderStore` from `./js/wix/events-order-store.js`. No
 components ship — you write the rendering in plain JS: one render function per surface that reads
 `getState()`, called from `subscribe`, with the surface's controls calling the store's actions.
 Pages are `events.html`, `event.html?slug=…`, `event-confirmation.html` — Wix static hosting
@@ -272,7 +270,7 @@ registration store with its paths, `createRegistrationStore(event, { paths: { co
 appends `?orderNumber=&eventId=` to the confirmation URL; read them there into
 `createOrderStore`). Set `document.title` and the meta description from `title` /
 `shortDescription` once the event loads. The visitor token persists in `localStorage` on its own;
-never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
@@ -289,7 +287,7 @@ UPCOMING/STARTED`, `sort dateAndTimeSettings.startDate ASC, createdDate DESC`, a
 to the contracts above, so titles and dates are in the HTML. **Registering in the browser:** the
 tier picker and the RSVP form on `./js/wix/registration-store.js` (pass the rendered `EventDetail`
 as JSON in a script tag, plus the `paths` your routes use), the confirmation page on
-`./js/wix/order-store.js` — exactly as the static wiring above; the browser owns the visitor's
+`./js/wix/events-order-store.js` — exactly as the static wiring above; the browser owns the visitor's
 token, so the server never handles per-visitor tokens. Routes stay `/events`, `/events/<slug>`,
 `/event-confirmation`. Add your public https origin to the OAuth app's allowed domains before
 checkout can return.

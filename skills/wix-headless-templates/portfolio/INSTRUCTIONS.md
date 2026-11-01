@@ -225,10 +225,8 @@ SSR build is hosted by you. Page titles and descriptions from the DTO (Portfolio
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs portfolio --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, plan, seed output) is never the upload. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `fetchCollections`, `fetchCollectionBySlug`,
 `fetchProjects`, `fetchProjectBySlug`, `fetchProjectGallery` from `./js/wix/portfolio.js`. The
 state machines ship too: `createCollectionsStore` from `./js/wix/collections-store.js`,
@@ -242,7 +240,7 @@ files, not directories: pages are `portfolio.html`, `collection.html?slug=…`,
 `project.html?slug=…`; name the file and link to it. Set `document.title` and the meta description
 from the DTO (`collection.title`/`description`, `project.title`/`description`) once the store
 populates — Portfolio has no `seoData`. The visitor token persists in `localStorage` on its own;
-never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

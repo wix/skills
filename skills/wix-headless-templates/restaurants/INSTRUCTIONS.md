@@ -328,10 +328,8 @@ build is hosted by you.
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs restaurants --stack static --out site` put the REST layer in `site/js/wix/` (browser
-ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchMenus`, `fetchSiteMoney` from
 `./js/wix/menu.js`; `resolveOrdering`, `resolveOperationId`, `fetchMenuOrdering`,
 `fetchFulfillmentMethods`, `fetchOrderCart`, `addToOrder(item, { menuId, sectionId }, quantity?,
@@ -351,7 +349,7 @@ focus back). Pages are `menu.html` and `reservations.html` (a menu switch is loc
 `menu.html?menu=<slug>` read from the query string). Wix static hosting serves files, not
 directories — name the file and link to it. There are no item pages here: set `document.title`
 and the meta description per page yourself, from the menu's `name` once it loads. The visitor
-token persists in `localStorage` on its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+token persists in `localStorage` on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

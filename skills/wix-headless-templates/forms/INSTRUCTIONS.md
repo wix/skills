@@ -284,10 +284,8 @@ build is hosted by you.
 
 Read the reference file listed above before writing the surface.
 
-`deploy.mjs forms --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `getForm`, `listForms` from
 `./js/wix/forms.js`; `uploadFiles`, `createSubmission`, `checkoutUrl`, `toSubmissionValues`,
 `submissionErrors` from `./js/wix/submissions.js`. The state machine ships too: `createFormStore`
@@ -302,8 +300,7 @@ those) — rebuilding every input on each keystroke drops focus. `<form novalida
 native event's `currentTarget` to focus the first invalid control. Wix static hosting serves
 files, not directories: the page is `contact.html`, linked as such. The visitor token persists
 in `localStorage` on its own; never mint per page. The page's title and meta description are
-yours (a form is not an entity page; there is no `seoData`). `npx @wix/cli@latest release`
-uploads `site/`.
+yours (a form is not an entity page; there is no `seoData`).
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
