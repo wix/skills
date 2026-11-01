@@ -73,7 +73,8 @@ else. Look at the seeded events before designing (how many, ticketed or RSVP, im
   an honest empty state; `error` → a short inline message; `hasMore` → a load-more control.
 - **Event page:** image, date, title, venue and the registration control in the first screen at
   390px wide too — a bounded image band on a phone (`max-h-[45vh]`), the registration column
-  under it, the two-column split from `md`; `aboutParagraphs` after the registration control,
+  under it, the two-column split from `md`; the description after the registration control
+  (`aboutHtml`, sanitized HTML, as a wrapper's `set:html`/innerHTML; `aboutParagraphs` when it is ""),
   never between the date and the action; `address` under the venue name; `addToCalendar.google`
   as a link when present; a map only from `coordinates` (an `<iframe>` of
   `https://www.google.com/maps?q=${lat},${lng}&output=embed`, or your provider) — never a
@@ -98,7 +99,8 @@ else. Look at the seeded events before designing (how many, ticketed or RSVP, im
 //   registrationType: "RSVP"|"TICKETING"|"EXTERNAL"|"NONE",
 //   priceLabel /* "From €45" | "Free" | "" */, soldOut, categories: [{ id, name }] /* manual categories only */,
 //   recurrenceStatus /* "ONE_TIME" | "RECURRING" | … */, recurringCategoryId /* "" unless part of a series */ }
-// EventDetail adds: aboutParagraphs: string[], formatted: { startDate, startTime, endDate, endTime },
+// EventDetail adds: aboutParagraphs: string[], aboutHtml /* the description as sanitized HTML, "" for none */,
+//   formatted: { startDate, startTime, endDate, endTime },
 //   address /* "" for ONLINE/TBD */, coordinates: { lat, lng } | null,
 //   registrationStatus /* raw Wix status */, registrationOpen /* accepting now */, registrationClosed /* CLOSED_* */,
 //   registrationOpensAtIso, registrationOpensAtLabel /* SCHEDULED_RSVP */, registrationPaused, waitlistOnly, membersOnly,

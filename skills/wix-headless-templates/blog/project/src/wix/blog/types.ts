@@ -47,6 +47,11 @@ export interface PostDetail extends PostSummary {
    * the shipped RichContent component (@wix/ricos viewer); it is not HTML and not text.
    */
   richContent: Record<string, unknown> | null;
+  /**
+   * The same body as sanitized HTML ("" when richContent is null), for a page without the React
+   * viewer: headings, lists, links, bold and the rest, images, tables. Set it as the body's innerHTML.
+   */
+  bodyHtml: string;
   /** Plain-text body split into paragraphs — the honest fallback when richContent is null. */
   paragraphs: string[];
   /** Display-ready last-published date ("" when the post was never republished). */
