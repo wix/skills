@@ -59,7 +59,7 @@ folder's files one by one.
 | 1 | the brief names the business; pick the solutions it needs (`{solution}` below is the template folder: `storefront`, `bookings`, `blog`, …). A brief that needs none (a landing page, a game) is steps 2, 5 and 6 only | | `{SKILL_ROOT}/SKILL.md` "Verticals"; `{TEMPLATES}/{solution}/INSTRUCTIONS.md` |
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
 | 3 | install every other app the solutions need, and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
-| 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity); `{MANAGE}/references/site-properties/change-payment-currency-site-properties.md` (the currency and time zone) |
+| 4 | set the region settings the brief gives, then create the content: the brief's, or placeholder content you draft when it names none | first the region settings: the recipe's Update Business Region call (currency, time zone) and, for a place, its region `PATCH`; then the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity); `{MANAGE}/references/site-properties/change-payment-currency-site-properties.md` (the currency, time zone and region) |
 | 5 | write pages on the solutions' modules, upload them, put the modules beside them | the pages import the solutions' published browser modules (their `client.ts`, `rest/*.ts` and cores, already built) and use what their functions return; `UploadHeadlessWebsiteFiles` with the pages, then one `ExecuteWixAPI` call copies the modules into the site (below). The pages' design is the solution's design job | the functions and their arguments: the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the modules export the same functions; a function a file imports and exports again is written in the file it imports it from); what they return: `{TEMPLATES}/{solution}/app/wix/{solution}/types.ts`; the design: `{TEMPLATES}/{solution}/INSTRUCTIONS.md`, `{TEMPLATES}/shared/DESIGN.md`, `{TEMPLATES}/shared/CONTENT.md`; a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
@@ -90,9 +90,9 @@ site that exists is read first and continued: its dynamic context (`GetSiteConte
 `POST /_api/dynamic-context/v1/dynamic-context/markdown` with `{ siteId }`) names its apps, and
 `{SKILL_ROOT}/guides/existing-site.md` says how it continues; it is seeded only when asked.
 
-**Step 4, the content.** First the site's currency, when the brief gives one (a price with its
-unit), and its time zone, when the brief names a place: a new site's defaults are not the
-business's, and a currency changed after the content takes minutes to reach it. A fresh install
+**Step 4, the content.** The region settings come first: the currency when the brief gives one (a
+price with its unit), the time zone and region when it names a place. A new site's defaults are not
+the business's, and a change made after the content takes minutes to reach it. A fresh install
 finishes provisioning in the background over a few seconds, and each script waits for what its app
 needs. Run its calls in its order, with its waits.
 `wix.request` returns `{ status, data }`; the body is `data`. A write that succeeded says nothing
@@ -109,7 +109,8 @@ price on request) has a designed empty state wherever it appears.
 **Step 5, the design.** The modules carry the data; the pages are the design job, as the solution's
 `INSTRUCTIONS.md` describes it, on `DESIGN.md` and `CONTENT.md`. An entity the pages show with a
 picture gets its image in step 4, on the entity itself, so Wix's own pages, such as checkout, show
-it too (`{TEMPLATES}/shared/seed/images.mjs`).
+it too (`{TEMPLATES}/shared/seed/images.mjs`). Every other picture on a page, a hero or a banner, is
+in the site's Wix Media too, made the same way; never a link to a picture on another website.
 
 **Step 5, the modules.** The pages import them from the site's own `js/wix/`, by absolute path so a
 page in a folder imports the same files:
