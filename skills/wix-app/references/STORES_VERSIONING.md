@@ -148,7 +148,7 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 
 - [stores/QUERY.md](stores/QUERY.md) — list/query products, pagination, price and stock display
 - [stores/GET_PRODUCT.md](stores/GET_PRODUCT.md) — getProduct, options/choices, modifiers, variant choices
-- [stores/WRITE.md](stores/WRITE.md) — create, update, delete products
+- [stores/WRITE.md](stores/WRITE.md) — create, update, delete products; [save product media](stores/WRITE.md#save-product-media)
 - [stores/INVENTORY.md](stores/INVENTORY.md) — inventory read and write operations
 - [stores/CATEGORIES.md](stores/CATEGORIES.md) — collections (V1) ↔ categories (V3)
 

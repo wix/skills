@@ -59,3 +59,5 @@ SDK result. If browser access is unavailable, report image rendering as unverifi
 
 See [Work with Wix Media](https://dev.wix.com/docs/api-reference/articles/sdk-setup-and-usage/work-with-wix-media)
 for the SDK URI format and conversion API.
+
+For editable entity images, follow [IMAGE_EDITING.md](IMAGE_EDITING.md).

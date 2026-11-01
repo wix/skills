@@ -14,8 +14,13 @@ Host Module '@wix/dashboard' 'openMediaManager()' opens the Wix Media Manager in
 - `multiSelect` (boolean, optional): Whether multiple files can be selected. Default: false
 
 **Returns:**
-A promise that resolves to an object with a single key called items. The value of that key is an array of file descriptor objects for the selected media files.
-`Promise<{ items: Array<FileDescriptor> }>`
+The [published SDK reference](https://dev.wix.com/docs/sdk/host-modules/dashboard/open-media-manager)
+declares `Promise<{ items: Array<FileDescriptor> }>`.
+
+At the host boundary, handle the result defensively as
+`{ items: Array<FileDescriptor> } | null | undefined`. Treat a missing result or empty `items`
+as dismissal and leave the draft unchanged. This guard is defensive handling, not a verified
+claim about the SDK's cancellation return value.
 
 **File descriptor:**
 FileDescriptor is the full schema describing a Media Manager file, including IDs, timestamps, media-type, URLs, status, labels, and a media-specific payload.
@@ -26,7 +31,7 @@ FileDescriptor is the full schema describing a Media Manager file, including IDs
 - `_updatedDate` (Date): Last update time
 - `displayName` (string): File name as shown in Media Manager
 - `mediaType` (ARCHIVE | AUDIO | DOCUMENT | IMAGE | MODEL3D | OTHER | UNKNOWN | VECTOR | VIDEO): Media file type
-- `url` (string): Static URL of the file
+- `url` (string, optional): Static URL of the file when populated
 - `thumbnailUrl` (string): Thumbnail URL
 - `sizeInBytes` (string): File size in bytes
 - `parentFolderId` (string): ID of the file's parent folder.
@@ -46,16 +51,36 @@ FileDescriptor is the full schema describing a Media Manager file, including IDs
   - vector: { caption: string; colors: { palette: Array<{ hex: string; rgb: { r: number; g: number; b: number } }>; prominent: { hex: string; rgb: { r: number; g: number; b: number } }; }; faces: Array<{ confidence: number; height: number; width: number; x: number; y: number }>; image: string; previewImage: string; }
   - video: string
 
-**Example:**
+**Image selection:**
+Read the documented nested image URI from `media.image.image`, with `url` as a fallback.
+The string branch below defensively accepts an adapter returning a direct image value;
+it is not an additional guarantee of the published SDK contract. Check the installed host
+callback's types when integrating a different adapter.
+
 ```typescript
 import { dashboard } from '@wix/dashboard';
 
-// Open a media manager modal allowing multiple image selection
-const chosenMediaItems = await dashboard.openMediaManager({
-  multiSelect: true,
-});
-console.log("You have chosen: ", chosenMediaItems.items);
+export async function pickImage() {
+  const selection = await dashboard.openMediaManager({
+    category: 'IMAGE',
+    multiSelect: false,
+  });
+  const file = selection?.items?.[0];
+  if (!file) return undefined;
+
+  const image: unknown = file.media?.image;
+  const nested = image && typeof image === 'object' && 'image' in image
+    ? image.image
+    : undefined;
+  const source = typeof image === 'string' ? image
+    : typeof nested === 'string' ? nested : file.url;
+  return source ? { file, source } : undefined;
+}
 ```
+
+Keep `file` for its identity and metadata and `source` for the image value. Update the draft
+only when this helper returns a selection. The entity save lifecycle is in
+[IMAGE_EDITING.md](IMAGE_EDITING.md#2-keep-selection-in-the-draft).
 
 ## addSitePlugin()
 
