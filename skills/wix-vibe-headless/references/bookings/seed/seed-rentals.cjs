@@ -20,11 +20,11 @@
 //     ],
 //   });
 //   // Calling the steps by hand instead? ORDER IS LOAD-BEARING (resource type → resources → service),
-//   // and each rental spec must carry `resourceTypeId` AND `resourceIds` (the ids from createResources).
+//   // and each rental spec must carry `resourceTypeId` (with `resourceIds` from createResources to limit it to those).
 //
 // What a bookable rental needs, and setupRentals sets every one:
 //   1. `appId` on the service at create time (it is immutable, so set it here rather than later).
-//   2. Resources created before the service, and their ids listed in `serviceResources[].resourceIds`.
+//   2. Resources created before the service, their type in `serviceResources` (their ids too, to limit it to them).
 //   3. No category — a rental is surfaced by its `appId`, not by a Bookings category.
 //
 // Images are reused from seed-bookings.cjs — require both.
@@ -231,8 +231,8 @@ async function verifyRentals(ctx, expectedNames) {
       problems.push(`${name}: no durationRange — created as a plain service, and appId is immutable`);
     }
     if (!svc.primaryResourceType) problems.push(`${name}: no primaryResourceType — availability will be empty`);
-    if (!svc.serviceResources?.some((sr) => sr.resourceIds?.values?.length))
-      problems.push(`${name}: serviceResources carry no resourceIds — availability will be empty`);
+    if (!svc.serviceResources?.some((sr) => sr.resourceType?.id))
+      problems.push(`${name}: serviceResources name no resource type — availability will be empty`);
   }
   return { ok: problems.length === 0, problems };
 }
