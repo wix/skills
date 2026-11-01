@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Online Programs Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/online-programs/manage-program-categories.md
+      title: Manage Online Program Categories
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/online-programs
+      tags: [online-programs]

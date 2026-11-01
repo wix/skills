@@ -71,6 +71,7 @@ Match the `appDefId` values from the response against known Wix app IDs.
 | Wix Bookings | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` |
 | Wix Blog | `14bcded7-0066-7c35-14d7-466cb3f09103` |
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
+| Wix Online Programs | `2936472a-a1ed-4ae5-9f71-614313a9f4e7` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 | Wix CMS (Wix Data) | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 | Wix Forms | `225dd912-7dea-4738-8688-4b8c6955ffc2` |
