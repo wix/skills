@@ -239,10 +239,8 @@ and `description` — plans carry no `seoData`.
 
 Read the reference file listed above before writing any surface.
 
-`deploy.mjs pricing-plans --stack static --out site` put the REST layer in `site/js/wix/` (browser
-ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchPlans`, `fetchPlanBySlug`,
 `fetchPlansByIds`, `fetchPlanById` from `./js/wix/plans.js`; `purchasePlan` from
 `./js/wix/purchase.js`; `hasActiveOrderFor` from `./js/wix/plan-access.js`. The state machines ship
@@ -258,7 +256,7 @@ from `subscribe`, with the CTA calling `purchase`. Pages are `plans.html` and `p
 (Wix static hosting serves files, not directories — name the file and link to it); the plan page
 reads the slug, `fetchPlanBySlug`, renders its not-found state on null, and sets `document.title`
 and the meta description from the DTO's `name`/`description`. The visitor token persists in
-`localStorage` on its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+`localStorage` on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

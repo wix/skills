@@ -227,10 +227,8 @@ pointing at the build folder, an SSR build is hosted by you. Service-page tags f
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs bookings --stack static --out site` put the REST layer in `site/js/wix/` (browser
-ESM, the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` —
-pages, styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project
-root (config, plan, seed output) is never the upload. Same function names and DTOs as the table
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table
 above, so the contracts on this page hold unchanged: `fetchServices`, `fetchServiceBySlug`,
 `fetchBookingCategories`, `fetchLocations` from `./js/wix/services.js`; `fetchSlots`,
 `fetchNextAvailableSlots`, `fetchBookingsSettings`, `fetchSessions`, `fetchOfferedDays`,
@@ -248,7 +246,6 @@ so checkout can return); for a free or pay-in-person service it sets `confirmed`
 `services.html` and `service.html?slug=…` (Wix static hosting serves files, not directories — name
 the file and link to it). Set `document.title` and the meta description from the `ServiceDetail`
 once it loads. The visitor token persists in `localStorage` on its own; never mint per page.
-`npx @wix/cli@latest release` uploads `site/`.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

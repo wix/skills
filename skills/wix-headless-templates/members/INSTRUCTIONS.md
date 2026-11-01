@@ -240,10 +240,8 @@ state); dev server on 4321; a static build goes through `npx @wix/cli@latest rel
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs members --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, seed output) is never the upload. Same function names and DTOs as the table above, so the
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above, so the
 contracts on this page hold unchanged: `loginMember`, `registerMember`, `verifyMemberEmail`,
 `logoutMember`, `loggedInHint` from `./js/wix/auth.js`; `fetchCurrentMember` from
 `./js/wix/members.js`. The state machine ships too: `./js/wix/member-store.js`
@@ -264,7 +262,7 @@ origin must be one of the OAuth app's allowed domains** (`localhost:4321` and th
 already are; a custom domain is added in the dashboard's Headless Settings) — otherwise the login
 resolves nothing and times out with "Login timed out". Logout navigates to Wix and returns to the
 URL you pass (`logout("account.html")` resolves against the page). Gated pages carry no SEO — there
-is nothing to index. `npx @wix/cli@latest release` uploads `site/`.
+is nothing to index.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

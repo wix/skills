@@ -193,10 +193,8 @@ the build folder, an SSR build is hosted by you. Rental-page tags from the `Rent
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs rentals --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, plan, seed output) is never the upload. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `fetchRentals`, `fetchRentalBySlug`, `fetchStarts`,
 `fetchEndOptions`, `fetchQuote`, `fetchRentalForm`, `rentResource` from `./js/wix/rentals.js`. The
 state machines ship too: `createRentalsStore` from `./js/wix/rentals-store.js` and
@@ -208,7 +206,7 @@ rental on its own (`window.location.origin` must be on the OAuth app's allowed d
 can return); for a free or pay-in-person rental it sets `confirmed`. Pages are `rentals.html` and
 `rental.html?slug=…` (Wix static hosting serves files, not directories). Set `document.title` and the
 meta description from the `RentalDetail` once it loads. The visitor token persists in `localStorage`
-on its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

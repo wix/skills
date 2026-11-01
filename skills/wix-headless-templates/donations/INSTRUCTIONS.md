@@ -202,10 +202,8 @@ is your copy — campaigns carry no `seoData`.
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs donations --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM,
-the `.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, plan, seed output) is never the upload. Same function names and DTOs as the table above, so
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above, so
 the contracts on this page hold unchanged: `fetchCampaigns`, `fetchCampaign` from
 `./js/wix/campaigns.js`; `donationCheckoutUrl`, `fetchDonationReceipt` from `./js/wix/donate.js`. The
 state machines ship too: `createCampaignsStore` from `./js/wix/campaigns-store.js`,
@@ -217,7 +215,7 @@ serves files, not directories — name the file and link to it); pass
 `createDonationStore(campaign, { paths: { thankYou: "/thank-you.html", campaign: "/campaign.html?id=" + id } })`
 so the hosted checkout returns to your files; the campaign page reads the id, `fetchCampaign`, renders
 its not-found state on null, and sets `document.title` from the DTO's `name`. The visitor token
-persists in `localStorage` on its own; never mint per page. `npx @wix/cli@latest release` uploads `site/`.
+persists in `localStorage` on its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

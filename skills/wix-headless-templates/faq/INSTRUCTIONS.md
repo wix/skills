@@ -192,10 +192,8 @@ build folder, an SSR build is hosted by you. Page tags from the first questions.
 
 Read the reference files listed above before writing any surface.
 
-`deploy.mjs faq --stack static --out site` put the REST layer in `site/js/wix/` (browser ESM, the
-`.ts` beside each `.js` for reading). Everything the visitor loads lives under `site/` — pages,
-styles, `js/` — and `wix.config.json`'s `site.outputDirectory` is `"./site"`; the project root
-(config, plan, seed output) is never the upload. Same function names and DTOs as the table above,
+When the site's `js/wix/` holds the REST layer (browser ESM, the `.ts` beside each `.js`
+for reading), the pages import it from there. Same function names and DTOs as the table above,
 so the contracts on this page hold unchanged: `fetchFaq`, `fetchQuestions`, `fetchCategories`,
 `fetchQuestionById` from `./js/wix/faq.js`; `anchorId`, `faqDeepLink`, `groupByCategory` from
 `./js/wix/faq-core.js`. The state machine ships too: `seedFaq`, `subscribeFaq`, `getFaqState` and
@@ -207,7 +205,7 @@ actions; the answer goes in through `innerHTML` (it is the core's sanitized HTML
 Structured data built in the browser is not read by search engines — an FAQ that needs the FAQPage
 markup indexed stays on Astro; say so in the closing message. Set `document.title` from the first
 questions once they load. The visitor token persists in `localStorage` on its own; never mint per
-page. `npx @wix/cli@latest release` uploads `site/`.
+page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
