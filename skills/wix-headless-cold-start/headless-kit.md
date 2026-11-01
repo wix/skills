@@ -58,9 +58,9 @@ folder's files one by one.
 |---|---|---|---|
 | 1 | the brief names the business; pick the solutions it needs (`{solution}` below is the template folder: `storefront`, `bookings`, `blog`, …). A brief that needs none (a landing page, a game) is steps 2, 5 and 6 only | | `{SKILL_ROOT}/SKILL.md` "Verticals"; `{TEMPLATES}/{solution}/INSTRUCTIONS.md` |
 | 2 | create the site, its solutions installed with it | the provision call, with exactly the body below; returns `metaSiteId` and the OAuth client `appId` | the body below |
-| 3 | install every other app the solutions need (CMS, Restaurants, Donations, FAQ, Members Area, Forms), and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
+| 3 | install every other app the solutions need, and any app on a site that already exists | the script's install call: `POST /apps-installer-service/v1/app-instance/install` with `{ appInstance: { appDefId, enabled: true } }`, `scope: "site"`, idempotent | the `install…App` function at the top of `{TEMPLATES}/{solution}/seed/seed-{solution}.mjs`; `{MANAGE}/references/app-installation/install-wix-apps.md` is the same call for any app |
 | 4 | create the content: the brief's, or placeholder content you draft when it names none | the script's calls, in its order, with its bodies, through `ExecuteWixAPI` with `scope: "site", siteId`; create, never delete; report what the site already held | `seed-{solution}.mjs`, with the modules it imports from its folder; `{TEMPLATES}/{solution}/seed/SEED.md` (the plan and its fields); `{TEMPLATES}/shared/seed/images.mjs` (an image: generated, imported, its file id on the entity) |
-| 5 | read the solution's cores, then write pages that read the site as a visitor, upload them | the kit's code ported into the pages: `client.ts` as is, the calls in the solution's `rest/*.ts`, the responses read the way its `*-core.ts` files read them, with a visitor token minted from `appId`. Every field a page shows comes from those core files; a page written before they were read is written again. A check, if made, as below; `UploadHeadlessWebsiteFiles` with the files | in this order, each read whole before a page is written: the solution's cores under `{TEMPLATES}/{solution}/app/wix/{solution}/`, listed first, then every `*-core.ts` and `types.ts` (how a response is read: the fields a page shows); `{TEMPLATES}/shared/rest/client.ts` (the token and the request); the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the calls); a call they don't cover: `{DOCS}` |
+| 5 | write pages on the solutions' modules, upload them, put the modules beside them | the pages import the solutions' published browser modules (their `client.ts`, `rest/*.ts` and cores, already built) and use what their functions return; `UploadHeadlessWebsiteFiles` with the pages, then one `ExecuteWixAPI` call copies the modules into the site (below). The pages' design is the solution's design job | the functions and their arguments: the solution's `{TEMPLATES}/{solution}/rest/` folder, listed first, then its files (the modules export the same functions; a function a file imports and exports again is written in the file it imports it from); what they return: `{TEMPLATES}/{solution}/app/wix/{solution}/types.ts`; the design: `{TEMPLATES}/{solution}/INSTRUCTIONS.md`, `{TEMPLATES}/shared/DESIGN.md`, `{TEMPLATES}/shared/CONTENT.md`; a call they don't cover: `{DOCS}` |
 | 6 | close | the live URL and the dashboard, each on its own line; what was drafted as placeholder; a check's result; the owner's steps with their links; the site id and `appId` for a later run | |
 
 **Step 2, the provision.** Send this, changing only the name and the solutions. `seedOptions` is a
@@ -91,28 +91,76 @@ site that exists is read first and continued: its dynamic context (`GetSiteConte
 `{SKILL_ROOT}/guides/existing-site.md` says how it continues; it is seeded only when asked.
 
 **Step 4, the content.** A fresh install finishes provisioning in the background over a few
-seconds, and each script waits for what its app needs (Bookings polls for the owner's staff
-resource before creating services; Blog and FAQ verify a created category persisted; Restaurants
-and Donations install more than one app). Run its calls in its order, with its waits.
+seconds, and each script waits for what its app needs. Run its calls in its order, with its waits.
 `wix.request` returns `{ status, data }`; the body is `data`. A write that succeeded says nothing
 about the shape of the visitor's read: a create body and a query response are different objects,
 and the read's shape is in the solution's `*-core.ts`.
 
 **Step 5, the pages.** The pages read the content from the site; none of it is written into them.
-Every field a page shows, a name, an amount, a date, a count, a body of text, is read from the
-response the way the solution's `*-core.ts` reads it, never from a field name you supply. The
-core's mapping is ported as it is, not reproduced from memory of it; a feature whose core function
-you have not read to the end is not written yet. A payment ends in Wix's hosted checkout through a
-redirect session, wired whether or not payments are connected.
+They call the solution's modules and show what they return: every field a page shows, a name, an
+amount, a date, a count, a body of text, is a field of a shape in the solution's `types.ts`, never a
+field of a raw Wix response and never a Wix call of the page's own. The modules are the kit's code
+itself, so the cores are not ported. A field that can be empty (an image, a description, a
+price on request) has a designed empty state wherever it appears.
 
-**Step 5, a check.** A check of the pages before the upload makes their calls as a visitor, in one
-`ExecuteWixAPI` script: mint the token as `client.ts` does, send each control's calls with
-`fetch()` and that token, with the bodies from the solution's `rest/` files, and run the responses
-through the cores. `wix.request` sends the owner's token whatever token it is given, so a check
-through it reads what the owner sees. The check passes when the read returns what step 4 created,
-by name. Right after the seed, an empty 200 is the fresh-install window or the query: read again
-after a few seconds, then compare the query with the kit's file. The site is done when the fields
-its pages show were seen on a visitor's response, not when the upload succeeded.
+**Step 5, the design.** The modules carry the data; the pages are the design job, as the solution's
+`INSTRUCTIONS.md` describes it, on `DESIGN.md` and `CONTENT.md`. An entity the pages show with a
+picture gets its image in step 4 (`{TEMPLATES}/shared/seed/images.mjs`).
+
+**Step 5, the modules.** The pages import them from the site's own `js/wix/`, by absolute path so a
+page in a folder imports the same files:
+
+```html
+<script type="module">
+  import { … } from "/js/wix/<rest file>.js";   // e.g. /js/wix/posts.js
+</script>
+```
+
+Each file is named after the `rest/` file or store it was built from and exports the same functions;
+it opens with its declarations: what it exports, their arguments and what they return. The files
+of every solution on the site share the one folder, the layout the solution's `INSTRUCTIONS.md`
+describes for a static site. Upload the pages with `UploadHeadlessWebsiteFiles` first. Then one
+`ExecuteWixAPI` call with the site's `siteId` copies the solutions' modules and the shared client
+into the site, as the templates build them, and writes the site's `appId` as the client id:
+
+```javascript
+async function run() {
+  return wix.headless.modules.install({
+    siteId,
+    clientId: '<appId from step 2>',
+    solutions: ['blog']                                // the template folders, as in step 1
+  });
+}
+// { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
+```
+
+It keeps the pages and returns the entry points and counts, so the modules never pass through your
+reply. The same steps as a script, where `wix.headless.modules` is missing:
+
+```javascript
+async function run() {
+  const solutions = ['blog'];                          // the template folders, as in step 1
+  const appId = '<appId from step 2>';
+  const files = [];
+  for (const name of ['shared', ...solutions]) {
+    const res = await fetch('https://www.wix.com/skills/wix-headless-templates/static/' + name + '.json');
+    if (!res.ok) throw new Error('no modules for ' + name);
+    for (const [path, content] of Object.entries((await res.json()).files)) files.push({ path, content });
+  }
+  files.push({ path: 'js/wix/config.js', content: `export const WIX_CLIENT_ID = "${appId}";\n` });
+  const result = await wix.headless.files.patch({ siteId, files });
+  return { copied: files.length, result };
+}
+```
+
+**Step 5, a check.** The site is done when the fields its pages show were seen on a visitor's
+response, not when the upload succeeded. One `ExecuteWixAPI` script reads as a visitor: mint the
+token as `client.ts` does, send the calls the pages' functions make with `fetch()` and that token,
+with the bodies from the `.ts` the functions are written in. `wix.request` sends the owner's token
+whatever token it is given, so a check through it reads what the owner sees. The check passes when
+the read returns what step 4 created, by name. Right after the seed, an empty 200 is the
+fresh-install window or the query: read again after a few seconds, then compare the query with the
+kit's file. The site's files read back (`wix.headless.files.list`) show the modules beside the pages.
 
 **Step 5, the upload.** A response has a size limit, so pages sent as text go one or two files per
 call; a later file joins through the recipe's "Change it later", which preserves the rest. Pages in
