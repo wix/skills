@@ -1,12 +1,12 @@
 ---
 name: wix-app
-description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
+description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, context providers, function libraries, lightbox (popup) behavior, page onLoad contexts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, context provider, function library, onLoad, on page load, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, lightbox, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
 compatibility: requires `@wix/cli` >= 1.1.192.
 ---
 
 # Wix App Builder
 
-Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, events, service plugins, and data collections.
+Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, context providers, function libraries, backend APIs, events, service plugins, and data collections.
 
 **Scaffolding is owned by the Wix CLI.** Use `wix generate --params` for every supported type. It generates files and, where applicable, builder boilerplate, UUIDs, and `src/extensions.ts` registration. HTTP endpoints are discovered from files and need no registration. This skill provides the decision logic, API guidance, configuration semantics, and business-logic patterns that fill in the generated stubs.
 
@@ -79,6 +79,10 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Existing Wix app dashboard (menu item, more-actions/bulk-actions menu) → Dashboard Menu Plugin
    - Anywhere on site, standalone → custom element widget
    - Anywhere on site, with editor manifest (styling/content/elements) → Editor React component
+   - Logic or shared state attached to an element already on the page (named, not asked to be created), or exposed to Editor Binding → Context Provider (wins over Editor React component when the element already exists)
+   - Code that runs once when one named page renders (page view event, UTM capture, A/B exposure) → Page onLoad (a context provider with no API); on every or any page, including future ones → Embedded Script
+   - Reusable functions the editor can call (formatters, helpers, event handlers) → Function Library
+   - Code that opens, closes or passes data to a popup → Lightbox rules, applied to the extension that renders on the site (usually a context provider)
    - Fixed slot on a Wix business solution page → Site Plugin
    - Scripts/analytics only, no UI → Embedded Script
    - During business flow (checkout/shipping/tax) → Service Plugin
@@ -196,9 +200,17 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | Custom element widget | Site | `CUSTOM_ELEMENT` | [CUSTOM_ELEMENT_WIDGET.md](references/CUSTOM_ELEMENT_WIDGET.md) |
 | Site Plugin | Site | `SITE_PLUGIN` | [SITE_PLUGIN.md](references/SITE_PLUGIN.md) |
 | Embedded Script | Site | `EMBEDDED_SCRIPT` | [EMBEDDED_SCRIPT.md](references/EMBEDDED_SCRIPT.md) |
+| Context Provider | Site | `CONTEXT_PROVIDER` | [CONTEXT_PROVIDER.md](references/CONTEXT_PROVIDER.md) |
+| Function Library | Site | `FUNCTION_LIBRARY` | [FUNCTION_LIBRARY.md](references/FUNCTION_LIBRARY.md) |
+| Page onLoad (a context provider with no API) | Site | `CONTEXT_PROVIDER`, named `Page On Load <Task Name>` | [PAGE_ON_LOAD.md](references/PAGE_ON_LOAD.md) |
+| Lightbox (popup) open, close and data | Site | rules added to the extension that renders on the site | [LIGHTBOX.md](references/LIGHTBOX.md) |
 
 **Key constraints:**
+- Context Provider, Function Library, Page onLoad and Lightbox are for the Studio 2 editor only; they do not run on Harmony, classic Wix Editor or Wix Studio sites.
 - Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
+- A prompt that attaches logic to an element it names as already on the page ("hide Heading 1 on click", "show the footer text only after…") is a Context Provider consumed by Editor Binding, not a new Editor React component.
+- A page onLoad context covers only the pages it is bound to; "whichever page", "any page" or "every page" means an Embedded Script instead.
+- A popup that only opens automatically on page load, on chosen pages after a fixed delay, is the popup's auto-open setting in the editor, not code.
 
 > **HTTP endpoints:** Generate with `extensionType: "HTTP_ENDPOINT"` (not `BACKEND_API`). See [BACKEND_API.md](references/BACKEND_API.md) for project-specific directories, handler types, and frontend URLs.
 
