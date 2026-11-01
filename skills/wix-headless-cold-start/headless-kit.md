@@ -103,14 +103,18 @@ and the read's shape is in the solution's `*-core.ts`.
 They call the solution's modules and show what they return: every field a page shows, a name, an
 amount, a date, a count, a body of text, is a field of a shape in the solution's `types.ts`, never a
 field of a raw Wix response and never a Wix call of the page's own. The modules are the kit's code
-itself, so the cores are not ported. A field that can be empty (an image, a description, a
-price on request) has a designed empty state wherever it appears.
+itself, so the cores are not ported. The text around them does not restate those values (a price,
+a currency, a list of options): it shows the field or stays general, so a change the owner makes
+reaches every line. A field that can be empty (an image, a description, a price on request) has a
+designed empty state wherever it appears.
 
 **Step 5, the design.** The modules carry the data; the pages are the design job, as the solution's
 `INSTRUCTIONS.md` describes it, on `DESIGN.md` and `CONTENT.md`. An entity the pages show with a
 picture gets its image in step 4, on the entity itself, so Wix's own pages, such as checkout, show
 it too (`{TEMPLATES}/shared/seed/images.mjs`). Every other picture on a page, a hero or a banner, is
-in the site's Wix Media too, made the same way; never a link to a picture on another website.
+in the site's Wix Media too, made the same way; never a link to a picture on another website. When
+the user gave none, you may suggest generating them: with your own image generation, uploaded with
+`UploadImageToWixSite`, or with Wix's (`generateImage` in `images.mjs`).
 
 **Step 5, the modules.** The pages import them from the site's own `js/wix/`, by absolute path so a
 page in a folder imports the same files:
