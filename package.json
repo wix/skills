@@ -16,10 +16,13 @@
   },
   "files": [
     "skills/wix-app/**",
+    "skills/wix-create-site/**",
     "skills/wix-design-system/**",
     "skills/wix-docs/**",
+    "skills/wix-export/**",
     "skills/wix-headless-kit/**",
     "skills/wix-headless-templates/**",
+    "skills/wix-import/**",
     "skills/wix-manage/**",
     "skills/wix-readme/**",
     "README.md",
