@@ -1,11 +1,8 @@
 # Component Contract
 
-Use for props, defaults, named parts, data, and file boundaries.
-
 ## Public Props Contract
 
-Keep identity, platform props, data, and behavior together. Add `children` only
-for an explicit container.
+Keep identity, platform props, data, and behavior together; `children` is for containers.
 
 Shape:
 
@@ -42,8 +39,9 @@ Rules:
 - Inputs use parent-owned `value` + typed `onValueChange`; actions use SDK
   callbacks. Keep DOM handlers internal; preserve APIs.
 - Use `Array<T>`, not `T[]`, for exported arrays.
-- Use a native link for a CTA with a real `href`, or a native button for an
-  action. Never use `href="#"`: it has no destination.
+- Use a native link for a supplied destination, or a native button for an
+  action. Preserve existing targets; never invent routes or use `href="#"`.
+  Report missing destinations or required handlers.
 
 ## Numeric Range Constraints
 
@@ -62,7 +60,7 @@ tied to a dynamic collection.
 
 ## Named Parts and `elementProps`
 
-An independently editable inner element is a named part:
+An editable inner element is a named part:
 
 - Root receives top-level `id`, `className`, `direction`, `a11y` — no
   `elementProps` entry.
@@ -147,8 +145,10 @@ steps). Skip for always-visible lists, multi-select, or multi-expand.
 - **Import and use `ActiveItemIndex<'arrayPropName'>`** from
   `@wix/react-component-utils`. The type argument must match the array prop name
   exactly, and `defaultProps` must set the index to `0`.
+- The collection must be required with a default; optional arrays lose the
+  Editor item selector.
 - Render all bodies with `.map()`. Active body is a named part with `<base>--active`; inactive bodies get CSS visibility, `aria-hidden`, and `inert`.
-- React 18 types: spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; it emits the boolean attribute, no type error. Typecheck with the app, not a scratch project.
+- React 18 types: spread `...(!isActive ? { inert: 'true' } : {})` onto an inactive body; it emits the boolean attribute. Typecheck with the app.
 - Keyboard navigation and the matching ARIA pattern.
 
 ```ts
@@ -219,16 +219,16 @@ export const defaultProps = {
 } as const satisfies Omit<ExampleComponentProps, 'id' | 'className'>;
 ```
 
-Use distinct defaults per slot; keep fallback data in `defaultProps` so
-JSX never hardcodes a second one.
+Use distinct defaults per slot until the pool runs out, then repeat as
+`DEFAULT-IMAGES.md` says. Keep fallback data in `defaultProps` so JSX never
+hardcodes a second one.
 
-When no supplied asset fits the slot (`USER-SOURCES.md`), choose image
-defaults from the pool in `DEFAULT-IMAGES.md`.
+Use the pool in `DEFAULT-IMAGES.md` only when the source has no image for
+a slot or its upload failed (`USER-SOURCES.md`).
 
 ## Internal File Splitting
 
-Split independently understandable units when it makes the main component easier
-to read or test. Keep internal files in the component folder using `.module.css`.
+Split units when it makes the main component easier to read or test. Keep internal files in the component folder using `.module.css`.
 
 ```text
 component-name/

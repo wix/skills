@@ -56,8 +56,10 @@ correctly.
   modifier.
 - **Custom** — the `:global` modifier alone.
 
-The bare selector is the short **module** class (`.cta`); the `:global(...)`
-state class is the **prefixed** global one.
+Pair the part's module class with its global state:
+`.planRow:global(.x-plan-row--selected)`, never `.selected:global(...)`.
+Verify selection appears in the generated manifest. Native `:active` press
+feedback stays local; global `--active` needs a data-driven class toggle.
 
 Check text contrast against every background it appears on, including resting,
 hover, and selected states. Normal text needs at least 4.5:1; large text needs

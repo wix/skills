@@ -61,8 +61,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = (props) => {
   solely to hold `id`, `dir`, classes, or ARIA attributes.
 - Give every named inner part a matching `elementProps` entry and spread it onto
   that element. Merge its injected `className` on raw HTML elements.
-- Keep structural wrappers and decorative elements module-class-only, unless one
-  carries a state class: then it is a named part.
+- Keep layout-only wrappers module-class-only. A wrapper with a state class is a
+  named part; a decoration with visible styling may be one (`PARTS.md`).
 - Use semantic HTML for controls, lists, navigation, headings, and landmarks.
 
 ### Accessibility and Direction

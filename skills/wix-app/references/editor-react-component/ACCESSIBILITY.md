@@ -180,7 +180,8 @@ the a11y contract, and SSR. Also verify:
 - Wrappers and polymorphic components preserve their documented semantics;
   extension overrides preserve generated accessibility fields.
 - Accessible names describe the action, and visually hidden text that carries
-  meaning stays in the accessibility tree.
+  meaning stays in the accessibility tree; a hidden copy of an `aria-label`
+  is `aria-hidden`.
 - State hidden through `--display` or transforms agrees with focusability and
   the accessibility tree; disabled and inert states behave consistently.
 - Custom widgets (tabs, menus, dialogs, sliders) implement their full APG
@@ -188,7 +189,8 @@ the a11y contract, and SSR. Also verify:
   structural relationships, or use a plain native element instead of
   borrowing the role.
 - Interactive controls have a hit area of at least 24×24 CSS px and visible
-  focus.
+  focus. Under `@media (forced-colors: active)` a borderless button gets
+  `1px solid ButtonText` and selection shows in `Highlight`.
 - The root implements the direction contract, and every `ReactNode` slot
   isolates nested content with `dir="ltr"`.
 

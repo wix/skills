@@ -4,17 +4,15 @@
 // oxlint-disable no-console
 
 /**
- * Optionally reviews a component built from user resources: one command,
- * one JSON report with contract findings and source-comparison hints.
+ * Checks a component built from the user's code before `validate`: one command,
+ * one JSON report.
  *
  *   node <SKILL_ROOT>/scripts/scan-user-source.cjs <component-dir> [--source <file|dir> ...]
  *
  * Run from the app root. The user's files default to `.wix/agentInput/attachments`
  * (unzipped folders included); pass `--source` for code saved anywhere else.
- * Failures identify editor-contract issues. Warnings need review against the
- * user's request and the chosen platform implementation; they are not a
- * requirement to preserve the source's file structure or every implementation detail.
- * The step field is retained for compatibility with existing report consumers.
+ * Each failure names the `USER-SOURCES.md` step it enforces. Warnings are things
+ * the script can't decide; check each one yourself.
  *
  * Exit codes: 0 no failures, 1 at least one failure, 2 the script could not run.
  */
@@ -182,24 +180,47 @@ function declaredProps(propsText) {
   return names;
 }
 
-// Suggested owner-facing explanations for contract findings. The caller can use
-// the relevant ones when reporting a confirmed limitation.
+// What each failure means for the site owner, in words they use: no file names,
+// props or CSS. The agent quotes these in its final message for what it could not fix.
 const OWNER_SENTENCES = {
+  'copied-react-component':
+    'The component was added mostly as it was uploaded, so some of its parts can’t be edited from the editor panels yet.',
   'unread-prop': (subject) => `The “${subject}” setting doesn’t change the component yet.`,
+  'dropped-source-option': (subject) =>
+    `Some options the uploaded component had (such as ${subject}) aren’t in the settings panel yet.`,
   'image-without-uri': 'Some images can’t be replaced from the panel yet.',
+  'source-images-replaced-by-pool':
+    'The component shows stock photos instead of the images from your upload; you can replace them in the panel.',
   'inline-style-blocks-panel': 'Some colors and fonts can’t be changed from the design panel yet.',
   'logic-builds-elements':
     'Some parts of the component, like its labels and pop-ups, can’t be selected or styled in the editor yet.',
+  'dropped-responsive-rules':
+    'Some screen sizes, or dark mode, may look different than in your upload yet.',
   'array-prop-without-defaults': (subject) =>
     `The “${subject}” list in Manage Items starts empty, though the component shows its items.`,
+  'source-list-without-array-prop':
+    'Some lists of items, like its labels or points, can’t be edited from Manage Items yet.',
   'view-state-without-element-state':
     'The component’s views (like its open view) can’t be designed separately in the editor yet.',
   'global-stylesheet': 'Some parts’ styles can’t be changed from the design panel yet.',
   'root-display': 'The layout may look different in the editor than in your upload.',
+  'new-handler-condition':
+    'Some clicks on the component don’t work the way they did in your upload yet.',
+  'dropped-source-measurement': 'Some parts may not line up the way they did in your upload yet.',
+  'fixed-data-attribute':
+    'Some of the component’s effects may not run the way they did in your upload yet.',
+  'number-without-range':
+    'Some number settings have no limits, so they can be set to values that don’t work.',
   'color-as-text-prop':
     'Some colors are typed as text in the settings panel instead of picked in the design panel.',
+  'generated-image-without-default':
+    'The images the component draws itself don’t appear in the panel, so they can’t be replaced yet.',
   'undeclared-css-variable': 'Some colors or sizes can’t be changed from the design panel yet.',
   'unread-css-variable': 'Some colors in the design panel don’t change the component yet.',
+  'unregistered-canvas-variable':
+    'Some colors of the drawing can’t be picked from the design panel yet.',
+  'no-variable-change-listener':
+    'Color changes from the design panel show only after the page reloads.',
 };
 
 function ownerSentence(check, subject) {
@@ -448,18 +469,19 @@ function scan({ componentDir, sources }) {
     .map(read)
     .join('\n');
 
-  // Reused source can be appropriate; review its editor integration separately.
+  // Step 1: the source's React component is never copied, imported or rendered.
   const mainShare = copiedShare(mainText, sourceLines);
   if (mainShare >= MAIN_COPIED_SHARE) {
-    warn(
+    fail(
       'copied-react-component',
       relative(mainPath),
       1,
-      `${Math.round(mainShare * 100)}% of ${scaffold.main} matches the provided code. Review that its root props, editable content and named parts are integrated with the Wix component contract. Reusing source code is appropriate when that integration meets the request.`,
+      `${Math.round(mainShare * 100)}% of ${scaffold.main} is the user's code: the source's component was copied into the scaffold file. Rewrite it as the scaffold component: named parts with their global and module classes and elementProps (PARTS.md), the props from ${scaffold.props}, and the source's handlers and effects moved in as they are.`,
     );
   }
-  // A helper or sub-component may retain source logic. Overlap is a review hint,
-  // not a reason to require a separate engine or move all React into one file.
+  // A file beside the scaffold may hold a sub-component kept as the source wrote it (a canvas
+  // child with its effect). It fails when it holds the source's exported component, which the
+  // main file then renders, or when it is the engine copy and still has React in it.
   const sourceComponents = [
     ...matchAll(sourceCode, /export\s+(?:default\s+)?(?:function|class)\s+([A-Z][\w$]*)/g),
     ...matchAll(sourceCode, /export\s+(?:default\s+)?const\s+([A-Z][\w$]*)\s*[:=]/g),
@@ -477,13 +499,20 @@ function scan({ componentDir, sources }) {
       new RegExp(`\\b(?:function|class)\\s+${name}\\b|\\bconst\\s+${name}\\s*[:=]`).test(text),
     );
     if (hasReact && share >= COPIED_SHARE && (holdsSourceComponent || /-engine\./.test(base))) {
-      warn(
+      fail(
         'copied-react-component',
         relative(file),
         1,
-        `${Math.round(share * 100)}% of this file matches the provided React code${
+        `${Math.round(share * 100)}% of this file is the user's code and it still has React code (hooks or JSX)${
           imported ? `, and ${scaffold.main} imports it` : ''
-        }. Review whether the requested content, settings and styling reach the rendered component through the Wix contract. Keep helper and React boundaries that suit the implementation.`,
+        }. Keep only the logic with no hooks or JSX in an engine file, and move the source's component into ${scaffold.main} as the scaffold component (named parts, props from ${scaffold.props}, its hooks and effects as they are); delete this copy.`,
+      );
+    } else if (hasReact && /\.[jt]sx$/.test(base)) {
+      warn(
+        'extra-react-file',
+        relative(file),
+        1,
+        `A React file outside the scaffold. If it is the source's component or a copy of it, move its markup, props and styles into ${scaffold.main} instead.`,
       );
     }
   }
@@ -612,11 +641,11 @@ function scan({ componentDir, sources }) {
     ...(darkInSource && !darkInPort ? ['dark-mode colors'] : []),
   ];
   if (droppedRules.length) {
-    warn(
+    fail(
       'dropped-responsive-rules',
       relative(cssPath),
       5,
-      `The implementation differs from the source's ${droppedRules.join(' and ')}. Review the requested responsive and theme behavior using Wix container layouts and styling; equivalent behavior can use different breakpoints or rules.`,
+      `The port drops the source's ${droppedRules.join(' and ')}. Write each source breakpoint as a @container query at the same width with the source's values (Tailwind sm/md/lg/xl/2xl are 640/768/1024/1280/1536px), and its dark: variants or dark @media rules as a @media (prefers-color-scheme: dark) rule.`,
     );
   }
   for (const sheet of matchAll(css, /@import\s+(?:url\()?['"]?(\.{1,2}\/[^'")\s]+\.css)/g)) {
@@ -716,11 +745,11 @@ function scan({ componentDir, sources }) {
     ]),
   ];
   if (sourceLists.length && !/\bArray<|\[\]\s*;/.test(declaredPropsBlock(propsText))) {
-    warn(
+    fail(
       'source-list-without-array-prop',
       relative(propsPath),
       2,
-      `The source holds ${sourceLists.join(', ')} as lists of items, and ${scaffold.props} has no array prop. Review which collections the owner needs to manage, and expose those through the Wix data contract with useful defaults.`,
+      `The source holds ${sourceLists.join(', ')} as lists of items, and ${scaffold.props} has no array prop. Make each an Array<{…}> prop whose defaults are the source's items, so Manage Items can edit them, and have the logic read the list from props.`,
     );
   }
   // An array prop with no defaults starts Manage Items empty, while the code still shows the
@@ -748,23 +777,23 @@ function scan({ componentDir, sources }) {
       continue;
     const lists = textLists(text);
     if (lists.length) {
-      warn(
+      fail(
         'source-list-without-array-prop',
         relative(file),
         2,
-        `${lists.join(', ')} ${lists.length > 1 ? 'are lists' : 'is a list'} of texts in the component. Review which values are owner-editable content and expose those as content props or a manageable collection.`,
+        `${lists.join(', ')} ${lists.length > 1 ? 'are lists' : 'is a list'} of texts written into the component, so the owner can't edit them. Move each into ${scaffold.props} as an Array<{…}> prop (or text props) with these values as defaults.`,
       );
     }
   }
 
-  // Fixed-domain numeric settings can carry a range (COMPONENT-CONTRACT.md).
+  // Step 3: numbers carry their range (COMPONENT-CONTRACT.md: @min/@max).
   const unranged = numberPropsWithoutRange(propsText);
   if (unranged.length) {
-    warn(
+    fail(
       'number-without-range',
       relative(propsPath),
       3,
-      `${unranged.join(', ')} ${unranged.length > 1 ? 'are numbers' : 'is a number'} without @min/@max. Add JSDoc ranges for fixed-domain settings per COMPONENT-CONTRACT.md; open-ended values and indices tied to a collection can remain unrestricted.`,
+      `${unranged.join(', ')} ${unranged.length > 1 ? 'are numbers' : 'is a number'} without @min/@max. Add the range the source allows (its clamp, slider or docs) in the unit the owner thinks in.`,
     );
   }
 
@@ -784,7 +813,7 @@ function scan({ componentDir, sources }) {
     );
   }
 
-  // Source options may be adapted, combined, or covered by platform capabilities.
+  // Step 3: every option the source offers stays a prop ("never drop it").
   const portedProps = declaredProps(propsText).map((name) => name.toLowerCase());
   const dropped = [
     ...new Set(
@@ -797,16 +826,16 @@ function scan({ componentDir, sources }) {
     return !portedProps.some((ported) => ported.includes(lower) || lower.includes(ported));
   });
   if (dropped.length) {
-    warn(
+    fail(
       'dropped-source-option',
       relative(propsPath),
       3,
-      `The source offers ${dropped.join(', ')} as options without matching public props. Review whether the request needs these options and whether Wix capabilities or another setting already provide them.`,
+      `The source offers ${dropped.join(', ')} as options, and ${scaffold.props} has none of them. Keep each as a prop with the source's default (numbers with @min/@max), and pass it to what it controls; never hardcode it.`,
       dropped.slice(0, 3).map(humanize).join(', '),
     );
   }
 
-  // Asset choices depend on the request; source images are useful review context.
+  // Step 6: the source's own images (painted or linked) are the defaults, never the stock pool.
   const PAINTS = /\.(?:toDataURL|toBlob)\s*\(|URL\.createObjectURL\s*\(/;
   const sourceMarkup = sourceFiles
     .filter((file) => !CODE_EXTENSIONS.has(extOf(file)) && extOf(file) !== '.json')
@@ -829,11 +858,11 @@ function scan({ componentDir, sources }) {
     );
   const poolDefaults = DEFAULT_POOL.filter((file) => propsText.includes(file));
   if (sourceHasImages && poolDefaults.length) {
-    warn(
+    fail(
       'source-images-replaced-by-pool',
       relative(propsPath),
       6,
-      `The provided resources contain images, and ${poolDefaults.length} default${poolDefaults.length > 1 ? 's come' : ' comes'} from the contract's image pool. Review those choices against the user's request. upload-media.cjs can turn supplied files or image URLs into Wix Media defaults when those assets belong in the result.`,
+      `The source has its own images, but ${poolDefaults.length} default${poolDefaults.length > 1 ? 's come' : ' comes'} from the contract's stock pool. Upload the source's images (render the ones it paints with render-images.cjs) and use those as the defaults. If uploading or rendering one fails, keeping the pool image for it is fine: say so in your final message with the script's error.`,
     );
   }
 
@@ -849,8 +878,8 @@ function scan({ componentDir, sources }) {
     }
   }
 
-  // Runtime painters can provide visuals without an editor image default. Review
-  // whether a replaceable default is part of the requested component contract.
+  // Step 6: images the code generates become uploaded defaults too, also when the port
+  // dropped the painter (a CSS gradient in its place): the source still paints them.
   const allCode = [...texts.values()].join('\n');
   const hasImageField = /\bImage\b/.test(propsText.replace(/import[^;]*;/g, ''));
   // A Wix Media file ID counts however it is written (`uri: '…'` or a helper like `image('…', alt)`).
@@ -858,15 +887,15 @@ function scan({ componentDir, sources }) {
     propsText,
   );
   if (hasImageField && !hasImageDefault && (PAINTS.test(allCode) || PAINTS.test(sourceCode))) {
-    warn(
+    fail(
       'generated-image-without-default',
       relative(propsPath),
       6,
-      `The ${PAINTS.test(allCode) ? 'code generates' : 'source paints'} images at runtime, and no Image default has a uri. If owners should see and replace those initial images in the editor, render the relevant painter with render-images.cjs and upload its output with upload-media.cjs. Use the returned { uri, url } as the Image default.`,
+      `The ${PAINTS.test(allCode) ? 'code generates' : 'source paints'} its images at runtime (toDataURL, toBlob or createObjectURL), and no Image default has a uri, so the panel shows no images. Copy the painter from the source unchanged into the engine file and export it (step 1), render each default from there with render-images.cjs, upload the files with upload-media.cjs, and use the results as the Image defaults; keep the generator for items left without an image. Never replace the painter with CSS or a new drawing.`,
     );
   }
 
-  // A changed event guard can affect child interactions; review its intended scope.
+  // Step 3: the source's handlers move as they are; an added element stops its own events.
   // `event.target === ref.current`, `e.target !== e.currentTarget`, either way round.
   const TARGET = String.raw`\b(?:event|e|evt|ev)\.target\b`;
   const OTHER = String.raw`(?:\b[\w$]+\.current\b|\b(?:event|e|evt|ev)\.currentTarget\b)`;
@@ -876,17 +905,17 @@ function scan({ componentDir, sources }) {
   if (!targetGuard.test(withoutComments(sourceCode))) {
     for (const [file, text] of texts) {
       if (!targetGuard.test(withoutComments(text))) continue;
-      warn(
+      fail(
         'new-handler-condition',
         relative(file),
         3,
-        'A handler adds an event.target guard that is absent from the source. Review interactions on nested content and controls. Scope event handling so the requested child interactions and added controls both work.',
+        "A handler checks event.target against a ref, which the source never does, so clicks on the component's children (its slides, images or text) are ignored. Keep the source's handler as it is, and have the element you added (the play button) call event.stopPropagation() in its own onPointerDown, onPointerUp and onClick.",
       );
     }
   }
 
-  // Missing source measurements may matter to layout; platform layout can also
-  // provide the intended behavior without the same measuring implementation.
+  // Step 3: a source that measures its parts to place them (the arc picker's anchor and
+  // selection frame) loses its layout when a port replaces the measuring with fixed CSS.
   const MEASURES = {
     ResizeObserver: /\bResizeObserver\b/,
     offsetWidth: /\.offsetWidth\b/,
@@ -899,11 +928,11 @@ function scan({ componentDir, sources }) {
     MEASURES[name].test(withoutComments(sourceCode)),
   );
   if (sourceMeasures.length && !Object.values(MEASURES).some((pattern) => pattern.test(portCode))) {
-    warn(
+    fail(
       'dropped-source-measurement',
       relative(mainPath),
       3,
-      `The source uses ${sourceMeasures.join(', ')} to measure its parts, while this implementation uses none of those measurements. Review alignment and selection sizing after content or container changes. Use source measurements or platform layout where the requested behavior needs them.`,
+      `The source measures its parts to place them (${sourceMeasures.join(', ')}), and the port measures nothing, so its layout comes from fixed values instead. Port the source's measuring code and what it positions as they are, with only prop and ref names changed.`,
     );
   }
 
@@ -924,11 +953,11 @@ function scan({ componentDir, sources }) {
         `\\.dataset\\.${key}\\b|\\.dataset\\[\\s*['"\`]${key}['"\`]|(?:get|set|remove|toggle|has)Attribute\\(\\s*['"\`]${attribute}['"\`]`,
       ).test(sourceLogic);
       if (setInJsx || !setByCode) continue;
-      warn(
+      fail(
         'fixed-data-attribute',
         relative(file),
         3,
-        `The JSX initializes ${attribute}="${value}", while the source sets dataset.${key} from code. Review the resulting initial state and any guards that read it, especially when adapting the source's initialization flow.`,
+        `The JSX sets ${attribute}="${value}", which the source never does: only the source's code sets ${attribute} (dataset.${key}), and its checks expect it to start unset. Remove ${attribute}="${value}" from the JSX and keep the source's code as it is.`,
       );
     }
   }
@@ -983,23 +1012,26 @@ function scan({ componentDir, sources }) {
       'unread-css-variable',
       relative(cssPath),
       2,
-      `${variable} is declared, but neither the CSS nor the code reads it, so changing it in the design panel does nothing. Connect it to the value it controls, including the canvas drawing when applicable, or remove the unused variable.`,
+      `${variable} is declared, but neither the CSS nor the code reads it, so changing it in the design panel does nothing. Read it where the source uses that value${
+        CANVAS_MARKERS.test(allCode)
+          ? ' (on a canvas, through the cached reader in CANVAS-COMPONENTS.md)'
+          : ''
+      }, or remove it.`,
     );
   }
 
-  // Review how canvas values appear in the design panel and trigger redraws.
+  // CANVAS-COMPONENTS.md: values a canvas draws with are registered, and edits are heard.
   if (CANVAS_MARKERS.test(allCode)) {
     for (const variable of readByCode) {
       if (PLATFORM_VARIABLE.test(variable) || registered.has(variable)) continue;
-      warn(
+      fail(
         'unregistered-canvas-variable',
         relative(cssPath),
         2,
-        `The canvas reads ${variable} without an @property registration. Review how its control type is inferred and how style changes reach the drawing; registration can be useful for typed CSS interpolation.`,
+        `The canvas reads ${variable}, but it has no @property rule, so the design panel can't type it. Register it per CANVAS-COMPONENTS.md.`,
       );
     }
-    // Transition events are one possible update mechanism. Other redraw or
-    // invalidation mechanisms can satisfy the same requirement.
+    // An edit is heard only with both: a transitionend listener, and a transition on the variable.
     const listens = /\baddEventListener\(\s*['"`]transitionend['"`]|\bonTransitionEnd\s*=/.test(
       withoutComments(allCode),
     );
@@ -1010,11 +1042,15 @@ function scan({ componentDir, sources }) {
     );
     const heard = [...readByCode].some((variable) => transitioned.has(variable));
     if (readByCode.size > 0 && (!listens || !heard)) {
-      warn(
+      fail(
         'no-variable-change-listener',
         relative(mainPath),
         2,
-        "The canvas reads CSS variables without a complete transition-event update path. Review the implementation's actual redraw mechanism so style edits appear while playing and paused. An effect, renderer update API, or another invalidation path may already provide this behavior.",
+        `The canvas reads CSS variables, but ${
+          listens ? '' : 'nothing calls addEventListener("transitionend")'
+        }${!listens && !heard ? ' and ' : ''}${
+          heard ? '' : 'no CSS transition names the variables it reads'
+        }, so a design-panel edit does not repaint it. Add the 1ms transition on those variables and the transitionend listener with the cached reader from CANVAS-COMPONENTS.md.`,
       );
     }
     if (readByCode.size === 0) {
@@ -1038,7 +1074,7 @@ function scan({ componentDir, sources }) {
 
   return {
     summary: { failures: failures.length, warnings: warnings.length },
-    // Suggested explanations for confirmed contract limitations.
+    // For the final message: one plain sentence per kind of failure left unfixed.
     tellTheOwner: [...new Set(failures.map((failure) => failure.owner).filter(Boolean))],
     failures,
     warnings,

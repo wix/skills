@@ -69,7 +69,9 @@ tracks can exceed the container even when the grid itself is correctly sized.
 - Use `min-width: 0` on flex/grid items that must shrink, including nested
   content wrappers. For a fixed column count, use `minmax(0, 1fr)`; still adapt
   the layout when columns would become too narrow to use.
-- Prefer fewer columns or wrapping to squeezing text and controls. An intrinsic
+- Prefer fewer columns or wrapping to squeezing text and controls. A card with a
+  title, text and a button needs about 240px: below a 480px component, such
+  cards take one column, and a button label stays on one line. An intrinsic
   collection can use the following pattern; the minimum never exceeds its
   container's content width:
 
@@ -86,9 +88,12 @@ tracks can exceed the container even when the grid itself is correctly sized.
   `minmax(280px, 1fr)` alone still overflows a slot narrower than 280px.
   This grid is suitable for a wrapping collection, not a substitute for a
   carousel's item/navigation contract.
-- For user-authored prose, allow wrapping and use `overflow-wrap: anywhere`
-  where long words/URLs could force intrinsic width. Use truncation only when
-  the product intends it and essential content remains available.
+- For user-authored prose, use `overflow-wrap: anywhere` so a long word or URL
+  cannot widen the layout. It also lets a flex or grid item shrink to one
+  letter: when the component narrows, stack side content (prices, controls)
+  under the text or reduce insets before ordinary words fragment, and reflow
+  instead of shrinking text below body size. Use truncation only when the
+  product intends it and essential content remains available.
 - Constrain images/media to the space available; preserve aspect ratio or use
   an intentional fitted media frame. Check fixed-size media plus adjacent text,
   padding, borders, and gaps together.
@@ -107,18 +112,17 @@ content from establishing its height.
 
 First inspect the sizing chain in source. Identify the root, growing wrappers,
 tracks, cards, text, media, and controls; check each constrained axis. Do not
-infer safety from a CSS keyword or a successful build.
+infer safety from a CSS keyword or a successful build. Preserve usable semantic
+grids and intentional scroll tracks.
 
 When a runnable browser preview is available, exercise the actual component:
 
 1. Vary the **component container** independently of the page viewport. Cover
-   its initial size, 320px, a narrower stress probe such as 240px, and a wider
-   slot. For a vertically resizable component, also test a short bounded height;
+   its initial size, 320px (or a documented editor minimum), both sides of layout
+   breakpoints, and a wider slot. Test narrower widths only when the actual host
+   layout or request requires them. For a vertically resizable component, also
+   test a short bounded height;
    for content height, verify the root grows without overlapping the next block.
-   A horizontally resizable top-level component must keep required content
-   usable at 320px unless an actual supported editor minimum is part of its
-   contract. Treat 240px as a stress probe. Report any unsupported size and its
-   remaining usability limit.
 2. Use long prose and an unbroken token, larger text, changed padding/borders,
    and representative item counts. For carousels, test navigation and the
    longest item; include RTL when direction changes layout or navigation.

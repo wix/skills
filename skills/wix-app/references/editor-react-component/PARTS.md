@@ -40,12 +40,33 @@ Apply this filter to every candidate:
 - A hidden and shown version of the same element is one part, not two.
 - A grouping or layout-only wrapper is not a part. A wrapper that isn't
   visually transparent is no longer layout-only — promote it to a named part.
+- A decoration with its own visible styling (an accent line, bar, mark or
+  frame) may be a named part, so the owner can design or remove it; otherwise
+  it paints from its part, as below.
+- The manifest drops a non-part's own colors, borders and shadows, and every
+  pseudo-element rule. In new CSS, a non-part or pseudo-element paints only
+  `currentColor` from a text part or button, or a `--*-color` declared only on
+  the root or on the one part that uses it, each used whole in one color
+  longhand (`color`, `background-color`, `fill`, `stroke`,
+  `border-bottom-color`; never a shorthand or `border-block-*`) so it gets a
+  color picker (photo scrims and `forced-colors` rules aside); ported user code
+  keeps its own. Item dividers are a border on the item part, not on wrappers.
+  A non-part takes its font from its part too; a decoration with its own font
+  or size, like a large quote mark, is a named `span` part.
+- A part gets text settings for text placed directly in it (a `button` for
+  any text inside it); `h1`–`h6`, `p`, `span`, `li`, `a` and `label` always
+  have them. Fill, border, padding and radius need a box tag such as `div`,
+  `section`, `summary` or `li`, or an explicit block, flex or inline-flex
+  `display` on any other part. Put each visible text, including a counter,
+  directly in its own part, never in an unnamed `p` or `span` inside one, and
+  give a filled badge or link-button such a `display`. Slots and rich text stay
+  as they are.
 - A static child whose styling and data are fully owned by its parent is not a
   part. For example, an image whose source and appearance both belong to its
   carousel slide can remain module-class-only.
-- An inner interactive element (`button`, `a`, `input`, and equivalent semantic
-  controls) is a named part because it has an independent interaction and
-  styling surface.
+- An inner interactive element (`button`, `summary`, `a`, `input`, and
+  equivalent semantic controls) is a named part because it has an independent
+  interaction and styling surface.
 - Positional duplicates such as previous/next buttons are one part when they
   share the same semantic editor surface. Distinguish position with data or a
   module-only helper class, not separate part names.
@@ -64,6 +85,10 @@ part is mounted regardless of state.
   rule: it would override `hidden`.
 - While data is missing, render one static placeholder item inside a hidden
   wrapper so the item parts exist. It is never visible.
+- Render an optional item part (a badge, a tag, an icon) in every item and hide
+  it with `hidden` when its value is empty, on a transparent wrapper if the
+  part sets a `display`: the manifest keeps only the last repeated item's
+  children and may render mock props, so a conditional part disappears.
 - Mutually exclusive messages (loading, error, empty) are one part whose text
   switches by phase, not several parts with the same name.
 - A modifier toggled by state (`correct`, `incorrect`) is a design state; see
@@ -101,5 +126,6 @@ and no independent surface, remove the wrapper and promote the child.
 - [ ] The root has no `elementProps` entry or duplicate prefixed part class.
 - [ ] Each inner part offers independent data or styling control.
 - [ ] Every named inner part has global/module classes and `elementProps` wiring.
-- [ ] States, decorations, and positional variants are not extra parts. A wrapper
-      is a part only if it has its own surface or carries a state class.
+- [ ] States and positional variants are not extra parts. A wrapper is a part
+      only if it has its own surface or carries a state class; a decoration
+      with visible styling may be one.
