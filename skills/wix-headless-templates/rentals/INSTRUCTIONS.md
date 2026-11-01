@@ -11,9 +11,8 @@ rental logic; you never skip designing.
 
 Wix Rentals has no API of its own: a rental is a Wix Bookings service with five field values (the
 Rentals app id, a resource type and its resources, the Rentals form, a duration range). The shipped
-code knows this so you don't have to; the bookings vertical is NOT needed alongside this one (the
-seed installs the Wix Bookings app itself, as the availability engine), and a site that runs both
-keeps them apart by the app id.
+code knows this so you don't have to; neither the bookings vertical nor the Wix Bookings app is
+needed alongside this one, and a site that runs both keeps them apart by the app id.
 
 ## The file map (deployed into `src/`)
 
@@ -280,10 +279,6 @@ New Service" wizard. Never send the owner there for their rentals.
 | page | `https://manage.wix.com/dashboard/{siteId}/` + |
 |---|---|
 | Rentals (the rooms, their prices and hours) | `wix-rental/rental-list` |
-| Bookings list | `bookings/bookings/bookings-list` |
-| Calendar | `bookings/calendar` |
-| Booking form | `bookings/settings/booking-form-page` |
-| Policies | `bookings/settings/policies` |
 | Accept payments — connect a payment method | `wix-cashier/payments` |
 | Upgrade the plan — online payments need premium | full URL: `https://www.wix.com/upgrade/website?metaSiteId={siteId}` |
 
