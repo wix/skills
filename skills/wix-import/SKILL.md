@@ -34,7 +34,7 @@ When a command asks to update the CLI, run the update it prints and retry. In a 
 ## 3. Choose the destination
 
 - **Original site** (default): the msid in `VITE_WIX_METASITE_ID` in `<site>/packages/site-app/.env`.
-- **New site**, when the user asks for one or replies `new`: create it as `wix-create-site` step 2 says, and import `<site>` into the msid in its `Created … "<name>" (<msid>)` line.
+- **New site**, when the user asks for one or replies `new`: create it as `wix-create-studio-two-site` step 2 says, and import `<site>` into the msid in its `Created … "<name>" (<msid>)` line.
 
 Then go to step 5.
 

@@ -1,6 +1,6 @@
 ---
 name: wix-export
-description: Export an existing Wix Studio 2 site into a local folder with the Wix CLI, start its local preview and share the localhost link, then hand the change to that folder opened as a project. Sets up the Wix CLI only when it is missing. Use when the user wants an existing Studio 2 site's files on their machine to edit locally. Not for a new site, which belongs to wix-create-site, not for sites built in the Wix Editor or Studio 1, and not for content or business changes such as products, bookings or blog posts, which belong to wix-manage. Never imports or publishes.
+description: Export an existing Wix Studio 2 site into a local folder with the Wix CLI, start its local preview and share the localhost link, then hand the change to that folder opened as a project. Sets up the Wix CLI only when it is missing. Use when the user wants an existing Studio 2 site's files on their machine to edit locally. Not for a new site, which belongs to wix-create-studio-two-site, not for sites built in the Wix Editor or Studio 1, and not for content or business changes such as products, bookings or blog posts, which belong to wix-manage. Never imports or publishes.
 ---
 
 # Wix export
@@ -27,7 +27,7 @@ Put user-given values in single quotes (`'` as `'\''`) and write the home folder
 
 Find the site with `wix origami sites | grep -iF -- '<name>'` and keep only an exact match. When none or several match, list them and send `**👉 Reply with the site to export.**` Exporting adds a web OAuth app named `export site` to the site if it has none: unless the user already agreed, say so and send `**👉 Reply yes to export "<name>".**` Then run `wix origami export-site --site <msid> -d '<site>'`.
 
-When the user named no site, send `**👉 Reply with the site to export, or "new" to create one.**` For a new site, follow `wix-create-site` from its step 2; the setup is done.
+When the user named no site, send `**👉 Reply with the site to export, or "new" to create one.**` For a new site, follow `wix-create-studio-two-site` from its step 2; the setup is done.
 
 ## 3. Start the preview
 

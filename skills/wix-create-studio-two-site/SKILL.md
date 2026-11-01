@@ -1,9 +1,9 @@
 ---
-name: wix-create-site
+name: wix-create-studio-two-site
 description: Create a new, blank Wix Studio 2 site with the Wix CLI in its own local folder, start its local preview and share the localhost link, then hand the build to that folder opened as a project. Sets up the Wix CLI only when it is missing. Use when the user asks for a new Wix Studio 2 site to build locally and keep editing in Wix Studio 2. Not for an existing site, which belongs to wix-export, not for bringing existing code or pages into a site, which belongs to wix-import, not for headless sites, which belong to wix-headless, and not for content or business changes such as products, bookings or blog posts, which belong to wix-manage. Never imports or publishes.
 ---
 
-# Wix create site
+# Wix create Studio 2 site
 
 ## How to reply
 
