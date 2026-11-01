@@ -355,6 +355,27 @@ function fieldType(sources, body, dotted) {
   return null;
 }
 
+function limitsOf(sources, name, skip, prefix = '', depth = 0, out = [], seen = new Set()) {
+  if (depth > 2 || seen.has(name)) return out;
+  seen.add(name);
+  const body = typeBody(sources, name) ?? '';
+  for (const { name: key, type } of membersOf(body)) {
+    const t = type.trim().replace(/;$/, '').replace(/\s*\|\s*(null|undefined)\b/g, '').trim();
+    const doc = body.match(new RegExp(`/\\*\\*((?:(?!\\*/)[\\s\\S])*?)\\*/\\s*${key}\\??\\s*:`))?.[1] ?? '';
+    // An enum array's @maxSize is almost always at least the enum's size, so it is skipped.
+    const caps = /\[\]$|^Array</.test(t) && !/WithLiterals/.test(t) ? ['minSize', 'maxSize'] : /^number\b/.test(t) ? ['min', 'max'] : [];
+    const limit = { path: prefix ? `${prefix}.${key}` : key };
+    for (const tag of caps) {
+      const v = tags(doc, tag).find((x) => /^-?\d+(\.\d+)?$/.test(x));
+      if (v != null) limit[tag] = Number(v);
+    }
+    if (Object.keys(limit).length > 1 && (depth === 0 || /(^|\.)(paging|cursorPaging)\.limit$/.test(limit.path))) out.push(limit);
+    const ref = t.match(/^(?:Array<)?([A-Z]\w*)/)?.[1];
+    if (ref && !skip.has(ref)) limitsOf(sources, ref, skip, limit.path, depth + 1, out, seen);
+  }
+  return out;
+}
+
 function deriveRecord(name, dir) {
   const pj = readJson(path.join(dir, 'package.json'));
   const dep = pj.wix?.sdkDependency ?? {};
@@ -442,6 +463,24 @@ function deriveRecord(name, dir) {
       meth.required = [...new Set([...meth.required, ...requiredOf(params)])];
       break;
     }
+  }
+
+  for (const meth of methods.values()) {
+    const req = [pascal(meth.name), meth.fqn?.split('.').pop()]
+      .filter(Boolean)
+      .map((n) => `${n}Request`)
+      .find((n) => sources.some((src) => new RegExp(`^(?:interface|type) ${n}\\b`, 'm').test(src)));
+    const limits = req ? limitsOf(sources, req, new Set([entityType])) : [];
+    // A request field that is not a call parameter goes inside `options`.
+    // A handler gets the whole request as `payload.request`.
+    const args = meth.params.map((p) => p.match(/^\w+/)?.[0]);
+    for (const l of limits) {
+      if (meth.kind === 'query-builder' && /^query\.(paging|cursorPaging)\.limit$/.test(l.path)) l.path = 'limit()';
+      else if (/^payload: \w+Envelope$/.test(meth.params.join())) l.path = `payload.request.${l.path}`;
+      else if (args.includes('options') && !args.includes(l.path.split('.')[0])) l.path = `options.${l.path}`;
+    }
+    const unique = [...new Map(limits.map((l) => [JSON.stringify(l), l])).values()];
+    if (unique.length) meth.limits = unique;
   }
 
   // <Entity>SearchSpec / <Entity>QuerySpec declare what a search or query
@@ -1023,6 +1062,11 @@ function renderFilterable(filterable) {
 
 const capped = (list, n = 8) => (list.length > n ? `${list.slice(0, n).join(', ')}, +${list.length - n} more` : list.join(', '));
 
+function renderLimit(l) {
+  const range = (lo, hi) => (hi == null ? `≥${lo}` : lo == null ? `≤${hi}` : `${lo}–${hi}`);
+  return l.minSize != null || l.maxSize != null ? `${l.path} ${range(l.minSize, l.maxSize)} items` : `${l.path} ${range(l.min, l.max)}`;
+}
+
 function render(result, intent, project) {
   const out = [`== ${result.term}  (intent: ${intent})`];
   const rel = (f) => path.relative(project, f) || f;
@@ -1094,6 +1138,7 @@ function renderCandidate(c, intent, rel) {
     if (m.deprecated) facts.push(`DEPRECATED${m.deprecated.replacedBy ? ` → ${m.deprecated.replacedBy}` : ''}`);
     out.push(`  ${''.padEnd(13)} ${facts.join(' · ')}`);
     for (const n of m.notes ?? []) out.push(`  ${''.padEnd(13)} note    ${n}`);
+    if (m.limits) out.push(`  ${''.padEnd(13)} limits  ${m.limits.map(renderLimit).join(' · ')}`);
     if (m.arg) out.push(`  ${''.padEnd(13)} arg     ${m.arg}`);
     if (m.fieldsets) out.push(`  ${''.padEnd(13)} fieldsets ${renderFieldsets(m)}`);
     if (m.result) out.push(`  ${''.padEnd(13)} returns ${m.result}`);
