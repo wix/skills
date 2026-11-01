@@ -125,6 +125,20 @@ into the site, as the templates build them, and writes the site's `appId` as the
 
 ```javascript
 async function run() {
+  return wix.headless.modules.install({
+    siteId,
+    clientId: '<appId from step 2>',
+    solutions: ['blog']                                // the template folders, as in step 1
+  });
+}
+// { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
+```
+
+It keeps the pages and returns the entry points and counts, so the modules never pass through your
+reply. The same steps as a script, where `wix.headless.modules` is missing:
+
+```javascript
+async function run() {
   const solutions = ['blog'];                          // the template folders, as in step 1
   const appId = '<appId from step 2>';
   const files = [];
@@ -138,8 +152,6 @@ async function run() {
   return { copied: files.length, result };
 }
 ```
-
-The patch keeps the pages and returns only a summary, so the modules never pass through your reply.
 
 **Step 5, a check.** The site is done when the fields its pages show were seen on a visitor's
 response, not when the upload succeeded. One `ExecuteWixAPI` script reads as a visitor: mint the
