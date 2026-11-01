@@ -13,8 +13,12 @@ export const TAG_SORT = [{ fieldName: "publishedPostCount", order: "DESC" }] as 
 export const TAXONOMY_LIMIT = 100;
 /** A post carries at most 30 tag ids (the API's own cap), so one by-id read answers a post in full. */
 export const TAG_BY_IDS_LIMIT = 30;
-/** Server-side "only categories that have posts" — the filter row's rule, applied at the source. */
-export const WITH_POSTS_FILTER = { postCount: { $gt: 0 } } as const;
+/**
+ * The latest posts read next to the categories. A category's `postCount` is recounted by Wix after each
+ * publish and can stay short of the real number when posts are published close together (0 for a
+ * category that has posts), so the counts are checked against the posts themselves.
+ */
+export const RECENT_POSTS_LIMIT = 100;
 
 const rawId = (raw: Raw | undefined | null): string => raw?._id ?? raw?.id ?? "";
 
@@ -31,13 +35,30 @@ function mediaValue(value: unknown): string {
 }
 
 export interface FetchCategoriesOptions {
-  /** Only categories with at least one post (the filter row's rule) — applied by Wix. */
+  /** Only categories with at least one post (the filter row's rule). */
   withPosts?: boolean;
 }
 
-/** The categories query (REST body's `query`); the SDK spells it .ascending("displayPosition").gt("postCount", 0).limit(100). */
-export function categoriesQuery({ withPosts = false }: FetchCategoriesOptions = {}): Raw {
-  return { ...(withPosts ? { filter: WITH_POSTS_FILTER } : {}), sort: CATEGORY_SORT, paging: { limit: TAXONOMY_LIMIT } };
+/** The categories query (REST body's `query`); the SDK spells it .ascending("displayPosition").limit(100). */
+export function categoriesQuery(): Raw {
+  return { sort: CATEGORY_SORT, paging: { limit: TAXONOMY_LIMIT } };
+}
+
+/** The latest posts' query (REST body's `query`; the SDK spells it .descending("firstPublishedDate").limit(100)). Base fields carry `categoryIds`. */
+export function recentPostsQuery(): Raw {
+  return { sort: [{ fieldName: "firstPublishedDate", order: "DESC" }], cursorPaging: { limit: RECENT_POSTS_LIMIT } };
+}
+
+/**
+ * Each category's postCount raised to the number of the latest posts that carry it, then, with
+ * `withPosts`, the categories that have none dropped. Wix's count can only be short here, never the
+ * posts: a category that a recent post carries has posts.
+ */
+export function withPostCounts(categories: BlogCategory[], recentPosts: Raw[], { withPosts = false }: FetchCategoriesOptions = {}): BlogCategory[] {
+  const seen = new Map<string, number>();
+  for (const post of recentPosts) for (const id of (post.categoryIds ?? []) as string[]) seen.set(id, (seen.get(id) ?? 0) + 1);
+  const counted = categories.map((c) => ((seen.get(c.id) ?? 0) > c.postCount ? { ...c, postCount: seen.get(c.id)! } : c));
+  return withPosts ? counted.filter((c) => c.postCount > 0) : counted;
 }
 
 /**
@@ -65,7 +86,7 @@ export function toCategory(raw: Raw, imgSrc: ImgSrc): BlogCategory {
     label: raw.label ?? "", // the API's display name is `label`, never `name`
     title: raw.title ?? "", // the category's SEO title (the dashboard's "title tag"); "" until the owner sets one
     description: raw.description ?? "",
-    postCount: raw.postCount ?? 0,
+    postCount: raw.postCount ?? 0, // Wix's count, which can be short: the fetchers correct it from the posts (withPostCounts)
     coverUrl: imgSrc(mediaValue(raw.coverImage), 1200, 675),
   };
 }

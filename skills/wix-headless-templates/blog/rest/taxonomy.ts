@@ -6,23 +6,30 @@
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/get-category-by-slug.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/query-tags.md
 // docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/get-tag-by-slug.md
+// docs: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 import { wixRequest } from "../../shared/rest/client.js";
 import { imgSrc } from "../../shared/rest/media.js";
-import { TAG_SORT, TAXONOMY_LIMIT, categoriesQuery, inIdOrder, tagsByIdsQuery, toCategory, toTag, type FetchCategoriesOptions } from "../app/wix/blog/taxonomy-core.js";
+import { TAG_SORT, TAXONOMY_LIMIT, categoriesQuery, inIdOrder, recentPostsQuery, tagsByIdsQuery, toCategory, toTag, withPostCounts, type FetchCategoriesOptions } from "../app/wix/blog/taxonomy-core.js";
 import type { Raw } from "../app/wix/blog/posts-core.js";
 import type { BlogCategory, BlogTag } from "../app/wix/blog/types.js";
 
 export { inIdOrder, type FetchCategoriesOptions };
 
 /**
- * Categories in menu order; `withPosts` drops empty ones at the source. Non-fatal: [] on failure
- * (the feed renders without its filter row).
- * POST /blog/v3/categories/query  { query: { filter?: { postCount: { $gt: 0 } }, sort: [{ fieldName: "displayPosition", order: "ASC" }], paging: { limit: 100 } } }
+ * Categories in menu order, each postCount checked against the latest posts (withPostCounts);
+ * `withPosts` drops empty ones. Non-fatal: [] on failure (the feed renders without its filter row);
+ * without the posts, Wix's counts.
+ * POST /blog/v3/categories/query  { query: { sort: [{ fieldName: "displayPosition", order: "ASC" }], paging: { limit: 100 } } }
+ * POST /blog/v3/posts/query       { query: { sort: [{ fieldName: "firstPublishedDate", order: "DESC" }], cursorPaging: { limit: 100 } } }
  */
 export async function fetchBlogCategories(o: FetchCategoriesOptions = {}): Promise<BlogCategory[]> {
   try {
-    const res = await wixRequest<Raw>("/blog/v3/categories/query", { body: { query: categoriesQuery(o) } });
-    return ((res?.categories ?? []) as Raw[]).map((c) => toCategory(c, imgSrc)).filter((c) => c.id);
+    const [res, recent] = await Promise.all([
+      wixRequest<Raw>("/blog/v3/categories/query", { body: { query: categoriesQuery() } }),
+      wixRequest<Raw>("/blog/v3/posts/query", { body: { query: recentPostsQuery() } }).catch(() => null),
+    ]);
+    const list = ((res?.categories ?? []) as Raw[]).map((c) => toCategory(c, imgSrc)).filter((c) => c.id);
+    return withPostCounts(list, (recent?.posts ?? []) as Raw[], o);
   } catch {
     return [];
   }
