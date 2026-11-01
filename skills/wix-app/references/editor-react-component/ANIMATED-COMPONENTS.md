@@ -96,8 +96,11 @@ otherwise add it as a runtime dependency. Import `lottie` and
 `lottie.loadAnimation({ container, renderer: 'svg', path: animationUrl,
 loop, autoplay: false })`; keep the item in a ref, destroy it on cleanup,
 and use `play()` / `pause()` when `isPlaying` changes. Browser work belongs in
-effects. If no URL is supplied, bundle a valid local Lottie JSON asset and
-import it with `?url` as the component default; a placeholder URL renders blank.
+effects. Preserve supplied or existing animations. For a new component needing
+a generic default, copy
+`<SKILL_ROOT>/scripts/default-animation.json` into the component
+and import it with `?url` as `defaultProps.animationUrl`. Verify rendering and
+playback.
 
 ## 2. Manage Playback State
 
@@ -160,6 +163,12 @@ Position the button absolutely so it overlays the content without pushing other 
   inset-block-start: 5px;
 }
 
+.playIcon {
+  inline-size: var(--icon-size);
+  block-size: var(--icon-size);
+  fill: var(--icon-color);
+}
+
 /* Design-state selectors: pair native pseudo-class with editor-injected modifier class. */
 .playButton:global(.my-animation-play-button--hover),
 .playButton:hover {
@@ -207,7 +216,7 @@ Wire the named part completely:
     isPlayOn ? ARIA_LABELS.pauseButton : ARIA_LABELS.playButton
   }
 >
-  {isPlayOn ? <PauseIcon /> : <PlayIcon />}
+  {isPlayOn ? <PauseIcon className={styles.playIcon} /> : <PlayIcon className={styles.playIcon} />}
 </button>
 ```
 

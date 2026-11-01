@@ -54,12 +54,12 @@ Put state overrides before bare classes so the manifest keeps resting defaults.
 
 ```css
 .heading {
-  color: #1e293b;
+  font-weight: 600;
 }
 
 .cta:global(.profile-card-cta--hover),
 .cta:hover {
-  background: #4f46e5;
+  text-decoration: underline;
 }
 ```
 
@@ -82,6 +82,7 @@ The root must fill the available inline size and use border-box sizing:
   --display: flex;
   width: 100%;
   box-sizing: border-box;
+  margin: 0;
 }
 ```
 
@@ -102,6 +103,9 @@ Choose the simplest root shape that fits the component:
 
 Do not hardcode the root's pixel dimensions. Installation defaults belong in
 the extension file.
+
+Reset native margins on semantic roots (`figure`, headings, lists); their
+browser margins otherwise sit outside `width: 100%` and can overflow the slot.
 
 ## Sizing Through the Tree
 
@@ -160,7 +164,6 @@ default), not `clamp()`, `calc()`, `min()` or `max()`.
 .root {
   gap: 16px;
   padding: 24px;
-  background: #ffffff;
 }
 
 .grid {
@@ -173,18 +176,18 @@ A dynamic runtime value may use a narrowly scoped custom property set from
 JSX; keep the style rule in CSS and expose no visual prop for it.
 
 ```css
-/* Typography: set the `font` shorthand only. One declaration gives the
-   `font` control its default; separate longhands (`font-size`, `line-height`,
-   …) are exported as overrides and make a themed text style read as custom. */
+@value wst-button-primary-font, wst-heading-6-font from "@wix/react-component-schema/theme-variables.module.css";
+
+/* Typography: keep the font token intact; font-size/family/weight/style
+   and line-height overrides make the theme font custom. Tracking and
+   decoration use their matching theme tokens, per BRANDED-COMPONENTS.md. */
 .cta {
-  font: 600 14px/1.3 'Inter', sans-serif;
+  font: var(wst-button-primary-font);
 }
 
-/* Avoid: separate font longhands on a part that owns the typography control. */
-.cta {
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  line-height: 1.3;
+/* Choose a theme token whose size fits the card. */
+.title {
+  font: var(wst-heading-6-font);
 }
 
 /* Avoid: a module-only wrapper isn't editable; its font silently
@@ -197,20 +200,33 @@ JSX; keep the style rule in CSS and expose no visual prop for it.
 The same applies to paint: a layout-only wrapper stays transparent or becomes
 a named part, so it can't mask the parent's `background`/`border`/`box-shadow`.
 
+An explicit size needs a complete font source on the part that owns the
+typography: `font-family` plus `font-size`, or a full shorthand such as
+`font: 600 32px/1.1 Georgia, serif`. For themed typography, use an unmodified
+`font` token whose size fits; the Font panel shows the token's own size.
+Same-class declarations may sit in separate rules. CSS-wide keywords
+(`inherit`, `unset`, …) are not a family: the manifest extractor turns
+`font-family: inherit` plus a size into an invalid shorthand.
+
 ### SVG Icons
 
 The part owning an icon declares `--icon-size` and `--icon-color`, prefixed
 per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
-`fill` or `stroke`.
+`fill` or `stroke`. A custom property on a part that repeats (list items,
+previous/next) moves to the root, so a repeated inline icon keeps its controls
+on the part: `currentColor` from text in the part (a visually hidden,
+`aria-hidden` label in an icon-only button) and a size in `em`. Root `--icon-*`
+is only for one that needs its own color; replaceable icons follow
+`VECTOR-ART.md`.
 
 - **Inline** (chevron, play/pause): the `svg` applies them through a module
-  class, its paths carrying no colour attributes; no rotation property, since
+  class, its paths carrying no color attributes; no rotation property, since
   state and direction own its transform.
 
 ```css
 .toggleButton {
   --icon-size: 16px;
-  --icon-color: #1e293b;
+  --icon-color: currentColor;
 }
 
 .chevron {
@@ -228,9 +244,9 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
 - Pair native design states (`hover`, `focus`, `disabled`, `invalid`) with
   the matching editor-injected global modifier. Custom modifiers need a class
   toggle from component logic/data or a root prop trigger (`DESIGN-STATES.md` §5).
-- Do not add decorative transitions or animations.
-- When motion is functionally required, list the exact transition properties;
-  never use `transition: all` or an implicit `all` shorthand.
+- Animate only to show a change of state or a requested effect; list the
+  exact transition properties, never `transition: all` or an implicit `all`
+  shorthand.
 
 ```css
 .panel {
@@ -253,5 +269,7 @@ per icon (`--start-icon-size`), applied via `inline-size`/`block-size` and
       own the typography control: no separate `font-family`, `font-size`,
       `font-weight`, `font-style`, `font-stretch`, `font-variant` or `line-height`.
 - [ ] Interactive elements expose pointer events and accessible design states.
-- [ ] No unexposed descendant paints an opaque surface; promote it to a named
-      part instead.
+- [ ] New non-parts and pseudo-elements paint only `currentColor` from a text
+      part or button, or a `--*-color` declared only on the root or its one
+      using part in one color longhand (photo scrims and `forced-colors` rules
+      aside); ported user code keeps its paint.

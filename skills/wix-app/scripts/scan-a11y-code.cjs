@@ -491,6 +491,62 @@ function chooseResolution(current, next) {
   return rank[next.confidence] > rank[current.confidence] ? next : current;
 }
 
+/** A guard joined by OR hides the link whenever its target is missing. */
+function hidesMissingTarget(expression, target) {
+  if (t.isUnaryExpression(expression, { operator: '!' }))
+    return t.isNodesEquivalent(expression.argument, target);
+  return (
+    t.isLogicalExpression(expression, { operator: '||' }) &&
+    (hidesMissingTarget(expression.left, target) || hidesMissingTarget(expression.right, target))
+  );
+}
+
+/** Identify handled targets, forwarded caller props, and unresolved target expressions. */
+function wrapperTarget(ast, openingElement) {
+  const attribute = getAttribute(openingElement, 'href');
+  // Without an override, the wrapper inherits the nested component's resolved target.
+  if (!attribute) return { handled: true };
+  const literal = getLiteralAttributeValue(attribute);
+  if (typeof literal === 'string')
+    return { handled: !['', '#', 'javascript:void(0)'].includes(literal) };
+  const target = attribute.value;
+  if (!t.isJSXExpressionContainer(target)) return {};
+  const hidden = getAttribute(openingElement, 'hidden')?.value;
+  if (
+    t.isJSXExpressionContainer(hidden) &&
+    hidesMissingTarget(hidden.expression, target.expression)
+  )
+    return { handled: true };
+  let prop;
+  traverse(ast, {
+    JSXOpeningElement(elementPath) {
+      if (elementPath.node !== openingElement) return;
+      const expression = target.expression;
+      if (t.isIdentifier(expression)) {
+        const binding = elementPath.scope.getBinding(expression.name);
+        if (binding?.kind !== 'param' || !binding.path.isObjectPattern()) return;
+        const property = binding.path.node.properties.find(
+          (candidate) =>
+            t.isObjectProperty(candidate) &&
+            !candidate.computed &&
+            t.isIdentifier(candidate.value, { name: expression.name }),
+        );
+        if (property) prop = t.isIdentifier(property.key) ? property.key.name : property.key.value;
+      } else if (
+        t.isMemberExpression(expression) &&
+        !expression.computed &&
+        t.isIdentifier(expression.object) &&
+        t.isIdentifier(expression.property)
+      ) {
+        const binding = elementPath.scope.getBinding(expression.object.name);
+        if (binding?.kind === 'param' && binding.path.isIdentifier())
+          prop = expression.property.name;
+      }
+    },
+  });
+  return { prop };
+}
+
 function resolveComponentSemantic(filePath, openingElement, context, depth = 0) {
   const name = getJsxName(openingElement.name);
   if (!name)
@@ -507,6 +563,8 @@ function resolveComponentSemantic(filePath, openingElement, context, depth = 0) 
       confidence: 'high',
       sourceKind: 'native',
       evidence: `The JSX element is the native tag <${name}>.`,
+      // Native anchors declare the target; wrapper resolution also checks forwarded props.
+      ownsTarget: Boolean(getAttribute(openingElement, 'href')),
     };
   }
 
@@ -543,11 +601,19 @@ function resolveComponentSemantic(filePath, openingElement, context, depth = 0) 
             const sourceKind = importInfo.source.startsWith('.')
               ? 'local-wrapper'
               : 'package-component';
+            const target = wrapperTarget(parsed.ast, rootJsx.openingElement);
+            const targetAttr = target.prop && getAttribute(openingElement, target.prop);
+            const targetValue = getLiteralAttributeValue(targetAttr);
+            const forwardsTarget = targetAttr
+              ? !['', '#', 'javascript:void(0)'].includes(targetValue)
+              : openingElement.attributes.some((attr) => t.isJSXSpreadAttribute(attr));
             resolved = chooseResolution(resolved, {
               semanticType: nested.semanticType,
               confidence: nested.confidence === 'low' ? 'medium' : nested.confidence,
               sourceKind,
               evidence: `${name} resolves through ${path.relative(ROOT, resolvedSource)} to ${nested.semanticType} semantics.`,
+              ownsTarget:
+                nested.ownsTarget && Boolean(target.handled || (target.prop && forwardsTarget)),
             });
           }
         }
@@ -907,7 +973,7 @@ function scanFile(filePath, options = {}) {
         const hrefValue = getLiteralAttributeValue(hrefAttr);
         const toValue = getLiteralAttributeValue(toAttr);
         const invalidLinkTarget =
-          (!hrefAttr && !toAttr) ||
+          (!hrefAttr && !toAttr && !semantic.ownsTarget) ||
           hrefValue === '' ||
           hrefValue === '#' ||
           hrefValue === 'javascript:void(0)' ||

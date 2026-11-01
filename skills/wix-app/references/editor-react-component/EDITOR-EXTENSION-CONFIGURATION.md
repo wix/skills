@@ -99,15 +99,11 @@ Every value the scaffold uses comes from `LAYOUT` in
 | `layout.resizeDirection` (`LAYOUT.RESIZE_DIRECTION`) | `horizontal`, `vertical`, `horizontalAndVertical`, `aspectRatio`, `none` |
 | `layout.contentResizeDirection` (`LAYOUT.CONTENT_RESIZE_DIRECTION`) | `horizontal`, `vertical`, `horizontalAndVertical`, `none`: the axes along which content growth resizes the component |
 | `initialSize.{width,height}.sizingType` (`LAYOUT.SIZING_TYPE`) | `content`, `pixels`, `stretched` |
-| `installation.staticContainer` | `'HOMEPAGE'`, `'GLOBAL_PAGE'` |
 
 Edit the scaffolded `layout`, `installation`, and `resources` fields in place;
-do not reconstruct the extension from an example. For a new component, add
-`staticContainer: 'HOMEPAGE'`. For an existing component, preserve its current
-`staticContainer` value unless the request explicitly changes installation
-behavior.
-The scaffold's `installation` object accepts `staticContainer` next to
-`initialSize`; add the literal above without searching `@wix/astro` types.
+do not reconstruct the extension from an example. For a new component, size
+`initialSize.width` to the composition (`VISUAL-QUALITY.md`); the scaffold's
+250px fits only a lone button.
 
 ## Checklist
 
@@ -116,5 +112,3 @@ The scaffold's `installation` object accepts `staticContainer` next to
 - [ ] Client and editor resources still point to their generated entry files.
 - [ ] The extension and `component.tsx` consume the same `defaultProps` source.
 - [ ] Initial sizing and resize axes match component behavior.
-- [ ] A new component has `staticContainer: 'HOMEPAGE'`; an existing
-      component keeps its prior installation behavior unless explicitly changed.

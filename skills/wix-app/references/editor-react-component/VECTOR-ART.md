@@ -37,7 +37,8 @@ control with `a11y.ariaLabel` per `ACCESSIBILITY.md`.
 ```
 
 Declare the controls per CSS-GUIDELINES.md "SVG Icons", plus `--icon-rotation`
-via `rotate`. Add no border, background, or padding.
+via `rotate`, on the root when the icon repeats. Add no border, background, or
+padding.
 
 ```css
 .icon {

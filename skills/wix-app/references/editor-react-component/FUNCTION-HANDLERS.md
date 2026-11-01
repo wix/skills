@@ -75,7 +75,11 @@ export const TextInput: React.FC<TextInputProps> = (props) => {
 
 The example shows value wiring only; keep the full root, parts, and accessibility
 contract. For an explicitly requested autonomous widget, local state is valid:
-update it before notifying `onValueChange`. For other stateful widgets (tabs,
+seed it from the public `value`, update it, then notify `onValueChange`. For
+bounded numeric values, handle non-finite input and clamp at runtime; round only
+for discrete scales. `@min`/`@max` configure the editor, not runtime validation.
+"Works on its own" never drops either prop.
+For other stateful widgets (tabs,
 carousels, toggles), preserve their state contract. Callback presence must never
 disable internal behavior or choose a state mode.
 
