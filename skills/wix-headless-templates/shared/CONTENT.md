@@ -1,7 +1,7 @@
 # Content floor — the copy you write on every authored surface
 
-**A fallback, not an override.** If the user supplied copy, voice, or tone, use theirs. The
-one exception is the first rule — a comprehension floor, not a style preference.
+**A fallback, not an override.** If the user supplied copy, voice, or tone, use theirs. Two rules
+hold regardless: the first, a comprehension floor, and the last, where pictures come from.
 
 - **Say what the business is, literally, above the fold.** A first-time visitor must know
   what the site *is* and can *do* from the hero alone. The business category ("ceramics
@@ -20,3 +20,10 @@ one exception is the first rule — a comprehension floor, not a style preferenc
   of all.
 - **A caption describes what its image actually shows.** A slogan overlaid on a photo is not
   a caption; if none is warranted, write none.
+- **Every picture is in the site's Wix Media**, on an item or on a page (a hero, a banner): the
+  user's own file, an image generated for the site, or one imported from a source the user
+  supplied or whose license allows it, through `seed/images.mjs` (`generateImage`,
+  `importImage`) or `UploadImageToWixSite`. Never a link to a picture on another website, in a
+  page or in the site's data: that site did not license it to this one, and the picture breaks
+  when its host moves or blocks it. A picture you cannot get this way is left out, and the
+  surface is designed without it.
