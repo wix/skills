@@ -532,9 +532,10 @@ SVG is text; other images are bytes. Prefer, in order:
 
 1. Local originals included in the curl drop.
 2. Resolved file/ZIP attachments.
-3. A direct public image URL kept in the page, or imported through
-   `UploadImageToWixSite` when available using `imageUrls`; use its returned
-   `static.wixstatic.com` URL. A sharing page is not a direct file URL.
+3. An image imported into the site's Wix Media through `UploadImageToWixSite`
+   using `imageUrls`, from a source the user supplied or whose license allows it;
+   use its returned `static.wixstatic.com` URL. A sharing page is not a direct
+   file URL.
 4. Tool-encoded `imageBase64` with `mimeType`, one image per call, if the
    tool exposes those fields. Never synthesize base64 in
    model output: it causes decoding errors or corrupt images.
@@ -545,7 +546,9 @@ SVG is text; other images are bytes. Prefer, in order:
    update references to returned public URLs and republish.
 
 Never substitute drawings/placeholders for supplied images, shrink/re-encode
-them, or decode unchanged binary files as text during edits.
+them, or decode unchanged binary files as text during edits. Never link a
+picture from another website into a page (a stock library, someone else's
+photos): import it as above, or leave it out.
 
 ## Publish anonymously
 
