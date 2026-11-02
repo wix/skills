@@ -139,8 +139,9 @@ slider, or gallery also uses hover and focus state:
 const isPlaying = isPlayOn && !isHovered && !isFocusWithin;
 ```
 
-Pass `isPlaying` to the renderer. The button uses `isPlayOn` and toggles
-between `handlePause` / `handleResume` on click.
+Pass `isPlaying` to the renderer. In CSS, put it in the `animation` shorthand,
+never in `animationPlayState`. The button uses `isPlayOn` and toggles between
+`handlePause` / `handleResume` on click.
 
 ## 3. Add the Play/Pause Button
 
