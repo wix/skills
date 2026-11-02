@@ -24,7 +24,7 @@ import { PagesDefinition, type IPagesService } from '@wix/site-service-pages/def
 
 Install these as direct `dependencies`: `@wix/site-service-lightbox` and `@wix/site-service-pages` at their latest versions, and `@wix/services-manager-react`. The project often has an older `@wix/site-service-pages` only as a transitive dependency, whose types have no `slug` field; installing it directly fixes that. `@wix/services-manager-react` is usually only a transitive dependency too, so add it directly. This skill is the reason to add them, so a "do not invent imports" rule in another skill does not block them.
 
-> **Version 2 renamed `context` and `getContext()` to `payload` and `getPayload()`, but the Studio 2 host may still provide only the old ones.** A provider that calls `getPayload()` alone crashes with `TypeError: lightbox?.getPayload is not a function` in preview and on the Test Site, and the popup never opens. Only a run shows it: `tsc` and `wix build` pass. Keep version 2 and support both hosts: send the data under both keys and read it with the feature-detecting helper in [Reading the Payload](#reading-the-payload-in-the-popup).
+> **Version 2 renamed `context` and `getContext()` to `payload` and `getPayload()`, but the Studio 2 host provides only the old ones** (`open`, `close`, `getContext`). `getPayload()` throws `TypeError: lightbox?.getPayload is not a function`, and `open({ slug, payload })` alone opens the popup with no data and no error. Only a run shows it: `tsc` and `wix build` pass. Keep version 2 and send the data under both keys, then read it with the helper in [Reading the Payload](#reading-the-payload-in-the-popup).
 
 ### 2. Declare the Services in the Extension's Manifest
 
