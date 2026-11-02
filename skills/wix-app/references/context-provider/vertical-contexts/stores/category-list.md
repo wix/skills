@@ -1,13 +1,13 @@
-# Stores context: `@wix/stores/category-list-context-provider`
+# Stores context: `@wix/stores/context/category-list`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/category-list-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/category-list`.
 
 ### `CategoryListContextProvider`
 
 Supplies the category list and current category to descendant components.
 
 ```ts
-import { CategoryListContextProvider } from '@wix/stores/category-list-context-provider';
+import { CategoryListContextProvider } from '@wix/stores/context/category-list';
 ```
 
 - **Parameters:** `__0: CategoryListContextProviderProps`
@@ -18,7 +18,7 @@ import { CategoryListContextProvider } from '@wix/stores/category-list-context-p
 Reads the visible store categories and the current category.
 
 ```ts
-import { useCategoryListContext } from '@wix/stores/category-list-context-provider';
+import { useCategoryListContext } from '@wix/stores/context/category-list';
 ```
 
 - **Parameters:** none

@@ -1,13 +1,13 @@
-# Stores context: `@wix/stores/category-info-context-provider`
+# Stores context: `@wix/stores/context/category-info`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/category-info-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/category-info`.
 
 ### `CategoryInfoContextProvider`
 
 Supplies category details from an explicit value or a configured category ID.
 
 ```ts
-import { CategoryInfoContextProvider } from '@wix/stores/category-info-context-provider';
+import { CategoryInfoContextProvider } from '@wix/stores/context/category-info';
 ```
 
 - **Parameters:** `__0: CategoryInfoContextProviderProps`
@@ -18,7 +18,7 @@ import { CategoryInfoContextProvider } from '@wix/stores/category-info-context-p
 Reads the category details supplied by a surrounding category info provider.
 
 ```ts
-import { useCategoryInfoContext } from '@wix/stores/category-info-context-provider';
+import { useCategoryInfoContext } from '@wix/stores/context/category-info';
 ```
 
 - **Parameters:** none

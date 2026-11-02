@@ -1,6 +1,6 @@
 # Page onLoad
 
-> **Studio 2 editor only.** This extension type works only on sites built in the Studio 2 editor. It does not run on Harmony, the classic Wix Editor or Wix Studio (Editor X), so do not offer it for those sites. It is a context provider, and the public docs say apps can't currently provide contexts: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
+> **Studio 2 editor only.** This extension type works only on sites built in the Studio 2 editor. It does not run on Harmony, the classic Wix Editor or Wix Studio (Editor X), so do not offer it for those sites. It is a context provider, and apps can't currently provide contexts: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
 
 Creates a **side-effect-only page context** for Wix CLI applications: a context whose only job is to run a piece of logic **once, the moment the page is rendered**. It exposes **no API** to other components — it is not meant to be consumed via a hook. The user attaches it to a page in the Editor (**Page Settings → Contexts**) and the side effect fires on page render.
 

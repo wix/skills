@@ -1,13 +1,13 @@
-# Stores context: `@wix/stores/promotion-item-context-provider`
+# Stores context: `@wix/stores/context/promotion-item`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/promotion-item-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/promotion-item`.
 
 ### `PromotionItemContextProvider`
 
 Supplies the promotion for one product list promotion entry.
 
 ```ts
-import { PromotionItemContextProvider } from '@wix/stores/promotion-item-context-provider';
+import { PromotionItemContextProvider } from '@wix/stores/context/promotion-item';
 ```
 
 - **Parameters:** `__0: PromotionItemContextProviderProps`
@@ -18,7 +18,7 @@ import { PromotionItemContextProvider } from '@wix/stores/promotion-item-context
 Reads the current promotion, or returns null outside a promotion item provider.
 
 ```ts
-import { usePromotionItemContext } from '@wix/stores/promotion-item-context-provider';
+import { usePromotionItemContext } from '@wix/stores/context/promotion-item';
 ```
 
 - **Parameters:** none

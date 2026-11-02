@@ -1,8 +1,8 @@
 # Context Provider
 
-> **Studio 2 sites only.** Not for Harmony, classic Wix Editor or Wix Studio. The public docs say apps can't currently provide contexts: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
+> **Studio 2 sites only** (its editor calls this extension a **Data Source**). Not for Harmony, classic Wix Editor or Wix Studio. Apps can't currently provide contexts: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
 
-Creates production-quality context provider components for Wix CLI applications. Context providers are logical components (no UI) that can be added to any page, container, or section in the Editor. They expose shared state and functionality that child components consume via a React hook.
+Creates context provider components for Wix CLI applications. Context providers are logical components (no UI) that can be added to any page, container, or section in the Editor. They expose shared state and functionality that child components consume via a React hook.
 
 **You MUST read [CONTEXT_PROVIDER_SPEC.md](context-provider/CONTEXT_PROVIDER_SPEC.md) before implementing a context provider.** It contains the complete manifest structure, all data types, and type constraints.
 
@@ -35,7 +35,7 @@ Follow these steps in order when creating a context provider:
 5. [ ] Decide whether producing any context value involves a promise — any Wix SDK call, any `fetch`, any `await`. If it does, read [LOADING.md](context-provider/LOADING.md) **now, before writing any code**: it changes the shape of the next step from one component into three. Skipping it ships a blank page on load (see [Async Data and the Render Gate](context-provider/PROVIDER_PATTERN.md#async-data-and-the-render-gate))
 6. [ ] Rewrite both files. In `.tsx`: React context, hook export, provider component, and a derived value for every condition in the request (see [Derived Values](context-provider/DERIVED_VALUES.md#derived-values-mandatory)). In `.extension.ts`: set `context.items`, `data` and `contextSpecifier.hook` to match, declaring each text and number value once with no richText twin (see [Plain Values, Not RichText Twins](context-provider/DERIVED_VALUES.md#plain-values-not-richtext-twins))
 
-`extensions` comes from `@wix/astro/builders/experimental` (current scaffold) or `@wix/custom-extensions` (older scaffolds, public docs). Both work: keep the import the scaffold wrote. If `tsc` reports that `contextProvider` does not exist on `extensions`, upgrade that package.
+`extensions` comes from `@wix/astro/builders/experimental` (current scaffold) or `@wix/custom-extensions` (older scaffolds). Both work: keep the import the scaffold wrote. If `tsc` reports that `contextProvider` does not exist on `extensions`, upgrade that package.
 
 ## Hard Constraints
 

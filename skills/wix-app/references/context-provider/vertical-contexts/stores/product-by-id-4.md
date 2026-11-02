@@ -1,8 +1,8 @@
-# Stores context: `@wix/stores/product-by-id-context-provider` (part 4 of 6)
+# Stores context: `@wix/stores/context/product-by-id` (part 4 of 6)
 
 This context's reference is split across 6 files: [product-by-id.md](product-by-id.md), [product-by-id-2.md](product-by-id-2.md), [product-by-id-3.md](product-by-id-3.md), [product-by-id-4.md](product-by-id-4.md), [product-by-id-5.md](product-by-id-5.md), [product-by-id-6.md](product-by-id-6.md).
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/product-by-id-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/product-by-id`.
 
 ##### `Link$1`
 
