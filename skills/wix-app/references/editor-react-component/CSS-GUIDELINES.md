@@ -157,6 +157,14 @@ Keep static styling in the CSS Module, not JSX `style` objects. Use literal CSS
 values when no interpolation is needed; do not create a React prop or CSS custom
 property for routine values that zero config already surfaces.
 
+A part's font and paint are literal too, also when porting the user's code:
+`font: 600 120px/.8 'Geist', sans-serif; color: rgb(21 21 20 / 5%)`, with one
+literal rule per theme or mode. The Design panel shows a `var(--…)` or
+`color-mix()` value as raw text and can't edit it. Keep one only for a value the
+code reads (a canvas color); theme tokens (`var(wst-…)`) are fine. Each text
+part sets its own `color` and font, even when they match the root, or its text
+panel shows them empty.
+
 Write each spacing value as one `px`, `%`, `vh` or `vw` number (`px` by
 default), not `clamp()`, `calc()`, `min()` or `max()`.
 

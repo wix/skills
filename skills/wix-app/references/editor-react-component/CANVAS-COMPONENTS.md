@@ -21,6 +21,9 @@ values the code reads.
   const isPlayingRef = useRef(true);
   isPlayingRef.current = isPlaying; // right below the derived isPlaying
   ```
+- An engine with an update method (`setOptions`) is created once and updated
+  through it. If its cleanup releases the WebGL context, the next engine gets
+  a new `<canvas>`.
 
 ## Size
 
@@ -65,9 +68,12 @@ values the code reads.
 
 Colors, fonts and visual numbers the code draws with are CSS custom
 properties on the root, so the owner edits them in the design panel. A value
-that is about looks (color, size, density, opacity, speed of a visual
-effect) is a variable; content, behavior and a named set of choices are props
-(`PROPS-VS-CSS.md`). A named set is an exported, named union type, which the
+about looks (a color, a font, the size, density or opacity of what is drawn) is
+a variable. How the drawing behaves or responds (the pointer's strength and
+reach, the speed of motion) is a setting: a prop with `@min`/`@max` the loop
+reads through the props ref. Content and a named set of choices are props too
+(`PROPS-VS-CSS.md`). A value is a setting or a variable, never both, or one
+field does nothing. A named set is an exported, named union type, which the
 settings panel shows as a dropdown.
 
 **Register each one** in the module CSS with its type and default, and

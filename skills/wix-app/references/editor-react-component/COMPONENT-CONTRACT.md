@@ -24,7 +24,7 @@ export type PlanCardProps = {
   onBlur?: (event: React.FocusEvent) => void;
 
   elementProps?: {
-    planCardCta?: { className?: string; href?: string };
+    planCardCta?: { className?: string };
   };
 };
 ```
@@ -40,8 +40,9 @@ Rules:
   callbacks. Keep DOM handlers internal; preserve APIs.
 - Use `Array<T>`, not `T[]`, for exported arrays.
 - Use a native link for a supplied destination, or a native button for an
-  action. Preserve existing targets; never invent routes or use `href="#"`.
-  Report missing destinations or required handlers.
+  action. Preserve existing targets, including a ported source's own default
+  (`'#'` too); never invent routes or add `href="#"` yourself. Report missing
+  destinations or required handlers.
 
 ## Numeric Range Constraints
 
