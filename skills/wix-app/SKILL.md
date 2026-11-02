@@ -40,6 +40,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Site/editor extensions only: kept SDK calls in the extension by default, routing out only business-wide methods a visitor genuinely cannot call (see [Identity and Elevation Requirement](#identity-and-elevation-requirement))
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
+  - [ ] **Extension metadata (events, service plugins, data collections, dashboard pages, modals, dashboard plugins, dashboard menu plugins):** added the `name` and `aiContext` each scaffolded builder declares — see [EXTENSION_METADATA.md](references/EXTENSION_METADATA.md).
   - [ ] **Compile as you go:** ran `npx tsc --noEmit` after the first file that imports `@wix/patterns`, not only at Step 5. Patterns' state and filter APIs are the most common source of errors, and finding twenty of them in one batch after the page is written costs far more than finding two early.
   - [ ] **🛑 Component Selection Gate (MANDATORY, dashboard UI only):** For every UI element on a Dashboard Page, resolved it against `@wix/patterns` BEFORE reaching for `@wix/design-system` — and never hand-rolled a component either library already provides. See [Component Selection Order](#component-selection-order).
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
@@ -220,6 +221,7 @@ Use a Dashboard Modal for dialogs that neither write nor display a listed record
 | --- | --- |
 | Code Quality Requirements (applies to all generated code) | [CODE_QUALITY.md](references/CODE_QUALITY.md) |
 | Extension Registration | [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md) |
+| Extension metadata — the `name` and `aiContext` to add to each scaffolded builder | [EXTENSION_METADATA.md](references/EXTENSION_METADATA.md) |
 | App Validation | [APP_VALIDATION.md](references/APP_VALIDATION.md) |
 | App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
@@ -444,6 +446,7 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 Open every path returned in `newFiles` and replace stubbed handler bodies / UI / queries with the user's actual logic, guided by the extension reference file's API and configuration sections.
 
 - ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
+- Events, service plugins, data collections, and dashboard pages, modals, dashboard plugins and dashboard menu plugins: finish each `*.extension.ts` with the `name` and `aiContext` its builder declares, per [EXTENSION_METADATA.md](references/EXTENSION_METADATA.md).
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
 ### Step 4c: UX Completeness Self-Audit
