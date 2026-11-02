@@ -1,8 +1,8 @@
-# Stores context: `@wix/stores/product-item-context-provider` (part 3 of 3)
+# Stores context: `@wix/stores/context/product-item` (part 3 of 3)
 
 This context's reference is split across 3 files: [product-item.md](product-item.md), [product-item-2.md](product-item-2.md), [product-item-3.md](product-item-3.md).
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/product-item-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/product-item`.
 
 ##### `useProductItemContextValue return value`
 

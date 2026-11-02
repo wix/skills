@@ -2,6 +2,8 @@
 
 Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/blog/context/post`.
 
+`@wix/blog/context/post-by-slug` exports the same properties as `usePostBySlugContext` (provider `PostBySlugProvider`); read them here.
+
 ### `PostProvider`
 
 Supplies the current blog post: the one a parent context hands down, or the post page's own.

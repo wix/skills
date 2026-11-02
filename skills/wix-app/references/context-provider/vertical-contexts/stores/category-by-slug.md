@@ -1,13 +1,13 @@
-# Stores context: `@wix/stores/category-by-slug-context-provider`
+# Stores context: `@wix/stores/context/category-by-slug`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/category-by-slug-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/category-by-slug`.
 
 ### `CategoryBySlugContextProvider`
 
 Loads the category identified by the page URL and supplies its category and product list contexts.
 
 ```ts
-import { CategoryBySlugContextProvider } from '@wix/stores/category-by-slug-context-provider';
+import { CategoryBySlugContextProvider } from '@wix/stores/context/category-by-slug';
 ```
 
 - **Parameters:** `__0: CategoryBySlugContextProviderProps`
@@ -16,7 +16,7 @@ import { CategoryBySlugContextProvider } from '@wix/stores/category-by-slug-cont
 ### `CategoryBySlugContextValues`
 
 ```ts
-import { CategoryBySlugContextValues } from '@wix/stores/category-by-slug-context-provider';
+import { CategoryBySlugContextValues } from '@wix/stores/context/category-by-slug';
 ```
 
 - **Parameters:** `__0: CategoryBySlugContextValuesProps`
@@ -27,7 +27,7 @@ import { CategoryBySlugContextValues } from '@wix/stores/category-by-slug-contex
 Reserved hook. Always throws; read useProductListContext, useCategoryInfoContext, and useCategoryListContext instead.
 
 ```ts
-import { useCategoryBySlugContext } from '@wix/stores/category-by-slug-context-provider';
+import { useCategoryBySlugContext } from '@wix/stores/context/category-by-slug';
 ```
 
 - **Parameters:** none

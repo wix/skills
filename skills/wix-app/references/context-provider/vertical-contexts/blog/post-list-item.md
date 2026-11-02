@@ -1,26 +1,25 @@
-# Blog context: `@wix/blog/context/post-item`
+# Blog context: `@wix/blog/context/post-list-item`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/blog/context/post-item`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/blog/context/post-list-item`.
 
-> **Not in the latest `@wix/blog`.** `@wix/blog/context/post-item` was exported in 1.0.700 and is not exported by 1.0.708. The latest package exports `post-list-item` and `post-by-slug` instead. Read their hooks from the installed package's types.
 
 ### `PostItemContextProvider`
 
 Supplies one blog post, injected per repeater cell, to its children.
 
 ```ts
-import { PostItemContextProvider } from '@wix/blog/context/post-item';
+import { PostItemContextProvider } from '@wix/blog/context/post-list-item';
 ```
 
 - **Parameters:** `__0: PostItemContextProviderProps`
 - **Returns:** `ReactNode`
 
-### `usePostItemContext`
+### `usePostListItemContext`
 
 Nullable rather than throwing: the hook runs for every element inside the repeater cell, including on the editor stage before the cell is populated.
 
 ```ts
-import { usePostItemContext } from '@wix/blog/context/post-item';
+import { usePostListItemContext } from '@wix/blog/context/post-list-item';
 ```
 
 - **Parameters:** none

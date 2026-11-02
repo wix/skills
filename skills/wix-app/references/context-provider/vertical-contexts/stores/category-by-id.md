@@ -1,13 +1,13 @@
-# Stores context: `@wix/stores/category-by-id-context-provider`
+# Stores context: `@wix/stores/context/category-by-id`
 
-Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/category-by-id-context-provider`.
+Read [Importing a Context in Code](../../CONSUMING.md#importing-a-context-in-code) first. Import only the hook, from `@wix/stores/context/category-by-id`.
 
 ### `CategoryByIdContextProvider`
 
 Loads a category by ID and supplies its category info and product list contexts.
 
 ```ts
-import { CategoryByIdContextProvider } from '@wix/stores/category-by-id-context-provider';
+import { CategoryByIdContextProvider } from '@wix/stores/context/category-by-id';
 ```
 
 - **Parameters:** `__0: CategoryByIdContextProviderProps`
@@ -16,7 +16,7 @@ import { CategoryByIdContextProvider } from '@wix/stores/category-by-id-context-
 ### `CategoryByIdContextValues`
 
 ```ts
-import { CategoryByIdContextValues } from '@wix/stores/category-by-id-context-provider';
+import { CategoryByIdContextValues } from '@wix/stores/context/category-by-id';
 ```
 
 - **Parameters:** `__0: CategoryByIdContextValuesProps`
@@ -27,7 +27,7 @@ import { CategoryByIdContextValues } from '@wix/stores/category-by-id-context-pr
 Reserved hook. Always throws; read useProductListContext and useCategoryInfoContext instead.
 
 ```ts
-import { useCategoryByIdContext } from '@wix/stores/category-by-id-context-provider';
+import { useCategoryByIdContext } from '@wix/stores/context/category-by-id';
 ```
 
 - **Parameters:** none

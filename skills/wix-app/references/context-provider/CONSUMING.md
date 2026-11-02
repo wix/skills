@@ -51,7 +51,7 @@ A context provider that imports a context declares it once, on the provider's ow
 resources: {
   client: { url },
   contextSpecifier: { hook, moduleSpecifier },
-  dependencies: { contextDependencies: ['@wix/stores/product-context-provider'] },
+  dependencies: { contextDependencies: ['@wix/stores/context/product'] },
 },
 ```
 

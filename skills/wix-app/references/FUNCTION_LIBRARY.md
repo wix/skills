@@ -1,6 +1,6 @@
 # Function Library
 
-> **Studio 2 editor only.** This extension type works only on sites built in the Studio 2 editor. It does not run on Harmony, the classic Wix Editor or Wix Studio (Editor X), so do not offer it for those sites. The public docs say function libraries are only available for Studio Two sites: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
+> **Studio 2 editor only.** This extension type works only on sites built in the Studio 2 editor. It does not run on Harmony, the classic Wix Editor or Wix Studio (Editor X), so do not offer it for those sites. Apps can't use it: if `wix.config.json` has `"projectType": "App"`, tell the user before building.
 
 A function library bundles reusable functions the Wix editor and runtime can call — formatters, math helpers, data transformers, event handlers. It is a registered `extensions.functionLibrary()` extension, not a plain utility module: functions in `utils.ts`, `helpers.ts` or `src/lib/` are invisible to the editor.
 
@@ -28,7 +28,7 @@ resources: {
 },
 ```
 
-`extensions` comes from `@wix/astro/builders/experimental` (current scaffold) or `@wix/custom-extensions` (older scaffolds, public docs). Both work: keep the import the scaffold wrote. If `tsc` reports that `functionLibrary` does not exist on `extensions`, upgrade that package.
+`extensions` comes from `@wix/astro/builders/experimental` (current scaffold) or `@wix/custom-extensions` (older scaffolds). Both work: keep the import the scaffold wrote. If `tsc` reports that `functionLibrary` does not exist on `extensions`, upgrade that package.
 
 ## Hard Constraints
 
