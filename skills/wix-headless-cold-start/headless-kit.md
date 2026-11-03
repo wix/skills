@@ -93,6 +93,12 @@ folder under 30K bytes. For a bigger folder, read the files one by one.
 
 ### The steps
 
+A complete site has the whole solution: the apps installed (step 3), the content created (step 4),
+pages that read that content through the modules (step 5), and a visitor's read that returns the
+content (the check in step 5). You can upload a first version before all of this is in place. Then
+tell the user what this version is: which pages read from the site, which pages are static, and
+which steps remain. Do this in every message that gives the user a link.
+
 Do the six steps in this order. For each step: what you do, the call, and the reference.
 
 **Step 1: choose the solutions.**
@@ -147,6 +153,8 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 **Step 6: close.**
 - Give the live URL and the dashboard URL, each on its own line.
 - Say what you wrote as placeholder content.
+- Say which pages read from the site through the modules and which pages are static. If a step did
+  not complete, name the step.
 - Give the result of the check.
 - Give the steps for the owner, with their links.
 - Give the site id and the `appId` for a later run.
