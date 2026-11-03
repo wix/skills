@@ -21,6 +21,13 @@
 // picker-quantity-value, picker-add, picker-note, picker-reason, picker-error, picker-notify,
 // picker-notify-input, picker-notify-button, picker-notify-result. The root carries
 // `data-state`: "loading" | "not-found" | "open" | "adding".
+//
+// To style: `picker-choice--selected` (also `aria-pressed="true"`) is the chosen option; a disabled
+// choice is out of stock with the current picks. A swatch button has only its background color
+// and needs a width, a height and a shape. The quantity stepper is two buttons around a span.
+// `picker-add[disabled]` is the gated add button, `[aria-busy="true"]` while adding. The notes under
+// the button (`picker-note`, `picker-reason`, `picker-error`, `picker-notify`) are hidden until
+// they apply.
 import {
   ONE_TIME_PLAN,
   createProductDetailStore,

@@ -15,6 +15,13 @@
 // quickadd-panel-close, quickadd-panel-loading, quickadd-panel-notfound, quickadd-panel-pdp,
 // quickadd-panel-picker. The root carries `data-state`: "idle" | "adding" | "open"; the panel's
 // picker uses the option picker's own classes.
+//
+// To style: the backdrop and the panel are appended to `panelContainer` (default `root`, the
+// tile) as siblings, with no position. Give `quickadd-backdrop` `position: fixed; inset: 0` and
+// `quickadd-panel` a position (fixed, or absolute inside a tile that has `position: relative`),
+// a width, a background and `overflow: auto`. `quickadd-button[disabled]` with `aria-busy="true"`
+// is the button while adding. The two links share `quickadd-link`, with `quickadd-link--sold-out`
+// and `quickadd-link--plan` for the case.
 import { addLine, getCartState, subscribeCart } from "../app/wix/storefront/cart-store.js";
 import { createProductDetailStore, type ProductDetailStore } from "../app/wix/storefront/product-detail-store.js";
 import type { ProductSummary } from "../app/wix/storefront/types.js";

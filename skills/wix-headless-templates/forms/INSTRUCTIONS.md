@@ -302,9 +302,12 @@ step at a time with the owner's button wording, follows the rules (a field a rul
 the page, the address parts follow the chosen country), handles "Other", keeps `File` objects for
 the store to upload, shows the owner's closed message, and replaces the form with the thank-you or
 navigates to checkout or the redirect. It sets no styles: every element has a class under one
-prefix (`form-field`, `form-label`, `form-control`, `form-choice`, `form-choice--selected`,
-`form-error`, `form-submit`, `form-success`, …; the file's header lists them) and the form has
-`data-state` — style them in your CSS. What you write is the page around it: heading, intro,
+prefix (`form-field`, `form-field--<control>`, `form-label`, `form-control`, `form-choice`,
+`form-choice--selected`, `form-error`, `form-submit`, `form-success`, …) and the form has
+`data-state`. The file's header lists the classes and ends with a "To style" note: the per-control
+class, the state selectors (selected, `aria-invalid`, `aria-busy`, `data-state`) and the choice
+image that needs a size. Style them in the page's stylesheet on the same tokens as the rest of the
+page. What you write is the page around it: heading, intro,
 where the form sits. Wix static hosting serves files, not directories: the page is
 `contact.html`, linked as such. The visitor token persists in `localStorage` on its own; never
 mint per page. The page's title and meta description are yours (a form is not an entity page;

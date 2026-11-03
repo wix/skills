@@ -22,6 +22,14 @@
 // form-help, form-error, form-file-note, form-unsupported, form-actions, form-back, form-next,
 // form-submit, form-form-error, form-success, form-success-text. The <form> carries
 // `data-state`: "loading" | "open" | "submitting" | "closed" | "done".
+//
+// To style: `form-field--<control>` names the control (text, textarea, number, rating, email,
+// phone, url, date, time, select, radio, checkbox, checkboxGroup, tags, address, file, signature),
+// so one rule can target a kind of field. `form-choice--selected` is a chosen radio or checkbox
+// choice; `form-choice-image` has no size. A control with an error has `aria-invalid="true"`, with
+// the text in `form-error` under it; both are hidden until they apply. `form-required` is the
+// required mark. `form-submit[disabled]` with `aria-busy="true"` is the button while submitting.
+// `form-success` replaces the fields after a submit.
 import {
   FORM_ERROR,
   createFormStore,

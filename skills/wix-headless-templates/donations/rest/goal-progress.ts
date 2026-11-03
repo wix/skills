@@ -5,6 +5,9 @@
 // No styles except the bar's width. Class names use one prefix (default "goal"): goal,
 // goal-figures, goal-amounts, goal-raised, goal-target, goal-percent, goal-bar, goal-bar-fill,
 // goal-meta, goal-count, goal-time-left.
+//
+// To style: `goal-bar` is the track and `goal-bar-fill` the fill; the fill has only its width, so
+// give both a height and a background. The rest is text.
 import type { GoalProgress } from "../app/wix/donations/types.js";
 
 export interface GoalProgressOptions {
