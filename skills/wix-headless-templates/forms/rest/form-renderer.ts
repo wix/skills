@@ -28,8 +28,10 @@
 // so one rule can target a kind of field. `form-choice--selected` is a chosen radio or checkbox
 // choice; `form-choice-image` has no size. A control with an error has `aria-invalid="true"`, with
 // the text in `form-error` under it; both are hidden until they apply. `form-required` is the
-// required mark. `form-submit[disabled]` with `aria-busy="true"` is the button while submitting.
-// `form-success` replaces the fields after a submit.
+// required mark. The step's progression button, `form-next` or `form-submit`, is the primary
+// button; only one of them shows per step. `form-back` is secondary. `form-submit[disabled]` with
+// `aria-busy="true"` is the button while submitting. `form-success` replaces the fields after a
+// submit.
 import {
   FORM_ERROR,
   createFormStore,

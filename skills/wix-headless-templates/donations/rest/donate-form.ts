@@ -23,8 +23,9 @@
 // To style: `donate-choice--selected` (also `aria-pressed="true"`) is the chosen preset or
 // frequency; the radio inside each choice is `donate-radio`, which can be visually hidden when the
 // label carries the look. An input with an error has `aria-invalid="true"`, with the text in
-// `donate-error` under it; both are hidden until they apply. `donate-submit[disabled]` with
-// `aria-busy="true"` is the button while submitting. `donate-secure` is the line under the button.
+// `donate-error` under it; both are hidden until they apply. `donate-submit` is the one primary
+// button; the presets and frequencies are chips. `donate-submit[disabled]` with `aria-busy="true"`
+// is the button while submitting. `donate-secure` is the line under the button.
 import { fetchCampaign, fetchDefaultCampaign } from "./campaigns.js";
 import { createDonationStore, type DonationState, type DonationStore, type DonationStoreOptions } from "../app/wix/donations/donation-store.js";
 import type { DonationField } from "../app/wix/donations/donations-core.js";

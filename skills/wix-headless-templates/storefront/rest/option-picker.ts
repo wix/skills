@@ -24,7 +24,11 @@
 //
 // To style: `picker-choice--selected` (also `aria-pressed="true"`) is the chosen option; a disabled
 // choice is out of stock with the current picks. A swatch button has only its background color
-// and needs a width, a height and a shape. The quantity stepper is two buttons around a span.
+// and needs a width, a height and a shape. Each control takes the style of its role: `picker-add`
+// is the one primary button; `picker-quantity` is one compact inline group, two small
+// `picker-quantity-button` with `picker-quantity-value` centred between them; the choices are
+// chips, or swatches for a color option, with `picker-choice--selected` as the chosen one. Scope
+// the rules to the classes; a page rule on `button` reaches all of them.
 // `picker-add[disabled]` is the gated add button, `[aria-busy="true"]` while adding. The notes under
 // the button (`picker-note`, `picker-reason`, `picker-error`, `picker-notify`) are hidden until
 // they apply.
