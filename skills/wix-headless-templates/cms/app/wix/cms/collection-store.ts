@@ -63,7 +63,7 @@ export interface CollectionState {
 
 export interface CollectionStore {
   getState(): CollectionState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: CollectionState) => void): () => void;
   /** Run the first query unless the seed already answered it. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -160,8 +160,9 @@ export function createCollectionStore(options: CollectionStoreOptions): Collecti
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("collection-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

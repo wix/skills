@@ -78,7 +78,7 @@ export interface ShopState {
 
 export interface ShopStore {
   getState(): ShopState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ShopState) => void): () => void;
   /** Adopt the URL, fetch categories/facets, open the cursor chain. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -276,8 +276,9 @@ export function createShopStore({ initialProducts, initialCategories, initialCat
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("shop-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

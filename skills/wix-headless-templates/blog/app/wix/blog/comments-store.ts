@@ -50,7 +50,7 @@ export interface CommentsState {
 
 export interface CommentsStore {
   getState(): CommentsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: CommentsState) => void): () => void;
   /** Read the current member and the first page. Call once when mounted. */
   start(): void;
   stop(): void;
@@ -109,7 +109,11 @@ export function createCommentsStore({ referenceId, pageSize, sort: initialSort =
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("comments-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;

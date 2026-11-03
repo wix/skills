@@ -20,7 +20,7 @@ export interface CollectionsState {
 
 export interface CollectionsStore {
   getState(): CollectionsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: CollectionsState) => void): () => void;
   /** Fetch when no seed was given. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop a late response. */
@@ -35,11 +35,17 @@ export function createCollectionsStore({ initialCollections }: CollectionsStoreO
   let snapshot: CollectionsState | null = null;
   const emit = () => { snapshot = null; for (const fn of listeners) fn(); };
 
+  function getState(): CollectionsState {
+    return (snapshot ??= { collections, error });
+  }
+
   return {
-    getState() {
-      return (snapshot ??= { collections, error });
+    getState,
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("collections-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     start() {
       if (started) return;
       started = true;

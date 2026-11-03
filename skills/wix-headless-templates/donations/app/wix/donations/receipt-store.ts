@@ -18,7 +18,7 @@ export interface ReceiptState {
 
 export interface ReceiptStore {
   getState(): ReceiptState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ReceiptState) => void): () => void;
   /** Read the order once (a browser). */
   start(): void;
   stop(): void;
@@ -39,8 +39,9 @@ export function createReceiptStore(orderId?: string): ReceiptStore {
   return {
     getState: () => state,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(state); } catch (e) { console.error("receipt-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

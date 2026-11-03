@@ -25,7 +25,7 @@ export interface ProjectDetailState {
 
 export interface ProjectDetailStore {
   getState(): ProjectDetailState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ProjectDetailState) => void): () => void;
   /** Resolve the slug and load its gallery unless both were seeded. Call once when mounted. */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -45,11 +45,17 @@ export function createProjectDetailStore(
   let snapshot: ProjectDetailState | null = null;
   const emit = () => { snapshot = null; for (const fn of listeners) fn(); };
 
+  function getState(): ProjectDetailState {
+    return (snapshot ??= { project, notFound, items, error });
+  }
+
   return {
-    getState() {
-      return (snapshot ??= { project, notFound, items, error });
+    getState,
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("project-detail-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     start() {
       if (started) return;
       started = true;

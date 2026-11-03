@@ -32,7 +32,7 @@ export interface ItemState {
 
 export interface ItemStore {
   getState(): ItemState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ItemState) => void): () => void;
   /** Fetch by ref when no `initialItem` was given. Call once when mounted. */
   start(): void;
   stop(): void;
@@ -80,7 +80,11 @@ export function createItemStore({ collectionId, ref, initialItem, include }: Ite
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("item-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;

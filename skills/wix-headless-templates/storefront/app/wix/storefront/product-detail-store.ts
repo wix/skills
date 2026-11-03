@@ -84,7 +84,7 @@ export interface ProductDetailState {
 
 export interface ProductDetailStore {
   getState(): ProductDetailState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ProductDetailState) => void): () => void;
   /** Fetch by slug when no `initial` was given; load the live inventory. Call once when mounted. */
   start(): void;
   stop(): void;
@@ -200,7 +200,11 @@ export function createProductDetailStore({ initial, slug }: ProductDetailStoreOp
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("product-detail-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;

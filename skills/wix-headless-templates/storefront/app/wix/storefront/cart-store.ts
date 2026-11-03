@@ -46,7 +46,8 @@ export function getCartState(): CartState {
   return state;
 }
 
-export function subscribeCart(listener: () => void): () => void {
+export function subscribeCart(fn: (state: CartState) => void): () => void {
+  const listener = (): void => { try { fn(getCartState()); } catch (e) { console.error("cart-store listener failed", e); } };
   listeners.add(listener);
   // First subscriber triggers the initial load (browser only — SSR renders the empty state).
   if (!loaded && typeof window !== "undefined") {

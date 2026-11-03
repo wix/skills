@@ -25,7 +25,7 @@ export interface RentalsState {
 
 export interface RentalsStore {
   getState(): RentalsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: RentalsState) => void): () => void;
   /** Fetch the first page unless it was seeded. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -78,8 +78,9 @@ export function createRentalsStore({ initialRentals, initialHasMore = false, pag
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("rentals-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

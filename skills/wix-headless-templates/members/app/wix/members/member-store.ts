@@ -51,7 +51,8 @@ export function hydrateMember(member: CurrentMember | null): void {
   state = { member, loggedIn: member !== null, loading: false, error: null };
 }
 
-export function subscribeMember(listener: () => void): () => void {
+export function subscribeMember(fn: (state: MemberState) => void): () => void {
+  const listener = (): void => { try { fn(getMemberState()); } catch (e) { console.error("member-store listener failed", e); } };
   listeners.add(listener);
   // First subscriber triggers the initial session read (browser only — SSR renders `loading`).
   if (!started && typeof window !== "undefined") {

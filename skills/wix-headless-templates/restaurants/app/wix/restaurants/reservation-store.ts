@@ -47,7 +47,7 @@ export interface ReservationState {
 
 export interface ReservationStore {
   getState(): ReservationState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ReservationState) => void): () => void;
   /** Load the locations. Call once when mounted (a browser). */
   start(): void;
   stop(): void;
@@ -154,8 +154,9 @@ export function createReservationStore(): ReservationStore {
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("reservation-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

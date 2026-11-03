@@ -164,7 +164,8 @@ export function getFaqState(): FaqState {
 }
 
 /** The first browser subscriber starts the store: the deep link is applied, and unseeded data is fetched. */
-export function subscribeFaq(listener: () => void): () => void {
+export function subscribeFaq(fn: (state: FaqState) => void): () => void {
+  const listener = (): void => { try { fn(getFaqState()); } catch (e) { console.error("faq-store listener failed", e); } };
   listeners.add(listener);
   if (isBrowser()) start();
   return () => listeners.delete(listener);

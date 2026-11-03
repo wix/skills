@@ -26,7 +26,7 @@ export interface MenuState {
 
 export interface MenuStore {
   getState(): MenuState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: MenuState) => void): () => void;
   /** Fetch the tree when no `initialMenus` were given. Call once when mounted. */
   start(): void;
   /** Stop reacting; drop a late response. */
@@ -56,8 +56,9 @@ export function createMenuStore({ initialMenus }: MenuStoreOptions = {}): MenuSt
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("menu-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

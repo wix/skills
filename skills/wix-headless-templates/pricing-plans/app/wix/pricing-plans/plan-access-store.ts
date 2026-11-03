@@ -43,7 +43,7 @@ export interface PlanAccessState {
 
 export interface PlanAccessStore {
   getState(): PlanAccessState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: PlanAccessState) => void): () => void;
   /** Feed the current session; call again whenever it changes (the hook does, on every render that changes it). */
   check(session: PlanAccessSession): void;
   /** Stop reacting; drop a late response. */
@@ -65,8 +65,9 @@ export function createPlanAccessStore({ planIds, initialAccess, call }: PlanAcce
   return {
     getState: () => state,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(state); } catch (e) { console.error("plan-access-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     check(session) {
       stopped = false;

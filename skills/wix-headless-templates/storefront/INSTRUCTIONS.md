@@ -558,11 +558,12 @@ empty, `resolveVariant`, `canAdd`/`blockedReason`, `selectPlan`, `maxQuantity`, 
 `notify()`), and `./js/wix/cart-store.js` (the cart, `subscribeCart`/`getCartState`, `addLine`,
 `updateLineQuantity`, `removeCartLine`, `applyCartCoupon`, `removeCartCoupon`, `setCartNote`,
 `goToCheckout`, `setCartOpen`). The purchase controls ship as plain-DOM renderers over those
-stores — **wire them as-is**: `renderCartButton(root)` and `renderCartDrawer({ productUrl? })` from
+stores — **wire them as-is**: `renderCartButton(root)` (put an inline SVG or the word "Cart" in
+`root` first; the count renders beside it) and `renderCartDrawer({ productUrl? })` from
 `./js/wix/cart-drawer.js` (the drawer mounts once, on `document.body`, and opens after every add),
 `renderQuickAdd(root, product, { productUrl? })` from `./js/wix/quick-add.js` as the last row of
-every tile (it decides direct add, a picker panel anchored to the tile, or a link to the product
-page, and opens the panel with the overlay contract), and `mountOptionPicker(root, { slug | initial,
+every tile (it decides direct add, a picker panel, or a link to the product page, and opens the
+panel with the overlay contract), and `mountOptionPicker(root, { slug | initial,
 showQuantity })` from `./js/wix/option-picker.js` on the product page (option groups with
 unavailable choices disabled, modifiers, plans, the stepper capped at stock, the gated add button
 with its reason, pre-order, "notify me"); its `store` gives the page `price`, `compareAtPrice`,
@@ -571,8 +572,9 @@ under one prefix (`cart-*`, `quickadd-*`, `picker-*`) and a `data-state`. Each f
 the classes and ends with a "To style" note: the overlay elements that need a fixed position (the
 cart backdrop and drawer, the quick-add backdrop and panel), the state selectors (selected,
 disabled, `aria-busy`, `data-state`) and the elements that need a size (swatches, line images).
-Style them in the page's stylesheet on the same tokens as the rest of the page; the drawer renders
-in the page flow until its backdrop is positioned. What you write in plain JS is the rest: the
+Style them in the page's stylesheet on the same tokens as the rest of the page, including every
+button and input inside the drawer; the drawer renders in the page flow until its backdrop is
+positioned. What you write in plain JS is the rest: the
 listing on `createShopStore` (one render function that reads `getState()`, called from
 `subscribe`), the tiles, the product page around the picker. Pages are `shop.html`,
 `category.html?slug=…`, `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
