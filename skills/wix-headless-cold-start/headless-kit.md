@@ -276,7 +276,7 @@ async function run() {
   });
 }
 // { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
-// Some solutions also ship a form (for example /js/wix/donate-form.js). Render it as it is. Do not write that form.
+// Some solutions also ship a form (for example /js/wix/donate-form.js, /js/wix/form-renderer.js). Render it as it is. Do not write that form.
 ```
 
 The call keeps the pages. It returns the entry points and the file counts. The modules do not pass

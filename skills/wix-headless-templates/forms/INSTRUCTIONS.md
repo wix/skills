@@ -29,7 +29,9 @@ read first. Files you edit: `SiteLayout.astro` and `styles/global.css`. Files yo
 | `rest/forms.ts` · `rest/submissions.ts` (skill-side) | the REST twin of the two data files: same exports, same DTOs, over `fetch` with the visitor token — what `--stack static` deploys, and the spec a port reads |
 | `styles/global.css` | the design system: Tailwind v4 + the `@theme` token block (shared across verticals) |
 
-There are **no shipped components and no shipped pages** — every control is yours.
+There are **no shipped components and no shipped pages** on Astro and React — every control is
+yours. On `static`, `rest/form-renderer.ts` ships the whole form as a plain-DOM renderer over the
+store (see the static wiring); there you write the page around it.
 
 ## What you build — the design job
 
@@ -236,7 +238,8 @@ export default function ContactForm({ formId, initialForm }: { formId: string; i
 ### The reference files for stacks where the components don't deploy
 
 On `lib`, `static`, and a port, nothing under `hooks/` arrives — and this vertical ships nothing
-under `components/` on any stack. The state machine behind the hook does arrive —
+under `components/` on any stack (on `static`, the form renderer arrives instead — see the static
+wiring below). The state machine behind the hook does arrive —
 `wix/forms/form-store.ts` — so you never rewrite it: `createFormStore` per form, `subscribe`,
 render from `getState()`, call its actions. Its `FormState` interface is the render contract;
 read that. What you write is the rendering, and one shipped file is worth reading first:
@@ -290,17 +293,22 @@ above, so the contracts on this page hold unchanged: `getForm`, `listForms` from
 `./js/wix/forms.js`; `uploadFiles`, `createSubmission`, `checkoutUrl`, `toSubmissionValues`,
 `submissionErrors` from `./js/wix/submissions.js`. The state machine ships too: `createFormStore`
 from `./js/wix/form-store.js` (`start()` once the page is up; `setValue`, `validate`, `next`,
-`previous`, `submit`; `FORM_ERROR` beside it). No hook, no components — you write the rendering
-in plain JS: build the controls when `getState().form` arrives (one element per `form.fields`
-entry, `name` = `target`, `input` → `setValue`, `blur` → `validate(target)`), and on later
-notifications update only the error text, `aria-invalid`, the button's disabled state, and
-which fields are present (a rule can add or remove one; compare targets and add/remove only
-those) — rebuilding every input on each keystroke drops focus. `<form novalidate>` with
-`onsubmit = (e) => store.submit(e).then(out => out && showOutcome(out))`; `submit` reads the
-native event's `currentTarget` to focus the first invalid control. Wix static hosting serves
-files, not directories: the page is `contact.html`, linked as such. The visitor token persists
-in `localStorage` on its own; never mint per page. The page's title and meta description are
-yours (a form is not an entity page; there is no `seoData`).
+`previous`, `submit`; `FORM_ERROR` beside it). On this stack the form itself ships as a plain-DOM
+renderer over that store — **wire it as-is**: `renderForm(root, { formId, classPrefix?, text?,
+onOutcome? })` from `./js/wix/form-renderer.js` (or `{ initialForm }` for a form you already
+fetched). It maps `form.fields` to controls per the table above, applies the owner's required
+indicator, shows help and errors under each control only after a blur or a submit, renders one
+step at a time with the owner's button wording, follows the rules (a field a rule hides leaves
+the page, the address parts follow the chosen country), handles "Other", keeps `File` objects for
+the store to upload, shows the owner's closed message, and replaces the form with the thank-you or
+navigates to checkout or the redirect. It sets no styles: every element has a class under one
+prefix (`form-field`, `form-label`, `form-control`, `form-choice`, `form-choice--selected`,
+`form-error`, `form-submit`, `form-success`, …; the file's header lists them) and the form has
+`data-state` — style them in your CSS. What you write is the page around it: heading, intro,
+where the form sits. Wix static hosting serves files, not directories: the page is
+`contact.html`, linked as such. The visitor token persists in `localStorage` on its own; never
+mint per page. The page's title and meta description are yours (a form is not an entity page;
+there is no `seoData`).
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

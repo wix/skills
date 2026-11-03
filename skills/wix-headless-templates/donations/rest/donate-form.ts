@@ -1,31 +1,30 @@
-// The donate form for one campaign on a static page — the twin of components/donations/DonateForm.tsx,
-// in plain DOM over the same store. Wire it as-is; it owns the rules a rewritten form gets wrong:
-// the frequency picker only when the campaign offers more than one frequency, the preset amounts
-// with the owner's impact text, "Other amount" only when the owner enabled it (with the campaign's
-// min/max in the messages), the cover-fee checkbox with the computed 2.9% only when the owner asks,
-// the note only when comments are enabled (with its counter), the live "Donate $25 Monthly" label,
-// "Redirecting…" while the hosted checkout starts, errors shown after the first attempt, the failure
-// inline. For a campaign that isn't accepting donations (goal reached / expired) it renders your
-// `closedMessage`, or nothing. Every control follows the campaign as the owner has it in the
-// dashboard at load time, so a dashboard edit reaches the page on the next load.
+// DOM renderer for the donate form of one campaign, driven by donation-store. Builds the controls
+// from `campaign.options`, updates them from store state, and forwards input to the store.
+// Amounts, validation, the cart and the checkout redirect live in the store.
 //
-// It sets no styles. Every element carries a class under one prefix (default "donate": donate-form,
-// donate-fieldset, donate-legend, donate-choices, donate-choice, donate-choice--selected,
-// donate-radio, donate-choice-label, donate-choice-impact, donate-custom, donate-currency,
-// donate-input, donate-help, donate-error, donate-fee, donate-checkbox, donate-note,
-// donate-textarea, donate-counter, donate-actions, donate-submit, donate-secure, donate-closed) and
-// the form `data-state` ("open" | "closed" | "submitting"); style them in your CSS. The structure is
-// built once from the campaign's options; state changes only toggle attributes and text, so typing
-// in the amount or the note never loses focus.
+// Controls, each present only when the campaign has the setting:
+// - frequency picker when `options.frequencies.length > 1`
+// - one choice per `options.presets` entry, with its impact text
+// - "Other amount" and a text input when `options.customAmount.enabled`
+// - cover-fee checkbox when `options.askCoverFee`
+// - note with a counter when `options.commentsEnabled`
+// - the submit button labelled with `state.buttonLabel`; "Redirecting…" while submitting
+// When `campaign.acceptsDonations` is false, renders `closedMessage` (or nothing) instead.
+// The DOM is built once; state changes update attributes and text, so focus is kept while typing.
 //
-// The redirect itself is the store → donationCheckoutUrl; nothing here builds a URL or marks
-// anything paid.
+// No styles. Class names use one prefix (default "donate"): donate-form, donate-fieldset,
+// donate-legend, donate-choices, donate-choice, donate-choice--selected, donate-radio,
+// donate-choice-label, donate-choice-impact, donate-custom, donate-custom-label,
+// donate-custom-field, donate-currency, donate-input, donate-help, donate-error, donate-fee,
+// donate-fee-label, donate-checkbox, donate-note, donate-note-label, donate-optional,
+// donate-textarea, donate-counter, donate-actions, donate-submit, donate-secure, donate-closed.
+// The <form> carries `data-state`: "open" | "closed" | "submitting".
 import { fetchCampaign, fetchDefaultCampaign } from "./campaigns.js";
 import { createDonationStore, type DonationState, type DonationStore, type DonationStoreOptions } from "../app/wix/donations/donation-store.js";
 import type { DonationField } from "../app/wix/donations/donations-core.js";
 import type { CampaignDetail } from "../app/wix/donations/types.js";
 
-/** The form's own words; pass another language's. `{fee}` and `{min}` are replaced. */
+/** UI strings. `{fee}`, `{min}` and `{max}` are placeholders. */
 export interface DonateFormText {
   howOften: string;
   amount: string;
@@ -78,9 +77,9 @@ export interface DonateForm {
 let instances = 0;
 
 /**
- * Render the donate form for `campaign` into `root` (emptied first). Returns the store and a
- * `destroy()`. The page passes `paths` so the hosted checkout returns to its files:
- * renderDonateForm(el, campaign, { paths: { thankYou: "/thank-you.html", campaign: location.pathname } })
+ * Renders the donate form for `campaign` into `root`, replacing its content. `paths` sets where
+ * the hosted checkout returns to. Example:
+ * `renderDonateForm(el, campaign, { paths: { thankYou: "/thank-you.html", campaign: location.pathname } })`
  */
 export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, options: DonateFormOptions = {}): DonateForm {
   const { classPrefix = "donate", closedMessage, text: words, ...storeOptions } = options;
@@ -108,7 +107,7 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
     return { store, destroy: () => root.replaceChildren() };
   }
 
-  // Every choice (a frequency, a preset, "Other amount") is a label around a radio.
+  // A choice (frequency, preset, "Other amount") is a label wrapping a radio input.
   interface Choice { label: HTMLLabelElement; input: HTMLInputElement; selected: (s: DonationState) => boolean }
   const choices: Choice[] = [];
   const choice = (name: string, value: string, selected: Choice["selected"], onPick: () => void, title: string, impact = ""): HTMLLabelElement => {
@@ -286,9 +285,9 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
 }
 
 /**
- * Fetch the campaign, then render its form into `root`: by id, or the site's default campaign
- * (the Wix widget's rule) when `campaignId` is omitted. Resolves to null, with `root` emptied,
- * when there is no such campaign or it is archived — render your not-found state then.
+ * Fetches the campaign (by id, or the site's default campaign when `campaignId` is omitted) and
+ * renders its form into `root`. Resolves to null, with `root` emptied, when the campaign does not
+ * exist or is archived.
  */
 export async function mountDonateForm(root: HTMLElement, campaignId?: string, options: DonateFormOptions = {}): Promise<DonateForm | null> {
   const campaign = campaignId ? await fetchCampaign(campaignId) : await fetchDefaultCampaign();
