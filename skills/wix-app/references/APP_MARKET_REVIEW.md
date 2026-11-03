@@ -1,227 +1,37 @@
 # Wix App Market Review
 
-Use this reference when preparing a Wix CLI app for App Market submission,
-auditing review feedback, or checking whether an implementation is likely to
-pass technical review. Keep the review evidence-based: classify what the app
-actually does, then mark each relevant requirement as `Confirmed`,
-`Not applicable`, or `Needs confirmation`.
-
-This page covers code-facing and repository-verifiable requirements. App
-Dashboard, pricing-page setup, company profile, and listing-copy checks require
-separate dashboard or listing verification unless the user provides direct
-evidence.
-
----
+Use this reference to prepare a Wix CLI app for App Market submission, audit review feedback, or check whether an app is likely to pass review. Be evidence-based: mark each relevant requirement `Confirmed`, `Not applicable`, or `Needs confirmation`. It covers code-facing requirements; dashboard, pricing-page, company-profile and listing-copy checks need evidence from the user.
 
 ## Review Workflow
 
-1. Identify the app surfaces first: billing model, auth/password usage, cookie
-   usage, extension types, live-site surfaces, dashboard/setup surfaces, Wix
-   business-solution dependencies, and webhooks.
-2. Start with a report-only pass. List confirmed gaps, why they matter, and
-   official Wix documentation links where available.
-3. Do not mark a requirement as missing unless code, config, user statements,
-   runtime behavior, or explicit absence supports that finding. Otherwise mark
-   it `Needs confirmation`.
-4. Before flagging secrets, config leakage, or similar security issues, verify
-   the exposure is in a tracked file, the current diff, build artifacts, or
-   another review-relevant surface. Do not treat a local-only workspace file by
-   itself as repository exposure.
-5. Do not infer app billing configuration from Wix Business Solutions Pricing
-   Plans SDK/API usage. Business-solution Pricing Plans are for a Wix user
-   selling plans to customers; App Billing/App Plans are for charging site
-   owners for the app.
-6. For any code-facing gap the user asks you to fix, implement the fix through
-   the relevant `wix-app` extension reference first, then run validation.
+1. Identify the app surfaces first: billing model, auth and password use, cookies, extension types, live-site and dashboard surfaces, Wix business-solution dependencies, webhooks.
+2. Start with a report-only pass: confirmed gaps, why they matter, and the docs page for each.
+3. Mark a requirement missing only when code, config, user statements, runtime behavior or explicit absence supports it; otherwise `Needs confirmation`.
+4. Flag secrets or config leakage only when the exposure is in a tracked file, the current diff or a build artifact.
+5. For any gap the user asks you to fix, implement the fix through the relevant `wix-app` extension reference, then run validation.
+
+## Requirements
+
+The requirement text, with its numbers, is in these docs pages. Check each finding against its page and map it to the IDs below:
+
+- [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines).
+- [Security and Privacy Best Practice](https://dev.wix.com/docs/build-apps/launch-your-app/legal-and-security/security-and-privacy-best-practice).
+- [Identify and Manage App Users](https://dev.wix.com/docs/build-apps/launch-your-app/pricing-and-billing/identify-and-manage-app-users).
+- [App Instance Installed](https://dev.wix.com/docs/api-reference/app-management/app-instance/app-instance-installed).
+- [Common Reasons for App Rejection](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/common-reasons-for-app-rejection).
+
+Rules that need a code or config check:
+
+- **Identity (#115, #116, #118, #122):** identify users and bill per `instanceId`, never by cookie or session. Site duplication creates a new `instanceId`: link it to the original via `originInstanceId` and copy applicable settings and content.
+- **Signed instance (#76):** reject a signed `instance` whose `signDate` is older than one day and require a refresh.
+- **Webhooks (#113, #114):** App Instance Installed and Removed are recommended for provisioning and cleanup; App Installation Created also fires on the first install. Any implemented webhook returns HTTP 200.
+- **Setup (#107, #108):** a settings surface exists (an Embedded Script app needs a dashboard page); no localhost URLs in configuration.
+- **Stores (#130):** support Catalog V1 and V3, see [STORES_VERSIONING.md](STORES_VERSIONING.md).
+- **Billing evidence (#25, #125):** App Billing and App Plans charge site owners; Pricing Plans SDK usage is not evidence of either.
 
 ## Expected Output
 
-Group findings by priority:
-
-- Technical blockers: confirmed issues that are likely decline reasons.
-- Should-fix items: high review risk, but not enough evidence to call them
-  definite decline reasons.
-- Nice-to-have hardening: improvements that reduce risk without blocking
-  submission.
-- Needs confirmation: requirements that cannot be verified from available
-  evidence.
-
-For each finding include:
-
-- `Applicability`
-- `Evidence`
-- `Impact`
-- `Recommended fix`
-- `Verification`
-- `Confidence`
-
-Preserve qualifiers from the taxonomy and docs. Do not upgrade `recommended`,
-`if applicable`, or surface-specific guidance into a universal requirement.
-
----
-
-## Technical Checklist
-
-Work through this before submission. Only applicable unchecked items are
-potential decline reasons.
-
-### Billing and Payments
-
-- [ ] All in-app purchases route through Wix Billing unless Wix explicitly
-      approved the app as Partner Billed; approved Partner Billed apps report
-      charges through External Billing Events.
-- [ ] No external purchase buttons, links, QR codes, license keys, or other
-      custom mechanisms unlock paid content.
-- [ ] Full checkout flow tested for every plan.
-- [ ] If the app has premium features, there is a clear in-product upgrade link
-      or CTA.
-- [ ] Credits do not expire.
-
-### Setup and Access
-
-- [ ] App configuration URLs are public and do not use localhost.
-- [ ] A usable setup/settings UI exists. Embedded Script apps need a dashboard
-      page.
-
-### Instance and Identity
-
-- [ ] `instanceId` is used for user/site identification, not cookies or sessions.
-- [ ] Billing is separated per `instanceId`.
-- [ ] Auto-login works when the user reopens the app from Manage Apps.
-- [ ] Site duplication is handled through `originInstanceId`: treat the copied
-      site as a new install linked to the original and copy applicable
-      settings/content where possible.
-- [ ] Required Wix apps, such as Stores or Bookings, are checked through Get App
-      Instance and surfaced clearly if missing.
-- [ ] If the app supports Wix Stores catalog data, both Catalog V1 and Catalog
-      V3 are supported. See [STORES_VERSIONING.md](STORES_VERSIONING.md).
-
-### Webhooks
-
-- [ ] Any implemented webhook returns HTTP 200 on successful receipt.
-- [ ] App Installed and App Removed webhooks are considered for lifecycle
-      provisioning and cleanup. They are recommended, not a universal hard
-      requirement.
-
-### Permissions
-
-- [ ] Only minimum required permissions are requested.
-- [ ] Redundant or overlapping permissions are removed.
-
-### Security
-
-- [ ] Signed `instance` verification happens server-side before trusting
-      user/site context.
-- [ ] Signed-instance-backed edit/save actions validate `signDate`; stale
-      signatures require refresh before continuing.
-- [ ] All endpoints are HTTPS with no HTTP fallback.
-- [ ] In-product flows avoid `alert()` and `confirm()`; use Wix modal,
-      inline status, toast, or another surface-appropriate feedback pattern.
-- [ ] XSS protection covers all user input fields.
-- [ ] Passwords are stored as salted hashes, such as bcrypt or SHA-256 with a
-      unique salt per password.
-- [ ] Password reset uses an expiring email link and never sends raw passwords.
-- [ ] Sensitive data is not stored in cookies and is encrypted where needed.
-
-### UX and Display
-
-- [ ] In-product flows use Wix popup/modal patterns where appropriate.
-      OAuth and documented Wix pricing-page upgrade CTAs are exceptions.
-- [ ] First install shows realistic demo data, not placeholder lorem ipsum.
-- [ ] Ads are not shown to site visitors unless ad display is the app purpose
-      and the app has the required permits.
-- [ ] Review prompts, if present, are non-blocking and do not force or
-      incentivize reviews.
-- [ ] Plugin content relates to the host app's core functionality.
-
-### Performance and Quality
-
-- [ ] Startup and load times meet App Market expectations.
-- [ ] No known bugs or console errors remain.
-- [ ] Supported-browser matrix is tested.
-- [ ] Live-site extensions are responsive across screen sizes.
-- [ ] Dashboard surfaces support the required desktop layout.
-
-### SEO, Accessibility, and Localization
-
-- [ ] Widget components do not render `<h1>` tags.
-- [ ] User-facing images expose alt-text customization where applicable.
-- [ ] App output is UTF-8 encoded.
-- [ ] Website components meet accessibility standards.
-
-### Cookie Consent
-
-- [ ] Cookie consent workflow activates/deactivates cookies per visitor
-      preferences.
-
----
-
-## Implementation Notes
-
-### Payment and Billing
-
-All apps that collect money must route payments through Wix Billing unless Wix
-granted a formal exception. Approved Partner Billed apps still need to report
-charges/refunds through External Billing Events and submit revenue reports.
-
-| Requirement | Notes | Docs |
-| --- | --- | --- |
-| Implement Wix Billing (#25) | Use Billing API for subscriptions unless Wix approved Partner Billing. | [App Billing APIs](https://dev.wix.com/docs/api-reference/app-management/app-billing/introduction) |
-| No custom unlock mechanisms (#29, #30) | Content gating and purchase flows must go through Wix Billing only. | [Billing API](https://dev.wix.com/docs/api-reference/app-management/app-billing/billing/introduction) |
-| Test checkout per plan (#33) | Verify purchase, upgrade, cancellation, and entitlement UX. | [Billing sample flows](https://dev.wix.com/docs/api-reference/app-management/app-billing/billing/sample-flows) |
-| Upgrade path (#125) | Premium features need a clear upgrade link or CTA. Do not treat Business Solutions Pricing Plans SDK usage as evidence for app billing decisions. | [Identify and Manage App Users](https://dev.wix.com/docs/build-apps/launch-your-app/pricing-and-billing/identify-and-manage-app-users) |
-| Usage-based or one-time charges | Billing API handles subscriptions; use Custom Charges for other approved billing flows. | [Custom Charges Service Plugin](https://dev.wix.com/docs/api-reference/app-management/app-billing/custom-charges-service-plugin/introduction) |
-| Partner Billed reporting | Required only for apps with written approval from Wix. | [External Billing Events API](https://dev.wix.com/docs/api-reference/app-management/app-billing/external-billing-events/introduction) |
-
-### App Instance and Identity
-
-The `instanceId` uniquely identifies an app installation on a site. Use it for
-identity, app data, and billing. Site duplication creates a new `instanceId`;
-use `originInstanceId` to relate the copied site to the original.
-
-| Requirement | Notes | Docs |
-| --- | --- | --- |
-| Identify by `instanceId` (#115) | Each site installation gets a unique ID. | [App Instance API](https://dev.wix.com/docs/api-reference/app-management/app-instance/introduction) |
-| Separate billing per site (#116) | One plan must not silently unlock multiple sites. | [App Instance API](https://dev.wix.com/docs/api-reference/app-management/app-instance/introduction) |
-| Auto-login (#118) | Restore the app session from the current site instance. | [Get App Instance](https://dev.wix.com/docs/api-reference/app-management/app-instance/get-app-instance) |
-| Check required apps (#120) | Verify required Wix apps and show clear setup guidance if missing. | [Get App Instance](https://dev.wix.com/docs/api-reference/app-management/app-instance/get-app-instance) |
-| Site duplication (#122) | Copy relevant settings/content to the new instance where possible. | [App Instance API](https://dev.wix.com/docs/api-reference/app-management/app-instance/introduction) |
-| Stores catalog compatibility (#130) | Support both Catalog V1 and Catalog V3. | [Catalog Versioning API](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-versioning/introduction) |
-
-### Webhooks, Setup, and Permissions
-
-| Requirement | Notes | Docs |
-| --- | --- | --- |
-| App lifecycle webhooks (#113) | Recommended for provisioning and cleanup; if implemented, return HTTP 200. | [App Instance Installed](https://dev.wix.com/docs/api-reference/app-management/app-instance/app-instance-installed) |
-| Webhook success response (#114) | Any implemented webhook must return HTTP 200 on successful receipt. | [App Instance Removed](https://dev.wix.com/docs/api-reference/app-management/app-instance/app-instance-removed) |
-| Settings/setup UI (#107) | Provide a dashboard page, widget, or another relevant setup surface. Embedded Script apps need a dashboard page. | [About Extensions](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/about-extensions) |
-| No localhost URLs (#108) | App configuration URLs must be public. | [Self-hosted dashboard extensions](https://dev.wix.com/docs/build-apps/develop-your-app/frameworks/self-hosting/supported-extensions/dashboard-extensions/add-self-hosted-dashboard-page-extensions) |
-| Minimum permissions (#111, #112) | Request only scopes used by app functionality and remove overlap. | [App Permissions API](https://dev.wix.com/docs/api-reference/app-management/app-permissions/introduction) |
-
-### Security
-
-| Requirement | Notes | Docs |
-| --- | --- | --- |
-| Verify signed instance (#74) | Decode and verify the signed `instance` parameter server-side. | [App Instance API](https://dev.wix.com/docs/api-reference/app-management/app-instance/introduction) |
-| Validate `signDate` (#76) | For signed-instance-backed state changes, reject signatures older than one day and require refresh. | [Security and Privacy Best Practice](https://dev.wix.com/docs/build-apps/launch-your-app/legal-and-security/security-and-privacy-best-practice) |
-| HTTPS everywhere (#65, #77) | Dashboard, editor, and live-site URLs must use HTTPS. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| CSRF and XSS (#64, #78) | Sanitize every user input field. Regex tag stripping is only partial mitigation; use context-appropriate encoding and maintained sanitizers when HTML is supported. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Password storage (#63, #79, #80) | Store salted hashes; never store raw passwords. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Password reset (#81) | Send expiring email links; never send raw passwords. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Sensitive data (#69) | Keep sensitive data out of cookies and encrypt it at rest when needed. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-
-### UX, Performance, and Accessibility
-
-| Requirement | Notes | Docs |
-| --- | --- | --- |
-| Wix popup/modal patterns (#39) | Use Wix-appropriate surfaces for in-product flows. OAuth and documented pricing-page upgrade CTAs are exceptions. | [Dashboard extension guidelines](https://dev.wix.com/docs/build-apps/develop-your-app/frameworks/self-hosting/supported-extensions/dashboard-extensions/guidelines-for-self-hosted-dashboard-extensions) |
-| No browser-native interruptions (#45) | Replace `alert()` or `confirm()` with inline status, toast, modal, or other appropriate feedback. | [UX/UI Best Practices](https://dev.wix.com/docs/build-apps/develop-your-app/design/ux-and-ui-best-practices) |
-| Demo data (#37) | Show realistic fictional content on first install. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| No visitor ads (#47) | Unless ad display is the app purpose and required permits exist. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Performance (#48, #49) | Run a performance audit and clear known bugs/console errors before submission. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Responsive design (#52, #54) | Live-site extensions need responsive layouts; dashboard surfaces need the required desktop layout. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Accessibility and SEO (#53, #55, #57, #58) | Avoid widget `<h1>` tags, provide relevant alt-text controls, use UTF-8, and meet accessibility expectations. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
-| Cookie consent (#92, #97) | Activate/deactivate cookies dynamically per visitor consent choice. | [App Market Guidelines](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-market-guidelines) |
+Group findings as blockers (likely decline reasons), should-fix, nice-to-have, and needs-confirmation. For each: `Applicability`, `Evidence`, `Impact`, `Recommended fix`, `Verification`, `Confidence`. Do not upgrade `recommended`, `if applicable` or surface-specific guidance into a universal requirement.
 
 ---
 
