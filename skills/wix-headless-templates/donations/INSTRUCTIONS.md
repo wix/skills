@@ -148,7 +148,8 @@ export default function CampaignsGrid(props: { initialCampaigns?: CampaignSummar
 
 ### The reference files for stacks where the components don't deploy
 
-On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives. The state machines
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives (on `static`, the
+donate form and the goal block arrive as plain-DOM twins — see the static wiring below). The state machines
 behind the hooks do arrive — `wix/donations/donation-store.ts`, `campaigns-store.ts`,
 `receipt-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
 `getState()`, call its actions. Their `*State` interfaces are the render contract; read those. What
@@ -208,12 +209,22 @@ the contracts on this page hold unchanged: `fetchCampaigns`, `fetchCampaign` fro
 `./js/wix/campaigns.js`; `donationCheckoutUrl`, `fetchDonationReceipt` from `./js/wix/donate.js`. The
 state machines ship too: `createCampaignsStore` from `./js/wix/campaigns-store.js`,
 `createDonationStore` from `./js/wix/donation-store.js`, `createReceiptStore` from
-`./js/wix/receipt-store.js`. No components ship — you write the rendering in plain JS: one render
-function per surface that reads `getState()`, called from `subscribe`, with the CTA calling
-`donate()`. Pages are `donate.html`, `campaign.html?id=…` and `thank-you.html` (Wix static hosting
-serves files, not directories — name the file and link to it); pass
-`createDonationStore(campaign, { paths: { thankYou: "/thank-you.html", campaign: "/campaign.html?id=" + id } })`
-so the hosted checkout returns to your files; the campaign page reads the id, `fetchCampaign`, renders
+`./js/wix/receipt-store.js`. The donate form and the goal block ship as plain-DOM twins of the
+React components — **wire them as-is**: `renderDonateForm(root, campaign, { paths })` (or
+`mountDonateForm(root, campaignId?, { paths })`, which fetches the campaign first) from
+`./js/wix/donate-form.js`, and `renderGoalProgress(root, campaign.goal, { compact? })` from
+`./js/wix/goal-progress.js`. They decide which controls appear from the campaign's options at load
+time (the frequency picker, the presets, "Other amount", the fee, the note, the closed state), so a
+dashboard edit reaches the page on the next load; a page never rebuilds the form. They set no
+styles: every element has a class under one prefix (`donate-form`, `donate-choice`,
+`donate-choice--selected`, `donate-submit`, `goal-bar`, …; the file's header lists them) — style
+them in your CSS. What you write in plain JS is the rest: the card and the index on
+`createCampaignsStore` (one render function that reads `getState()`, called from `subscribe`), the
+campaign page around the two shipped blocks, and the thank-you page on `createReceiptStore`.
+Pages are `donate.html`, `campaign.html?id=…` and `thank-you.html` (Wix static hosting serves
+files, not directories — name the file and link to it); pass
+`{ paths: { thankYou: "/thank-you.html", campaign: "/campaign.html?id=" + id } }` to the form so
+the hosted checkout returns to your files; the campaign page reads the id, `fetchCampaign`, renders
 its not-found state on null, and sets `document.title` from the DTO's `name`. The visitor token
 persists in `localStorage` on its own; never mint per page.
 
@@ -270,8 +281,9 @@ Wix as a return target must be one the host serves (SKILL.md step 1) — pass it
   the only computed money is the fee preview — Wix's fixed 2.9% — and the button total. Wix prices
   the line, tax and schedule at the hosted checkout.
 - **No invented goal numbers.** Progress renders only from `goal`; a campaign without one has none.
-- **The form is the shipped `DonateForm`** — it alone decides which controls appear (frequencies,
-  presets, custom amount, fee, note) and when a campaign is closed; a page never rebuilds that.
+- **The form is the shipped `DonateForm`** (on `static`, `renderDonateForm`) — it alone decides which
+  controls appear (frequencies, presets, custom amount, fee, note) and when a campaign is closed; a
+  page never rebuilds that.
 - **The story copy is yours, the campaign data isn't.** The API has no description: write the cause's
   story from the brief; never fabricate figures, beneficiaries or urgency.
 - Don't wrap shipped calls in your own API routes — they run client-side by design.

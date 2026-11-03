@@ -219,6 +219,14 @@ options). Show the field, or keep the text general. Then a change by the owner r
 A field can be empty (an image, a description, a price on request). Design an empty state for it in
 each place where it appears.
 
+A page that shows one item also takes its controls from the modules, not only its values. This is
+true for every type of item: a product, a service, a rental, an event, a plan, a campaign, a menu
+dish, a form, a post, a project, a collection item. Some controls depend on a setting of the item:
+a choice of amounts, a frequency, a goal, a date, a ticket type, a price, a custom field. Show such
+a control only if the modules return its setting. Decide this when the page loads, not when you
+write the page. Do not build the controls from the content that you made in step 4. The owner
+changes the settings in the dashboard, and the page follows on the next load.
+
 ### Step 5: the design
 
 The modules carry the data. The pages are the design job. `INSTRUCTIONS.md` of the solution tells
@@ -260,6 +268,7 @@ async function run() {
   });
 }
 // { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
+// Some solutions also ship a form (for example /js/wix/donate-form.js). Render it as it is. Do not write that form.
 ```
 
 The call keeps the pages. It returns the entry points and the file counts. The modules do not pass
