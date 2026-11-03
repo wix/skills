@@ -567,12 +567,15 @@ showQuantity })` from `./js/wix/option-picker.js` on the product page (option gr
 unavailable choices disabled, modifiers, plans, the stepper capped at stock, the gated add button
 with its reason, pre-order, "notify me"); its `store` gives the page `price`, `compareAtPrice`,
 `pricePerUnit` and `imageUrl` to render beside it. They set no styles: every element has a class
-under one prefix (`cart-*`, `quickadd-*`, `picker-*`; each file's header lists them) and a
-`data-state` — style them in your CSS, including the drawer's and the panel's placement. What you
-write in plain JS is the rest: the listing on `createShopStore` (one render function that reads
-`getState()`, called from `subscribe`), the tiles, the product page around the picker. Pages are
-`shop.html`, `category.html?slug=…`,
-`product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
+under one prefix (`cart-*`, `quickadd-*`, `picker-*`) and a `data-state`. Each file's header lists
+the classes and ends with a "To style" note: the overlay elements that need a fixed position (the
+cart backdrop and drawer, the quick-add backdrop and panel), the state selectors (selected,
+disabled, `aria-busy`, `data-state`) and the elements that need a size (swatches, line images).
+Style them in the page's stylesheet on the same tokens as the rest of the page; the drawer renders
+in the page flow until its backdrop is positioned. What you write in plain JS is the rest: the
+listing on `createShopStore` (one render function that reads `getState()`, called from
+`subscribe`), the tiles, the product page around the picker. Pages are `shop.html`,
+`category.html?slug=…`, `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
 once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
 its own; never mint per page.
 

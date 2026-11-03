@@ -217,10 +217,13 @@ React components — **wire them as-is**: `renderDonateForm(root, campaign, { pa
 time (the frequency picker, the presets, "Other amount", the fee, the note, the closed state), so a
 dashboard edit reaches the page on the next load; a page never rebuilds the form. They set no
 styles: every element has a class under one prefix (`donate-form`, `donate-choice`,
-`donate-choice--selected`, `donate-submit`, `goal-bar`, …; the file's header lists them) — style
-them in your CSS. What you write in plain JS is the rest: the card and the index on
-`createCampaignsStore` (one render function that reads `getState()`, called from `subscribe`), the
-campaign page around the two shipped blocks, and the thank-you page on `createReceiptStore`.
+`donate-choice--selected`, `donate-submit`, `goal-bar`, …). Each file's header lists the classes
+and ends with a "To style" note: the state selectors (selected, `aria-invalid`, `aria-busy`,
+`data-state`) and the elements that need a size (the goal bar and its fill). Style them in the
+page's stylesheet on the same tokens as the rest of the page. What you write in plain JS is the
+rest: the card and the index on `createCampaignsStore` (one render function that reads
+`getState()`, called from `subscribe`), the campaign page around the two shipped blocks, and the
+thank-you page on `createReceiptStore`.
 Pages are `donate.html`, `campaign.html?id=…` and `thank-you.html` (Wix static hosting serves
 files, not directories — name the file and link to it); pass
 `{ paths: { thankYou: "/thank-you.html", campaign: "/campaign.html?id=" + id } }` to the form so

@@ -21,6 +21,15 @@
 // cart-note, cart-note-label, cart-note-input, cart-footer, cart-totals, cart-row,
 // cart-row--total, cart-row-label, cart-row-value, cart-shipping-note, cart-error, cart-checkout.
 // The drawer root carries `data-state`: "closed" | "open" | "busy".
+//
+// To style: the backdrop is appended to `container` (default document.body) with the drawer
+// inside it, and neither has a position. Give `cart-backdrop` `position: fixed; inset: 0` and a
+// background, and `cart-drawer` a position against one edge, a width, a background and
+// `overflow: auto`; without these the drawer renders in the page flow at the end of the body.
+// `cart-drawer[data-state="busy"]` is the drawer during a cart operation; its buttons are disabled
+// then. The stepper is two buttons around a span. `cart-line-image` has no size and
+// `cart-line-placeholder` is an empty div; give both the same size. `cart-line-compare` is the
+// struck catalog price. `cart-button-count` is the count on the header button, hidden at zero.
 import {
   applyCartCoupon,
   getCartState,
