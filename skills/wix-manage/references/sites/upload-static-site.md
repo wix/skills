@@ -286,8 +286,8 @@ static pages: they read the site's last drop and drop the result. A site whose
 live release is a Wix Astro build is changed in its project instead; a drop
 there replaces the build with static files. The file helpers' `patch` and an
 `UploadHeadlessWebsiteFiles` upload without `replaceAll` check this themselves
-and stop (`409 LIVE_SITE_CHANGED`); a raw drop and the ZIP fallback do not. So
-first tell what is live.
+and stop when another release is live; a raw drop and the ZIP fallback do not.
+So first tell what is live.
 
 When this conversation published the site, or the user says how it was made,
 you know. Otherwise one read-only call tells, in `ExecuteWixAPI`:
@@ -303,7 +303,7 @@ async function run() {
 | Answer | What is live | Do |
 | --- | --- | --- |
 | `200` | Its last static drop | [Edit the static pages](#a-site-of-static-pages). |
-| `409 LIVE_SITE_CHANGED` | A release replaced the last drop: a Wix Astro build | [Change the project](#a-site-released-as-a-wix-astro-build). No drop, no patch. |
+| `409 LIVE_SITE_CHANGED` | Wix reports a release other than the last drop. Usually a Wix Astro build, but a site with no `prod` release answers this too while its drop is what is live | In `ExecuteWixAPI`, `fetch()` the site's `*.wix-site-host.com` address (listed by `GET https://www.wixapis.com/urls-server/v2/published-site-urls`, site scope; the sandbox fetches only your own sites at that host, not a custom domain) and compare the page with the drop's `index.html`, leaving out the `wix-site-script` tag. The same page: edit the static pages (the helpers' `patch` makes this check itself). Another page: [change the project](#a-site-released-as-a-wix-astro-build); no drop, no patch. |
 | `404 SITE_CODE_NOT_FOUND` | Nothing was ever dropped | A new site gets its files with a first full upload, as for a new one. A site released as a Wix Astro build without a drop is changed in its project. |
 
 ### A site released as a Wix Astro build
@@ -648,7 +648,7 @@ Wix MCP.
 | --- | --- |
 | `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
 | Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
-| `409 LIVE_SITE_CHANGED` from the files endpoint, a patch or an upload ("is live as a Wix Astro build") | The live site is a Wix Astro build, not its last drop: [change the project](#a-site-released-as-a-wix-astro-build). Do not drop. To replace the build with static pages on purpose, upload the whole site with `replaceAll: true`. |
+| A patch or an upload stops: "is live as something other than its last static upload" | Wix reports another release and the live home page is not the drop's, so a drop would put old files back over what is live. Do not drop. Ask the user how the site was made; for a Wix Astro build, [change the project](#a-site-released-as-a-wix-astro-build). To replace what is live with static pages on purpose, upload the whole site with `replaceAll: true`. Do not tell the user it is an Astro build unless you know it is. |
 | A helper's "has no static files on Wix hosting" (`404 SITE_CODE_NOT_FOUND`) | Nothing was ever dropped. A new site gets its first full upload; a site released as a Wix Astro build is changed in its project. |
 | Release `400 EXPECTED_HEAD_REQUIRED` / `409` | The repository holds newer work than the project started from: download it, carry the change over, release again. |
 | Drop/upload `500` | Inspect current state before retrying once; retain the request ID if it fails again and offer the drop page. Hand-built malformed multipart can also cause this: use `wix.multipart`. |
