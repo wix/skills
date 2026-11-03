@@ -23,6 +23,15 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
+    # Orders — reading orders and building sales reports from them
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/find-and-report-on-orders.md
+      title: "Find and Report on Orders"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
     # Pricing & promotions category
     # ============================================================
 

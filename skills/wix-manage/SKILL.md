@@ -191,6 +191,7 @@ Buy a domain through Wix or connect one the user already owns — intent, sugges
 - **Traffic acquisition is NOT an eCommerce-strategy request** ("grow my traffic", SEO, ads, social, content) → do NOT use Recommend: eCommerce Strategy; it only converts visitors a store already has. Route these to marketing.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+- **Orders** (find an order by its number, order history, what a customer bought, unpaid or unshipped orders, units sold, sales reports and exports) → use [Find and Report on Orders](references/ecommerce/find-and-report-on-orders.md). Totals and trends that are already aggregated (revenue over time, order count, AOV) → use [Query Site Analytics](references/analytics/query-site-analytics.md).
 - **Gift cards** ("should I sell gift cards", "add a gift card", "what amounts should my gift card have") → these are recommendations, so they go through [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md), which activates its GIFT_CARDS domain and loads the gift-cards goal itself. Issuing/redeeming an individual gift card is the Gift Cards API, not a recommendation.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
@@ -204,6 +205,9 @@ Routes discounts, coupons, sales and bundles to promotion recipes, and visual pr
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
+
+### [Find and Report on Orders](references/ecommerce/find-and-report-on-orders.md)
+"Finds a Wix site's eCommerce orders and turns them into answers and reports: one order by its number, orders in a date range, the orders of one buyer, orders that contain a product, unpaid or unfulfilled orders, and sales totals such as units sold per product or revenue for a period. Covers which order fields can be filtered, paging through every result, and which fields a report reads. Use when the user asks about a specific order, their order history or what customers bought, or wants a sales report or an export built from their store's orders."
 
 <details>
 <summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
