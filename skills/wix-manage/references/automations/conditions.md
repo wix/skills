@@ -3,8 +3,6 @@ name: "Automations Conditions"
 description: "Configure visual and code conditions while preserving boolean intent, comparison boundaries and builder editability."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published". "Stage" and "not yet published" describe how this skill is being rolled out; never mention them to the user. Explain a limit in product terms: what can't be done through the API here and where the user can do it instead (for example, in the automations builder).
-
 # Conditions — Visual Conditions and Code Conditions
 
 **TL;DR**
@@ -87,13 +85,13 @@ NEVER:
 
 Literal rules (the value inputs reject or rewrite others):
 
-| Value   | Rule                                                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| string  | ≤ 2500 chars; must not contain `"` or `'` (the input flags it) — test a quote-free part with `stringHasSubString`, or use code                          |
-| number  | Unquoted; between −100000000 and 100000000; no decimals below 1 (`0.5`, `.5`, `-0.5`), leading zeros or exponents — they don't parse → use code         |
-| boolean | `true`/`false` unquoted (a quoted `"yes"` is re-saved as a broken bare word)                                                                            |
-| enum    | Exactly one of the schema's `enum`/`const` values, same case                                                                                            |
-| date    | `"YYYY-MM-DD"`; date-time: full ISO with zone (`"2026-12-25T10:00:00Z"`); never relative (`now()`) — relative windows → code or a set-variables boolean |
+| Value   | Rule                                                                                                                                                            |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| string  | ≤ 2500 chars; must not contain `"` or `'` (the input flags it) — test a quote-free part with `stringHasSubString`, or use code                                  |
+| number  | Unquoted; between −100000000 and 100000000; decimals such as `0.5` and `-0.25` are supported; no omitted leading zero (`.5`), leading zeros (`05`) or exponents |
+| boolean | `true`/`false` unquoted (a quoted `"yes"` is re-saved as a broken bare word)                                                                                    |
+| enum    | Exactly one of the schema's `enum`/`const` values, same case                                                                                                    |
+| date    | `"YYYY-MM-DD"`; date-time: full ISO with zone (`"2026-12-25T10:00:00Z"`); never relative (`now()`) — relative windows → code or a set-variables boolean         |
 
 Date values and time zone: the panel writes a picked date/time as wall-clock time in the **site
 time zone** with its offset (a date → that day's 00:00 site time), and URI-encodes it like every
@@ -106,7 +104,7 @@ Semantics: `stringEq`/`stringHasSubString`/`stringContains` are case-insensitive
 
 ## 3. Entity-id fields
 
-A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the vertical's public API or the user (Automations Entity and Provider Configuration (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
+A field with `itemsSelectionConfiguration` (service, form, product, label, coupon, location, pipeline stage, …) carries an **id or key**. A display name passes validation and silently never matches. Get ids from the owning vertical’s documented public list, search or get endpoint for this entity type, or the user. Confirm a supplied id with a successful read of that entity. If the field’s selection configuration restricts eligible entities to a parent (such as a form) or fixed criteria, accept only ids that meet those restrictions. Never construct an entity-picker endpoint URL from the provider key or call the builder’s internal picker endpoint directly. Ids are whatever that API returns — label keys look like `custom.vip-customers`, not uuids.
 
 - Scalar field `service_id`: `{{stringContains(["<service-id>"];var("service_id"))}}`
 - Property in an array of objects `lineItems[].rootCatalogItemId`: `{{arraySome(arrayMap(var("lineItems");"rootCatalogItemId");contains(["<product-id>"];$_))}}` — visual only when that property is the `defaultConditionedProperty`; else code: `(payload.lineItems || []).some(i => ids.includes(i.rootCatalogItemId))`
@@ -117,8 +115,8 @@ Never synthesize `[0]`, `.0`, `firstItem` or a dotted path through an array. "Th
 ## 4. When the logic doesn't fit one group
 
 - **`(A AND B) OR C` / mixed AND+OR / anything needing more than one group** → one `CODE_CONDITION` (§5) with exactly that logic — the default; it keeps a single true/false branch. Chaining two visual conditions (`A AND B` → false: condition `C`) is an alternative only when the true branch is one small step, since that step must then be duplicated (tree only — duplicate, never join; [Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model)). Never write several `orExpressionGroups`.
-- **Starts / ends with** → No operator. "contains" (`stringHasSubString`) when close enough (say so), or code for the exact test
-- **Two fields compared, computed values, relative dates, month/day of a date (birthdays), string length, decimals below 1, any §2 NEVER** → `CODE_CONDITION` (§5), or compute a boolean with a set-variables step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)) and test it with `boolEq(var("setVariable.<key>");true)`
+- **Starts / ends with** → No visual operator. Use an exact `CODE_CONDITION`, or compute a boolean with `startsWith` / `endsWith` in a preceding set-variables step and test it with `boolEq`. Never silently substitute a substring test; explain any proposed change in semantics and obtain the user's agreement before building it.
+- **Two fields compared, computed values, relative dates, month/day of a date (birthdays), string length, any §2 NEVER** → `CODE_CONDITION` (§5), or compute a boolean with a set-variables step ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)) and test it with `boolEq(var("setVariable.<key>");true)`
 - **Optional field ("if phone is present it must contain 555")** → Two chained conditions (`not(isEmpty(…))`, then the test), or code
 
 Prefer a visual `CONDITION` when it expresses the logic exactly — users can keep editing it. Don't force complex logic into it; if the user insists, explain what can't be drawn. Never say the logic is impossible when code can do it.
@@ -162,11 +160,36 @@ Minimal array check (the code reads only the declared array):
   "truePostActionIds": ["<uuid-2>"], "falsePostActionIds": [] }
 ```
 
+**Numeric values in code.** Payload numbers can arrive as strings, including fields with
+`format: number`. A bare `typeof value === 'number'` rejects those valid values. Convert only
+numbers or nonblank strings, then require `Number.isFinite` before arithmetic or comparison.
+Do not turn missing, null or blank values into zero unless the user's rule explicitly requires it.
+For a same-line quantity/price check, use the actual schema paths in place of these example names
+and declare the entire `lineItems` array in `dynamicVariableExpressions`:
+
+```json
+{
+  "id": "<uuid-5>",
+  "type": "CODE_CONDITION",
+  "namespace": "CONDITION-3",
+  "displayName": "Same item has quantity 3+ and price over 50",
+  "codeConditionInfo": {
+    "snippet": {
+      "language": "JAVASCRIPT",
+      "code": "/**\n * @param {Payload} payload\n * @returns {boolean}\n */\nexport default function (payload) {\n  const number = value =>\n    typeof value === 'number'\n      ? value\n      : typeof value === 'string' && value.trim() !== ''\n        ? Number(value)\n        : NaN;\n  return (\n    Array.isArray(payload.lineItems) &&\n    payload.lineItems.some(item => {\n      const quantity = number(item?.quantity),\n        price = number(item?.unitPrice);\n      return (\n        Number.isFinite(quantity) &&\n        Number.isFinite(price) &&\n        quantity >= 3 &&\n        price > 50\n      );\n    })\n  );\n}\n"
+    },
+    "dynamicVariableExpressions": ["{{var(\"lineItems\")}}"],
+    "truePostActionIds": ["<uuid-6>"],
+    "falsePostActionIds": []
+  }
+}
+```
+
 MUST:
 
 - `type: "CODE_CONDITION"` with only `codeConditionInfo`; `namespace` follows the condition pattern (`CONDITION-N`, unique).
 - `language` is always `JAVASCRIPT`. The code default-exports a synchronous `function (payload)` with exactly one parameter, starts with the JSDoc block the builder's template has (`/** @param {Payload} payload … @returns {boolean} … */` — required), and returns an explicit boolean. No imports, no network calls. Whole code ≤ 1000 characters; newlines escaped in JSON.
-- Guard every access (`?.`, `|| []`, `|| 0`, `typeof`, `try/catch` for deep paths); a missing field must not throw.
+- Guard every access (`?.`, `Array.isArray`, `|| []`, `typeof`, `try/catch` for deep paths); a missing field must not throw. Numeric conversion follows the rule above, not an unconditional `|| 0` default.
 - Access — the same paths as the aggregated schema ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4): `payload.field`, `payload['field-with-hyphens']`, action outputs `payload['<namespace>'].field`, `payload.contact.email`, `payload.setVariable['<key>']`. JS may index arrays and use `.some/.every/.filter` and `Date` math; `new Date()` gives the current time for calendar checks.
 - `dynamicVariableExpressions`: one `{{var("<path>")}}` for EVERY field the code reads — the runtime hydrates ONLY these, so an undeclared field is `undefined`. Arrays: declare the array itself (`payload.lineItems.some(…)` → `{{var("lineItems")}}`), never items or indexes; reading an object whole needs the object declared; if a path has no valid `var()`, declare its closest valid parent. Never `payload[computedKey]` or the whole `payload`. `[]` only when the code reads no field. Every path must exist in this node's aggregated schema.
 - Use it only when the visual panel can't express the logic (array indexing, per-element math, string splitting, date parts, regex — §4).
@@ -178,7 +201,7 @@ Other special steps (delay, rate limit, set variables, split): [Automations Dela
 
 - [ ] One group; explicit `AND`/`OR`; 1–20 expressions; no nested `and/or`; no stray whitespace.
 - [ ] Each expression is a §2 row for the field's classified type; `not()` only on ¬ rows; no `arrayIncludes*`, no collection-first `arrayEvery`.
-- [ ] Value literal obeys the literal rules (no quotes in strings, no `0.x` numbers, exact enum values, unquoted booleans).
+- [ ] Value literal obeys §2 (no quotes in strings; no `.5`, `05` or exponent numbers — `0.5` and `-0.25` are valid; exact enum values; unquoted booleans).
 - [ ] Every `var()` path exists in this step's aggregated schema; `arrayMap` only onto `defaultConditionedProperty`.
 - [ ] Entity fields compared to ids (§3); no synthetic array paths.
 - [ ] String literals URI-encoded; JSON quotes escaped.

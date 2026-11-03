@@ -10,7 +10,7 @@ description: "Write builder-compatible automation mapping expressions, literals 
 - `{{expression}}`; fields via `var("dotted.path")` (double quotes, one argument); arguments separated by `;`; string literals in double quotes and URI-encoded.
 - In formula fields (action inputs, set-variable values, delay due dates) use ONLY the builder function list in §2. Conditions and trigger filters have their own, stricter vocabularies — [Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions), [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §4.2.
 - The builder type-checks every argument and the arity (§2): `eq`/`gt`/`gte`/`lt`/`lte` take NUMBERS only (strings → `stringEq`, dates → `date*`); `if()`'s first argument is boolean. There are no operators.
-- No array element access in any form. Project with `arrayMap(array;"path")`, aggregate with `array*`. A single-value field can never be filled from an array — ask the user which item.
+- No array element access in any form. Project with `arrayMap(array;"path")`, aggregate with `array*`. A scalar cannot be indexed directly from an array; use the extraction fallback in §5 when needed.
 - Only data from the step's aggregated schema (trigger + ancestors) is in scope ([Automations Graph and Data Model](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-graph-and-data-model) §4).
 
 ---
@@ -21,7 +21,7 @@ description: "Write builder-compatible automation mapping expressions, literals 
 | --------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Literal                                             | `{{"text"}}`, `{{10}}`, `{{true}}`, `{{["a","b"]}}`                          |
 | Variable                                            | `{{var("contact.name.first")}}`                                              |
-| Function                                            | `{{concat(var("a");" - ";var("b"))}}`                                        |
+| Function                                            | `{{concat(var("a");"%20-%20";var("b"))}}`                                    |
 | Text with embedded expressions (string fields only) | `Hi {{var("contact.name.first")}}, your total is {{toString(var("total"))}}` |
 
 MUST:
@@ -29,7 +29,7 @@ MUST:
 - Every field access is `var("path")` with ONE argument — `{{fieldName}}` is not supported.
 - Double quotes only (`var('x')` is an unknown variable to the builder). In JSON escape them: `"{{var(\"contact.email\")}}"`.
 - `;` between arguments, no leading/trailing/double `;`, balanced parentheses. No whitespace outside string literals — `{{ concat(…` or `sum( 1;2)` is unreadable to the builder.
-- Numbers: plain decimal literals (`5`, `-3`, `12.5`). Never `0.5`, `.5`, `-0.25`, `05` or `1e3` — the builder's parser rejects them (conditions, filters, delays and rate limits stop loading). Write `divide(1;2)` instead. Percentages follow the same rule: 10% of `x` is `divide(x;10)` and 15% is `divide(multiply(x;15);100)`, never `multiply(x;0.1)`.
+- Numbers: plain decimal literals (`5`, `-3`, `12.5`, `0.5`, `-0.25`). Include the zero before the decimal point; `.5`, leading zeros such as `05`, and exponent notation such as `1e3` are invalid. For 10% of `x`, `multiply(x;0.1)` and `divide(x;10)` are equivalent. Timing panels impose separate whole-number limits ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches)).
 - Path segments may contain hyphens (`var("triggered-emails-1.messageId")`); a space inside a segment is invalid.
 - **URI-encode every string literal inside `{{…}}`** exactly as `encodeURIComponent` does — this is how the builder's panels and the platform store them: `"a@b.com"` → `"a%40b.com"`, `"50%"` → `"50%25"`, `"New York"` → `"New%20York"`, `"&"` → `"%26"`. Letters, digits and `- _ . ! ~ * ' ( )` stay as they are, so uuids and `arrayMap` paths are unchanged. Do NOT encode `var("…")` paths (except in trigger filters, where the filter panel encodes the path too — [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration)) or text outside `{{…}}`, nor a date-time literal in a formula field (§2). Decode literals when you read an existing automation. Action formula fields display literals as stored, so in string fields keep fixed text outside `{{…}}` (`Hi {{var("contact.name.first")}}, welcome!`) rather than in `concat("…")`.
 
@@ -94,9 +94,9 @@ A `strict` dynamic field requires the exact return type/format. `skipActionExpre
 - **No element access**: `var("items[0]")`, `var("items.0.name")`, `var("items[0].name")` are all invalid. Don't invent `firstItem`/`items.id` helper paths either.
 - **Projection**: `{{arrayMap(var("order.items");"product.name")}}` — second argument is a quoted literal path (never `$_` or an expression).
 - **Aggregates**: `{{arraySize(var("lineItems"))}}`, `{{arraySum(arrayMap(var("lineItems");"totalPrice.value"))}}`. Never `arraySum(var("items.price"))` — a path cannot cross an array boundary.
-- **No per-element arithmetic** (price × quantity): sum a per-line total field if one exists, else say it is not derivable.
+- **No per-element arithmetic in formulas** (price × quantity): sum a verified per-line total field if one exists. If the result only decides a branch, use a code condition ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §5). Otherwise formulas cannot compute it exactly; explain the limitation. Use Generate or Analyze Text for a computed value only after the user accepts an AI-derived, potentially approximate result and its current input contract can carry all required data. Do not silently replace exact arithmetic with model output.
 - **No lists as text**: no `join`; an `arrayMap` result can't go into `concat` or a string field.
-- **Single-value field from an array → impossible.** Ask the user which item or use a user-given value; don't retry array-shaped variants.
+- **Scalar extraction needs a separate step.** If the source is an array, a Generate or Analyze Text step can return a named scalar only when its current input contract provides a verified way to supply all required source data ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4). A scalar prompt cannot take a raw array-returning expression; use a verified serialized-text source, not a guessed `context` field or unverified array conversion. Then map the named ancestor output. SET_VARIABLES alone cannot extract an element. A verified single-item data source or a user-supplied value is another option. Ask only when which item to select is a business ambiguity; do not label the whole task impossible because formulas cannot index the array.
 - Empty arrays make `arraySum/arrayMin/arrayMax/arrayMedian/arrayMultiply` fail at runtime.
 - Membership tests (`does the order contain X`) belong in a condition ([Automations Conditions](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-conditions) §3) or, for complex logic, a code condition.
 
@@ -117,15 +117,15 @@ A `strict` dynamic field requires the exact return type/format. `skipActionExpre
 
 - Strip a known prefix: `{{if(startsWith(var("price");"%24");substring(var("price");1;subtract(stringLen(var("price"));1));var("price"))}}` (`"%24"` is the encoded `"$"`).
 - Title case: `{{upper(substring(var("t");0;1))}}{{lower(substring(var("t");1;subtract(stringLen(var("t"));1)))}}`.
-- Anything needing replace/split/regex/loops → a code condition (for branching) or tell the user it cannot be computed.
+- For replace/split/regex/loops, use a code condition when the result is only a branch decision. For a value consumed downstream, prefer a verified data source. Use Generate or Analyze Text ([Automations Delays Variables and Branches](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-delays-variables-and-branches) §4) with a named, typed output only when its current input contract can carry all required source data. For computed values, disclose that the model result may be approximate and obtain the user's agreement before substituting it for exact computation. If no supported path provides the needed value, explain that specific blocker.
 
 ## 9. Self-validation checklist (run on every expression)
 
-1. Parses: balanced `{{}}` and parentheses, `;` separators, double-quoted strings, no whitespace outside strings, no `0.x`/`.x`/exponent numbers.
+1. Parses: balanced `{{}}` and parentheses, `;` separators, double-quoted strings, no whitespace outside strings, plain decimals such as `0.5` and `-0.25` are valid; no omitted zero (`.5`), integer leading zeros (`05`) or exponent notation.
 2. Every function is in §2 (formula fields), the condition table (conditions) or the filter shapes (filters).
 3. Arity matches §2 exactly (`substring` 3, `round` 2).
 4. Argument types match the §2 table: numbers to math/`eq`/`gt`…, strings to text functions (`toString` numbers), dates with the right `format`, arrays only to `array*`/`isEmpty`; `if` arg 1 boolean and, in number/boolean fields, both branches of the field's type; `arrayMap` arg 2 a literal path.
-5. Every `var()` path exists in the aggregated schema of THIS step (ancestors only). If the unknown path has an array prefix (`items.id` where `items` is an array), element access is inexpressible — stop, don't respell.
+5. Every `var()` path exists in the aggregated schema of THIS step (ancestors only). If the unknown path has an array prefix (`items.id` where `items` is an array), element access is inexpressible in a formula — don't respell the path; use the §5 extraction fallback, or ask which item when that is a business choice.
 6. `$_` appears only inside `arraySome`/`arrayEvery` predicates (conditions/filters), bare (never `var($_)` or `$_.x`).
 7. Result type fits the target field (§4); no array into a single-value field.
 8. String literals URI-encoded; no single quotes.
