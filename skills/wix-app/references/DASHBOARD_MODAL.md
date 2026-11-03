@@ -7,11 +7,11 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 >
 > A create / "add new" form is included: it **writes** the record, so it is an `EntityPage` even though nothing is being edited yet. "It's a simple data-entry dialog, not an entity edit" is the wrong reading of this rule, and it is the most common way the rule is lost. Dialog size and field count are not exceptions either — a one-field create form is still an `EntityPage`.
 >
-> **A page that lists nothing is out of scope.** A settings page, an embedded-script config page, or any dashboard page that does not enumerate records carries no `EntityPage` obligation, and a dashboard modal is a normal choice there.
+> **A page that lists nothing is out of scope.** A settings page, a config page, or any dashboard page that lists no records carries no `EntityPage` obligation, and a dashboard modal is a normal choice there.
 >
 > So a dashboard modal is for: **destructive confirmations** (delete, discard, unsaved changes), **dialogs that persist nothing and show no record detail** (an informational notice, a picker that returns a selection), and **dialogs on pages that list nothing**. Never the add/edit form of a listed record — and "I built the list without `@wix/patterns`" is not an exception: a page that enumerates records should be a `CollectionPage`, so the fix is the page, not the dialog.
 >
-> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
+> See [Entity create and edit](dashboard-page/COMPONENT_SELECTION.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md).
 
 ## Scaffold
 

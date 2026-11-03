@@ -2,7 +2,7 @@
 
 Layout and spacing guidance for dashboard page content. Wix Design System design language — the 6px base unit, the 12-column grid, spacing tokens, and the common content layouts.
 
-> **Scope — read this in the right order.** On a dashboard page, `@wix/patterns` owns the page shell (`CollectionPage` / `EntityPage` / `SettingsPage`) and everything collection-shaped: tables, grids, filters, sorting, paging, row and bulk actions, empty states. This file describes how to lay out content **inside** that shell. It is not a licence to build the shell, a table, or a filter bar out of raw WDS — see [Component Selection Order](../../SKILL.md#component-selection-order) and [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md) first.
+> **Scope — read this in the right order.** On a dashboard page, `@wix/patterns` owns the page shell (`CollectionPage` / `EntityPage` / `SettingsPage`) and everything collection-shaped: tables, grids, filters, sorting, paging, row and bulk actions, empty states. This file describes how to lay out content **inside** that shell. It is not a licence to build the shell, a table, or a filter bar out of raw WDS — see [Component Selection Order](COMPONENT_SELECTION.md) and [WIX_PATTERNS_DOCS.md](../WIX_PATTERNS_DOCS.md) first.
 >
 > Where a patterns page component already establishes structure (page header, content area, sticky footer, table/grid layout), follow the patterns component's own API rather than reproducing the grid by hand. Use the guidance below for the parts patterns leaves to you: cards, forms, statistics rows, marketing sections, and spacing between them.
 

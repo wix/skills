@@ -12,7 +12,7 @@ Do this first because a bare filtered table answers "what are all the records" a
 
 `@wix/patterns` first, `@wix/design-system` for the leaf UI inside its shell, custom React only when neither has it. Do not hand-write React for anything either library provides, and do not decide a component is missing without checking.
 
-The order, what each library owns, and how to look a name up are stated once: [SKILL.md → Component Selection Order](../SKILL.md#component-selection-order).
+The order, what each library owns, and how to look a name up: [COMPONENT_SELECTION.md](dashboard-page/COMPONENT_SELECTION.md).
 
 **Theme:** the page's iframe inherits none of the Business Manager redesign. Wrap the entry file in the app's `BusinessManagerTheme`, import icons from `@wix/wix-ui-icons-common/lazy`, and style with `--wds-*` tokens or `skin`/`size` props — [BUSINESS_MANAGER_THEME.md](BUSINESS_MANAGER_THEME.md), [BUSINESS_MANAGER_TOKENS.md](BUSINESS_MANAGER_TOKENS.md).
 
@@ -74,7 +74,7 @@ Dashboard Pages cannot use `<Modal />`. For a true dialog overlay you **MUST** u
 >
 > **If this page lists nothing** (settings, config) the rule doesn't apply. But "I built the list without `@wix/patterns`" is not an exception: a page that lists records should be a `CollectionPage`.
 >
-> See [Entity create and edit](../SKILL.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, `<pkgRoot>/dist/docs/useEntityPage.md`.
+> See [Entity create and edit](dashboard-page/COMPONENT_SELECTION.md#entity-create-and-edit) and [WIX_PATTERNS_DOCS.md](WIX_PATTERNS_DOCS.md); for the `useEntityPage` call itself, `<pkgRoot>/dist/docs/useEntityPage.md`.
 
 **Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 
@@ -96,7 +96,7 @@ Each starts from one of the package's page templates, found through [DRAFT_TEMPL
 | --- | --- | --- |
 | "Dashboard page to manage blog posts" | Collection and Entity | Columns for the post fields named; search, row actions and empty state from the collection's own APIs; add/edit navigate to the `EntityPage`; `{feature}-api.ts` calls `@wix/blog` |
 | "Settings page for notification preferences" | Settings Page | `SettingsPage` shell with a WDS field per preference (`FormField`, `Input`, `ToggleSwitch`); save confirms with `dashboard.showToast()`, and `dashboard.onBeforeUnload()` warns on unsaved changes — no collection, no table hook, no router |
-| "Admin panel for customer orders" | Collection and Entity | Filters, sorting and row actions from the collection APIs — **not** a hand-built WDS filter bar; status `Badge` is leaf UI in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); viewing or editing opens the `EntityPage`, and a Dashboard Modal appears only for the delete confirmation (see [Entity create and edit](../SKILL.md#entity-create-and-edit)) |
+| "Admin panel for customer orders" | Collection and Entity | Filters, sorting and row actions from the collection APIs — **not** a hand-built WDS filter bar; status `Badge` is leaf UI in a cell; data source is `@wix/ecom`, never CMS (see [SDK-First Rule](../SKILL.md#sdk-first-rule-existing-wix-app-data-is-never-cms)); viewing or editing opens the `EntityPage`, and a Dashboard Modal appears only for the delete confirmation |
 | "Settings page for the coupon popup embedded script" | Settings Page | Fields for headline, coupon code, min cart value, enable toggle; swap `fetch`/`onSave` for `embeddedScripts.getEmbeddedScript()`/`embedScript()`, string-converted both ways (see [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md)); use `withProviders` in place of the template's plain provider |
 | "Admin page to manage fees, with an app settings section" | Collection and Entity, plus the Settings Page's settings page as one more route | One extension, not several — fee fields/calls into every route component. Skipping the router's `location` plumbing here passes `tsc`/`wix build` silently and fails only in a browser |
 
