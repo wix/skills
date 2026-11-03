@@ -26,7 +26,7 @@ export interface CollectionProjectsState {
 
 export interface CollectionProjectsStore {
   getState(): CollectionProjectsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: CollectionProjectsState) => void): () => void;
   /** Resolve the slug and load its projects unless both were seeded. Call once when mounted. */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -46,11 +46,17 @@ export function createCollectionProjectsStore(
   let snapshot: CollectionProjectsState | null = null;
   const emit = () => { snapshot = null; for (const fn of listeners) fn(); };
 
+  function getState(): CollectionProjectsState {
+    return (snapshot ??= { collection, notFound, projects, error });
+  }
+
   return {
-    getState() {
-      return (snapshot ??= { collection, notFound, projects, error });
+    getState,
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("collection-projects-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     start() {
       if (started) return;
       started = true;

@@ -18,7 +18,7 @@
 // cart-stepper-button, cart-stepper-value, cart-line-remove, cart-line-prices, cart-line-price,
 // cart-line-compare, cart-extras, cart-coupon, cart-coupon-applied, cart-coupon-code,
 // cart-coupon-remove, cart-coupon-form, cart-coupon-input, cart-coupon-apply, cart-coupon-toggle,
-// cart-note, cart-note-label, cart-note-input, cart-footer, cart-totals, cart-row,
+// cart-note, cart-note-field, cart-note-label, cart-note-input, cart-footer, cart-totals, cart-row,
 // cart-row--total, cart-row-label, cart-row-value, cart-shipping-note, cart-error, cart-checkout.
 // The drawer root carries `data-state`: "closed" | "open" | "busy".
 //
@@ -27,9 +27,15 @@
 // background, and `cart-drawer` a position against one edge, a width, a background and
 // `overflow: auto`; without these the drawer renders in the page flow at the end of the body.
 // `cart-drawer[data-state="busy"]` is the drawer during a cart operation; its buttons are disabled
-// then. The stepper is two buttons around a span. `cart-line-image` has no size and
-// `cart-line-placeholder` is an empty div; give both the same size. `cart-line-compare` is the
-// struck catalog price. `cart-button-count` is the count on the header button, hidden at zero.
+// then. Every button and input in the drawer is a plain element and shows the browser default
+// until styled: `cart-close`, `cart-stepper-button`, `cart-line-remove`, `cart-coupon-toggle`,
+// `cart-coupon-input`, `cart-coupon-apply`, `cart-coupon-remove`, `cart-note-input`,
+// `cart-checkout`. Give them the page's button and input styles. The stepper is two buttons around
+// a span. `cart-line-image` has no size and `cart-line-placeholder` is an empty div; give both the
+// same size. `cart-line-compare` is the struck catalog price.
+// `renderCartButton(root)` keeps what is in `root` as the icon: put an inline SVG or the word
+// "Cart" in `root` before calling it (an empty `root` gets the word). `cart-button-count` is the
+// count beside the icon, hidden at zero; a `cart-button` with no content of its own is a blank box.
 import {
   applyCartCoupon,
   getCartState,
@@ -175,10 +181,12 @@ export function renderCartDrawer(options: CartDrawerOptions = {}, container: HTM
   const couponApply = el("button", c("coupon-apply"), { type: "submit" }, t.couponApply);
   couponForm.append(couponInput, couponApply);
   const couponToggle = el("button", `${c("coupon")} ${c("coupon-toggle")}`, { type: "button" }, t.couponToggle);
-  const noteBox = el("label", c("note"));
+  const noteBox = el("div", c("note"));
+  const noteField = el("label", c("note-field"));
   const noteLabel = el("span", c("note-label"), {}, t.noteLabel);
   const noteInput = el("textarea", c("note-input"), { rows: "2" });
-  noteBox.append(noteLabel, noteInput);
+  noteField.append(noteLabel, noteInput);
+  noteBox.append(noteField);
   extras.append(couponApplied, couponForm, couponToggle, noteBox);
   body.append(empty, lines, extras);
   const footer = el("div", c("footer"), { hidden: "" });
@@ -329,8 +337,8 @@ export interface CartButton {
 
 /**
  * Renders the header cart button into `root`, replacing its content: an icon slot (`root`'s
- * existing children are kept inside the button) and a count badge that follows the cart. Clicking
- * opens the drawer.
+ * existing children are kept inside the button; an empty `root` gets the text "Cart") and a count
+ * badge that follows the cart. Clicking opens the drawer.
  */
 export function renderCartButton(root: HTMLElement, options: CartButtonOptions = {}): CartButton {
   const { classPrefix = "cart", text: words } = options;
@@ -339,6 +347,8 @@ export function renderCartButton(root: HTMLElement, options: CartButtonOptions =
   const button = make("button", c("button"), { type: "button" });
   const icon = make("span", c("button-icon"), { "aria-hidden": "true" });
   icon.append(...Array.from(root.childNodes));
+  // An empty root gets the word "Cart", so the button is never blank.
+  if (!icon.childNodes.length) icon.textContent = t.title;
   const count = make("span", c("button-count"), { hidden: "" });
   button.append(icon, count);
   root.replaceChildren(button);

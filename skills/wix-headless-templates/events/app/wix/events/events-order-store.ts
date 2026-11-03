@@ -36,7 +36,7 @@ export interface OrderState {
 
 export interface OrderStore {
   getState(): OrderState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: OrderState) => void): () => void;
   /** Fetch the event and the order, then poll the order until its tickets exist. Call once when mounted (a browser). */
   start(): void;
   /** Stop polling; drop late responses. */
@@ -105,8 +105,9 @@ export function createOrderStore({ orderNumber, eventId }: OrderStoreOptions): O
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("events-order-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

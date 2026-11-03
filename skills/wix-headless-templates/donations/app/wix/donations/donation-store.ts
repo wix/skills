@@ -60,7 +60,7 @@ export interface DonationState extends DonationSelection {
 
 export interface DonationStore {
   getState(): DonationState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: DonationState) => void): () => void;
   /** Pick a preset amount; leaves custom mode and clears the custom text. */
   selectPreset(amount: number): void;
   /** Activate "Other amount". */
@@ -124,8 +124,9 @@ export function createDonationStore(campaign: CampaignDetail, { origin, paths }:
   return {
     getState: () => state,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(state); } catch (e) { console.error("donation-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     selectPreset: (amount) => update({ presetAmount: amount, customMode: false, customAmount: "" }),
     selectCustom: () => update({ customMode: true, presetAmount: null }),

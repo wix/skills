@@ -258,6 +258,11 @@ page in a subfolder imports the same files:
 </script>
 ```
 
+Wix static hosting serves files. It does not serve a folder, and it does not serve the
+`index.html` of a folder at the path of the folder. Make every page a file in the root, for
+example `shop.html` and `product.html`, and link to the file: `/shop.html`, not `/shop/` and not
+`/shop`. A link to a folder gives the visitor a 404 page.
+
 Each module file has the name of the `rest/` file or store it was built from. It exports the same
 functions. It starts with its declarations: what it exports, the arguments, and what each function
 returns. The files of every solution on the site share the one folder. This is the layout that

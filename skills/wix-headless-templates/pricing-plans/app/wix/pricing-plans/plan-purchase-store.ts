@@ -17,7 +17,7 @@ export interface PlanPurchaseState {
 
 export interface PlanPurchaseStore {
   getState(): PlanPurchaseState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: PlanPurchaseState) => void): () => void;
   /**
    * Starts the hosted checkout — when it resolves the browser is already navigating away, and
    * `purchasingId` stays set. Rejects (and records `error`) otherwise — surface it, don't swallow it.
@@ -37,8 +37,9 @@ export function createPlanPurchaseStore(): PlanPurchaseStore {
   return {
     getState: () => state,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(state); } catch (e) { console.error("plan-purchase-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     async purchase(planId, options) {
       setState({ purchasingId: planId, error: null });

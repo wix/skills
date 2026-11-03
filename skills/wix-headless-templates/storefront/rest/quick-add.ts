@@ -6,8 +6,9 @@
 // - otherwise: a button that opens a picker panel; the panel loads the product by slug and
 //   renders the option picker (option-picker.js), or a link to the product page when the product
 //   has a free-text modifier or plans
-// The picker panel follows the overlay contract: Escape and the backdrop close it, focus moves in
-// and back, the page scroll is locked while it is open.
+// The picker panel is a dialog inside its backdrop and follows the overlay contract: Escape and
+// a click on the backdrop close it, focus moves in and back, the page scroll is locked while it
+// is open.
 //
 // No styles. Class names use one prefix (default "quickadd"): quickadd, quickadd-button,
 // quickadd-link, quickadd-error, quickadd-backdrop, quickadd-panel, quickadd-panel-header,
@@ -16,12 +17,14 @@
 // quickadd-panel-picker. The root carries `data-state`: "idle" | "adding" | "open"; the panel's
 // picker uses the option picker's own classes.
 //
-// To style: the backdrop and the panel are appended to `panelContainer` (default `root`, the
-// tile) as siblings, with no position. Give `quickadd-backdrop` `position: fixed; inset: 0` and
-// `quickadd-panel` a position (fixed, or absolute inside a tile that has `position: relative`),
-// a width, a background and `overflow: auto`. `quickadd-button[disabled]` with `aria-busy="true"`
-// is the button while adding. The two links share `quickadd-link`, with `quickadd-link--sold-out`
-// and `quickadd-link--plan` for the case.
+// To style: the backdrop is appended to `panelContainer` (default `root`, the tile) with the
+// panel inside it, and neither has a position. Give `quickadd-backdrop` `position: fixed; inset: 0`,
+// a background and a z-index above the page, and `quickadd-panel` a position inside it (for
+// example `position: absolute; right: 0; top: 0`), a width, a background and `overflow: auto`.
+// Because the panel is inside the backdrop, it stacks above the page with it; a backdrop as the
+// panel's sibling would cover the panel and close it on every click. `quickadd-button[disabled]`
+// with `aria-busy="true"` is the button while adding. The two links share `quickadd-link`, with
+// `quickadd-link--sold-out` and `quickadd-link--plan` for the case.
 import { addLine, getCartState, subscribeCart } from "../app/wix/storefront/cart-store.js";
 import { createProductDetailStore, type ProductDetailStore } from "../app/wix/storefront/product-detail-store.js";
 import type { ProductSummary } from "../app/wix/storefront/types.js";
@@ -151,7 +154,8 @@ export function renderQuickAdd(root: HTMLElement, product: ProductSummary, optio
     const pdp = el("a", c("panel-pdp"), { href: productUrl(product.slug), hidden: "" }, t.customize);
     const pickerRoot = el("div", c("panel-picker"));
     panel.append(header, status, pdp, pickerRoot);
-    host.append(backdrop, panel);
+    backdrop.append(panel);
+    host.append(backdrop);
     document.body.style.overflow = "hidden";
     box.dataset.state = "open";
 
@@ -159,7 +163,7 @@ export function renderQuickAdd(root: HTMLElement, product: ProductSummary, optio
     let picker: OptionPicker | null = null;
     const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") closePanel?.(); };
     document.addEventListener("keydown", onKey);
-    backdrop.addEventListener("click", () => closePanel?.());
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closePanel?.(); });
     close.addEventListener("click", () => closePanel?.());
 
     const render = (): void => {
@@ -192,7 +196,6 @@ export function renderQuickAdd(root: HTMLElement, product: ProductSummary, optio
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
       backdrop.remove();
-      panel.remove();
       box.dataset.state = "idle";
       closePanel = null;
       if (opener instanceof HTMLElement) opener.focus();

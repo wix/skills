@@ -47,7 +47,7 @@ export interface BlogFeedState {
 
 export interface BlogFeedStore {
   getState(): BlogFeedState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: BlogFeedState) => void): () => void;
   /** Fetch the taxonomy (unless seeded) and the first page (unless seeded for the active filter). Call once when mounted. */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -118,7 +118,11 @@ export function createBlogFeedStore({
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("blog-feed-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;

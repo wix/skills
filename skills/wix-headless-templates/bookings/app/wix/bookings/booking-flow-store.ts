@@ -90,7 +90,7 @@ export interface BookingFlowState {
 
 export interface BookingFlowStore {
   getState(): BookingFlowState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: BookingFlowState) => void): () => void;
   /** Load settings, the first window, next availability, sessions/seats, add-ons, and the form. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -284,8 +284,9 @@ export function createBookingFlowStore(service: ServiceDetail): BookingFlowStore
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("booking-flow-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

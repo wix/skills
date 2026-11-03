@@ -54,7 +54,7 @@ export interface RentalFlowState {
 
 export interface RentalFlowStore {
   getState(): RentalFlowState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: RentalFlowState) => void): () => void;
   /** Load the first window and the form. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -204,8 +204,9 @@ export function createRentalFlowStore(rental: RentalDetail): RentalFlowStore {
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("rental-flow-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

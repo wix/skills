@@ -64,7 +64,7 @@ export interface RegistrationState {
 
 export interface RegistrationStore {
   getState(): RegistrationState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: RegistrationState) => void): () => void;
   /** Load the tiers of a TICKETING event. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop a late response. */
@@ -172,8 +172,9 @@ export function createRegistrationStore(event: EventDetail, { paths }: Registrat
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("registration-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

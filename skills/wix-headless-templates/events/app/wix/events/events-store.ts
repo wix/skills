@@ -44,7 +44,7 @@ export interface EventsState {
 
 export interface EventsStore {
   getState(): EventsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: EventsState) => void): () => void;
   /** Fetch the first page when no `initialEvents` were given, and the categories. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop a late response. */
@@ -137,8 +137,9 @@ export function createEventsStore({ initialEvents, initialTotal, pageSize = DEFA
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("events-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

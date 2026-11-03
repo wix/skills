@@ -21,7 +21,7 @@ export interface CampaignsState {
 
 export interface CampaignsStore {
   getState(): CampaignsState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: CampaignsState) => void): () => void;
   /** Fetch the campaigns when no `initialCampaigns` were given. Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop a late response. */
@@ -41,8 +41,9 @@ export function createCampaignsStore({ initialCampaigns }: CampaignsStoreOptions
   return {
     getState: () => state,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(state); } catch (e) { console.error("campaigns-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

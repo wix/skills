@@ -51,7 +51,7 @@ export interface ServicesState {
 
 export interface ServicesStore {
   getState(): ServicesState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: ServicesState) => void): () => void;
   /** Fetch whatever wasn't seeded (and the offered days of the seeded page). Call once when mounted (a browser). */
   start(): void;
   /** Stop reacting; drop late responses. */
@@ -155,8 +155,9 @@ export function createServicesStore({
   return {
     getState,
     subscribe(fn) {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("services-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     start() {
       if (started) return;

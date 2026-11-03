@@ -235,7 +235,7 @@ export type FormSubmitEvent = { preventDefault?: () => void; currentTarget?: unk
 
 export interface FormStore {
   getState(): FormState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: FormState) => void): () => void;
   /** Load the schema when no `initialForm` was given. Call once when mounted. */
   start(): void;
   /** Stop reacting; drop a late schema response. */
@@ -383,7 +383,11 @@ export function createFormStore({ formId, initialForm }: FormStoreOptions): Form
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("form-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;

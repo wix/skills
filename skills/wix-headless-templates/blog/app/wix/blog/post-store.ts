@@ -50,7 +50,7 @@ export interface PostState {
 
 export interface PostStore {
   getState(): PostState;
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (state: PostState) => void): () => void;
   /** Fetch what was not seeded, then (browser only) the like state. Call once when mounted. */
   start(): void;
   stop(): void;
@@ -123,7 +123,11 @@ export function createPostStore({ slug, initialPost, initialCategories, initialT
 
   return {
     getState,
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    subscribe(fn) {
+      const listener = (): void => { try { fn(getState()); } catch (e) { console.error("post-store listener failed", e); } };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     start() {
       if (started) return;
       started = true;
