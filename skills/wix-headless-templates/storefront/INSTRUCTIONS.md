@@ -479,7 +479,8 @@ export default function ProductDetailView(props: {
 
 ### The reference files for stacks where the components don't deploy
 
-On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives. The state
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives (on `static`, the
+purchase controls arrive as plain-DOM renderers — see the static wiring below). The state
 machines behind the hooks do arrive — `wix/storefront/shop-store.ts`, `product-detail-store.ts`,
 `cart-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
 `getState()`, call its actions. Their `*State` interfaces are the render contract; read those.
@@ -556,10 +557,20 @@ from `./js/wix/product-detail-store.js` (the PDP and every quick-add picker — 
 empty, `resolveVariant`, `canAdd`/`blockedReason`, `selectPlan`, `maxQuantity`, `add()`,
 `notify()`), and `./js/wix/cart-store.js` (the cart, `subscribeCart`/`getCartState`, `addLine`,
 `updateLineQuantity`, `removeCartLine`, `applyCartCoupon`, `removeCartCoupon`, `setCartNote`,
-`goToCheckout`, `setCartOpen`). No components ship — you write the rendering in plain JS: one
-render function per surface that reads `getState()`, called from `subscribe`, with the
-surface's controls calling the store's actions. The drawer opens after every add on its own;
-overlays follow the CartDrawer contract (root-level, scroll lock, Escape, focus back). Pages are
+`goToCheckout`, `setCartOpen`). The purchase controls ship as plain-DOM renderers over those
+stores — **wire them as-is**: `renderCartButton(root)` and `renderCartDrawer({ productUrl? })` from
+`./js/wix/cart-drawer.js` (the drawer mounts once, on `document.body`, and opens after every add),
+`renderQuickAdd(root, product, { productUrl? })` from `./js/wix/quick-add.js` as the last row of
+every tile (it decides direct add, a picker panel anchored to the tile, or a link to the product
+page, and opens the panel with the overlay contract), and `mountOptionPicker(root, { slug | initial,
+showQuantity })` from `./js/wix/option-picker.js` on the product page (option groups with
+unavailable choices disabled, modifiers, plans, the stepper capped at stock, the gated add button
+with its reason, pre-order, "notify me"); its `store` gives the page `price`, `compareAtPrice`,
+`pricePerUnit` and `imageUrl` to render beside it. They set no styles: every element has a class
+under one prefix (`cart-*`, `quickadd-*`, `picker-*`; each file's header lists them) and a
+`data-state` — style them in your CSS, including the drawer's and the panel's placement. What you
+write in plain JS is the rest: the listing on `createShopStore` (one render function that reads
+`getState()`, called from `subscribe`), the tiles, the product page around the picker. Pages are
 `shop.html`, `category.html?slug=…`,
 `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
 once it loads, on the product AND category pages. The visitor token persists in `localStorage` on

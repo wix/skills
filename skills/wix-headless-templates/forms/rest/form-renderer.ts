@@ -33,6 +33,10 @@ import {
 } from "../app/wix/forms/form-store.js";
 import type { FormAddressPart, FormDto, FormFieldDto, SubmitOutcome } from "../app/wix/forms/types.js";
 
+/** Hides or shows an element. Sets `display` as well as `hidden`, because an author `display` rule overrides the attribute. */
+const hide = (node: HTMLElement, on: boolean): void => { node.hidden = on; node.style.display = on ? "none" : ""; };
+
+
 /** UI strings. `{n}` and `{total}` are placeholders. */
 export interface FormRendererText {
   loading: string;
@@ -151,6 +155,7 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
     const node = document.createElement(tag);
     if (className) node.className = className;
     for (const [k, v] of Object.entries(attrs)) if (v !== undefined) node.setAttribute(k, v);
+    if ("hidden" in attrs && attrs.hidden !== undefined) node.style.display = "none";
     if (textContent !== undefined) node.textContent = textContent;
     return node;
   };
@@ -226,7 +231,7 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
 
   const setError = (line: HTMLElement, controls: Element[], message: string | undefined): void => {
     line.textContent = message ?? "";
-    line.hidden = !message;
+    hide(line, !message);
     for (const x of controls) x.setAttribute("aria-invalid", message ? "true" : "false");
   };
 
@@ -308,8 +313,8 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
       update = (field, s) => {
         const v = s.values[field.target];
         const typed = otherText(field, v);
-        if (typed !== null && other) { if (select.value !== OTHER) select.value = OTHER; other.hidden = false; syncValue(other, typed); }
-        else { syncValue(select, v); if (other) { other.hidden = true; } }
+        if (typed !== null && other) { if (select.value !== OTHER) select.value = OTHER; hide(other, false); syncValue(other, typed); }
+        else { syncValue(select, v); if (other) { hide(other, true); } }
         select.disabled = field.readOnly;
         if (other) other.disabled = field.readOnly;
       };
@@ -368,7 +373,7 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
           input.disabled = field.readOnly;
           choice.classList.toggle(c("choice--selected"), input.checked);
         }
-        if (otherText$) { otherText$.hidden = typed === null; if (typed !== null) syncValue(otherText$, typed); otherText$.disabled = field.readOnly; }
+        if (otherText$) { hide(otherText$, typed === null); if (typed !== null) syncValue(otherText$, typed); otherText$.disabled = field.readOnly; }
       };
     } else if (f.control === "checkbox") {
       // Single checkbox: boolean value, the label is the statement.
@@ -473,7 +478,7 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
 
     if (s.outcome) {
       form.dataset.state = "done";
-      notice.hidden = true; stepHead.hidden = true; fieldsBox.hidden = true; actions.hidden = true; formError.hidden = true;
+      hide(notice, true); hide(stepHead, true); hide(fieldsBox, true); hide(actions, true); hide(formError, true);
       if (shownOutcome !== s.outcome) {
         shownOutcome = s.outcome;
         success.replaceChildren();
@@ -486,28 +491,28 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
         }
         onOutcome?.(s.outcome);
       }
-      success.hidden = false;
+      hide(success, false);
       return;
     }
-    success.hidden = true;
+    hide(success, true);
 
     if (!dto) {
       form.dataset.state = "loading";
       const failed = s.errors[FORM_ERROR];
       notice.className = failed ? c("form-error") : c("loading");
       notice.textContent = failed ?? t.loading;
-      notice.hidden = false;
-      stepHead.hidden = true; fieldsBox.hidden = true; actions.hidden = true; formError.hidden = true;
+      hide(notice, false);
+      hide(stepHead, true); hide(fieldsBox, true); hide(actions, true); hide(formError, true);
       return;
     }
-    notice.hidden = true;
+    hide(notice, true);
 
     if (s.closed) {
       form.dataset.state = "closed";
       notice.className = c("closed");
       notice.textContent = dto.disabledMessage || t.closed;
-      notice.hidden = false;
-      stepHead.hidden = true; fieldsBox.hidden = true; actions.hidden = true; formError.hidden = true;
+      hide(notice, false);
+      hide(stepHead, true); hide(fieldsBox, true); hide(actions, true); hide(formError, true);
       for (const n of nodes.values()) n.wrapper.remove();
       nodes.clear();
       return;
@@ -517,10 +522,10 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
     const steps = dto.steps;
     const current = steps[s.step] ?? steps[0];
     const multi = steps.length > 1;
-    stepHead.hidden = !multi;
+    hide(stepHead, !multi);
     if (multi) {
       stepTitle.textContent = current?.name ?? "";
-      stepTitle.hidden = !current?.name;
+      hide(stepTitle, !current?.name);
       stepCount.textContent = t.stepOf.replace("{n}", String(s.step + 1)).replace("{total}", String(steps.length));
     }
     const fields = current ? dto.fields.filter((f) => f.stepId === current.id) : dto.fields;
@@ -549,21 +554,21 @@ export function renderForm(root: HTMLElement, options: FormRendererOptions): For
     }
     const children = Array.from(fieldsBox.children);
     if (children.some((child, i) => child !== ordered[i])) for (const w of ordered) fieldsBox.append(w);
-    fieldsBox.hidden = false;
+    hide(fieldsBox, false);
     fieldsBox.disabled = s.loading;
 
     formError.textContent = s.errors[FORM_ERROR] ?? "";
-    formError.hidden = !s.errors[FORM_ERROR];
+    hide(formError, !s.errors[FORM_ERROR]);
 
-    actions.hidden = false;
+    hide(actions, false);
     const last = s.step >= steps.length - 1;
-    back.hidden = !(multi && s.step > 0);
+    hide(back, !(multi && s.step > 0));
     back.textContent = dto.previousText || t.back;
     back.disabled = s.loading;
-    next.hidden = !multi || last;
+    hide(next, !multi || last);
     next.textContent = dto.nextText || t.next;
     next.disabled = s.loading;
-    submit.hidden = !last;
+    hide(submit, !last);
     submit.textContent = s.loading ? t.sending : (dto.submitText || t.submit);
     submit.disabled = s.loading;
     submit.setAttribute("aria-busy", String(s.loading));

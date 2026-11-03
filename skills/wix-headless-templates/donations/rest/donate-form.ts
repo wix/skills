@@ -24,6 +24,10 @@ import { createDonationStore, type DonationState, type DonationStore, type Donat
 import type { DonationField } from "../app/wix/donations/donations-core.js";
 import type { CampaignDetail } from "../app/wix/donations/types.js";
 
+/** Hides or shows an element. Sets `display` as well as `hidden`, because an author `display` rule overrides the attribute. */
+const hide = (node: HTMLElement, on: boolean): void => { node.hidden = on; node.style.display = on ? "none" : ""; };
+
+
 /** UI strings. `{fee}`, `{min}` and `{max}` are placeholders. */
 export interface DonateFormText {
   howOften: string;
@@ -93,6 +97,7 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
     const node = document.createElement(tag);
     if (className) node.className = className;
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if ("hidden" in attrs) node.style.display = "none";
     if (textContent !== undefined) node.textContent = textContent;
     return node;
   };
@@ -167,7 +172,7 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
       field.append(customInput);
       const limits = [o.customAmount.minLabel && t.minimum.replace("{min}", o.customAmount.minLabel), o.customAmount.maxLabel && t.maximum.replace("{max}", o.customAmount.maxLabel)].filter(Boolean).join(" · ");
       customHelp = el("p", c("help"), { id: `${fid}-custom-help` }, limits);
-      if (!limits) customHelp.hidden = true;
+      if (!limits) hide(customHelp, true);
       const cerr = message(`${fid}-custom-error`);
       errors.customAmount = cerr;
       customBox.append(label, field, customHelp, cerr);
@@ -243,7 +248,7 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
     for (const [field, node] of Object.entries(errors) as [DonationField, HTMLParagraphElement][]) {
       const msg = show(field);
       node.textContent = msg ?? "";
-      node.hidden = !msg;
+      hide(node, !msg);
       const inputs = field === "frequency" ? choices.filter((ch) => ch.input.name === `${fid}-frequency`).map((ch) => ch.input)
         : field === "amount" ? choices.filter((ch) => ch.input.name === `${fid}-amount-choice`).map((ch) => ch.input)
         : field === "customAmount" && customInput ? [customInput]
@@ -252,9 +257,9 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
       if (msg && field !== "customAmount") describe(inputs, node.id);
     }
     if (customBox) {
-      customBox.hidden = !s.customMode;
+      hide(customBox, !s.customMode);
       if (customInput && customInput.value !== s.customAmount && document.activeElement !== customInput) customInput.value = s.customAmount;
-      if (customHelp) customHelp.hidden = !!show("customAmount") || !customHelp.textContent;
+      if (customHelp) hide(customHelp, !!show("customAmount") || !customHelp.textContent);
     }
     if (feeBox && feeText) {
       feeBox.checked = s.coverFee;
@@ -270,7 +275,7 @@ export function renderDonateForm(root: HTMLElement, campaign: CampaignDetail, op
     submit.disabled = s.submitting;
     submit.setAttribute("aria-busy", String(s.submitting));
     failure.textContent = s.error ?? "";
-    failure.hidden = !s.error;
+    hide(failure, !s.error);
   };
   const unsubscribe = store.subscribe(update);
   update();
