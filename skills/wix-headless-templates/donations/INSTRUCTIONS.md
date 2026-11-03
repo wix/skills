@@ -220,8 +220,9 @@ styles: every element has a class under one prefix (`donate-form`, `donate-choic
 `donate-choice--selected`, `donate-submit`, `goal-bar`, …). Each file's header lists the classes
 and ends with a "To style" note: the state selectors (selected, `aria-invalid`, `aria-busy`,
 `data-state`) and the elements that need a size (the goal bar and its fill). Style them in the
-page's stylesheet on the same tokens as the rest of the page. What you write in plain JS is the
-rest: the card and the index on `createCampaignsStore` (one render function that reads
+page's stylesheet on the same tokens as the rest of the page; the form has one primary button and
+the presets are chips, as the file's note says. What you write in plain JS is the rest: the card
+and the index on `createCampaignsStore` (one render function that reads
 `getState()`, called from `subscribe`), the campaign page around the two shipped blocks, and the
 thank-you page on `createReceiptStore`.
 Pages are `donate.html`, `campaign.html?id=…` and `thank-you.html` (Wix static hosting serves

@@ -307,7 +307,8 @@ prefix (`form-field`, `form-field--<control>`, `form-label`, `form-control`, `fo
 `data-state`. The file's header lists the classes and ends with a "To style" note: the per-control
 class, the state selectors (selected, `aria-invalid`, `aria-busy`, `data-state`) and the choice
 image that needs a size. Style them in the page's stylesheet on the same tokens as the rest of the
-page. What you write is the page around it: heading, intro,
+page; each step has one primary button, as the file's note says. What you write is the page
+around it: heading, intro,
 where the form sits. Wix static hosting serves files, not directories: the page is
 `contact.html`, linked as such. The visitor token persists in `localStorage` on its own; never
 mint per page. The page's title and meta description are yours (a form is not an entity page;

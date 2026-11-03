@@ -572,13 +572,14 @@ under one prefix (`cart-*`, `quickadd-*`, `picker-*`) and a `data-state`. Each f
 the classes and ends with a "To style" note: the overlay elements that need a fixed position (the
 cart backdrop and drawer, the quick-add backdrop and panel), the state selectors (selected,
 disabled, `aria-busy`, `data-state`) and the elements that need a size (swatches, line images).
-Style them in the page's stylesheet on the same tokens as the rest of the page, including every
-button and input inside the drawer; the drawer renders in the page flow until its backdrop is
-positioned. What you write in plain JS is the rest: the
-listing on `createShopStore` (one render function that reads `getState()`, called from
-`subscribe`), the tiles, the product page around the picker. Pages are `shop.html`,
-`category.html?slug=…`, `product.html?slug=…`. Set `document.title` and the meta description from the entity's `seoData`
-once it loads, on the product AND category pages. The visitor token persists in `localStorage` on
+Style them in the page's stylesheet on the same tokens as the rest of the page. Each shipped
+control has one primary button; the rest are compact controls or text actions, as the file's note
+says. The drawer renders in the page flow until its backdrop is positioned. What you write in
+plain JS is the rest: the listing on `createShopStore` (one render function that reads
+`getState()`, called from `subscribe`), the tiles, the product page around the picker. Pages are
+`shop.html`, `category.html?slug=…`, `product.html?slug=…`. Set `document.title` and the meta
+description from the entity's `seoData` once it loads, on the product AND category pages. The
+visitor token persists in `localStorage` on
 its own; never mint per page.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)

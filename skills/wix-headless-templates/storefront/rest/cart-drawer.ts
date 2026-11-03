@@ -27,15 +27,20 @@
 // background, and `cart-drawer` a position against one edge, a width, a background and
 // `overflow: auto`; without these the drawer renders in the page flow at the end of the body.
 // `cart-drawer[data-state="busy"]` is the drawer during a cart operation; its buttons are disabled
-// then. Every button and input in the drawer is a plain element and shows the browser default
-// until styled: `cart-close`, `cart-stepper-button`, `cart-line-remove`, `cart-coupon-toggle`,
-// `cart-coupon-input`, `cart-coupon-apply`, `cart-coupon-remove`, `cart-note-input`,
-// `cart-checkout`. Give them the page's button and input styles. The stepper is two buttons around
-// a span. `cart-line-image` has no size and `cart-line-placeholder` is an empty div; give both the
-// same size. `cart-line-compare` is the struck catalog price.
+// then. Each control takes the style of its role. `cart-checkout` is the one primary button.
+// `cart-stepper` is one compact inline group: `cart-stepper-button` twice, small, with
+// `cart-stepper-value` centred between them on a fixed minimum width. `cart-line-remove`,
+// `cart-coupon-toggle` and `cart-coupon-remove` are text actions: buttons with no fill and no
+// large padding, that read as links. `cart-close` is an icon button. `cart-coupon-apply` is a
+// small secondary button beside `cart-coupon-input`. `cart-note-input` is a textarea under its
+// label. Scope these rules to the classes; a page rule on `button` reaches all of them. Until
+// styled, all of them show the browser default. `cart-line-image` has no size and
+// `cart-line-placeholder` is an empty div; give both the same size. `cart-line-compare` is the
+// struck catalog price.
 // `renderCartButton(root)` keeps what is in `root` as the icon: put an inline SVG or the word
-// "Cart" in `root` before calling it (an empty `root` gets the word). `cart-button-count` is the
-// count beside the icon, hidden at zero; a `cart-button` with no content of its own is a blank box.
+// "Cart" in `root` before calling it (an empty `root` gets the word). `cart-button` then holds
+// `cart-button-icon` and `cart-button-count`, the count hidden at zero. Give the count its own
+// treatment, a badge or parentheses, and its spacing from the icon.
 import {
   applyCartCoupon,
   getCartState,
@@ -350,7 +355,8 @@ export function renderCartButton(root: HTMLElement, options: CartButtonOptions =
   // An empty root gets the word "Cart", so the button is never blank.
   if (!icon.childNodes.length) icon.textContent = t.title;
   const count = make("span", c("button-count"), { hidden: "" });
-  button.append(icon, count);
+  // A space between the icon and the count, so the unstyled button reads "Cart 2", not "Cart2".
+  button.append(icon, " ", count);
   root.replaceChildren(button);
   button.addEventListener("click", () => setCartOpen(true));
   const render = (): void => {
