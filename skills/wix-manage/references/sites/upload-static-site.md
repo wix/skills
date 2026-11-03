@@ -283,9 +283,11 @@ Unclaimed anonymous sites instead use their saved ID and
 
 Use the same site ID and URL. The file helpers and the ZIP fallback below edit
 static pages: they read the site's last drop and drop the result. A site whose
-live release is a Wix Astro build is changed in its project instead; a drop or
-patch there replaces the build with static files, and the server does not stop
-it. So first tell what is live.
+live release is a Wix Astro build is changed in its project instead; a drop
+there replaces the build with static files. The file helpers' `patch` and an
+`UploadHeadlessWebsiteFiles` upload without `replaceAll` check this themselves
+and stop (`409 LIVE_SITE_CHANGED`); a raw drop and the ZIP fallback do not. So
+first tell what is live.
 
 When this conversation published the site, or the user says how it was made,
 you know. Otherwise one read-only call tells, in `ExecuteWixAPI`:
@@ -302,7 +304,7 @@ async function run() {
 | --- | --- | --- |
 | `200` | Its last static drop | [Edit the static pages](#a-site-of-static-pages). |
 | `409 LIVE_SITE_CHANGED` | A release replaced the last drop: a Wix Astro build | [Change the project](#a-site-released-as-a-wix-astro-build). No drop, no patch. |
-| `404 SITE_CODE_NOT_FOUND` | Nothing was ever dropped | Open the live URL. Pages there mean a build released without a drop: change the project. Nothing there means an empty site: drop as for a new one. |
+| `404 SITE_CODE_NOT_FOUND` | Nothing was ever dropped | A new site gets its files with a first full upload, as for a new one. A site released as a Wix Astro build without a drop is changed in its project. |
 
 ### A site released as a Wix Astro build
 
@@ -370,20 +372,43 @@ async function run() {
 // { files: [{ path, bytes, contentType }], total, offset, hasMore }
 ```
 
-Omit `prefix` to list all paths. Default limit is 100, maximum 200; advance
-`offset` by the limit while `hasMore`. The size field is `bytes`, not `size`.
+Omit `prefix` to list all paths. Default limit is 100, and one call lists at
+most 200 (a larger limit lists 200); advance `offset` by the files returned
+while `hasMore`. The size field is `bytes`, not `size`.
 
 ```javascript
 async function run() {
   return wix.headless.files.read({ siteId: 'META_SITE_ID', path: 'index.html' });
 }
-// { path, bytes, contentType, text }
+// { path, bytes, totalBytes, contentType, text, offset, length, hasMore }
 ```
 
-`text` is a **string**, not a method. Read supports UTF-8 text up to 256,000
-bytes; use the ZIP fallback for larger/binary files. Helpers exclude the
-generated `wix.config.json`. Each list/read fetches a fresh full snapshot, so
-request only needed paths/pages; for bulk inspection download once instead.
+`text` is a **string**, not a method. One read returns at most 256,000 bytes of
+a UTF-8 text file, from byte `offset` (default 0), cut on a character boundary.
+A larger file comes back in parts: read on from `offset + length` while
+`hasMore`. To edit a large file, join the parts and patch in the same function,
+without returning the text:
+
+```javascript
+async function run() {
+  const siteId = 'META_SITE_ID';
+  let text = '', offset = 0, part;
+  do {
+    part = await wix.headless.files.read({ siteId, path: 'index.html', offset });
+    text += part.text;
+    offset = part.offset + part.length;
+  } while (part.hasMore);
+  // edit `text` here, then patch as below
+  return { bytes: part.totalBytes };
+}
+```
+
+A read without `hasMore` in its answer is from an older server, which refuses
+text over 256,000 bytes: use the [ZIP fallback](#download-edit-drop-fallback)
+for that file. Read takes one `path`, not a list, and text files only; binary
+files are read through the ZIP fallback. Helpers exclude the generated
+`wix.config.json`. The list and read calls in one `ExecuteWixAPI` call share
+one download of the site; each new call downloads it again.
 
 ### Patch files
 
@@ -426,6 +451,9 @@ for binary additions that cannot be supplied.
   are rejected. Keep a root `index.html` or `index.htm` in the final site.
 - Serialize edits. Neither read-then-patch nor patch's internal
   download/merge/drop protects against a concurrent writer.
+- Patch first checks that the live site is its last static drop. On a site
+  live as a Wix Astro build it stops and changes nothing: change the
+  [project](#a-site-released-as-a-wix-astro-build) instead.
 
 Inspect `summary.added/replaced/deleted/unchanged/missingDeletes`.
 `unchanged` means supplied files already matched byte-for-byte; omitted files
@@ -435,8 +463,12 @@ A publish returns `siteUrl`, `uploadId`, `fileCount`. Then
 
 ### Download, edit, drop fallback
 
-For older servers, bulk/binary reads, or a shell workflow, obtain the current
-ZIP rather than reconstructing the site from memory:
+When the file helpers are missing, for binary files, or for a shell workflow,
+obtain the current ZIP rather than reconstructing the site from memory. In
+`ExecuteWixAPI` the whole site is then held in memory several times over (the
+base64 answer, its bytes, the unzipped files), and a large site can exceed the
+sandbox's memory limit, so prefer the helpers for text. This route does not
+check what is live: tell that first, as in [Change it later](#change-it-later).
 
 ```bash
 curl -sSL -H "Authorization: Bearer $ACCESS_TOKEN" -o current.zip \
@@ -616,7 +648,8 @@ Wix MCP.
 | --- | --- |
 | `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
 | Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
-| `409 LIVE_SITE_CHANGED` from the files endpoint or a patch | The live site is a Wix Astro build, not its last drop: [change the project](#a-site-released-as-a-wix-astro-build). Do not drop. |
+| `409 LIVE_SITE_CHANGED` from the files endpoint, a patch or an upload ("is live as a Wix Astro build") | The live site is a Wix Astro build, not its last drop: [change the project](#a-site-released-as-a-wix-astro-build). Do not drop. To replace the build with static pages on purpose, upload the whole site with `replaceAll: true`. |
+| A helper's "has no static files on Wix hosting" (`404 SITE_CODE_NOT_FOUND`) | Nothing was ever dropped. A new site gets its first full upload; a site released as a Wix Astro build is changed in its project. |
 | Release `400 EXPECTED_HEAD_REQUIRED` / `409` | The repository holds newer work than the project started from: download it, carry the change over, release again. |
 | Drop/upload `500` | Inspect current state before retrying once; retain the request ID if it fails again and offer the drop page. Hand-built malformed multipart can also cause this: use `wix.multipart`. |
 | Anonymous `404` | The hour expired or the site was claimed; do not create a replacement without explaining. |

@@ -1,12 +1,10 @@
-// Goal progress for one campaign on a static page — the twin of components/donations/GoalProgress.tsx
-// in plain DOM. Wire it as-is on cards, the campaign page, a home strip. Every figure comes from the
-// DTO (the metrics API and the owner's goal): raised of target, the bar at Wix's rounded percent
-// (capped visually at 100, the number may exceed it), the donation count, and the time left ("3 days
-// left"; hours on the last day; "Ended" once past). Renders nothing for a campaign without a goal.
+// DOM renderer for a campaign's goal progress (`GoalProgress` from donations-types): raised of
+// target, a progress bar at `percent` (capped at 100 for the width), the donation count, and the
+// time left. Renders nothing when `goal` is null.
 //
-// It sets no styles. Classes under one prefix (default "goal"): goal, goal-figures, goal-raised,
-// goal-target, goal-percent, goal-bar, goal-bar-fill, goal-meta, goal-count, goal-time-left. The bar's
-// width is the one inline style, from the percent.
+// No styles except the bar's width. Class names use one prefix (default "goal"): goal,
+// goal-figures, goal-amounts, goal-raised, goal-target, goal-percent, goal-bar, goal-bar-fill,
+// goal-meta, goal-count, goal-time-left.
 import type { GoalProgress } from "../app/wix/donations/types.js";
 
 export interface GoalProgressOptions {
@@ -23,7 +21,7 @@ export function timeLeftLabel(goal: GoalProgress): string {
   return goal.daysLeft === 1 ? "1 day left" : `${goal.daysLeft} days left`;
 }
 
-/** Render the goal block into `root` (emptied first); with `goal` null the container stays empty. */
+/** Renders the goal block into `root`, replacing its content. With `goal` null the container is left empty. */
 export function renderGoalProgress(root: HTMLElement, goal: GoalProgress | null, { classPrefix = "goal", compact = false }: GoalProgressOptions = {}): void {
   root.replaceChildren();
   if (!goal) return;
