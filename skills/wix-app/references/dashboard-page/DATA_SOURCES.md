@@ -7,29 +7,8 @@
 
 ## Where the types actually live
 
-A Wix vertical package such as `@wix/ecom` is a thin re-export barrel. `build/es/index.d.mts` is a
-list of namespaces (`orders`, `orderTransactions`, `currentCart`, …), each re-exported from its own
-generated package:
-
-```
-node_modules/@wix/ecom/build/es/index.d.mts          # namespace list only, ~90 lines
-node_modules/@wix/auto_sdk_ecom_orders/build/es/
-  index.d.mts                                        # the callable functions
-  index.typings.d.mts                                # request/response types
-  ecom-v1-order-orders.universal-<hash>.d.mts        # the domain entities
-```
-
-Three consequences:
-
-1. **The directory name is not the namespace name.** `extendedBookings` lives in
-   `auto_sdk_bookings_extended-bookings`. Don't derive one from the other; the SDK lookup maps them.
-2. **The entity is not always in `index.typings.d.mts`.** `Order`, `Refund`, `Service` live in the
-   hashed `*.universal-*.d.mts` when the package has one. The hash changes between versions, so glob
-   for it, never hard-code it, and fall back to `index.typings.d.mts` when no universal file exists.
-3. **Never `cat` *or plain-`grep`* the barrel's export block.** These files end with a single
-   several-hundred-KB `export { … as a, … as b }` line, so `grep -n "queryServices" index.d.mts`
-   prints that whole line. Anchor to the declarations instead —
-   `grep -oE "^declare (const|function) [a-zA-Z]+"` — or pipe any barrel grep through `cut -c1-200`.
+Package layout, the hashed entity file, and why not to `cat` the barrel are in
+[SDK_PACKAGE_LAYOUT.md](SDK_PACKAGE_LAYOUT.md).
 
 ## Confirming a method
 
@@ -90,6 +69,11 @@ const byId = new Map(txns.map((t) => [t.orderId, t]));
 Build the `Map` once and index it in the row mapper. Guard the empty case before the second call —
 a batch endpoint given `[]` is a wasted round trip at best.
 
+Keep the page `limit` at or below what the batch method accepts. `listTransactionsForMultipleOrders`
+takes at most 100 ids. It leaves out orders the caller isn't permitted to access instead of failing, so an order
+missing from the `Map` is not proof that it has no payments. `searchOrders` skips `PENDING` and
+`REJECTED` orders unless the filter asks for that status, and never returns `INITIALIZED` ones.
+
 ## Filter syntax
 
 `searchOrders` takes `{ cursorPaging, filter, sort }`. `filter` is `Record<string, any>`, so a
@@ -111,7 +95,7 @@ type declares `_id` — same for `_createdDate` / `_updatedDate`. Offline, the b
 for the namespace list:
 
 ```bash
-grep -oE "as [a-zA-Z_]+" node_modules/@wix/<pkg>/build/es/index.d.mts | sed 's/as //' | sort -u
+grep -oE "as [a-zA-Z][a-zA-Z0-9]* }" node_modules/@wix/<pkg>/build/es/index.d.mts | sed 's/as //; s/ }//' | sort -u
 ```
 
 The next two are codegen artifacts that no docs page mentions — read them off the declaration.
@@ -124,10 +108,12 @@ against the wrong overload and fails. Import the entity type the package exports
 type Row = <namespace>.<Entity>;   // e.g. extendedBookings.ExtendedBooking — not ReturnType<typeof …>
 ```
 
-**4. Paging metadata carries no `hasNext`.** `PagingMetadataV2` is `count`, `offset`, `total`,
-`tooManyToCount`, `cursors` — nothing else, in every generated package. Whether another page exists
-is knowable only from `pagingMetadata.cursors.next`. What the collection wants you to *return* is a
-separate question — see [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
+**4. Paging metadata changes key and type per method.** The key may be `pagingMetadata`,
+`metadata` or `cursorPagingMetadata`; the type may be `CursorPagingMetadata`, `PagingMetadataV2`,
+`PagingMetadata` or `PlatformPagingMetadata`. Only `CursorPagingMetadata` declares `hasNext`. `searchOrders`, for example,
+returns `metadata: CursorPagingMetadata`. Read the response interface of the method you call before
+you take the next-page signal from it. What the collection wants you to *return* is a separate
+question — see [TABLE_STATE.md](TABLE_STATE.md#query-and-result-shapes).
 
 ## Two things to settle before you write the page
 
