@@ -154,6 +154,9 @@ Creates a contact with the Contacts API. Covers the minimum identifying fields, 
 ### [Update a Contact](references/contacts/update-a-contact.md)
 Updates an existing contact's email, phone, name, or address with the Contacts API. Covers locating the contact when the user identifies it by name, passing its current revision, and the ISO 3166-2 subdivision format required for state, region and province codes.
 
+### [Find Contacts](references/contacts/find-contacts.md)
+"Finds a site's contacts and answers questions about them: one contact by name, email or phone, contacts in a city, state or country, contacts with a label, birthdays, site members or email subscribers among the contacts, how many contacts match, every contact for an export, and possible duplicate contacts. Covers which contact fields can be filtered, how name matching works, paging through every result, and which fields the answer reads. Use when the user asks to find, look up, list, count or export contacts, wants a contact's details such as their address, or needs a contact's ID for another task such as their bookings or orders."
+
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 "Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
@@ -423,6 +426,9 @@ Authoritative recipe for hand-authoring valid Ricos rich-content JSON (the richC
 
 ### [RECIPE: Change a Site's Regional Properties (Currency, Time Zone, Language, Region) via Site Properties API](references/site-properties/change-payment-currency-site-properties.md)
 "Updates the site-level payment currency (store billing currency) using Site Properties API, including the required request body shape and field mask. Covers the site time zone, primary language, and site region (locale country); field masks name top-level properties."
+
+### [Show and Update Business Info](references/site-properties/update-business-info.md)
+"Shows and changes a site's business info through the Site Properties API: the business name, description and company ID, the public contact email, phone, fax and address, and the opening hours the site shows. Covers changing one detail while keeping the others, removing a detail, and adding, changing or removing business hours and holiday closures. Not for Wix Bookings availability (default bookable hours) or the site's currency, time zone, language or region."
 
 ### [Site Settings Dashboard Navigation](references/site-properties/site-properties-dashboard-navigation.md)
 "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
