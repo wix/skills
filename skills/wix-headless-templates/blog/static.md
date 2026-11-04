@@ -173,9 +173,10 @@ A reply form is the same form with `data-parent` set to the comment's id and `da
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
 `/blog.html`, `/post.html?slug=…`, `/category.html?slug=…`, `/tag.html?slug=…`. A post slug may
-contain `/`; `encodeURIComponent` on the way out and `URLSearchParams` on the way in keep it
-whole. A link to a folder gives the visitor a 404 page. Write the pages' scripts as files of
-their own and keep each file small; a page's code travels as text in the upload call.
+contain `/`; `encodeURIComponent` on the way out and `URLSearchParams` on the way in keep it whole.
+A link to a folder gives the visitor a 404 page. Every page declares its charset in the head; the
+host sends none. Write the pages' scripts as files of their own and keep each file small; a page's
+code travels as text in the upload call.
 
 ## Rules
 
@@ -192,6 +193,7 @@ their own and keep each file small; a page's code travels as text in the upload 
   stock placeholder covers. A count that is unknown renders nothing.
 - Likes and comments are the viewer's, in the browser, as the current session. View counting is
   not shipped; views display from the counters when present.
+- Render form inputs once; a render touches their values, the button and the error, not the inputs.
 - Every control on the page has a rule in the stylesheet; one primary action per surface, the
   rest compact or text actions.
 

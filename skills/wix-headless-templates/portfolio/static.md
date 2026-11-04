@@ -1,174 +1,168 @@
 # The portfolio on a static site
 
-The pages are HTML files at the root of the site. They import the portfolio modules from
-`/js/wix/` and render what the modules return. This file is the whole playbook for that path: the
-modules, the gallery of collections, the collection page, the project page, the routes, the
-rules and the seed.
+The pages are HTML files at the root of the site. They import the portfolio layer from
+`/js/wix/`: the collection and project reads, and three stores that hold the state of the
+gallery, of one collection and of one project. Nothing on the screen ships; every element is
+yours, in the design of the site. This file shows how to drive the layer. The skeletons show the
+calls and the fields and leave the markup to you.
 
-## The modules
+## The layer
 
-`/js/wix/portfolio.js`: `fetchCollections()`, `fetchCollectionBySlug(slug)`, `fetchProjects({ collectionId })`,
-`fetchProjectBySlug(slug)`, `fetchProjectGallery(projectId)`. Every read is public; hidden items
-are filtered and collections come in the owner's order. Images arrive as https URLs, videos as
-playable mp4 URLs with a poster frame. `/js/wix/portfolio-core.js`: `mediaElement(item)` turns a
-gallery item into `{ tag, attrs }` (an `img` or a `video` with its attributes) or null.
-`/js/wix/media.js`: `imgSrc(url, width, height)` for a sized copy.
-Three stores hold the state: `createCollectionsStore()` in `/js/wix/collections-store.js` (the
-gallery), `createCollectionProjectsStore(slug)` in `/js/wix/collection-projects-store.js` (one
-collection and its projects), `createProjectDetailStore(slug)` in `/js/wix/project-detail-store.js`
-(one project and its gallery). Each `.js` opens with its declarations. A store calls a listener on
-every change and not when it subscribes: render once after subscribing, then `start()`. The visitor
-token persists in `localStorage` on its own; never mint one in a page.
+`/js/wix/portfolio.js`: `fetchCollections({ limit })`, `fetchCollectionBySlug(slug)` (null when
+the slug resolves to nothing), `fetchProjects({ collectionId, limit })`,
+`fetchProjectBySlug(slug)` (null when nothing resolves), `fetchProjectGallery(projectId)`. Every
+read is public; hidden items are filtered out and collections come in the owner's order. Images
+arrive as https URLs, videos as playable mp4 URLs with a poster frame; render them as they are.
+`/js/wix/portfolio-core.js`: `mediaElement(item)` turns a gallery item into `{ tag, attrs }` (an
+`img` or a `video` with its attributes) or null. `/js/wix/media.js`: `imgSrc(url, width, height)`
+for a sized copy of an image.
+
+Three stores: `createCollectionsStore()` in `/js/wix/collections-store.js` for the gallery,
+`createCollectionProjectsStore(slug)` in `/js/wix/collection-projects-store.js` for one
+collection and its projects, `createProjectDetailStore(slug)` in
+`/js/wix/project-detail-store.js` for one project and its gallery. A store owns the sequence:
+it resolves the slug, then loads what hangs off it, and tells loading from not found. A page reads
+the state and renders; it computes nothing of its own.
+
+A collection carries `id`, `slug`, `title`, `description`, `imageUrl` ("" when it has no cover).
+A project carries the same plus `collectionIds`; the detail adds `details`, rows of `label`,
+`text`, `url` (null for a text row) and `target`. A gallery item carries `id`, `kind` ("image" or
+"video"), `title`, `description`, `imageUrl` (the image, or the video's poster), `videoUrl`,
+`linkUrl` and `linkTarget`.
+
+Every `.js` opens with its declarations: the state fields and the actions, with a comment on
+each. Read the declarations of the store you are about to use.
+
+## The pattern
+
+One shape for the three stores: create it, subscribe a render function, render once, start. A
+store calls the listener on every change and not on subscribe, so the first render is yours.
+The stores here have no actions beyond `start()` and `stop()`; the page's controls are links.
+
+```js
+import { createProjectDetailStore } from "/js/wix/project-detail-store.js";
+
+var store = createProjectDetailStore(new URLSearchParams(location.search).get("slug") || "");
+function render(s) {
+  // read s, write your markup into the page
+}
+store.subscribe(render);
+render(store.getState());
+store.start();
+```
+
+The visitor token persists in `localStorage` on its own; never mint one in a page.
 
 ## The gallery
 
-`portfolio.html` renders the collections from `createCollectionsStore()`. The state:
-`collections` (null on the first load: skeletons, not an empty state), `error`. A collection
-card shows its own cover (`imageUrl`, "" when none: the page's placeholder) and `title`, and links
-to the collection page. The home page shows real collections or projects under truthful headings
-with the same cards. The examples follow the stores' declared interfaces.
-
-```html
-<div id="collections"></div>
-<p id="gallery-status" hidden></p>
-```
+`portfolio.html` on `createCollectionsStore()`. The state: `collections` (null on the first load,
+a loading state, never an empty one), `error`. A collection card shows its own cover through
+`imgSrc` (the page's placeholder when `imageUrl` is ""), its `title`, and links to
+`collection.html?slug=…`. `[]` is an honest empty state, `error` its own. The home page shows
+real collections or projects under truthful headings with the same cards.
 
 ```js
 import { createCollectionsStore } from "/js/wix/collections-store.js";
 import { imgSrc } from "/js/wix/media.js";
 
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const store = createCollectionsStore();
-const grid = document.querySelector("#collections"), status = document.querySelector("#gallery-status");
-
-function renderGallery(s) {
-  if (s.collections === null) { grid.innerHTML = `<div class="card card--skeleton"></div>`.repeat(4); return; }
-  grid.innerHTML = s.collections.map((c) => `
-    <a class="card" href="/collection.html?slug=${encodeURIComponent(c.slug)}">
-      ${c.imageUrl ? `<img class="card-cover" src="${imgSrc(c.imageUrl, 800, 600)}" alt="" loading="lazy">` : `<div class="card-cover card-cover--empty"></div>`}
-      <h2 class="card-title">${esc(c.title)}</h2>
-    </a>`).join("");
-  status.hidden = !(s.error || s.collections.length === 0);
-  status.textContent = s.error ? "The portfolio could not be loaded. Please try again." : s.collections.length === 0 ? "No collections yet." : "";
-}
-store.subscribe(renderGallery);
-renderGallery(store.getState());
+var store = createCollectionsStore();
+store.subscribe(function (s) {
+  if (s.collections === null) { root.textContent = "Loading…"; return; }
+  var html = "";
+  s.collections.forEach(function (c) {
+    html += '<a href="/collection.html?slug=' + encodeURIComponent(c.slug) + '">'
+      + (c.imageUrl ? '<img src="' + imgSrc(c.imageUrl, 800, 600) + '" alt="" loading="lazy">' : "")
+      + "<h2>" + esc(c.title) + "</h2></a>";
+  });
+  root.innerHTML = html;
+  statusEl.textContent = s.error || (s.collections.length ? "" : "No collections yet.");
+});
 store.start();
 ```
 
 ## The collection page
 
-`collection.html?slug=…` renders from `createCollectionProjectsStore(slug)`. The state:
-`collection` (null while loading and when not found; `notFound` tells them apart), `projects`
-(null while loading), `error`. The header is the collection's `title` and `description`, then
-only its projects, each a card with `imageUrl` and `title` linking to the project page. A slug
-that resolves to nothing shows the not-found state alone, with no header or empty grid around it.
-`document.title` and the meta description come from the collection's `title` and `description`.
-
-```html
-<section id="collection"></section>
-```
+`collection.html?slug=…` on `createCollectionProjectsStore(slug)`. The state: `collection` (null
+while loading and when not found; `notFound` tells them apart), `projects` (null while loading),
+`error`. The header is the collection's `title` and `description`, then only its projects, each a
+card with `imageUrl` and `title` linking to `project.html?slug=…`. A slug that resolves to
+nothing shows the not-found state alone, with no header or empty grid around it. Set
+`document.title` and the meta description from `title` and `description` once the collection
+loads.
 
 ```js
 import { createCollectionProjectsStore } from "/js/wix/collection-projects-store.js";
-import { imgSrc } from "/js/wix/media.js";
 
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const slug = new URLSearchParams(location.search).get("slug") ?? "";
-const store = createCollectionProjectsStore(slug);
-const root = document.querySelector("#collection");
-
-const projectCard = (p) => `
-  <a class="card" href="/project.html?slug=${encodeURIComponent(p.slug)}">
-    ${p.imageUrl ? `<img class="card-cover" src="${imgSrc(p.imageUrl, 800, 600)}" alt="" loading="lazy">` : `<div class="card-cover card-cover--empty"></div>`}
-    <h2 class="card-title">${esc(p.title)}</h2>
-  </a>`;
-
-function renderCollection(s) {
-  if (s.notFound) { root.innerHTML = `<p class="not-found">This collection does not exist.</p>`; return; }
-  if (!s.collection) { root.innerHTML = s.error ? `<p class="error">${esc(s.error)}</p>` : `<div class="header-skeleton"></div>`; return; }
-  const c = s.collection;
-  document.title = c.title;
-  if (c.description) document.querySelector('meta[name="description"]')?.setAttribute("content", c.description);
-  root.innerHTML = `
-    <header class="collection-header"><h1>${esc(c.title)}</h1>${c.description ? `<p>${esc(c.description)}</p>` : ""}</header>
-    <div class="grid">${s.projects === null ? `<div class="card card--skeleton"></div>`.repeat(4) : s.projects.map(projectCard).join("")}</div>
-    ${s.projects && s.projects.length === 0 ? `<p class="empty">No projects in this collection yet.</p>` : ""}
-    ${s.error && s.projects ? `<p class="error">${esc(s.error)}</p>` : ""}`;
+var store = createCollectionProjectsStore(new URLSearchParams(location.search).get("slug") || "");
+function render(s) {
+  if (s.notFound) { root.textContent = "This collection does not exist."; return; }
+  if (!s.collection) { root.textContent = s.error || "Loading…"; return; }
+  document.title = s.collection.title;
+  headEl.innerHTML = "<h1>" + esc(s.collection.title) + "</h1>" + (s.collection.description ? "<p>" + esc(s.collection.description) + "</p>" : "");
+  if (s.projects === null) { gridEl.textContent = "Loading…"; return; }
+  var html = "";
+  s.projects.forEach(function (p) {
+    html += '<a href="/project.html?slug=' + encodeURIComponent(p.slug) + '" data-project="' + p.id + '">' + esc(p.title) + "</a>";
+  });
+  gridEl.innerHTML = html || "No projects in this collection yet.";
+  statusEl.textContent = s.error || "";
 }
-store.subscribe(renderCollection);
-renderCollection(store.getState());
+store.subscribe(render);
+render(store.getState());
 store.start();
 ```
 
 ## The project page
 
-`project.html?slug=…` renders from `createProjectDetailStore(slug)`. The state: `project` (null
-while loading and when not found; `notFound` tells them apart), `items` (the gallery, null while
+`project.html?slug=…` on `createProjectDetailStore(slug)`. The state: `project` (null while
+loading and when not found; `notFound` tells them apart), `items` (the gallery, null while
 loading), `error`. The page shows `title`, `description` and the `details` rows (label and text,
 a link when `url` is set, with its `target`) before the gallery. Gallery items come in the
 dashboard's order; each becomes an element through `mediaElement(item)`, never through a branch
 on `kind` in the page; the caption is `item.title` when present, and an item's `linkUrl` wraps it
-when set. On a phone a gallery image is a bounded band. `document.title` and the meta description
-come from `title` and `description`.
-
-```html
-<article id="project"></article>
-```
+when set. On a phone a gallery image is a bounded band. Set `document.title` and the meta
+description from `title` and `description` once the project loads.
 
 ```js
 import { createProjectDetailStore } from "/js/wix/project-detail-store.js";
 import { mediaElement } from "/js/wix/portfolio-core.js";
 
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const slug = new URLSearchParams(location.search).get("slug") ?? "";
-const store = createProjectDetailStore(slug);
-const root = document.querySelector("#project");
-
-function galleryFigure(item) {
-  const el = mediaElement(item);
+function figureOf(item) {
+  var el = mediaElement(item);
   if (!el) return null;
-  const media = document.createElement(el.tag);
-  for (const [name, value] of Object.entries(el.attrs)) media.setAttribute(name, String(value));
-  const figure = document.createElement("figure");
-  figure.className = `gallery-item gallery-item--${item.kind}`;
-  if (item.linkUrl) { const a = document.createElement("a"); a.href = item.linkUrl; if (item.linkTarget) a.target = item.linkTarget; a.append(media); figure.append(a); }
-  else figure.append(media);
-  if (item.title) { const cap = document.createElement("figcaption"); cap.textContent = item.title; figure.append(cap); }
+  var media = document.createElement(el.tag);
+  Object.keys(el.attrs).forEach(function (name) { media.setAttribute(name, String(el.attrs[name])); });
+  var figure = document.createElement("figure");
+  if (item.linkUrl) {
+    var a = document.createElement("a");
+    a.href = item.linkUrl;
+    if (item.linkTarget) a.target = item.linkTarget;
+    a.append(media);
+    figure.append(a);
+  } else figure.append(media);
+  if (item.title) { var cap = document.createElement("figcaption"); cap.textContent = item.title; figure.append(cap); }
   return figure;
 }
-
-function renderProject(s) {
-  if (s.notFound) { root.innerHTML = `<p class="not-found">This project does not exist.</p>`; return; }
-  if (!s.project) { root.innerHTML = s.error ? `<p class="error">${esc(s.error)}</p>` : `<div class="header-skeleton"></div>`; return; }
-  const p = s.project;
-  document.title = p.title;
-  if (p.description) document.querySelector('meta[name="description"]')?.setAttribute("content", p.description);
-  root.innerHTML = `
-    <header class="project-header">
-      <h1>${esc(p.title)}</h1>
-      ${p.description ? `<p class="project-description">${esc(p.description)}</p>` : ""}
-      ${p.details.length ? `<dl class="project-details">${p.details.map((d) => `<dt>${esc(d.label)}</dt><dd>${d.url ? `<a href="${esc(d.url)}"${d.target ? ` target="${esc(d.target)}" rel="noopener"` : ""}>${esc(d.text)}</a>` : esc(d.text)}</dd>`).join("")}</dl>` : ""}
-    </header>
-    <div class="gallery">${s.items === null ? `<div class="gallery-skeleton"></div>` : ""}</div>
-    ${s.items && s.items.length === 0 ? `<p class="empty">No media in this project yet.</p>` : ""}`;
-  if (s.items) root.querySelector(".gallery").replaceChildren(...s.items.map(galleryFigure).filter(Boolean));
-}
-store.subscribe(renderProject);
-renderProject(store.getState());
-store.start();
+store.subscribe(function (s) {
+  if (s.notFound || !s.project) { root.textContent = s.notFound ? "This project does not exist." : s.error || "Loading…"; return; }
+  // the header from s.project: title, description, one row per entry in s.project.details
+  if (s.items) galleryEl.replaceChildren.apply(galleryEl, s.items.map(figureOf).filter(Boolean));
+});
 ```
+
+`esc` escapes `&`, `<`, `>` and `"` in anything that came from the site; the gallery is built
+with DOM calls, so nothing in it needs escaping.
 
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
 `/portfolio.html`, `/collection.html?slug=…`, `/project.html?slug=…`. A link to a folder gives
-the visitor a 404 page. One stylesheet and one script shared by the pages, or inline per page,
-on one set of tokens.
+the visitor a 404 page. Write the pages' scripts as files of their own and keep each file small;
+a page's code travels as text in the upload call.
 
 ## Rules
 
-- Reads go through the module exports: they filter hidden items, keep the owner's order and
+- Reads go through the layer's exports: they filter hidden items, keep the owner's order and
   resolve every media value. Media URLs arrive resolved; use them as they are.
 - This solution sells nothing. A "contact about this project" call to action is a link.
 - `notFound` is the not-found state and `error` shows as the error state; a null while loading
@@ -177,12 +171,13 @@ on one set of tokens.
 - Gallery items render through `mediaElement`.
 - Live data or an honest empty state: no invented clients, awards, dates or media; no Wix ids or
   technical words in visible text.
+- Every control on the page has a rule in the stylesheet; one primary action per surface, the
+  rest compact or text actions.
 
 ## The owner's links
 
-The dashboard URL from the provisioning step, followed by `/wix-portfolio/projects`: Projects and
-Collections are tabs on that page. Projects adds projects and their media galleries; Collections
-groups them.
+`https://manage.wix.com/dashboard/{siteId}/wix-portfolio/projects`: Projects and Collections are
+tabs on that page. Projects adds projects and their media galleries; Collections groups them.
 
 ## Seeding
 

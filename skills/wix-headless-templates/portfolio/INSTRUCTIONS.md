@@ -225,7 +225,8 @@ SSR build is hosted by you. Page titles and descriptions from the DTO (Portfolio
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
 import the modules from the site's `js/wix/` folder and write the rendering on the stores;
-`static.md` gives the gallery, the collection page, the project page as code, with the routes, the rules and the seed.
+`static.md` shows how to drive each store, with the gallery, the collection page, the project page,
+the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

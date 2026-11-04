@@ -213,8 +213,9 @@ shop.start();
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
 `/shop.html`, `/product.html?slug=…`, `/category.html?slug=…`, `/cart.html` when the brief wants a
-cart page. A link to a folder gives the visitor a 404 page. Write the pages' scripts as files of
-their own and keep each file small; a page's code travels as text in the upload call.
+cart page. A link to a folder gives the visitor a 404 page. Every page declares its charset in the
+head; the host sends none. Write the pages' scripts as files of their own and keep each file small;
+a page's code travels as text in the upload call.
 
 ## Rules
 
@@ -229,6 +230,7 @@ their own and keep each file small; a page's code travels as text in the upload 
 - Browsing, cart and checkout need no login; the visitor session is already there.
 - Sort and filter at the source: the shop store and `searchCatalog`, never on the array a page
   already holds.
+- Render form inputs once; a render touches their values, the button and the error, not the inputs.
 - Every control on the page has a rule in the stylesheet; one primary action per surface, the rest
   compact or text actions.
 

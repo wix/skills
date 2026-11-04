@@ -327,9 +327,9 @@ build is hosted by you.
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
-import the modules from the site's `js/wix/` folder and write the menu, the dish sheet, the order
-drawer and the reservation flow on the stores; `static.md` gives each one as code, with the
-routes, the rules and the seed.
+import the layer from the site's `js/wix/` folder and write every control on the stores;
+`static.md` shows how to drive each store, with the menu, the dish sheet, the order drawer, the
+reservation flow, the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

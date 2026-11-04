@@ -192,7 +192,7 @@ build folder, an SSR build is hosted by you. Page tags from the first questions.
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The page
 imports the modules from the site's `js/wix/` folder and writes the accordion, the category nav
-and the search on the store; `static.md` gives them as code, with the routes, the rules and the
+and the search on the store; `static.md` shows how to drive it, with the routes, the rules and the
 seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
