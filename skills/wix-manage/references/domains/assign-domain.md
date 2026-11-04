@@ -12,7 +12,7 @@ primary domain). A domain is on one site at a time, or on none.
 | Does | Does not |
 |---|---|
 | Connect (assign) a domain to a site, as primary or as a redirect. A domain that isn't in the account yet is handed back (gate 1) | Buy a domain, or bring in a domain registered elsewhere that isn't in the account yet: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) |
-| Make a redirect the site's primary domain, or swap the primary for another of the site's domains | Report a domain's expiry, renewal, DNS or SSL state: [Analyse Domain](analyse-domain.md) |
+| Make a redirect the site's primary domain, or swap the primary for another of the site's domains | Report a domain's expiry or renewal: [Analyse Domain](analyse-domain.md) |
 | Move a domain from one site to another | Change DNS records, or explain DNS, nameservers or propagation |
 | Take a domain off its site | Check whether a name can be registered: [Check Domain Availability](check-domain-availability.md) |
 
@@ -86,14 +86,29 @@ async function() {
     return answer;
   }
 
+  // The account's domains on no site. The search term matches substrings, so only an exact name counts.
+  async function inUnassigned(tries) {
+    for (let attempt = 0; attempt < tries; attempt++) {
+      try {
+        const { data } = await wix.request({
+          scope: "account",
+          method: "GET",
+          url: `https://manage.wix.com/_api/my-domains/v1/domains/unassigned?filter.searchTerm=${domain}`
+        });
+        return (data.domains || []).some(d => d.domainName === domain) ? "yes" : "no";
+      } catch (e) {}
+    }
+    return "error";
+  }
+
   let owned = Boolean(assignment);
   if (!owned) {
-    const view = await holds(`https://www.wixapis.com/v1/domain-views/${domain}`, 2);
-    const connected = view === "yes"
+    const listed = await inUnassigned(2);
+    const connected = listed === "yes"
       ? "yes"
       : await holds(`https://www.wixapis.com/domains/v1/connected-domains/${domain}`, 1);
-    owned = view === "yes" || connected === "yes";
-    if (!owned && (view === "error" || connected === "error")) return { failed: true };
+    owned = listed === "yes" || connected === "yes";
+    if (!owned && (listed === "error" || connected === "error")) return { failed: true };
   }
 
   const siteIds = [...new Set([targetSiteId, assignment && assignment.siteId].filter(Boolean))];
@@ -186,14 +201,13 @@ What comes back, verified live:
 | `failed: true` | The read itself failed. Run it once more, silently. If it fails again, and the request takes a domain off its site or the calling skill passed ownership **confirmed**, send the dashboard link and stop: {domain settings link} when the site is known, otherwise {My Domains link} (URLs: see Offer copy). Otherwise hand back exactly as gate 1 does (read both skills it names and run the availability check once), with ownership **unknown** instead of "not in the account". A failed read is never answered with an error message of its own, and never tells the user the domain is not in their account. |
 
 A domain on no site and a domain that is not in the account both answer "not found" to the assignment
-lookup; the domain view and the connected domain tell them apart. The domain view answers for a
-domain in the account and `404` for any other, but it has also answered `404` for a domain connected
-from elsewhere that was in the account, so a domain-view `404` is followed by the connected-domain
-lookup, which answers for every domain connected from elsewhere. For a domain another account holds,
-that lookup answers `403` with `DOMAIN_NOT_PERMITTED`: that too means "not in this account", not a
-failed read. The domain view's first attempt can
-fail on a missing call scope, so it is tried twice. All of this happens inside the one call: never
-look the domain up again in a separate call, and never search the docs for another way to find it.
+lookup; the account's list of domains on no site and the connected domain tell them apart. The list
+holds every domain in the account that is on no site, registered through Wix or connected from
+elsewhere, and only an exact name match counts. It is tried twice, and when it doesn't hold the domain,
+the connected-domain lookup follows, which answers for every domain connected from elsewhere. For a
+domain another account holds, that lookup answers `403` with `DOMAIN_NOT_PERMITTED`: that too means
+"not in this account", not a failed read. All of this happens inside the one call: never look the
+domain up again in a separate call, and never search the docs for another way to find it.
 
 ## The gate
 
@@ -435,6 +449,6 @@ user asks.
 ## Next steps
 
 - Buying a domain, or bringing one in from another registrar: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
-- Expiry, renewal, DNS or SSL state of a domain: [Analyse Domain](analyse-domain.md).
+- Expiry or renewal of a domain: [Analyse Domain](analyse-domain.md).
 - Official reference: [Domain Assignments](https://dev.wix.com/docs/api-reference/account-level/domains/domain-assignments),
   and its [sample flows](https://dev.wix.com/docs/api-reference/account-level/domains/domain-assignments/sample-flows).
