@@ -70,6 +70,10 @@ Compose from WDS layout primitives (`Box`, `Card`, `Text`). Do not add a third U
 - **Patterns has its own overlays.** `PickerModal` / `usePickerModal` and `bulkActionModal` cover collection-related overlays. "It's a modal" is not a reason to leave patterns.
 - **Dashboard Plugins** render outside a patterns page shell, so WDS is the default there. Patterns collection components still apply when such a surface displays a data collection.
 
+## Grid cards
+
+**Give each `Grid` card at most two fields: `title` and `subtitle`, returned from `renderItem`, and set `preset="full"`.** The default preset (`title`) does not render a subtitle, and the types still accept one, so without `preset="full"` the second field silently disappears. Keep each field to one line of text. Every card in a grid has the same fixed height, so extra lines render below the card.
+
 ## Entity create and edit
 
 **Opening a record listed by a collection page uses an editable `EntityPage` by default, whether the records come from CMS or a vertical SDK.** A request for a table or list is enough; the user does not need to ask for editing separately. The three read-only cases are in [DRAFT_TEMPLATE.md](DRAFT_TEMPLATE.md#2-choose-then-read-the-chosen-templates-page); a read-only detail page still opens as a route, never a Dashboard Modal or side panel.
