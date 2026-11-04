@@ -1,385 +1,236 @@
 # The storefront on a static site
 
-The pages are HTML files at the root of the site. They import the storefront modules from
-`/js/wix/` and render what the modules return. This file is the whole playbook for that path: the
-modules, the purchase controls, the listing, the item pages, the rules and the seed.
+The pages are HTML files at the root of the site. They import the storefront layer from
+`/js/wix/`: the catalog and cart calls, and three stores that hold the state and the rules of a
+shop. Nothing on the screen ships; every element is yours, in the design of the site. This file
+shows how to drive the layer. The skeletons show the calls and the fields and leave the markup
+to you.
 
-## The modules
+## The layer
 
-`/js/wix/catalog.js`: `searchCatalog`, `fetchFacetData`, `fetchProducts`, `fetchProductBySlug`,
-`fetchCategories`, `fetchCategoryBySlug`, `fetchInventory`, `resolveVariant`. Money comes
-formatted, images come as https URLs; `/js/wix/media.js` gives `imgSrc(url, width, height)` for a
-sized copy. `/js/wix/cart.js` is the cart transport; the pages use it through the cart store.
-Three stores hold the state and the rules: `createShopStore` in `/js/wix/shop-store.js` (the
-listing), `createProductDetailStore` in `/js/wix/product-detail-store.js` (one product), and
-`/js/wix/cart-store.js` (the cart, one for the whole site: `subscribeCart`, `getCartState`,
-`addLine`, `updateLineQuantity`, `removeCartLine`, `applyCartCoupon`, `removeCartCoupon`,
-`setCartNote`, `goToCheckout`, `setCartOpen`). Each `.js` opens with its declarations. A store
-calls a listener on every change and not when it subscribes: render once after subscribing.
-The visitor token persists in `localStorage` on its own; never mint one in a page.
+`/js/wix/catalog.js`: `searchCatalog`, `fetchFacetData`, `fetchProducts`,
+`fetchProductsByCategory`, `fetchProductBySlug`, `fetchCategories`, `fetchCategoryBySlug`,
+`fetchInventory`, `fetchBackInStockEnabled`, `requestBackInStock`. `/js/wix/cart.js` is the cart
+transport; the pages reach it through the cart store. `/js/wix/media.js` gives `imgSrc(url,
+width, height)` for a sized copy of an image. Money comes formatted and images come as https URLs;
+render them as they are.
 
-## The purchase controls
+Three stores: `createShopStore` in `/js/wix/shop-store.js` for a listing, `createProductDetailStore`
+in `/js/wix/product-detail-store.js` for one product, and `/js/wix/cart-store.js` for the cart,
+one for the whole site. A store owns the rules: which choices are available with the current
+picks, the price of the selection, the stock cap, why the add button is disabled, the cart's
+totals. A page reads the state and calls the actions; it computes nothing of its own.
 
-The purchase controls are yours to write, on the stores: the cart button, the cart drawer, the buy
-controls of the product page and the add control of each tile. Each one is markup in your page,
-a render function that reads a store's state, and listeners that call the store's actions. The
-stores hold every rule: which choices are available with the current picks, the price of the
-selection, the stock cap, why the button is disabled, the cart's totals. The page holds the markup
-and the stylesheet, so every element on the screen is one you wrote and styled, in the design of
-the site. The four examples are complete and tested. Keep their store calls and the field names
-they read; the markup, the classes and the words are yours.
+Every `.js` opens with its declarations: the state fields and the actions, with a comment on
+each. Read the declarations of the store you are about to use.
 
-**The cart button**, in the header of every page. `subscribeCart` loads the cart on its first call.
+## The pattern
 
-```html
-<button id="cart-button" type="button">Bag <span class="cart-count" hidden></span></button>
-```
+One shape for every store: create it, subscribe a render function, render once, start.
+A store calls the listener on every change and not on subscribe, so the first render is yours.
 
 ```js
-import { subscribeCart, setCartOpen } from "/js/wix/cart-store.js";
-const cartButton = document.querySelector("#cart-button");
-const cartCount = cartButton.querySelector(".cart-count");
-cartButton.addEventListener("click", () => setCartOpen(true));
-subscribeCart((s) => {
-  const n = s.cart?.itemCount ?? 0;
-  cartCount.textContent = String(n);
-  cartCount.hidden = n === 0;
-});
-```
-
-**The cart drawer**, once per page, at the end of `body`. The store opens it after every add,
-on success and on refusal, so the error has a place to show. The backdrop and the drawer are
-`position: fixed`; the page stops scrolling while it is open; Escape, the close button and a
-click on the backdrop close it; focus moves into the drawer and back on close. Checkout is the one
-primary button. Every other control carries a class, and each class gets a rule: the stepper
-buttons as one compact group, remove and the coupon's remove as text actions, the coupon's apply
-as a small secondary button, the note as a label over its field.
-
-```html
-<div id="cart" class="cart-backdrop" hidden>
-  <aside class="cart-drawer" role="dialog" aria-modal="true" aria-label="Cart" tabindex="-1">
-    <header class="cart-header"><h2>Cart <span class="cart-title-count"></span></h2>
-      <button class="cart-close" type="button" aria-label="Close">×</button></header>
-    <p class="cart-error" role="alert" hidden></p>
-    <div class="cart-lines"></div>
-    <div class="cart-extras" hidden>
-      <form class="cart-coupon"><input class="cart-coupon-input" name="code" placeholder="Promo code" autocomplete="off">
-        <button class="cart-coupon-apply" type="submit">Apply</button></form>
-      <p class="cart-coupon-applied" hidden></p>
-      <label class="cart-note"><span class="cart-note-label">Note to seller</span>
-        <textarea class="cart-note-input" name="note" rows="2"></textarea></label>
-    </div>
-    <footer class="cart-footer" hidden>
-      <div class="cart-totals"></div>
-      <p class="cart-shipping"></p>
-      <button class="cart-checkout" type="button">Checkout</button>
-    </footer>
-  </aside>
-</div>
-```
-
-```js
-import {
-  getCartState, subscribeCart, setCartOpen, updateLineQuantity, removeCartLine,
-  applyCartCoupon, removeCartCoupon, setCartNote, goToCheckout,
-} from "/js/wix/cart-store.js";
-
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const backdrop = document.querySelector("#cart");
-const drawer = backdrop.querySelector(".cart-drawer");
-const q = (sel) => backdrop.querySelector(sel);
-const lines = q(".cart-lines"), extras = q(".cart-extras"), footer = q(".cart-footer");
-const coupon = q(".cart-coupon"), couponApplied = q(".cart-coupon-applied"), note = q(".cart-note textarea");
-let wasOpen = false, opener = null, pageOverflow = "";
-
-q(".cart-close").addEventListener("click", () => setCartOpen(false));
-backdrop.addEventListener("click", (e) => { if (e.target === backdrop) setCartOpen(false); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && getCartState().open) setCartOpen(false); });
-lines.addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-line]");
-  if (!b) return;
-  if (b.dataset.quantity) updateLineQuantity(b.dataset.line, Number(b.dataset.quantity)).catch(() => {});
-  else removeCartLine(b.dataset.line).catch(() => {});
-});
-coupon.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const code = coupon.elements.code.value.trim();
-  if (code) applyCartCoupon(code).then(() => coupon.reset()).catch(() => {});
-});
-couponApplied.addEventListener("click", (e) => { if (e.target.closest("button")) removeCartCoupon().catch(() => {}); });
-note.addEventListener("change", () => setCartNote(note.value).catch(() => {}));
-q(".cart-checkout").addEventListener("click", () => goToCheckout().catch(() => {}));
-
-const lineStatus = (l) => ({
-  PARTIALLY_IN_STOCK: l.availableQuantity === null ? "Not all of this quantity is available" : `Only ${l.availableQuantity} available`,
-  OUT_OF_STOCK: "Out of stock",
-  REMOVED_FROM_CATALOG: "No longer available",
-})[l.status] ?? "";
-
-function renderCart(s) {
-  if (s.open !== wasOpen) {
-    wasOpen = s.open;
-    backdrop.hidden = !s.open;
-    if (s.open) { opener = document.activeElement; pageOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; drawer.focus(); }
-    else { document.body.style.overflow = pageOverflow; opener?.focus?.(); }
-  }
-  const cart = s.cart, list = cart?.lines ?? [];
-  q(".cart-title-count").textContent = cart?.itemCount ? `(${cart.itemCount})` : "";
-  q(".cart-error").textContent = s.error ?? "";
-  q(".cart-error").hidden = !s.error;
-  extras.hidden = footer.hidden = list.length === 0;
-  if (list.length === 0) { lines.innerHTML = `<p class="cart-empty">Your cart is empty.</p>`; return; }
-  lines.innerHTML = list.map((l) => `
-    <article class="cart-line" data-status="${l.status}">
-      ${l.imageUrl ? `<img class="cart-line-image" src="${l.imageUrl}" alt="" loading="lazy">` : `<div class="cart-line-image"></div>`}
-      <div class="cart-line-info">
-        <p class="cart-line-name">${esc(l.productName)}</p>
-        ${l.descriptionLines.map((d) => `<p class="cart-line-option">${esc(d)}</p>`).join("")}
-        ${l.subscription ? `<p class="cart-line-plan">${esc(l.subscription)}</p>` : ""}
-        ${lineStatus(l) ? `<p class="cart-line-status">${lineStatus(l)}</p>` : ""}
-        <div class="cart-line-controls">
-          <span class="cart-stepper">
-            <button class="cart-stepper-button" type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity - 1}" aria-label="Decrease" ${l.quantity <= 1 ? "disabled" : ""}>−</button>
-            <span class="cart-stepper-value">${l.quantity}</span>
-            <button class="cart-stepper-button" type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity + 1}" aria-label="Increase" ${l.availableQuantity !== null && l.quantity >= l.availableQuantity ? "disabled" : ""}>+</button>
-          </span>
-          <button class="cart-line-remove" type="button" data-line="${l.lineItemId}">Remove</button>
-        </div>
-      </div>
-      <p class="cart-line-price">${esc(l.linePrice)}${l.compareAtLinePrice ? ` <s>${esc(l.compareAtLinePrice)}</s>` : ""}</p>
-    </article>`).join("");
-  coupon.hidden = !!cart.coupon;
-  couponApplied.hidden = !cart.coupon;
-  if (cart.coupon) couponApplied.innerHTML = `Code ${esc(cart.coupon.code)} <button class="cart-coupon-remove" type="button">Remove</button>`;
-  if (document.activeElement !== note) note.value = cart.note;
-  q(".cart-totals").innerHTML = [
-    ["Subtotal", cart.subtotal],
-    ...cart.discounts.map((d) => [d.name || "Discount", `−${d.amount}`]),
-    ...cart.fees.map((f) => [f.name || "Fee", f.amount]),
-    ...(cart.pricesIncludeTax ? [] : cart.taxes.map((t) => [t.name || "Tax", t.amount])),
-    ["Total", cart.total],
-  ].filter(([, v]) => v).map(([k, v]) => `<div class="cart-row"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("");
-  q(".cart-shipping").textContent = cart.pricesIncludeTax || cart.taxes.length ? "Shipping is calculated at checkout." : "Shipping and taxes are calculated at checkout.";
-  for (const el of extras.querySelectorAll("button, input, textarea")) el.disabled = s.busy;
-  q(".cart-checkout").disabled = s.busy;
-  if (s.busy) for (const b of lines.querySelectorAll("button")) b.disabled = true;
-}
-subscribeCart(renderCart);
-renderCart(getCartState());
-```
-
-**The buy controls of the product page**, on `createProductDetailStore({ slug })`. The store
-resolves the variant from the picks and judges each choice against the others: a choice with
-`inStock` or `exists` false is disabled. The page's price line reads the store, as the example
-does: `price` is the range until every option is picked. The add button is the one primary
-button; the choices are chips, or swatches for a colour option; the stepper is one compact group.
-
-```html
-<p class="price"><span id="price"></span> <s id="compare" hidden></s> <small id="unit" hidden></small></p>
-<div id="buy"></div>
-```
-
-```js
-import { createProductDetailStore, ONE_TIME_PLAN } from "/js/wix/product-detail-store.js";
+import { createProductDetailStore } from "/js/wix/product-detail-store.js";
 
 const store = createProductDetailStore({ slug: new URLSearchParams(location.search).get("slug") });
-const buy = document.querySelector("#buy");
-const price = document.querySelector("#price"), compare = document.querySelector("#compare"), unit = document.querySelector("#unit");
-
-buy.addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (!b) return;
-  const d = b.dataset;
-  if (d.option) store.selectOption(d.option, d.choice);
-  else if (d.modifier) store.setModifier(d.modifier, d.choice);
-  else if (d.plan) store.selectPlan(d.plan);
-  else if (d.step) store.setQuantity(store.getState().quantity + Number(d.step));
-  else if ("add" in d) store.add().catch(() => {});
-  else if ("notify" in d) store.notify(buy.querySelector("input[type=email]").value).catch(() => {});
-});
-buy.addEventListener("input", (e) => { if (e.target.dataset.text) store.setModifier(e.target.dataset.text, e.target.value); });
-
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const chip = (attrs, label, on, off, extra = "") => `<button type="button" class="chip${extra}${on ? " chip--selected" : ""}" aria-pressed="${on}" ${off ? "disabled" : ""} ${attrs}>${label}</button>`;
-
-function renderBuy(s) {
-  if (!s.product) { buy.innerHTML = `<p>${s.notFound ? "This product is not available." : "Loading…"}</p>`; return; }
-  // The store's price is the range until every option is picked, then the variant's price.
-  price.textContent = s.price;
-  compare.textContent = s.compareAtPrice ?? ""; compare.hidden = !s.compareAtPrice;
-  unit.textContent = s.pricePerUnit ?? ""; unit.hidden = !s.pricePerUnit;
-  const active = document.activeElement, textKey = active?.dataset?.text, caret = active?.selectionStart;
-  buy.innerHTML = `
-    ${s.optionGroups.map((g) => `<fieldset class="group"><legend>${esc(g.name)}</legend>${g.choices.map((ch) =>
-      g.isColor && ch.colorCode
-        ? chip(`data-option="${g.id}" data-choice="${ch.choiceId}" style="background:${ch.colorCode}" aria-label="${esc(ch.name)}" title="${esc(ch.name)}"`, "", ch.selected, !ch.inStock || !ch.exists, " chip--swatch")
-        : chip(`data-option="${g.id}" data-choice="${ch.choiceId}"`, esc(ch.name), ch.selected, !ch.inStock || !ch.exists)).join("")}</fieldset>`).join("")}
-    ${s.product.modifiers.map((m) => m.type === "choices"
-      ? `<fieldset class="group"><legend>${esc(m.title)}</legend>${m.choices.map((ch) => chip(`data-modifier="${m.key}" data-choice="${ch.key}"`, esc(ch.name), s.modifierValues[m.key] === ch.key, false)).join("")}</fieldset>`
-      : `<label class="group">${esc(m.title)}${m.maxChars ? ` <small>${(s.modifierValues[m.key] ?? "").length}/${m.maxChars}</small>` : ""}
-           <textarea data-text="${m.key}" rows="2" ${m.maxChars ? `maxlength="${m.maxChars}"` : ""}>${esc(s.modifierValues[m.key] ?? "")}</textarea></label>`).join("")}
-    ${s.plans.length ? `<fieldset class="group"><legend>Purchase</legend>
-      ${s.product.allowOneTimePurchase ? chip(`data-plan="${ONE_TIME_PLAN}"`, `One-time ${s.variant?.price ?? ""}`, s.subscriptionPlanId === ONE_TIME_PLAN, false) : ""}
-      ${s.plans.map((p) => chip(`data-plan="${p.id}"`, `${esc(p.name)} ${p.price} <small>${esc(p.terms)}</small>`, p.selected, false)).join("")}</fieldset>` : ""}
-    <div class="actions">
-      <span class="stepper">
-        <button class="stepper-button" type="button" data-step="-1" aria-label="Decrease" ${s.quantity <= 1 || s.adding ? "disabled" : ""}>−</button>
-        <span class="stepper-value">${s.quantity}</span>
-        <button class="stepper-button" type="button" data-step="1" aria-label="Increase" ${s.quantity >= s.maxQuantity || s.adding ? "disabled" : ""}>+</button>
-      </span>
-      <button type="button" class="add" data-add aria-busy="${s.adding}" ${s.canAdd && !s.adding ? "" : "disabled"}>${s.adding ? "Adding…" : s.isPreorder ? "Pre-order" : "Add to cart"}</button>
-    </div>
-    ${s.remaining !== null && s.remaining > 0 && s.remaining <= 10 && s.canAdd && !s.isPreorder ? `<p class="note">Only ${s.remaining} left</p>` : ""}
-    ${s.isPreorder && s.preorderMessage ? `<p class="note">${esc(s.preorderMessage)}</p>` : ""}
-    ${s.blockedReason && !s.canAdd ? `<p class="reason">${esc(s.blockedReason)}</p>` : ""}
-    ${s.error ? `<p class="error" role="alert">${esc(s.error)}</p>` : ""}
-    ${s.canNotify && !s.notifyResult ? `<div class="notify"><label>Notify me when it's back <input type="email" autocomplete="email"></label>
-      <button type="button" data-notify ${s.notifying ? "disabled" : ""}>${s.notifying ? "Saving…" : "Notify me"}</button>
-      ${s.notifyError ? `<p class="error" role="alert">${esc(s.notifyError)}</p>` : ""}</div>` : ""}
-    ${s.notifyResult ? `<p class="note" role="status">${s.notifyResult === "created" ? "We'll email you when it's back in stock." : "You're already on the list for this item."}</p>` : ""}`;
-  if (textKey) { const t = buy.querySelector(`[data-text="${textKey}"]`); t?.focus(); t?.setSelectionRange(caret, caret); }
+function render(s) {
+  // read s, write your markup into the page
 }
-store.subscribe(renderBuy);
-renderBuy(store.getState());
+store.subscribe(render);
+render(store.getState());
 store.start();
 ```
 
-**The add control of each tile**, the last row of the tile's text. The summary decides it: a
-sold-out product links to its page, a product sold on plans links to its page, a `quickAddable`
-product adds its cheapest variant in one click, every other product links to its page to pick
-its options. The tile whose add is in flight is disabled through `pendingProductId`; the store
-opens the drawer when the add returns. A picker on the tile is an option: the buy controls above
-on `createProductDetailStore({ slug: product.slug })` in a panel with the drawer's overlay rules.
+Controls call the store's actions. Delegate from the surface's root and read what to do from the
+element, so a re-render of the markup keeps the listeners:
 
 ```js
-import { addLine, subscribeCart } from "/js/wix/cart-store.js";
-
-const productUrl = (p) => `/product.html?slug=${encodeURIComponent(p.slug)}`;
-function tileControl(p) {
-  if (p.availability === "OUT_OF_STOCK") return `<a class="tile-link" href="${productUrl(p)}">Sold out</a>`;
-  if (p.hasSubscriptions) return `<a class="tile-link" href="${productUrl(p)}">Choose a plan</a>`;
-  if (p.quickAddable) return `<button class="tile-add" type="button" data-add="${p.id}" data-variant="${p.minPriceVariantId ?? ""}">${p.preorder ? "Pre-order" : "Add to cart"}</button>`;
-  return `<a class="tile-link" href="${productUrl(p)}">Choose options</a>`;
-}
-document.querySelector("#products").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-add]");
-  if (b) addLine(b.dataset.add, b.dataset.variant || null, 1).catch(() => {});
+root.addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.option) store.selectOption(b.dataset.option, b.dataset.choice);
+  else if (b.dataset.step) store.setQuantity(store.getState().quantity + Number(b.dataset.step));
+  else if ("add" in b.dataset) store.add().catch(function () {});
 });
-subscribeCart((s) => {
-  for (const b of document.querySelectorAll("#products button[data-add]")) {
-    const busy = s.pendingProductId === b.dataset.add;
-    b.disabled = busy;
-    b.setAttribute("aria-busy", String(busy));
-  }
+```
+
+The visitor token persists in `localStorage` on its own; never mint one in a page.
+
+## The product page
+
+`product.html?slug=…` on `createProductDetailStore({ slug })`. From the state:
+
+- `product` is null while loading; `notFound` true means the slug resolves to nothing, and the
+  page shows only the not-found state. `product` carries `name`, `descriptionHtml` (render as
+  HTML), `gallery` (urls, main first), `infoSections` (title and html), `breadcrumbs` (Home, the
+  category path, the product), `ribbons`, `modifiers`, `subscriptions`, `allowOneTimePurchase`.
+- `price` is what to show at all times: the range until every option is picked, then the
+  variant's price. `compareAtPrice` is the struck "was" when real; `pricePerUnit` when sold by
+  unit. `imageUrl` is the picked choice's image when the merchant linked one; show it as the main
+  image, else the gallery's first.
+- `optionGroups`: one group per option, `name`, `isColor`, and `choices` with `choiceId`, `name`,
+  `colorCode`, `selected`, `inStock`, `exists`. A choice with `inStock` or `exists` false is
+  disabled. A colour option renders swatches from `colorCode`; any other renders chips.
+  `selectOption(group.id, choice.choiceId)`.
+- `product.modifiers`: `type` "choices" renders chips calling `setModifier(m.key, choice.key)`;
+  `type` "text" renders a text field calling `setModifier(m.key, value)` on input, with
+  `maxChars` when set. `modifierValues[m.key]` holds the value.
+- `plans`: when the product is sold on plans, one chip per plan with its `name`, `terms` and
+  `price`, `selected`; `selectPlan(plan.id)`, and `selectPlan(ONE_TIME_PLAN)` when
+  `allowOneTimePurchase`.
+- `quantity`, `setQuantity(n)`, `maxQuantity` as the stepper's ceiling; `remaining` is the units
+  left when counted, worth a line when small.
+- `canAdd` gates the add button; `blockedReason` is the neutral line beside it while disabled
+  ("Choose Size"). `add()` adds the resolved variant and opens the cart; it rejects on refusal
+  and `error` holds the message. `adding` while in flight. `isPreorder` labels the button
+  "Pre-order" with `preorderMessage` under it.
+- `canNotify` offers an email field for a sold-out item; `notify(email)`, `notifying`,
+  `notifyResult` ("created" or "already-subscribed"), `notifyError`.
+
+A sketch of the render, fields in, markup yours:
+
+```js
+function render(s) {
+  if (!s.product) { root.textContent = s.notFound ? "This product is not available." : "Loading…"; return; }
+  priceEl.textContent = s.price;
+  compareEl.textContent = s.compareAtPrice || "";
+  var html = "";
+  s.optionGroups.forEach(function (g) {
+    html += "<fieldset><legend>" + esc(g.name) + "</legend>";
+    g.choices.forEach(function (c) {
+      html += '<button type="button" data-option="' + g.id + '" data-choice="' + c.choiceId + '"'
+        + (c.selected ? ' aria-pressed="true"' : ' aria-pressed="false"')
+        + (!c.inStock || !c.exists ? " disabled" : "") + ">" + esc(c.name) + "</button>";
+    });
+    html += "</fieldset>";
+  });
+  html += '<button type="button" data-step="-1">−</button> ' + s.quantity + ' <button type="button" data-step="1">+</button>';
+  html += '<button type="button" data-add' + (s.canAdd && !s.adding ? "" : " disabled") + ">" + (s.adding ? "Adding…" : s.isPreorder ? "Pre-order" : "Add to cart") + "</button>";
+  if (s.blockedReason && !s.canAdd) html += "<p>" + esc(s.blockedReason) + "</p>";
+  if (s.error) html += '<p role="alert">' + esc(s.error) + "</p>";
+  root.innerHTML = html;
+}
+```
+
+`esc` escapes `&`, `<`, `>` and `"` in anything that came from the catalog. Set `document.title`
+from `product.name` once it loads, and the meta description from the first line of its text.
+
+## The cart
+
+`/js/wix/cart-store.js` is one store for the whole site. `subscribeCart(fn)` loads the cart on its
+first call; `getCartState()` reads it. The state: `cart` (null before the first load), `open`,
+`busy` (an operation in flight: disable the cart's controls), `pendingProductId` (the product
+whose add is in flight: disable that tile's control, not the others), `error` (the last failed
+operation's message; show it in the cart). `cart` carries `lines`, `itemCount`, `subtotal`,
+`discounts`, `fees`, `taxes`, `pricesIncludeTax`, `total`, `coupon`, `note`. A line carries
+`lineItemId` (what the actions take, never the product id), `productName`, `descriptionLines`,
+`quantity`, `availableQuantity` (the stepper's cap when not null), `unitPrice`, `linePrice`,
+`compareAtLinePrice`, `imageUrl`, `status` (anything but "IN_STOCK" needs a line of copy),
+`subscription`.
+
+The actions: `setCartOpen(true|false)`, `updateLineQuantity(lineItemId, n)`,
+`removeCartLine(lineItemId)`, `applyCartCoupon(code)`, `removeCartCoupon()`, `setCartNote(text)`,
+`goToCheckout()`. `addLine(productId, variantId, quantity)` is the tile's direct add.
+
+The store opens the cart after every add, on success and on refusal, so `error` has a place to
+show. Render `open` as a drawer or a panel: a fixed backdrop and panel, the page's scroll locked
+while open, closed by Escape, a close control and a click on the backdrop, focus moved in and
+returned on close. A cart page is the same render in the page flow when the brief asks for one.
+Totals come from `cart`, never summed in the page; shipping reads "calculated at checkout", taxes
+too unless `taxes` has rows or `pricesIncludeTax`. Checkout is the one primary action of the cart;
+the steppers, remove and the coupon controls are compact.
+
+The header's cart control:
+
+```js
+import { subscribeCart, setCartOpen } from "/js/wix/cart-store.js";
+
+cartButton.addEventListener("click", function () { setCartOpen(true); });
+subscribeCart(function (s) {
+  var n = s.cart ? s.cart.itemCount : 0;
+  countEl.textContent = n ? String(n) : "";
+});
+```
+
+The cart's render, in the same shape as the product page's, driven by `subscribeCart`:
+
+```js
+subscribeCart(function (s) {
+  backdrop.hidden = !s.open;
+  errorEl.textContent = s.error || "";
+  var lines = s.cart ? s.cart.lines : [];
+  // one block per line: name, descriptionLines, linePrice, a stepper with data-line and
+  // data-quantity, a remove control with data-line; then the totals and the checkout control
 });
 ```
 
 ## The listing
 
-`shop.html` renders one grid from `createShopStore()`, with the controls the store carries: the
-result count, a sort control over `SORTS`, the facets as chips, a load-more control while
-`hasMore`, and states that look different for loading, empty, no results and error. Sort, filters,
-facets and paging run on Wix across the whole catalog, and the selection mirrors into the query
-string on its own. `category.html?slug=…` resolves the slug with `fetchCategoryBySlug` first (null
-is the not-found state, nothing else on the page) and passes `initialCategoryId` to the store.
-A price pair bounded by `priceRange` goes through `setFilters({ minPrice, maxPrice })`.
-Categories are links to `category.html?slug=…`, from the nav or the shop page. The tile's add
-control is `tileControl` above.
+`shop.html` on `createShopStore()`; `category.html?slug=…` resolves the slug with
+`fetchCategoryBySlug` first (null is the not-found state) and passes `initialCategoryId`. The
+state: `products` (null on the first load; the previous page while `loading` during a change,
+dim it rather than blank it), `total`, `categories`, `sort`, `facets`, `priceRange`,
+`selectedChoiceIds`, `hasActiveFilters`, `loading`, `error`, `hasMore`, `loadingMore`. The
+actions: `setSort(key)`, `setFilters({ minPrice, maxPrice, inStockOnly, search })`,
+`toggleChoice(choiceId)`, `clearFilters()`, `retry()`, `loadMore()`. `SORTS`, exported beside
+the store, is an object keyed by sort whose values carry `label`. Sort, filters, facets and paging
+run on Wix across the whole catalog, and the selection mirrors into the query string on its own.
 
-```html
-<div class="shop-bar"><span class="shop-count"></span>
-  <label class="shop-sort-label">Sort <select class="shop-sort"></select></label></div>
-<div class="shop-facets"></div>
-<div id="products" class="grid"></div>
-<p class="shop-status" role="status"></p>
-<button class="shop-more" type="button" hidden>Load more</button>
-```
+A listing renders the result count, a sort control, the facets (one group per facet, each choice
+with its `count`, swatches when `isColor`), a price pair bounded by `priceRange`, a clear control
+when `hasActiveFilters`, the grid, a load-more control while `hasMore`, and states that look
+different for loading, empty, no results and error with a retry.
+
+Each tile shows the summary: `imageUrl` (`hoverImageUrl` on hover), `name`, the price, every
+ribbon in `ribbons`, `discountNames` under the price, `swatches` as dots, `optionsSummary`. The
+price reads "From {price}" when `fromPrice`, "{price} – {maxPrice}" when they differ, else `price`
+with `compareAtPrice` struck beside it. Nothing is computed from these fields: no percent off, no
+sale badge inferred, no struck price beside a range.
+
+The tile's add control follows the summary: `availability` "OUT_OF_STOCK" links to the product
+page; `hasSubscriptions` links to the product page; `quickAddable` adds in one click with
+`addLine(p.id, p.minPriceVariantId, 1)`, disabled while `pendingProductId` is this product; any
+other product links to the product page to pick its options. A picker on the tile is an option:
+the product page's render on `createProductDetailStore({ slug: p.slug })` inside a panel with the
+cart's overlay rules.
 
 ```js
 import { createShopStore, SORTS } from "/js/wix/shop-store.js";
 
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const shop = createShopStore();
-const grid = document.querySelector("#products"), q = (sel) => document.querySelector(sel);
-const count = q(".shop-count"), sort = q(".shop-sort"), facets = q(".shop-facets"), status = q(".shop-status"), more = q(".shop-more");
-
-sort.innerHTML = Object.entries(SORTS).map(([key, { label }]) => `<option value="${key}">${esc(label)}</option>`).join("");
-sort.addEventListener("change", () => shop.setSort(sort.value));
-facets.addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-choice]");
-  if (b) shop.toggleChoice(b.dataset.choice);
-  else if (e.target.closest("[data-clear]")) shop.clearFilters();
+var shop = createShopStore();
+Object.keys(SORTS).forEach(function (key) { sortEl.add(new Option(SORTS[key].label, key)); });
+sortEl.addEventListener("change", function () { shop.setSort(sortEl.value); });
+moreEl.addEventListener("click", function () { shop.loadMore(); });
+shop.subscribe(function (s) {
+  countEl.textContent = s.total === null ? "" : s.total + " products";
+  moreEl.hidden = !s.hasMore;
+  // facets from s.facets with data-choice → shop.toggleChoice; the grid from s.products
 });
-status.addEventListener("click", (e) => { if (e.target.closest("[data-retry]")) shop.retry(); });
-more.addEventListener("click", () => shop.loadMore());
-
-// The price reads "From …" for a discounted range, "a – b" for a range, else the price with the "was" struck.
-const tilePrice = (p) => p.fromPrice ? `From ${esc(p.price)}` : p.price !== p.maxPrice ? `${esc(p.price)} – ${esc(p.maxPrice)}` : `${esc(p.price)}${p.compareAtPrice ? ` <s>${esc(p.compareAtPrice)}</s>` : ""}`;
-const tile = (p) => `
-  <article class="tile">
-    <a class="tile-media" href="${productUrl(p)}">${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" loading="lazy">` : ""}
-      ${p.ribbons.map((r) => `<span class="tile-ribbon">${esc(r)}</span>`).join("")}</a>
-    <h3 class="tile-name"><a href="${productUrl(p)}">${esc(p.name)}</a></h3>
-    <p class="tile-price">${tilePrice(p)}</p>
-    ${p.discountNames.map((d) => `<p class="tile-discount">${esc(d)}</p>`).join("")}
-    ${p.swatches.length ? `<p class="tile-swatches">${p.swatches.map((c) => `<span class="tile-swatch" style="background:${c}"></span>`).join("")}</p>` : ""}
-    ${p.optionsSummary ? `<p class="tile-options">${esc(p.optionsSummary)}</p>` : ""}
-    ${tileControl(p)}
-  </article>`;
-
-function renderShop(s) {
-  sort.value = s.sort;
-  count.textContent = s.total === null ? "" : `${s.total} products`;
-  facets.innerHTML = s.facets.map((f) => `<fieldset class="facet"><legend>${esc(f.name)}</legend>${f.choices.map((ch) =>
-    `<button type="button" class="chip${s.selectedChoiceIds.includes(ch.id) ? " chip--selected" : ""}${f.isColor && ch.colorCode ? " chip--swatch" : ""}" data-choice="${ch.id}" ${f.isColor && ch.colorCode ? `style="background:${ch.colorCode}" aria-label="${esc(ch.name)}"` : ""}>${f.isColor && ch.colorCode ? "" : esc(ch.name)} <small>${ch.count}</small></button>`).join("")}</fieldset>`).join("")
-    + (s.hasActiveFilters ? `<button type="button" class="shop-clear" data-clear>Clear filters</button>` : "");
-  grid.classList.toggle("is-loading", s.loading);
-  if (s.error) status.innerHTML = `${esc(s.error)} <button type="button" class="shop-retry" data-retry>Try again</button>`;
-  else if (s.products === null) status.textContent = "Loading the collection…";
-  else if (!s.products.length) status.textContent = s.hasActiveFilters ? "No products match these filters." : "No products yet.";
-  else status.textContent = "";
-  if (s.products) grid.innerHTML = s.products.map(tile).join("");
-  more.hidden = !s.hasMore;
-  more.disabled = s.loadingMore;
-  more.textContent = s.loadingMore ? "Loading…" : "Load more";
-}
-shop.subscribe(renderShop);
-renderShop(shop.getState());
 shop.start();
 ```
-
-## The product page
-
-`product.html?slug=…` loads the product through the detail store's state: `product.name`, the
-gallery (`product.gallery`, with `state.imageUrl` as the main image when set), `descriptionHtml`
-through `innerHTML`, `infoSections` as sections or accordions, `breadcrumbs` (Home, the category
-path, the product), and `state.price` with `compareAtPrice` and `pricePerUnit`. A slug that
-resolves to nothing (`notFound`) shows only the not-found state. On a phone the image is a
-bounded band so the name, the price and the add button stay in the first screen. Set
-`document.title` and the meta description from the entity's `seoData` once it loads, on the
-product and the category pages.
 
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
-`/shop.html`, `/product.html?slug=…`, `/category.html?slug=…`, `/cart.html` if the brief wants a
-cart page beside the drawer. A link to a folder gives the visitor a 404 page. One stylesheet and
-one script shared by the pages, or inline per page, either way on one set of tokens.
+`/shop.html`, `/product.html?slug=…`, `/category.html?slug=…`, `/cart.html` when the brief wants a
+cart page. A link to a folder gives the visitor a 404 page. Write the pages' scripts as files of
+their own and keep each file small; a page's code travels as text in the upload call.
 
 ## Rules
 
-- Data and commerce go through the module exports. Extend by calling them; the request shapes
-  stay in the modules.
-- A product with options is added through the detail store, never by picking a variant yourself;
-  a product with no options is added from the tile.
+- Data and commerce go through the layer's exports. Extend by calling them; the request shapes
+  stay in the layer.
+- A product with options is added through the detail store, never by picking a variant in the
+  page; a product with no options is added from the tile.
 - Checkout only through `goToCheckout()`.
 - Live data or an honest empty state: no invented products, prices, reviews, counts or delivery
   promises; no Wix ids or technical words in visible text.
-- Cart totals come from the cart state; shipping reads "calculated at checkout", taxes too unless
-  the cart has tax rows or `pricesIncludeTax`.
+- Cart totals come from the cart state.
 - Browsing, cart and checkout need no login; the visitor session is already there.
 - Sort and filter at the source: the shop store and `searchCatalog`, never on the array a page
   already holds.
+- Every control on the page has a rule in the stylesheet; one primary action per surface, the rest
+  compact or text actions.
 
 ## The owner's links
 
@@ -392,8 +243,8 @@ accept online payments yet. Give both links in the close.
 
 ## Seeding
 
-Per `seed/SEED.md` and `seed/seed-storefront.mjs`: a plain-data plan, run in the script's order with
-its waits. Seed a catalog that exercises the storefront (a product with a colour option, one on
-sale, an image per product) unless the brief says otherwise. A fresh Stores install may carry
+Per `seed/SEED.md` and `seed/seed-storefront.mjs`: a plain-data plan, run in the script's order
+with its waits. Seed a catalog that exercises the storefront (a product with a colour option, one
+on sale, an image per product) unless the brief says otherwise. A fresh Stores install may carry
 Wix's sample catalog; never delete it or anything else on the site, and name it in the close with
 the products link so the owner removes it there.
