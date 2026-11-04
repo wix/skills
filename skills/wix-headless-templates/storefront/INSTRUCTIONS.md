@@ -652,7 +652,7 @@ Hand both links above in the close; don't treat it as a code failure.
 
 ## Seeding
 
-Per `seed/SEED.md` — a plain-data `plan.json` into `seed-store.mjs`, run from the project
+Per `seed/SEED.md` — a plain-data `plan.json` into `seed-storefront.mjs`, run from the project
 root. Independent of the frontend work; seed a catalog that exercises the UI (≥1 product with
 a color option, ≥1 on sale, an image per product) unless the brief says otherwise — and, when the
 brief wants them, a ribbon, a modifier (choices or free text), an info section, a pre-order item,

@@ -1,7 +1,7 @@
-// The plan's shapes → the request bodies seed-store.mjs sends (see SEED.md for the plan): the
+// The plan's shapes → the request bodies seed-storefront.mjs sends (see SEED.md for the plan): the
 // description string → Ricos nodes, options → variants (the full Cartesian product), modifiers,
 // info sections, pre-order, and the validation that rejects a plan before anything is created.
-// Pure functions, no network: seed-store.mjs imports them and makes the calls.
+// Pure functions, no network: seed-storefront.mjs imports them and makes the calls.
 
 // ---- description string -> Wix rich-text nodes --------------------------------------------------
 // Descriptions arrive as HTML as often as not. The writable field is `description` (Ricos

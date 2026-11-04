@@ -1,6 +1,6 @@
 # Storefront — seeding
 
-Seed the Wix Stores catalog by **running `seed-store.mjs` with a plan file** — don't hand-write
+Seed the Wix Stores catalog by **running `seed-storefront.mjs` with a plan file** — don't hand-write
 the REST calls. The script mints its own site token via the Wix CLI (requires a logged-in CLI
 session and a `wix.config.json` in the working directory), installs the Stores app if needed,
 waits for the V3 catalog, and creates everything in the right order.
@@ -12,7 +12,7 @@ not a store product.
 
 ```bash
 # from the project root (where wix.config.json lives):
-node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
+node <SKILL_ROOT>/templates/storefront/seed/seed-storefront.mjs plan.json
 ```
 
 Run this way, the result is the process itself: exit code `0` and the JSON on stdout (redirect it
