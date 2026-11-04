@@ -144,12 +144,14 @@ export function isMenuAvailable(info: MenuOrderingInfo, now: Date = new Date()):
 /**
  * Can dishes of `menuId` be added right now? true/false once the operation's menu settings are
  * known; null while they are still loading or could not be read (the add itself is still refused
- * server-side, with a message). A menu with no entry under the operation is not orderable.
+ * server-side, with a message), and null for a menu with no entry under the operation.
  */
 export function menuOrderable(map: Record<string, MenuOrderingInfo> | null, menuId: string, now: Date = new Date()): boolean | null {
   if (!map) return null;
   const info = map[menuId];
-  return !!info && info.enabled && isMenuAvailable(info, now);
+  // A menu with no settings entry is unknown, not disabled: the add itself decides server-side.
+  if (!info) return null;
+  return info.enabled && isMenuAvailable(info, now);
 }
 
 // ---- fulfillment methods ----------------------------------------------------------------------------------
