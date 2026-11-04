@@ -51,7 +51,9 @@ subscribeCart((s) => {
 on success and on refusal, so the error has a place to show. The backdrop and the drawer are
 `position: fixed`; the page stops scrolling while it is open; Escape, the close button and a
 click on the backdrop close it; focus moves into the drawer and back on close. Checkout is the one
-primary button; the steppers, remove and the coupon controls are compact, styled by their classes.
+primary button. Every other control carries a class, and each class gets a rule: the stepper
+buttons as one compact group, remove and the coupon's remove as text actions, the coupon's apply
+as a small secondary button, the note as a label over its field.
 
 ```html
 <div id="cart" class="cart-backdrop" hidden>
@@ -61,10 +63,11 @@ primary button; the steppers, remove and the coupon controls are compact, styled
     <p class="cart-error" role="alert" hidden></p>
     <div class="cart-lines"></div>
     <div class="cart-extras" hidden>
-      <form class="cart-coupon"><input name="code" placeholder="Promo code" autocomplete="off">
-        <button type="submit">Apply</button></form>
+      <form class="cart-coupon"><input class="cart-coupon-input" name="code" placeholder="Promo code" autocomplete="off">
+        <button class="cart-coupon-apply" type="submit">Apply</button></form>
       <p class="cart-coupon-applied" hidden></p>
-      <label class="cart-note">Note to seller <textarea name="note" rows="2"></textarea></label>
+      <label class="cart-note"><span class="cart-note-label">Note to seller</span>
+        <textarea class="cart-note-input" name="note" rows="2"></textarea></label>
     </div>
     <footer class="cart-footer" hidden>
       <div class="cart-totals"></div>
@@ -136,9 +139,9 @@ function renderCart(s) {
         ${lineStatus(l) ? `<p class="cart-line-status">${lineStatus(l)}</p>` : ""}
         <div class="cart-line-controls">
           <span class="cart-stepper">
-            <button type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity - 1}" aria-label="Decrease" ${l.quantity <= 1 ? "disabled" : ""}>−</button>
+            <button class="cart-stepper-button" type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity - 1}" aria-label="Decrease" ${l.quantity <= 1 ? "disabled" : ""}>−</button>
             <span class="cart-stepper-value">${l.quantity}</span>
-            <button type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity + 1}" aria-label="Increase" ${l.availableQuantity !== null && l.quantity >= l.availableQuantity ? "disabled" : ""}>+</button>
+            <button class="cart-stepper-button" type="button" data-line="${l.lineItemId}" data-quantity="${l.quantity + 1}" aria-label="Increase" ${l.availableQuantity !== null && l.quantity >= l.availableQuantity ? "disabled" : ""}>+</button>
           </span>
           <button class="cart-line-remove" type="button" data-line="${l.lineItemId}">Remove</button>
         </div>
@@ -147,7 +150,7 @@ function renderCart(s) {
     </article>`).join("");
   coupon.hidden = !!cart.coupon;
   couponApplied.hidden = !cart.coupon;
-  if (cart.coupon) couponApplied.innerHTML = `Code ${esc(cart.coupon.code)} <button type="button">Remove</button>`;
+  if (cart.coupon) couponApplied.innerHTML = `Code ${esc(cart.coupon.code)} <button class="cart-coupon-remove" type="button">Remove</button>`;
   if (document.activeElement !== note) note.value = cart.note;
   q(".cart-totals").innerHTML = [
     ["Subtotal", cart.subtotal],
@@ -167,10 +170,12 @@ renderCart(getCartState());
 
 **The buy controls of the product page**, on `createProductDetailStore({ slug })`. The store
 resolves the variant from the picks and judges each choice against the others: a choice with
-`inStock` or `exists` false is disabled. The add button is the one primary button; the choices are
-chips, or swatches for a colour option; the stepper is one compact inline group.
+`inStock` or `exists` false is disabled. The page's price line reads the store, as the example
+does: `price` is the range until every option is picked. The add button is the one primary
+button; the choices are chips, or swatches for a colour option; the stepper is one compact group.
 
 ```html
+<p class="price"><span id="price"></span> <s id="compare" hidden></s> <small id="unit" hidden></small></p>
 <div id="buy"></div>
 ```
 
@@ -179,6 +184,7 @@ import { createProductDetailStore, ONE_TIME_PLAN } from "/js/wix/product-detail-
 
 const store = createProductDetailStore({ slug: new URLSearchParams(location.search).get("slug") });
 const buy = document.querySelector("#buy");
+const price = document.querySelector("#price"), compare = document.querySelector("#compare"), unit = document.querySelector("#unit");
 
 buy.addEventListener("click", (e) => {
   const b = e.target.closest("button");
@@ -198,6 +204,10 @@ const chip = (attrs, label, on, off, extra = "") => `<button type="button" class
 
 function renderBuy(s) {
   if (!s.product) { buy.innerHTML = `<p>${s.notFound ? "This product is not available." : "Loading…"}</p>`; return; }
+  // The store's price is the range until every option is picked, then the variant's price.
+  price.textContent = s.price;
+  compare.textContent = s.compareAtPrice ?? ""; compare.hidden = !s.compareAtPrice;
+  unit.textContent = s.pricePerUnit ?? ""; unit.hidden = !s.pricePerUnit;
   const active = document.activeElement, textKey = active?.dataset?.text, caret = active?.selectionStart;
   buy.innerHTML = `
     ${s.optionGroups.map((g) => `<fieldset class="group"><legend>${esc(g.name)}</legend>${g.choices.map((ch) =>
@@ -213,9 +223,9 @@ function renderBuy(s) {
       ${s.plans.map((p) => chip(`data-plan="${p.id}"`, `${esc(p.name)} ${p.price} <small>${esc(p.terms)}</small>`, p.selected, false)).join("")}</fieldset>` : ""}
     <div class="actions">
       <span class="stepper">
-        <button type="button" data-step="-1" aria-label="Decrease" ${s.quantity <= 1 || s.adding ? "disabled" : ""}>−</button>
+        <button class="stepper-button" type="button" data-step="-1" aria-label="Decrease" ${s.quantity <= 1 || s.adding ? "disabled" : ""}>−</button>
         <span class="stepper-value">${s.quantity}</span>
-        <button type="button" data-step="1" aria-label="Increase" ${s.quantity >= s.maxQuantity || s.adding ? "disabled" : ""}>+</button>
+        <button class="stepper-button" type="button" data-step="1" aria-label="Increase" ${s.quantity >= s.maxQuantity || s.adding ? "disabled" : ""}>+</button>
       </span>
       <button type="button" class="add" data-add aria-busy="${s.adding}" ${s.canAdd && !s.adding ? "" : "disabled"}>${s.adding ? "Adding…" : s.isPreorder ? "Pre-order" : "Add to cart"}</button>
     </div>
@@ -251,13 +261,12 @@ function tileControl(p) {
   if (p.quickAddable) return `<button class="tile-add" type="button" data-add="${p.id}" data-variant="${p.minPriceVariantId ?? ""}">${p.preorder ? "Pre-order" : "Add to cart"}</button>`;
   return `<a class="tile-link" href="${productUrl(p)}">Choose options</a>`;
 }
-const grid = document.querySelector("#products");
-grid.addEventListener("click", (e) => {
+document.querySelector("#products").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-add]");
   if (b) addLine(b.dataset.add, b.dataset.variant || null, 1).catch(() => {});
 });
 subscribeCart((s) => {
-  for (const b of grid.querySelectorAll("button[data-add]")) {
+  for (const b of document.querySelectorAll("#products button[data-add]")) {
     const busy = s.pendingProductId === b.dataset.add;
     b.disabled = busy;
     b.setAttribute("aria-busy", String(busy));
@@ -267,26 +276,77 @@ subscribeCart((s) => {
 
 ## The listing
 
-`shop.html` and `category.html?slug=…` render one grid from `createShopStore()`: one render
-function that reads `getState()`, called from `subscribe`, then `start()`. The category page
-resolves the slug with `fetchCategoryBySlug` first (null is the not-found state, nothing else on
-the page) and passes `initialCategoryId` to the store. The state: `products` (null on the first
-load, the previous page while `loading` during a change), `total`, `categories`, `sort` with
-`SORTS` (an object keyed by sort, render `SORTS[key].label`), `filters`, `facets`,
-`priceRange`, `selectedChoiceIds`, `hasActiveFilters`, `loading`, `error`, `hasMore`,
-`loadingMore`. The actions: `setSort`, `setFilters({ minPrice, maxPrice, inStockOnly, search })`,
-`toggleChoice(choiceId)`, `clearFilters`, `retry`, `loadMore`. Sort, filters, facets and paging
-run on Wix across the whole catalog, and the selection mirrors into the query string on its own.
-Render the result count, a sort control, the facets as chips or a sidebar, a price pair bounded
-by `priceRange`, a "load more" control while `hasMore`, and states that look different for
-loading, empty, no results and error. Categories are links to `category.html?slug=…`, from the
-nav or the shop page.
+`shop.html` renders one grid from `createShopStore()`, with the controls the store carries: the
+result count, a sort control over `SORTS`, the facets as chips, a load-more control while
+`hasMore`, and states that look different for loading, empty, no results and error. Sort, filters,
+facets and paging run on Wix across the whole catalog, and the selection mirrors into the query
+string on its own. `category.html?slug=…` resolves the slug with `fetchCategoryBySlug` first (null
+is the not-found state, nothing else on the page) and passes `initialCategoryId` to the store.
+A price pair bounded by `priceRange` goes through `setFilters({ minPrice, maxPrice })`.
+Categories are links to `category.html?slug=…`, from the nav or the shop page. The tile's add
+control is `tileControl` above.
 
-Each tile shows the summary: `imageUrl` (and `hoverImageUrl`), `name`, the price, every ribbon
-in `ribbons`, `discountNames` under the price, `swatches` as dots, `optionsSummary`. The price
-reads "From {price}" when `fromPrice`, "{price} – {maxPrice}" when they differ, else
-`price` with `compareAtPrice` struck beside it when present. Nothing is computed from these
-fields: no percent off, no sale badge inferred, no struck price beside a range.
+```html
+<div class="shop-bar"><span class="shop-count"></span>
+  <label class="shop-sort-label">Sort <select class="shop-sort"></select></label></div>
+<div class="shop-facets"></div>
+<div id="products" class="grid"></div>
+<p class="shop-status" role="status"></p>
+<button class="shop-more" type="button" hidden>Load more</button>
+```
+
+```js
+import { createShopStore, SORTS } from "/js/wix/shop-store.js";
+
+const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+const shop = createShopStore();
+const grid = document.querySelector("#products"), q = (sel) => document.querySelector(sel);
+const count = q(".shop-count"), sort = q(".shop-sort"), facets = q(".shop-facets"), status = q(".shop-status"), more = q(".shop-more");
+
+sort.innerHTML = Object.entries(SORTS).map(([key, { label }]) => `<option value="${key}">${esc(label)}</option>`).join("");
+sort.addEventListener("change", () => shop.setSort(sort.value));
+facets.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-choice]");
+  if (b) shop.toggleChoice(b.dataset.choice);
+  else if (e.target.closest("[data-clear]")) shop.clearFilters();
+});
+status.addEventListener("click", (e) => { if (e.target.closest("[data-retry]")) shop.retry(); });
+more.addEventListener("click", () => shop.loadMore());
+
+// The price reads "From …" for a discounted range, "a – b" for a range, else the price with the "was" struck.
+const tilePrice = (p) => p.fromPrice ? `From ${esc(p.price)}` : p.price !== p.maxPrice ? `${esc(p.price)} – ${esc(p.maxPrice)}` : `${esc(p.price)}${p.compareAtPrice ? ` <s>${esc(p.compareAtPrice)}</s>` : ""}`;
+const tile = (p) => `
+  <article class="tile">
+    <a class="tile-media" href="${productUrl(p)}">${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" loading="lazy">` : ""}
+      ${p.ribbons.map((r) => `<span class="tile-ribbon">${esc(r)}</span>`).join("")}</a>
+    <h3 class="tile-name"><a href="${productUrl(p)}">${esc(p.name)}</a></h3>
+    <p class="tile-price">${tilePrice(p)}</p>
+    ${p.discountNames.map((d) => `<p class="tile-discount">${esc(d)}</p>`).join("")}
+    ${p.swatches.length ? `<p class="tile-swatches">${p.swatches.map((c) => `<span class="tile-swatch" style="background:${c}"></span>`).join("")}</p>` : ""}
+    ${p.optionsSummary ? `<p class="tile-options">${esc(p.optionsSummary)}</p>` : ""}
+    ${tileControl(p)}
+  </article>`;
+
+function renderShop(s) {
+  sort.value = s.sort;
+  count.textContent = s.total === null ? "" : `${s.total} products`;
+  facets.innerHTML = s.facets.map((f) => `<fieldset class="facet"><legend>${esc(f.name)}</legend>${f.choices.map((ch) =>
+    `<button type="button" class="chip${s.selectedChoiceIds.includes(ch.id) ? " chip--selected" : ""}${f.isColor && ch.colorCode ? " chip--swatch" : ""}" data-choice="${ch.id}" ${f.isColor && ch.colorCode ? `style="background:${ch.colorCode}" aria-label="${esc(ch.name)}"` : ""}>${f.isColor && ch.colorCode ? "" : esc(ch.name)} <small>${ch.count}</small></button>`).join("")}</fieldset>`).join("")
+    + (s.hasActiveFilters ? `<button type="button" class="shop-clear" data-clear>Clear filters</button>` : "");
+  grid.classList.toggle("is-loading", s.loading);
+  if (s.error) status.innerHTML = `${esc(s.error)} <button type="button" class="shop-retry" data-retry>Try again</button>`;
+  else if (s.products === null) status.textContent = "Loading the collection…";
+  else if (!s.products.length) status.textContent = s.hasActiveFilters ? "No products match these filters." : "No products yet.";
+  else status.textContent = "";
+  if (s.products) grid.innerHTML = s.products.map(tile).join("");
+  more.hidden = !s.hasMore;
+  more.disabled = s.loadingMore;
+  more.textContent = s.loadingMore ? "Loading…" : "Load more";
+}
+shop.subscribe(renderShop);
+renderShop(shop.getState());
+shop.start();
+```
 
 ## The product page
 
