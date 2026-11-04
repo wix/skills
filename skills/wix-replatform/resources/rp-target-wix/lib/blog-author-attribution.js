@@ -117,7 +117,6 @@ async function resolveBlogAuthorMemberId(wix, {
   crosswalk = null,
   siteId = null,
   ownerMemberId = null,
-  safeModeOptions,
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 } = {}) {
   if (sourceAuthorId === null || sourceAuthorId === undefined || sourceAuthorId === '') {
@@ -138,7 +137,7 @@ async function resolveBlogAuthorMemberId(wix, {
   const displayName = (sourceAuthorName && String(sourceAuthorName).trim()) || `Author ${sourceAuthorId}`;
   const loginEmail = buildPlaceholderAuthorEmail({ sourceAuthorId, siteId });
 
-  const member = await w.pacedCreateMember(wix, { email: loginEmail, name: displayName }, safeModeOptions, sleep);
+  const member = await w.pacedCreateMember(wix, { email: loginEmail, name: displayName }, sleep);
   // createMember only ever skips on an empty email (buildCreateMemberRequest's own guard);
   // buildPlaceholderAuthorEmail never produces one, so reaching `skipped` means a caller bypassed
   // it -- surfaced as an error rather than silently falling through to the owner.

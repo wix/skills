@@ -17,6 +17,20 @@
       ],
       "requiresCredentials": false
     },
+    "advanced-product-labels-for-woocommerce": {
+      "path": "plugins/advanced-product-labels-for-woocommerce.json",
+      "displayName": "WooCommerce Advanced Product Labels",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.product-ribbons"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
     "back-in-stock-notifier-for-woocommerce": {
       "path": "plugins/back-in-stock-notifier-for-woocommerce.json",
       "displayName": "Back In Stock Notifier for WooCommerce | WooCommerce Waitlist Pro",
@@ -57,6 +71,21 @@
       "entityCount": 1,
       "channels": [
         "core-meta"
+      ],
+      "requiresCredentials": false
+    },
+    "forminator": {
+      "path": "plugins/forminator.json",
+      "displayName": "Forminator",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.form-definitions",
+        "content.form-submissions"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "db-only"
       ],
       "requiresCredentials": false
     },
@@ -104,6 +133,20 @@
         "export-file"
       ],
       "requiresCredentials": true
+    },
+    "min-and-max-quantity-for-woocommerce": {
+      "path": "plugins/min-and-max-quantity-for-woocommerce.json",
+      "displayName": "Minimum and Maximum Quantity for WooCommerce",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.quantity-limits"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "db-only"
+      ],
+      "requiresCredentials": false
     },
     "mwb-bookings-for-woocommerce": {
       "path": "plugins/mwb-bookings-for-woocommerce.json",
@@ -155,6 +198,20 @@
       ],
       "requiresCredentials": false
     },
+    "product-video-gallery-slider-for-woocommerce": {
+      "path": "plugins/product-video-gallery-slider-for-woocommerce.json",
+      "displayName": "Product Video Gallery for Woocommerce",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.product-video"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-meta"
+      ],
+      "requiresCredentials": false
+    },
     "pw-woocommerce-gift-cards": {
       "path": "plugins/pw-woocommerce-gift-cards.json",
       "displayName": "PW WooCommerce Gift Cards",
@@ -172,16 +229,32 @@
       ],
       "requiresCredentials": false
     },
+    "redirection": {
+      "path": "plugins/redirection.json",
+      "displayName": "Redirection",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "content.url-redirects"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "db-only"
+      ],
+      "requiresCredentials": false
+    },
     "seo-by-rank-math": {
       "path": "plugins/seo-by-rank-math.json",
       "displayName": "Rank Math SEO",
       "profileVersion": "2026-08",
       "distribution": "wordpress-org",
       "capabilities": [
-        "content.seo-meta"
+        "content.seo-meta",
+        "content.url-redirects"
       ],
-      "entityCount": 1,
+      "entityCount": 2,
       "channels": [
+        "db-only",
         "export-file"
       ],
       "requiresCredentials": false
@@ -275,6 +348,36 @@
       ],
       "requiresCredentials": false
     },
+    "wc-coupon-discount-to-specific-products": {
+      "path": "plugins/wc-coupon-discount-to-specific-products.json",
+      "displayName": "Woocommerce Coupon Discount for Specific Products",
+      "profileVersion": "2026-10",
+      "distribution": "unknown",
+      "capabilities": [
+        "commerce.coupons"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-embedded"
+      ],
+      "requiresCredentials": false
+    },
+    "wm-cart-upsell": {
+      "path": "plugins/wm-cart-upsell.json",
+      "displayName": "WM Cart Benefits",
+      "profileVersion": "2026-10",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "commerce.applied-discounts",
+        "commerce.discount-rules"
+      ],
+      "entityCount": 2,
+      "channels": [
+        "admin-page-only",
+        "core-embedded"
+      ],
+      "requiresCredentials": false
+    },
     "woo-checkout-field-editor-pro": {
       "path": "plugins/woo-checkout-field-editor-pro.json",
       "displayName": "Checkout Field Editor for WooCommerce",
@@ -302,6 +405,20 @@
       "channels": [
         "core-meta",
         "db-only"
+      ],
+      "requiresCredentials": false
+    },
+    "woo-free-shipping-per-product": {
+      "path": "plugins/woo-free-shipping-per-product.json",
+      "displayName": "Free Shipping Per Product for WooCommerce",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.shipping-free-per-product"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-embedded"
       ],
       "requiresCredentials": false
     },
@@ -391,6 +508,20 @@
       ],
       "requiresCredentials": false
     },
+    "wordpress-seo-premium": {
+      "path": "plugins/wordpress-seo-premium.json",
+      "displayName": "Yoast SEO Premium",
+      "profileVersion": "2026-10",
+      "distribution": "premium-or-unlisted",
+      "capabilities": [
+        "content.url-redirects"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "export-file"
+      ],
+      "requiresCredentials": false
+    },
     "wordpress-seo": {
       "path": "plugins/wordpress-seo.json",
       "displayName": "Yoast SEO",
@@ -412,7 +543,7 @@
       "profileVersion": "2026-08",
       "distribution": "wordpress-org",
       "capabilities": [
-        "commerce.composite-products"
+        "commerce.product-bundles"
       ],
       "entityCount": 2,
       "channels": [
@@ -432,6 +563,20 @@
       "channels": [
         "db-only",
         "export-file"
+      ],
+      "requiresCredentials": false
+    },
+    "wt-smart-coupons-for-woocommerce": {
+      "path": "plugins/wt-smart-coupons-for-woocommerce.json",
+      "displayName": "Smart Coupons For WooCommerce Coupons",
+      "profileVersion": "2026-10",
+      "distribution": "wordpress-org",
+      "capabilities": [
+        "commerce.coupons"
+      ],
+      "entityCount": 1,
+      "channels": [
+        "core-embedded"
       ],
       "requiresCredentials": false
     }
@@ -516,6 +661,9 @@
     ],
     "wps-bfw/v1": [
       "mwb-bookings-for-woocommerce"
+    ],
+    "redirection/v1": [
+      "redirection"
     ],
     "rankmath/v1": [
       "seo-by-rank-math"
@@ -614,6 +762,9 @@
     "_pewc_product_extra_id": [
       "product-extras-for-woocommerce"
     ],
+    "_nickx_video_text_url": [
+      "product-video-gallery-slider-for-woocommerce"
+    ],
     "pw_gift_card_number": [
       "pw-woocommerce-gift-cards"
     ],
@@ -650,8 +801,20 @@
     "_wps_sfw_product": [
       "subscriptions-for-woocommerce"
     ],
+    "custom_apply_to_specific_products_only": [
+      "wc-coupon-discount-to-specific-products"
+    ],
+    "_wm_cu_offer": [
+      "wm-cart-upsell"
+    ],
+    "_wm_cu_shipping_offer": [
+      "wm-cart-upsell"
+    ],
     "_wdr_discounts": [
       "woo-discount-rules"
+    ],
+    "shipping_class": [
+      "woo-free-shipping-per-product"
     ],
     "woosb_ids": [
       "woo-product-bundle"
@@ -688,6 +851,15 @@
     ],
     "wooco_parent_id": [
       "wpc-composite-products"
+    ],
+    "_wt_coupon_start_date": [
+      "wt-smart-coupons-for-woocommerce"
+    ],
+    "_wt_sc_coupon_products": [
+      "wt-smart-coupons-for-woocommerce"
+    ],
+    "_wt_free_product_ids": [
+      "wt-smart-coupons-for-woocommerce"
     ]
   },
   "capabilityIndex": {
@@ -697,18 +869,27 @@
     "content.custom-field-schema": [
       "advanced-custom-fields"
     ],
+    "commerce.product-ribbons": [
+      "advanced-product-labels-for-woocommerce"
+    ],
     "commerce.back-in-stock-notifications": [
       "back-in-stock-notifier-for-woocommerce"
     ],
     "content.form-definitions": [
       "contact-form-7",
+      "forminator",
       "wpforms-lite"
     ],
     "commerce.facebook-catalog-sync": [
       "facebook-for-woocommerce"
     ],
+    "content.form-submissions": [
+      "forminator"
+    ],
     "commerce.coupons": [
-      "free-gifts-for-woocommerce"
+      "free-gifts-for-woocommerce",
+      "wc-coupon-discount-to-specific-products",
+      "wt-smart-coupons-for-woocommerce"
     ],
     "commerce.free-gift-rules": [
       "free-gifts-for-woocommerce"
@@ -723,6 +904,9 @@
       "membership-for-woocommerce",
       "subscriptions-for-woocommerce"
     ],
+    "commerce.quantity-limits": [
+      "min-and-max-quantity-for-woocommerce"
+    ],
     "commerce.bookable-services": [
       "mwb-bookings-for-woocommerce",
       "the-events-calendar"
@@ -735,11 +919,13 @@
     ],
     "commerce.discount-rules": [
       "pricing-deals-for-woocommerce",
+      "wm-cart-upsell",
       "woo-discount-rules",
       "woocommerce-progressive-discounts"
     ],
     "commerce.applied-discounts": [
       "pricing-deals-for-woocommerce",
+      "wm-cart-upsell",
       "woo-discount-rules"
     ],
     "commerce.product-addon-fields": [
@@ -750,12 +936,20 @@
       "product-extras-for-woocommerce",
       "woocommerce-product-addon"
     ],
+    "commerce.product-video": [
+      "product-video-gallery-slider-for-woocommerce"
+    ],
     "commerce.gift-card-products": [
       "pw-woocommerce-gift-cards"
     ],
     "commerce.gift-cards": [
       "pw-woocommerce-gift-cards",
       "woocommerce-gift-cards"
+    ],
+    "content.url-redirects": [
+      "redirection",
+      "seo-by-rank-math",
+      "wordpress-seo-premium"
     ],
     "content.seo-meta": [
       "seo-by-rank-math",
@@ -785,29 +979,50 @@
     "commerce.checkout-custom-fields": [
       "woo-checkout-field-editor-pro"
     ],
+    "commerce.shipping-free-per-product": [
+      "woo-free-shipping-per-product"
+    ],
     "commerce.product-bundles": [
-      "woo-product-bundle"
+      "woo-product-bundle",
+      "wpc-composite-products"
     ],
     "commerce.payment-gateway-notes": [
       "woocommerce-other-payment-gateway"
     ],
     "commerce.order-invoice-documents": [
       "woocommerce-pdf-invoices-packing-slips"
-    ],
-    "commerce.composite-products": [
-      "wpc-composite-products"
     ]
   },
   "channels": {
     "core-embedded": [
       "advanced-custom-fields",
       "mwb-bookings-for-woocommerce",
-      "wordpress-seo"
+      "wc-coupon-discount-to-specific-products",
+      "wm-cart-upsell",
+      "woo-free-shipping-per-product",
+      "wordpress-seo",
+      "wt-smart-coupons-for-woocommerce"
     ],
     "export-file": [
       "advanced-custom-fields",
       "membership-for-woocommerce",
       "seo-by-rank-math",
+      "wordpress-seo-premium",
+      "wpforms-lite"
+    ],
+    "db-only": [
+      "advanced-product-labels-for-woocommerce",
+      "forminator",
+      "min-and-max-quantity-for-woocommerce",
+      "pricing-deals-for-woocommerce",
+      "product-extras-for-woocommerce",
+      "pw-woocommerce-gift-cards",
+      "redirection",
+      "seo-by-rank-math",
+      "strong-testimonials",
+      "tablepress",
+      "ti-woocommerce-wishlist",
+      "woo-discount-rules",
       "wpforms-lite"
     ],
     "plugin-rest": [
@@ -830,6 +1045,7 @@
       "membership-for-woocommerce",
       "mwb-bookings-for-woocommerce",
       "product-extras-for-woocommerce",
+      "product-video-gallery-slider-for-woocommerce",
       "pw-woocommerce-gift-cards",
       "subscriptions-for-woocommerce",
       "woo-discount-rules",
@@ -842,22 +1058,13 @@
     "admin-page-only": [
       "free-gifts-for-woocommerce",
       "pricing-deals-for-woocommerce",
+      "wm-cart-upsell",
       "woo-checkout-field-editor-pro",
       "woocommerce-progressive-discounts"
     ],
     "core-cpt": [
       "mwb-bookings-for-woocommerce",
       "the-events-calendar"
-    ],
-    "db-only": [
-      "pricing-deals-for-woocommerce",
-      "product-extras-for-woocommerce",
-      "pw-woocommerce-gift-cards",
-      "strong-testimonials",
-      "tablepress",
-      "ti-woocommerce-wishlist",
-      "woo-discount-rules",
-      "wpforms-lite"
     ]
   }
 }

@@ -1,11 +1,25 @@
 #!/usr/bin/env node
 'use strict';
 
+// commander ships inside the skill (vendor/); an incomplete install or an old Node says so
+// instead of a stack trace.
+function requireCommander() {
+  try {
+    return require('../vendor/commander');
+  } catch (error) {
+    if (error && (error.code === 'MODULE_NOT_FOUND' || error.code === 'ERR_REQUIRE_ESM')) {
+      process.stderr.write(`replatform: cannot load the bundled commander (${error.code}). ${require('../lib/toolkit-dependencies.js').FIX}\n`);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
 const fs = require('node:fs/promises');
 const fssync = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { Command, Option } = require('commander');
+const { Command, Option } = requireCommander();
 const {
   RunController, readActive, findRun, requestCancellation, defaultEventsPath, readJson, exitCode,
 } = require('../lib/run-controller.js');
@@ -79,10 +93,13 @@ function runtimeOptions(args) {
   if (args.siteBusinessType !== undefined && !['store', 'bookings', 'other'].includes(args.siteBusinessType)) throw new Error('site-business-type must be store, bookings, or other');
   if (args.siteBusinessType !== undefined && args.siteType !== 'harmony') throw new Error('site-business-type is valid only with --site-type harmony');
   if (args.siteType !== undefined && args.destination !== undefined && args.destination !== 'new') throw new Error('site-type applies only to --destination new');
+  // The existing-site mute answer, given up front (a new site is always muted).
+  if (args.notificationMute !== undefined && !['on', 'off'].includes(args.notificationMute)) throw new Error('notification-mute must be on or off');
+  if (args.notificationMute !== undefined && !/^existing:/.test(args.destination || '')) throw new Error('notification-mute applies only to --destination existing:<site-id>; a new site is always muted');
   return {
     agent: args.agent || 'auto', agentPath: args.agentPath, sourceUrl: args.sourceUrl, sourceMode: args.sourceMode,
     deliveryMode: args.deliveryMode, destination: args.destination, managementImportMode: args.managementImportMode,
-    siteType: args.siteType, siteBusinessType: args.siteBusinessType,
+    siteType: args.siteType, siteBusinessType: args.siteBusinessType, notificationMute: args.notificationMute,
     fileInputPaths: args.file?.length ? args.file.map((filePath) => path.resolve(filePath)) : undefined,
     oneClick: args.oneClick, dryRun: args.dryRun, eventsFile: args.eventsFile ? path.resolve(args.eventsFile) : null, vendorEvents: args.vendorEvents ? path.resolve(args.vendorEvents) : null,
     statusIntervalMs, wallTimeoutMs: duration(args.wallTimeout || 'off', { allowOff: true, min: 60000, max: 7 * 86400000 }),
@@ -97,16 +114,16 @@ function applyApproval(projectDir, request, answer) {
   return applyUserActionEffect(projectDir, request, answer);
 }
 
-async function runCommand(args, { resume = false, internalRunId = null } = {}) {
+async function runCommand(args, { resume = false, resumeBlocked = resume, internalRunId = null } = {}) {
   const target = await resolveProject(projectArg(args));
   const options = runtimeOptions(args);
-  if (resume && [args.sourceUrl, args.sourceMode, args.file, args.deliveryMode, args.destination, args.managementImportMode, args.siteType, args.siteBusinessType, args.oneClick].some((value) => value !== undefined)) throw new Error('resume does not accept intake mutation options');
-  const controller = new RunController(target.projectDir, { ...options, resume, runId: internalRunId || undefined, onEvent: (event) => {
+  if (resume && [args.sourceUrl, args.sourceMode, args.file, args.deliveryMode, args.destination, args.managementImportMode, args.siteType, args.siteBusinessType, args.notificationMute, args.oneClick].some((value) => value !== undefined)) throw new Error('resume does not accept intake mutation options');
+  const controller = new RunController(target.projectDir, { ...options, resume, resumeBlocked, runId: internalRunId || undefined, onEvent: (event) => {
     if (options.format === 'jsonl') process.stdout.write(`${JSON.stringify(event)}\n`);
   } });
   if (args.detach && !internalRunId) {
     // The child receives a serialized, already parsed invocation; no shell or prompt is built.
-    const encoded = Buffer.from(JSON.stringify({ project: target.projectDir, options: { ...options, resume, runId: controller.id } })).toString('base64url');
+    const encoded = Buffer.from(JSON.stringify({ project: target.projectDir, options: { ...options, resume, resumeBlocked, runId: controller.id } })).toString('base64url');
     const child = spawn(process.execPath, [__filename, '__supervise', encoded], { detached: true, stdio: 'ignore' });
     child.unref();
     const result = { schemaVersion: 1, runId: controller.id, project: path.basename(target.projectDir), outcome: 'running', nextAction: `replatform status ${controller.id}` };
@@ -118,7 +135,7 @@ async function runCommand(args, { resume = false, internalRunId = null } = {}) {
   }
   const result = await controller.run();
   if (options.format === 'json') output(result, 'json');
-  else if (options.format === 'text') output(result, 'text', `${result.outcome}: ${result.router?.reason || 'run finished'}${result.requestId ? `\nRequest: ${result.requestId}\nAnswer: ${result.nextAction}` : ''}`);
+  else if (options.format === 'text') output(result, 'text', `${result.outcome}: ${result.router?.reason || 'run finished'}${result.requestId ? `\nRequest: ${result.requestId}\nAnswer: ${result.nextAction}` : result.router?.reason === 'run_blocked' ? `\nRecorded blocker: ${JSON.stringify(result.router.resumeFrom)}\nNext: ${result.nextAction}` : ''}`);
   return exitCode(result);
 }
 
@@ -252,7 +269,7 @@ async function answerCommand(args) {
   const answer = args.acknowledge ? { acknowledged: true, ...(args.note !== undefined ? { note: args.note } : {}) } : args.choice !== undefined ? { choice: args.choice, ...(args.note !== undefined ? { note: args.note } : {}) } : { text: args.textFile ? await fs.readFile(path.resolve(args.textFile), 'utf8') : args.text };
   const result = await answerUserAction(target.projectDir, requestId, answer, { applyEffect: (request, normalized) => applyApproval(target.projectDir, request, normalized) });
   if (!args.continue) { output(result, args.format || 'text', `Answered ${requestId}. Resume: replatform resume ${target.projectDir}`); return 0; }
-  args._ = ['run', target.projectDir]; args.project = target.projectDir; return runCommand(args, { resume: true });
+  args._ = ['run', target.projectDir]; args.project = target.projectDir; return runCommand(args, { resume: true, resumeBlocked: false });
 }
 
 async function doctorCommand(args) {
@@ -330,6 +347,7 @@ function addRuntimeOptions(command, { intake = false } = {}) {
       .option('--destination <strategy>', 'new creates a site; existing:<site-id> adopts the named existing site')
       .addOption(new Option('--site-type <type>', 'type of a new destination site: headless (website in code), studio or harmony (website designed in a Wix editor). Required before a new site is created; never defaulted.').choices(['headless', 'studio', 'harmony']))
       .addOption(new Option('--site-business-type <type>', 'with --site-type harmony only: store, bookings or other records the business context for the run. It does not change how the site is created: Harmony always starts from the blank template.').choices(['store', 'bookings', 'other']))
+      .addOption(new Option('--notification-mute <answer>', 'with --destination existing:<site-id> only: on mutes all site notifications (including customer emails) until someone unmutes; off leaves them on, so customers and the owner may get emails for imported records. Asked before the first write when not given; never defaulted.').choices(['on', 'off']))
       .addOption(new Option('--management-import-mode <mode>', 'standard uses the full discovery/mapping flow; quick uses a public adapter and bounded plan.').choices(['standard', 'quick']))
       .option('--one-click', 'record an explicit user one-click decision')
       .option('--dry-run', 'request the existing dry-run execution path');
@@ -387,7 +405,7 @@ function createProgram() {
       if (!item) throw new Error('show requires request-id-or-artifact');
       return showCommand({ ...options, project, _: ['show', project, item] });
     }));
-  addRuntimeOptions(program.command('answer [project-or-run-id] [request-id]').description('Record one immutable human response. With --project, supply the request ID positionally or through --request-id.').option('--project <path>', 'project directory').option('--request-id <id>', 'durable user-action request ID').option('--choice <choice-id>', 'declared choice ID').option('--note <text>', 'optional reviewer or acknowledgement note').option('--text <text>', 'free-text answer').option('--text-file <path>', 'UTF-8 answer file').option('--acknowledge', 'state that a required manual action was completed; the resumed stage must verify it').option('--continue', 'start a foreground resume after recording the answer'), { intake: false })
+  addRuntimeOptions(program.command('answer [project-or-run-id] [request-id]').description('Record one immutable human response. With --project, supply the request ID positionally or through --request-id.').option('--project <path>', 'project directory').option('--request-id <id>', 'durable user-action request ID').option('--choice <choice-id>', 'declared choice ID').option('--note <text>', 'optional reviewer or acknowledgement note').option('--text <text>', 'free-text answer').option('--text-file <path>', 'UTF-8 answer file').option('--acknowledge', 'state that a required manual action was completed; the resumed stage must verify it').option('--continue', 'continue in the foreground after answering; preserve explicit run holds'), { intake: false })
     .action(setExit((first, second, options) => {
       const requestId = options.requestId || second || (options.project ? first : null);
       const project = options.project || (second ? first : null);

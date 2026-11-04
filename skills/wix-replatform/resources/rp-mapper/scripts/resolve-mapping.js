@@ -16,8 +16,8 @@
 // Exit codes: 0 resolved (residue may be non-empty); 2 blocked (a required Wix input is unfilled,
 // or an overlay names a canonical field that does not exist).
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { resolveMapping } = require('../lib/mapping-resolve.js');
 
 function parseArgs(argv) {

@@ -255,9 +255,8 @@ and data-shaped routes, and record the reasoning either way. Three exits, and on
   as `proposed`, decided at the mapping review. When the capability has no REST route,
   check whether wix-wp-plugin-v2 can reach it as a `structure-bridge-plugin` fulfillment
   before assuming a `user-file`/CSV request is the only path — see
-  `rp-source-wordpress/plugins/README.md`'s "Resolving a db-only capability" section. Which
-  credential the bridge needs depends on whether the source has WooCommerce (Application
-  Password requires it; the migration key does not) — same section.
+  `rp-source-wordpress/plugins/README.md`'s "Resolving a db-only capability" section. The
+  bridge uses the same WordPress Application Password as other private reads.
 - **Cannot tell** → leave the row *Pending* with `reason: cannot-tell`. An honest "cannot
   tell" is the point of Pending — it is what stops this step from becoming a silent way to
   drop data. Never resolve it yourself; the mapping review is the only exit.
@@ -338,6 +337,14 @@ when the adapter file is missing or malformed, when `source-schema.json` does no
 for an adapter it does not know; there is no unstamped path for a current adapter. Never
 hand-write or edit the coverage file or the stamp. Quick modes write their own record at `plan`.
 
+The same command also promotes the adapter's `source-locale.json` (the store's payment currency,
+time zone, language and country; a value the source hides is an explicit `unknown` with its reason,
+never a guess) to `discovery/source-locale.json`, and refuses (exit 2) when that file is missing or
+invalid. Quick modes and the SFCC technique write `discovery/source-locale.json` directly. It
+feeds setup (the Wix `site/locale` entity), the execution plan and the import gate. To supply a
+missing value, put it in the adapter file as `state: "supplied"`, re-run promote, and the regional
+section is shown again before anything is written.
+
 Do not synthesize an entity for a coverage row. A row is resolved downstream: `rp-mapper` gives
 it exactly one disposition. Recoverable rows (credentials, a missing route, a force-include)
 join the single batched blocker ask under *Plugin coverage*, individually skippable; record the
@@ -355,3 +362,22 @@ discovery for a `provided` answer. A skipped capability never blocks the run.
 ## Final discovered-set census
 
 As the last standard-mode discovery step, after source-schema and plugin/source-coverage outputs are complete, run `node scripts/discovered-census.js build <projectDir>` from the toolkit root. The deterministic builder writes `discovery/census.json` from metadata only, including populated registered sub-parts, distinct plugin capabilities and unlinked plugins. Preserve unknown counts as unknown; do not invent entities or decisions for uncaptured source-coverage rows. This adds no discovery pause. Mapping reconciles each decision row to its plan or explicit gap before review. Quick mode keeps its existing path.
+
+## Public multilingual discovery
+
+Before object discovery, every public-capable adapter determines whether the source topology is
+`single`, `multi`, `unknown`, or `not-applicable`. Write the adapter result with
+`scripts/public-multilingual.js`; it validates and produces
+`discovery/public-source-languages.json` and
+`discovery/public-multilingual-content.ndjson`. Only proven `multi` topology may produce content
+rows. Every additional locale must carry a value, explicit absence, or `public-unavailable` state
+for each row. Unknown or unreachable topology blocks only the multilingual sidecar; default
+discovery continues unchanged. Never choose the default locale here—`discovery/source-locale.json`
+remains authoritative.
+
+Prefer the source platform's public locale/configuration endpoint when it explicitly enumerates
+locales. Treat locale URL prefixes, `hreflang`/alternate links, feeds, and repeated storefront
+responses as corroboration and reachability evidence; they cannot choose the default locale by
+themselves. Preserve the authoritative response reference and every corroborating route in the
+topology evidence. If those signals conflict, or an enumerated locale cannot be read through its
+public route, record `unknown`/`unreachable` rather than guessing from page text.

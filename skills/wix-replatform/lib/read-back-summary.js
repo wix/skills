@@ -37,6 +37,7 @@ function projectReadBackSummary(gate, { entity: filter } = {}) {
       fieldCounts, observedPathCounts: fieldCounts,
       guardDropped: { recordCount: new Set(guardDropped.map(row => row.sourceId)).size, paths: guardPaths },
       observedLossCount: losses.length,
+      ...(item.heldRecords?.count ? { heldRecords: { count: item.heldRecords.count, reasons: { ...item.heldRecords.reasons } } } : {}),
       approvedOmissions: (item.approvedOmissions || []).map(row => ({ path: row.path, kind: row.kind, recordCount: row.recordCount, approvedBy: identity(row.approvedBy), merchantAcknowledgement: acknowledgement(row.merchantAcknowledgement) })),
       pendingSettlementCount: (item.settlements || []).filter(row => row.status !== 'passed').length,
       timing: numeric(item.timing, ['elapsedMs', 'preparationMs', 'writeMs', 'activeReadMs']),
@@ -71,6 +72,7 @@ function renderReadBackSummary(summary) {
     }
     lines.push(`- Gate: ${item.status}; final record verified: ${item.endOfRunVerified ? 'yes' : 'no'}${item.stopReason ? `; reason: ${item.stopReason}` : ''}.`);
     lines.push(`- Field counts: ${Object.entries(item.fieldCounts).map(([key, value]) => `${key}: ${value}`).join('; ')}.`);
+    if (item.heldRecords) lines.push(`- Held by the builder (not attempted): ${item.heldRecords.count} records; ${Object.entries(item.heldRecords.reasons).map(([reason, n]) => `${reason}: ${n}`).join('; ')}.`);
     lines.push(`- Guard-dropped: ${item.guardDropped.recordCount} records; ${item.guardDropped.paths.length} paths. Pending settlements: ${item.pendingSettlementCount}.`);
     lines.push(`- Timing: ${Object.entries(item.timing).map(([key, value]) => `${key}: ${value} ms`).join('; ') || 'not recorded'}.`);
     lines.push(`- Read activity: ${Object.entries(item.retryStats).map(([key, value]) => `${key}: ${value}`).join('; ') || 'not recorded'}.`);

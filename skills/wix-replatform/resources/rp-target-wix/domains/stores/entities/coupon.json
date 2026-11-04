@@ -11,7 +11,22 @@
     "idPolicy": "server-assigned",
     "crosswalkRequired": true
   },
-  "dependsOn": [],
+  "dependsOn": [
+    "stores/product",
+    "stores/category"
+  ],
+  "dependencyModes": {
+    "stores/product": "per-record",
+    "stores/category": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/product": [
+      "scope.group.entityId"
+    ],
+    "stores/category": [
+      "scope.group.entityId"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

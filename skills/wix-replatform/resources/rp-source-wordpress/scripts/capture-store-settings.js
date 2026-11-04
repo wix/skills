@@ -28,19 +28,17 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { parseEnvText } = require('../../../lib/config-env.js');
 
 const GROUP = 'general';
 const ROUTE = `/wp-json/wc/v3/settings/${GROUP}`;
 const OUTPUT_NAME = 'store-settings-general.json';
 
+// The shared parser, so a value the toolkit quoted on write reads back unquoted.
 function readEnvFile(filePath) {
   const env = {};
-  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq < 1) continue;
-    env[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+  for (const [key, value] of Object.entries(parseEnvText(fs.readFileSync(filePath, 'utf8')))) {
+    if (key) env[key] = String(value).trim();
   }
   return env;
 }

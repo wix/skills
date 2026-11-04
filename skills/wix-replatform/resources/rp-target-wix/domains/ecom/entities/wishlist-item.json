@@ -44,7 +44,7 @@
     "endpoint": "POST /v1/wishlists/my",
     "writerId": null,
     "verification": "unverified",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
   "fallbacks": [

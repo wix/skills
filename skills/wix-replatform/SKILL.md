@@ -28,6 +28,12 @@ in its own context.
   key names and present/blank/missing status.
 - Do not declare a migration complete from prose or a single artifact. The deterministic
   router and aggregate completion artifact own terminal completion.
+- Preserve the owner's cutover handoff: unresolved data, applicable manual setup, missing
+  apps and changed plugin behavior. Reconcile discovery, mapping decisions, setup receipts
+  and final outcomes; imported records alone do not establish working functionality.
+  The producing resources own this guidance and durable completion/handoff artifacts.
+  Use a supported cutover publisher when available; report missing publication integration
+  explicitly rather than claiming the application received local artifacts.
 
 ## CLI-launched runs and human actions
 
@@ -43,9 +49,9 @@ request. The person can later use `replatform requests`, `replatform show`, and
 `replatform answer`; a resumed agent reads the answered request from
 `orchestration/user-actions/`, never from reconstructed chat context.
 
-Cancellation is not completion. If the runner has recorded `cancel_requested`, `canceled`, or
-`interrupted`, preserve partial/recovery artifacts and let a later explicit `replatform resume`
-route recovery. Never create aggregate migration completion from an aborted execution report.
+Cancellation is not completion. If the runner has recorded `cancel_requested`, `canceled`, `interrupted` or an explicit stop (`blocked`,
+`transition --status blocked --resume-from '<json>'`; routes `run_blocked` until explicit resume or `--status running`, never `answer --continue`), preserve partial/recovery
+artifacts and let a later explicit `replatform resume` route recovery. Never create aggregate migration completion from an aborted execution report.
 
 ## Pipeline
 
@@ -53,7 +59,7 @@ route recovery. Never create aggregate migration completion from an aborted exec
 intake → destination → source inputs → preflight → (standard: discovery → mapping → codegen;
 quick: adapter preflight → quick plan) → setup discovery → website handoff
 → safety review/approval → setup → import
-→ storefront continuation (website only) → aggregate finalization
+→ storefront continuation (website only) → aggregate finalization → Migration review
 ```
 
 Delivery modes are `management` (backend only), `website` (frontend only), and
@@ -76,17 +82,17 @@ On every new or resumed turn:
    yourself. Give it the project directory and the resource to run; it follows that
    resource's contract exactly as written, unchanged. Read back only its result — never its
    transcript, tool output, or logs.
-   - A Developer subagent may fan out to its own sub-subagents, only when it is certain
-     doing so is harmless — read-only work with no shared state and no write to anything
-     durable — and only if the host agent happens to support it. It must never fan out for
-     anything that writes shared state; that stays one write at a time, exactly as each
-     resource's own contract already does today. If the host agent doesn't support nested
-     dispatch, the Developer just does the work itself, sequentially.
+   - Every dispatch (Developer or QA) is a **fresh** subagent, never a resumed one; pass only
+     a handoff file and stay within a context budget — follow `resources/rp-subagent-dispatch/`.
+     Never read `state/attempts/write-attempts.ndjson` raw; use `scripts/write-log-summary.js`.
+   - A Developer may fan out to sub-subagents only for harmless read-only work with no shared
+     state, and only if the host supports it; writes stay one at a time, as each resource says.
 4. Dispatch a QA subagent to check the Developer's result against that resource's own
    stated required outputs (its own "artifacts to create or update" or "## Output"
    section, and any review/gap documents it defines). QA is read-only — it never writes or
    calls Wix. If something's missing, dispatch a new Developer for the same resource with
    QA's findings; otherwise the stage is done.
+
 5. At the end of each pipeline phase (discovery, mapping, setup discovery, import, and so
    on — see the pipeline above; a phase spans several resource-level stages), dispatch a QA
    subagent to review that phase's documents as a whole (for example
@@ -98,7 +104,13 @@ On every new or resumed turn:
    run-fixing dispatch mid-phase (a crash fix, a slowness fix, a resumed pass) does not
    itself satisfy this; run the phase-level QA again once the fix lands, since fixing one
    entity's defect certifies nothing about its neighbors.
-6. Route again after every stage boundary. Never decide the next stage from memory.
+   Mapping QA also checks exact source coverage, decided operation/path semantics and
+   canonical projections. Codegen QA reads the Developer's independently expected synthetic
+   request evidence and its freshness; it does not execute examples. Semantic defects return
+   to mapper, implementation defects to codegen. One-click tests defer unresolved scope and
+   finish independent work with a typed incomplete result, without questions or repeated
+   redispatch; customer runs retain their existing checkpoints.
+6. Route again after every stage boundary. Stale requests use `resources/rp-user-action-recovery/`; unreadable request artifacts block until repaired. Never discard pending requests or decide the next stage from memory.
 
 The router (`lib/orchestration-router.js`) is the only routing and resume authority. It
 recomputes the route from decisions, approvals, preflight, `run.json` `status` and the phase
@@ -111,9 +123,9 @@ outputs on every call; `run.json.currentState` is diagnostic only, never a routi
   `setup_plan_invalid`, `setup_requirements_invalid`, `execution_manifest_invalid`) is
   `blocked` with `errors` and the producer as `nextResource`. Do not re-run the producer
   automatically; report the errors to the Import Operator and stop.
-- The import routes (`missing_completion_report`, `quick_mode_import_required`) carry
-  `importProgress`. `interrupted` lists `recoveryArtifacts`: resume that import, which
-  reconciles before any create. Never start a second import.
+- The import routes (`missing_completion_report`, `import_interrupted` = a stopped run's aborted report,
+  `quick_mode_import_required`) carry `importProgress`. `interrupted` lists `recoveryArtifacts`: resume it,
+  never a second import. `interruptedReport: "missing"`: first run `scripts/interrupted-completion-report.js`.
 
 If an artifact is malformed, partial, stale, or fails its validator, treat its producing
 stage as incomplete and route to the producer. Do not make parallel replacement artifacts.
@@ -136,7 +148,7 @@ are user decisions even in 1-click mode.
 | project, delivery mode, source mode, or grouped intake is unresolved | `resources/rp-project-intake/` |
 | destination is absent, conflicting, or needs creation/adoption | `resources/rp-destination/` |
 | source URL/files/config/acquisition mode/credentials are required, including source credentials said to exist already on another site | `resources/rp-source-inputs/` |
-| deterministic preflight is missing or blocked | `resources/rp-preflight/` |
+| deterministic preflight is missing, repaired, or blocked on CLI checks | `resources/rp-preflight/` |
 | quick mode needs platform resolution, endpoint preflight, plan, extraction, or import | selected `resources/rp-quick-<platform>/` |
 | source schema is missing | `resources/rp-discovery/` and its selected source adapter |
 | mapping is missing or needs review | `resources/rp-mapper/` |
@@ -146,6 +158,7 @@ are user decisions even in 1-click mode.
 | backend completion report is missing | `resources/rp-execute-import/` |
 | frontend-only work, or integrated website handoff/build/gap loop/release receipt is incomplete | `resources/rp-website-continuation/` |
 | aggregate completion is missing | `resources/rp-execution-policy/` |
+| aggregate completion exists but the local review publication or current recap is missing | `resources/rp-migration-review/` |
 
 The resource named by the route is the complete stage contract, dispatched as described in
 "Route before acting" — the main session itself never loads it directly. Only the
@@ -223,7 +236,6 @@ loads. Do not hardcode a machine-specific shell path in this public skill. Only 
 durable blocker if the compatible-shell retry itself fails.
 
 ## Guardrails
-
 - Never bypass a validator, approval-state update, verified notification mute, or
   Catalog-V3 gate to make a stage appear finished.
 - `website` means frontend only; `management_and_website` means the integrated backend and

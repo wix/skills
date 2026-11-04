@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const census = require('./discovered-census.js');
 const coverage = require('./source-coverage.js');
+const support = require('./target-import-support.js');
 const {
   getDecisionValue,
   isExplicitUserOneClick
@@ -20,6 +21,16 @@ const EXPECTED = {
 };
 const nonempty = value => typeof value === 'string' && value.trim().length > 0;
 const gapsOf = value => Array.isArray(value) ? value : value && Array.isArray(value.gaps) ? value.gaps : [];
+// A plan row's census IDs: explicit `censusIds`, else the implicit entity named by its key or by
+// exactly one census entity's recorded canonical `sourceEntityRef`. Several matching rows (an
+// exact key included) are `ambiguous`; the reconciliation refuses them as `unknown_census_id`.
+function planCensusIds(row, censusRows = []) {
+  if (Array.isArray(row.censusIds)) return { ids: row.censusIds };
+  if (!nonempty(row.sourceEntity)) return { ids: [] };
+  const id = `entity:${row.sourceEntity}`;
+  const matches = censusRows.filter(entry => entry.censusId === id || entry.kind === 'entity' && entry.sourceEntityRef === row.sourceEntity).map(entry => entry.censusId);
+  return matches.length === 1 ? { ids: matches, implicitFrom: row.sourceEntity } : { ids: [id], implicitFrom: row.sourceEntity, ambiguous: matches.length > 1 ? matches : null };
+}
 async function readReconciliation(projectDir) {
   try {
     return await census.readJson(projectDir, FILE);
@@ -75,6 +86,8 @@ async function reconcileSourceCoverageForMapping(projectDir, {
   }
 }
 async function inputDigests(projectDir, options = {}) {
+  // Read-only here; parsed once per plan version (readiness checks freshness every batch).
+  const plan = require('./cached-json').readJson(path.join(projectDir, 'mapping/mapping-plan.json'), null);
   const decisions = (await census.readJson(projectDir, 'orchestration/decisions.json')) || {};
   const selectedDecisions = Object.fromEntries(Object.entries(decisions).filter(([key]) => key.startsWith('sourceCoverage:')));
   const gaps = gapsOf(await census.readJson(projectDir, 'mapping/review/mapping-gaps.json'));
@@ -96,7 +109,8 @@ async function inputDigests(projectDir, options = {}) {
     mappingGaps: await census.fileDigest(projectDir, 'mapping/review/mapping-gaps.json'),
     finalizedAssignments: await census.fileDigest(projectDir, ASSIGNMENTS),
     sourceCoverageDecisions: Object.keys(selectedDecisions).length ? census.digestJson(selectedDecisions) : null,
-    sourceCoverageRegisters: cited.size ? census.digestJson(Object.fromEntries([...cited].sort(([a], [b]) => a.localeCompare(b)))) : null
+    sourceCoverageRegisters: cited.size ? census.digestJson(Object.fromEntries([...cited].sort(([a], [b]) => a.localeCompare(b)))) : null,
+    targetSupport: support.supportKnowledgeDigest(plan)
   };
 }
 async function isReviewOnly(projectDir, options) {
@@ -129,9 +143,9 @@ async function buildReconciliation(projectDir, options = {}) {
   const planRows = require('./website-handoff.js').readEntityMappings(plan);
   const byId = new Map((c && c.rows || []).map(row => [row.censusId, row]));
   const assignments = new Map();
-  function assign(id, item) {
+  function assign(id, item, details = {}) {
     const row = byId.get(id);
-    if (!row) return addError('unknown_census_id', id);
+    if (!row) return addError('unknown_census_id', id, { assignedBy: item.assignedBy, ...details });
     if (!row.decisionRow) return addError('not_a_decision_row', id);
     if (!assignments.has(id)) assignments.set(id, []);
     assignments.get(id).push(item);
@@ -153,17 +167,17 @@ async function buildReconciliation(projectDir, options = {}) {
     }
   }
   planRows.forEach((row, index) => {
-    const implicit = nonempty(row.sourceEntity) ? [`entity:${row.sourceEntity}`] : [];
-    const nativeIds = Array.isArray(row.censusIds) ? row.censusIds : implicit;
-    const ids = [...nativeIds, ...(links.get(index) || [])];
+    const named = planCensusIds(row, c && c.rows || []);
+    const details = named.implicitFrom ? { implicitFrom: named.implicitFrom, ...(named.ambiguous ? { ambiguous: named.ambiguous } : {}) } : {};
+    const ids = [...named.ids, ...(links.get(index) || [])];
     const state = row.targetClassification === 'manual-mapping' ? 'manual' : 'planned';
     const linkedEntities = ids.filter(id => byId.has(id) && ['entity', 'sub-part'].includes(byId.get(id).kind));
-    for (const id of ids) assign(id, {
+    for (const id of ids) if (named.ambiguous && named.ids.includes(id)) addError('unknown_census_id', id, { assignedBy: `mapping-plan#${index}`, ...details }); else assign(id, {
       state,
       assignedBy: `mapping-plan#${index}`,
       row,
       relatedEntityIds: linkedEntities
-    });
+    }, named.ids.includes(id) ? details : {});
   });
   for (const [index, gap] of [...gaps, ...(reviewOnly && finalized && Array.isArray(finalized.gaps) ? finalized.gaps : [])].entries()) {
     if (gap.censusId == null) continue; // Existing record-level and 0017 gaps retain their own contracts.
@@ -207,7 +221,7 @@ async function buildReconciliation(projectDir, options = {}) {
       return true;
     }
     if (state === 'planned') return false;
-    if (state === 'manual') return row.kind === 'capability' && row.coverageStatus === 'manual-mapping' && (stepsShown(gap.manualSteps) || manualText.includes(row.capability));
+    if (state === 'manual') return row.kind === 'capability' && row.coverageStatus === 'manual-mapping' && (stepsShown(gap.manualSteps || row.manualSteps && row.manualSteps.steps) || manualText.includes(row.capability));
     if (state === 'no-data') return row.recordCount === 0 || row.kind === 'capability' && row.coverageStatus === 'no-need-to-migrate' && Boolean(row.basis || row.rationale);
     if (state === 'reference-only') return Array.isArray(gap.referencedBy) && gap.referencedBy.length > 0 && gap.referencedBy.every(id => resolvedStates.get(id) === 'planned') && nonempty(gap.rationale);
     if (state === 'unsupported') return nonempty(reason) && nonempty(gap.severity) && (row.kind !== 'capability' || row.coverageStatus === 'requires-development');
@@ -239,6 +253,10 @@ async function buildReconciliation(projectDir, options = {}) {
     if (!entries.length) addError('missing_disposition', row.censusId);
     const item = entries[0];
     if (item && !validEvidence(row, item)) addError('invalid_evidence', row.censusId);
+    // The census measurement is the count; a gap's stated count only fills an unmeasured row, shown as unmeasured.
+    const measured = typeof row.recordCount === 'number' ? row.recordCount : null;
+    const stated = item && item.gap && typeof item.gap.count === 'number' ? item.gap.count : null;
+    if (item && item.state === 'excluded' && measured !== null && stated !== null && stated !== measured) addError('excluded_count_mismatch', row.censusId, { count: stated, recordCount: measured });
     rows.push({
       ...row,
       ...(item && item.gap || {}),
@@ -246,10 +264,12 @@ async function buildReconciliation(projectDir, options = {}) {
       kind: row.kind,
       state: item ? item.state : 'pending',
       assignedBy: item ? item.assignedBy : null,
-      count: item && item.gap && Object.prototype.hasOwnProperty.call(item.gap, 'count') ? item.gap.count : row.recordCount == null ? null : row.recordCount,
+      count: measured,
+      ...(measured === null && stated !== null ? { statedCount: stated } : {}),
       relatedEntityIds: item ? item.relatedEntityIds : []
     });
   }
+  for (const { code, ...details } of support.supportErrors({ plan, gaps })) addError(code, null, details);
   if (plan?.dependencyBindings || rows.some(row => row.dependencyFieldRules)) {
     const contract = require('./dependency-readiness').validateAssociations({ plan, reconciliation: { rows } });
     for (const code of contract.errors) addError(code);
@@ -291,7 +311,7 @@ function renderDiscoveredSet(reconciliation, censusArtifact) {
     const rows = reconciliation.rows.filter(row => row.state === state);
     if (!rows.length) continue;
     lines.push('', `### ${state}`, '');
-    for (const row of rows) lines.push(`- ${row.censusId}: ${row.count == null ? 'unknown' : row.count}${row.blocked && row.blocked.length ? `; unresolved blockers: ${row.blocked.length}` : ''}`);
+    for (const row of rows) lines.push(`- ${row.censusId}: ${row.count == null ? `unknown${row.statedCount == null ? '' : ` (stated ${row.statedCount}, not measured)`}` : row.count}${row.blocked && row.blocked.length ? `; unresolved blockers: ${row.blocked.length}` : ''}`);
   }
   if (!censusArtifact || !censusArtifact.inputs.subPartRegistry) lines.push('', 'Sub-parts were not checked for this source.');
   if (!censusArtifact || !censusArtifact.inputs.sourceCoverage) lines.push('', 'Uncaptured rows were not checked for this source.');
@@ -389,6 +409,12 @@ async function bindCensusReconciliation(projectDir, {
     failures: gate.failures
   });
   if (status === 'approved' && decidedBy === 'user' && reconciliation.pendingCount > 0) return fail('approval_pending_rows');
+  // Unsupported dependencies surface before approval, not at codegen. Read only: the approval
+  // re-checks its pinned artifacts after this, and the preflight review file is one of them.
+  if (status === 'approved' && (await census.readJson(projectDir, 'mapping/mapping-plan.json'))?.dependencyBindings) {
+    const preflight = await require('./dependency-readiness').preflightMappingDependencies(projectDir, { write: false });
+    if (!preflight.structuralReady) return fail('dependency_preflight_blocking', { errors: preflight.errors });
+  }
   const sha256 = await census.fileDigest(projectDir, FILE);
   if (requestRef && (!validCensusReference(requestRef) || requestRef.sha256 !== sha256)) return fail('approval_reference_stale');
   return {
@@ -409,7 +435,7 @@ async function ownerApprovedCensusIds(projectDir, options = {}) {
   return new Set(reconciliation.rows.filter(row => ['excluded', 'unsupported'].includes(row.state)).map(row => row.censusId));
 }
 module.exports = {
-  renderDependencyRules, dependencyRulesShown,
+  renderDependencyRules, dependencyRulesShown, planCensusIds,
   FILE,
   RECONCILIATION_FILE: FILE,
   ASSIGNMENTS,
@@ -424,3 +450,7 @@ module.exports = {
   ownerApprovedCensusIds,
   validCensusReference
 };
+for (const name of ['buildReconciliation','censusReconciliationFreshness','reconcileSourceCoverageForMapping','mappingApprovalBound','bindCensusReconciliation','ownerApprovedCensusIds']) {
+  const run = module.exports[name];
+  module.exports[name] = (projectDir,...args) => require('./operation-assessments').withProject(projectDir,()=>run(projectDir,...args));
+}

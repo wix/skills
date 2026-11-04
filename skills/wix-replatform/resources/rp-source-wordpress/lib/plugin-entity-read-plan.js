@@ -153,6 +153,23 @@ function invalidatePluginEntityReadPlan({ projectDir, sourceEntityRef: entity })
     atomic(file, `${JSON.stringify(schema, null, 2)}\n`);
   }
 }
+// An entity with no declared targets is an unprofiled plugin's own table (a profiled one always
+// carries `candidateTargetRefs`, possibly empty). It becomes a proposed mapping entity: the native
+// refs of the capability guess plus `cms/data-item`, decided at the mapping review. Never overwrites
+// declared targets.
+function proposedTargets(sourceEntity, plan, extractionPlan) {
+  if (sourceEntity.candidateTargetRefs !== undefined || sourceEntity.sourceMeta?.candidateTargetRefs !== undefined) return {};
+  let capabilityRefs = new Map();
+  try {
+    const { knowledgeRoot, knowledgeSummary } = require('../../rp-target-wix/lib/domain-knowledge.js');
+    capabilityRefs = knowledgeSummary(knowledgeRoot(path.resolve(__dirname, '..', '..', 'rp-target-wix'))).capabilityRefs;
+  } catch { /* No target knowledge: only the CMS archive is proposed. */ }
+  const proposal = require('./wp-plugin-detect.js').proposeBridgeEntity({ sourceEntityRef: plan.sourceEntityRef,
+    table: plan.components[0]?.table, displayName: sourceEntity.displayName || sourceEntity.entityName }, capabilityRefs);
+  if (!proposal) return {};
+  return { basis: 'proposed', recognized: false, proposedCapability: proposal.proposedCapability,
+    candidateTargetRefs: proposal.candidateTargetRefs, readPlanRef: extractionPlan };
+}
 function writePluginEntityReadPlan({ projectDir, plan, sourceEntity = null, siteBaseUrl }) {
   validatePlan(projectDir, plan, sourceEntity?.sourceEntityRef, siteBaseUrl);
   const reference = writeJson(projectDir, `data/wp-discovery/entity-read-plans/${sha(plan.sourceEntityRef)}.json`, plan);
@@ -160,7 +177,7 @@ function writePluginEntityReadPlan({ projectDir, plan, sourceEntity = null, site
   if (sourceEntity) {
     sourceEntity.sourceEntityRef = plan.sourceEntityRef;
     sourceEntity.bridgeDesignated = true;
-    sourceEntity.sourceMeta = { ...sourceEntity.sourceMeta, extractionPlan };
+    sourceEntity.sourceMeta = { ...sourceEntity.sourceMeta, extractionPlan, ...proposedTargets(sourceEntity, plan, extractionPlan) };
     const schemaPath = path.join(projectDir, 'source-schema.json');
     if (fs.existsSync(schemaPath)) {
       if (fs.lstatSync(schemaPath).isSymbolicLink()) fail('source schema cannot be a symlink');
@@ -179,7 +196,7 @@ function writePluginEntityReadPlan({ projectDir, plan, sourceEntity = null, site
   }
   return extractionPlan;
 }
-function recordPluginExtractionDeferral({ projectDir, sourceEntityRef: entity, plan = null, planRef = null, code, reason, recovery: componentRecovery = null, expectedTotal = null, producer = 'rp-source-wordpress/lib/plugin-entity-read-plan.js', resolution = null }) {
+function recordPluginExtractionDeferral({ projectDir, sourceEntityRef: entity, plan = null, planRef = null, code, reason, recovery: componentRecovery = null, expectedTotal = null, producer = 'rp-source-wordpress/lib/plugin-entity-read-plan.js', resolution = null, fullAttempt = false }) {
   const file = entityPaths(projectDir, entity)['deferred.json'];
   let previous = null;
   try { previous = fs.existsSync(file) ? json(file) : null; } catch { /* A malformed task is not extraction or target evidence. */ }
@@ -201,7 +218,7 @@ function recordPluginExtractionDeferral({ projectDir, sourceEntityRef: entity, p
     schemaVersion: 2, kind: KIND, status: 'open', producer, entity, sourceEntityRef: entity,
     table: plan?.components.length === 1 ? plan.components[0].table : null,
     components: (plan?.components || []).map(({ id, table }) => ({ id, table })), planRef,
-    code, reasons: [reason || code], firstDeferredAt: previous?.firstDeferredAt || at, lastDeferredAt: at,
+    code, reasons: [reason || code], fullAttempt: fullAttempt === true, firstDeferredAt: previous?.firstDeferredAt || at, lastDeferredAt: at,
     attempts: (previous?.attempts || 0) + 1,
     affectedRecords: { entity, expectedTotal: Number.isInteger(expectedTotal) && expectedTotal >= 0 ? expectedTotal : null },
     owner: 'Import Operator', requiresImportOperator: true, action,
@@ -215,6 +232,71 @@ function recordPluginExtractionDeferral({ projectDir, sourceEntityRef: entity, p
   atomic(file, `${JSON.stringify(record, null, 2)}\n`);
   return record;
 }
+// Import's full-evidence check with no side effects: throws on any plan, manifest, component,
+// materialization or output mismatch. Readiness and the mapping preflight share it.
+async function verifyFullExtraction(options, plan) {
+  const { projectDir, sourceEntityRef: entity } = options;
+  const paths = entityPaths(projectDir, entity);
+  const manifest = json(paths['manifest.json']);
+  if (manifest.mode !== 'full' || manifest.sourceEntityRef !== entity || !same(manifest.planRef, options.planRef)
+    || manifest.sourceIdentity !== plan.sourceIdentity || !same(manifest.assembly, plan.assembly)) fail('current full entity manifest required');
+  const stats = await require('./structure-bridge-reader.js').fileStats(paths.ndjson);
+  if (!stats.exists || stats.digest !== manifest.ndjsonDigest || stats.lines !== manifest.rowsWritten) fail('full output digest/count mismatch');
+  await verifyComponentEvidence(options, plan, manifest);
+  return { paths, manifest };
+}
+// The complete-component half of that check: every plan component read in full, its outputs,
+// read artifacts, EAV reconciliation and parent-ID materializations unchanged.
+async function verifyComponentEvidence(options, plan, manifest) {
+  const { projectDir, sourceEntityRef: entity } = options;
+  if (!Array.isArray(manifest.components) || !manifest.components.length) fail('component evidence required');
+  const seen = new Set();
+  for (const component of manifest.components) {
+    if (!plan.components.some((c) => c.id === component.id)) fail('unknown manifest component');
+    seen.add(component.id);
+    const prefix = `data/source-extract/${entity}.${options.planRef.sha256}.${component.id}.`;
+    if (!component.manifest?.path.startsWith(prefix) || !component.output?.path.startsWith(prefix)) fail('component evidence namespace mismatch');
+    const componentManifest = json(checkedFile(projectDir, component.manifest, ['data/source-extract']));
+    if (componentManifest.kind !== 'eav-read-plan' && componentManifest.rowsWritten !== componentManifest.snapshotTotal) fail('component count unreconciled');
+    const data = await require('./structure-bridge-reader.js').fileStats(checkedFile(projectDir, component.output, ['data/source-extract']));
+    if (data.digest !== componentManifest.ndjsonDigest || data.lines !== componentManifest.rowsWritten) fail('component output mismatch');
+    for (const reference of component.readArtifacts) checkedFile(projectDir, reference, ['data/wp-discovery']);
+    if (componentManifest.kind === 'eav-read-plan') {
+      const reference = component.readArtifacts.find((ref) => json(checkedFile(projectDir, ref)).planVersion);
+      if (!reference) fail('component EAV evidence missing');
+      const eavPlan = json(checkedFile(projectDir, reference));
+      const errors = client.reconcileEavReadPlan(eavPlan, { planHash: componentManifest.planHash, batches: componentManifest.completedBatches, rowsWritten: componentManifest.rowsWritten });
+      if (errors.some((message) => !message.includes('best-effort'))) fail('component EAV reconciliation failed');
+    }
+  }
+  for (const component of plan.components) if (!seen.has(component.id)) fail('incomplete component set');
+  if (!Array.isArray(manifest.materializations)) fail('materialization evidence is required');
+  for (const reference of manifest.materializations) checkedFile(projectDir, reference, ['data/wp-discovery']);
+  const root = plan.components.find((component) => !component.scope?.parent);
+  let rootRows;
+  for (const component of plan.components.filter((item) => item.scope?.parent)) {
+    const parentPath = `data/wp-discovery/entity-read-plans/${sha(entity)}/${options.planRef.sha256}/${component.id}/parent-ids.json`;
+    const parentRef = manifest.materializations.find((ref) => ref.path === parentPath);
+    if (!parentRef) fail('full parent-ID materialization missing');
+    rootRows ||= manifest.components.filter((item) => item.id === root.id).flatMap((item) => readRows(checkedFile(projectDir, item.output, ['data/source-extract'])));
+    const column = component.scope.parent.parentColumn;
+    const expectedIds = [...new Map(rootRows.map((row) => [rowIdentity(row, column), row[column]])).values()].sort((a, b) => String(a).localeCompare(String(b)));
+    if (!same(json(checkedFile(projectDir, parentRef)), expectedIds)) fail('materialized parent IDs differ from complete root');
+  }
+}
+function componentsManifestPath(projectDir, entity) {
+  if (!ENTITY.test(entity)) fail('invalid canonical plugin entity');
+  return safeFile(projectDir, `data/source-extract/${entity}.components.json`);
+}
+// A project-code assembly plan's components, read in full before approval without its module.
+async function verifyComponentRead(options, plan) {
+  const { projectDir, sourceEntityRef: entity } = options;
+  const record = json(componentsManifestPath(projectDir, entity));
+  if (record.mode !== 'components' || record.sourceEntityRef !== entity || !same(record.planRef, options.planRef)
+    || record.sourceIdentity !== plan.sourceIdentity || !same(record.assembly, plan.assembly)) fail('current component read required');
+  await verifyComponentEvidence(options, plan, record);
+  return record;
+}
 async function validatePluginExtractionReadiness(options) {
   const { projectDir, sourceEntityRef: entity, phase = 'import' } = options;
   let plan;
@@ -225,46 +307,7 @@ async function validatePluginExtractionReadiness(options) {
     if (phase === 'preparation') return { ready: true, plan };
     if (phase !== 'import') fail('unknown readiness phase');
     checkingExtraction = true;
-    const paths = entityPaths(projectDir, entity);
-    const manifest = json(paths['manifest.json']);
-    if (manifest.mode !== 'full' || manifest.sourceEntityRef !== entity || !same(manifest.planRef, options.planRef)
-      || manifest.sourceIdentity !== plan.sourceIdentity || !same(manifest.assembly, plan.assembly)) fail('current full entity manifest required');
-    const stats = await require('./structure-bridge-reader.js').fileStats(paths.ndjson);
-    if (!stats.exists || stats.digest !== manifest.ndjsonDigest || stats.lines !== manifest.rowsWritten) fail('full output digest/count mismatch');
-    if (!Array.isArray(manifest.components) || !manifest.components.length) fail('component evidence required');
-    const seen = new Set();
-    for (const component of manifest.components) {
-      if (!plan.components.some((c) => c.id === component.id)) fail('unknown manifest component');
-      seen.add(component.id);
-      const prefix = `data/source-extract/${entity}.${options.planRef.sha256}.${component.id}.`;
-      if (!component.manifest?.path.startsWith(prefix) || !component.output?.path.startsWith(prefix)) fail('component evidence namespace mismatch');
-      const componentManifest = json(checkedFile(projectDir, component.manifest, ['data/source-extract']));
-      if (componentManifest.kind !== 'eav-read-plan' && componentManifest.rowsWritten !== componentManifest.snapshotTotal) fail('component count unreconciled');
-      const data = await require('./structure-bridge-reader.js').fileStats(checkedFile(projectDir, component.output, ['data/source-extract']));
-      if (data.digest !== componentManifest.ndjsonDigest || data.lines !== componentManifest.rowsWritten) fail('component output mismatch');
-      for (const reference of component.readArtifacts) checkedFile(projectDir, reference, ['data/wp-discovery']);
-      if (componentManifest.kind === 'eav-read-plan') {
-        const reference = component.readArtifacts.find((ref) => json(checkedFile(projectDir, ref)).planVersion);
-        if (!reference) fail('component EAV evidence missing');
-        const eavPlan = json(checkedFile(projectDir, reference));
-        const errors = client.reconcileEavReadPlan(eavPlan, { planHash: componentManifest.planHash, batches: componentManifest.completedBatches, rowsWritten: componentManifest.rowsWritten });
-        if (errors.some((message) => !message.includes('best-effort'))) fail('component EAV reconciliation failed');
-      }
-    }
-    for (const component of plan.components) if (!seen.has(component.id)) fail('incomplete component set');
-    if (!Array.isArray(manifest.materializations)) fail('materialization evidence is required');
-    for (const reference of manifest.materializations) checkedFile(projectDir, reference, ['data/wp-discovery']);
-    const root = plan.components.find((component) => !component.scope?.parent);
-    let rootRows;
-    for (const component of plan.components.filter((item) => item.scope?.parent)) {
-      const parentPath = `data/wp-discovery/entity-read-plans/${sha(entity)}/${options.planRef.sha256}/${component.id}/parent-ids.json`;
-      const parentRef = manifest.materializations.find((ref) => ref.path === parentPath);
-      if (!parentRef) fail('full parent-ID materialization missing');
-      rootRows ||= manifest.components.filter((item) => item.id === root.id).flatMap((item) => readRows(checkedFile(projectDir, item.output, ['data/source-extract'])));
-      const column = component.scope.parent.parentColumn;
-      const expectedIds = [...new Map(rootRows.map((row) => [rowIdentity(row, column), row[column]])).values()].sort((a, b) => String(a).localeCompare(String(b)));
-      if (!same(json(checkedFile(projectDir, parentRef)), expectedIds)) fail('materialized parent IDs differ from complete root');
-    }
+    const { paths, manifest } = await verifyFullExtraction(options, plan);
     recordPluginExtractionDeferral({ ...options, resolution: { status: 'verified-full', manifestPath: rel(projectDir, paths['manifest.json']), rowsWritten: manifest.rowsWritten, planRef: options.planRef } });
     return { ready: true, plan, manifest };
   } catch (error) {
@@ -281,6 +324,15 @@ async function validatePluginExtractionReadiness(options) {
       : error.code === 'plan-unavailable' ? error.code : 'plan-invalid';
     let reason = error.message;
     for (const root of new Set([path.resolve(projectDir), fs.realpathSync(projectDir)])) reason = reason.split(`${root}${path.sep}`).join('');
+    // A readiness observation never overwrites an open task recorded by a real full attempt for
+    // this plan: that task is the checkpoint's evidence that the read was tried and failed.
+    if (!options.fullAttempt) {
+      let previous;
+      try { previous = json(entityPaths(projectDir, entity)['deferred.json']); } catch { /* No usable prior task. */ }
+      if (previous?.status === 'open' && previous.fullAttempt === true && previous.sourceEntityRef === entity && same(previous.planRef, options.planRef)) {
+        return { ready: false, code, reasons: [reason] };
+      }
+    }
     recordPluginExtractionDeferral({ ...options, plan, code, reason });
     return { ready: false, code, reasons: [reason] };
   }
@@ -347,8 +399,10 @@ function assemble(plan, streams, projectDir) {
   }
   return rows;
 }
-async function extractBoundPluginEntity(options) {
-  const { projectDir, sourceEntityRef: entity, transport, planRef, sample = false, sampleRecords = null, restart = false } = options;
+async function extractBoundPluginEntity(input) {
+  // Every deferral recorded from here, including a preparation failure, is a real full attempt.
+  const options = { ...input, fullAttempt: true };
+  const { projectDir, sourceEntityRef: entity, transport, planRef, sample = false, sampleRecords = null, restart = false, assemble: runAssembly = true } = options;
   if (sample) return { status: 'preview', rows: sampleRecords, unavailable: !sampleRecords }; // never promotes
   const ready = await validatePluginExtractionReadiness({ ...options, siteBaseUrl: transport?.siteBaseUrl, phase: 'preparation' });
   if (!ready.ready) return { status: 'deferred', ...ready };
@@ -419,6 +473,18 @@ async function extractBoundPluginEntity(options) {
       }
     }
     activeComponent = null;
+    if (!runAssembly) {
+      // Complete source evidence without running the plan's assembly (project code).
+      assertCanonicalBinding({ ...options, siteBaseUrl: transport.siteBaseUrl });
+      loadPlan({ ...options, siteBaseUrl: transport.siteBaseUrl });
+      materializations.forEach((ref) => checkedFile(projectDir, ref));
+      components.forEach((entry) => { checkedFile(projectDir, entry.manifest); checkedFile(projectDir, entry.output); });
+      const record = { schemaVersion: 1, mode: 'components', sourceEntityRef: entity, sourceIdentity: plan.sourceIdentity, planRef, components, materializations, assembly: plan.assembly,
+        rowsRead: Object.fromEntries(Object.entries(streams).map(([id, rows]) => [id, rows.length])) };
+      atomic(componentsManifestPath(projectDir, entity), `${JSON.stringify(record, null, 2)}\n`);
+      recordPluginExtractionDeferral({ ...options, resolution: { status: 'components-read', manifestPath: `data/source-extract/${entity}.components.json`, planRef } });
+      return { status: 'components-read', rowsRead: record.rowsRead, manifestPath: componentsManifestPath(projectDir, entity) };
+    }
     const rows = assemble(plan, streams, projectDir);
     assertCanonicalBinding({ ...options, siteBaseUrl: transport.siteBaseUrl });
     loadPlan({ ...options, siteBaseUrl: transport.siteBaseUrl }); // re-hash all governing inputs before promotion
@@ -436,6 +502,67 @@ async function extractBoundPluginEntity(options) {
     recordPluginExtractionDeferral({ ...options, plan, code, recovery: error.recovery, reason: `${activeComponent || 'assembly'}: ${error.message}` });
     return { status: 'deferred', code, reasons: [error.message] };
   }
+}
+// Every canonical plugin entity that currently has a read plan, with that plan's binding.
+function plannedPluginEntities(projectDir) {
+  const schemaPath = path.join(projectDir, 'source-schema.json');
+  if (!fs.existsSync(schemaPath)) return [];
+  const schema = json(schemaPath);
+  const rows = Array.isArray(schema.entities) ? schema.entities : Object.entries(schema.entities || {}).map(([key, row]) => ({ sourceEntityRef: row.sourceEntityRef || key, ...row }));
+  return rows.filter((row) => ENTITY.test(row.sourceEntityRef || '') && row.sourceMeta?.extractionPlan)
+    .map((row) => ({ sourceEntityRef: row.sourceEntityRef, planRef: row.sourceMeta.extractionPlan }))
+    .sort((a, b) => a.sourceEntityRef.localeCompare(b.sourceEntityRef));
+}
+// The source URL every check is bound to: the caller's transport when given, else the canonical
+// source-schema URL. Both the schema and the plan must match it.
+function boundSource(projectDir, siteBaseUrl) {
+  if (siteBaseUrl) return siteBaseUrl;
+  const schemaPath = path.join(projectDir, 'source-schema.json');
+  const schema = fs.existsSync(schemaPath) ? json(schemaPath) : {};
+  return schema.sourceUrl || schema.source?.url || null;
+}
+// What a full read left for this plan, read-only (the mapping preflight must not write).
+// `complete`: import's own evidence check passes. `components-complete`: a project-code assembly
+// plan whose every component was read in full (assembly runs only after approval). `deferred`: an
+// open task recorded by an actual full attempt for this plan (readiness observations are not
+// attempts). `stale`: full evidence exists but no longer verifies. Otherwise `not-attempted`.
+async function pluginFullReadState(projectDir, entity, planRef, siteBaseUrl = null) {
+  const options = { projectDir, sourceEntityRef: entity, planRef, siteBaseUrl: boundSource(projectDir, siteBaseUrl) };
+  const paths = entityPaths(projectDir, entity);
+  let plan = null;
+  try { assertCanonicalBinding(options); plan = loadPlan(options); } catch { /* Not a current plan for this source; classify below. */ }
+  if (plan) {
+    try { const { manifest } = await verifyFullExtraction(options, plan); return { state: 'complete', rowsWritten: manifest.rowsWritten }; } catch { /* Not current full evidence. */ }
+    if (plan.assembly.kind === 'module') {
+      try { const record = await verifyComponentRead(options, plan); return { state: 'components-complete', rowsRead: record.rowsRead }; } catch { /* Not current component evidence. */ }
+    }
+  }
+  let deferred = null;
+  try { deferred = json(paths['deferred.json']); } catch { /* No usable task. */ }
+  if (deferred?.status === 'open' && deferred.fullAttempt === true && same(deferred.planRef, planRef)) return { state: 'deferred', code: deferred.code, action: deferred.action };
+  return { state: fs.existsSync(paths['manifest.json']) || fs.existsSync(componentsManifestPath(projectDir, entity)) ? 'stale' : 'not-attempted' };
+}
+// Before the mapping checkpoint: read every planned plugin entity completely, whatever its size,
+// so the mapper maps from complete data. A current read for the same source is reused, never
+// repeated; import later accepts the same evidence. A failed read keeps its typed deferral. A plan
+// that assembles records with project code has every component read in full, but its module runs
+// only in the approved extraction path.
+async function readPluginEntitiesForMapping({ projectDir, transport, entities = null, restart = false }) {
+  const results = [];
+  for (const { sourceEntityRef: entity, planRef } of entities || plannedPluginEntities(projectDir)) {
+    const options = { projectDir, sourceEntityRef: entity, planRef, siteBaseUrl: transport.siteBaseUrl };
+    const { state } = await pluginFullReadState(projectDir, entity, planRef, transport.siteBaseUrl);
+    if (!restart && ['complete', 'components-complete'].includes(state)) {
+      results.push({ sourceEntityRef: entity, status: 'current' });
+      continue;
+    }
+    let plan = null;
+    try { plan = loadPlan(options); } catch { /* extractBoundPluginEntity records the typed plan failure. */ }
+    const result = await extractBoundPluginEntity({ ...options, transport, restart, assemble: plan?.assembly.kind !== 'module' });
+    results.push({ sourceEntityRef: entity, status: result.status, ...(result.code ? { code: result.code, reasons: result.reasons } : {}),
+      ...(Number.isInteger(result.rowsWritten) ? { rowsWritten: result.rowsWritten } : {}), ...(result.rowsRead ? { rowsRead: result.rowsRead } : {}) });
+  }
+  return results;
 }
 // Preserve the adapter's existing target dependency order; enforce transitive source
 // prerequisites within that order as well. Validate the whole graph before any handler.
@@ -459,11 +586,13 @@ function dependencyOrderedEntities(entities, entityOrder) {
   if (explicitOrder && !same(ordered.filter((entity) => entityOrder.includes(entity.sourceEntityRef)).map((entity) => entity.sourceEntityRef), entityOrder)) fail('adapter dependency order conflicts with source prerequisites; repair codegen ordering before import');
   return ordered;
 }
-async function dispatchWithPluginExtractionReadiness({ entities, selection, projectDir, siteBaseUrl, entityOrder }, handlers) {
-  const results = [];
+// `results` collects each entity's outcome as it lands, so a stopped run still reports the
+// entities it finished; `stopRequested` ends dispatch before the next entity.
+async function dispatchWithPluginExtractionReadiness({ entities, selection, projectDir, siteBaseUrl, entityOrder, results = [], stopRequested = () => false }, handlers) {
   const checks = new Map();
   const selected = selectPluginEntities(dependencyOrderedEntities(entities, entityOrder), selection).filter((entity) => entity.dispatchSelected !== false);
   for (const entity of selected) {
+    if (stopRequested()) break;
     const required = [];
     const visit = (source, stack = new Set()) => {
       if (!source || stack.has(source.sourceEntityRef)) fail('missing/cyclic source prerequisite');
@@ -548,6 +677,22 @@ function readinessFingerprint({ projectDir, sourceEntityRef: entity, planRef }) 
 function recovery() {
   return require(fs.existsSync(path.join(__dirname, 'import-recovery.js')) ? './import-recovery.js' : '../../../lib/import-recovery.js');
 }
+function interruptionLib() {
+  return require(fs.existsSync(path.join(__dirname, 'import-interruption.js')) ? './import-interruption.js' : '../../../lib/import-interruption.js');
+}
+function wixAuthLib() {
+  return require(fs.existsSync(path.join(__dirname, 'wix-auth.js')) ? './wix-auth.js' : '../../../lib/wix-auth.js');
+}
+function configEnv() {
+  return require(fs.existsSync(path.join(__dirname, 'config-env.js')) ? './config-env.js' : '../../../lib/config-env.js');
+}
+function fieldContract() {
+  return require(fs.existsSync(path.join(__dirname, 'mapping-field-contract.js')) ? './mapping-field-contract.js' : '../../../lib/mapping-field-contract.js');
+}
+function mappingPlanOf(projectDir) {
+  const file = path.join(projectDir, 'mapping/mapping-plan.json');
+  return fs.existsSync(file) ? json(file) : null;
+}
 function parseSelectionArgs(args) {
   const raw = {};
   for (let index = 0; index < args.length; index += 1) {
@@ -562,10 +707,10 @@ function parseSelectionArgs(args) {
   }
   return { ...raw, ...recovery().normalizeSelectionFilters(raw) };
 }
-function entryDescriptor(runtime, entities, projectDir) {
+function entryDescriptor(runtime, entities, mappingPlan, projectDir) {
   if (typeof runtime.describeImport !== 'function') fail('project adapter must describe its actual importer contract');
   const descriptor = runtime.describeImport();
-  recovery().assertGeneratedImporterContract(descriptor);
+  recovery().assertGeneratedImporterContract(descriptor, { mappingPlan, projectDir });
   const readiness = require(fs.existsSync(path.join(__dirname, 'import-readiness-contract.js')) ? './import-readiness-contract.js' : '../../../lib/import-readiness-contract.js').verifyReadinessContract(projectDir, descriptor);
   if (!readiness.ok) fail(readiness.errors.join(';'));
   if (!Array.isArray(descriptor.entityOrder)) fail('project adapter must declare its existing dependency order in entityOrder');
@@ -576,7 +721,21 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
   // A wrapper cannot vouch for a project's ledger or selectors. Keep the existing
   // importer self-check against the adapter's real configuration before any I/O hooks.
   const adapter = () => require(path.join(projectDir, 'src/project/plugin-runtime.js'));
-  const descriptor = kind === 'import' ? entryDescriptor(adapter(), entities, projectDir) : null;
+  const mappingPlan = kind === 'import' ? mappingPlanOf(projectDir) : null;
+  const descriptor = kind === 'import' ? entryDescriptor(adapter(), entities, mappingPlan, projectDir) : null;
+  // An exact field contract decides write scope: a held-back entity is never dispatched, and
+  // every write re-checks the shared scope guard against the importer's pinned digest.
+  const exactScope = mappingPlan?.fieldContractVersion === 1;
+  const inScope = (entity) => !exactScope || (mappingPlan.executionScope?.resolvedEntityRefs || []).includes(entity.sourceEntityRef);
+  // The declared migration-review probe belongs to the adapter that owns real evidence
+  // capture; the wrapper only routes it, after the same contract self-check.
+  if (descriptor && args.includes('--migration-review-probe')) {
+    const runtime = adapter();
+    if (typeof runtime.migrationReviewProbe !== 'function') fail('project adapter must implement its declared migration review probe');
+    const scratch = args[args.indexOf('--project') + 1];
+    if (!args.includes('--project') || !scratch || scratch.startsWith('--')) fail('migration review probe requires --project <scratch>');
+    await runtime.migrationReviewProbe({ probeProjectDir: path.resolve(scratch), args }); return;
+  }
   const runId = crypto.randomUUID();
   const selection = parseSelectionArgs(args);
   if (selection.describe) {
@@ -596,25 +755,45 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
     if (!['approved', 'provisional'].includes(approval.mapping?.status)) fail('existing mapping review approval is required before import');
     const runtime = adapter();
     if (typeof runtime.preflight !== 'function' || typeof runtime.finalizeImport !== 'function' || typeof runtime.importEntity !== 'function') fail('generated adapter must retain existing preflight, import and finalization');
-    const selectedEntities = selectPluginEntities(entities.filter((entity) => entity.importPlanned), selection);
+    const selectedEntities = selectPluginEntities(entities.filter((entity) => entity.importPlanned && inScope(entity)), selection);
+    const dryRun = await configEnv().resolveDryRun(projectDir, { argv: args });
     let preflight;
     const handlers = Object.fromEntries(entities.map((entity) => [entity.sourceEntityRef,
       async (row, filters) => {
         // Run-scoped authorization/mute checks happen once, before the first ready write.
         preflight ||= Promise.resolve().then(() => runtime.preflight({ entities: selectedEntities, selection: filters, projectDir, runId }));
         await preflight;
-        return runtime.importEntity({ entity: row, selection: filters, projectDir, runId, dryRun: Boolean(selection['dry-run'] || process.env.DRY_RUN === 'true') });
+        if (exactScope) fieldContract().assertExecutionScope(mappingPlan, row.sourceEntityRef, descriptor.mappingPlanDigest, projectDir);
+        return runtime.importEntity({ entity: row, selection: filters, projectDir, runId, dryRun });
       }]));
     // Keep the complete source inventory for prerequisite lookup; select only mapped target
     // scopes for dispatch. Discovery alone never grants permission to write that entity.
-    const plannedEntities = entities.filter((entity) => entity.importPlanned);
+    const plannedEntities = entities.filter((entity) => entity.importPlanned && inScope(entity));
     const selectedRefs = new Set(selectPluginEntities(plannedEntities, selection).map((entity) => entity.sourceEntityRef));
     const dispatchEntities = entities.map((entity) => ({ ...entity, dispatchSelected: selectedRefs.has(entity.sourceEntityRef) }));
-    results = await dispatchWithPluginExtractionReadiness({ entities: dispatchEntities, selection, projectDir, siteBaseUrl, entityOrder: descriptor.entityOrder }, handlers);
-    if (typeof runtime.finalizeImport !== 'function') fail('generated adapter must retain existing finalization');
+    // One completion call on every end: a stop or a throw still reaches finalize,
+    // with an `interruption`, and the report is stamped or rebuilt if finalize cannot record it.
     const reader = require('./structure-bridge-reader.js');
-    const deferredExtraction = reader.deferredExtractionReportInput(await reader.collectDeferredExtractions(path.join(projectDir, 'data')));
-    await runtime.finalizeImport({ results, selection, projectDir, runId, deferredExtraction });
+    const stops = interruptionLib();
+    const collected = [];
+    const finalize = async (interruption) => {
+      const deferredExtraction = reader.deferredExtractionReportInput(await reader.collectDeferredExtractions(path.join(projectDir, 'data')));
+      await runtime.finalizeImport({ results: collected, selection, projectDir, runId, deferredExtraction, ...(interruption ? { interruption } : {}) });
+    };
+    try {
+      // RP_IMPORT_STOP_GRACE_MS shortens or lengthens how long a stop waits for in-flight writes.
+      const grace = Number.parseInt(process.env.RP_IMPORT_STOP_GRACE_MS || '', 10);
+      results = await stops.runImportWithFinalize({
+        projectDir,
+        ...(Number.isInteger(grace) && grace >= 0 ? { graceMs: grace } : {}),
+        dispatch: ({ stopRequested }) => dispatchWithPluginExtractionReadiness({ entities: dispatchEntities, selection, projectDir, siteBaseUrl, entityOrder: descriptor.entityOrder, results: collected, stopRequested }, handlers),
+        finalize,
+        onInterrupted: (interruption) => (dryRun ? undefined : stops.recordInterruption(projectDir, { runId, interruption, mappingPlanDigest: descriptor.mappingPlanDigest || null })),
+      });
+    } catch (error) {
+      error.exitCode = await wixAuthLib().stopExitCode(error, projectDir);
+      throw error;
+    }
   } else {
     results = [];
     for (const entity of selectExtractionEntities(entities, selection)) {
@@ -630,4 +809,4 @@ async function runGeneratedPluginEntrypoint({ kind, projectDir, entities }, args
   process.stdout.write(`${JSON.stringify({ runId, results })}\n`);
   return results;
 }
-module.exports = { sourceIdentity, sourceEntityRef, sha, safeFile, checkedFile, referenceFor, writeJson, writePluginEntityReadPlan, invalidatePluginEntityReadPlan, loadPlan, validatePlan, recordPluginExtractionDeferral, validatePluginExtractionReadiness, extractBoundPluginEntity, dispatchWithPluginExtractionReadiness, selectPluginEntities, planFreshnessReferences, assemble, parseSelectionArgs, runGeneratedPluginEntrypoint };
+module.exports = { plannedPluginEntities, pluginFullReadState, readPluginEntitiesForMapping, sourceIdentity, sourceEntityRef, sha, safeFile, checkedFile, referenceFor, writeJson, writePluginEntityReadPlan, invalidatePluginEntityReadPlan, loadPlan, validatePlan, recordPluginExtractionDeferral, validatePluginExtractionReadiness, extractBoundPluginEntity, dispatchWithPluginExtractionReadiness, selectPluginEntities, planFreshnessReferences, assemble, parseSelectionArgs, runGeneratedPluginEntrypoint };

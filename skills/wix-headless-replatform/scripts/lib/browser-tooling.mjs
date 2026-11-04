@@ -7,6 +7,13 @@ const PLAYWRIGHT_PACKAGE = {
   playwright: "^1.62.0",
 };
 
+// Playwright does not read PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH itself. Hosts that skip the browser
+// download and ship a system Chromium (the Dev Machine image) set it, so every launch passes it through.
+export function chromiumLaunchOptions(env = process.env) {
+  const executablePath = String(env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || "").trim();
+  return { headless: true, ...(executablePath ? { executablePath } : {}) };
+}
+
 export async function resolveBrowserToolingContext({ startDir = process.cwd() } = {}) {
   const projectRoot = await findNearestPackageRoot(startDir);
   if (!projectRoot) {
@@ -425,7 +432,7 @@ async function findPackageDirFromResolvedPath(resolvedPath, packageName) {
 async function tryLaunchChromium(playwright) {
   let browser;
   try {
-    browser = await playwright.chromium.launch({ headless: true });
+    browser = await playwright.chromium.launch(chromiumLaunchOptions());
     return { ok: true };
   } catch (error) {
     const details = String(error?.message || error);

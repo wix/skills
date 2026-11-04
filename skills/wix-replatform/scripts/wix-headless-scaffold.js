@@ -12,6 +12,7 @@ function usage() {
     '  node scripts/wix-headless-scaffold.js --business-name <name> [--folder-name frontend] [--site-template commerce] [--project-dir <dir>]',
     '',
     'Runs the Wix headless scaffold non-interactively through npm create.',
+    'The new site is left unpublished (--no-publish); publishing is a cutover step.',
     'Idempotent: safe to re-invoke against the same project — adopts an',
     'existing destination receipt instead of re-scaffolding, and never spawns a second',
     'site when config/wix.env or frontend/wix.config.json already name one.',
@@ -93,22 +94,28 @@ async function isNonEmptyDir(dir) {
   }
 }
 
+function scaffoldCommandArgs(args) {
+  return [
+    '--yes',
+    'create',
+    '@wix/new@latest',
+    '--',
+    'headless',
+    '--business-name',
+    args.businessName,
+    '--folder-name',
+    args.folderName,
+    '--site-template',
+    args.siteTemplate,
+    // New sites stay unpublished until cutover; RePlatform never publishes.
+    '--no-publish',
+    '--skip-install',
+  ];
+}
+
 async function defaultSpawnScaffold(args) {
   return new Promise((resolve, reject) => {
-    const child = spawn('npm', [
-      '--yes',
-      'create',
-      '@wix/new@latest',
-      '--',
-      'headless',
-      '--business-name',
-      args.businessName,
-      '--folder-name',
-      args.folderName,
-      '--site-template',
-      args.siteTemplate,
-      '--skip-install',
-    ], {
+    const child = spawn('npm', scaffoldCommandArgs(args), {
       cwd: path.resolve(args.projectDir),
       stdio: 'inherit',
     });
@@ -756,6 +763,7 @@ if (require.main === module) {
 module.exports = {
   ensureDestinationReceipt,
   parseArgs,
+  scaffoldCommandArgs,
   usage,
   patchAstroConfigForRemoteMachinePreview,
   patchPackageJsonEnvPullHooks,

@@ -1,22 +1,19 @@
 ---
 name: "Domain Search, Purchase and Connect"
-description: Buy a domain through Wix or connect one the user already owns — intent, suggestions,
-  site resolution, registration, privacy, cart and checkout, plus the connect path including
-  ownership lookup and binding a domain to a site. Availability checks are not done here: they all use
-  Check Domain Availability.
+description: "Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout — or bring a domain registered elsewhere into the Wix account with the dashboard connect link, once Assign Domain finds it is not there yet. A request to connect a domain the user owns to their site starts at Assign Domain. Availability checks are not done here: they all use Check Domain Availability."
 ---
 
 # Domain Search, Purchase and Connect
 
 One document, four parts. Section numbers carry their part's letter, so every reference names the
-part it points into — §A4b, §P3, §C0c, §R4.3.
+part it points into — §A4b, §P3, §C1, §R4.3.
 
 | Part | Sections | Covers |
 |------|----------|--------|
 | **Part A** — Entry and Routing | §A1 – §A8 | Intent, the availability step of a buy or connect, suggestions, and the routing decision. **Start here.** |
 | **Part P** — Purchase Path | §P1 – §P10 | Buying a domain from Wix |
-| **Part C** — Connect Path | §C0 – §C7 | Connecting a domain the user already owns |
-| **Part R** — Reference | §R1 – §R9 | Endpoints, product IDs, URL templates, site resolution, ownership lookup, error handling |
+| **Part C** — Connect Path | §C0 – §C7 | Connecting a domain the user already owns. Putting a domain the account holds on a site is [Assign Domain](assign-domain.md) |
+| **Part R** — Reference | §R1 – §R10 | Endpoints, product IDs, URL templates, site resolution, ownership lookup, error handling, currency |
 
 **Before any API call, read Part R.** It holds every endpoint, product ID, URL template,
 site-resolution rule and error rule used by all three of the other parts. Do not guess a URL or a
@@ -34,8 +31,8 @@ Part A takes the conversation from the user's first message to the point where t
 | **§P1** | The user is buying a domain from Wix |
 | **§C1** | The user already owns the domain and wants it on their Wix site |
 
-Covers **US-01 – US-12**. §A4b routes **US-40 / US-41**, and decides whether the connect path may
-perform the connection itself (**US-42 – US-45**) or only hand over a link. §A3.1 handles subdomains
+Covers **US-01 – US-12**. §A4b routes **US-40 / US-41**, and decides whether the connect path hands
+the domain to [Assign Domain](assign-domain.md) (**US-42 – US-46**) or only hands over a link. §A3.1 handles subdomains
 (**US-48 – US-50**), which skip the availability check entirely.
 
 ---
@@ -71,8 +68,10 @@ availability question (above).
 A question about the state of a domain already in the user's account — when it expires, whether it
 renews, which site it is on, its add-ons, DNS or SSL status, or which of their domains match a
 condition — belongs to [Analyse Domain](analyse-domain.md). Answer it there; come back here only when
-the user then wants to buy or connect. The lookup in §R4.3 stays here: it serves the connect flow and
-checks whether the domain is assigned to a site or unassigned. Analyse Domain answers a different
+the user then wants to buy or connect. A request to change which site a domain already in the
+account is on, or its role there — *"make X the primary domain"*, *"remove X from my site"*, *"move
+X to my other site"* — belongs to [Assign Domain](assign-domain.md). The lookup in §R4.3 stays here:
+it serves the connect flow and checks whether the domain is assigned to a site or unassigned. Analyse Domain answers a different
 question, the domain's state (registered or connected, expiry, renewal, DNS), from the domain views,
 and uses this same lookup only as a fallback when a domain has no domain view. Don't swap one for the other.
 
@@ -97,6 +96,7 @@ authenticated Wix endpoints in §R4.2. Nothing else.
 | Estimate what a domain is "worth", or quote four-to-five-figure ranges | Pure invention. The only prices in this skill come from the offering call. |
 | Give trademark, legal, or brand-conflict advice | Not this skill's job and not reliable from a domain lookup. |
 | Hand-write a list of alternative TLDs (`.io`, `.dev`, `.app`, …) | Suggestions come **only** from `suggest-domains`. A list you composed yourself is invented data, whatever it happens to score on availability. |
+| Read Help Center articles, or hand over generic dashboard steps for connecting a domain | The connect path ends in Assign Domain's offer or §C3's link, both built for this user's site and domain. Generic steps skip the ownership check and the plan check. |
 | Search the web, browse the domain, or inspect the site running on it | None of it changes what the user does next: buy an available domain, or connect one they own. |
 
 If the user explicitly asks for one of these — *"who owns it?"*, *"can you help me buy it from
@@ -117,14 +117,15 @@ response beyond the match and the site name is off limits (§R4.3).
 
 ## A2. Intent Classification (US-01, US-02)
 
-Two things to establish: the **domain** and the **intent**.
+Two things to establish: the **domain** and the **intent**. **Take the first row that matches,
+reading top-down.**
 
 | Signal | Intent | Next |
 |--------|--------|------|
+| A domain the user has (named, or *"my domain"*, *"a domain I own"*) and a site to put it on, or a change of its role or site: *"connect / assign / bind / point / put X on my site"*, *"make X the primary domain"*, *"make X redirect to my site"*, *"remove / disconnect X from my site"*, *"move X to my other site"* | **CONNECT → a site** | **Go to [Assign Domain](assign-domain.md) and follow it.** No availability check first — it reads the account itself, and hands a domain the account doesn't hold back to §A4. No domain named (*"I want to connect a domain I already own to my site"*) is this row too: Assign Domain asks which domain. Send no steps, links or Help Center content first. |
 | "buy", "purchase", "get", "register", "new domain" | **PURCHASE** | §A3 |
 | Wanting **a** domain — indefinite article, no domain named: *"I want a domain for my site"*, *"I need a domain for my pancakes restaurant"* | **PURCHASE** | §A3 |
-| "connect it **to my site**", "assign it to my site", "bind it to my site", "point it at my site", "put it on my site" | **CONNECT → a site** | §A3 |
-| "connect it **to Wix**", "add it to Wix", "bring it into Wix", "I have", "I own", "transfer it over" | **CONNECT → Wix** | §A3 |
+| "connect it **to Wix**", "add it to Wix", "bring it into Wix", "transfer it over", or "I have" / "I own" with no site in the request | **CONNECT → Wix** | §A3 |
 | A specific domain, no buy/connect word, and no question about whether it is available | **UNKNOWN** | §A3 — the availability check (run with Check Domain Availability) and §A4 settle it |
 | A specific domain, and the only question is whether it is available, taken or free | Not this recipe | [Check Domain Availability](check-domain-availability.md) |
 | Neither, and no domain | **UNKNOWN** | Ask: *"Would you like to purchase a new domain or connect one you already own?"* |
@@ -136,21 +137,22 @@ difference between two different operations:
 
 | The user says | They mean | The operation |
 |---------------|-----------|---------------|
-| *to a site* — and **assign** and **bind** are the same request in other words | The domain is already in the Wix account; which site should it serve? | The bind — §R4.4 |
+| *to a site* — and **assign** and **bind** are the same request in other words | Which site should the domain serve? | The assignment — [Assign Domain](assign-domain.md), which checks the account first |
 | *to Wix*, *add to Wix* | The domain lives at an outside registrar and is not in the account at all | The connect link — bringing it in, §C3 |
 
 Nothing can be assigned to a site until the domain is in the account, so the second is the
 precondition of the first, not an alternative to it.
 
-**The account decides which one is actually possible, and it overrides the phrasing.** §A4b looks the
-domain up before any message goes out, so let the lookup settle it:
+**The account decides which one is actually possible, and it overrides the phrasing.** *To a site*
+goes to Assign Domain, whose read settles it; *to Wix* goes through §A4b's lookup:
 
-- **Not in the account (§A4b-C)** — *to a site* cannot run, however plainly it was asked for; the bind
-  gate wants the domain in the account first. The connect link is the answer to **both** phrasings.
-- **In the account, unassigned (§A4b-B)** — *to Wix* is already true. Read it as *to a site* and offer
-  the bind.
-- **In the account, on a site (§A4b-A)** — both phrasings are already satisfied; §C0
-  decides whether anything is left to do.
+- **Not in the account** — *to a site* cannot run, however plainly it was asked for. Assign Domain
+  hands the domain back to §A4 with intent *CONNECT → a site* and ownership already looked up, and the
+  connect link (§A4b-C) is the answer to **both** phrasings.
+- **In the account, unassigned (§A4b-B)** — *to Wix* is already true. Read it as *to a site*; the
+  connect path hands it to Assign Domain.
+- **In the account, on a site (§A4b-A)** — both phrasings are already satisfied; §A4b-A answers,
+  or hands a change of role or site to Assign Domain.
 
 ⛔ **Never correct the user's wording.** They are describing an outcome, not calling an API. Act on
 what the account says is possible and say what you did — do not explain that they used the wrong verb.
@@ -161,7 +163,8 @@ Do not fall through to the clarifying question just because the words "buy" or "
 absent — *"I want a domain for my site"* is a purchase.
 
 An answer of "connect" / "I have one" with no domain named → ask *"What domain would you like to
-connect?"*, then go to §A4.
+connect?"*, then take the answer through §A3's named-domain row (normalize, subdomain → §A3.1, else
+§A4) — or to Assign Domain when the user wants it on a site.
 
 Do **not** ask "do you already own this domain?" — not before the availability check, and not after
 it either. Asking first produces the awkward case where the user claims to own a domain that is not
@@ -177,6 +180,7 @@ else in this table — including a site they named in the same breath.
 
 | Situation | Action |
 |-----------|--------|
+| **CONNECT intent, no domain named** — *"I own a domain"*, *"I have a domain"*, *"connect my domain"* | The whole reply is: **"What domain would you like to connect?"** — even when you would otherwise go ahead on assumptions. No site resolution, no suggestions, no link. Then take the answer through the named-domain row below (normalize, subdomain → §A3.1, else §A4), or [Assign Domain](assign-domain.md) when the user wants it on a site |
 | User named a specific domain — **even if they named a site too** | Normalize it (§R1). A **subdomain** → §A3.1. Anything else → §A4, **first**, before any site work |
 | User gave brand/business context but no domain — *"My business is called Green Sprout Bakery"*, *"I need a domain for my pancakes restaurant"* | **Do not ask.** Build a query from that context → §A5 |
 | **No domain, but they pointed at a site** — *"I want a domain for my wix site"*, *"I need a domain for my site"* | **Do not ask for a domain yet.** The site is the context → §A3.2 |
@@ -208,7 +212,7 @@ exact match, run the same pair again keyed on the **root domain**.
 | Exact match at | State | Next |
 |----------------|-------|------|
 | Subdomain in `sites[].primary` or `sites[].redirects[]` | Already connected | **§A4b-A**, unchanged |
-| Subdomain in `domains[]` (unassigned) | **Confirmed** | **Go to §C1 and follow it** |
+| Subdomain in `domains[]` (unassigned) | **Confirmed** | **Go to [Assign Domain](assign-domain.md) and follow it** — ownership **confirmed** |
 | Root domain in either array | **Confirmed via root** | §A3.1b |
 | Neither | Root is not in the account | §A3.1c |
 | User is logged out, or both calls fail after the silent retry | Unknown | **§A4b-C**, unchanged |
@@ -222,7 +226,7 @@ Ownership is **confirmed**, so the *"If it's yours"* hedge does not appear. Say 
 because the user asked about the subdomain and the account matched something else:
 
 > **Go to §C1 and follow it** — ownership **confirmed via root**. The opening in
-> §C3 names the root; the link is the whole answer, and **no bind** is offered.
+> §C3 names the root; the link is the whole answer, and **no assignment** is offered.
 
 `q=` on that link carries the **subdomain**. The root is what proved ownership; the subdomain is what
 gets connected. The two are never swapped.
@@ -256,7 +260,7 @@ Then leave the offer open and say nothing more about it.
 
 - **They change their mind** → §A3.1c's yes branch.
 - **They still decline** → **go to §C1 and follow it** — ownership **asserted**. Link
-  only, **no bind**. Ownership was never established here, so this is the one subdomain branch where
+  only, **no assignment**. Ownership was never established here, so this is the one subdomain branch where
   the *"If it's yours"* hedge is correct and stays.
 
 ⛔ **State the recommendation once.** A user who has declined twice has decided. The subdomain link is
@@ -265,8 +269,9 @@ pitch — §R9.
 
 ### A3.2 The User Pointed at a Site but Named No Domain
 
-**This section is only for a message that named no domain.** If a domain was named as well —
-*"buy mybakery.com for my wix site"* — row 1 owns it: §A4 runs first, and the site is resolved
+**This section is only for a message that named no domain, with PURCHASE intent.** A user who has a
+domain to connect gets §A3's first row instead: ask which domain, resolve no site. If a domain was named as well —
+*"buy mybakery.com for my wix site"* — §A3's named-domain row owns it: §A4 runs first, and the site is resolved
 afterwards by §P1. Resolving a site here would put a list in front of the availability answer.
 
 *"I want a domain for my wix site"* names no domain, and it is **not** nothing. Two things arrive with
@@ -368,6 +373,9 @@ and a partial hit is not ownership.
 
 - **User is not logged in**, or both calls fail after the silent retry → skip to **§A4b-C**.
   Ownership is unknown, which is what §A4b-C's copy already assumes.
+- **Handed back by [Assign Domain](assign-domain.md)** — it found the domain is not in the account,
+  or could not tell (signed out, or its read failed). Skip both calls and go to **§C1** with ownership
+  **asserted** — §A4b-C's CONNECT rule: no suggestions.
 
 **This runs before the suggestions call and before any message.** Alternatives are only fetched in
 §A4b-C. Fetching them first — as an earlier version of this skill did — means offering a user
@@ -392,45 +400,23 @@ If the match came from `redirects[]` rather than `primary`, the domain is in use
 
 > {displayName} is yours — it's currently forwarding to **{siteName}**.
 
-If the user wanted it in the **other role** on that same site — forwarding today, but they asked for
-the site's address — this is not terminal after all. Ownership is confirmed and the domain is already
-on the right site, so the role can be changed: **go to §C0b and follow it** (US-45).
-
-If the user asked to connect it to a **different** site than the one it is on, that is a **move**, and
-a bind performs it — binding the domain to the new site takes it off the old one. **Do not compose the
-answer here, and do not ask *"Want to move it to {requested site}?"* on its own.** That question hides
-the half of the change the user is not thinking about: the site the domain comes off, which may be
-losing its primary domain.
-
-**Go to §C0c and follow it**, carrying the requested site and ownership **confirmed**.
-That section resolves the site, checks its plan, and asks for the move in a form that names both sites
-(§C3.2d) before anything is written.
+If the user wanted it in the **other role** on that same site (US-45), or on a **different** site
+than the one it is on — a **move** (US-46) — this is not terminal after all. Ownership is confirmed, so
+**go to [Assign Domain](assign-domain.md) and follow it**, carrying the domain, the requested site and
+role, and ownership **confirmed**. **Do not compose the answer here, and do not ask *"Want to move it
+to {requested site}?"* on its own** — Assign Domain's offer names the site the domain comes off, which
+may be losing its primary domain.
 
 #### A4b-B — it is theirs, and not connected to anything (US-41)
 
-Ownership is settled, so there is no question to ask and nothing to hedge.
-**Go to §C1 and follow it**, carrying the domain and ownership **confirmed**.
+Ownership is settled, so there is no question to ask and nothing to hedge. **Go to
+[Assign Domain](assign-domain.md) and follow it**, carrying the domain, the requested site and role
+if the user named them, and ownership **confirmed**. It resolves the site, checks the plan, makes the
+offer and does the work, or answers a Free site with the upgrade. **Do not compose any of that
+wording here**, and do not promise in Part A that the domain will be connected.
 
-**This branch is the one that unlocks doing the work.** A confirmed match is the first of the four
-conditions in §R4.4, so the connect path can offer to make the connection itself
-rather than only pointing at the dashboard. Carrying ownership as *confirmed* is what makes that
-possible; carrying it as *asserted* silently downgrades the user's outcome to a link.
-
-That path resolves the site, checks the plan, and looks at what the site already has —
-§C1, §C2 and §C3.1 — and, on a **Premium** site, lands on an offer plus the link in
-one message:
-
-> {siteName}'s primary domain is **{current primary}**. Should {displayName} become the primary
-> domain instead, or redirect to it?
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-On a **Free** site nothing is offered and nothing is written — it is the link plus the upgrade block,
-exactly as before.
-
-§C0 – §C4 own all of this wording, including which of the three offer forms applies
-and the two confirmations in front of the write. **Do not compose any of it here**, and do not promise
-in Part A that the domain will be connected — that promise is only safe after §C2 has said Premium.
+Carrying ownership as *confirmed* is what lets Assign Domain offer to do the work rather than only
+pointing at the dashboard; carrying it as *asserted* silently downgrades the user's outcome to a link.
 
 No suggestions, no *"do you own this?"*, no *"if it's yours"*.
 
@@ -443,8 +429,14 @@ This branch is short and closed.
 connected to a Wix site is invisible to the lookup, so the user may well own it. Never say or imply
 otherwise — see §R4.3.
 
-Do exactly two things: call `suggest-domains` with the SLD only for 3 alternatives (§A5), then send
-**one** message containing **only** this:
+**CONNECT intent first — including every domain handed back by [Assign Domain](assign-domain.md).**
+Skip everything below: no `suggest-domains` call, no alternatives. A domain they cannot register is
+no use to them. Go straight to **§C1** with ownership **asserted**. If the user is logged out, §C1
+Case C asks them to log in; once they do, the ownership check in Step 1 can run and may upgrade the
+answer to §A4b-A or §A4b-B.
+
+**Any other intent:** do exactly two things: call `suggest-domains` with the SLD only for 3
+alternatives (§A5), then send **one** message containing **only** this:
 
 > {displayName} is already registered. If it's yours — you can connect it to a Wix site. Here are
 > available alternatives that fit your brand:
@@ -460,15 +452,14 @@ The *"If it's yours"* hedge is correct **here and only here** — either the own
 nothing, or it could not run. Ownership is a guess in this branch, and the copy says so honestly.
 
 **No connection is performed on this path.** §A4b-B can offer to do the work because an account lookup
-proved the domain is the user's; here nothing proved it. Writing an unverified domain onto a live site
-fails the first condition of §R4.4, so the connect link is the whole of what this
-branch can offer — no primary-or-redirect question, no bind, however plainly the user says it is
-theirs. If they are right and the domain is theirs at an outside registrar, the dashboard is where
+proved the domain is the user's; here nothing proved it. Assign Domain refuses to write an unverified
+domain onto a live site, so the connect link is the whole of what this branch can offer — no
+primary-or-redirect question, no assignment, however plainly the user says it is theirs. If they are right and the domain is theirs at an outside registrar, the dashboard is where
 that gets sorted out.
 
 **This holds even when the user asked to connect it "to my site" — or to *assign* or *bind* it
-there** (§A2). That request names the bind, and the bind cannot run on a domain the account does not
-hold; bringing it into Wix comes first and the link is what does that. Give the link, and do not
+there** (§A2). That request names an assignment, and an assignment cannot run on a domain the
+account does not hold; bringing it into Wix comes first and the link is what does that. Give the link, and do not
 promise the site assignment as though it were about to happen. Do not lecture them about the order
 either: the link goes to the page where both steps are completed, so *"you can connect it to a Wix
 site"* is a true and sufficient answer.
@@ -491,10 +482,6 @@ Then branch on the reply:
   (not confirmed — the account search did not find it).
 - Wants something else → back to §A3.
 
-**When the intent was already CONNECT**, do not offer alternatives — a domain they cannot register is
-no use to them. Go straight to **§C1** with ownership **asserted**. If the user is
-logged out, §C1 Case C asks them to log in; once they do, the ownership check in
-Step 1 can run and may upgrade the answer to §A4b-A or §A4b-B.
 
 ### A4c — `DOMAINS_UNSUPPORTED_TLD`
 
@@ -620,13 +607,14 @@ that section — do not improvise the next step from memory.
 | Domain available, buying | **Go to §P1 and follow it.** |
 | Suggestion picked | **Go to §P1 and follow it.** |
 | Unsupported TLD, alternative picked | **Go to §P1 and follow it.** |
-| Domain is the user's and already on a site (§A4b-A) | **Nowhere — terminal.** One message, then stop. Unless the role is wrong (**§C0b**) or the site is wrong (**§C0c** — a move, which a bind performs). |
-| Domain is the user's and unconnected (§A4b-B) | **Go to §C1 and follow it** — ownership **confirmed**. A bind may be offered. |
-| Domain taken and the user says it is theirs (§A4b-C) | **Go to §C1 and follow it** — ownership **asserted**. Link only, **no bind**. |
-| Connect intent, domain confirmed taken | **Go to §C1 and follow it.** |
-| Subdomain, root domain in the account (§A3.1b) | **Go to §C1 and follow it** — ownership **confirmed via root**. Link only, **no bind**. |
+| Domain is the user's and already on a site (§A4b-A) | **Nowhere — terminal.** One message, then stop. Unless the role or the site is wrong: **[Assign Domain](assign-domain.md)**. |
+| Domain is the user's and unconnected (§A4b-B) | **Go to [Assign Domain](assign-domain.md) and follow it** — ownership **confirmed**. |
+| A domain to put on a site, or a change of its role or site (§A2, *CONNECT → a site*) | **Go to [Assign Domain](assign-domain.md) and follow it.** |
+| Handed back by Assign Domain — not in the account, or it could not tell | **§A4** with intent *CONNECT → a site*: available → §A4a; taken → **§C1** with ownership **asserted**, no lookup, no suggestions. |
+| Domain taken and the user says it is theirs (§A4b-C) | **Go to §C1 and follow it** — ownership **asserted**. Link only, **no assignment**. |
+| Subdomain, root domain in the account (§A3.1b) | **Go to §C1 and follow it** — ownership **confirmed via root**. Link only, **no assignment**. |
 | Subdomain, root not in the account, user accepts the root offer (§A3.1c) | **§A4 with the root domain** as the domain in hand. |
-| Subdomain, root not in the account, user declines twice (§A3.1d) | **Go to §C1 and follow it** — ownership **asserted**. Link only, **no bind**. |
+| Subdomain, root not in the account, user declines twice (§A3.1d) | **Go to §C1 and follow it** — ownership **asserted**. Link only, **no assignment**. |
 | Connect intent, domain not registered, user wants to buy | **Go to §P1 and follow it.** |
 | Persistent failure | §R8 — escalation ladder, then the fallback link |
 
@@ -1290,9 +1278,11 @@ The user's only remaining step is payment; say nothing more.
 
 | Ownership state | Set by | Consequence here |
 |-----------------|--------|------------------|
-| **Confirmed** | The account lookup found it — §A4b-B | The domain *is* theirs. Use the unconditional copy, and the connection can be **performed** (§C3). |
-| **Confirmed via root** | The subdomain's *root domain* is in the account — §A3.1b | The subdomain *is* theirs. Use the unconditional copy naming the root, but **never bind** — §R4.4's first condition asks for a match on the domain being connected (§C3). |
-| **Asserted** | The user said so, or the intent was CONNECT — §A4b-C | Ownership is an inference. Keep the *"If it's yours"* hedge, and **never bind** (§C3). |
+| **Confirmed via root** | The subdomain's *root domain* is in the account — §A3.1b | The subdomain *is* theirs. Use the unconditional copy naming the root, but **never hand it to Assign Domain** — its ownership check asks for a match on the domain being connected (§C3). |
+| **Asserted** | The user said so, or the intent was CONNECT — §A4b-C | Ownership is an inference. Keep the *"If it's yours"* hedge, and **never hand it to Assign Domain** (§C3). |
+
+A domain the account lookup found — **confirmed** — never stays in this part: §A4b-A, §A4b-B and §C0
+hand it to [Assign Domain](assign-domain.md).
 
 If you arrive without one, ownership is **asserted** — the cautious reading. Never upgrade an
 asserted state to confirmed on the strength of the user repeating themselves; only the lookup in
@@ -1313,114 +1303,32 @@ subdomain back to §A4 for a check that has no answer.
 
 | Terminal state | Reached when |
 |----------------|--------------|
-| **Already connected** | The domain is already on the requested site in the role wanted (§C0a) |
-| **Connected — you did it** | A bind succeeded (§C3.4) |
-| **Connect link** | A site is resolved, it is Premium, and no bind is on offer or the offer was declined (§C3) |
+| **Handed to Assign Domain** | The lookup found this exact domain in the account (§C0) — Assign Domain owns the rest of the conversation |
+| **Connect link** | A site is resolved, it is Premium, and ownership is asserted or confirmed only via the root domain (§C3) |
 | **Connect link + upgrade block** | A site is resolved and it is Free (§C4) |
 | **Sign-up** | The user has no Wix site and wants to create one (§C5) |
 | **Error fallback** | Two failed attempts — §R8 |
 
-**Read Part R before any call.** The bind in particular is governed by §R4.4, including the
-four-part gate that decides whether one may be attempted at all.
+**Read Part R before any call.**
 
-⚠️ **The bind in §C3.4 is this skill's only write to a user's live site**, and because it re-assigns, a
-single POST can change **two** live sites (§C0c). One explicit yes sits in front of every POST, a
-second and named yes in front of anything that displaces a live primary domain, and every offer to
-move a domain names the site it comes off. There is no path through this part that connects or moves a
-domain without the user saying so.
+⚠️ **This part never writes to a user's site.** Putting a domain on a site, changing its role and
+moving it between sites are [Assign Domain](assign-domain.md)'s, with its own gate and confirmations.
 
-Covers **US-17, US-33 – US-36, US-40 – US-46**.
+Covers **US-17, US-33 – US-36, US-40, US-41**. **US-42 – US-46** — doing the assignment, changing a
+domain's role, moving it — are handed to [Assign Domain](assign-domain.md).
 
 ---
 
-## C0. Already Connected — Stop Before You Start
+## C0. Already in the Account — Hand Over
 
-If the ownership lookup (§R4.3) matched under `assigned` — at
-`sites[].primary.domainName` or `sites[].redirects[].domainName` — the domain is already on one of
-the user's sites. Read `siteName` and `siteId` from the entry that matched, and note **how** it
-matched: as the site's `primary`, or as one of its `redirects[]`.
+If the ownership lookup (§R4.3) found this exact domain — under `assigned` (on one of the user's
+sites) or `unassigned` (on none), including when it first runs after a §C1 Case C login — the domain
+is theirs. **Go to [Assign Domain](assign-domain.md) and follow it**, passing the domain, the
+requested site's `siteId` and name when known, ownership **confirmed**, and the role the user asked
+for, if any. It answers "already there", changes the role, moves the domain or puts it on the site,
+with its own confirmations. Do not compose any of it here.
 
-Three cases, and they end differently.
-
-### C0a — On the site the user asked about, in the role they want (US-40)
-
-The job is already done. Do not resolve a site, do not check a plan, do not send a connect link, do
-not bind. Say it and stop:
-
-> {displayName} is already connected to **{siteName}**.
-
-If the match was a redirect and a redirect is what they asked for:
-
-> {displayName} is yours — it's currently forwarding to **{siteName}**.
-
-**Terminal state. Stop here.**
-
-### C0b — On that site, but in the other role (US-45)
-
-The domain is theirs and it is already on the right site — only its role is wrong. Nothing has to
-come off anything, so this one **can** be acted on. The `assigned` match makes ownership
-**confirmed**.
-
-Currently a redirect, and the user wants it to be the site's address:
-
-> {displayName} is already on **{siteName}** — right now it forwards there rather than being the
-> site's primary domain. Want to make it the primary domain instead?
-
-A yes here is **not** authorization for the POST. Continue to §C2 (the plan check) and §C3.1 (what is
-on the site), then §C3.3's named confirmation, then §C3.4.
-
-The mirror case — currently the primary, and the user wants it demoted to a redirect — runs the same
-route with `bindType: REDIRECT`. One thing to check first: a redirect needs somewhere to point. If
-§C3.1 shows this domain is the site's only domain, there is nothing to redirect to. Say so and stop:
-
-> {displayName} is **{siteName}**'s only domain, so there's nothing for it to redirect to.
-
-### C0c — On a *different* site — a move (US-46)
-
-The domain is theirs, and it is in use somewhere else. **A bind re-assigns it** — binding it to the
-requested site moves it off the site it is on now. No unbind call is needed and none exists; the move
-*is* the bind.
-
-So this is not a hand-off branch. It is the branch that **changes two live sites with one POST**, and
-it is gated harder than anything else in this part: the domain stops doing whatever it was doing on
-the site it leaves, and that site may be losing its primary domain.
-
-Ownership is **confirmed** — the `assigned` match proves it. Note two things from the matching entry
-before going on:
-
-| Note | From |
-|------|------|
-| `{current siteName}` — the site it is on now | `sites[].site.siteName` on the matching entry |
-| `{role phrase}` — **the primary domain for**, when it matched `primary`; **forwarding to**, when it matched `redirects[]` | which field matched |
-
-#### The requested site is known
-
-The user named a site, or one is in context. Continue: §C1 to resolve it, §C2 for its plan, §C3.1 for
-what is on it, then §C3.2d — the move's own offer form — and §C3.3 when the move also displaces a
-primary domain on the target. **§C3.2d and §C3.3 are both mandatory for a move.** A move never reaches
-§C3.4 on fewer than one explicit yes, and never on a yes to a question that did not name
-`{current siteName}`.
-
-If §C2 says the requested site is **Free**, there is no move: §C4, link plus upgrade block, no offer,
-no POST.
-
-#### The requested site is *not* known
-
-The user said *"my site"* and has more than one. They may well have meant the site the domain is
-already on — in which case the answer is §C0a and nothing needs doing at all. So report the current
-state and ask the question that actually branches:
-
-> {displayName} is currently {role phrase} **{current siteName}**. Did you want it on a different site?
-
-- **Names a different site** → resolve it (§C1) and continue as above.
-- **No, that's the one** → §C0a's copy. **Terminal.**
-
-⚠️ **Never say what happens to `{current siteName}` after the move.** Whether it falls back to a
-`wix.com` address, whether another of its domains is promoted, whether anything about it breaks —
-none of that comes from any call this skill makes. Name what the domain stops doing; stop there.
-
-Everything below assumes §C0a did **not** fire. §A4b-A normally catches this
-before you get here; §C0 exists so an arrival that skipped it still lands correctly.
+Everything below assumes the domain is **not** confirmed in the account.
 
 ---
 
@@ -1440,8 +1348,7 @@ Do all of this silently, **Case R excepted**. The user should see one message at
 not a play-by-play.
 
 **After a Case C login, run the ownership check** (§R4.3) before continuing — it
-could not run while they were logged out. A match changes the answer: `assigned` sends you to §C0,
-`unassigned` upgrades ownership to **confirmed**, which is what opens the door to §C3.1 – §C3.4.
+could not run while they were logged out. An exact match on either list sends you to §C0.
 
 ### Case R — the candidate site came from the root domain (US-48)
 
@@ -1485,42 +1392,30 @@ Read `payload.premiumState`. `allowedDomain = premiumState !== "FREE"`.
 - `allowedDomain: true` → §C3
 - `allowedDomain: false` → §C4
 
-Run this **together with §C3.1's inventory call** — two calls, one silent step, no user-visible gap
-between them. If the site turns out to be Free, discard the inventory and go to §C4; the wasted read
-costs nothing and saves a round trip in the common case.
-
 ⚠️ The `premium` field on the availability response is **domain pricing**, not site Premium status.
 It has nothing to do with this decision. Ignore it. Neither does `allowedDomain` on the site object
-inside a My Domains response — `premiumStatus` is the only source.
+inside a My Domains response — within this recipe, `premiumStatus` is the only source.
 
 ---
 
-## C3. Premium Site — Connect It, or Hand Over the Link (US-33, US-42)
+## C3. Premium Site — Hand Over the Link (US-33)
 
-The site is Premium, so a domain can go on it. Two routes exist, and **they are not alternatives you
-pick between — the offer to do it and the dashboard link go out together, in the same message.**
-
-The two routes answer the two things *connect* can mean (§A2). The **link**
-brings a domain into the Wix account — *connect it to Wix*, *add it to Wix* — and is the only route
-available for a domain the account does not already hold. The **bind** assigns a domain the account
-already holds to a particular site — *connect it to my site*, *assign it*, *bind it*. Sending both at
-once is what makes the message answer either request without asking the user which they meant.
+The site is Premium, so a domain can go on it. Two routes exist, and they answer the two things
+*connect* can mean (§A2). The **link** brings a domain into the Wix account — *connect it to Wix*,
+*add it to Wix* — and is the only route available for a domain the account does not already hold.
+**Assigning** puts a domain the account already holds on a particular site — *connect it to my site*,
+*assign it*, *bind it* — and is [Assign Domain](assign-domain.md)'s job.
 
 Which routes are available is decided by the ownership state, not by taste:
 
 | State you arrived with | What this section does |
 |------------------------|------------------------|
-| **Confirmed** — an `unassigned` exact match, or an `assigned` match (§C0b same site, §C0c another site) | Offer to connect it **and** give the link. §C3.1 → §C3.4. |
-| **Confirmed via root** — a subdomain whose root domain is in the account | The link is the whole answer, with the unconditional opening. No bind, no primary/redirect question. |
-| **Asserted** — the user said so, the lookup found nothing, or it could not run | The link is the whole answer. No bind, no primary/redirect question. |
+| **Confirmed via root** — a subdomain whose root domain is in the account | The link is the whole answer, with the unconditional opening. No assignment, no primary/redirect question. |
+| **Asserted** — the user said so, the lookup found nothing, or it could not run | The link is the whole answer. No assignment, no primary/redirect question. |
 
 ### The two openings — link only
 
-When no bind is on offer, this section is one message and the ownership state picks the opening:
-
-**Ownership confirmed:**
-
-> {displayName} is yours and isn't connected to a site yet — [Connect it to {site name}](https://manage.wix.com/dashboard/{siteId}/add-domain/results?q={domain}&invoke=true)
+This section is one message, and the ownership state picks the opening:
 
 **Ownership confirmed via root** (a subdomain — §A3.1b, US-48):
 
@@ -1530,216 +1425,32 @@ When no bind is on offer, this section is one message and the ownership state pi
 
 > {displayName} is registered. If it's yours — [Connect it to {site name}](https://manage.wix.com/dashboard/{siteId}/add-domain/results?q={domain}&invoke=true)
 
-The link is identical in all three. Only the sentence in front of it changes, and it changes because
-one of them is a fact, one is a fact about a different domain that settles this one, and the last is
-a guess. Do not blend them — *"is yours. If it's yours…"* is the failure this split exists to
+The link is identical in both. Only the sentence in front of it changes, and it changes because
+one is a fact about a different domain that settles this one, and the other is a guess. Do not blend them — *"is yours. If it's yours…"* is the failure this split exists to
 prevent.
 
 On the root variant, `q=` carries the **subdomain**, never the root — the root is what proved
 ownership, the subdomain is what gets connected. Both names in the sentence go through
 §R2 for their display form.
 
-The link is the same one every offer below carries:
+About the link:
 
 - `q=` takes the **full** domain, never the truncated display form.
 - The visible label is `Connect it to {site name}`; `{displayName}` is the domain's display form
-  (§R2). **Every domain shown to the user goes through §R2** — including the
-  site's current primary domain.
+  (§R2). **Every domain shown to the user goes through §R2.**
 - No `referralInfo` parameter — see §R6.
 
 Add nothing after the link. **Terminal state. Stop here.**
 
-Ownership **confirmed** → do not stop. Continue to §C3.1.
+Ownership **confirmed via root** → stop here, exactly like *asserted*. The wording is unconditional,
+but the domain being connected was not itself found in the account, so Assign Domain is not offered.
 
-Ownership **confirmed via root** → stop here, exactly like *asserted*. The wording is unconditional
-but the bind gate is not met, so §C3.1 – §C3.4 do not run.
-
-### C3.1 What is already on this site? (silent)
-
-Before offering anything, find out what the site already has. One call, run with §C2:
-
-```
-GET https://manage.wix.com/_api/my-domains/v1/domains/assigned?filter.msid={siteId}
-```
-
-Read exactly three things (§R4.4): `sites[0].primary.domainName`,
-`sites[0].redirects[].domainName`, `sites[0].site.siteName`. Nothing else in that response is in
-scope.
-
-| What came back | Branch |
-|----------------|--------|
-| The target domain is this site's `primary`, or in its `redirects[]` | It is already on this site → **§C0a** (same role) or **§C0b** (other role). Do not offer a fresh connect. |
-| `sites[]` is empty — the site has no domains at all | **§C3.2a** |
-| `primary.domainName` is absent (redirects only, no primary) | **§C3.2a** — there is no primary domain to redirect to, so the two-way question is unanswerable. |
-| `primary.domainName` is present | **§C3.2b** |
-| The call fails, and its silent retry also fails | **No bind.** Fall back to §C3's link-only *confirmed* opening. The inventory is what makes the question askable; without it, do not guess a primary domain. |
-
-The target domain turning up here means the `searchTerm` lookup (§R4.3) missed
-it — most often because
-the user was logged out at the time. Trust this call and route to §C0.
-
-On a **move** (§C0c) the branch conditions are unchanged — what changes is the copy: §C3.2d replaces
-§C3.2a and §C3.2b, and which of its two forms applies still turns on whether the target site has a
-primary domain.
-
-### C3.2 The offer — one message, both routes
-
-Four copy forms. Pick by what §C3.1 found, by whether the domain is coming off another site (§C0c), and
-by whether the user has already said which role they want.
-
-**A move (§C0c) always uses §C3.2d**, whatever else applies — it is the only form that names the site
-the domain is leaving, and a move may not be offered without naming it.
-
-#### C3.2a — the site has no primary domain yet
-
-Nothing to redirect to, so there is no choice to present. It is still a write, so it still needs one
-yes:
-
-> {siteName} doesn't have a primary domain yet. Want me to make {displayName} its primary domain?
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-#### C3.2b — the site already has a primary domain
-
-> {siteName}'s primary domain is **{current primary}**. Should {displayName} become the primary
-> domain instead, or redirect to it?
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-#### C3.2c — the user already said which role they want
-
-*"connect it as a redirect"*, *"make it the main one"* — the two-way question is already answered.
-Do not ask it again. Ask the one-way confirm instead:
-
-> {siteName}'s primary domain is **{current primary}**. Want {displayName} to redirect to it?
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-When the pre-stated role is PRIMARY and the site has one, **§C3.3 is that confirm** — go straight
-there and skip this form. When it is PRIMARY and the site has none, use §C3.2a.
-
-#### C3.2d — the domain is coming off another site (§C0c, US-46)
-
-The bind re-assigns, so the offer has to say what the domain stops doing. `{role phrase}` and
-`{current siteName}` come from §C0c.
-
-The requested site **has** a primary domain:
-
-> {displayName} is currently {role phrase} **{current siteName}**. Moving it to {siteName} takes it
-> off {current siteName} — should it become {siteName}'s primary domain, or redirect to
-> **{current primary}**?
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-The requested site has **no** primary domain:
-
-> {displayName} is currently {role phrase} **{current siteName}**. Want me to move it to {siteName}
-> and make it the primary domain there? That takes it off {current siteName}.
->
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-Both forms name the site being left, in the same message as the offer, before any yes is possible.
-That is the point of this form and it is not optional. A pre-stated role (§C3.2c) does **not** let you
-skip it — collapse the two-way question if the role is already settled, but keep the sentence that
-names `{current siteName}`.
-
-#### Reading the answer
-
-| The user says | Do |
-|---------------|-----|
-| primary / "make it the main one" / "instead" | `bindType: PRIMARY` → §C3.3 if the site has a primary, else §C3.4 |
-| redirect / forward / point it at the other one | `bindType: REDIRECT` → §C3.4 |
-| yes (to §C3.2a, §C3.2c or §C3.2d) | The role that question named → §C3.3 if it displaces a primary, else §C3.4 |
-| no / "I'll do it myself" / changes the subject | **No POST.** The link is already in front of them. Stop. |
-| anything ambiguous | Ask the same question once more. **Never guess a bind type** — one of the two options overwrites the site's live address. |
-
-Silence is not a yes. An unanswered offer is a terminal state, not a pending instruction.
-
-### C3.3 Replacing a live primary domain (US-44)
-
-Fires when `bindType` is `PRIMARY` **and** §C3.1 found a `primary.domainName` on the target site. It is
-not optional and it cannot be folded into §C3.2 — the point of it is that the domain being replaced is
-**named** before anything moves:
-
-> {siteName}'s primary domain is **{current primary}** right now. Making {displayName} the primary
-> domain will send visitors to {displayName} instead. Go ahead?
-
-On a **move** (§C0c), the domain being replaced is not the only casualty — say both sides in one
-question, and do not split it into two:
-
-> {siteName}'s primary domain is **{current primary}** right now. Making {displayName} the primary
-> domain will take it off **{current siteName}** and send {siteName}'s visitors to {displayName}
-> instead. Go ahead?
-
-Wait for a yes. **No yes, no POST.**
-
-> ⚠️ `{current primary}` goes through §R2 like every other domain the user sees, so a long one arrives
-> truncated — `maximz-maxmind3.com` is shown as `maximz...mind3.com`. That is the rule as written, and
-> it is followed here. It is also the one place where the rule works against the copy: this warning
-> exists so the user recognises the domain being replaced. If §R2's threshold ever proves too
-> aggressive for this line, **this** is the line to revisit — do not fix it by inventing a local
-> exemption.
-
-If §C3.2 was skipped — the user pre-stated PRIMARY, or you came from §C0b — this is the first message
-of the offer, so carry the do-it-yourself line under it:
-
-> Or do it yourself — [Connect it to {siteName}]({connect URL})
-
-If §C3.2 already went out, the link is in the thread. Do not repeat it.
-
-A **no** ends the bind attempt. Do not re-ask, do not counter-offer the redirect, do not explain.
-Point at the link once and stop.
-
-### C3.4 Do it (US-42)
-
-```
-POST https://manage.wix.com/_api/my-domains/v1/domains/{domain}/bind
-{"domainName":"{domain}","siteId":"{siteId}","bindType":"PRIMARY"}
-```
-
-`{domain}` appears **twice** — in the path and in the body — and both are the full normalized domain
-(§R1), never `displayName`. `bindType` is `PRIMARY` or `REDIRECT`, whichever
-§C3.2 / §C3.3 settled. Send nothing else in the body.
-
-**Treat any 2xx as success and read no fields out of the response.** Its shape has never been
-observed — see §R4.4. A field you have not seen is not data.
-
-Success, one line, nothing after it:
-
-> Done — {displayName} is now the primary domain for **{siteName}**.
-
-> Done — {displayName} now redirects to **{current primary}**.
-
-On a **move**, the same line says where it came off — the user changed two sites and should see both
-named once:
-
-> Done — {displayName} is now the primary domain for **{siteName}**, and it's off
-> **{current siteName}**.
-
-> Done — {displayName} now redirects to **{current primary}**, and it's off **{current siteName}**.
-
-Still one sentence. **Nothing about what {current siteName} does now** — that is not known (§C0c).
-
-**Say nothing about timing, propagation, SSL, certificates or DNS.** None of it is known here and all
-of it is forbidden (§C7). A successful bind produces one sentence.
-
-Failure → silent retry (§R8). If the retry also fails, fall back to the link
-**without narrating the failure** — no "that didn't work", no error, no apology for the machinery:
-
-> Here's where to finish it — [Connect it to {siteName}]({connect URL})
-
-That is a terminal state. Do not retry a third time, and do not offer the bind again in the same
-conversation unless the user asks.
-
-### C3.5 The user asks you to do the connection
+### C3.1 The user asks you to do the connection
 
 Expect this — *"yes so connect it"*, *"connect it from here"*, *"why can't you do it?"*.
 
-**First check whether an offer is already on the table.** If §C3.2 or §C3.3 has gone out, this *is* the
-answer to it — read it as such (§C3.2's answer table) and act. Do not explain, do not re-offer, do not
-treat a yes as a new question.
-
-If no bind is available — ownership asserted, or a Free site — re-offer the link **once** and stop:
+No assignment is available on this path — ownership is asserted or confirmed only via root, or the
+site is Free — so re-offer the link **once** and stop:
 
 > Connecting happens in your Wix dashboard — the link opens it with {displayName} and
 > **{site name}** already filled in, so you just follow the steps there.
@@ -1753,8 +1464,7 @@ this one when you have done others.
 **⛔ Never explain the mechanics.** No DNS, nameservers, A records, CNAME, TXT, propagation,
 registrar access, "ownership verification", or "pointing vs nameservers". That is exactly the
 internal detail §R9 forbids, and it turns a one-line handoff into a support
-conversation the user did not ask for. This holds just as hard **after a successful bind** — a domain
-now being a site's primary domain is not an opening to describe what happens next in the network.
+conversation the user did not ask for.
 
 Equally, never say what you *can't* do — no *"I have no access to your registrar"*, no *"that's not
 something I can run"*, no listing your own limitations. Point at the link and stop.
@@ -1769,24 +1479,12 @@ in.
 A Free-tier site still gets the connect link — the user should see where the domain would go — but
 connecting is a Premium feature, so the upgrade block follows it in the **same** message.
 
-**No bind happens here, ever.** Not the POST, not the offer, not the primary-or-redirect question —
-the gate in §R4.4 fails on a Free site and there is nothing to ask about. The
-inventory §C3.1 may have fetched is discarded unread.
+**No assignment happens here, ever.** Not the hand-over to Assign Domain, not the offer, not the
+primary-or-redirect question — a Free site cannot take a domain and there is nothing to ask about.
 
-The opening line splits on ownership state exactly as in §C3; the upgrade block below it is identical
-either way.
-
-**Ownership confirmed:**
-
-> {displayName} is yours and isn't connected to a site yet — [Connect it to {site name}](https://manage.wix.com/dashboard/{siteId}/add-domain/results?q={domain}&invoke=true)
->
-> **Upgrade {site name} with a Premium plan to connect your domain**
->
-> Connecting a domain is a Premium feature. Upgrade now to let visitors reach you at a custom web address and enjoy Premium benefits.
->
-> [Upgrade →]({upgrade URL})
-
-**Ownership asserted:**
+The opening line is §C3's for the state you arrived with — *asserted* below; a subdomain confirmed
+via its root uses the root opening in the same place. A domain confirmed in the account is Assign
+Domain's, which has its own Free-site answer.
 
 > {displayName} is registered. If it's yours — [Connect it to {site name}](https://manage.wix.com/dashboard/{siteId}/add-domain/results?q={domain}&invoke=true)
 >
@@ -1800,7 +1498,7 @@ The upgrade block copy is fixed. Do not reword it, do not add a benefits list, d
 Premium includes, and do not promise to connect the domain once they upgrade.
 
 If the user does upgrade mid-conversation, re-run §C2. A site that now reads Premium goes to §C3 like
-any other — the offer becomes available at that point, not before.
+any other.
 
 ### Which upgrade URL
 
@@ -1850,70 +1548,47 @@ If a re-check ever shows the domain is available, the user does not own it. Say:
 ❌ **Never:**
 
 - Resolve a site before the availability check.
-- Fetch list of sites when a `siteId` is already in context — including when the site was already
-  named by the ownership lookup (§R3, Shortcut).
+- Fetch list of sites when a `siteId` is already in context.
 - Send a connect link for a domain that is already connected in the role asked for. Check §C0 first.
-- **Bind a subdomain on the strength of its root domain.** *Confirmed via root* earns the
-  unconditional wording and nothing else; §R4.4's first condition wants a match
-  on the domain being connected. The link is the whole answer there.
+- **Hand a subdomain to Assign Domain on the strength of its root domain.** *Confirmed via root* earns
+  the unconditional wording and nothing else; Assign Domain wants a match on the domain being
+  connected. The link is the whole answer there.
 - **Adopt the root domain's site as the subdomain's.** A root match under `assigned` names the site
   the *root* is on. It is the only site the account can suggest and it is still a guess about where
   the subdomain belongs — §C1's Case R offers it and waits for a yes. Since every connect URL carries
   a `siteId`, sending the link first decides for the user and presents it as an answer. *"I used that
   site rather than asking"* is not a defence; it is the bug.
 - **Blend the root sentence with the hedge.** *"sits under {root displayName}, which is in your Wix
-  account. If it's yours —"* states a fact and then doubts it. The three openings above are three,
+  account. If it's yours —"* states a fact and then doubts it. The two openings in §C3 are two,
   not ingredients.
-- **Bind without all four conditions in §R4.4.** Ownership merely asserted, no
-  `siteId`, a Free site, or no affirmative answer — any one of them makes the link the whole answer.
-- **Bind on the strength of ownership the user asserted.** An externally-registered domain the lookup
-  never saw is not yours to write to a live site.
-- **Move a domain without naming the site it comes off.** A bind re-assigns, so §C0c's move changes two
-  live sites with one POST. §C3.2d names the site being left, in the offer, before any yes is possible —
-  and §C3.3 names it again when a primary domain is also being replaced. An offer that says only where
-  the domain is going is not a valid offer for a move.
-- **Say what happens to the site the domain leaves.** Whether it falls back to a `wix.com` address,
-  whether one of its redirects gets promoted, whether anything breaks — no call this skill makes
-  answers that. Name what the domain stops doing and stop.
-- **Ask a question whose yes and no produce the same reply.** *"Want to move it to {requested site}?"*
-  followed by a bare link is the specific failure: it offers to act and withdraws it a turn later. If
-  a move is genuinely on offer, §C3.2d asks for it and §C3.4 performs it; if it is not — a Free target
-  site — do not raise it at all.
-- **POST a bind the user did not say yes to**, or infer a yes from silence, from a repeated request,
-  or from an ambiguous answer.
-- **Replace a live primary domain without §C3.3.** The domain being displaced is named, and the user
-  confirms, before anything moves.
-- **Guess a `bindType`.** One of the two overwrites the site's address. Ambiguity is re-asked, not
-  resolved.
-- **Read a field out of the bind response.** Its shape is unverified; a 2xx is the entire signal.
+- **Hand a domain to Assign Domain on ownership the user only asserted.** An externally-registered
+  domain the lookup never saw is not yours to write to a live site; the link is the whole answer.
+- **Make the assignment offer, or write to a site, from this recipe.** [Assign Domain](assign-domain.md)
+  owns the offer, the confirmations, the calls and the success line.
 - Say *"main address"*, *"main domain"*, *"main URL"* or *"root domain"* for **primary domain** — see
   §R9. The user may say "main one"; your reply says "primary domain".
-- Promise timing, propagation, SSL or "up to 48 hours" after a bind. None of it is known.
-- Narrate a bind failure. Silent retry, then the link (§C3.4).
 - Say *"If it's yours"* when the account lookup has confirmed it **is** theirs — or drop the hedge
   when it has not. The two openings in §C3 are not interchangeable.
 - Ask *"do you already own this domain?"*. Either the lookup answered it or the hedge covers it.
 - Show the upgrade block to a Premium site, or omit the connect link for a Free site — Free-tier
   users get both.
-- Ask the primary-or-redirect question on a Free site, or anywhere else no bind can follow it.
+- Ask the primary-or-redirect question on a Free site, or anywhere else no assignment can follow it.
 - Use `availability.premium` to decide Premium status.
 - Reword the upgrade block, or explain Premium's feature set.
 - Add text after the connect link, the upgrade block or the success line.
 - Offer to purchase a domain the user has just said they own.
 - Explain DNS, nameservers, A/CNAME/TXT records, propagation or registrar access — ever, to anyone,
-  however directly asked, before or after a successful bind. See §C3.5.
+  however directly asked. See §C3.1.
 - Narrate your own limitations ("I can't do that from here", "I have no access to…"). Re-send the
   link instead.
 
 ✅ **Always:**
 
-- Use the full domain in `q=`, in the bind path and in the bind body; the site's display name in the
-  link label; `displayName` (§R2) for every domain the user sees, including the current primary.
+- Use the full domain in `q=`; the site's display name in the link label; `displayName` (§R2) for
+  every domain the user sees.
 - Pick the §C3 / §C4 opening from the ownership state you arrived with, defaulting to **asserted**.
-- Put the do-it-yourself link in the **same** message as the offer.
 - Default to `sunrise` when the editor type is unclear.
-- Keep the whole path to a single user-visible message where possible — the offer is one message, the
-  result is one line.
+- Keep the whole path to a single user-visible message where possible.
 
 ---
 
@@ -1926,10 +1601,9 @@ where they disagree with this part, this part wins.
 Covers **US-13, US-14, US-15, US-16, US-37, US-38, US-39**.
 
 §R4.3 (domain ownership) is the mechanism behind **US-40** and **US-41**, and it is what scopes
-**US-09** to domains the lookup does not find. §R4.4 (bind) is the mechanism behind **US-42 – US-45**.
-See §C3.
-
-⚠️ §R4.4 is the only **write to a user's live site** anywhere in this skill. Its gate is not advice.
+**US-09** to domains the lookup does not find. **US-42 – US-46** (putting a domain the account holds
+on a site, changing its role, moving it) are [Assign Domain](assign-domain.md)'s. This skill never
+writes to a user's site.
 
 ---
 
@@ -2010,15 +1684,10 @@ the same; **when** they run differs:
 - **Purchase path** — a site is optional. Resolve only after the domain is chosen. See §P1.
 - **Connect path** — a site is required. Resolve only *after* the availability check. See §C1.
 
-> **Shortcut:** if the ownership check (§R4.3) came back with an `assigned` match **on the domain
-> being connected**, the site is already named in that response (`sites[].site.siteName` /
-> `.siteId`). Use it. Nothing below needs to run — in particular, do **not** fetch list of sites to
-> re-discover a site you have just been handed.
->
-> ⛔ **A match on a subdomain's *root* domain is not that match.** It names the site the **root** is
-> on, which is a guess about where the subdomain belongs — the only site the account can suggest, and
-> still the user's to choose. Offer it and wait: §C1, Case R. This is the line §R4.4's condition 1
-> already draws — a root match settles ownership and nothing that gets written.
+> ⛔ **A match on a subdomain's *root* domain does not resolve a site.** It names the site the
+> **root** is on, which is a guess about where the subdomain belongs — the only site the account can
+> suggest, and still the user's to choose. Offer it and wait: §C1, Case R. A root match settles
+> ownership and nothing that gets written.
 
 ### Case A — `siteId` already in context (US-13)
 
@@ -2168,8 +1837,7 @@ Wix session auth automatically — do not add headers.
 | Get fresh cart | `GET https://manage.wix.com/_api/premium-cart/v1/carts/active` |
 | Add items to cart | `PATCH https://manage.wix.com/_api/premium-cart/v1/carts/active/add-items` |
 | **Does this domain belong to the user** | See §R4.3 below — two calls, run together |
-| **What domains are already on a site** | `GET https://manage.wix.com/_api/my-domains/v1/domains/assigned?filter.msid={siteId}` — see §R4.4 |
-| **Connect a domain to a site** | `POST https://manage.wix.com/_api/my-domains/v1/domains/{domain}/bind` — see §R4.4. **This is a write. It is gated.** |
+| **Put a domain the account holds on a site** | Not here — [Assign Domain](assign-domain.md) |
 
 **Premium status:** read `payload.premiumState`. `allowedDomain = premiumState !== "FREE"`.
 `allowedDomain: true` → Premium site. `allowedDomain: false` → Free site.
@@ -2211,10 +1879,10 @@ A root-domain match **confirms** the subdomain. The account holding `maximz.fr` 
 decides what `shop.maximz.fr` resolves to, so there is nothing left for the user to assert. Compare
 exactly against whichever value you searched, the subdomain or the root, and never against the other.
 
-⛔ **Confirmed-via-root does not unlock a bind, and does not resolve a site.** It settles the
-*wording* — the unconditional opening instead of the hedge — and nothing else. §R4.4's first
-condition still asks for an exact match on the domain being connected, and a root match is not one:
-the link is the whole answer there. And the site named alongside a root match is the **root's** site,
+⛔ **Confirmed-via-root does not unlock an assignment, and does not resolve a site.** It settles the
+*wording* — the unconditional opening instead of the hedge — and nothing else. Assign Domain still
+asks for an exact match on the domain being connected, and a root match is not one: the link is the
+whole answer there. And the site named alongside a root match is the **root's** site,
 so it is a candidate for the subdomain rather than a resolution — §C1, Case R asks the user before
 it reaches a link.
 
@@ -2283,31 +1951,6 @@ response can contain several sites, and the first one is not necessarily yours.
 > The site object also carries `allowedDomain`. **Do not use it as the Premium check.** Site Premium
 > has exactly one source, `premiumStatus` (§R4.2), and two sources will eventually disagree.
 
-#### The same endpoint, filtered by site — `filter.msid`
-
-`assigned` takes a second filter. Swap the search term for a site ID and it stops answering *"where
-is this domain?"* and starts answering *"what is on this site?"*:
-
-```
-GET https://manage.wix.com/_api/my-domains/v1/domains/assigned?filter.msid={siteId}
-```
-
-**Same envelope, same fields, same reading rules** — one `sites[]` entry per site, `primary`,
-`redirects[]`, `transfers`, `isAllDataReturned`. Verified live in both shapes:
-
-| Site | Response |
-|------|----------|
-| Has domains | `{"sites":[{"site":{…},"primary":{…},"redirects":[…],"transfers":[]}],"isAllDataReturned":true}` |
-| Has none | `{"sites":[],"isAllDataReturned":true}` — **empty, not an error** |
-
-The empty form is the answer *"no domains on this site yet"*, and it is a perfectly normal one. Do not
-retry it, do not treat it as a failure, do not escalate.
-
-This is the inventory call §R4.4 needs before it can ask the user anything. Everything already said
-about §R4.3 applies to it unchanged — including the exact-match rule (a `filter.msid` response is
-scoped to one site but its `primary` and `redirects[]` still have to be compared to `{domain}`
-exactly), and the rule that nothing but the match and the site name comes out of the response.
-
 #### ⛔ One lookup, one retry — never re-authenticate
 
 `subject is missing` (HTTP 400) has been observed from the `assigned` endpoint while `unassigned`
@@ -2335,104 +1978,6 @@ and it buys the user nothing.
 In both cases the fallback is the no-match branch, whose copy already hedges
 (*"If it's yours…"*). That hedge is exactly right when ownership is unknown — and exactly wrong once
 this call has confirmed it.
-
-### R4.4 Connect a Domain to a Site — Bind
-
-Everything else in this part reads. **This writes, and it writes to a site the user's visitors are
-looking at right now.** Read the gate before the payload.
-
-**This is the operation behind *connect it to my site*, *assign it to my site* and *bind it to my
-site*** — three ways of asking for the same thing (§A2). It is **not** what
-*connect it to Wix* or *add it to Wix* means: those ask for a domain at an outside registrar to be
-brought into the account, which is the connect link in §C3 and a precondition of
-anything here. A domain the account does not hold fails condition 1 below, so the phrasing never
-decides whether this call may run — the lookup in §R4.3 does.
-
-```
-POST https://manage.wix.com/_api/my-domains/v1/domains/{domain}/bind
-```
-
-```json
-{ "domainName": "{domain}", "siteId": "{siteId}", "bindType": "PRIMARY" }
-```
-
-Goes through the same `manage.wix.com/_api/` session auth as `premiumStatus`, the cart and §R4.3 — via
-`CallWixSiteAPI` with the resolved `siteId`, or `ManageWixSite`. **No headers, no account-level API
-key.**
-
-`{domain}` appears **twice** — once in the path, once in `domainName` — and both are the full
-normalized domain (§R1). Never the truncated `displayName`, never the SLD alone, never a `www.` form.
-Send no fields beyond the three above.
-
-| `bindType` | Meaning in the product |
-|------------|------------------------|
-| `PRIMARY` | The domain becomes the site's **primary domain** — the address visitors are sent to. |
-| `REDIRECT` | The domain becomes a **secondary domain** — it forwards visitors to the site's existing primary domain. |
-
-Those two are the whole enum. There is no third value; do not invent `SECONDARY`, `ALIAS` or
-`POINTING`.
-
-#### ⚠️ The response shape is unverified
-
-This call has **never been observed.** Until a real response has been seen and written down here:
-
-- Treat **any 2xx as success**, and a non-2xx as a failure for §R8's silent retry.
-- **Read no fields out of the body.** Not a status, not a returned domain name, not an ID, not a
-  timestamp, not an ETA. Do not branch on anything in it.
-
-This is the same rule that stops a price being fabricated (§R9). A field you have not seen is not
-data, and a field name that sounds plausible is a guess with a colon after it.
-
-#### The gate — all four, every time
-
-| # | Condition | Where it comes from |
-|---|-----------|---------------------|
-| 1 | Ownership is **confirmed** by an exact match in §R4.3 **on the domain being connected** — an `unassigned` match, or an `assigned` match on any of the user's sites. A subdomain confirmed only by its root domain (§R1.1) does **not** satisfy this | §R4.3 |
-| 2 | A `siteId` is resolved | §R3 |
-| 3 | The site is **Premium** — `premiumState !== "FREE"` from `premiumStatus` (§R4.2), and from nothing else | §R4.2 |
-| 4 | The user has answered the offer **in the affirmative** — and the offer named every live thing the bind changes: the primary domain it displaces on the target site, and the site the domain comes off if it is moving | §C3.2, §C3.3 |
-
-**If any one of them fails, there is no POST.** The dashboard connect link (§R6) is the entire answer,
-and it is a good one — it does the same job with the user's own hands.
-
-The failure worth naming, because it looks like a pass:
-
-- **Ownership merely *asserted*.** The user saying *"it's mine"* is not condition 1. A domain
-  registered outside Wix and never connected to a Wix site is invisible to §R4.3, so the user may
-  well own it — but "may well" is not the standard for writing to a live site, and such a domain
-  needs work at its registrar that this skill is forbidden to discuss anyway.
-
-#### ⚠️ A bind **re-assigns** — one POST, two live sites
-
-Binding a domain that is already on another of the user's sites **moves** it: it comes off the site it
-was on and lands on the new one. There is no unbind call because none is needed.
-
-That makes condition 4 heavier than it looks. A move changes a site the user may not be thinking about
-— possibly taking away its primary domain — so the offer has to name that site before the user can
-agree to anything. §C0c and §C3.2d own that copy; this is the rule behind it.
-
-What is **not** known, and must never be stated: what the site left behind does afterwards. Whether it
-reverts to a `wix.com` address, whether one of its other domains is promoted, whether anything about it
-breaks — no call here answers that. Name what the domain stops doing and stop.
-
-#### Vocabulary is fixed
-
-**"Primary domain"** and **"secondary domain"** are the product's own words — the dashboard, the
-official docs and this API all use them. Say *primary domain*. **Never** *"main address"*, *"main
-domain"*, *"main URL"*, *"root domain"*, or any other paraphrase. A user who says *"the main one"*
-gets an answer that says *primary domain*.
-
-**One exception, and it is a different concept entirely.** *Root domain* is the correct term for the
-domain a subdomain sits under — `maximz.fr` under `shop.maximz.fr` (§R1.1, §A3.1). That sense is
-permitted. It describes a relationship between two domain names and says nothing about the role
-either one plays on a site, so it never stands in for *primary domain*. Both can be true at once
-without touching: a root domain may be connected as a secondary domain, and a subdomain may be a
-site's primary domain.
-
-#### What never comes with a bind
-
-No timing, no propagation, no "up to 48 hours", no SSL or certificates, no DNS, no nameservers. None
-of it is known from this call and all of it is forbidden by §R9. A successful bind is one sentence.
 
 ## R5. Product IDs
 
@@ -2576,28 +2121,11 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
   still works without it.
 - **Read anything but the match and the site name out of a My Domains response.** Registrant names,
   addresses, phone numbers, expiry dates and contract IDs are all in there. None of it is in scope.
-  The `filter.msid` variant adds one more permitted field and no others: the site's current primary
-  domain.
-- **Bind a domain with any part of the §R4.4 gate unmet.** Ownership asserted rather than confirmed, no
-  `siteId`, a Free site, or no affirmative answer — each one on its own is a stop. The connect link is
-  the answer instead, and it is not a lesser one.
-- **Move a domain between sites without naming the site it leaves.** A bind re-assigns, so one POST can
-  change two live sites. The offer names both before the user can agree to either (§C3.2d), and
-  *"want me to move it?"* on its own is not that offer.
-- **POST a bind the user has not agreed to.** Not from silence, not from a repeated request, not from
-  an ambiguous reply, not from *"whatever you think"*. One explicit yes sits in front of every write,
-  and a second, named yes in front of anything that displaces a live primary domain
-  (§C3.3).
-- **Guess a `bindType`.** One of the two values replaces the address the site's visitors use. An
-  unclear answer is asked again, never resolved by inference.
-- **Read a field out of the bind response.** Its shape has never been observed. A 2xx is the whole
-  signal; anything else you claim to have read from it is invented.
-- **Say "main address" for "primary domain"** — or "main domain", "main URL", "root domain", or any
-  other paraphrase. It is the product's term (§R4.4) and it is not yours to reword.
-- **Promise anything about what happens after a bind** — timing, propagation, SSL, certificates, "it
-  may take a few hours". None of it comes from the call, and the DNS ban covers the rest.
-- **Say what happens to the site a moved domain leaves behind** — no *"it'll go back to its wix.com
-  address"*, no *"your other domain will take over"*. Unknown, and unknowable from these calls.
+- **Write to a user's site.** Putting a domain on a site, changing its role, moving it and taking it
+  off are all [Assign Domain](assign-domain.md)'s; hand over and let it ask.
+- **Say "main address" for "primary domain"** — or "main domain", "main URL", or any other
+  paraphrase. *Root domain* is correct only for the domain a subdomain sits under (§R1.1), never for a
+  site's primary domain.
 - **Step outside the skill's scope on a taken domain.** No WHOIS or registrant lookup, no naming the
   owner, no aftermarket/broker/acquisition advice, no valuation, no trademark opinion, no web
   browsing. A taken domain produces exactly one message — from whichever §A4b
@@ -2613,8 +2141,6 @@ The fallback link appears at stage 2, not stage 1. Do not skip stage 1.
 - Reveal information only when it changes what the user must do next.
 - Say the currency note (§R10) in the same message as any price shown to the user — and never name
   a currency or convert between two.
-- Check the §R4.4 gate before every bind, and offer the do-it-yourself link in the same breath as the
-  offer to do it. The user is never left with only one of the two.
 
 ---
 

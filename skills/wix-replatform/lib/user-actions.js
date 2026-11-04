@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { isDeepStrictEqual } = require('node:util');
 
 const { hashArtifact } = require('./artifact-freshness.js');
 const { isValidSiteTypeEffect, isValidEditorWebsiteEffect } = require('./destination-choice.js');
@@ -98,7 +99,12 @@ function normalizeRequest(projectDir, input = {}) {
     // The combined site-type choice and the Editor website scope guard.
     const isSiteTypeDecision = isValidSiteTypeEffect(input.effect, choices);
     const isEditorWebsiteDecision = isValidEditorWebsiteEffect(input.effect, choices);
-    if (!isApproval && !isImportModeDecision && !isSiteTypeDecision && !isEditorWebsiteDecision && !isReadBackAck) throw new Error('unsupported user-action effect');
+    // One durable question when an existing site holding orders or real products would have its settings changed.
+    const isSiteRegionalAnswer = input.effect.kind === 'site-locale-answer' && kind === 'question' && mode === 'choice'
+      && typeof input.effect.siteId === 'string' && input.effect.siteId && /^[0-9a-f]{64}$/.test(input.effect.changesDigest || '')
+      && choices.length === 2 && choices.every((item) => ['change', 'keep'].includes(item.id));
+    const isNotificationMuteDecision = kind === 'question' && mode === 'choice' && require('./notification-mute.js').isValidNotificationMuteEffect(input.effect, choices);
+    if (!isApproval && !isImportModeDecision && !isSiteTypeDecision && !isEditorWebsiteDecision && !isReadBackAck && !isSiteRegionalAnswer && !isNotificationMuteDecision) throw new Error('unsupported user-action effect');
   }
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -131,6 +137,13 @@ async function rebuildIndex(projectDir) {
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith('.json') || entry.name === 'index.json') continue;
     const value = JSON.parse(await fs.readFile(path.join(dir, entry.name), 'utf8'));
+    try {
+      if (!value || value.schemaVersion !== SCHEMA_VERSION || `${value.requestId}.json` !== entry.name
+        || !['pending', 'answered', 'superseded'].includes(value.status) || typeof value.createdAt !== 'string') throw new Error();
+      normalizeRequest(projectDir, value);
+    } catch {
+      throw new Error('invalid durable user-action artifact');
+    }
     rows.push({ requestId: value.requestId, status: value.status, kind: value.kind, title: value.title, createdAt: value.createdAt, answeredAt: value.answer?.answeredAt || null });
   }
   rows.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
@@ -153,6 +166,19 @@ async function createUserAction(projectDir, input) {
   return request;
 }
 
+// A request whose subject no longer matches the world (another site, other values, another policy)
+// is closed rather than answered; the person never sees a question about something that changed.
+async function supersedeUserAction(projectDir, requestId, { replacementId } = {}) {
+  const request = await readUserAction(projectDir, requestId);
+  if (request.status !== 'pending') return request;
+  request.status = 'superseded';
+  request.supersededAt = new Date().toISOString();
+  if (replacementId) request.supersededBy = replacementId;
+  await writeJsonAtomic(requestPath(projectDir, requestId), request);
+  await rebuildIndex(projectDir);
+  return request;
+}
+
 async function readUserAction(projectDir, requestId) {
   if (!/^uar_[0-9a-f-]+$/.test(requestId)) throw new Error('invalid request id');
   return JSON.parse(await fs.readFile(requestPath(projectDir, requestId), 'utf8'));
@@ -161,6 +187,61 @@ async function readUserAction(projectDir, requestId) {
 async function listUserActions(projectDir, { status = null } = {}) {
   const rows = await rebuildIndex(projectDir);
   return status ? rows.filter((row) => row.status === status) : rows;
+}
+
+// Shared by interactive routing and the CLI supervisor. Do not turn an unreadable
+// request/index into permission to proceed, and never ask for an answer we will reject.
+async function pendingUserActionGate(projectDir) {
+  try {
+    const rows = await listUserActions(projectDir, { status: 'pending' });
+    if (!rows.length) return null;
+    const requests = [];
+    const stale = [];
+    for (const row of rows) {
+      const request = await readUserAction(projectDir, row.requestId);
+      requests.push(request);
+      if (staleArtifactRefs(projectDir, request).length) stale.push(request.requestId);
+    }
+    if (stale.length) return { route: {
+      ok: true, nextState: 'user_action_recovery_running', reason: 'user_action_stale',
+      nextResource: 'resources/rp-user-action-recovery/', requestIds: stale,
+    } };
+    return { request: requests[0], route: {
+      ok: true, nextState: 'awaiting_user_action', nextResource: null,
+      reason: 'pending_user_action', blocking: true, requestIds: rows.map((row) => row.requestId),
+    } };
+  } catch {
+    // JSON parse errors can include artifact content. Expose a stable code, never that text.
+    return { route: {
+      ok: true, nextState: 'blocked', nextResource: null, blocking: true,
+      reason: 'user_action_artifacts_unreadable',
+      errors: ['Repair unreadable orchestration/user-actions artifacts before resuming; preserve pending requests.'],
+    } };
+  }
+}
+
+// Recovery must leave a fresh human checkpoint in place, never silently grant approval.
+async function supersedeStaleUserAction(projectDir, requestId, replacementId) {
+  const request = await readUserAction(projectDir, requestId);
+  const replacement = await readUserAction(projectDir, replacementId);
+  if (request.status === 'superseded' && request.supersededBy === replacementId) return request;
+  if (request.effect?.kind === 'read-back-omission-ack') throw new Error('Use recover-omission-ack so the producer can rebind acknowledgement evidence');
+  if (requestId === replacementId || request.status !== 'pending' || !staleArtifactRefs(projectDir, request).length) {
+    throw new Error('supersede requires a stale pending request and a different replacement');
+  }
+  const scope = (effect) => {
+    if (!effect) return null;
+    const { changesDigest, omissionSetDigest, ...identity } = effect;
+    return identity;
+  };
+  if (replacement.status !== 'pending' || staleArtifactRefs(projectDir, replacement).length
+    || replacement.kind !== request.kind || replacement.stage !== request.stage
+    || !isDeepStrictEqual(scope(replacement.effect), scope(request.effect))
+    || !isDeepStrictEqual(replacement.subject || null, request.subject || null)
+    || request.artifactRefs.some((ref) => ref.sha256 && !replacement.artifactRefs.some((next) => next.path === ref.path && next.kind === ref.kind && next.sha256))) {
+    throw new Error('replacement must be a fresh pending request for the same stage, effect and pinned artifacts');
+  }
+  return supersedeUserAction(projectDir, requestId, { replacementId });
 }
 
 // A ref recorded with `sha256` pins the artifact the person reviewed. Answering
@@ -256,7 +337,10 @@ module.exports = {
   requestPath,
   createUserAction,
   readUserAction,
+  supersedeUserAction,
   listUserActions,
+  pendingUserActionGate,
+  supersedeStaleUserAction,
   answerUserAction,
   rebuildIndex,
   staleArtifactRefs,

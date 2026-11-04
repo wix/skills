@@ -36,17 +36,8 @@ const PRIVATE_SOURCE_CONFIG_BY_PLATFORM = {
   shopify: ['SHOPIFY_SHOP_DOMAIN'],
 };
 
-// wix-wp-plugin-v2's migration key authenticates only the plugin's own /structure and
-// /query routes. Track its presence in the preflight receipt, but never let it satisfy a
-// private/authenticated WordPress REST requirement: wp/v2 and wc/v3 still need their own
-// credential.
-const MIGRATION_KEY_CREDENTIAL_BY_PLATFORM = {
-  wordpress: 'WMH2_MIGRATION_KEY',
-  woocommerce: 'WMH2_MIGRATION_KEY',
-};
-
 // Local signals that the user asked for authenticated capture. Only key names are ever
-// reported, never values. WP_BASE_URL and WMH2_MIGRATION_KEY are not intent signals.
+// reported, never values. WP_BASE_URL is not an intent signal.
 const AUTH_INTENT_ENV_KEYS = ['WP_USERNAME', 'WP_APPLICATION_PASSWORD'];
 
 // `acquisitionMode` is not a decision key the product records, but earlier runs invented
@@ -342,8 +333,7 @@ function configFileForPlatform(projectDir, platform) {
   return path.join(projectDir, 'config', `source.${platform}.env`);
 }
 
-async function runPreflight(projectDir, artifacts, options = {}) {
-  const probeWixCli = options.probeWixCli || defaultProbeWixCli;
+async function localPreflightChecks(projectDir, artifacts, options = {}) {
   const probeShopifySession = options.probeShopifySession || defaultProbeShopifySession;
   const progress = options.progress || null;
   const checks = [];
@@ -418,42 +408,20 @@ async function runPreflight(projectDir, artifacts, options = {}) {
 
   if (sourcePlatform) {
     const isPrivateMode = sourceMode === 'private_data' || sourceMode === 'authenticated_api';
-    const migrationKeyField = isPrivateMode ? MIGRATION_KEY_CREDENTIAL_BY_PLATFORM[sourcePlatform] : null;
     const requiredSourceKeys =
       isPrivateMode
         ? (PRIVATE_SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || [])
         : (SOURCE_CONFIG_BY_PLATFORM[sourcePlatform] || []);
-    const keysToCheck = migrationKeyField ? [...requiredSourceKeys, migrationKeyField] : requiredSourceKeys;
-    if (keysToCheck.length > 0) {
-      const sourceEnv = await statEnvKeys(configFileForPlatform(projectDir, sourcePlatform), keysToCheck);
-      // The migration key is useful for bridge reads, but it does not authenticate wp/v2 or
-      // wc/v3. A private/authenticated source mode therefore still requires the Application
-      // Password pair; otherwise preflight would advance a knowingly incomplete capture.
-      const nonCredentialKeys = migrationKeyField
-        ? requiredSourceKeys.filter((key) => key !== 'WP_USERNAME' && key !== 'WP_APPLICATION_PASSWORD')
-        : requiredSourceKeys;
-      const nonCredentialGood = nonCredentialKeys.every((key) => sourceEnv.keys[key] === 'present');
-      const applicationPasswordGood = !migrationKeyField
-        || (sourceEnv.keys.WP_USERNAME === 'present' && sourceEnv.keys.WP_APPLICATION_PASSWORD === 'present');
-      const migrationKeyGood = migrationKeyField && sourceEnv.keys[migrationKeyField] === 'present';
-      const allGood = nonCredentialGood && applicationPasswordGood;
-      // Report bridge-key availability separately from the credential that satisfies the
-      // selected source scope. The router consumes `status`, so explanatory prose must never
-      // be the only thing distinguishing complete from incomplete readiness.
-      const credentialMode = !migrationKeyField
-        ? null
-        : sourceEnv.keys.WP_USERNAME === 'present' && sourceEnv.keys.WP_APPLICATION_PASSWORD === 'present'
-          ? 'application-password'
-          : 'none';
+    if (requiredSourceKeys.length > 0) {
+      const sourceEnv = await statEnvKeys(configFileForPlatform(projectDir, sourcePlatform), requiredSourceKeys);
+      const allGood = requiredSourceKeys.every((key) => sourceEnv.keys[key] === 'present');
       checks.push(
         makeCheck(
           'source_env',
           'Source config file',
           allGood ? 'pass' : 'blocked',
           sourceEnv.exists ? `checked source.${sourcePlatform}.env` : `source.${sourcePlatform}.env is missing`,
-          credentialMode
-            ? { keyStatus: sourceEnv.keys, credentialMode, bridgeMigrationKeyAvailable: Boolean(migrationKeyGood) }
-            : { keyStatus: sourceEnv.keys },
+          { keyStatus: sourceEnv.keys },
         ),
       );
       progress?.progress(`Checked source ${sourcePlatform} config file`, { phase: 'preflight', step: 'source-env', entity: sourcePlatform });
@@ -478,6 +446,22 @@ async function runPreflight(projectDir, artifacts, options = {}) {
     progress?.progress('Checked authenticated capture intent', { phase: 'preflight', step: 'source-auth-intent' });
   }
 
+  return checks;
+}
+
+function toolkitDependenciesCheck(resolveModule) {
+  const { FIX, missingToolkitDependencies } = require('./toolkit-dependencies.js');
+  const missing = missingToolkitDependencies(resolveModule);
+  return missing.length
+    ? makeCheck('toolkit_dependencies', 'Toolkit dependencies', 'blocked', `cannot load bundled ${missing.join(', ')}. ${FIX} Then rerun preflight.`, { missing })
+    : makeCheck('toolkit_dependencies', 'Toolkit dependencies', 'pass', 'bundled toolkit dependencies load');
+}
+
+async function runPreflight(projectDir, artifacts, options = {}) {
+  const probeWixCli = options.probeWixCli || defaultProbeWixCli;
+  const progress = options.progress || null;
+  const checks = await localPreflightChecks(projectDir, artifacts, options);
+  checks.push(toolkitDependenciesCheck(options.resolveModule));
   progress?.progress('Wix CLI probe started', { phase: 'preflight', step: 'wix-cli' });
   const wixCli = progress
     ? await progress.withHeartbeat({ phase: 'preflight', step: 'wix-cli', message: 'Still probing Wix CLI' }, probeWixCli)
@@ -519,6 +503,7 @@ module.exports = {
   SCHEMA_VERSION,
   defaultProbeWixCli,
   defaultProbeShopifySession,
+  localPreflightChecks,
   runPreflight,
   recoverTelemetryJournal,
   telemetryDimsFromDecisions,

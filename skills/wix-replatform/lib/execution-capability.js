@@ -45,7 +45,7 @@ function startSetupRun(input) {
   const ctx = context(input);
   const bytes = fs.readFileSync(path.join(ctx.projectDir, 'setup/setup-plan.json'));
   const plan = JSON.parse(bytes);
-  if (!require('./setup-verification').validatePlanShape(plan).ok) fail('SETUP_PLAN_INVALID');
+  if (!require('./setup-verification').validatePlanShape(plan, ctx.projectDir).ok) fail('SETUP_PLAN_INVALID');
   const importRefs = new Set((readIfPresent(ctx.projectDir, 'execution/execution-manifest.json')?.tasks || []).filter(task => task.kind === 'import').flatMap(task => task.entityRefs || []));
   const forbidden = new Set(['ecom/order', 'stores/product', 'crm/contact', 'stores/coupon', 'gift-cards/gift-card', 'gift-cards/gift-card-product']);
   for (const step of plan.steps) if ((step.entityRefs || []).some(ref => forbidden.has(ref) || importRefs.has(ref))) fail('SETUP_IMPORT_ENTITY_REFUSED');
@@ -82,6 +82,10 @@ function bindQuickEntity(run, entityId) {
   const entity = ctx.contract.entities.find(row => row.id === entityId);
   if (!entity) fail('CAPABILITY_ENTITY_MISMATCH');
   if (entity.dependsOn.some(id => !finishedRuns.get(run).has(id))) fail('QUICK_DEPENDENCY_NOT_FINISHED');
+  // Every other entity builds on the regional setup step: a money-bearing or wall-clock entity does not start
+  // unless the step passed and the value it depends on is confirmed (files only; no read of the site).
+  const dependency = require('./site-regional').regionalDependency({ projectDir: ctx.projectDir, siteId: ctx.siteId, entityRefs: [entity.target, ...(entity.auxiliaryTargets || [])] });
+  if (!dependency.ok) fail(dependency.code);
   return issue('quick-entity', ctx, { entityId, target: entity.target, auxiliaryTargets: entity.auxiliaryTargets || [] });
 }
 function finishQuickEntity(run, entityId) {
@@ -104,6 +108,7 @@ function startImportRun(input) {
   const ctx = context(input);
   const inputs = require('./dependency-readiness').validateImportInputs(ctx.projectDir);
   enter('import');
+  if (ctx.dryRun) require('./local-state').startSampleJournal(ctx.projectDir, ctx.runId);
   return issue('import-run', { ...ctx, ...inputs });
 }
 function bindTask({ runCapability, taskId }) {

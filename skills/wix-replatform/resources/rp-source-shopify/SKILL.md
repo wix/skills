@@ -126,6 +126,7 @@ the steps not yet recorded and reads no entity it already captured:
 | `withheld-details` | Eight ordinary 3-record probes classify withheld name, email, phone and address kinds for customers and orders | `kind-probes.json` |
 | `gift-card-census` | Exact-count-gated gift-card census; every positive balance is owed | `bulk-manifest.json`, `gift-card-census.json` |
 | `order-window` | Orders older than the CLI's ~60-day order-history window (below) | `order-window.json` |
+| `locale` | The store's currency, time zone, language and country (below) | `source-locale.json` |
 | `questions` | Asks the merchant what earlier steps could not read, as discovery `question` user actions | answered `orchestration/user-actions/*.json` |
 | `coverage` | Builds the coverage rows and writes the raw-capture index | `source-coverage.json`, `README.md` |
 
@@ -153,6 +154,35 @@ store to mapping — `source-profile.md`, `source-schema.json` or the promoted
 start a new migration project for the other store instead. It also refuses with
 `shopify_restart_blocked` while a merchant question from the previous capture is
 still unanswered. Never delete files by hand to get past a mismatch.
+
+### Regional settings
+
+| Neutral field | Shopify source | Rule |
+| --- | --- | --- |
+| `paymentCurrency` | `shop.currencyCode` (the shop's base currency) | order amounts are written from the shop-money set, never the presentment set |
+| `timeZone` | `shop.ianaTimezone` | stored exactly as Shopify names it |
+| `language`, `locale` | primary `shopLocales` value plus `shop.billingAddress.countryCodeV2` | needs `read_locales`; denied → `unknown` / `auth-gated` |
+
+The `locale` step writes `data/shopify-discovery/source-locale.json`, which
+`promote-source-coverage.js` copies to `discovery/source-locale.json` and refuses to promote
+without. Currency (`shop.currencyCode`) and time zone (`shop.ianaTimezone`) come from the `shop`
+capture, with no extra read; the time zone is stored exactly as Shopify names it. Two small reads
+add the language (`shopLocales { locale primary published }`, evidence `shopLocales[primary]`) and the
+country (`shop.billingAddress.countryCodeV2`). They are separate queries that declare no scope: the
+locales read needs `read_locales`, which discovery does not require, so an access-denied answer
+records language and locale as `unknown` with reason `auth-gated` and discovery
+continues. A value Shopify does not return, or one that fails validation (for example a
+three-letter language), is `unknown` too; nothing is guessed or defaulted. An unknown value is not a coverage row.
+
+Shop-money and presentment currency counts remain Shopify adapter evidence and policy; they are
+not fields in the neutral locale record. Field names come from the Admin API schema.
+
+When orders are imported, write every order amount from its `shopMoney` set (the store's base
+currency) and never from the presentment set; nothing is converted. Count the orders whose
+`presentmentCurrencyCode` differs from the shop currency (`tallyOrderCurrencies` in
+`lib/shopify-regional.js`) and report the count on the `orders-presentment-currency-differs` line
+of the currency report, so the merchant knows how many orders were shown to shoppers in another
+currency. The import gate sees a single currency in that case and passes.
 
 ### Order-history window
 
@@ -206,8 +236,9 @@ appear during extract, that row is added and the extract stops so mapping can de
 
 ### Entities read
 
-`products` (all statuses, with variants), `collections`, `orders` (with refunds and
-fulfillments), `customers`, `gift-cards`, `discounts`, `pages`, `blogs`, `articles`, `menus`,
+`products` (all statuses, with variants), `collections`, `orders` (with payment transactions,
+tax inclusion, refunds and fulfillments), `customers`, `gift-cards`, `discounts` (code and
+automatic, every type, with scope, eligibility, limits and configuration), `pages`, `blogs`, `articles`, `menus`,
 `locations`, `inventory-items`, `delivery-profiles`, `metaobjects` (listed through their
 definitions, each with its count), `files`, `url-redirects`, and the singletons `shop` and
 `shop-policies`. `lib/discovery-reads.js` holds each named query.
@@ -245,14 +276,66 @@ node scripts/shopify-extract.js --project <migrations-root>/<project> [--retry-f
 
 The store comes from `config/source.shopify.env` (or `--store`). It writes
 `data/source-extract/<entity>.ndjson` — `products`, `collections`, `customers`, `orders` (the
-three order queries joined by order id: core, refunds, fulfillments), `gift-cards-codeless`, `discounts`,
+three order queries joined by order id: core, refunds, fulfillments), `gift-cards-codeless`, `discounts`
+(the core query plus five item-scope queries, joined by discount id),
 `delivery-profiles`, `inventory-items`, `pages`, `blogs`, `articles`, `menus`, `url-redirects`,
 `locations`, `metaobjects`, `files` — plus the optional
-`customers-withheld-identity.ndjson` — and `data/source-extract/extract-manifest.json`. The 18
-bulk queries and eight `probe-*.graphql` ordinary queries each start with a `# scopes:` line the
-session check derives the required scopes from. Orders and customers are filtered to the
+`customers-withheld-identity.ndjson` — and `data/source-extract/extract-manifest.json`. The 23
+bulk queries, eight `probe-*.graphql` ordinary queries and four `read-*.graphql` ordinary queries
+(below) each start with a `# scopes:` line the session check derives the required scopes from. Orders and customers are filtered to the
 manifest's snapshot time `T`.
 
+- **Bundles.** Product variants carry `requiresComponents`; for each variant where it is true,
+  `read-variant-components.graphql` reads its `productVariantComponents` (component variant, its
+  product, quantity) before the products dataset is done. During canonical mapping call
+  `lib/shopify-bundles.js` → `canonicalBundleFromShopifyProduct(product)`: when `hasBundleFields`
+  is true, set canonical `product.bundle` to its `bundle`, or keep its `unreadableReason`. What
+  Wix does with a bundle is the target's rule (`rp-target-wix` stores/product-bundle).
+- **Order payment evidence.** `orders` rows carry `taxesIncluded` and a `transactions` list on the
+  order itself (kind, status, gateway, amounts, `processedAt`, `createdAt`, `errorCode`, `test`,
+  `manualPaymentGateway`, the parent transaction's id); refund transactions stay under
+  `refunds[].transactions`. It is a plain list, not a connection, so it adds no bulk connection.
+- **Discount rows.** `discounts` holds one row per discount node and every discount type: codes
+  and their usage counts, status and dates, `combinesWith`, who may use it (`context`: all buyers,
+  customer ids, segments, or a market count), usage and per-customer limits, recurring-cycle
+  limit, minimum requirement, free-shipping destinations and maximum shipping price, buy-X-get-Y
+  `customerBuys`/`customerGets` quantities and values, `usesPerOrderLimit`, and an app discount's
+  type. The products, variants and collections an item scope names are connections under every
+  type and do not fit one query's five-connection limit, so five further queries
+  (`discounts-gets-products|variants|collections`, `discounts-buys-items|variants`) each read one
+  role and one kind of item; the final join sets `products`, `productVariants` or `collections`
+  on `discount.customerGets.items` / `discount.customerBuys.items` only where that scope owns
+  them (`[]` is an empty list read; **absent means not read**, never an empty scope). An item
+  query row for a discount the core query never listed is dropped and counted in
+  `droppedOrphansByQuery`. Market restrictions record only their count, not the markets.
+- **No connection inside a list field.** Shopify refuses a bulk query that has one ("a connection
+  field within a list field"). Three datasets have such connections, so their bulk query carries
+  only the scalars and, before the dataset is marked `done`, `lib/shopify-nested-reads.js` reads the
+  connections with ordinary read-only queries and writes them into the same rows:
+  `orders-refunds` (`refunds[].refundLineItems`, `refunds[].transactions`, by refund id),
+  `orders-fulfillments` (`fulfillments[].fulfillmentLineItems`, by fulfillment id) and
+  `delivery-profiles` (`profileLocationGroups[].locationGroupZones[].methodDefinitions`, one zone
+  at a time, rates paged). A refused query cost halves the batch and then the page size; a
+  connection that reports another page is read to its last page. The reads are serial and paced:
+  4 refund ids or 10 fulfillment ids per call and a 250 ms pause after each, so the pauses alone
+  are about 1 minute per 1,000 refunds and 0.4 minute per 1,000 fulfillments before network time
+  (`estimateReads` in `lib/shopify-nested-reads.js` computes it; 100,000 of each is over 2 hours).
+  The cost recurs on every full extract and catch-up, so state it before starting one on a large
+  store. Finished chunks of 50 rows are kept in the staging directory
+  (`<dataset>.nested-progress.*`), so a later failure does not repeat them:
+  - A transport or session failure stops the run as any read does. The dataset stays
+    `downloaded`; a rerun continues after the last finished chunk.
+  - A GraphQL error fails the dataset (`shopify_nested_read_failed`, a `capture-failed` row, the
+    rows already read in its evidence). An ordinary rerun stops again at once; recovery is
+    `--retry-failed`, which reads that dataset's bulk export again and then its nested reads. Those
+    reads continue after the kept chunks only when the new download holds exactly the same rows;
+    otherwise they start from the first row.
+
+  A dataset with no refunds, fulfillments or profiles sends no read. The contract test rejects any
+  bulk query that nests a connection under a list field. A manifest written before a catalog
+  query existed (for example the five discount item queries) gains the missing queries as pending
+  datasets when it resumes, so its final files are never reported complete with that data absent;
+  a manifest already `complete` is not changed and needs `--catch-up`.
 - **One operation at a time**, in the table order. Each state change is one atomic manifest
   write (`pending → starting → running → downloaded → done`, or `settling → failed | denied`), so
   a restart resumes at the exact state and a finished dataset is never read again. A dataset

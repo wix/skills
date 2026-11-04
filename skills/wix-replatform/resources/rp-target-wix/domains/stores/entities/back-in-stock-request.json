@@ -12,9 +12,16 @@
     "crosswalkRequired": true
   },
   "dependsOn": [
-    "stores/product",
-    "crm/contact"
+    "stores/product"
   ],
+  "dependencyModes": {
+    "stores/product": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/product": [
+      "request.catalogReference.catalogItemId"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -29,8 +36,8 @@
   "preferredWrite": {
     "surface": "Back In Stock Notifications",
     "endpoint": "POST /back-in-stock-service/v1/back-in-stock-notification-requests",
-    "writerId": null,
-    "verification": "docs",
+    "writerId": "createBackInStockRequest",
+    "verification": "verified-live",
     "importSafe": true,
     "bulk": false
   },
@@ -42,15 +49,13 @@
   ],
   "reliability": {
     "status": "partially-reliable",
-    "flags": [
-      "target-write-not-yet-live-verified"
-    ]
+    "flags": []
   },
   "pitfalls": [
     {
       "code": "requires-collection-enabled-first",
       "severity": "blocker",
-      "summary": "Creating a request 428s with REQUEST_COLLECTION_DISABLED unless Start Collecting Requests has been called for the site first. This is a one-time setup step, not a per-record concern — emit it as a setup requirement, not a per-row retry."
+      "summary": "VERIFIED LIVE 2026-10-27: create answers 428 REQUEST_COLLECTION_DISABLED until Start Collecting Requests (POST .../settings/start-collecting { appId: Wix Stores }) has run; it is the setup step start-back-in-stock-collection, verified by Get Settings (a PUT with an empty body) showing collectingRequests true for the Stores app id. createBackInStockRequest rethrows the 428 with code BACK_IN_STOCK_COLLECTION_DISABLED: a setup failure, not a per-row retry. Collecting also shows the \"Notify When Available\" button on out-of-stock products."
     },
     {
       "code": "requires-product-crosswalk-first",
@@ -59,8 +64,8 @@
     },
     {
       "code": "duplicate-pair-is-not-an-error",
-      "severity": "blocker",
-      "summary": "[VERIFIED FROM DOCS 2026-08-19, not live] The create-endpoint page CONTRADICTS ITSELF: its own intro prose says a duplicate (catalogReference, email) returns the EXISTING request (200), but the same page's Possible-Errors table lists `409 ALREADY_EXISTS / BACK_IN_STOCK_NOTIFICATION_REQUEST_ALREADY_EXISTS` for the identical condition -- and a 409 error body is not documented to carry the existing request's id. Since idPolicy is server-assigned and crosswalkRequired is true, a write that receives 409 must NOT be treated as automatic success with a fabricated id. Recovery path (docs-verified, not live-tested): Query Back In Stock Notification Requests only supports filtering by `id`, `contactId`, `status`, `autoNotified`, `createdDate`, `itemUrl` -- NOT by `catalogReference.catalogItemId` or `email` directly. So on 409: (1) resolve the email's `contactId` via the Contacts V5 upsert already required for this row (see creates-a-contact below), (2) call Query filtered by that `contactId`, (3) client-side match `catalogReference.catalogItemId` (and `options.variantId` if present) among the returned rows to recover the existing request's id for the crosswalk. If no match is found this way, record the row's outcome as `status: \"deferred\"` with a `deferralReason` (the established deferred-outcome vocabulary this repo already uses for a write that functionally succeeded/exists but cannot yet be resolved into a complete crosswalk entry -- see rp-target-wix/SKILL.md's completion-report.json skipped/deferred-outcomes contract and lib/contract-ledger.js's `status === 'deferred'` -- never invent an id or silently drop the row."
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: a duplicate (catalogReference, email) while the first request is still RECEIVED answers 409 BACK_IN_STOCK_NOTIFICATION_REQUEST_ALREADY_EXISTS with no id (the docs prose claiming a 200 with the existing request is wrong). Query filters on status only: filters on contactId, email, id, itemUrl and catalogReference.catalogItemId are all refused (400 FILTER_PARSER_VALIDATION). createBackInStockRequest recovers by paging status RECEIVED and matching email + catalogItemId + variantId client-side; no single match leaves the row deferred (back-in-stock-duplicate-unresolved), never an invented id. After a request is NOTIFICATION_SENT, a new create for the same pair succeeds as a new RECEIVED request."
     },
     {
       "code": "creation-does-not-notify",
@@ -70,20 +75,32 @@
     {
       "code": "creates-a-contact",
       "severity": "warning",
-      "summary": "A request with an email that has no matching Contact creates one. Sequence-wise this is fine (Contacts V5 upserts are idempotent by email) but it does mean back-in-stock import volume is CRM contact volume, same caveat as events/rsvp."
+      "summary": "VERIFIED LIVE 2026-10-27: a request for an email with no contact created a new contact (contactId returned); an email that already had a contact reused it. Back-in-stock volume is CRM contact volume: show the count in the plan before consent."
+    },
+    {
+      "code": "back-in-stock-app-required",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-10-27: the settings endpoints answer 401 \"TPA 16be6c71-d061-4f56-8cda-c6aa911d1832 is not installed\" on a Stores site until that app is installed (the install-wix-back-in-stock setup step). Create also needs itemDetails.name and itemDetails.price (400 REQUIRED_FIELD without them)."
+    },
+    {
+      "code": "in-stock-items-accepted",
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-10-27: a request for an item that is in stock is accepted (RECEIVED). No stock-based filter is applied: notifications are handled by the site mute."
     }
   ],
   "mappingGuidance": [
+    "Dependencies: stores/product per record (request.catalogReference.catalogItemId). No crm/contact dependency: the request carries only an email, and Wix matches or creates the contact itself (creates-a-contact); the crm/contact upsert matches by email, so the order of the two imports does not matter and a contact task that did not finish never holds the requests.",
     "Map source subscriber email -> request.email (required, EMAIL format).",
     "Map source product/variation id, after crosswalk, -> request.catalogReference.catalogItemId; always set request.catalogReference.appId to the fixed Wix Stores app id 215238eb-22a5-4c36-9e7b-e7c08025e04e.",
     "A source variation-level subscription -> request.catalogReference.options.variantId (Catalog V3 option/variant id, post-crosswalk), not a separate entity.",
     "itemDetails.name and itemDetails.price are required on every create call and are NOT stored fields on the request's own read shape (they only feed the notification template) -- pull them from the already-imported product at write time, not from any source data.",
     "request.itemUrl should be the live Wix product page URL once known; omit if not yet resolvable rather than guessing.",
-    "Source subscriber status (subscribed/unsubscribed/mail-sent) has no direct target field -- only subscribed-equivalent rows are worth importing; do not attempt to recreate unsubscribed history."
+    "Import every source subscription. A row the source already notified (mail-sent) is created and then marked with Mark As Notification Sent (offline, sends nothing): pass notified: true to createBackInStockRequest. A marked request no longer blocks a duplicate create, so a re-run of a record whose request id is known (journal or crosswalk target, including outcome mark-unverified) passes knownRequestId: the request is read and finished, never created again. Unsubscribed rows are not subscriptions and are not imported; record each in the faithfulness ledger so the omission is visible."
   ],
   "setupRequirements": [
     "Wix Stores app installed",
-    "Start Collecting Requests called once for the site (Back In Stock Settings API)",
+    "Back in Stock app installed (appDefId 16be6c71-d061-4f56-8cda-c6aa911d1832) - setup step install-wix-back-in-stock",
+    "Request collection started - setup step start-back-in-stock-collection",
     "SCOPE.DC-STORES-MEGA.MANAGE-STORES"
   ],
   "evidence": [

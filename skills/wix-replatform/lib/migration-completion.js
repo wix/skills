@@ -60,9 +60,9 @@ async function readMappedEntities(projectDir, managementImportMode) {
 
 // This compatibility receipt test deliberately uses only the original receipt fields.
 // Later finalization requirements cannot prove that a legacy run really finished.
-async function classifyFinalizedRun(projectDir, { decisions = {} } = {}) {
+async function classifyFinalizedRun(projectDir, { decisions = {}, receiptFile = COMPLETION_FILE } = {}) {
   const { getDecisionValue } = require('./orchestration-decisions.js');
-  const receiptPath = path.join(projectDir, COMPLETION_FILE);
+  const receiptPath = path.join(projectDir, receiptFile);
   try { await fs.access(receiptPath); } catch (error) { if (error.code === 'ENOENT') return { kind: 'none', errors: [] }; throw error; }
   const [receipt, report] = await Promise.all([readJsonTolerant(receiptPath), readJsonTolerant(path.join(projectDir, BACKEND_COMPLETION_FILE))]);
   if (receipt?.schemaVersion === 2) return { kind: 'current', errors: [] };
@@ -157,6 +157,10 @@ function createMigrationCompletion({
   if (!backendCompletion || typeof backendCompletion !== 'object' || !backendCompletion.status) {
     throw new Error('backend completion report is required');
   }
+  // A stopped run's report is never completion, whatever status a writer joined in.
+  if (backendCompletion.interruption) {
+    throw Object.assign(new Error('backend completion is interrupted; resume the import'), { code: 'backend_completion_interrupted' });
+  }
   if (!BACKEND_COMPLETE_STATUSES.has(backendCompletion.status)) {
     throw new Error(`backend completion is not successful: ${backendCompletion.status}`);
   }
@@ -244,6 +248,8 @@ function validateMigrationCompletion(completion, {
   entityQaAttestation, mappedEntities, reportDigest,
   discoveredSetStatus = null, discoveredSetFreshness = null, discoveredSetDigest = null, completionDiscoveredInputs = null, resolutionsPrefixValid = false,
 }) {
+  // An existing finalization never outlives a stopped run that replaced its report.
+  if (backendCompletion?.interruption) return { ok: false, reason: 'backend_completion_interrupted' };
   if (!completion || typeof completion !== 'object') return { ok: false, reason: 'migration_completion_missing' };
   if (![1, 2].includes(completion.schemaVersion) || completion.deliveryMode !== deliveryMode) {
     return { ok: false, reason: 'migration_completion_invalid' };

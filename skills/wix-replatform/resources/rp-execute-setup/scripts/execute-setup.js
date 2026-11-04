@@ -5,15 +5,19 @@ const capabilities = require('../../../lib/execution-capability');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const {assertCollectionCompatibility}=require('../../../lib/cms-collection-compatibility.js');
 const REAL_WRITERS = require('../../rp-target-wix/lib/wix-writers.js');
 const { SCHEMA_KIND: CONTACT_V4_SCHEMA_KIND } = require('../../rp-target-wix/lib/contact-extended-fields.js');
 const { hashArtifact } = require('../../../lib/artifact-freshness.js');
 const { validatePlanShape, validateSetupVerification } = require('../../../lib/setup-verification.js');
+const siteRegional = require('../../../lib/site-regional.js');
+const catalogBaseline = require('../../../lib/catalog-baseline.js');
+const wixAuth = require('../../../lib/wix-auth.js');
 
-// NOTE: 'wix-stores' intentionally still maps to 1380b703-... (Wix eCommerce, not Wix
-// Stores) here — a separate, independently-tracked defect, not part of this change. See
-// wix-writers.js's WIX_STORES_APP_ID (215238eb-...) for the correct id.
-const APPS = { 'wix-stores': '1380b703-ce81-ff05-f115-39571d94dfcd', 'wix-blog': '14bcded7-0066-7c35-14d7-466cb3f09103' };
+// 'wix-stores' is the quick-mode step id; it is Wix Stores (215238eb-...), the same app as
+// `install-wix-stores` below. 1380b703-... is Wix eCommerce, which Stores installs as its own
+// dependency: installing it alone leaves the site without Stores.
+const APPS = { 'wix-stores': '215238eb-22a5-4c36-9e7b-e7c08025e04e', 'wix-blog': '14bcded7-0066-7c35-14d7-466cb3f09103' };
 
 // Additional app-install step ids, added for projects whose setup plan needs apps this
 // executor previously had no executor for at all (a plan naming any of these used to fail
@@ -27,6 +31,9 @@ const INSTALL_STEPS = {
   'install-wix-blog': '14bcded7-0066-7c35-14d7-466cb3f09103',
   'install-wix-events': '140603ad-af8d-84a5-2c80-a0f60cb47351',
   'install-wix-data': 'e593b0bd-b783-45b8-97c2-873d42aacaf4',
+  // Verified live 2026-10-27: the APIs name these ids when the app is missing.
+  'install-wix-reviews': 'a95a5fce-e370-4402-9ce4-96956acc747d',
+  'install-wix-back-in-stock': '16be6c71-d061-4f56-8cda-c6aa911d1832',
 };
 
 async function readJson(file) {
@@ -60,19 +67,21 @@ async function fallbackAuthor(dir, wix, writers) {
   let member = (listed.members || []).find((item) => String(item.loginEmail || '').toLowerCase() === email);
   if (!member) member = await (writers.ensureBlogFallbackAuthor || writers.createMember)(wix, { email, name: 'Imported content', slug: `imported-content-${id}` });
   if (!member?.id) throw new Error('fallback Blog author was not created');
+  const created = !(listed.members || []).includes(member);
   const file = path.join(dir, 'config', 'wix.env');
   const raw = await fs.readFile(file, 'utf8');
   await fs.writeFile(
     file,
     `${raw.replace(/\n?WIX_BLOG_FALLBACK_MEMBER_ID=.*(?:\n|$)/g, '\n').replace(/\s*$/, '\n')}WIX_BLOG_FALLBACK_MEMBER_ID=${member.id}\n`,
   );
+  return { method: created ? 'member-create-response' : 'member-read', observed: { memberId: member.id } };
 }
 
 // Creates one Wix Data collection via the real, verified request shape (top-level key is
 // `collection`, NOT `dataCollection` — confirmed live 2026-08-29 against a 400 "collection
 // must not be empty" response from the wrong key, and against CreateDataCollectionRequest's
 // real schema). Idempotent: a collection id that already exists (409 or an existing-id list
-// hit) is a pass, never a delete-and-recreate — matches this skill's own "never delete or
+// hit) requires a full compatible definition read, never a delete-and-recreate — matches this skill's own "never delete or
 // recreate an entity to fix a mismatch" rule.
 async function createCmsCollectionsStep({ dir, wix, writers }) {
   const requirements = await readJsonIfExists(path.join(dir, 'setup', 'setup-requirements.json'));
@@ -88,12 +97,24 @@ async function createCmsCollectionsStep({ dir, wix, writers }) {
     type: f.type,
     displayName: f.displayName,
     ...(f.required ? { required: true } : {}),
+    ...(f.typeMetadata ? {typeMetadata:f.typeMetadata} : {}),
   }));
 
   for (const collection of requirement.collections || []) {
-    if (existingIds.has(collection.id)) continue; // already provisioned, not a redo
-    await writers.ensureCmsCollection(wix, { id: collection.id, displayName: collection.displayName, fields, permissions: requirement.permissions });
+    const expected={id:collection.id,displayName:collection.displayName,fields:collection.fields || fields,
+      permissions:collection.permissions || requirement.permissions};
+    if (!existingIds.has(collection.id)) {
+      try {
+        await writers.ensureCmsCollection(wix, expected);
+      } catch(error) {
+        if (error.status!==409 && error.statusCode!==409) throw error;
+        // A concurrent create is not evidence of compatible fields or permissions.
+      }
+    }
+    const current=await wix.send(writers.buildGetCmsCollectionRequest(collection.id));
+    assertCollectionCompatibility(current.collection,expected);
   }
+  return { method: 'collection-read', observed: { collections: (requirement.collections || []).map(c => c.id) } };
 }
 
 // Runs one setup-plan step. Throws (with `blockerCode`/`recommendedAction` attached where
@@ -185,31 +206,83 @@ async function provisionExtendedFieldsStep({ dir, wix, writers, dryRun, priorVer
   return verifications;
 }
 
-async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification = null }) {
+// The regional step reads the site, decides each setting, applies the ones the plan approved, reads
+// them back and returns the receipt object recorded on its requirement row.
+async function isRegionalStep(step, dir) {
+  const requirements = await readJsonIfExists(path.join(dir, 'setup', 'setup-requirements.json'));
+  const list = Array.isArray(requirements) ? requirements : requirements?.requirements;
+  return siteRegional.stepConfiguresSiteRegional(step, list);
+}
+
+// Returns the check that actually ran: `{ method, observed }` (see SETUP_CHECK_METHODS in
+// lib/setup-verification.js). The caller stamps `checkedAt` once it returns. An install with no
+// read-back records `install-response` -- what was observed, never a claimed read.
+// An install call that returns 200 proves nothing about the site: the step passes only when the
+// installed-apps list read back afterwards names the app and it is enabled. An app that is
+// already listed is a pass without a second install call.
+async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, catalogSettle = {} }) {
+  const listed = async () => (writers.isWixAppInstalled ? writers.isWixAppInstalled(wix, appDefId) : false);
+  const install = async () => {
+    await writers.installWixApp(wix, { appDefId, siteId: env.WIX_SITE_ID });
+    if (!(await listed())) {
+      throw Object.assign(new Error(`${stepId}: install call returned but app ${appDefId} is not listed as installed and enabled on the site`), {
+        blockerCode: 'APP_INSTALL_NOT_VERIFIED',
+        recommendedAction: 'Re-run setup; if the app is still missing from GET /apps-installer-service/v1/app-instances, install it from the Wix dashboard (Add Apps) and re-run setup.',
+      });
+    }
+  };
+  const installed = await listed();
+  // Wix Stores adds sample products when it installs. The catalog is read around the install, the
+  // items it added are deleted, and the rest is recorded so no importer takes them over.
+  if (appDefId === catalogBaseline.STORES_APP_DEF_ID) {
+    let baseline, unchanged;
+    try {
+      ({ baseline, unchanged } = await catalogBaseline.captureAroundInstall({ projectDir: dir, wix, writers, installed, install, siteOrigin: siteRegional.siteOriginFor(dir, env.WIX_SITE_ID), ...catalogSettle }));
+    } catch (error) {
+      if (error.blockerCode || wixAuth.isRunInterruption(error)) throw error;
+      throw Object.assign(new Error(`${stepId}: the Stores catalog could not be read around the install: ${error.message}`), {
+        blockerCode: 'CATALOG_BASELINE_UNREADABLE',
+        recommendedAction: 'Re-run setup. Import cannot start until setup has recorded which products were on the store before it.',
+      });
+    }
+    const catalog = { artifact: catalogBaseline.BASELINE_PATH, sha256: catalogBaseline.digest(dir), unchanged, ...catalogBaseline.summarize(baseline) };
+    return { method: 'installed-apps-read', observed: { appDefId, installed: true, ...(installed ? {} : { installCall: 'succeeded' }), catalogBaseline: catalog } };
+  }
+  if (installed) return { method: 'installed-apps-read', observed: { appDefId, installed: true } };
+  await install();
+  return { method: 'installed-apps-read', observed: { appDefId, installed: true, installCall: 'succeeded' } };
+}
+
+async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification = null, catalogSettle }) {
+  if (await isRegionalStep(step, dir)) {
+    const requirements = await readJsonIfExists(path.join(dir, 'setup', 'setup-requirements.json'));
+    const list = Array.isArray(requirements) ? requirements : requirements?.requirements;
+    const requirement = (list || []).find((item) => item && item.kind === 'siteLocale') || {};
+    const regional = await siteRegional.executeRegionalStep({ projectDir: dir, wix, writers, siteId: env.WIX_SITE_ID, requirement });
+    // The receipt's fields are the read-back this step performed; the check records what was observed.
+    return { method: 'site-properties-read', observed: { fields: Object.fromEntries(Object.entries(regional.fields || {}).map(([field, row]) => [field, row.action])) }, regional };
+  }
   if (step.id === 'mute-site-notifications') {
     const state = await writers.muteSiteNotifications(wix, { reason: `RePlatform migration — ${path.basename(dir)}` });
     if (!state?.muted) throw new Error('notification mute verification failed');
-    return;
+    const read = await writers.getSiteMuteState(wix);
+    if (read?.muted !== true) throw new Error('notification mute verification failed: status read is not muted');
+    return { method: 'status-read', observed: { muted: true } };
   }
-  if (APPS[step.id]) {
-    await writers.installWixApp(wix, { appDefId: APPS[step.id], siteId: env.WIX_SITE_ID });
-    return;
+  if (step.id === 'start-back-in-stock-collection') {
+    await wix.send(writers.buildStartBackInStockCollectionRequest());
+    const read = await wix.send(writers.buildGetBackInStockSettingsRequest());
+    const stores = (read?.settings?.collectionStates || []).find((row) => row.appId === catalogBaseline.STORES_APP_DEF_ID);
+    if (stores?.collectingRequests !== true) throw new Error('back-in-stock collection verification failed: settings read does not show collecting for Wix Stores');
+    return { method: 'settings-read', observed: { collectingRequests: true } };
   }
-  if (INSTALL_STEPS[step.id]) {
-    const appDefId = INSTALL_STEPS[step.id];
-    // isWixAppInstalled is optional (older writers fixtures/tests for the APPS path above
-    // don't provide it) -- fall back to an unconditional install when it's unavailable.
-    const alreadyInstalled = writers.isWixAppInstalled ? await writers.isWixAppInstalled(wix, appDefId) : false;
-    if (!alreadyInstalled) await writers.installWixApp(wix, { appDefId, siteId: env.WIX_SITE_ID });
-    return;
-  }
+  if (APPS[step.id] || INSTALL_STEPS[step.id]) return installAndVerifyApp(step.id, APPS[step.id] || INSTALL_STEPS[step.id], { dir, env, wix, writers, catalogSettle });
   if (await isExtendedFieldStep(step, dir)) {
-    await provisionExtendedFieldsStep({ dir, wix, writers, dryRun: false, priorVerification: priorExtendedFieldVerification });
-    return;
+    const verifications = await provisionExtendedFieldsStep({ dir, wix, writers, dryRun: false, priorVerification: priorExtendedFieldVerification });
+    return { method: 'extended-field-verification', observed: { verifications: verifications.length } };
   }
   if (step.id === 'create-cms-collections') {
-    await createCmsCollectionsStep({ dir, wix, writers });
-    return;
+    return createCmsCollectionsStep({ dir, wix, writers });
   }
   if (step.id === 'stores-catalog-v3') {
     const result = await wix.send(writers.buildGetStoresCatalogVersionRequest());
@@ -219,11 +292,10 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
         recommendedAction: 'Use a destination site provisioned with Catalog V3, or omit Stores from this migration.',
       });
     }
-    return;
+    return { method: 'catalog-version-read', observed: { catalogVersion: result.catalogVersion } };
   }
   if (step.id === 'blog-fallback-author') {
-    await fallbackAuthor(dir, wix, writers);
-    return;
+    return fallbackAuthor(dir, wix, writers);
   }
   if (step.intent?.writerId) {
     const executor = writers.createWixSetupExecutor({ wixClient: wix });
@@ -233,8 +305,9 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
       const read = writers[step.intent.readWriterId];
       if (typeof read !== 'function' || !/^build(Get|Query)/.test(step.intent.readWriterId || '')) throw new Error('setup_reference_readback_missing');
       await wix.send(read(...(step.intent.readArgs || [])));
+      return { method: 'reference-read-back', observed: { writerId: step.intent.writerId, readWriterId: step.intent.readWriterId } };
     }
-    return;
+    return { method: 'writer-response', observed: { writerId: step.intent.writerId } };
   }
   throw Object.assign(new Error(`No executor implements setup step "${step.id}"`), {
     blockerCode: 'NO_EXECUTOR_FOR_REQUIREMENT',
@@ -242,11 +315,36 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
   });
 }
 
-async function writeBlockers(setupDir, generatedAt, blockers) {
+async function regionalDryRunIntent(dir) {
+  const source = await require('../../../lib/source-regional.js').readSourceRegional(dir).catch(() => null);
+  return source ? siteRegional.regionalDryRunIntent(source) : [];
+}
+
+// A dry run cannot install, so it cannot know which samples the install would add; it states the
+// rule it would apply and makes no delete call.
+function storesDryRunIntent(dir) {
+  const prior = catalogBaseline.loadBaseline(dir);
+  return prior
+    ? { catalogBaseline: 'recorded', wouldDelete: prior.products.concat(prior.categories).filter((row) => row.kind === 'install_seeded' && row.status !== 'deleted').map((row) => row.id) }
+    : { catalogBaseline: 'read before and after the install; delete only items the install adds', wouldDelete: 'unknown until install' };
+}
+
+async function writeBlockers(setupDir, generatedAt, blockers, replaces = null) {
   await fs.writeFile(
     path.join(setupDir, 'setup-blockers.json'),
-    `${JSON.stringify({ schemaVersion: 1, generatedAt, blockers }, null, 2)}\n`,
+    `${JSON.stringify({ schemaVersion: 1, generatedAt, replaces, blockers }, null, 2)}\n`,
   );
+}
+
+async function replacedReceipt(setupDir) {
+  let bytes;
+  try { bytes = await fs.readFile(path.join(setupDir, 'setup-verification.json')); } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    try { return JSON.parse(await fs.readFile(path.join(setupDir, 'setup-blockers.json'), 'utf8')).replaces ?? null; } catch (error) { return error.code === 'ENOENT' ? null : { sha256: null, generatedAt: null }; }
+  }
+  let generatedAt = null;
+  try { generatedAt = JSON.parse(bytes).generatedAt ?? null; } catch { /* unreadable: no trusted time */ }
+  return { sha256: crypto.createHash('sha256').update(bytes).digest('hex'), generatedAt };
 }
 
 // Writes the final file via a temp-then-rename so a crash mid-write can never leave a
@@ -262,7 +360,8 @@ async function publishAtomically(filePath, contents) {
 // `writers` module instead of making real Wix API calls. Performs every file write itself
 // (the receipt, the blockers file) and returns a summary rather than throwing on a
 // recognized blocker — `main()` decides how to surface that to the process exit code.
-async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
+// `catalogSettle` ({ sleep, delayMs }) only shortens the post-install catalog re-reads in tests.
+async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS, catalogSettle = {} }) {
   const env = await readEnv(dir);
   if (!env.WIX_SITE_ID || !env.WIX_AUTH_TOKEN) throw new Error('WIX_SITE_ID and WIX_AUTH_TOKEN are required');
 
@@ -270,6 +369,9 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
   const verificationPath = path.join(setupDir, 'setup-verification.json');
   const plan = await readJsonIfExists(path.join(setupDir, 'setup-plan.json'));
   const generatedAt = new Date().toISOString();
+  // The receipt this attempt replaces, carried through failed attempts in setup-blockers.json, so
+  // import-plan freshness can tell the approved setup's first receipt from a later re-run.
+  const replaces = await replacedReceipt(setupDir);
 
   // Read BEFORE the receipt is invalidated below: the legacy contacts-v4 path must prove a field's
   // key did not change since an earlier verified run (Wix keys cannot change). Only used for that
@@ -300,7 +402,7 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
       // Leave the unreadable receipt where it is for recovery; only the setup receipt is invalidated.
       if (!dryRun) {
         await fs.rm(verificationPath, { force: true });
-        await writeBlockers(setupDir, generatedAt, [blocker]);
+        await writeBlockers(setupDir, generatedAt, [blocker], replaces);
       }
       return { ok: false, dryRun, requirements: [], blocker };
     }
@@ -318,7 +420,7 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
     await fs.rm(path.join(setupDir, 'extended-field-verification.json'), { force: true });
   }
 
-  const planShape = validatePlanShape(plan);
+  const planShape = validatePlanShape(plan, dir);
   if (!planShape.ok) {
     const blocker = {
       code: 'INVALID_SETUP_PLAN',
@@ -326,10 +428,10 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
       requirementId: null,
       description: `setup-plan.json is invalid: ${planShape.reasons.join(', ')}`,
       whyBlocked: planShape.reasons.join(', '),
-      recommendedAction: 'Regenerate setup/setup-plan.json with a valid schemaVersion, a steps array, and unique, non-empty step ids.',
+      recommendedAction: 'Regenerate setup/setup-plan.json with a valid schemaVersion, a steps array, unique, non-empty step ids, and the entityRefs each named step writes (create-cms-collections lists cms/collection).',
     };
     if (dryRun) throw new Error(blocker.description);
-    await writeBlockers(setupDir, generatedAt, [blocker]);
+    await writeBlockers(setupDir, generatedAt, [blocker], replaces);
     return { ok: false, dryRun: false, requirements: [], blocker };
   }
 
@@ -354,33 +456,60 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
     };
     // A dry run reports; it does not leave artifacts behind. Writing the blockers file here made
     // `dryRun: true` mutate the project and report itself as a live run.
+    if (!dryRun) await writeBlockers(path.join(dir, 'setup'), new Date().toISOString(), [blocker], replaces);
+    return { ok: false, dryRun, requirements: [], blocker };
+  }
+
+  // Same pairing rule for the site regional settings: a requirement with no step changes nothing,
+  // and a step with no requirement has nothing to compare against.
+  const needsRegional = (declaredList || []).some((item) => item && item.kind === 'siteLocale');
+  const schedulesRegional = ((plan && plan.steps) || []).some((step) => siteRegional.stepConfiguresSiteRegional(step, declaredList));
+  if (needsRegional !== schedulesRegional) {
+    const blocker = {
+      code: 'SITE_REGIONAL_REQUIREMENT_UNSCHEDULED',
+      severity: 'blocker',
+      requirementId: null,
+      description: 'setup-requirements.json and setup-plan.json disagree about import-site-locale: it must be in both or in neither',
+      whyBlocked: 'a requirement with no step never changes the site, and a step with no requirement has no source values or entity lists to act on',
+      recommendedAction: 'Regenerate the setup plan and requirements together (rp-setup-discovery), or remove the stray one.',
+    };
     if (!dryRun) await writeBlockers(path.join(dir, 'setup'), new Date().toISOString(), [blocker]);
     return { ok: false, dryRun, requirements: [], blocker };
   }
 
   const requirements = [];
   let blocker = null;
+  // One renewing token for every step: setup also runs long enough to outlive a token.
+  const tokenSource = dryRun ? null : wixAuth.createWixTokenSource({ projectDir: dir, siteId: env.WIX_SITE_ID });
 
   for (const step of plan.steps) {
     if (dryRun) {
-      requirements.push({ id: step.id, status: 'planned_dry_run' });
+      const intent = siteRegional.stepConfiguresSiteRegional(step, declaredList) ? await regionalDryRunIntent(dir)
+        : (APPS[step.id] || INSTALL_STEPS[step.id]) === catalogBaseline.STORES_APP_DEF_ID ? storesDryRunIntent(dir) : null;
+      requirements.push({ id: step.id, status: 'planned_dry_run', ...(intent ? { intent } : {}) });
       continue;
     }
     try {
       const stepCapability = capabilities.bindSetupStep(setupRun, step.id);
-      const wix = writers.createWixClient({ capability: stepCapability, authToken: env.WIX_AUTH_TOKEN });
-      await runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification });
+      const wix = writers.createWixClient({ capability: stepCapability, tokenSource });
+      const { method, observed, regional } = await runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification, catalogSettle });
+      const verification = { method, checkedAt: new Date().toISOString(), observed };
       const referenceBindings = step.referenceKeys?.length ? writers.captureSetupReferenceBindings(wix, step) : undefined;
-      requirements.push({ id: step.id, status: 'passed', ...(referenceBindings ? { referenceBindings } : {}) });
-    } catch (error) {
+      requirements.push({ id: step.id, status: 'passed', verification, ...(referenceBindings ? { referenceBindings } : {}), ...(regional ? { regional } : {}) });
+    } catch (caught) {
+      // A step helper may wrap the interruption in its own error; the project's latch is the
+      // authority that this step stopped on an expired token.
+      const error = wixAuth.interruptionFor(dir) || caught;
       requirements.push({ id: step.id, status: 'blocked', detail: error.message });
       blocker = {
-        code: error.blockerCode || 'UNEXPECTED_SETUP_ERROR',
+        code: error.blockerCode || (wixAuth.isRunInterruption(error) ? wixAuth.WIX_AUTH_EXPIRED : 'UNEXPECTED_SETUP_ERROR'),
         severity: 'blocker',
         requirementId: step.id,
         description: error.message,
         whyBlocked: error.message,
-        recommendedAction: error.recommendedAction || 'Investigate the underlying error and re-run setup once resolved.',
+        recommendedAction: error.recommendedAction || (wixAuth.isRunInterruption(error) ? error.message : 'Investigate the underlying error and re-run setup once resolved.'),
+        ...(error.awaitingOwner ? { awaitingOwner: true } : {}),
+        ...(wixAuth.isRunInterruption(error) ? { reason: error.reason } : {}),
       };
       break; // Stop at the first failure — later steps were never attempted, not skipped.
     }
@@ -396,15 +525,15 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
 
   if (blocker) {
     // The old receipt (if any) was already removed above, before this attempt began.
-    await writeBlockers(setupDir, generatedAt, [blocker]);
+    await writeBlockers(setupDir, generatedAt, [blocker], replaces);
     return { ok: false, dryRun: false, requirements, blocker };
   }
 
   // Full success: every planned requirement passed. Self-check the candidate against the
   // exact same validator the router uses before publishing it — there must be exactly one
   // definition of "valid", shared, never re-implemented separately here.
-  const candidate = { schemaVersion: 1, generatedAt, siteId: env.WIX_SITE_ID, dryRun: false, planDigest, requirements };
-  const selfCheck = validateSetupVerification({ verification: candidate, plan, planDigest, siteId: env.WIX_SITE_ID });
+  const candidate = { schemaVersion: 1, generatedAt, siteId: env.WIX_SITE_ID, dryRun: false, planDigest, replaces, requirements };
+  const selfCheck = validateSetupVerification({ verification: candidate, plan, planDigest, siteId: env.WIX_SITE_ID, projectDir:dir });
   if (!selfCheck.ok) {
     const internalBlocker = {
       code: 'INTERNAL_VALIDATION_FAILURE',
@@ -414,11 +543,11 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS }) {
       whyBlocked: selfCheck.reasons.join(', '),
       recommendedAction: 'This indicates a bug in execute-setup.js itself — investigate rather than retrying.',
     };
-    await writeBlockers(setupDir, generatedAt, [internalBlocker]);
+    await writeBlockers(setupDir, generatedAt, [internalBlocker], replaces);
     return { ok: false, dryRun: false, requirements, blocker: internalBlocker };
   }
 
-  await writeBlockers(setupDir, generatedAt, []);
+  await writeBlockers(setupDir, generatedAt, [], replaces);
   await publishAtomically(verificationPath, `${JSON.stringify(candidate, null, 2)}\n`);
   return { ok: true, dryRun: false, requirements, blocker: null };
 }
@@ -428,6 +557,10 @@ async function main() {
   if (!dir) throw new Error('Usage: execute-setup.js <projectDir> [--dry-run]');
   const dryRun = process.argv.includes('--dry-run');
   const result = await executeSetup({ dir, dryRun });
+  if (result.blocker?.code === wixAuth.WIX_AUTH_EXPIRED) {
+    console.error(result.blocker.description);
+    process.exit(await wixAuth.stopExitCode(Object.assign(new wixAuth.WixAuthInterruption(result.blocker.reason), { siteId: (await readEnv(dir)).WIX_SITE_ID }), dir));
+  }
   if (result.blocker) throw new Error(result.blocker.description);
   console.log(JSON.stringify({ ok: true, dryRun }));
 }

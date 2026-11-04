@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { trustOrigin } from "./lib/url-safety.mjs";
 import path from "node:path";
 import { readdir, readFile, rm } from "node:fs/promises";
 import {
@@ -49,6 +50,8 @@ async function main() {
 
 export async function runPostBuildGap({ sourceUrl, resultUrl, outputDir, screenshots = true, designExtractor, browserTooling, paths = [] } = {}) {
   if (!sourceUrl || !resultUrl || !outputDir) throw new Error("sourceUrl, resultUrl, and outputDir are required");
+  // The running clone (often a local dev server) is the one trusted target; the source site never is.
+  trustOrigin(resultUrl);
   const canonicalDocs = docsDir(outputDir);
   const frozenSource = await loadFrozenSourceEvidence(canonicalDocs);
   const canonicalSourceMap = sanitizeSourceMap(frozenSource.evidence.sourceMap);

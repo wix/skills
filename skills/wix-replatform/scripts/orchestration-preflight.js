@@ -8,8 +8,20 @@ const { createProgressLogger, parseProgressArgs } = require('../lib/progress-log
 
 let progress;
 
+const USAGE = 'Usage: node scripts/orchestration-preflight.js <projectDir> [--progress-log <path>] [--run-id <id>] [--parent-run-id <id>]';
+
 async function main() {
   const parsed = parseProgressArgs(process.argv.slice(2));
+  // Flags are handled before the logger starts, so neither --help nor a typo is ever read as a project path.
+  if (parsed.args.includes('--help') || parsed.args.includes('-h')) {
+    console.log(USAGE);
+    return;
+  }
+  const unknownFlag = parsed.args.find((arg) => arg.startsWith('-'));
+  if (unknownFlag) {
+    console.error(`Unknown option: ${unknownFlag}\n${USAGE}`);
+    process.exit(1);
+  }
   progress = createProgressLogger({
     script: 'skills/wix-replatform/scripts/orchestration-preflight.js',
     ...parsed.progress,
@@ -18,7 +30,7 @@ async function main() {
 
   const projectDirArg = parsed.args[0];
   if (!projectDirArg) {
-    console.error('Usage: node scripts/orchestration-preflight.js <projectDir> [--progress-log <path>]');
+    console.error(USAGE);
     progress.error('Missing project directory', { phase: 'preflight' });
     process.exit(1);
   }

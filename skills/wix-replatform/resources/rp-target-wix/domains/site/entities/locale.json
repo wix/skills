@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "domain": "site",
+  "entity": "locale",
+  "displayName": "Site Locale (payment currency, time zone, language, locale)",
+  "capability": "site.locale",
+  "target": {
+    "classification": "setup-config",
+    "nativeEntity": "SiteProperties",
+    "verifiedFqdn": null,
+    "idPolicy": "not-applicable",
+    "crosswalkRequired": false
+  },
+  "dependsOn": [],
+  "sourceAliases": [],
+  "preferredWrite": {
+    "surface": "Site Properties",
+    "endpoint": "POST https://www.wixapis.com/site-properties/v4/properties/business-region",
+    "writerId": "updateBusinessRegion",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "releaseStatus": "stable",
+    "decision": "A site-wide singleton imported after notification safety and before every other entity. Payment currency and time zone use Update Business Region. Language and locale use PATCH /site-properties/v4/properties. Every write is preceded by equality checks and followed by a fresh read-back."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "the-api-stores-whatever-it-is-sent",
+      "severity": "blocker",
+      "summary": "Update Business Region stored fabricated currency and time-zone strings exactly as sent, and a three-letter language was also stored. Validate currency against ISO 4217, require an IANA-shaped time-zone name of at most 30 characters that Intl accepts, require a two-letter lowercase language and a language-region locale, then read every value back."
+    },
+    {
+      "code": "a-write-is-never-a-no-op",
+      "severity": "warning",
+      "summary": "Sending the value a site already has still increases the properties version. Read, compare exactly, and skip equal values."
+    },
+    {
+      "code": "changing-the-currency-does-not-convert-anything",
+      "severity": "blocker",
+      "summary": "Wix prices carry no currency of their own. A product priced 10 remained 10 after the site currency changed, now interpreted in the new currency. Set locale before entity data. On an existing site with any order or product, ask once; a keep answer holds money-bearing imports while currency differs."
+    },
+    {
+      "code": "masks-name-top-level-fields-and-clear-what-they-list",
+      "severity": "blocker",
+      "summary": "fields.paths takes top-level names. A nested locale path and an empty mask are refused, and a listed-but-absent field is cleared. Build each mask from the payload keys. Update Business Region rejects language and locale in its mask."
+    },
+    {
+      "code": "language-does-not-move-locale",
+      "severity": "warning",
+      "summary": "Setting language alone leaves locale unchanged. Locale needs its own PATCH with two-letter language and country values."
+    },
+    {
+      "code": "stores-seeds-a-sample-catalog",
+      "severity": "info",
+      "summary": "A fresh Wix Stores installation can contain sample products, but no universal Wix marker for them is verified. Do not infer samples from revision or timestamps; until a verified marker exists, every product makes the site in use and requires the owner's locale decision."
+    },
+    {
+      "code": "fresh-site-defaults-are-not-constant",
+      "severity": "warning",
+      "summary": "Fresh-site defaults vary. Never assume them; compare with the values the destination actually holds."
+    }
+  ],
+  "mappingGuidance": [
+    "Every source maps its settings into the neutral discovery/source-locale.json record. Import site/locale after notification safety and before every other public or private entity.",
+    "A site created by this run, or an existing site with no orders and no products, is set directly. Any order or product requires one owner question before a difference is written.",
+    "A keep answer is a passed locale receipt. Neutral entities continue; money-bearing and wall-clock entities remain held while their relevant value differs. Unclassified refs fail closed.",
+    "Compare currency, time-zone spelling, language and locale exactly after validation; never canonicalize a time-zone alias through the runtime.",
+    "Read back with GET /site-properties/v4/properties after every write; a 200 proves only acceptance."
+  ],
+  "setupRequirements": [],
+  "objectPageException": "Site Properties is a property stream with per-group update methods rather than a fetchable object with its own object page. Update Business Region has a method reference; language and locale request shapes are additionally verified through live calls.",
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/update-business-region",
+      "note": "business-region request, mask, response and permission scope"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties",
+      "note": "top-level masks and language update recipe"
+    },
+    {
+      "type": "live-verification",
+      "path": "anonymized-live-verification",
+      "note": "All four settings were written and read back on a disposable site; invalid values were retained by some writes, identical writes bumped version, and a priced product kept its amount after currency changed."
+    }
+  ],
+  "notes": "Import before app and entity data. Whether an installed app caches the site currency is not verified; locale-first ordering is the conservative choice."
+}

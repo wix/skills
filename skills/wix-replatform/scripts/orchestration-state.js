@@ -16,6 +16,7 @@ const {
   updateDecisionObject,
   assertGenericDecisionKey,
   recordPluginCmsFallbackDecision,
+  recordMappingTargetOverride,
   updateApprovalObject,
   autoApproveOneClick,
   updateCheckpointObject,
@@ -28,6 +29,7 @@ const {
   isKnownSourceMode,
   normalizeAutomationMode,
 } = require('../lib/orchestration-decisions.js');
+const notificationMute = require('../lib/notification-mute.js');
 const { applySiteTypePair, resolveSiteTypePair } = require('../lib/destination-choice.js');
 
 let progress;
@@ -39,7 +41,9 @@ function usage() {
   node scripts/orchestration-state.js status --project-dir <dir>
   node scripts/orchestration-state.js decide --project-dir <dir> --key <decisionKey> --value <jsonOrString> [--source user|deterministic_inference|prior_artifact] [--rationale <text>]
       (targetSiteType: --value headless|studio|harmony [--business-type store|bookings|other|unknown] [--business-type-source user|context|not_asked] [--evidence-ref <ref>])
+      (notificationMute --value on|off records the existing-site mute answer and writes WIX_MUTE_NOTIFICATIONS; off is refused for a new site)
   node scripts/orchestration-state.js decide-cms-fallback --project-dir <dir> --capability <id> --value approved|declined --approved-by <text> [--rationale <text>] [--coverage <plugin-coverage.json>] [--plugins-root <dir>]
+  node scripts/orchestration-state.js decide-mapping-target-override --project-dir <dir> --capability <id> --value cms --approved-by <text> [--rationale <text>] [--coverage <plugin-coverage.json>]
   node scripts/orchestration-state.js approve --project-dir <dir> --type mapping|execution --status pending|approved|rejected|provisional [--notes <text>] [--decided-by user|system|agent]
   node scripts/orchestration-state.js auto-approve --project-dir <dir> --type mapping|execution [--notes <text>] [--artifact-refs <jsonArray>]
   node scripts/orchestration-state.js checkpoint --project-dir <dir> --phase discovery|mapping|setup|codegen|execution --patch <json>
@@ -188,14 +192,18 @@ async function main() {
     if (args.key === 'targetSiteBusinessType') {
       throw new Error('record targetSiteBusinessType with --key targetSiteType --value harmony --business-type <store|bookings|other|unknown>');
     }
-    if (args.key === 'targetSiteType') {
+    // The operator's mute answer has one writer, shared with the durable request.
+    if (args.key === notificationMute.DECISION_KEY) {
+      await notificationMute.recordNotificationMute(projectDir, decisionValue, { source: args.source || 'user', rationale: args.rationale || null });
+      Object.assign(artifacts, await loadArtifacts(projectDir));
+    } else if (args.key === 'targetSiteType') {
       const pair = resolveSiteTypePair({
         siteType: decisionValue,
         businessType: args.businessType,
         businessTypeSource: args.businessTypeSource || (decisionValue === 'harmony' && args.businessType === undefined ? 'user' : undefined),
         evidenceRef: args.evidenceRef || null,
       });
-      applySiteTypePair(artifacts.decisions, pair, { rationale: args.rationale || null, timestamp: nowIso() });
+      applySiteTypePair(artifacts.decisions, pair, { rationale: args.rationale || null, timestamp: nowIso(), source: args.source || 'user' });
     } else updateDecisionObject(artifacts.decisions, args.key, decisionValue, {
       source: args.source || 'user',
       rationale: args.rationale || null,
@@ -212,6 +220,31 @@ async function main() {
     });
     console.log(JSON.stringify({ ok: true, decision: args.key }, null, 2));
     progress.complete('Orchestration decision recorded', { phase: 'orchestration', step: 'decide', entity: args.key, artifact: projectDir });
+    return;
+  }
+
+  if (command === 'decide-mapping-target-override') {
+    const coveragePath = args.coverage
+      ? path.resolve(args.coverage)
+      : [path.join(projectDir, 'discovery', 'plugin-coverage.json'), path.join(projectDir, 'data', 'wp-discovery', 'plugin-coverage.json')]
+        .find((candidate) => fs.existsSync(candidate));
+    if (!coveragePath || !fs.existsSync(coveragePath)) {
+      throw new Error('decide-mapping-target-override needs plugin-coverage.json (discovery/ or data/wp-discovery/, or --coverage)');
+    }
+    const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+    const coverageRow = (coverage.capabilities || []).find((row) => row.capability === args.capability && row.recognized);
+    const { key, event } = recordMappingTargetOverride(artifacts, {
+      capability: args.capability,
+      value: args.value,
+      approvedBy: args.approvedBy,
+      coverageRow,
+      rationale: args.rationale || null,
+      timestamp: nowIso(),
+    });
+    await saveArtifacts(projectDir, artifacts);
+    await appendEvent(projectDir, event);
+    console.log(JSON.stringify({ ok: true, decision: key, value: args.value, mappingApproval: artifacts.approvals.mapping.status }, null, 2));
+    progress.complete('Mapping target override recorded', { phase: 'orchestration', step: 'decide-mapping-target-override', entity: key, artifact: projectDir });
     return;
   }
 

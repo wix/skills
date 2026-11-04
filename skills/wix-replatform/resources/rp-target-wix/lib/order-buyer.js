@@ -121,6 +121,24 @@ async function resolveOrderBuyer({ sourceCustomerId = null, billingEmail = null,
   return finish(OUTCOMES.LINKED, String(row.memberId));
 }
 
+// Import Order declares `buyerInfo.memberId` as a per-record members/member reference,
+// so the member ID must come from the dependency gate, never from a crosswalk file read directly.
+// This builds the `memberCrosswalk` resolveOrderBuyer consumes from the gate's `resolveReference`:
+// a member that is not imported and verified for this site defers the order (it waits for the
+// member) instead of sending it unlinked. The login email used for corroboration still comes
+// from the caller. If corroboration then drops the link, the resolved-but-unwritten reference is
+// discarded by the gate and nothing is sent for it.
+function gatedMemberCrosswalk({ resolveReference, memberKeyPrefix, loginEmailFor }) {
+  if (typeof resolveReference !== 'function' || typeof memberKeyPrefix !== 'string' || !memberKeyPrefix || typeof loginEmailFor !== 'function') throw new Error('gatedMemberCrosswalk needs resolveReference, memberKeyPrefix and loginEmailFor');
+  return {
+    async get(sourceCustomerId) {
+      const memberId = resolveReference('members/member', memberKeyPrefix + String(sourceCustomerId), 'buyerInfo.memberId');
+      if (!memberId) return null;
+      return { memberId, loginEmail: await loginEmailFor(String(sourceCustomerId)) };
+    },
+  };
+}
+
 // The buyerInfo to put on the Import Order body, from a STAMPED resolver result. Refuses anything
 // else, so a hand-built { memberId } cannot reach the order.
 function buyerInfoFrom(buyer) {
@@ -184,4 +202,4 @@ function assertBodyBuyerInfo(order) {
   if (bad.length > 0) throw new Error(`order.buyerInfo may only carry ${BODY_BUYER_KEYS.join(', ')} before the composite sets the buyer; got ${bad.join(', ')} -- a member id is never the caller's to set`);
 }
 
-module.exports = { OUTCOMES, BODY_BUYER_KEYS, ALLOWED_BUYER_ADJACENT_KEYS, normalizeEmail, resolveOrderBuyer, buyerInfoFrom, assertBodyBuyerInfo, computeBuyerStamp, verifyBuyerStamp };
+module.exports = { OUTCOMES, BODY_BUYER_KEYS, ALLOWED_BUYER_ADJACENT_KEYS, normalizeEmail, resolveOrderBuyer, gatedMemberCrosswalk, buyerInfoFrom, assertBodyBuyerInfo, computeBuyerStamp, verifyBuyerStamp };

@@ -22,11 +22,18 @@ const LINES = Object.freeze([
   // is a real identity term — that coupon is refused, and a report that hid it would read as
   // "we imported every redeemable one".
   'coupons-spent-after-capture', 'coupons-partially-used-limit-reduced',
+  // Coupon plugins: coupons written switched off because a coupon plugin's rule cannot be carried (and
+  // how many of them were still redeemable at source), and coupons whose plugin start date was
+  // carried. Sub-counts of `coupons-written`, never identity terms.
+  'coupons-plugin-rule-held', 'coupons-plugin-rule-held-redeemable', 'coupons-plugin-start-date-carried',
   'coupons-face-value-precision-unsupported',
   'voucher-drift-reconciled', 'voucher-drift-remedy-pending',
   // Non-count: the money still redeemable twice, as "<amount> <currency> across <n> codes".
   'voucher-liability-live',
   'currency-validated', 'currency-mismatch', 'currency-multi-detected', 'currency-unresolved',
+  // Count only: orders whose shopper-facing currency differs from the store's base currency. They are
+  // written in the base currency and never converted, so this is not an identity term.
+  'orders-presentment-currency-differs',
   'plans-source-total', 'plans-written', 'plan-description-truncated', 'plans-skipped', 'plans-live-hazard',
 ]);
 const TEXT_LINES = Object.freeze(['coupon-usage-surface', 'voucher-liability-live']);
@@ -131,6 +138,9 @@ function renderCouponCurrencyPlanReport({ lines, notes = [], counts = {}, curren
   }
   if ((counts['coupons-partially-used-limit-reduced'] || 0) > 0) {
     out.push(`  ${counts['coupons-partially-used-limit-reduced']} coupon(s) were partly used at source and carry only the uses the holder has left`);
+  }
+  if ((counts['coupons-plugin-rule-held'] || 0) > 0) {
+    out.push(`  ${counts['coupons-plugin-rule-held']} coupon(s) carry a coupon-plugin rule Wix cannot hold and were created switched off (${counts['coupons-plugin-rule-held-redeemable'] || 0} still usable at source); the operator decides each at cutover`);
   }
   if ((counts['plans-source-total'] || 0) === 0) out.push('  no pricing plans found in the source (all plan-shaped sources hold zero rows)');
   if (currencyOutcome) out.push(`  currency: ${currencyOutcome}`);

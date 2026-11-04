@@ -79,6 +79,9 @@ function correlateBulkCreate(response, inputs) {
 }
 
 function classifyHttpError(error) {
+  // Refused by the client before sending: no status, and nothing reached Wix. Never transient
+  // (a retry is refused the same way) and never a possibly-applied write.
+  if (error && error.requestSent === false) return 'not_sent';
   const status = error && Number.isInteger(error.status) ? error.status : null;
   if (status === 401 || status === 403) return 'permission';
   if (status === 400 || status === 404 || status === 422) return 'schema';
@@ -287,10 +290,12 @@ async function applyRedirectPlan(options) {
       const kind = classifyHttpError(sendError);
       for (const rule of batch) await append(rule, 'failed', { reasonCodes: [`write_${kind}_error`], error: { status: sendError.status || null, code: kind } });
       summary.failed += batch.length;
-      summary.stopped = kind === 'permission' ? 'redirect_permission_denied' : 'redirect_request_rejected';
+      summary.stopped = kind === 'permission' ? 'redirect_permission_denied' : kind === 'not_sent' ? 'redirect_write_not_sent' : 'redirect_request_rejected';
       actions.push(action(summary.stopped, 'high', kind === 'permission'
         ? 'The destination site rejected the redirect write credential. Check that the app is installed on this site with Manage SEO Settings, then re-run apply.'
-        : 'The redirect service rejected the request shape. Re-check the current API schema before retrying.', 'no further redirects were written', candidates.length - offset));
+        : kind === 'not_sent'
+          ? `The migration client refused the redirect write before sending it (${sendError.code || 'refused'}); nothing was written. Re-run apply with a client authorized for redirect writes.`
+          : 'The redirect service rejected the request shape. Re-check the current API schema before retrying.', 'no further redirects were written', candidates.length - offset));
       break;
     }
     const correlated = response ? correlateBulkCreate(response, batch) : null;

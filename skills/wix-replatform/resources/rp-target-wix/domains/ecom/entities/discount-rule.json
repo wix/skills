@@ -15,6 +15,22 @@
     "stores/product",
     "stores/category"
   ],
+  "dependencyModes": {
+    "stores/product": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/product": [
+      "discounts.values[].specificItemsInfo.scopes[].catalogItemFilter.catalogItemIds[]",
+      "discounts.values[].buyXGetYInfo.customerBuys.scopes[].catalogItemFilter.catalogItemIds[]",
+      "discounts.values[].buyXGetYInfo.customerGets.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.subtotalRange.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.itemQuantityRange.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.and.triggers[].subtotalRange.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.and.triggers[].itemQuantityRange.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.or.triggers[].subtotalRange.scopes[].catalogItemFilter.catalogItemIds[]",
+      "trigger.or.triggers[].itemQuantityRange.scopes[].catalogItemFilter.catalogItemIds[]"
+    ]
+  },
   "blockedSourceDependencies": [
     {
       "sourceEntityRef": "plugin.woo-discount-rules.discount-rule-definition",

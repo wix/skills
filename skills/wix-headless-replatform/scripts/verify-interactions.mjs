@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { docsDir, parseArgs, readJson, writeJson } from "./lib/common.mjs";
-import { loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
+import { chromiumLaunchOptions, loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
 
 /**
  * The viewport this file verified at when it only ever checked one.
@@ -77,7 +77,7 @@ export async function verifyInteractionRuntime({ outputDir, cloneUrl, browserToo
   const targets = Array.isArray(viewports) && viewports.length ? viewports : [DEFAULT_VIEWPORT];
   const toolingContext = browserTooling || await resolveBrowserToolingContext({ startDir: process.cwd() });
   const playwright = await loadPlaywrightFromContext(toolingContext);
-  const browser = await playwright.chromium.launch({ headless: true });
+  const browser = await playwright.chromium.launch(chromiumLaunchOptions());
   try {
     const results = [];
     for (const viewport of targets) {

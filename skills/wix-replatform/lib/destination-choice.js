@@ -43,8 +43,9 @@ function resolveSiteTypePair({ siteType, businessType = undefined, businessTypeS
 }
 
 // Writes the pair into `decisions` (in memory). A different recorded pair is a conflict:
-// changing the answer never silently retargets the destination.
-function applySiteTypePair(decisions, pair, { rationale = null, timestamp = nowIso() } = {}) {
+// changing the answer never silently retargets the destination. `source` records who chose the
+// type (default user); the business type keeps its own source.
+function applySiteTypePair(decisions, pair, { rationale = null, timestamp = nowIso(), source = 'user' } = {}) {
   const existingType = getDecisionEntry(decisions, 'targetSiteType');
   if (existingType) {
     const existingBusiness = getDecisionEntry(decisions, 'targetSiteBusinessType');
@@ -53,7 +54,7 @@ function applySiteTypePair(decisions, pair, { rationale = null, timestamp = nowI
     if (same) return { changed: false };
     throw new Error(`site type conflicts with the recorded decision (${existingType.value}${existingBusiness ? `/${existingBusiness.value}` : ''}); a type change needs an explicit recovery decision`);
   }
-  updateDecisionObject(decisions, 'targetSiteType', pair.siteType, { source: 'user', rationale, timestamp });
+  updateDecisionObject(decisions, 'targetSiteType', pair.siteType, { source, rationale, timestamp });
   if (pair.siteType === 'harmony') {
     updateDecisionObject(decisions, 'targetSiteBusinessType', pair.businessType, {
       source: pair.businessTypeSource,

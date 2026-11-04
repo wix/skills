@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { assertPublicHttpUrl } from "./lib/url-safety.mjs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -45,6 +46,8 @@ async function main() {
   const args = parseArgs();
   const context = await resolveFrontendContext({ args });
   const requestedSourceUrl = context.sourceUrl;
+  // The source URL is caller-supplied: refuse loopback, private and internal hosts before touching the network.
+  await assertPublicHttpUrl(requestedSourceUrl);
   let sourceUrl = requestedSourceUrl;
   const scope = context.scope;
   const outputDir = context.outputDir;
@@ -136,7 +139,7 @@ async function main() {
   await writeFrontendAutomationState(outputDir, automationState);
 
   console.log("[site-clone] browser preflight started");
-  const browserTooling = await ensureBrowserExtractionReady({ startDir: process.cwd() });
+  const browserTooling = await ensureBrowserExtractionReady({ startDir: outputDir });
   console.log("[site-clone] browser preflight complete");
   const extractionWarnings = [];
 

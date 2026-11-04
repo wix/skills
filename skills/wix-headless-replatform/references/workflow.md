@@ -126,7 +126,8 @@ manifest, framework/runtime, license, accessibility, responsive, SSR, RTL, reduc
 dependency, and human-approval requirements. Resolve only declared axes, slots, states,
 and compositions, and record selection/rejection evidence. An eligible selection is copied
 from its pinned local source only after its exact source hash is verified; exact
-dependency versions, required Astro integration configuration, and
+dependency versions (merged across the page's selections and installed in one
+package-manager run), required Astro integration configuration, and
 `build/registry-installation.json` record the installation. The builder consumes the
 resolved selection and only the selected item's hash-pinned `contract.md`; registry
 internals and candidate material are not agent context.

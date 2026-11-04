@@ -163,10 +163,13 @@ async function refreshBlogHandoff(projectDir) {
   const file = path.join(projectDir, completion.COMPLETION_REPORT_FILE);
   if (!fs.existsSync(file)) return { report, status: 'completion-report-missing' };
   const existing = JSON.parse(fs.readFileSync(file, 'utf8'));
+  // Only the row this refresh adds is normalized. The report's existing rows were written by the
+  // completion writer, including producers whose severity it keeps as-is ("blocker"); validating
+  // them again here threw after the post was created (observed in a live run: the written
+  // post was journaled succeeded_unverified).
   const actions = (existing.operatorActions || []).filter(row => row.code !== SPOT_CHECK_ACTION.code);
   const spot = blogSpotCheckOperatorAction(report.verificationCoverage);
-  if (spot) actions.push(spot);
-  const normalized = actions.map(completion.normalizeOperatorAction);
+  const normalized = spot ? [...actions, completion.normalizeOperatorAction(spot, actions.length)] : actions;
   const updated = { ...existing, operatorActions: normalized };
   atomicJson(file, updated);
   const summaryFile = path.join(projectDir, completion.COMPLETION_SUMMARY_FILE);

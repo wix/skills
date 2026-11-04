@@ -14,6 +14,59 @@
   "dependsOn": [
     "crm/contact"
   ],
+  "operationContracts": {
+    "createMember": {
+      "endpoint": "POST /members/v1/members",
+      "aliases": [
+        "buildCreateMemberRequest",
+        "pacedCreateMember",
+        "ensureMember",
+        "ensureBlogFallbackAuthor",
+        "resolveBlogAuthorMemberId"
+      ],
+      "auxiliaryOperations": [
+        "updateContact"
+      ],
+      "dependencies": {
+        "crm/contact": {
+          "conditional": false,
+          "guardedPaths": [
+            "contactId"
+          ],
+          "creatingPaths": [
+            "loginEmail"
+          ],
+          "withinWrite": {
+            "completion": "synchronous",
+            "outcome": "creates-or-matches",
+            "identityOutput": "member.contactId",
+            "verification": "member-contact-read-back"
+          }
+        }
+      },
+      "secondaryOutputs": {
+        "crm/contact": {
+          "identityPath": "member.contactId",
+          "verification": "member-contact-read-back"
+        }
+      },
+      "recovery": {
+        "idempotent": false,
+        "reconciliationKeys": [
+          {
+            "path": "loginEmail",
+            "unique": true
+          }
+        ],
+        "indexLagMs": 5000
+      },
+      "evidence": [
+        "https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/create-member: when you create a member, a contact is also created; the response carries member.contactId.",
+        "LIVE 2026-09-06 (ensureMember, crm/contact pitfalls): Create Member reuses an existing contact matched by email or phone, so the outcome is create-or-match; new versus matched stays unknown unless evidence distinguishes it. Query Members by loginEmail lags about 5s while the duplicate check is immediate (409).",
+        "Ownership is verified by reading the member back (member.contactId equals the recorded contact) and reading that contact."
+      ]
+    }
+  },
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",
@@ -45,10 +98,10 @@
     "endpoint": "POST /members/v1/members",
     "writerId": "createMember",
     "verification": "verified-live",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
-  "safeModeContactFields": [
+  "contactFields": [
     {
       "kind": "email",
       "targetPath": "member.loginEmail",
@@ -74,9 +127,9 @@
   },
   "pitfalls": [
     {
-      "code": "safe-mode-email-domain-rejected",
-      "severity": "blocker",
-      "summary": "VERIFIED LIVE 2026-08-16: safe mode cannot import members at all today. `mockEmailForEntity` (rp-target-wix/lib/wix-writers.js) mints `replatform+<type>_<id>@wix.com`, and POST /members/v1/members rejects that domain with 400 INVALID_EMAIL_DOMAIN — so a safe-mode member import fails wholesale on the first record. The bug hid because Contacts V5 ACCEPTS @wix.com (existing test contacts use it), so only the Members surface trips it. A reserved-TLD address (RFC 2606 `.invalid`) was accepted by other surfaces in the same probe session and is the obvious candidate, but changing the safe-mode address format alters what gets written to a customer's site on every entity, not just members — it needs an explicit decision, not a silent lib patch. Until then: treat safe mode + member import as unsupported and say so in the plan rather than discovering it mid-run."
+      "code": "member-login-email-domain-rejected",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-08-16: POST /members/v1/members rejects a `@wix.com` loginEmail with 400 INVALID_EMAIL_DOMAIN, although Contacts V5 accepts that domain. Never mint a synthetic member email on @wix.com. The reserved `.invalid` TLD was accepted by other surfaces in the same probe session but is NOT live-verified for Create Member: the first synthetic author or fallback member a run creates must record whether Members accepted it."
     },
     {
       "code": "passwords-never-imported",

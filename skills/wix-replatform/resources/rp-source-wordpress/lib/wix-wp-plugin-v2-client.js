@@ -16,12 +16,12 @@
 //     ledger still needs its own masking/correlation call even though its
 //     schema is freely discoverable.
 
-const { createHash, createHmac, randomUUID, timingSafeEqual } = require('node:crypto');
+const { createHash } = require('node:crypto');
 
 const SHARED_CORE_TABLES_REQUIRING_WHERE = new Set(['posts', 'terms', 'term_taxonomy', 'term_relationships', 'comments']);
 const MAX_IN_VALUES = 100;
 const MAX_WHERE_CONDITIONS = 20;
-const HANDLER_VERSION = '1.3.0'; // 1.3.0: signed migration-key transport plus strict response-envelope validation.
+const HANDLER_VERSION = '1.4.0'; // 1.4.0: Application Password path only; the signed migration-key transport is removed.
 
 function bodyOf(response) {
   return response && response.data !== undefined ? response.data : response;
@@ -157,13 +157,8 @@ function guardedValueColumns(pairOrAccess) {
  * see modules/class-wmh2-structure-discovery.php's own contract. Throws on any
  * malformed/incomplete response rather than returning a partial result silently.
  *
- * Two credential modes, matching the plugin's own two route registrations for
- * `/structure`: the default is the WordPress Application Password path (GET, via the
- * caller-supplied `httpClient`). Pass `auth: { type: 'migration-key', migrationKey, siteId,
- * migrationId, timeoutMs }` to use the signed-JWT path instead -- required on a source site
- * with no WooCommerce, where the Application Password routes are `manage_woocommerce`-gated
- * and therefore unusable by any user at all (see "Signed migration-key path" below). That
- * mode calls the plugin directly over `fetch` and does not use `httpClient`.
+ * WordPress Application Password path only (GET, via the caller-supplied `httpClient`); the
+ * plugin accepts a user with `manage_woocommerce` or `manage_options`. 
  */
 async function discoverStructure({ httpClient, siteBaseUrl, auth, table } = {}) {
   if (!siteBaseUrl || typeof siteBaseUrl !== 'string') throw new Error('siteBaseUrl is required');
@@ -171,30 +166,13 @@ async function discoverStructure({ httpClient, siteBaseUrl, auth, table } = {}) 
     throw new Error('table is required and must be a bare identifier (^[A-Za-z0-9_]+$)');
   }
 
-  let body;
-  if (auth && auth.type === 'migration-key') {
-    if (!auth.migrationKey || typeof auth.migrationKey !== 'string') {
-      throw new Error('auth.migrationKey is required for the migration-key credential path');
-    }
-    body = await callSignedOperation({
-      siteBaseUrl,
-      migrationKey: auth.migrationKey,
-      operation: 'discover-structure',
-      route: '/wix-wp-plugin/v2/structure',
-      siteId: auth.siteId || DEFAULT_MIGRATION_KEY_SITE_ID,
-      migrationId: auth.migrationId || randomUUID(),
-      operationClaims: { table },
-      timeoutMs: auth.timeoutMs,
-    });
-  } else {
-    if (!httpClient || typeof httpClient.get !== 'function') throw new Error('httpClient.get is required');
-    const base = siteBaseUrl.replace(/\/$/, '');
-    const response = await httpClient.get(`${base}/wp-json/wix-wp-plugin/v2/structure`, {
-      params: { table },
-      auth,
-    });
-    body = bodyOf(response);
-  }
+  if (!httpClient || typeof httpClient.get !== 'function') throw new Error('httpClient.get is required');
+  const base = siteBaseUrl.replace(/\/$/, '');
+  const response = await httpClient.get(`${base}/wp-json/wix-wp-plugin/v2/structure`, {
+    params: { table },
+    auth,
+  });
+  const body = bodyOf(response);
   if (!body || body.table !== table || !Array.isArray(body.columns)) {
     throw new Error(`table ${table}: response did not match discover-structure's response-payload contract`);
   }
@@ -215,16 +193,8 @@ async function discoverStructure({ httpClient, siteBaseUrl, auth, table } = {}) 
  * live DESCRIBE on every request, so duplicating that here would only create a second copy
  * to keep in sync.
  *
- * Two credential modes, matching the plugin's own two route registrations: the default is
- * the WordPress Application Password path (POST /query/admin-key, plain JSON, via the
- * caller-supplied `httpClient`). Pass `auth: { type: 'migration-key', migrationKey, siteId,
- * migrationId, timeoutMs }` to use the signed-JWT path instead (POST /query, no `/admin-key`
- * suffix, JWT body) -- required on a source site with no WooCommerce, where the Application
- * Password routes are `manage_woocommerce`-gated and therefore unusable by any user at all.
- * That mode calls the plugin directly over `fetch` and does not use `httpClient`; it also
- * requires an integer `cursorPaging.limit` on every request (the admin-key path lets the
- * server default it), so an omitted `limit` falls back to this module's mirror of
- * `WMH2_Contract::DEFAULT_LIMIT`.
+ * WordPress Application Password path only (POST /query/admin-key, plain JSON, via the
+ * caller-supplied `httpClient`). An omitted `limit` lets the server default it.
  *
  * `onSourceRead` is the telemetry hook: called once per successful read with the
  * counts for THAT read, for the caller to pass to rp-telemetry's `sourceRead()`. Optional, so
@@ -236,34 +206,16 @@ async function queryStructure({ httpClient, siteBaseUrl, auth, structureRequest,
     throw new Error('structureRequest with a table is required');
   }
 
-  let body;
-  if (auth && auth.type === 'migration-key') {
-    if (!auth.migrationKey || typeof auth.migrationKey !== 'string') {
-      throw new Error('auth.migrationKey is required for the migration-key credential path');
-    }
-    const cursorPaging = { cursor: cursor === undefined ? null : cursor, limit: limit === undefined ? DEFAULT_QUERY_LIMIT : limit };
-    body = await callSignedOperation({
-      siteBaseUrl,
-      migrationKey: auth.migrationKey,
-      operation: 'query-structure',
-      route: '/wix-wp-plugin/v2/query',
-      siteId: auth.siteId || DEFAULT_MIGRATION_KEY_SITE_ID,
-      migrationId: auth.migrationId || randomUUID(),
-      operationClaims: { structureRequest, cursorPaging },
-      timeoutMs: auth.timeoutMs,
-    });
-  } else {
-    if (!httpClient || typeof httpClient.post !== 'function') throw new Error('httpClient.post is required');
-    const base = siteBaseUrl.replace(/\/$/, '');
-    const requestBody = { structureRequest };
-    if (cursor !== undefined) requestBody.cursor = cursor;
-    if (limit !== undefined) requestBody.limit = limit;
-    const response = await httpClient.post(`${base}/wp-json/wix-wp-plugin/v2/query/admin-key`, {
-      body: JSON.stringify(requestBody),
-      auth,
-    });
-    body = bodyOf(response);
-  }
+  if (!httpClient || typeof httpClient.post !== 'function') throw new Error('httpClient.post is required');
+  const base = siteBaseUrl.replace(/\/$/, '');
+  const requestBody = { structureRequest };
+  if (cursor !== undefined) requestBody.cursor = cursor;
+  if (limit !== undefined) requestBody.limit = limit;
+  const response = await httpClient.post(`${base}/wp-json/wix-wp-plugin/v2/query/admin-key`, {
+    body: JSON.stringify(requestBody),
+    auth,
+  });
+  const body = bodyOf(response);
   if (!body || !Array.isArray(body.rows) || !body.pagingMetadata) {
     throw new Error(`table ${structureRequest.table}: response did not match query-structure's response-payload contract`);
   }
@@ -284,186 +236,6 @@ async function queryStructure({ httpClient, siteBaseUrl, auth, structureRequest,
   return { rows: body.rows, pagingMetadata, redactionMetadata, eavAccess };
 }
 
-// --- Signed migration-key path ("signed request/response" model, contract version 2) ---------
-//
-// A WordPress site with no `wc/*` REST namespace has no `manage_woocommerce` capability for
-// ANYONE, including an administrator -- the Application Password routes above are then
-// structurally unusable, for every user on that site, not just a permissions edge case. The
-// signed migration-key path is the only credential the plugin's own connection page ever
-// issues that does not depend on that capability: `WMH2_Request_Auth::verify_operation()`
-// checks a JWT signature and request-binding claims, never a WordPress capability.
-//
-// This is a DIFFERENT wire shape from the Application Password routes above, not a header
-// swap on the same request: POST only (both operations), a distinct un-suffixed route
-// (`/structure`, `/query` -- never `/query/admin-key`), `Content-Type: application/jwt` with
-// the compact JWT as the entire raw body (never a JSON envelope), and a signed JWT string
-// back rather than a plain JSON object. That is why this path calls `fetch` directly instead
-// of going through the caller-supplied `httpClient` the Application Password functions take --
-// an httpClient built for "send this JSON, get back that JSON" has no seam for "the body IS
-// the credential-bearing artifact". `plugins/wix-wp-plugin-v2/examples/jwt-smoke-test.mjs` is
-// the reference implementation this mirrors; reuse its claim set and response validation
-// rather than inventing a second one that can drift from the plugin's own contract test
-// (`tests/source-wordpress/wix-wp-plugin-v2-jwt-contract-v2-test.js`).
-
-const JWT_REQUEST_ISSUER = 'wix-siteImportService';
-const JWT_REQUEST_AUDIENCE = 'wix-wp-plugin-v2';
-const JWT_RESPONSE_ISSUER = 'wix-wp-plugin-v2';
-const JWT_RESPONSE_AUDIENCE = 'wix-siteImportService';
-const JWT_CONTRACT_VERSION = 2;
-const JWT_REQUEST_LIFETIME_SECONDS = 60; // must stay under the plugin's MAX_REQUEST_TOKEN_LIFETIME_SECONDS (120)
-const DEFAULT_MIGRATION_KEY_SITE_ID = 'rp-source-wordpress';
-const DEFAULT_QUERY_LIMIT = 50; // mirrors WMH2_Contract::DEFAULT_LIMIT; cursorPaging.limit is a required int on this path
-const DEFAULT_SIGNED_TIMEOUT_MS = 60000;
-
-function base64url(value) {
-  return (Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8')).toString('base64url');
-}
-
-function base64urlDecode(value) {
-  return Buffer.from(value, 'base64url');
-}
-
-/** Signs one operation's claims with the migration key. Returns the compact JWT plus the claims, so the caller can bind the response back to this exact request via `jti`. */
-function signMigrationKeyRequest({ migrationKey, operation, route, siteId, migrationId, operationClaims }) {
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    iss: JWT_REQUEST_ISSUER,
-    aud: JWT_REQUEST_AUDIENCE,
-    site_id: siteId,
-    migration_id: migrationId,
-    operation,
-    contract_version: JWT_CONTRACT_VERSION,
-    method: 'POST',
-    route,
-    ...operationClaims,
-    iat: now,
-    nbf: now,
-    exp: now + JWT_REQUEST_LIFETIME_SECONDS,
-    jti: randomUUID(),
-  };
-  const signingInput = [{ alg: 'HS256', typ: 'JWT' }, claims].map((part) => base64url(JSON.stringify(part))).join('.');
-  const signature = createHmac('sha256', migrationKey).update(signingInput).digest();
-  return { token: `${signingInput}.${base64url(signature)}`, requestClaims: claims };
-}
-
-/** Verifies a signed response's signature and every request-binding claim before trusting its payload. Never returns an unverified payload. */
-function verifyMigrationKeyResponse({ migrationKey, jwt, requestClaims, operation, siteId, migrationId }) {
-  const parts = String(jwt).split('.');
-  if (parts.length !== 3) {
-    throw new Error(`${operation}: response is not a compact three-part JWT`);
-  }
-  const [encodedHeader, encodedPayload, encodedSignature] = parts;
-  const header = JSON.parse(base64urlDecode(encodedHeader).toString('utf8'));
-  if (header.alg !== 'HS256') {
-    throw new Error(`${operation}: unexpected response JWT algorithm ${header.alg}`);
-  }
-  const expectedSignature = createHmac('sha256', migrationKey).update(`${encodedHeader}.${encodedPayload}`).digest();
-  const actualSignature = base64urlDecode(encodedSignature);
-  if (expectedSignature.length !== actualSignature.length || !timingSafeEqual(expectedSignature, actualSignature)) {
-    throw new Error(`${operation}: response JWT signature is invalid`);
-  }
-  const claims = JSON.parse(base64urlDecode(encodedPayload).toString('utf8'));
-  if (!claims || typeof claims !== 'object' || Array.isArray(claims)) {
-    throw new Error(`${operation}: response JWT claims must be an object`);
-  }
-  const now = Math.floor(Date.now() / 1000);
-  const requiredClaims = [
-    'iss', 'aud', 'site_id', 'migration_id', 'request_jti', 'operation',
-    'contract_version', 'snapshot_id', 'payload', 'iat', 'exp', 'jti',
-  ];
-  const allowedClaims = new Set([...requiredClaims, 'wp_installation_id']);
-  const unknownClaims = Object.keys(claims).filter((name) => !allowedClaims.has(name));
-  if (unknownClaims.length > 0) {
-    throw new Error(`${operation}: response JWT contains unknown claim(s): ${unknownClaims.join(', ')}`);
-  }
-  const missingClaims = requiredClaims.filter((name) => !Object.prototype.hasOwnProperty.call(claims, name));
-  if (missingClaims.length > 0) {
-    throw new Error(`${operation}: response JWT is missing required claim(s): ${missingClaims.join(', ')}`);
-  }
-  const expectedClaims = {
-    iss: JWT_RESPONSE_ISSUER,
-    aud: JWT_RESPONSE_AUDIENCE,
-    site_id: siteId,
-    migration_id: migrationId,
-    request_jti: requestClaims.jti,
-    operation,
-    contract_version: JWT_CONTRACT_VERSION,
-  };
-  for (const [name, value] of Object.entries(expectedClaims)) {
-    if (claims[name] !== value) {
-      throw new Error(`${operation}: unexpected response claim ${name} (expected ${JSON.stringify(value)}, got ${JSON.stringify(claims[name])})`);
-    }
-  }
-  if (!Number.isInteger(claims.iat)) {
-    throw new Error(`${operation}: response JWT has no integer iat claim`);
-  }
-  if (!Number.isInteger(claims.exp) || claims.exp < now) {
-    throw new Error(`${operation}: response JWT is expired or has no integer exp claim`);
-  }
-  for (const name of ['snapshot_id', 'jti']) {
-    if (typeof claims[name] !== 'string' || claims[name] === '') {
-      throw new Error(`${operation}: response JWT claim ${name} must be a non-empty string`);
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(claims, 'wp_installation_id')
-    && (typeof claims.wp_installation_id !== 'string' || claims.wp_installation_id === '')) {
-    throw new Error(`${operation}: response JWT claim wp_installation_id must be a non-empty string when present`);
-  }
-  if (!claims.payload || typeof claims.payload !== 'object' || Array.isArray(claims.payload)) {
-    throw new Error(`${operation}: response JWT has no object payload claim`);
-  }
-  return claims.payload;
-}
-
-/** POSTs one signed operation and returns its verified payload. Refuses redirects: a 301/302 can rewrite the physical POST into a GET, which the plugin's own method binding then correctly rejects -- surfacing that as a redirect error is more actionable than the resulting 400. */
-async function callSignedOperation({ siteBaseUrl, migrationKey, operation, route, siteId, migrationId, operationClaims, timeoutMs }) {
-  const base = siteBaseUrl.replace(/\/$/, '');
-  const { token, requestClaims } = signMigrationKeyRequest({ migrationKey, operation, route, siteId, migrationId, operationClaims });
-  const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_SIGNED_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
-  let response;
-  try {
-    response = await fetch(`${base}/wp-json${route}`, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { accept: 'application/json', 'content-type': 'application/jwt' },
-      body: token,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-  if (response.status >= 300 && response.status < 400) {
-    throw new Error(`${operation}: redirected to ${response.headers.get('location') || '(unknown location)'} -- use the site's canonical HTTPS URL`);
-  }
-  const responseText = await response.text();
-  if (!response.ok) {
-    const error = new Error(`${operation}: HTTP ${response.status}: ${responseText}`);
-    error.status = response.status;
-    throw error;
-  }
-  let responseJwt;
-  try {
-    responseJwt = JSON.parse(responseText);
-  } catch {
-    responseJwt = responseText;
-  }
-  if (typeof responseJwt !== 'string') {
-    throw new Error(`${operation}: response body is not a signed JWT string`);
-  }
-  return verifyMigrationKeyResponse({ migrationKey, jwt: responseJwt, requestClaims, operation, siteId, migrationId });
-}
-
-/**
- * The per-read telemetry counts, derived HERE because this client is the single point every
- * bridge read passes through -- deriving them at any call site would mean every future caller
- * has to remember, and the one that forgets makes the run's total quietly wrong.
- *
- * Note what is NOT in here: key names. A run's own artifacts hold those. `redacted_values` is
- * the field worth aggregating across runs, because a non-zero total means some site keeps a
- * credential where nobody expected one.
- */
 function sourceReadCounts(table, eavAccess, redactionMetadata) {
   const counts = { redacted_values: redactionMetadata.redactedValueCount };
   const pairs = eavAccessPairs(eavAccess);
@@ -1070,5 +842,4 @@ module.exports = {
   EAV_MANIFEST_REQUIRED_FIELDS,
   eavReadPlanBatches,
   reconcileEavReadPlan, HANDLER_VERSION, discoverStructure, queryStructure, guardedValueColumns, eavAccessPairs, sourceReadCounts, recordTierRefusal, violatesTierRule,
-  signMigrationKeyRequest, verifyMigrationKeyResponse,
 };

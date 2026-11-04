@@ -142,6 +142,8 @@ Create and modify CMS collection structures. Covers listing collections, creatin
 
 ## Contacts
 
+- **Site members** (is someone a member, list or count members, approve a join request, block or unblock a member, change the name a member shows on the site, add a member) → use [Find and Manage Site Members](references/contacts/find-and-manage-site-members.md). A contact is not always a member: for people who are not members, use the contacts recipes below.
+
 ### [Bulk Delete Contacts](references/contacts/bulk-delete-contacts.md)
 Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
 
@@ -156,6 +158,9 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 
 ### [Find Contacts](references/contacts/find-contacts.md)
 "Finds a site's contacts and answers questions about them: one contact by name, email or phone, contacts in a city, state or country, contacts with a label, birthdays, site members or email subscribers among the contacts, how many contacts match, every contact for an export, and possible duplicate contacts. Covers which contact fields can be filtered, how name matching works, paging through every result, and which fields the answer reads. Use when the user asks to find, look up, list, count or export contacts, wants a contact's details such as their address, or needs a contact's ID for another task such as their bookings or orders."
+
+### [Find and Manage Site Members](references/contacts/find-and-manage-site-members.md)
+"Finds a site's members and manages their access: one member by login email or name, the list of members with their emails, status and join dates, how many members a site has, pending, approved and blocked members, approving a pending member, blocking or unblocking a member, adding a member, and changing the name a member shows on the site. Covers which member fields can be filtered, the fieldsets that return email and status, and the member ID other tasks need. Use when the user asks whether someone is a member, wants to see or count their site members, approve a join request, block or unblock someone, add a member, or needs a member's ID for a task other than writing a blog post."
 
 ### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
 "Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
@@ -176,11 +181,14 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 ### [Analyse Domain](references/domains/analyse-domain.md)
 Report on the domains in the user's own Wix account — what kind a domain is, which site it is on, when it expires and whether it renews, its add-ons, DNS propagation and SSL state — for one domain, or by listing and filtering the account's domains.
 
+### [Assign Domain](references/domains/assign-domain.md)
+Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
+
 ### [Check Domain Availability](references/domains/check-domain-availability.md)
 Answer whether a domain name, or several at once, is available to register through Wix — a stand-alone "is example.com available?" question with no request to buy or connect.
 
 ### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
-Buy a domain through Wix or connect one the user already owns — intent, suggestions, site resolution, registration, privacy, cart and checkout, plus the connect path including ownership lookup and binding a domain to a site. Availability checks are not done here: they all use Check Domain Availability.
+Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout — or bring a domain registered elsewhere into the Wix account with the dashboard connect link, once Assign Domain finds it is not there yet. A request to connect a domain the user owns to their site starts at Assign Domain. Availability checks are not done here: they all use Check Domain Availability.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
@@ -393,10 +401,13 @@ Lists, creates and renames the categories of a Wix site's Online Programs, shows
 ## Pricing Plans
 
 ### [Create and Update Pricing Plans](references/pricing-plans/create-and-update-pricing-plans.md)
-Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+"Creates, finds and changes Wix Pricing Plans with the Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks and plan visibility; finding a plan by name and listing the plans a site sells; and renaming, repricing, hiding and archiving a plan."
 
 ### [Pricing Plans Bookings Integration](references/pricing-plans/pricing-plans-bookings-integration.md)
 Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.
+
+### [Find and Manage Pricing Plan Orders](references/pricing-plans/find-and-manage-pricing-plan-orders.md)
+"Finds and manages the orders of a site's Wix Pricing Plans: the purchases and subscriptions that buyers hold. Covers who bought a plan and when, new purchases in a period, how many active subscribers a plan has, memberships that end or renew soon, the names and emails of current and former buyers, and changes to an order: pausing, resuming, cancelling, extending it, marking an offline order as paid, and recording a manual (offline) order for a member. Use when the user asks about their plan subscribers or members' subscriptions, wants a report or an export of plan purchases, or wants to change or add a plan order."
 
 ### [Pricing Plans Dashboard Navigation](references/pricing-plans/pricing-plans-dashboard-navigation.md)
 "Builds direct links to Wix Pricing Plans dashboard pages on manage.wix.com — plans list, create a plan, edit a plan, record a manual order, and settings. Pairs each main Pricing Plans entity (plan, order) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
@@ -491,13 +502,13 @@ Create products using the Catalog V1 Products API. Use this recipe when the site
 Mandatory first recipe for every Wix Stores Catalog V3 create-product request. Before any mutation, require an explicit name and price for every product; an absent price is never 0. If no product is identified, offer both image-upload and text-description paths and stop. If name or price is missing, ask or offer a suggestion and stop. When both are present, create from the supplied details without requiring optional enrichment. Covers single/bulk creation, inventory, physical/digital products, images, options, variants, SKUs, and validation.
 
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
-Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering (including by price), sorting, and paging.
+Find, search, query, and list products from a Wix Store using Catalog V3 Search Products, Query Products, Get Product, and Query Inventory Items: by name, SKU, option choice, stock status, or price, with sorting and paging; reading one product's variants and details; and listing products with their variant count and stock.
 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
 Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
 
-### [Update Product Pre-Order (Catalog V3)](references/stores/update-product-pre-order.md)
-Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
+### [Update Product Stock and Pre-Order (Catalog V3)](references/stores/update-product-stock-and-pre-order.md)
+Changes the stock and pre-order settings of existing Catalog V3 product variants through their inventory items. Covers finding a variant's inventory item by product name or SKU, setting a quantity, adding or removing units, marking a variant in or out of stock, starting or stopping quantity tracking, and enabling or disabling pre-orders with a message and a limit.
 
 ### [Update Product with Options (Catalog V3)](references/stores/update-product-with-options.md)
 Start here for existing Catalog V3 product updates, including digital products that fail at add-to-cart with ITEM_NOT_FOUND_IN_CATALOG. Includes name lookup, Get Product, and PATCH in one flow, plus importing a supplied PDF and attaching it to the existing variant. Covers options, variant prices and SKUs, variant shipping weight in the site's weight unit, product visibility (hide/unhide through `visible`, never delete), description edits that preserve Rich Content, and revision-based updates. Read another recipe only for a field or operation this flow does not cover.

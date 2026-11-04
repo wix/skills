@@ -82,6 +82,7 @@ async function discoveredSetStatusFreshness(projectDir, status) {
     staleInputs
   };
 }
+const nonEmpty = value => typeof value === 'string' && value.trim().length > 0;
 function deriveFinalStatus(backendStatus, statusReport) {
   return backendStatus === 'complete' && statusReport?.openCount > 0 ? 'complete_with_warnings' : backendStatus;
 }
@@ -90,6 +91,21 @@ function labelFor(row) {
 }
 function actionFor(projectDir, row, outcome, count) {
   if (CLOSED.has(outcome) || (outcome === 'excluded' || outcome === 'unsupported') && row.ownerApproved) return null;
+  if (outcome === 'manual-open' && row.cutoverTask && nonEmpty(row.cutoverTask.task)) {
+    // A named no-data cutover task (cutover-task-only.json): the signed task, its
+    // steps and its done-when evidence, in the same action fields.
+    const steps = (row.manualSteps && Array.isArray(row.manualSteps.steps) ? row.manualSteps.steps : [])
+      .map(step => step && step.text).filter(nonEmpty);
+    return {
+      owner: 'Cutover Operator',
+      action: [`${row.cutoverTask.task}.`, ...steps.map((text, index) => `${index + 1}. ${text}`)].join(' '),
+      timing: 'before-dns',
+      consequence: `${labelFor(row)} needs this done on Wix before launch`,
+      affectedCount: count,
+      resolvedWhen: nonEmpty(row.cutoverTask.doneWhen) ? row.cutoverTask.doneWhen : 'A merchant or Cutover Operator records completion evidence',
+      importOperatorPrompt: null
+    };
+  }
   if (outcome === 'manual-open') return {
     owner: 'Cutover Operator',
     action: 'Complete the recorded manual steps, then record resolution evidence',

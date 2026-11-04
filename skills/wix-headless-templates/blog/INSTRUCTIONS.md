@@ -275,8 +275,9 @@ tags from `post.seoTitle` and `post.seoDescription`.
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
-import the modules from the site's `js/wix/` folder and write the rendering on the stores;
-`static.md` gives the feed, the post page with likes and comments as code, with the routes, the rules and the seed.
+import the layer from the site's `js/wix/` folder and write every element on the stores;
+`static.md` shows how to drive each store for the feed, the post page with likes and comments,
+with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

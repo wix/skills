@@ -21,7 +21,7 @@ const VERIFICATIONS = new Set(['verified-live', 'docs', 'source-review', 'intern
 const RELIABILITY = new Set(['reliable', 'partially-reliable', 'unreliable', 'unknown']);
 const SURVEY_VERDICTS = new Set(['claimed', 'not-importable', 'not-relevant', 'gap', 'unreviewed']);
 const NATIVE_CLASSIFICATIONS = new Set(['native', 'native-plus-cms']);
-const SAFE_MODE_CONTACT_KINDS = new Set(['email', 'phone']);
+const CONTACT_FIELD_KINDS = new Set(['email', 'phone']);
 const BLOCKED_DEPENDENCY_DEGRADATIONS = new Set(['warning', 'deferred']);
 const MANUAL_STEP_ACTORS = new Set(['merchant', 'external', 'wix-automatable']);
 const WRITER_IDS = new Set(Object.keys(wixWriters).filter((name) => typeof wixWriters[name] === 'function'));
@@ -66,6 +66,18 @@ function loadDomain(domainsDir, domain) {
 
 function loadEntity(domainsDir, domain, entity) {
   return readJson(path.join(domainsDir, domain, 'entities', `${entity}.json`));
+}
+
+// Builder hold codes the toolkit retired (a shipped route now writes those records), from every
+// entity's `retiredHoldCodes` ({ code: remediation }). A builder or generated importer that still
+// emits one is refused before import (read-back inventory, import-contract-verify).
+function retiredHoldCodes(domainsDir = knowledgeRoot()) {
+  const codes = {};
+  for (const domain of listDomainDirs(domainsDir)) for (const file of listEntityFiles(path.join(domainsDir, domain))) {
+    const entity = loadEntity(domainsDir, domain, file.slice(0, -5));
+    for (const [code, remediation] of Object.entries(entity.retiredHoldCodes || {})) codes[code] = { ref: `${domain}/${entity.entity}`, remediation };
+  }
+  return codes;
 }
 
 function generateIndex(domainsDir) {
@@ -145,6 +157,7 @@ function validateKnowledge(domainsDir) {
     errors.push('domains/schema.json is missing');
   }
 
+  const alternates = [], defaults = new Map();
   for (const domain of listDomainDirs(domainsDir)) {
     const domainFile = path.join(domainsDir, domain, 'domain.json');
     if (!fs.existsSync(domainFile)) {
@@ -203,9 +216,16 @@ function validateKnowledge(domainsDir) {
       const entity = loadEntity(domainsDir, domain, entityId);
       const label = `${domain}/entities/${fileName}`;
       validateEntity(entity, domain, entityId, label, errors);
+      for (const [index, alternate] of (entity.alternateWrites || []).entries()) if (alternate && typeof alternate.writerId === 'string') alternates.push({ label: `${label}: alternateWrites[${index}]`, ref: `${domain}/${entityId}`, writerId: alternate.writerId });
+      if (entity.preferredWrite && entity.preferredWrite.writerId) defaults.set(entity.preferredWrite.writerId, `${domain}/${entityId}`);
     }
 
     validateDocsSurvey(domainsDir, domain, domainJson, errors);
+  }
+
+  for (const row of alternates) {
+    const owner = defaults.get(row.writerId);
+    if (owner && owner !== row.ref) errors.push(`${row.label}: writerId ${row.writerId} is the default writer of ${owner}`);
   }
 
   if (!index) {
@@ -283,6 +303,40 @@ function validateDependsOn(domainsDir, errors) {
         if (mode !== 'per-record' || !entity.dependsOn.includes(ref) || !Array.isArray(entity.dependencyReferenceFields?.[ref]) || !entity.dependencyReferenceFields[ref].length) errors.push(`dependency_mode_invalid:${domain}/${entityId}:${ref}`);
         const [producerDomain, producerEntity] = ref.split('/');
         if (fs.existsSync(path.join(domainsDir, producerDomain || '', 'entities', `${producerEntity}.json`)) && loadEntity(domainsDir, producerDomain, producerEntity).target?.classification === 'setup-config') errors.push(`dependency_mode_invalid:${domain}/${entityId}:${ref}`);
+      }
+      // `omit` writes the record without a reference whose own dependency record failed for good
+      // (a product image); it needs a per-record edge, which names the reference paths.
+      for (const [ref, action] of Object.entries(entity.dependencyFailureActions || {})) {
+        if (action !== 'omit' || entity.dependencyModes?.[ref] !== 'per-record') errors.push(`dependency_failure_action_invalid:${domain}/${entityId}:${ref}`);
+      }
+      // The record's own writer reports an omitted reference as this cutover item (a site share
+      // image); the generic Import Operator blocker is then not raised for it.
+      for (const [ref, code] of Object.entries(entity.dependencyFailureCutoverItems || {})) {
+        if (entity.dependencyFailureActions?.[ref] !== 'omit' || typeof code !== 'string' || !/^[a-z0-9-]+$/.test(code)) errors.push(`dependency_failure_cutover_item_invalid:${domain}/${entityId}:${ref}`);
+      }
+      for (const [code, remediation] of Object.entries(entity.retiredHoldCodes || {})) {
+        if (!/^[a-z0-9-]+$/.test(code) || typeof remediation !== 'string' || !remediation.trim()) errors.push(`retired_hold_code_invalid:${domain}/${entityId}:${code}`);
+      }
+      // A per-record edge whose shipped manifests still say task-complete; those stay valid.
+      for (const ref of entity.legacyTaskCompleteEdges || []) if (entity.dependencyModes?.[ref] !== 'per-record') errors.push(`legacy_task_complete_edge_invalid:${domain}/${entityId}:${ref}`);
+      // A child entity (a product's variants) is produced by its parent's write: the parent must
+      // declare it in an operation contract's childOutputs, and every childOutputs entry must name
+      // an entity that declares this parent.
+      if (entity.childOf !== undefined) {
+        const [parentDomain, parentEntity] = String(entity.childOf).split('/');
+        const parent = parentDomain && parentEntity && fs.existsSync(path.join(domainsDir, parentDomain, 'entities', `${parentEntity}.json`)) ? loadEntity(domainsDir, parentDomain, parentEntity) : null;
+        if (!parent || !Object.values(parent.operationContracts || {}).some(contract => contract.childOutputs?.[`${domain}/${entityId}`])) errors.push(`${label}: childOf ${entity.childOf} must resolve to an entity whose operation contract declares childOutputs["${domain}/${entityId}"]`);
+      }
+      // An entity whose writer sends its requests as another entity (an order's payment, refund or
+      // invoice, marked ecom/order) is written inside that entity's import task, never its own.
+      if (entity.writtenInTaskOf !== undefined) {
+        const [hostDomain, hostEntity] = String(entity.writtenInTaskOf).split('/');
+        if (!hostDomain || !hostEntity || entity.writtenInTaskOf === `${domain}/${entityId}` || !entity.dependsOn.includes(entity.writtenInTaskOf) || !fs.existsSync(path.join(domainsDir, hostDomain, 'entities', `${hostEntity}.json`))) errors.push(`${label}: writtenInTaskOf must name another entity this one dependsOn`);
+      }
+      for (const [operation, contract] of Object.entries(entity.operationContracts || {})) for (const childRef of Object.keys(contract.childOutputs || {})) {
+        const [childDomain, childEntity] = childRef.split('/');
+        const child = childDomain && childEntity && fs.existsSync(path.join(domainsDir, childDomain, 'entities', `${childEntity}.json`)) ? loadEntity(domainsDir, childDomain, childEntity) : null;
+        if (!child || child.childOf !== `${domain}/${entityId}`) errors.push(`${label}: operationContracts.${operation}.childOutputs["${childRef}"] must name an entity with childOf "${domain}/${entityId}"`);
       }
       for (const dep of entity.dependsOn) {
         const segments = String(dep).split('/');
@@ -515,8 +569,18 @@ function validateEntity(entity, domain, entityId, label, errors) {
   if (!VERIFICATIONS.has(entity.preferredWrite && entity.preferredWrite.verification)) errors.push(`${label}: invalid preferredWrite.verification`);
   if (!RELIABILITY.has(entity.reliability && entity.reliability.status)) errors.push(`${label}: invalid reliability.status`);
   if (!Array.isArray(entity.reliability && entity.reliability.flags)) errors.push(`${label}: reliability.flags must be an array`);
+  validateImportSafe(entity, label, errors);
   if (entity.preferredWrite && entity.preferredWrite.writerId !== null && !WRITER_IDS.has(entity.preferredWrite.writerId)) {
     errors.push(`${label}: writerId ${entity.preferredWrite.writerId} is not exported by wix-writers.js`);
+  }
+  // An alternate writer is a writer the gate may accept, so it is checked like the default one.
+  for (const [index, alternate] of (entity.alternateWrites || []).entries()) {
+    if (!alternate || typeof alternate.writerId !== 'string') continue;
+    const at = `${label}: alternateWrites[${index}]`;
+    if (!WRITER_IDS.has(alternate.writerId)) errors.push(`${at}: writerId ${alternate.writerId} is not exported by wix-writers.js`);
+    if (typeof alternate.importSafe !== 'boolean') errors.push(`${at}: importSafe must be boolean when writerId is set`);
+    if (!VERIFICATIONS.has(alternate.verification)) errors.push(`${at}: invalid verification`);
+    if (entity.preferredWrite && alternate.writerId === entity.preferredWrite.writerId) errors.push(`${at}: writerId repeats preferredWrite.writerId`);
   }
   if (entity.target && entity.target.classification !== 'cms' && entity.target.idPolicy === 'server-assigned' && entity.target.crosswalkRequired !== true) {
     errors.push(`${label}: server-assigned non-CMS targets must require crosswalk`);
@@ -529,7 +593,12 @@ function validateEntity(entity, domain, entityId, label, errors) {
   } else if (entity.manualSteps !== undefined) {
     errors.push(`${label}: manualSteps is only allowed when target.classification is manual-mapping`);
   }
-  validateSafeModeContactFields(entity.safeModeContactFields, label, errors);
+  errors.push(...require('../../../lib/mapping-target-rules.js').validateMappingRules(entity.mappingRules, `${domain}/${entityId}`).map(e=>`${label}: ${e}`));
+  validateContactFields(entity.contactFields, label, errors);
+  if (entity.safeModeContactFields !== undefined) errors.push(`${label}: safeModeContactFields was renamed contactFields`);
+  for (const [name, contract] of Object.entries(entity.operationContracts || {})) {
+    if (contract && contract.unsupportedWhen !== undefined) errors.push(`${label}: operationContracts.${name}.unsupportedWhen was removed with safe mode`);
+  }
   validateBlockedSourceDependencies(entity, label, errors);
   validateEvidence(entity.evidence || [], label, errors);
 }
@@ -566,6 +635,18 @@ function validateBlockedSourceDependencies(entity, label, errors) {
   });
 }
 
+// importSafe: true unless the writer has a non-notification side effect site mute cannot cover
+// (e.g. moving stock or money). A false value must say why, so the import gate can tell the agent.
+function validateImportSafe(entity, label, errors) {
+  const pw = entity.preferredWrite || {};
+  if (entity.target && entity.target.classification === 'manual-mapping') return;
+  if (typeof pw.importSafe !== 'boolean') errors.push(`${label}: preferredWrite.importSafe must be boolean`);
+  if (pw.importSafe !== false) return;
+  const reason = pw.importSafeReason || {};
+  if (typeof reason.summary !== 'string' || !reason.summary.trim()) errors.push(`${label}: importSafe false requires preferredWrite.importSafeReason.summary`);
+  if (!(entity.pitfalls || []).some(p => p && p.code === reason.pitfall)) errors.push(`${label}: preferredWrite.importSafeReason.pitfall must name one of this entity's pitfall codes`);
+}
+
 // For manual-mapping: a manual-mapping entity performs no write, so its preferredWrite must
 // be structurally inert (nothing for import codegen to accidentally call), and its manualSteps
 // must actually contain a runbook — an empty or missing one would render nothing to the
@@ -575,7 +656,7 @@ function validateManualMapping(entity, label, errors) {
   if (pw.endpoint !== null) errors.push(`${label}: manual-mapping requires preferredWrite.endpoint === null`);
   if (pw.writerId !== null) errors.push(`${label}: manual-mapping requires preferredWrite.writerId === null`);
   if (pw.verification !== 'none') errors.push(`${label}: manual-mapping requires preferredWrite.verification === 'none'`);
-  if (pw.importSafe !== false) errors.push(`${label}: manual-mapping requires preferredWrite.importSafe === false`);
+  if (pw.importSafe !== null) errors.push(`${label}: manual-mapping requires preferredWrite.importSafe === null (not applicable: nothing is written)`);
   if (pw.bulk !== false) errors.push(`${label}: manual-mapping requires preferredWrite.bulk === false`);
 
   const manualSteps = entity.manualSteps;
@@ -597,19 +678,19 @@ function validateManualMapping(entity, label, errors) {
   });
 }
 
-function validateSafeModeContactFields(fields, label, errors) {
+function validateContactFields(fields, label, errors) {
   if (fields === undefined) return;
   if (!Array.isArray(fields)) {
-    errors.push(`${label}: safeModeContactFields must be an array when present`);
+    errors.push(`${label}: contactFields must be an array when present`);
     return;
   }
   for (const [index, field] of fields.entries()) {
-    const fieldLabel = `${label}: safeModeContactFields[${index}]`;
+    const fieldLabel = `${label}: contactFields[${index}]`;
     if (!field || typeof field !== 'object' || Array.isArray(field)) {
       errors.push(`${fieldLabel} must be an object`);
       continue;
     }
-    if (!SAFE_MODE_CONTACT_KINDS.has(field.kind)) errors.push(`${fieldLabel}.kind must be email or phone`);
+    if (!CONTACT_FIELD_KINDS.has(field.kind)) errors.push(`${fieldLabel}.kind must be email or phone`);
     if (!field.targetPath || typeof field.targetPath !== 'string') errors.push(`${fieldLabel}.targetPath must be a non-empty string`);
     if (!field.source || typeof field.source !== 'string') errors.push(`${fieldLabel}.source must be a non-empty string`);
   }
@@ -772,6 +853,7 @@ function summarizeEntities(domainsDir, refs, { includeEvidence = false } = {}) {
       // requirements and every invoice write was refused by a guard that was working correctly.
       setupRequirements: (entity.setupRequirements || []).map(stampSetupRequirement),
       fieldContracts: entity.fieldContracts || [],
+      mappingRules: entity.mappingRules || [],
       blockedSourceDependencies: entity.blockedSourceDependencies || [],
       extendedFields: entity.extendedFields || null,
     };
@@ -812,6 +894,7 @@ function knowledgeSummary(domainsDir) {
 
 module.exports = {
   knowledgeRoot,
+  retiredHoldCodes,
   generateIndex,
   knowledgeSummary,
   validateKnowledge,

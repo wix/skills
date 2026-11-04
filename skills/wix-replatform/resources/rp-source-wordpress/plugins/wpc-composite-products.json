@@ -6,7 +6,7 @@
   "sourceOfTruth": "https://wordpress.org/plugins/wpc-composite-products/",
   "distribution": "wordpress-org",
   "capabilities": [
-    "commerce.composite-products"
+    "commerce.product-bundles"
   ],
   "detect": {
     "pluginFileIds": [
@@ -27,17 +27,17 @@
       "channel": "core-meta",
       "embeddedIn": ["/wc/v3/products"],
       "propertyPath": "wooco_components",
-      "candidateTargetRefs": [],
+      "candidateTargetRefs": ["stores/product-bundle"],
       "pitfalls": [
         {
-          "code": "no-wix-target-decided",
-          "severity": "warning",
-          "summary": "A WPC composite is a WooCommerce product of custom type `composite` whose component definition rides in unregistered product meta `wooco_components` inside the wc/v3/products meta_data array. The composite product itself (name, price, media, SEO) migrates as a plain stores/product; the component structure has no native Wix Stores target — Catalog V3 productType is PHYSICAL | DIGITAL only, with no composed-product entity, no child-product references, and no component-group construct [VERIFIED LIVE 2026-08-16 against dev.wix.com catalog-v3/products-v3/product-object.md: `productType` enum reads exactly `PHYSICAL, DIGITAL`; the nearest structural fields are `options`/`modifiers` (variant-generating customizations, not references to other products) and `purchaseEligibility.userCriteria: MEMBERS_ONLY`]. See capabilities-pending-decision.json: this is NOT automatically covered by the signed commerce.product-bundles verdict — see the composite-is-not-a-fixed-bundle pitfall — and needs its own human co-signature."
+          "code": "emits-canonical-bundle",
+          "severity": "info",
+          "summary": "A WPC composite is a WooCommerce product of custom type `composite` whose component definition rides in unregistered product meta `wooco_components` inside the wc/v3/products meta_data array. The composite product itself (name, price, media, SEO) maps through the normal product route; parse `wooco_components` with lib/bundle-canonical.js into canonical product.bundle (kind configurable). What Wix does with it is decided by the stores/product-bundle target entity, not here."
         },
         {
           "code": "composite-is-not-a-fixed-bundle",
           "severity": "warning",
-          "summary": "Semantically distinct from the sibling woo-product-bundle profile, and the distinction changes which Wix surface is the closest fit. A woosb bundle is a FIXED composition (a set list of child products at set quantities). A `composite` is a CUSTOMER-ASSEMBLED kit: the product defines component groups (a group can be sourced from an explicit product list, or from whole categories/tags via `categories`/`tags`/`other` with `exclude`), each with min/max quantities and an `optional` flag, and the buyer picks one product per group at purchase time [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php component panel fields + includes/class-wooco.php add-to-cart validation, 2026-08-16]. The requires-development.json entry for commerce.product-bundles rejected Wix's mix-and-match precisely because it is 'a category + automatic-discount pattern for customer-assembled combos' with no fixed-bundle SKU — which is the shape a composite actually has. That makes mix-and-match a nearer (though still config-only, non-API) parallel for composites than it was for bundles, so the bundles verdict must not be extended here by inference. A human decides."
+          "summary": "Semantically distinct from the sibling woo-product-bundle profile. A woosb bundle is a FIXED composition (a set list of child products at set quantities). A `composite` is a CUSTOMER-ASSEMBLED kit: the product defines component groups (a group can be sourced from an explicit product list, or from whole categories/tags via `categories`/`tags`/`other` with `exclude`), each with min/max quantities and an `optional` flag, and the buyer picks one product per group at purchase time [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-backend.php component panel fields + includes/class-wooco.php add-to-cart validation, 2026-08-16]. Emit it as kind configurable with one group per component, never as a fixed bundle."
         },
         {
           "code": "components-referenced-by-source-id",
@@ -47,7 +47,7 @@
         {
           "code": "derived-composite-price",
           "severity": "warning",
-          "summary": "The displayed price is derived at runtime from the buyer's selections plus the composite's own pricing mode (`wooco_pricing`, with `wooco_discount_percent` and `wooco_custom_price`) rather than being a single stored sale price [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-product.php get_pricing/get_price and includes/class-wooco.php cart price handling, 2026-08-16]. Migrating the composite as a static stores/product therefore freezes a price that never was a fixed price to begin with — a sharper fidelity loss than the bundle case. Whatever wc/v3/products reports in `price`/`regular_price` at migration time is what carries over; the selection-dependent pricing does not."
+          "summary": "The displayed price is derived at runtime from the buyer's selections plus the composite's own pricing mode (`wooco_pricing`, with `wooco_discount_percent` and `wooco_custom_price`) rather than being a single stored sale price [VERIFIED IN PLUGIN SOURCE v8.0.0, includes/class-product.php get_pricing/get_price and includes/class-wooco.php cart price handling, 2026-08-16]. Whatever wc/v3/products reports in `price` at extraction is what the adapter passes on, unchanged, with priceRule derived; it may be empty (no price) or 0 for a composite priced only from its selections. Never compute a price from the parts."
         },
         {
           "code": "settings-meta-siblings",

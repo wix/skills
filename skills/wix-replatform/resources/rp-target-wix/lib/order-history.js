@@ -268,6 +268,10 @@ function describeError(error) {
     // Without it, the rejected-vs-unknown distinction is lost the moment it is recorded.
     ...(error && error.outcomeKnown === false ? { outcomeKnown: false } : {}),
     ...(error && error.applicationErrorCode ? { applicationErrorCode: error.applicationErrorCode } : {}),
+    // A refusal before the network (readiness, raw-request guard) wrote nothing; kept so the
+    // journal row can say retryable rather than guess from a missing status.
+    ...(error && error.requestSent === false ? { requestSent: false } : {}),
+    ...(error && typeof error.code === 'string' && error.code ? { code: error.code } : {}),
   };
 }
 
@@ -306,18 +310,18 @@ function failRemaining(outcomes, errors, { gate, refunds, evidence, cause }) {
 // alone, never rewritten, never replaced with an invented value. Every removal is a named
 // finding carrying the field and a reason, never the value.
 //
-// The field list is READ from `domains/ecom/entities/order.json` -> `safeModeContactFields[]`,
-// the same list safe mode replaces, so the two cannot drift apart.
+// The field list is READ from `domains/ecom/entities/order.json` -> `contactFields[]`, so the
+// rules and the entity knowledge cannot drift apart.
 const ORDER_ENTITY_JSON = path.join(__dirname, '..', 'domains', 'ecom', 'entities', 'order.json');
 let CONTACT_FIELDS = null;
 function orderContactFields() {
   if (CONTACT_FIELDS) return CONTACT_FIELDS;
   const entity = JSON.parse(fsSync.readFileSync(ORDER_ENTITY_JSON, 'utf8'));
-  const fields = Array.isArray(entity.safeModeContactFields) ? entity.safeModeContactFields : [];
-  if (fields.length === 0) throw new Error(`${ORDER_ENTITY_JSON} carries no safeModeContactFields[]; the contact-field rules read their list from there and will not guess one`);
+  const fields = Array.isArray(entity.contactFields) ? entity.contactFields : [];
+  if (fields.length === 0) throw new Error(`${ORDER_ENTITY_JSON} carries no contactFields[]; the contact-field rules read their list from there and will not guess one`);
   for (const field of fields) {
     if (field.kind !== 'email' && field.kind !== 'phone') {
-      throw new Error(`safeModeContactFields[] entry ${field.targetPath} has kind ${JSON.stringify(field.kind)}; only "email" and "phone" are known`);
+      throw new Error(`contactFields[] entry ${field.targetPath} has kind ${JSON.stringify(field.kind)}; only "email" and "phone" are known`);
     }
   }
   CONTACT_FIELDS = Object.freeze(fields.map((field) => Object.freeze({ kind: String(field.kind), targetPath: String(field.targetPath) })));
@@ -352,9 +356,8 @@ function presentValue(value) {
   return text === '' ? null : text;
 }
 
-// Advisory only. Run on the SOURCE-DERIVED body, before `buildImportOrderRequest`
-// applies safe mode: safe mode's mocks always pass, so a check placed after it would report zero
-// suspects on every rehearsal. The body is never changed; a suspect is a forecast, not a loss.
+// Advisory only. Run on the SOURCE-DERIVED body, before the first send. The body is never
+// changed; a suspect is a forecast, not a loss.
 function checkOrderContactFields(order, { sourceId = null } = {}) {
   if (!isPlainObject(order)) throw new Error('checkOrderContactFields needs the mapped target order body as `order`');
   const findings = [];
@@ -379,7 +382,7 @@ function checkOrderContactFields(order, { sourceId = null } = {}) {
 
 // Which contact fields did Import Order's rejection NAME? Only a 400 with a structured
 // `fieldViolations[]` counts, and only an EXACT path match (after an optional leading `order.`
-// request wrapper) against `safeModeContactFields[]`. Message text is never parsed. All or
+// request wrapper) against `contactFields[]`. Message text is never parsed. All or
 // nothing: one violation that is not an identified contact field means no removal (null).
 function identifyRejectedContactFields(error) {
   if (!error || error.status !== 400) return null;
@@ -398,6 +401,44 @@ function identifyRejectedContactFields(error) {
   return paths;
 }
 
+// ---- source orders with no line items -------------------------------------
+// Import Order requires 1-300 lineItems. A source order that recorded none (items deleted at the
+// source, a total with no lines) would fail terminally. Human-approved policy (2026-11-01):
+// import it with ONE custom line "Items not recorded in source" priced at the
+// order total, in the order's own currency, with no tax information invented, and hand each such
+// order to cutover. Financial data, so this is a human-approved policy, not an engineering default.
+const PLACEHOLDER_LINE_NAME = 'Items not recorded in source';
+const PLACEHOLDER_LINE_ITEM_TYPE = 'not-recorded-in-source';
+const PLACEHOLDER_GAP_CODE = 'order-line-items-not-recorded';
+const PLACEHOLDER_GAP_ACTION = 'Each of these orders recorded no line items at the source, so it was imported with one custom line "Items not recorded in source" at the order total (no tax). Confirm the order total with the merchant; if the original items are known, note them on the order. Do not delete or re-import the order.';
+function placeholderLineId(derivedId) {
+  const hash = crypto.createHash('sha1').update(`replatform:ecom:order-line:${derivedId}:not-recorded`).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+function placeholderAmount(order) {
+  const raw = order && order.priceSummary && order.priceSummary.total && order.priceSummary.total.amount;
+  const n = Number(raw);
+  return raw !== undefined && raw !== null && String(raw).trim() !== '' && Number.isFinite(n) && n >= 0 ? String(raw).trim() : null;
+}
+// An order with lineItems is returned unchanged. Pure: the caller's body is never mutated.
+function withPlaceholderLineItem(order, { derivedId }) {
+  if (!isPlainObject(order) || (Array.isArray(order.lineItems) && order.lineItems.length > 0)) return { order, placeholder: null };
+  // No usable order total: the line is priced at 0 and the finding says so (totalMissing).
+  const total = placeholderAmount(order), amount = total === null ? '0' : total;
+  const line = {
+    id: placeholderLineId(derivedId),
+    quantity: 1,
+    productName: { original: PLACEHOLDER_LINE_NAME },
+    itemType: { custom: PLACEHOLDER_LINE_ITEM_TYPE },
+    price: { amount },
+    lineItemPrice: { amount },
+  };
+  return { order: { ...order, lineItems: [line] }, placeholder: { lineItemId: line.id, amount, currency: order.currency === undefined ? null : order.currency, ...(total === null ? { totalMissing: true } : {}) } };
+}
+
 // The composite. Returns outcomes; throws only for CALLER errors (a malformed contract), never for
 // a target failure -- each stage's failure is a named outcome so a resumed run reconciles what
 // landed and retries only what did not.
@@ -409,7 +450,6 @@ async function importOrderHistory(wix, {
   crosswalk,
   setupVerification = null,
   pacer = null,
-  safeModeOptions = undefined,
   // Injectable only so the retry tests do not spend the delay ladder in real time.
   sleep = null,
   // The buyer, from resolveOrderBuyer -- stamped, so a hand-built memberId cannot reach
@@ -461,6 +501,9 @@ async function importOrderHistory(wix, {
 
   const findings = findings_pre;
   const errors = {};
+  const placed = withPlaceholderLineItem(order, { derivedId });
+  order = placed.order;
+  if (placed.placeholder) findings.push({ code: PLACEHOLDER_GAP_CODE, sourceId: String(sourceId), ...placed.placeholder });
   const outcomes = { order: null, payment: null, refunds: [], invoice: null, buyer: buyerOutcome };
 
   // The gate runs FIRST and from the evidence structure, so a caller cannot mis-name a parameter
@@ -500,7 +543,7 @@ async function importOrderHistory(wix, {
   // the target no longer has. Only a readable 404 proves absence; an unreadable gateway
   // response must not authorize Import Order, which can replace an existing order.
   let orderId = derivedId;
-  const readPacer = pacer || w.sharedTargetReadPacer();
+  const readPacer = pacer || w.sharedTargetReadPacer(wix);
   const existsOnTarget = async (id) => {
     const read = await readPacer.read(() => w.getOrder(wix, id));
     if (read.ok) return { exists: true };
@@ -567,15 +610,15 @@ async function importOrderHistory(wix, {
         const send = async (body) => {
           for (let attempt = 1; ; attempt += 1) {
             try {
-              return await w.importOrder(wix, { ...body, id: derivedId }, safeModeOptions);
+              return await w.importOrder(wix, { ...body, id: derivedId });
             } catch (error) {
               if (attempt >= WRITE_RETRY_ATTEMPTS || !w.isTransientWixError(error)) throw error;
               await sleepFor(WRITE_RETRY_DELAYS_MS[attempt - 1]);
             }
           }
         };
-        // Advisory, on the source-derived body, once, before the first send
-        // (where safe mode is applied). Not repeated for the retry below.
+        // Advisory, on the source-derived body, once, before the first send.
+        // Not repeated for the retry below.
         findings.push(...checkOrderContactFields(order, { sourceId }).findings);
         let imported = null;
         let removed = [];
@@ -585,7 +628,7 @@ async function importOrderHistory(wix, {
           // One retry, only when the rejection names contact fields the body
           // actually carries. The first call was refused and created nothing, so the retry under
           // the same derived id is not a duplicate. The retry body is the SOURCE-DERIVED order
-          // minus exactly those paths -- safe mode still applies to what remains -- and on a
+          // minus exactly those paths, and on a
           // member-linked order it keeps `buyerInfo.memberId`/`contactId` untouched.
           const paths = identifyRejectedContactFields(error);
           if (!paths || !paths.every((p) => readAtPath(order, p) !== undefined)) throw error;
@@ -639,6 +682,14 @@ async function importOrderHistory(wix, {
       } catch (error) {
         errors.crosswalk = describeError(error);
       }
+  }
+
+  // A landed order that carries the placeholder line is a cutover item, never only a finding.
+  if (placed.placeholder && orderId && [ORDER_OUTCOMES.IMPORTED, ORDER_OUTCOMES.ALREADY_IMPORTED].includes(outcomes.order)) {
+    try {
+      await w.recordWrittenGap(wix, { code: PLACEHOLDER_GAP_CODE, action: PLACEHOLDER_GAP_ACTION, operatorRole: 'Cutover Operator', severity: 'medium',
+        detail: { targetId: orderId, orderNumber: order.number === undefined ? null : String(order.number), amount: placed.placeholder.amount, currency: placed.placeholder.currency, ...(placed.placeholder.totalMissing ? { totalMissing: true } : {}) } });
+    } catch (error) { errors.cutoverItem = describeError(error); }
   }
 
   // ---- 2. Payment and refunds, from ONE reconciliation read. ---------------------------------
@@ -763,6 +814,9 @@ async function importOrderHistory(wix, {
         pendingMediaFileId,
       });
       outcomes.invoice = invoice.outcome;
+      // The writer's findings (an over-length number or link, a key the order PATCH dropped) are
+      // losses the report must count, and the report counts `findings`, not `invoice.findings`.
+      for (const finding of invoice.findings || []) findings.push(finding);
       // Remember a READY-but-unrecorded file (bound to its URL); CLEAR the memory once the document
       // is settled or the remembered import is dead. Left in place, a FAILED file id was resumed
       // forever and the document never imported (review finding).
@@ -1012,8 +1066,45 @@ function createProjectOrderCrosswalk({ projectDir, sourceSystem = 'wordpress', s
   };
 }
 
+// The attempt-journal row for one importOrderHistory result -- the only place that decides it, so
+// a generated runner does not. The order is `imported` exactly when the target holds it (the result
+// carries `orderId`), with that id and with every failed payment, refund or invoice stage as a
+// retryable finding; a rerun reconciles the order by id and retries only those stages. An order
+// that was not created never carries a targetId: `derivedId` is where it WOULD be, not evidence
+// that it is, and travels as `failure.intendedTargetId`. Status from the kept error, per
+// lib/multi-step-attempt.js.
+const LANDED_ORDER_OUTCOMES = new Set([ORDER_OUTCOMES.IMPORTED, ORDER_OUTCOMES.ALREADY_IMPORTED]);
+const stageFailed = (outcome) => typeof outcome === 'string' && (outcome.endsWith('-failed') || outcome === 'payment-reconciliation-ambiguous');
+
+function orderHistoryAttempt(result, { sourceStableKey } = {}) {
+  if (!result || !result.outcomes || !Object.values(ORDER_OUTCOMES).includes(result.outcomes.order)) {
+    throw new Error(`orderHistoryAttempt needs an importOrderHistory result; got order outcome ${JSON.stringify(result && result.outcomes && result.outcomes.order)}`);
+  }
+  const { outcomes, errors = {} } = result;
+  const landed = LANDED_ORDER_OUTCOMES.has(outcomes.order) && Boolean(result.orderId);
+  const subSteps = [
+    { stage: 'payment', outcome: outcomes.payment, failed: stageFailed(outcomes.payment), error: errors.payment },
+    ...(outcomes.refunds || []).map((refund) => ({ stage: 'refund', outcome: refund.outcome, failed: stageFailed(refund.outcome), error: refund.error })),
+    { stage: 'invoice', outcome: outcomes.invoice, failed: stageFailed(outcomes.invoice), error: errors.invoice },
+    ...(errors.crosswalk ? [{ stage: 'crosswalk', outcome: 'crosswalk-write-failed', failed: true, error: errors.crosswalk }] : []),
+    // The placeholder-line order landed, but its cutover item could not be filed.
+    ...(errors.cutoverItem ? [{ stage: 'cutover-item', outcome: 'cutover-item-write-failed', failed: true, error: errors.cutoverItem }] : []),
+  ].filter((step) => step.outcome);
+  const base = landed
+    ? { outcome: outcomes.order, targetId: result.orderId }
+    // A target read that could not decide stopped before Import Order: nothing was written.
+    : { outcome: outcomes.order, intendedTargetId: result.derivedId || null, error: errors.order || null, writeAttempted: outcomes.order !== ORDER_OUTCOMES.TARGET_READ_FAILED };
+  return require('../../../lib/multi-step-attempt.js').classifyMultiStepAttempt({
+    sourceStableKey, operation: 'importOrder', base, subSteps, findings: result.findings || [],
+  });
+}
+
 module.exports = {
   ORDER_OUTCOMES,
+  PLACEHOLDER_LINE_NAME,
+  PLACEHOLDER_GAP_CODE,
+  withPlaceholderLineItem,
+  orderHistoryAttempt,
   EVIDENCE_KEYS,
   REFUND_KEYS,
   INVOICE_KEYS,

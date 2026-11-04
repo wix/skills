@@ -13,7 +13,12 @@ node skills/wix-replatform/scripts/orchestration-preflight.js <projectDir>
 
 Use its structured result as authority. When it reports missing source configuration or
 credentials, route to `rp-source-inputs`; when it reports a destination issue, route to
-`rp-destination`. Do not begin discovery with a blocked preflight.
+`rp-destination`. The router applies this to a blocked `orchestration/preflight.json`
+(`preflight_blocked` names the owner as `nextResource` and lists `blockedChecks`), and
+returns `preflight_source_env_changed` to re-run preflight once the blocked source keys
+changed. Repairs to other source/destination checks return `preflight_inputs_changed`;
+router polls read only local evidence and dispatch this resource for the actual CLI/session
+verification. Do not begin discovery with a blocked preflight.
 
 ## The recording line
 
@@ -33,6 +38,14 @@ original `journal` reading and adds `recovery` — `not_needed`, `started`,
 `recovery: failed` never changes the verdict or exit code, and is team-only evidence: do
 not relay it to the person running the migration (the `rp-telemetry` "never mention"
 rule). Call `rp-telemetry` `start` at run begin as before; preflight is the safety net.
+
+## What preflight does not check
+
+Preflight validates configuration and credentials only; it never reads the destination site's
+settings. The site's currency, time zone and language are compared with the source store at the
+execution plan (`rp-execution-policy`) and set or confirmed by setup (`rp-execute-setup`), and the
+import gate checks setup's current file-bound receipt before every task without another site read
+(`rp-execute-import`).
 
 ## Output
 

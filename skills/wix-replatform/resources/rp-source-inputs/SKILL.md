@@ -27,13 +27,21 @@ standard mode rather than silently switching behavior.
 
 For file sources, record every supplied path as `fileInputPaths`, use `sourceMode=files_only`,
 and load `rp-source-csv`. Do not ask URL acquisition or credential questions for this path.
+Do ask the person for the store's currency, time zone, primary language and country
+(`CSV_STORE_CURRENCY`, `CSV_STORE_TIME_ZONE`, `CSV_STORE_LANGUAGE`, `CSV_STORE_COUNTRY` in
+`config/source.csv.env`): a CSV does not carry them. Each is optional; one the person cannot give
+is recorded as unknown, never guessed, and a `currency` column in the data never replaces the answer.
 
 Treat source and Wix env files as secret-bearing once they may contain credentials. Never
-print their contents. Use `scripts/source-secrets.js` for present/blank/missing checks and
+print their contents, and never shell-`source` them; read them only through toolkit scripts. Use `scripts/source-secrets.js` for present/blank/missing checks and
 Wix Secrets Manager hydration; request only unresolved secret keys through the secure flow.
 Its result always includes `postHydrationReport` (`{ exists, keys }`, each key
 present/blank/placeholder/missing in the local env file); read that field to confirm a
 hydration succeeded instead of inspecting the file. Vault outcomes stay in per-key `status`.
+`ok: true` (exit 0) only when every requested key is usable locally; an unresolved key gives
+`ok: false`, `needsUser: true` and exit 2 (exit 1 is a vault or argument error). Request only
+the `unresolvedKeys`; while a durable request for them is pending the router returns
+`awaiting_user_action`. Once answered, run `scripts/source-secrets.js` again to hydrate.
 Blank required values are a typed needs-user blocker; optional adapter keys may remain blank.
 
 **Credentials already on another site.** If the user or a prior run says this source's
@@ -44,11 +52,9 @@ ad hoc script to read or copy another site's secrets or env files. Run
 `scripts/source-secrets.js` for this destination and request only the keys it reports
 unresolved.
 
-For WordPress/WooCommerce, keep REST scope and bridge access separate. Private `wp/v2` or
-`wc/v3` capture requires `WP_USERNAME`/`WP_APPLICATION_PASSWORD`; a
-`WMH2_MIGRATION_KEY` authenticates only `wix-wp-plugin-v2` bridge reads and never satisfies
-that private REST requirement. When bridge-backed entities are in scope, choose its
-credential from the detected source capabilities as described by `rp-source-wordpress`.
+For WordPress/WooCommerce, private `wp/v2` or `wc/v3` capture and `wix-wp-plugin-v2`
+bridge reads all use `WP_USERNAME`/`WP_APPLICATION_PASSWORD` (an administrator, or a
+WooCommerce shop manager). There is no separate bridge key.
 
 For Shopify private data (`sourceMode=private_data`, the "Admin API" answer), the only input is
 `SHOPIFY_SHOP_DOMAIN=<shop>.myshopify.com` in `config/source.shopify.env` (not a secret; no

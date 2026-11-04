@@ -11,18 +11,17 @@ cancel, and resume.
 
 ## Start here
 
-From the repository during development:
+From an installed skill (`npx skills add wix/skills/skills/wix-replatform`) nothing else needs
+installing: the CLI's only third-party dependency, `commander`, ships in `vendor/`. It needs
+Node.js 22.12 or newer.
 
 ```bash
-yarn replatform --help
-yarn replatform run <project> --agent codex
+node <skill>/scripts/replatform.js --help
+node <skill>/scripts/replatform.js run <project> --agent codex
 ```
 
-From an installed bundle:
-
-```bash
-node <bundle>/scripts/replatform.js --help
-```
+If the bundled copy cannot load, the CLI exits 1 and preflight blocks on
+`toolkit_dependencies`, both with the same fix: reinstall the skill and check the Node.js version.
 
 The CLI never prompts for stdin, opens an editor or pager, or begins a vendor login flow.
 Required human work becomes a durable request that can be inspected and continued later.
@@ -110,6 +109,11 @@ byte counts.
   `--destination new`). Headless is a website developed in code; Studio and Harmony are
   websites designed in a Wix editor. There is no default: without it, a new-site run raises a
   durable site-type request before anything is created. The type cannot be changed later.
+- `--notification-mute on|off` is valid only with `--destination existing:<site-id>`. `on`
+  mutes all site notifications, including customer emails, until someone unmutes; the live
+  business may miss real notifications meanwhile. `off` leaves them on, so customers and the
+  owner may get emails for imported records. There is no default: without it, the run asks
+  before the first write. A new site is always muted.
 - `--site-business-type store|bookings|other` is valid only with `--site-type harmony`. It
   records the business context for the run; it does not change how the site is created:
   Harmony always starts from the blank template (Harmony site generation is not used).
@@ -125,6 +129,21 @@ Every run writes a run ID before it launches an agent. A run is not complete bec
 said so: aggregate completion receipts must validate. Cancellation is a durable state change;
 it requests graceful shutdown before forced termination, never labels a partial import as
 completed, and preserves recovery artifacts for a later `replatform resume`.
+
+A run stopped on a blocker (`run.json` `status: blocked`) stays stopped: `run` ends with the
+`run_blocked` route and its `resumeFrom`, ahead of pending questions. `answer --continue`
+records the answer but does not release this hold. Resolve the blocker, then
+`replatform resume <project>` sets the status back to `running` and routes again;
+`orchestration-state.js transition --state <state> --phase <phase> --status running`
+also releases it. Transitions without `--status` preserve the hold.
+
+The final JSON includes `router.resumeFrom`, `router.resumeWith`, and a typed `blocker`
+with its artifact, owner and required input; text output displays the note and next action.
+Stop transitions persist the blocker in `orchestration/run.json`. A legacy hold without a
+reason stays held with `run_blocked_details_required`; its runner result durably records
+the instruction to supply the reason, evidence and attempted recovery before resuming.
+Missing recovery history is `null`, never an invented successful retry. Held route/run
+checks leave telemetry waits open and do not create execution sessions.
 
 Run `replatform doctor` to check available adapters and local prerequisites without printing
 credentials.

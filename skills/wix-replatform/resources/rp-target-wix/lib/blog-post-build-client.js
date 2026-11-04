@@ -16,23 +16,21 @@ function createBlogBuildClient(wix, { fetchPage, fetchImage } = {}) {
   if (!wix || typeof wix.send !== 'function') throw new Error('blog build client needs wix.send');
   return {
     async createDraft(post) {
-      const response = await wix.send({ method: 'POST', url: `${WIXAPIS}/blog/v3/draft-posts`,
-        body: { draftPost: post, fieldsets: ['RICH_CONTENT', 'URL'] } });
+      const response = await wix.send(writers.buildCreateBuildDraftPostRequest(post));
       return unwrap(response, 'draftPost');
     },
     async updateDraft(id, projection) {
-      const response = await wix.send({ method: 'PATCH', url: `${WIXAPIS}/blog/v3/draft-posts/${encodeURIComponent(id)}`,
-        body: { action: 'UPDATE', draftPost: { id, ...projection }, fieldsets: ['RICH_CONTENT', 'URL'] } });
+      const response = await wix.send(writers.buildUpdateBuildDraftPostRequest(id, projection));
       return unwrap(response, 'draftPost');
     },
     async publishDraft(id) { return writers.publishDraftPost(wix, id); },
-    async getDraft(id) { return unwrap(await wix.send({ method: 'GET', url: readUrl('draft-posts', id) }), 'draftPost'); },
-    async getPost(id) { return unwrap(await wix.send({ method: 'GET', url: readUrl('posts', id) }), 'post'); },
+    async getDraft(id) { return unwrap(await wix.send(writers.buildBlogBuildReadRequest(readUrl('draft-posts', id))), 'draftPost'); },
+    async getPost(id) { return unwrap(await wix.send(writers.buildBlogBuildReadRequest(readUrl('posts', id))), 'post'); },
     async listDrafts({ cursor } = {}) {
       const params = new URLSearchParams({ 'paging.limit': '100', status: 'UNPUBLISHED' });
       if (cursor?.startsWith('offset:')) params.set('paging.offset', cursor.slice('offset:'.length));
       else if (cursor) params.set('paging.cursor', cursor);
-      const response = await wix.send({ method: 'GET', url: `${WIXAPIS}/blog/v3/draft-posts?${params}` });
+      const response = await wix.send(writers.buildBlogBuildReadRequest(`${WIXAPIS}/blog/v3/draft-posts?${params}`));
       const drafts = response?.draftPosts;
       if (!Array.isArray(drafts)) throw new Error('Wix Blog list response lacks draftPosts');
       // Blog List Draft Posts exposes metaData; other Wix list APIs use pagingMetadata.

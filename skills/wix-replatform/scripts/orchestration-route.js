@@ -57,7 +57,7 @@ async function main() {
   if (!artifacts.run) {
     throw new Error(`orchestration artifacts not initialized under ${projectDir}`);
   }
-  await resumeStaleTelemetry(projectDir);
+  if (artifacts.run.status !== 'blocked') await resumeStaleTelemetry(projectDir);
   const result = await determineNextStep(projectDir, artifacts);
   console.log(JSON.stringify(result, null, 2));
   if (result.ok) {

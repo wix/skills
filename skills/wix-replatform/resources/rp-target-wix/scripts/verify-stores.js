@@ -2,8 +2,8 @@
 'use strict';
 const { startDevProbe } = require('../../../lib/execution-capability');
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const w = require('../lib/wix-writers');
 const verify = require('../lib/stores-verification');
 const {
@@ -15,7 +15,7 @@ function usage() {
   console.error(`Usage:
   node scripts/verify-stores.js stores subscription-create --artifact <file> [--proposal-artifact <file>] [--marker <id>] [--no-cleanup]
   node scripts/verify-stores.js stores inventory-import --env <test-target-config> --artifact <file>
-  node scripts/verify-stores.js stores product-count --artifact <file>
+  node scripts/verify-stores.js stores product-count --artifact <file> [--project <projectDir>]
   node scripts/verify-stores.js stores product-by-source-marker --marker-path <path> --marker-value <value> --artifact <file>
   node scripts/verify-stores.js stores delete-probe --product-id <id> --artifact <file>
 
@@ -90,7 +90,11 @@ function loadEnvFile(file) {
     if (!options.artifact) throw new Error('inventory-import requires --artifact for recovery and verification evidence');
     result = await verify.verifyStoresInventoryImport(common);
   } else if (command === 'product-count') {
-    result = await verify.verifyStoresProductCount(common);
+    // The project's catalog baseline, when setup recorded one, splits the count.
+    const catalogBaseline = require('../../../lib/catalog-baseline');
+    const projectDir = options.project ? path.resolve(options.project) : process.cwd();
+    const baselineIds = catalogBaseline.loadBaseline(projectDir) ? catalogBaseline.protectedIds(projectDir).products : null;
+    result = await verify.verifyStoresProductCount({ ...common, baselineIds });
   } else if (command === 'product-by-source-marker') {
     result = await verify.verifyStoresProductBySourceMarker({
       ...common,

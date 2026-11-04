@@ -291,11 +291,22 @@ function isValidOptionLossDecision(product, decision) {
   );
 }
 
-function assertDeclaredOptionsResolved(product, options, optionLossDecision) {
+function assertDeclaredOptionsResolved(product, options, optionLossDecision, modifiers = []) {
   const declared = product.sourceDeclaredOptionNames;
   if (declared === undefined || declared === null) return;
   if (!Array.isArray(declared)) {
     throw new Error(`buildProduct: "${product.name}" sourceDeclaredOptionNames must be an array of option names`);
+  }
+  // A routed product (one that carries `modifiers`) must account for EVERY declared
+  // option, as exactly one variant option or one connected modifier. Partial loss throws too.
+  if (Array.isArray(product.modifiers)) {
+    const built = [...options.map((o) => o.name), ...product.modifiers.map((m) => m.name)];
+    const missing = declared.filter((name) => built.filter((b) => b === name).length !== 1);
+    const extra = built.filter((name) => !declared.includes(name));
+    if (!missing.length && !extra.length && modifiers.length === product.modifiers.length) return;
+    throw new Error(
+      `buildProduct: "${product.name}" (${product.sourceId}) declared options [${declared.join(', ')}] but built options [${options.map((o) => o.name).join(', ')}] and modifiers [${product.modifiers.map((m) => m.name).join(', ')}]; unaccounted [${[...missing, ...extra].join(', ')}]; record the loss in mapping-gaps.json.`,
+    );
   }
   if (!declared.length || options.length) return;
   if (isValidOptionLossDecision(product, optionLossDecision)) return;
@@ -307,7 +318,54 @@ function assertDeclaredOptionsResolved(product, options, optionLossDecision) {
 // Builds the Stores V3 create body from a canonical product record.
 // Explicit variant stock wins. A caller may supply an approved fallback for missing stock;
 // there is no implicit availability default. Codegen reports variants without stock evidence.
-function buildProduct(product, { inStock, target = STORES_V3_TARGET, optionLossDecision, seoPlan } = {}) {
+// The product side of each routed modifier is the connected modifier of its written
+// customization (wix-writers.js connectedModifierFromCustomization), passed in route order. Its
+// name, mandatory flag and choice list must equal what the route derived from the source.
+function attachModifiers(product, connectedModifiers) {
+  const wanted = product.modifiers;
+  if (!Array.isArray(wanted) || !wanted.length) {
+    if (connectedModifiers && connectedModifiers.length) throw new Error(`buildProduct: "${product.name}" got connected modifiers but its route has none`);
+    return [];
+  }
+  if (!Array.isArray(connectedModifiers) || connectedModifiers.length !== wanted.length) {
+    throw new Error(`buildProduct: "${product.name}" needs one connected modifier per routed modifier (${wanted.length}); write the customizations first`);
+  }
+  wanted.forEach((m, i) => {
+    const c = connectedModifiers[i] || {};
+    const names = (c.choicesSettings?.choices || []).map((choice) => choice.name);
+    if (!c.id || c.name !== m.customizationName || c.mandatory !== m.mandatory || c.modifierRenderType !== 'TEXT_CHOICES'
+      || names.length !== m.choices.length || names.some((name, k) => name !== m.choices[k])) {
+      throw new Error(`buildProduct: "${product.name}" connected modifier ${i} does not match routed modifier "${m.name}" (customization "${m.customizationName}")`);
+    }
+  });
+  return connectedModifiers;
+}
+
+// Catalog V3 product.name maxLength 80 (live 400 MAX_LENGTH). Cut on whole characters within 80
+// UTF-16 units, so a name is never split inside a surrogate pair and fits however Wix counts it;
+// the writer's clamp uses this same function, so the two always agree.
+const PRODUCT_NAME_MAX = 80;
+function truncateCodePoints(value, max) {
+  const s = String(value);
+  if (s.length <= max) return s;
+  let out = '';
+  for (const ch of s) { if (out.length + ch.length > max) break; out += ch; }
+  return out.trimEnd();
+}
+// A slug that sanitizes to nothing (an emoji- or symbol-only title) never blocks the product: it
+// becomes the deterministic product-<source id>, or is left to Wix when there is no source id.
+function productSlugOrFallback(raw, product, findings) {
+  try { return toWixSlug(raw); } catch (error) {
+    if (!/empty slug/.test(String(error && error.message))) throw error;
+    let fallback;
+    try { fallback = isBlank(product.sourceId) ? undefined : `product-${toWixSlug(product.sourceId)}`; } catch { fallback = undefined; }
+    findings.push({ code: 'product-slug-minted', field: 'product.slug', sourceId: product.sourceId ?? null, slug: fallback ?? null });
+    return fallback;
+  }
+}
+// `findings` (optional array) receives product-name-truncated / product-slug-minted: the full
+// name stays in the finding and the source archive, so the report can show what was shortened.
+function buildProduct(product, { inStock, target = STORES_V3_TARGET, optionLossDecision, seoPlan, connectedModifiers, findings = [] } = {}) {
   if (isBlank(product.name)) throw new Error('buildProduct: product.name is required');
   const body = { ...target.constants };
   const composedDescription = composeProductDescription(product);
@@ -320,8 +378,13 @@ function buildProduct(product, { inStock, target = STORES_V3_TARGET, optionLossD
     const def = CANONICAL_FIELDS[canonicalPath] || {};
     if (isBlank(value) && def.default !== undefined) value = def.default;
     if (isBlank(value) && typeof value !== 'boolean') continue;
-    if (fieldSpec.coerce && COERCE[fieldSpec.coerce]) value = COERCE[fieldSpec.coerce](value);
+    if (fieldSpec.coerce === 'slug') { value = productSlugOrFallback(value, product, findings); if (value === undefined) continue; }
+    else if (fieldSpec.coerce && COERCE[fieldSpec.coerce]) value = COERCE[fieldSpec.coerce](value);
     else if (def.kind === 'boolean') value = coerceBoolean(value, def.default);
+    if (canonicalPath === 'product.name' && typeof value === 'string' && value.length > PRODUCT_NAME_MAX) {
+      findings.push({ code: 'product-name-truncated', field: 'product.name', sourceId: product.sourceId ?? null, fullName: value, maxLength: PRODUCT_NAME_MAX });
+      value = truncateCodePoints(value, PRODUCT_NAME_MAX);
+    }
     // A spec-declared length cap is enforced here rather than truncated: silently shortening a
     // description is exactly the invisible data loss this pipeline exists to avoid, and the caller
     // is the one who can decide between truncating, splitting into an info section, or skipping.
@@ -335,8 +398,10 @@ function buildProduct(product, { inStock, target = STORES_V3_TARGET, optionLossD
 
   // Structural builders, declared in the spec via `via`.
   const options = buildOptions(product);
-  assertDeclaredOptionsResolved(product, options, optionLossDecision);
+  const modifiers = attachModifiers(product, connectedModifiers);
+  assertDeclaredOptionsResolved(product, options, optionLossDecision, modifiers);
   if (options.length) body.options = options;
+  if (modifiers.length) body.modifiers = modifiers;
   const media = buildMedia(product);
   if (media) body.media = media;
   const seoData = buildSeoData(product, { seoPlan });
@@ -373,6 +438,8 @@ function buildCategory(category, { categoryIdByPath = new Map(), target = CATEGO
 module.exports = {
   money,
   toWixSlug,
+  PRODUCT_NAME_MAX,
+  truncateCodePoints,
   WIX_SLUG_ILLEGAL_CHARS,
   coerceBoolean,
   normalizedDescriptionText,

@@ -55,11 +55,14 @@ const biSink = require('./bi-sink.js');
 //         new free text, no scrub work (every field is counts/versions/tool
 //         names). Additive; readers per the external reader contract skip
 //         unknown record types.
-const TELEMETRY_SCHEMA_VERSION = '1.5.0';
+// 1.6.0 — bounded knowledge observations; existing actualSkill BI column, no raw custom keys.
+const TELEMETRY_SCHEMA_VERSION = '1.6.0';
 const FREE_TEXT_MAX = 400;
 const SHAPES_KEPT_PER_CLASS = 3;
 const SHAPES_MAX_PER_CALL = 10;
 const EVIDENCE_REFS_MAX = 5;
+// Class-token lists (plugins, entity types). A real WordPress site can run well over 64 plugins.
+const CLASS_LIST_MAX = 256;
 // A resume gap below this is treated as in-session noise, not a wait interval.
 const IMPLICIT_WAIT_MIN_MS = 60 * 1000;
 // Automatic resume of a stale, unfinalized journal (resumeIfStale). Every value here is an
@@ -508,14 +511,14 @@ const DIM_VALIDATORS = {
     return origin === null ? undefined : origin;
   },
   source_extensions: (errors, v) => {
-    if (!Array.isArray(v) || v.length > 64 || v.some((item) => typeof item !== 'string' || item.length > 48)) {
+    if (!Array.isArray(v) || v.length > CLASS_LIST_MAX || v.some((item) => typeof item !== 'string' || item.length > 48)) {
       errors.push('source_extensions must be an array of short extension/plugin class names');
       return undefined;
     }
     return [...new Set(v.map(normalizeToken).filter(Boolean))];
   },
   discovered_entity_types: (errors, v) => {
-    if (!Array.isArray(v) || v.length > 64 || v.some((item) => typeof item !== 'string' || item.length > 48)) {
+    if (!Array.isArray(v) || v.length > CLASS_LIST_MAX || v.some((item) => typeof item !== 'string' || item.length > 48)) {
       errors.push('discovered_entity_types must be an array of short entity class tokens (e.g. product, post, event)');
       return undefined;
     }
@@ -603,7 +606,7 @@ const EVENT_ALLOWED_KEYS = new Set([
   'event_type', 'subtype', 'stage', 'skill', 'entity_type', 'severity',
   'wix_api_surface', 'source_api_surface', 'wix_app_id', 'error_code',
   'what_happened', 'expected', 'actual', 'observed_shapes', 'evidence_refs',
-  'count', 'retry_count', 'recovered', 'decision_point',
+  'count', 'retry_count', 'recovered', 'decision_point', 'knowledge_observation',
 ]);
 
 function validateEvent(input, context) {
@@ -727,6 +730,12 @@ function validateEvent(input, context) {
   }
 
   const evidenceRefs = validateEvidenceRefs(errors, input.evidence_refs);
+  let knowledgeObservation;
+  if (input.knowledge_observation !== undefined) {
+    try { knowledgeObservation = require('./knowledge-observation').validate(input.knowledge_observation); }
+    catch { errors.push('knowledge_observation requires bounded public identifiers and measured or unknown counts'); }
+    if (input.actual !== undefined || !['skill_coverage_gap','api_gap','fidelity_loss'].includes(eventType)) errors.push('knowledge_observation owns actual and requires a coverage, API or fidelity event');
+  }
 
   if (errors.length > 0) {
     throw new ValidationError(errors, classKeyFor({
@@ -754,7 +763,8 @@ function validateEvent(input, context) {
     error_code: errorCode,
     what_happened: scrubbedWhat.text,
     expected: scrubbedExpected ? scrubbedExpected.text : null,
-    actual: scrubbedActual ? scrubbedActual.text : null,
+    actual: knowledgeObservation ? JSON.stringify({knowledgeObservation}) : scrubbedActual ? scrubbedActual.text : null,
+    ...(knowledgeObservation ? {knowledge_observation:knowledgeObservation} : {}),
     observed_shapes: observedShapes,
     evidence_refs: evidenceRefs,
     count,
@@ -775,6 +785,7 @@ function classKeyFor(event) {
     event.source_api_surface, event.wix_app_id, event.error_code, event.subtype,
   ];
   if (event.event_type === 'user_decision') parts.push(event.decision_point);
+  if (event.knowledge_observation) parts.push(event.knowledge_observation.signature,event.knowledge_observation.toolkitVersion,event.knowledge_observation.outcome,event.knowledge_observation.verificationLevel,event.knowledge_observation.affectedCount);
   return parts.map((p) => (p === null || p === undefined ? '' : String(p))).join('|');
 }
 
@@ -1320,6 +1331,7 @@ function foldEvents(eventRecords, runId) {
         what_happened: e.what_happened,
         expected: e.expected,
         actual: e.actual,
+        ...(e.knowledge_observation ? {knowledge_observation:e.knowledge_observation} : {}),
         observed_shapes: null,
         evidence_refs: null,
         _shapes: new Map(),
@@ -1756,6 +1768,16 @@ function resolveSkillsVersion() {
     if (fs.existsSync(candidate)) {
       const version = fs.readFileSync(candidate, 'utf8').trim();
       if (/^\d+\.\d+\.\d+$/.test(version)) return version;
+    }
+    // A published bundle also carries its version in the manifest publish-skills-to-wix.sh stamps.
+    const manifest = path.join(dir, '.publish-manifest.json');
+    if (fs.existsSync(manifest)) {
+      try {
+        const { version } = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+        if (/^\d+\.\d+\.\d+$/.test(version)) return version;
+      } catch {
+        // unreadable manifest — keep walking
+      }
     }
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -2402,6 +2424,20 @@ async function record(projectDir, eventInput, { now } = {}) {
   };
 }
 
+// A stage whose own handoff still lists open work did not pass, whatever the caller says.
+// Only stages that write a handoff with these fields are checked; a missing file checks nothing.
+const STAGE_HANDOFFS = { setup_discovery: 'setup/llm-handoff.json', codegen: 'execution/llm-handoff.json' };
+function openHandoffItems(projectDir, stageName) {
+  const relative = STAGE_HANDOFFS[stageName];
+  if (!relative) return null;
+  let handoff;
+  try { handoff = JSON.parse(fs.readFileSync(path.join(projectDir, relative), 'utf8')); } catch { return null; }
+  // Only fields that mean "this stage did not finish"; open decisions or notes are not blockers.
+  const open = ['blockers', 'unresolved', 'openItems'].flatMap((key) => (Array.isArray(handoff?.[key]) ? handoff[key] : []));
+  if (handoff?.needsLlm !== true && open.length === 0) return null;
+  return { relative, codes: open.map((item) => (item && typeof item === 'object' ? item.code ?? item.id : item)).filter(Boolean) };
+}
+
 function stage(projectDir, action, stageName, { outcome, now } = {}) {
   return withJournalLock(projectDir, () => stageLocked(projectDir, action, stageName, { outcome, now }));
 }
@@ -2440,6 +2476,13 @@ function stageLocked(projectDir, action, stageName, { outcome, now } = {}) {
     const outcomeErrors = [];
     checkEnum(outcomeErrors, 'outcome', resolvedOutcome, STAGE_OUTCOMES);
     if (outcomeErrors.length > 0) throw new ValidationError(outcomeErrors);
+    const open = resolvedOutcome === 'passed' ? openHandoffItems(projectDir, stageName) : null;
+    if (open) {
+      throw new ValidationError(
+        [`${stageName} cannot end as passed: ${open.relative} still has open items${open.codes.length ? ` (${open.codes.join(', ')})` : ' (needsLlm: true)'}`],
+        `resolve them and rewrite ${open.relative}, or call \`stage end ${stageName} --outcome halted\``,
+      );
+    }
     appendJournal(projectDir, { type: 'stage_end', ts, seq: state.seq + 1, stage: stageName, outcome: resolvedOutcome });
     return { stage: stageName, ended: true, outcome: resolvedOutcome };
   }
@@ -2817,6 +2860,7 @@ module.exports = {
   meter,
   sourceRead,
   summarizeSourceReads,
+  resolveSkillsVersion,
   validateSourceRead,
   SOURCE_READ_COUNT_KEYS,
   transcriptDigest,

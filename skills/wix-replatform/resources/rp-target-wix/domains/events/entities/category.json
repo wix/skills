@@ -25,7 +25,7 @@
   "preferredWrite": {
     "surface": "Events Categories",
     "endpoint": "POST /events/v1/categories",
-    "writerId": null,
+    "writerId": "createEventCategory",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false
@@ -52,9 +52,19 @@
       "code": "flat-categories",
       "severity": "warning",
       "summary": "Wix Events categories are flat; a hierarchical source event taxonomy (tribe_events_cat is hierarchical) flattens on import — faithfulness-ledger entry required."
+    },
+    {
+      "code": "names-not-unique",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: two categories with the same name are both created. A lost create response is resolved by exact name over queryAllEventCategories: one match → adopt, none → resend, several → hold. Two source categories with one name stay two Wix categories."
+    },
+    {
+      "code": "query-needs-paging",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: POST /events/v1/categories/query returns zero rows (with a non-zero total) unless `paging` is sent, and a `name` or `states` filter also returns zero rows. List with paging and match in code (queryAllEventCategories)."
     }
   ],
-  "notes": "Event categories have a native Categories API (dev.wix.com Events > Event Management > Categories); do not map them to CMS. Docs-verified only; exercise live before confirming.",
+  "notes": "Writer createEventCategory. Verified live 2026-10-27: create, list with paging, duplicate names.",
   "evidence": [
     {
       "type": "wix-docs",
@@ -68,6 +78,11 @@
       "type": "live-run",
       "path": "anonymized-live-verification",
       "note": "Verified live: create + query-back readback, safe mode on — 3/3 categories created via POST /events/v1/categories, server IDs crosswalked; assignment-to-events not exercised (events stayed drafts)"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live 2026-10-27 on a throwaway site created for the probe (notifications muted): create, read back, query, past dates, category assignment."
     }
   ]
 }

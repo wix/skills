@@ -1,7 +1,7 @@
 // Content hash of a page description, ignoring the check stamp itself. check-description.mjs
 // writes it when (and only when) the check passed; deploy-description.mjs recomputes it, so a
 // description that failed its check, or was edited after it, is refused.
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 export const descHash = (desc) => {
   const { checkedAt, checkedHash, ...rest } = desc;

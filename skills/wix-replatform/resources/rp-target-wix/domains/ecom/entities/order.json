@@ -13,7 +13,9 @@
   },
   "dependsOn": [
     "crm/contact",
+    "members/member",
     "stores/product",
+    "stores/product-variant",
     "gift-cards/gift-card-product",
     "stores/coupon",
     "gift-cards/gift-card",
@@ -122,42 +124,30 @@
     "nestedSubrecordExtendedFields": "unknown \u2014 which order subrecords expose nested extendedFields is open and out of scope; never provision nested fields",
     "liveVerification": "Schema create/update/re-read and value writes verified live 2026-09-04 (string fields only)."
   },
-  "safeModeContactFields": [
-    {
-      "kind": "email",
-      "targetPath": "billingInfo.email",
-      "source": "target-schema",
-      "notes": "Historical order billing email on the order object; codegen must resolve request wrappers."
-    },
-    {
-      "kind": "phone",
-      "targetPath": "billingInfo.phone",
-      "source": "target-schema",
-      "notes": "Historical order billing phone on the order object; codegen must resolve request wrappers."
-    },
-    {
-      "kind": "email",
-      "targetPath": "shippingInfo.email",
-      "source": "target-schema",
-      "notes": "Historical order shipping email on the order object when present."
-    },
-    {
-      "kind": "phone",
-      "targetPath": "shippingInfo.phone",
-      "source": "target-schema",
-      "notes": "Historical order shipping phone on the order object when present."
-    },
+  "contactFields": [
     {
       "kind": "email",
       "targetPath": "buyerInfo.email",
       "source": "target-schema",
-      "notes": "Historical order buyer email on the order object when present."
+      "notes": "Import Order buyerInfo.email (format EMAIL). The only email on the order body; billingInfo carries no email."
     },
     {
       "kind": "phone",
-      "targetPath": "buyerInfo.phone",
+      "targetPath": "billingInfo.contactDetails.phone",
       "source": "target-schema",
-      "notes": "Historical order buyer phone on the order object when present."
+      "notes": "Import Order billingInfo.contactDetails.phone (format PHONE). LIVE-FOUND: Wix names exactly order.billingInfo.contactDetails.phone in fieldViolations when it refuses one."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "shippingInfo.logistics.shippingDestination.contactDetails.phone",
+      "source": "target-schema",
+      "notes": "Import Order shipping destination phone (format PHONE) when present."
+    },
+    {
+      "kind": "phone",
+      "targetPath": "recipientInfo.contactDetails.phone",
+      "source": "target-schema",
+      "notes": "Import Order recipientInfo.contactDetails.phone (format PHONE) when present."
     }
   ],
   "fallbacks": [
@@ -237,7 +227,7 @@
     {
       "code": "order-contact-field-refused-fails-whole-order",
       "severity": "blocker",
-      "summary": "A source email or phone Import Order refuses fails the ENTIRE order, not just the field, so the financial record is lost to a descriptive detail. Resolution: remove only a contact field the rejection itself NAMES -- a 400 whose `details.validationError.fieldViolations[].field`, after an optional leading `order.`, exactly equals a `safeModeContactFields[]` path, with no other violation -- and send the order once more under the same derived id; a second refusal is `order-import-failed`. Never remove or rewrite a field on a local or customer-path check alone (the E.164 rule in members/member `phone-must-be-e164-and-dedupes-across-contacts` is verified for Contacts/Members, not Import Order), and never invent a stand-in value. On a member-linked order the retry keeps `buyerInfo.memberId`/`contactId`. `order-history.js` `importOrderHistory` does this and emits `order-contact-email-dropped`/`order-contact-phone-dropped` (field and reason, never the value); `checkOrderContactFields` only warns (`-suspect`). NOT VERIFIED LIVE for Import Order: no contact-field rejection body has been captured. The first live rejection must record its error shape (without the value)."
+      "summary": "A source email or phone Import Order refuses fails the ENTIRE order, not just the field, so the financial record is lost to a descriptive detail. Resolution: remove only a contact field the rejection itself NAMES -- a 400 whose `details.validationError.fieldViolations[].field`, after an optional leading `order.`, exactly equals a `contactFields[]` path, with no other violation -- and send the order once more under the same derived id; a second refusal is `order-import-failed`. Never remove or rewrite a field on a local or customer-path check alone (the E.164 rule in members/member `phone-must-be-e164-and-dedupes-across-contacts` is verified for Contacts/Members, not Import Order), and never invent a stand-in value. On a member-linked order the retry keeps `buyerInfo.memberId`/`contactId`. `order-history.js` `importOrderHistory` does this and emits `order-contact-email-dropped`/`order-contact-phone-dropped` (field and reason, never the value); `checkOrderContactFields` only warns (`-suspect`). NOT VERIFIED LIVE for Import Order: no contact-field rejection body has been captured. The first live rejection must record its error shape (without the value)."
     },
     {
       "code": "import-order-currency-default-not-applied",
@@ -255,11 +245,12 @@
     "If the order bought a gift card, import that line item normally and use the gift-card crosswalk for later redemption linking. If the order redeemed a gift card as payment, do not reconstruct that from WooCommerce order data because the required source signal is absent from /wc/v3/orders. Record an explicit blocked capability until verified source gift-card activity data is available; lib/gift-card-redemption-build.js's buildGiftCardRedemption() builds the redemption call from that activity row.",
     "ADDED 2026-08-17 \u2014 full sub-object review against the live Import Order request schema (dev.wix.com, fetched 2026-08-17), reconciled with the already-live-verified sibling entities (order-line-item, order-line-item-options, order-applied-discount, order-merchant-note, order-refund):",
     "lineItems[].catalogReference is optional overall (a custom, non-catalog line has none) but catalogItemId+appId are required together when it is present, as verified by gift-card orders imported without catalogReference. appId picks the dependency: Wix Stores' fixed app id -> stores/product; the Wix Gift Cards app id (d80111c5-a0f4-47a8-b63a-65b54d774a27, see domains/gift-cards/domain.json) -> gift-cards/gift-card-product. Resolve the crosswalk for whichever catalog the line actually belongs to \u2014 never assume Stores.",
-    "Verified on a disposable site with explicit source currency: omit shippingInfo.carrierId and shippingInfo.code for historical order import while preserving the single source shipping line title, price and available logistics. Both isolated and combined omission preserved the shipping method and cost in Get Order and the dashboard. Included target references must still resolve through current, fully passed setup evidence; never use source or invented IDs.",
+    "Verified on a disposable site with explicit source currency: omit shippingInfo.carrierId and shippingInfo.code for historical order import while preserving the single source shipping line title, price and available logistics. Both isolated and combined omission preserved the shipping method and cost in Get Order and the dashboard. For Import Order, shippingInfo.code is a stored selected-rate code, not a Shipping Options entity ID, and shippingInfo.carrierId is a carrier application ID, not a delivery profile (operationContracts.importOrder); neither is a dependency reference on this operation. Keep the approved mapping's choice to retain or omit the code; preserve a carrier ID only through a verified source-to-installed carrier-app mapping, never a source method or provider identifier. Downstream app, label-purchase and report behavior for these values is unverified.",
     "Verified on a disposable site: omit lineItems[].taxInfo.taxGroupId while preserving explicit source tax amounts and the order-level breakdown. Isolated and combined omission preserved tax display. The order-level taxInfo.taxBreakdown entries have tax name/type/rate/aggregated amount, not a taxGroupId field. Required setup edges remain task-complete.",
     "Reviewed and found to need NO crosswalk dependency (plain data, no other-entity reference): recipientInfo (final-recipient address/contact, distinct from shippingInfo.logistics.shippingDestination \u2014 both are just address+contact data), businessLocation.id (a Wix Locations id; no domain entity models Locations in this repo yet \u2014 treat as informational/omit if the source has no location concept), customFields/extendedFields (free-form key:value, extendedFields additionally requires the namespace to be pre-configured in the app dashboard \u2014 a setup step, not an entity crosswalk), lineItems[].subscriptionInfo (subscription cycle metadata carried as-is, no subscription-entity crosswalk found on the Import Order path), additionalFees (free-form fee records, no crosswalk), buyerNote/tags/weightUnit/currency/taxIncludedInPrices/attributionSource/buyerLanguage (scalar/enum fields, no dependency).",
     "purchasedDate/number are settable on import and immutable after (order.number must additionally be numeric \u2014 see the order-number-must-be-numeric pitfall); createdDate/updatedDate/fulfillmentStatus/createdBy/currencyConversionDetails (once set) are read-only or import-then-immutable \u2014 do not attempt to set the ones docs mark read-only, and do not rely on an LLM-summarized docs read for this distinction without cross-checking wix-writers.js's own live-verified required-field comment on buildImportOrderRequest, which already caught fields a generic docs summary got wrong (e.g. incorrectly claiming catalogReference is unconditionally required).",
-    "Never resend an existing derived order ID to backfill shipping. Preserve existing-order adoption. Use the verified bundled omission mapping for the tested scope; a changed or unverified mapping remains blocked until a disposable-site canary proves source title/cost/tax and dashboard fidelity; API acceptance alone proves no meaning. Zero source shipping lines omit shippingInfo; one maps source title/cost; multiple defer with order-multiple-shipping-lines and a blocker gap. Setup-produced edges always require every bound step to pass. Use only gate-owned setup-reference resolutions for any required target IDs."
+    "Never resend an existing derived order ID to backfill shipping. Preserve existing-order adoption. Use the verified bundled omission mapping for the tested scope; a changed or unverified mapping remains blocked until a disposable-site canary proves source title/cost/tax and dashboard fidelity; API acceptance alone proves no meaning. Zero source shipping lines omit shippingInfo; one maps source title/cost; multiple defer with order-multiple-shipping-lines and a blocker gap. Setup-produced edges always require every bound step to pass. Use only gate-owned setup-reference resolutions for any required target IDs.",
+    "Stores Catalog V3 lines: resolve the variant through the gate with resolveReference('stores/product-variant', <variant source key>, 'lineItems[i].catalogReference.options.variantId') and write it beside catalogItemId for the same product. The variant source key is the one the product import used for that variant expectation (the source variation id; <productSourceKey>#default for a product without source variations). A variation absent from the complete source variation extract (deleted at source) requests no variant reference: keep the product link, SKU and description lines. An excluded variant population follows its reviewed disposition rule on that path; a variation the product import did not create (absent from the product's verified receipt) defers the order. A variant is never its own import task."
   ],
   "setupRequirements": [
     "Order data extension schema if extended fields are used.",
@@ -300,6 +291,251 @@
       "type": "live-verification",
       "path": "anonymized-live-verification",
       "note": "Nine synthetic historical Import Order cases with explicit currency were each accepted, read back and inspected in the dashboard, after requiring the all-valid baseline to pass first. Shipping and line-item tax references were independently omitted, jointly omitted, individually invalidated, or partially omitted. Source shipping title/cost and explicit tax amounts/breakdown displayed faithfully in all nine. The selected combined omission is the tested joint-omission case. Invalid IDs were stored verbatim and confer no permission to invent references; setup dependencies remain task-complete."
+    }
+  ],
+  "mappingRules": [
+    {
+      "id": "order-purchase-date-from-declared-utc-creation",
+      "applicability": {
+        "sourceSystem": "woocommerce",
+        "sourceEntity": "order",
+        "predicates": [
+          {
+            "path": "date_created_gmt",
+            "semantic": "order-purchase-time",
+            "type": "string",
+            "format": "iso8601-utc-without-zone"
+          }
+        ]
+      },
+      "sourcePaths": [
+        "date_created_gmt"
+      ],
+      "disposition": "native",
+      "outputs": [
+        {
+          "id": "purchase-date",
+          "sourcePaths": [
+            "date_created_gmt"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "writeInput": "order",
+          "targetPath": "purchasedDate"
+        }
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Validate date_created_gmt as a UTC ISO-8601 timestamp without a zone; append Z. No local-time or payment-time fallback.",
+        "timezone": "UTC"
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "return-to-mapping"
+        },
+        "null": {
+          "action": "return-to-mapping"
+        },
+        "empty": {
+          "action": "return-to-mapping"
+        },
+        "invalid": {
+          "action": "return-to-mapping"
+        },
+        "unknown": {
+          "action": "return-to-mapping"
+        },
+        "zero": {
+          "action": "not-applicable",
+          "reason": "Source declares a timestamp string."
+        }
+      },
+      "reason": "Use the historical purchase timestamp only when source evidence declares its UTC purchase-time meaning.",
+      "evidence": [
+        {
+          "kind": "source-review",
+          "ref": "wix-writers.js#buildImportOrderRequest"
+        },
+        {
+          "kind": "docs",
+          "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order"
+        },
+        {
+          "kind": "source-review",
+          "ref": "wix.ecom.v1.Orders.ImportOrder REST method schema"
+        }
+      ],
+      "examples": [
+        {
+          "id": "utc-history",
+          "input": {
+            "date_created_gmt": "2024-02-03T12:34:56"
+          },
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "value": "2024-02-03T12:34:56Z"
+            }
+          ]
+        },
+        {
+          "id": "missing",
+          "input": {},
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "invalid",
+          "input": {
+            "date_created_gmt": "not-a-timestamp"
+          },
+          "expected": [
+            {
+              "outputId": "purchase-date",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "order-billing-street-from-declared-first-line",
+      "applicability": {
+        "sourceSystem": "woocommerce",
+        "sourceEntity": "order",
+        "predicates": [
+          {
+            "path": "billing.address_1",
+            "semantic": "postal-street-line",
+            "type": "string"
+          }
+        ]
+      },
+      "sourcePaths": [
+        "billing.address_1"
+      ],
+      "disposition": "native",
+      "outputs": [
+        {
+          "id": "billing-street",
+          "sourcePaths": [
+            "billing.address_1"
+          ],
+          "targetRef": "ecom/order",
+          "writeOperation": "importOrder",
+          "writeInput": "order",
+          "targetPath": "billingInfo.address.addressLine",
+          "constraints": {
+            "maxLength": 150
+          }
+        }
+      ],
+      "transform": {
+        "kind": "expression",
+        "expression": "Copy billing.address_1 unchanged when it is a nonempty string of at most 150 characters; missing/null/empty omit the output; invalid values return to mapping."
+      },
+      "valuePolicy": {
+        "missing": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "null": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "empty": {
+          "action": "omit-output",
+          "outputId": "billing-street"
+        },
+        "zero": {
+          "action": "return-to-mapping"
+        },
+        "invalid": {
+          "action": "return-to-mapping",
+          "reason": "Not a string or longer than the REST addressLine limit of 150; do not truncate."
+        },
+        "unknown": {
+          "action": "return-to-mapping"
+        }
+      },
+      "reason": "A declared first street line binds to the Order address input, with no addressLine1 alias.",
+      "evidence": [
+        {
+          "kind": "source-review",
+          "ref": "wix-writers.js#buildImportOrderRequest"
+        },
+        {
+          "kind": "docs",
+          "url": "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order"
+        },
+        {
+          "kind": "source-review",
+          "ref": "wix.ecom.v1.Orders.ImportOrder REST method schema"
+        }
+      ],
+      "examples": [
+        {
+          "id": "street-line",
+          "input": {
+            "billing": {
+              "address_1": "17 Example Street"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "value": "17 Example Street"
+            }
+          ]
+        },
+        {
+          "id": "empty",
+          "input": {
+            "billing": {
+              "address_1": ""
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "omitted": true
+            }
+          ]
+        },
+        {
+          "id": "too-long",
+          "input": {
+            "billing": {
+              "address_1": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          },
+          "expected": [
+            {
+              "outputId": "billing-street",
+              "writeOperation": "importOrder",
+              "noWrite": true,
+              "findingCodes": [
+                "MAPPING_DECISION_REQUIRED"
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "intendedFields": [
@@ -353,15 +589,27 @@
   "dependencyModes": {
     "crm/contact": "per-record",
     "stores/product": "per-record",
+    "stores/product-variant": "per-record",
     "stores/coupon": "per-record",
-    "gift-cards/gift-card": "per-record"
+    "gift-cards/gift-card": "per-record",
+    "members/member": "per-record",
+    "tax/tax-group": "per-record"
   },
+  "legacyTaskCompleteEdges": [
+    "tax/tax-group"
+  ],
   "dependencyReferenceFields": {
     "crm/contact": [
       "buyerInfo.contactId"
     ],
+    "members/member": [
+      "buyerInfo.memberId"
+    ],
     "stores/product": [
       "lineItems[].catalogReference.catalogItemId"
+    ],
+    "stores/product-variant": [
+      "lineItems[].catalogReference.options.variantId"
     ],
     "stores/coupon": [
       "appliedDiscounts[].coupon.id"
@@ -378,6 +626,94 @@
     "tax/tax-group": [
       "lineItems[].taxInfo.taxGroupId"
     ]
+  },
+  "operationContracts": {
+    "importOrder": {
+      "endpoint": "POST /ecom/v1/orders/import",
+      "auxiliaryOperations": [
+        "addPayments"
+      ],
+      "dependencies": {
+        "crm/contact": {
+          "conditional": true,
+          "guardedPaths": [
+            "buyerInfo.contactId"
+          ]
+        },
+        "members/member": {
+          "conditional": true,
+          "guardedPaths": [
+            "buyerInfo.memberId"
+          ]
+        },
+        "stores/product": {
+          "conditional": true,
+          "guardedPaths": [
+            "lineItems[].catalogReference.catalogItemId"
+          ]
+        },
+        "stores/product-variant": {
+          "conditional": true,
+          "guardedPaths": [
+            "lineItems[].catalogReference.options.variantId"
+          ]
+        },
+        "gift-cards/gift-card-product": {
+          "conditional": true,
+          "guardedPaths": [
+            {
+              "path": "lineItems[].catalogReference.appId",
+              "equals": "d80111c5-a0f4-47a8-b63a-65b54d774a27"
+            }
+          ]
+        },
+        "gift-cards/gift-card": {
+          "conditional": true,
+          "guardedPaths": [
+            "appliedDiscounts[].giftCard.id"
+          ]
+        },
+        "stores/coupon": {
+          "conditional": true,
+          "guardedPaths": [
+            "appliedDiscounts[].coupon.id"
+          ]
+        },
+        "tax/tax-group": {
+          "conditional": true,
+          "guardedPaths": [
+            "lineItems[].taxInfo.taxGroupId"
+          ]
+        },
+        "ecom/shipping-option": {
+          "inapplicable": {
+            "reason": "Import Order stores shippingInfo.code as the selected rate code as-is; it is not a Shipping Options entity ID and is not validated."
+          }
+        },
+        "ecom/delivery-profile": {
+          "inapplicable": {
+            "reason": "shippingInfo.carrierId is the carrier application ID (App Def Id), not a delivery profile; Import Order stores it as-is."
+          }
+        }
+      },
+      "recovery": {
+        "idempotent": false,
+        "reconciliationKeys": [
+          {
+            "path": "id",
+            "unique": true,
+            "clientAssigned": true
+          }
+        ]
+      },
+      "evidence": [
+        "https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/import-order: ShippingInformation.code is the unique code (or GUID) of the selected shipping option, e.g. usps_std_overnight (1-100 chars), matching the Shipping Rates SPI ShippingRate.code; carrierId is the App Def Id of the external provider; Import Order stores values as provided and documents no reference validation.",
+        "LIVE 2026-10-19 (dev canary, nine cases): nonexistent code and carrier values were accepted, stored verbatim and read back; dashboard showed shipping title and cost in every case. This establishes historical storage only, not label-purchase, app routing or report behavior.",
+        "Import Order creates no contact (mappingGuidance); buyerInfo.memberId is stored unvalidated (buyerinfo-memberid-stored-unvalidated), so it is a guarded per-record members/member reference.",
+        "lineItems[].catalogReference.appId selects the catalog: Wix Gift Cards app d80111c5-a0f4-47a8-b63a-65b54d774a27 means a gift-cards/gift-card-product line.",
+        "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration (read 2026-10-25): a Stores Catalog V3 line names its variant at catalogReference.options.variantId = product.variantsInfo.variants[].id beside catalogItemId = product.id; 'Always include the variantId.' Import Order accepts catalogReference.options as an untyped key:value object and stored a probe variantId verbatim (order-line-item-options catalog-reference-options-is-untyped, LIVE 2026-08-16). Behavior for a non-existent variantId is not yet verified."
+      ]
+    }
   },
   "importReferenceCanary": {
     "verifiedAt": "2026-10-19",

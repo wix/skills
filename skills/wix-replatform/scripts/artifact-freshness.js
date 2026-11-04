@@ -52,7 +52,7 @@ function main() {
   const domainsDir = args.domainsDir ? path.resolve(args.domainsDir) : null;
   const metadataPath = args.metadata || 'execution/review/import-plan.freshness.json';
   if (command === 'write') {
-    const metadata = createFreshnessMetadata({ projectDir, domainsDir });
+    const metadata = createFreshnessMetadata({ projectDir, domainsDir, exampleCaptureRef: args.exampleCapture || null });
     writeFreshnessMetadata(path.resolve(projectDir, metadataPath), metadata);
     process.stdout.write(`${JSON.stringify({ ok: true, metadataPath }, null, 2)}\n`);
     return;

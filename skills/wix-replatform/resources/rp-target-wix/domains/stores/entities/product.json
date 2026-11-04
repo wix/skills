@@ -18,6 +18,104 @@
     "media/media-file",
     "stores/product-customization"
   ],
+  "dependencyModes": {
+    "stores/product-tag": "per-record",
+    "media/media-file": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/product-tag": [
+      "tags.publicTags.tagIds[]"
+    ],
+    "media/media-file": [
+      "media.itemsInfo.items[].id"
+    ]
+  },
+  "retiredHoldCodes": {
+    "variation-any-attribute-unresolved": "Route the product's selection attributes with wooSelectionAttributes (rp-source-wordpress/lib/woo-selection-attributes.js) and routeSelections (rp-target-wix/lib/selection-route.js), as rp-import-codegen/SKILL.md describes: shared (\"Any\") attributes become mandatory modifiers and the product is written. Only a product the route refuses (SELECTION_ROUTE_CONTRADICTION) is held, with code selection-route-contradiction and a mapping-gaps.json entry."
+  },
+  "dependencyFailureActions": {
+    "media/media-file": "omit"
+  },
+  "legacyTaskCompleteEdges": [
+    "media/media-file"
+  ],
+  "operationContracts": {
+    "createStoresProduct": {
+      "aliases": [
+        "createProduct"
+      ],
+      "endpoint": "POST /stores/v3/products",
+      "auxiliaryOperations": [
+        "bulkAddItemToCategories",
+        "patchStoresProductTags"
+      ],
+      "dependencies": {
+        "media/media-file": {
+          "conditional": true,
+          "guardedPaths": [
+            "media.itemsInfo.items[].id"
+          ],
+          "creatingPaths": [
+            "media.itemsInfo.items[].url"
+          ],
+          "withinWrite": {
+            "completion": "asynchronous",
+            "outcome": "creates",
+            "identityOutput": "product.media.itemsInfo.items[].image.id",
+            "verification": "stores-product-media-observation"
+          }
+        },
+        "stores/brand": {
+          "conditional": true,
+          "guardedPaths": [
+            "brand.id"
+          ],
+          "creatingPaths": [
+            "brand.name"
+          ],
+          "withinWrite": {
+            "completion": "synchronous",
+            "outcome": "creates-or-matches",
+            "identityOutput": "product.brand.id",
+            "verification": "stores-product-read-back"
+          }
+        },
+        "stores/product-tag": {
+          "conditional": true,
+          "guardedPaths": [
+            "tags.publicTags.tagIds[]"
+          ]
+        }
+      },
+      "childOutputs": {
+        "stores/product-variant": {
+          "identityPath": "product.variantsInfo.variants[].id",
+          "receipt": {
+            "path": "variants",
+            "keyField": "sourceKey",
+            "idField": "variantId"
+          },
+          "verification": "write-verification-receipt"
+        }
+      },
+      "recovery": {
+        "idempotent": false,
+        "reconciliationKeys": [
+          {
+            "path": "slug",
+            "unique": true
+          }
+        ]
+      },
+      "evidence": [
+        "https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/create-product: media.itemsInfo.items[].url sets media from an external URL; passing brand.name adds a new brand while creating the product (BRAND_CREATION_FAILED fails the create). DUPLICATE_SLUG_ERROR makes slug a unique reconciliation key; SKU is not assumed unique.",
+        "LIVE 2026-09-01 (Update Product, see patchStoresProductMediaVerified): an accepted URL item is queued (UNKNOWN_MEDIA_TYPE + uploadId) and may be dropped after the 200; only a read with fields=MEDIA_ITEMS_INFO establishes ingestion. Create timing is not separately observed.",
+        "Brand by existing name links the existing brand (stores/brand pitfalls); normalization and broad idempotency are not established.",
+        "bulkCreateProductsWithInventory is a different operation with no reviewed contract and cannot share this proof.",
+        "Create Product returns product.variantsInfo.variants[] with server-assigned ids. product-import.js matches each source variant expectation to exactly one returned variant by its source-fixed projection and stores { sourceKey, variantId } in the verified product receipt (write-verification.js verifyProduct re-checks each variantId against the read-back); those are the child identities."
+      ]
+    }
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -138,10 +236,15 @@
       "code": "seo-data-only-for-proven-overrides",
       "severity": "blocker",
       "summary": "Write product.seoData only for per-field SEO overrides the source proves (see rp-source-wordpress wordpress-seo product-seo-meta). Rendered Yoast output would turn an inherited pattern into a hard per-product override. [UNVERIFIED as of 2026-09-29] Create-time persistence of seoData on the create-with-inventory call has not been live-verified: the throwaway-site canary (create one product with inventory plus title and description seoData, read it back, observe both tags resolve TAG_SOURCE_ITEM, delete it) is still pending. Until it is recorded here, product-seo.js reads every product back after create and, if seoData was dropped, writes it with a revision-protected PATCH and verifies that. A PATCH of seoData with the saved revision is live-observed (2026-08-27, resolved TAG_SOURCE_ITEM). tags[] is replaced whole: send current non-import-owned tags back unchanged."
+    },
+    {
+      "code": "shared-selection-attributes-become-modifiers",
+      "severity": "blocker",
+      "summary": "An attribute that cannot change price or stock (WooCommerce: \"Any\" in every variation) becomes a mandatory connected modifier on one default variant, never an enumerated variant set; attributes that move price or stock become variants within 6 options / 1,000 variants. A tracked stock pool is never copied onto several variants. Route with lib/selection-route.js routeSelections from canonical selectionAttributes (source-neutral); write customizations first (planSelectionCustomizations + createStoresCustomization) and attach with connectedModifierFromCustomization. Modifiers carry no price of their own here (defaultAddedPrice is docs-only and not used). Live read-back of TEXT_CHOICES modifiers on a product is still unverified (needs a live canary)."
     }
   ],
   "mappingGuidance": [
-    "Create categories, brands, tags, and media references before products when the source uses them; assign brands by crosswalked brand.id, never by name (see stores/brand).",
+    "Create categories, brands, tags, and media references before products when the approved mapping uses them; assign brands by crosswalked brand.id, never by name (see stores/brand). Tag references are per product: resolve each used tag ID through the dependency gate. An excluded tag population uses its reviewed census disposition and exact dependent-field omission rule; absence of a tag writer never authorizes silent loss. Keep omitted tag behavior visible for the customer to fix or dismiss. Media ids are per product too: resolve each media.itemsInfo.items[].id through the dependency gate (resolveReference), so a product never waits for the whole media task or for any image. Place each resolved id at the next free index; an image that is not ready, held or failed resolves to nothing (dependencyFailureActions omit) and the product is written without it, recorded in execution/dependency-readiness.json omittedReferences. The media patch pass (omittedReady, then patchStoresProductMediaVerified, then recordOmissionsResolved) adds each image once it lands. Media sent as items[].url need no media task at all.",
     "Preserve recurring offers natively via product.subscriptionDetails.subscriptions[] when the source exposes clear cadence data; live create coverage was verified on July 26, 2026, while patch/update coverage remains unverified.",
     "Plan the slug for the WHOLE catalog before writing the first product, not per record. Two source shapes decide the target slug and neither is visible one record at a time: a percent-encoded non-Latin slug must be tolerantly percent-decoded first and then kept as the decoded Unicode value (see wordpress-percent-encoded-slug), and an empty source slug must be filled in rather than left for the platform to derive (see empty-source-slug-derives-and-can-collide). Build the source-slug -> planned-target-slug map up front, assert it is unique across the catalog after coercion, and carry the ORIGINAL source slug beside the planned one so a later URL-preservation report can tell a faithful slug from a deviated one.",
     "Product images: pass every candidate url the source record offers to the source adapter's image resolver and use its result, never a hardcoded field such as src. Carry altText and displayName through to the media item. When the resolver reports that only a downscaled crop existed, record those images in the run's faithfulness ledger rather than importing them silently.",
@@ -196,6 +299,9 @@
       "sourcePaths": [
         "images[]",
         "media[]"
+      ],
+      "requiredSubpaths": [
+        "url"
       ]
     }
   ],

@@ -83,7 +83,8 @@ missing or stale artifact.
 The same finalizer also refuses without a fresh, complete `execution/qa/entity-qa-attestation.json`
 that matches the current `execution/completion-report.json` digest and covers every mapped
 entity/subtype with matching counts (`rp-execute-import/SKILL.md`'s "Entity-by-entity QA"
-section). The refusal carries `entityQa: { qaStatus, entities, recheck }`:
+section), including each mapped entity's `archive.<entity>` source-archive row when the report
+carries one. The refusal carries `entityQa: { qaStatus, entities, recheck }`:
 
 | `qaStatus` | Meaning | Action |
 | --- | --- | --- |
@@ -95,6 +96,21 @@ A valid attestation proves import-row freshness and coverage only (`scope:
 'import-entity-coverage'` in `migration-completion.json`) — never business setup or launch
 readiness, and never proof the QA pass itself happened rather than a copy of the report's own
 counts.
+
+## Site settings in the execution plan
+
+When the setup plan has `import-site-locale`, show the owner what the first imported entity will do:
+
+```bash
+node skills/wix-replatform/scripts/site-regional.js preview <project>
+```
+
+It prints, from the source file alone (the site is read when setup runs), "Currency: set to … (from the store)",
+the same for time zone, language and locale, and the rule: a site created by this migration, or an existing
+site with no orders and no products, is set directly; one that holds an order or any product asks
+the owner first (one question, change or keep, raised by setup — never answered for the owner, one-click
+included). No sample-product classifier ships today. Nothing regional needs separate approval or a file
+bound into the approval.
 
 ## Reporting coupons, currency and plan definitions
 

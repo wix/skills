@@ -44,11 +44,15 @@ const documentUrlGuard = require('../../../lib/document-url-guard.js');
 const approvalStamp = require('../../../lib/preservation-approval-stamp.js');
 const pricingPlanDefinition = require('./pricing-plan-definition.js');
 const productSeo = require('./product-seo.js');
+const seoTags = require('./seo-tags.js');
+const dryRunTarget = require('./dry-run-target.js');
 const { MEMBER_OUTCOME: MO, MEMBER_FINDING: MF } = require('../../../lib/member-outcome-registry.js');
+const { PLAN_ORDER_OUTCOME: PO } = require('../../../lib/plan-order-outcome-registry.js');
 const storesInventory = require('./stores-inventory.js');
 const confirmedPictures = require('../../../lib/confirmed-pictures.js');
 
 const executionCapability = require('../../../lib/execution-capability');
+const cmsItemQuota = require('./cms-item-quota.js');
 const requestMarks = new WeakMap();
 const responseEvidence = new WeakMap();
 const clientReadResponses = new WeakMap();
@@ -63,76 +67,14 @@ function requestMark(request) {
 
 const WIXAPIS = 'https://www.wixapis.com';
 
-const SAFE_MODE_TRUE_VALUES = new Set(['true', '1', 'yes', 'on']);
-const SAFE_MODE_FALSE_VALUES = new Set(['false', '0', 'no', 'off']);
-const DEFAULT_SAFE_MODE_PHONE_NUMBER = '+972 50 0000000';
-const NATIVE_EMAIL_FALLBACK_PATHS = [
-  'info.emails.items[].email',
-  'emails.items[].email',
-  'buyerInfo.email',
-  'billingInfo.email',
-  'shippingInfo.email',
-  'contact.email',
-  'order.buyerInfo.email',
-  'order.billingInfo.email',
-  'order.shippingInfo.email',
-  'member.loginEmail',
-  'loginEmail',
-  // Contacts V5 (GA) — flat contact shape; single create/update wraps as { contact },
-  // bulk upsert wraps each item as { contact } under contacts[]
-  'contact.email.email',
-  'contact.additionalEmails[].email',
-  'contacts[].contact.email.email',
-  'contacts[].contact.additionalEmails[].email',
-];
-const NATIVE_PHONE_FALLBACK_PATHS = [
-  'info.phones.items[].phone',
-  'phones.items[].phone',
-  'buyerInfo.phone',
-  'billingInfo.phone',
-  'shippingInfo.phone',
-  'order.buyerInfo.phone',
-  'order.billingInfo.phone',
-  'order.shippingInfo.phone',
-  // Import Order (POST /ecom/v1/orders/import) — contact details carry phone, not email
-  'order.billingInfo.contactDetails.phone',
-  'order.shippingInfo.logistics.shippingDestination.contactDetails.phone',
-  'order.recipientInfo.contactDetails.phone',
-  // Contacts V5 (GA) — flat contact shape; single create/update wraps as { contact },
-  // bulk upsert wraps each item as { contact } under contacts[]
-  'contact.phone.phone',
-  'contact.additionalPhones[].phone',
-  'contact.addresses[].recipient.phone',
-  'contacts[].contact.phone.phone',
-  'contacts[].contact.additionalPhones[].phone',
-  'contacts[].contact.addresses[].recipient.phone',
-];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-class SafeModeBlockedError extends Error {
-  constructor(message, details = {}) {
-    super(message);
-    this.name = 'SafeModeBlockedError';
-    this.code = 'SAFE_MODE_SUSPICIOUS_EMAIL';
-    this.safeMode = true;
-    this.blockedPaths = details.blockedPaths || [];
-    this.sanitizerResult = details.sanitizerResult;
-  }
-}
-
-function normalizeSafeModeValue(value, { defaultValue }) {
-  if (value == null || String(value).trim() === '') return defaultValue;
-  const normalized = String(value).trim().toLowerCase();
-  if (SAFE_MODE_TRUE_VALUES.has(normalized)) return true;
-  if (SAFE_MODE_FALSE_VALUES.has(normalized)) return false;
-  throw new Error(`SAFE_MODE must be one of true, 1, yes, on, false, 0, no, off; got ${JSON.stringify(value)}`);
-}
+const FLAG_TRUE_VALUES = new Set(['true', '1', 'yes', 'on']);
+const FLAG_FALSE_VALUES = new Set(['false', '0', 'no', 'off']);
 
 function normalizeDryRunValue(value, { defaultValue = false } = {}) {
   if (value == null || String(value).trim() === '') return defaultValue;
   const normalized = String(value).trim().toLowerCase();
-  if (SAFE_MODE_TRUE_VALUES.has(normalized)) return true;
-  if (SAFE_MODE_FALSE_VALUES.has(normalized)) return false;
+  if (FLAG_TRUE_VALUES.has(normalized)) return true;
+  if (FLAG_FALSE_VALUES.has(normalized)) return false;
   throw new Error(`DRY_RUN must be one of true, 1, yes, on, false, 0, no, off; got ${JSON.stringify(value)}`);
 }
 
@@ -145,32 +87,6 @@ function createDryRunConfig(env = {}, argv = []) {
   return { dryRun };
 }
 
-function createSafeModeConfig(env = {}) {
-  const safeMode = normalizeSafeModeValue(env.SAFE_MODE, { defaultValue: true });
-  const configuredPhone = env.SAFE_MODE_PHONE_NUMBER == null ? '' : String(env.SAFE_MODE_PHONE_NUMBER).trim();
-  return {
-    safeMode,
-    safeModePhoneNumber: safeMode ? (configuredPhone || DEFAULT_SAFE_MODE_PHONE_NUMBER) : configuredPhone,
-  };
-}
-
-function safeEmailLocalPartComponent(value, label, { allowHyphen = false } = {}) {
-  const pattern = allowHyphen ? /[^a-z0-9-]+/g : /[^a-z0-9]+/g;
-  const normalized = String(value == null ? '' : value)
-    .trim()
-    .toLowerCase()
-    .replace(pattern, '_')
-    .replace(/^[_-]+|[_-]+$/g, '');
-  if (!normalized) throw new Error(`mockEmailForEntity: ${label} must normalize to a non-empty value`);
-  return normalized;
-}
-
-function mockEmailForEntity(entityType, entityId) {
-  const safeEntityType = safeEmailLocalPartComponent(entityType, 'entityType');
-  const safeEntityId = safeEmailLocalPartComponent(entityId, 'entityId', { allowHyphen: true });
-  return `replatform+${safeEntityType}_${safeEntityId}@wix.com`;
-}
-
 function deepClone(value) {
   if (Array.isArray(value)) return value.map((item) => deepClone(item));
   if (value && typeof value === 'object') {
@@ -181,166 +97,9 @@ function deepClone(value) {
   return value;
 }
 
-function parseSafeModePath(pathValue) {
-  if (!pathValue || typeof pathValue !== 'string') {
-    throw new Error('safe-mode replacement path must be a non-empty string');
-  }
-  return pathValue.split('.').map((rawSegment) => {
-    const match = rawSegment.match(/^([A-Za-z0-9_$-]+)(\[\])?$/);
-    if (!match) throw new Error(`invalid safe-mode replacement path segment: ${rawSegment}`);
-    return { key: match[1], array: Boolean(match[2]) };
-  });
-}
-
-function pathToString(segments) {
-  return segments.map((segment) => `${segment.key}${segment.array ? '[]' : ''}`).join('.');
-}
-
-function setValuesAtPath(root, pathValue, replacement) {
-  const segments = parseSafeModePath(pathValue);
-  let changed = 0;
-  function visit(node, index) {
-    if (!node || typeof node !== 'object') return;
-    const segment = segments[index];
-    if (!(segment.key in node)) return;
-    if (segment.array) {
-      const items = node[segment.key];
-      if (!Array.isArray(items)) return;
-      for (const item of items) {
-        if (index === segments.length - 1) {
-          continue;
-        }
-        visit(item, index + 1);
-      }
-      return;
-    }
-    if (index === segments.length - 1) {
-      // Primitive-only: a generic path like `contact.email` must not clobber the Contacts
-      // V5 email OBJECT ({ email, subscriptionStatus }) with a mock string. Raw emails
-      // left inside skipped objects are still caught by collectSuspiciousEmailPaths.
-      const current = node[segment.key];
-      if (current !== undefined && current !== null && typeof current !== 'object') {
-        if (current !== replacement) {
-          node[segment.key] = replacement;
-          changed += 1;
-        }
-      }
-      return;
-    }
-    visit(node[segment.key], index + 1);
-  }
-  visit(root, 0);
-  return changed;
-}
-
-function collectSuspiciousEmailPaths(value, { mockEmail }) {
-  const paths = [];
-  function visit(node, segments) {
-    if (typeof node === 'string') {
-      if (node !== mockEmail && EMAIL_PATTERN.test(node.trim())) paths.push(pathToString(segments));
-      return;
-    }
-    if (Array.isArray(node)) {
-      node.forEach((item, index) => visit(item, segments.concat({ key: String(index), array: false })));
-      return;
-    }
-    if (node && typeof node === 'object') {
-      for (const [key, item] of Object.entries(node)) visit(item, segments.concat({ key, array: false }));
-    }
-  }
-  visit(value, []);
-  return paths;
-}
-
-function normalizeReplacePaths(replacePaths = []) {
-  if (!Array.isArray(replacePaths)) throw new Error('safeModeOptions.replacePaths must be an array');
-  return replacePaths.map((entry) => {
-    const kind = entry && entry.kind;
-    const path = entry && (entry.path || entry.targetPath);
-    if (kind !== 'email' && kind !== 'phone') throw new Error(`safe-mode replacement kind must be email or phone; got ${JSON.stringify(kind)}`);
-    parseSafeModePath(path);
-    return { kind, path };
-  });
-}
-
-function isSafeModeEnabled(options = {}) {
-  if (options.safeMode === undefined) return false;
-  return normalizeSafeModeValue(options.safeMode, { defaultValue: true });
-}
-
-function sanitizeContactFieldsForSafeMode(value, options = {}) {
-  if (!isSafeModeEnabled(options)) {
-    return {
-      value: deepClone(value),
-      blocked: false,
-      blockedPaths: [],
-      emailFieldsReplaced: 0,
-      phoneFieldsReplaced: 0,
-    };
-  }
-  if (!options.entityType) throw new Error('safe mode requires origin entityType');
-  if (!options.entityId) throw new Error('safe mode requires origin entityId');
-  const safeModePhoneNumber = options.safeModePhoneNumber || DEFAULT_SAFE_MODE_PHONE_NUMBER;
-  const mockEmail = mockEmailForEntity(options.entityType, options.entityId);
-  const sanitized = deepClone(value);
-  const replacePaths = normalizeReplacePaths(options.replacePaths || []);
-  let emailFieldsReplaced = 0;
-  let phoneFieldsReplaced = 0;
-
-  for (const entry of replacePaths) {
-    if (entry.kind === 'email') emailFieldsReplaced += setValuesAtPath(sanitized, entry.path, mockEmail);
-    else phoneFieldsReplaced += setValuesAtPath(sanitized, entry.path, safeModePhoneNumber);
-  }
-  for (const pathValue of NATIVE_EMAIL_FALLBACK_PATHS) {
-    emailFieldsReplaced += setValuesAtPath(sanitized, pathValue, mockEmail);
-  }
-  for (const pathValue of NATIVE_PHONE_FALLBACK_PATHS) {
-    phoneFieldsReplaced += setValuesAtPath(sanitized, pathValue, safeModePhoneNumber);
-  }
-
-  const blockedPaths = collectSuspiciousEmailPaths(sanitized, { mockEmail });
-  return {
-    value: sanitized,
-    blocked: blockedPaths.length > 0,
-    blockedPaths,
-    emailFieldsReplaced,
-    phoneFieldsReplaced,
-  };
-}
-
-function sanitizeWixRequestBody(body, options = {}) {
-  return sanitizeContactFieldsForSafeMode(body, options);
-}
-
-function buildSafeModeEvidence(result, safeModeOptions) {
-  if (!isSafeModeEnabled(safeModeOptions)) return null;
-  return {
-    enabled: true,
-    entityType: safeModeOptions.entityType || null,
-    entityId: safeModeOptions.entityId == null ? null : String(safeModeOptions.entityId),
-    replacePathCount: normalizeReplacePaths(safeModeOptions.replacePaths || []).length,
-    emailFieldsReplaced: result.emailFieldsReplaced,
-    phoneFieldsReplaced: result.phoneFieldsReplaced,
-    blockedPaths: result.blockedPaths.slice(),
-  };
-}
-
-function applySafeModeToRequest(body, safeModeOptions) {
-  const result = sanitizeWixRequestBody(body, safeModeOptions);
-  if (result.blocked) {
-    throw new SafeModeBlockedError('safe mode blocked suspicious non-replaced email value before Wix write', {
-      blockedPaths: result.blockedPaths,
-      sanitizerResult: result,
-    });
-  }
-  return {
-    body: result.value,
-    safeMode: buildSafeModeEvidence(result, safeModeOptions),
-  };
-}
-
-function applySafeModeToRequestBody(body, safeModeOptions) {
-  return applySafeModeToRequest(body, safeModeOptions).body;
+// Request bodies are copies: a builder never hands the caller's own objects to the send path.
+function copyRequestBody(body) {
+  return deepClone(body);
 }
 
 // --- client ----------------------------------------------------------------
@@ -403,6 +162,7 @@ function responseShapeFromRequest(request) {
   if (url.includes('/site-media/v1/files/import')) return { type: 'object', field: 'file' };
   if (url.includes('/site-media/v1/files/generate-upload-url')) return { type: 'upload-url', field: 'file' };
   if (url.includes('/site-media/v1/files/') && method === 'GET') return { type: 'object', field: 'file' };
+  if (/\/reviews\/v1\/reviews\/[^/?]+(?:\/reply)?(?:\?|$)/.test(url) && (method === 'GET' || method === 'PATCH')) return { type: 'object', field: 'review' };
   if (url.includes('/blog/v3/categories')) return method === 'GET' || url.includes('/query') ? { type: 'array', field: 'categories' } : { type: 'object', field: 'category' };
   if (url.includes('/blog/v3/tags')) return method === 'GET' || url.includes('/query') ? { type: 'array', field: 'tags' } : { type: 'object', field: 'tag' };
   if (url.includes('/tags/v1/tags')) return method === 'GET' || url.includes('/query') ? { type: 'array', field: 'tags' } : { type: 'object', field: 'tag' };
@@ -590,7 +350,13 @@ async function defaultCaptureSink(capture, config) {
   }
 }
 
-async function dryRunSend(request, config, defaultHeaders) {
+// A dry run sends nothing, so it never waits on pacing floors, settle delays, retry backoff or
+// ready polls: those exist for the live service, and in a dry run they only stall the pass.
+function pauseFor(wix, sleep) {
+  if (wix && wix.dryRun === true) return async () => {};
+  return typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function dryRunSend(request, config, defaultHeaders, capturePhase = null) {
   const method = String(request.method || '').toUpperCase();
   if (!method) throw new Error('wix.send: method is required');
   if (!request.url) throw new Error('wix.send: url is required');
@@ -598,7 +364,7 @@ async function dryRunSend(request, config, defaultHeaders) {
   const body = request.body === undefined ? undefined : request.body;
   const issued = executionCapability.inspect(config.capability);
   const runId = issued?.runId || config.runId || 'dry-run';
-  const phase = issued?.kind === 'setup-step' ? 'setup' : issued?.kind?.startsWith('quick') ? 'quick' : 'import';
+  const phase = capturePhase || (issued?.kind === 'setup-step' ? 'setup' : issued?.kind?.startsWith('quick') ? 'quick' : 'import');
   const requestCaptureId = `reqcap_${stableHash(JSON.stringify({ runId, method, url: request.url, body, operation: request.operation, sourceId: request.sourceId }), 12)}`;
   const capture = {
     schemaVersion: 1,
@@ -619,9 +385,15 @@ async function dryRunSend(request, config, defaultHeaders) {
     result: 'dry_run_skipped_wix_call',
     authTokenStatus: config.authToken ? 'present' : 'would_block_live',
     siteIdStatus: config.siteId ? 'present' : 'would_block_live',
-    ...(request.safeMode ? { safeMode: request.safeMode } : {}),
   };
   await defaultCaptureSink(capture, config);
+  // Writers that read back what they wrote (events, forms, gift cards, add-ons, bookings, plan
+  // orders, labels, member Abouts, SEO) get answers from this dry run's own writes.
+  const simulated = request.responseShape ? null : dryRunTarget.respond(request, {
+    scope: `${issued?.projectDir || ''}|${config.siteId || ''}|${runId}`,
+    placeholderId: () => dryRunPlaceholderId({ runId, entity: request.entity, operation: request.operation, sourceId: request.sourceId, method, url: request.url, body }),
+  });
+  if (simulated) return { dryRun: true, result: 'dry_run_skipped_wix_call', requestCaptureId, ...simulated };
   const shape = responseShapeFromRequest(request);
   return {
     dryRun: true,
@@ -637,10 +409,20 @@ async function dryRunSend(request, config, defaultHeaders) {
   };
 }
 
-// Only these POSTs are read-only identity lookups used by bounded verification.
+// Synthetic codegen examples capture prepared requests only. This client has no transport,
+// live capability, credentials or configurable sink, and cannot be promoted to a live client.
+function createWixCaptureClient({ requestCapturePath, runId } = {}) {
+  if (!requestCapturePath || !runId) throw new Error('Synthetic capture requires a path and run ID');
+  return Object.freeze({dryRun: true, send: request => dryRunSend(request, {requestCapturePath,runId}, {}, 'codegen')});
+}
+
+// Only these POSTs are read-only queries used by bounded verification: identity lookups, and the
+// Stores inventory read (Get Product V3 returns no variant inventory).
 const BOUNDED_READ_QUERY_PATHS = new Set([
   '/members/v1/members/query',
   '/stores/v3/products/query',
+  '/stores/v3/inventory-items/query',
+  '/stores/v3/locations/query',
 ]);
 
 function boundedReadTimeout(request) {
@@ -710,6 +492,65 @@ function sanitizedRetryAfterMs(response, now) {
   return Math.min(30000, Math.max(0, Math.floor(date.getTime() - now)));
 }
 
+// Wix refuses a rate-limited request with 429 before processing it (the edge's reply is often an
+// HTML page), so sending the same request again is safe, for any API, read or write, single or
+// bulk. Every request goes through `send`, so this is the one place it is handled: the client waits
+// (Retry-After, else jittered exponential backoff) and sends the same request again. A 429 reaches
+// the caller only after `maxRetries` more tries, marked `requestApplied: false`: it is a refusal,
+// never an unknown outcome, whether or not its body could be read.
+//
+// The pacing it learns is per endpoint (site + method + path with ids folded) and shared by every
+// client in the process, because Wix limits the site's API, not one client: a 429 widens that
+// endpoint's spacing and a Retry-After holds it shut until then; each clean reply narrows it again.
+const RATE_LIMIT_POLICY = Object.freeze({ maxRetries: 5, baseMs: 1000, maxMs: 30000, minGapMs: 250, maxGapMs: 2000 });
+const endpointPacing = new Map();
+function rateLimitEndpoint(siteId, request) {
+  let pathname = '';
+  try { pathname = new URL(request.url).pathname; } catch { pathname = String(request.url || ''); }
+  // An id segment (a GUID, a number, a media id) would make every record its own endpoint.
+  const isId = (part) => /^\d+$/.test(part) || /[0-9a-f]{8}-[0-9a-f]{4}/i.test(part) || part.includes('~') || (part.length >= 16 && /\d/.test(part));
+  const folded = pathname.split('/').map((part) => isId(part) ? ':id' : part).join('/');
+  return `${siteId || ''} ${String(request.method || 'GET').toUpperCase()} ${folded}`;
+}
+function createRateLimitThrottle({ maxRetries = RATE_LIMIT_POLICY.maxRetries, baseMs = RATE_LIMIT_POLICY.baseMs, maxMs = RATE_LIMIT_POLICY.maxMs, sleep = null, random = Math.random, now = Date.now, pacing = endpointPacing } = {}) {
+  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const stats = { limited: 0, retries: 0, waitMs: 0, endpoints: {} };
+  const state = (endpoint) => { if (!pacing.has(endpoint)) pacing.set(endpoint, { gapMs: 0, nextAt: 0 }); return pacing.get(endpoint); };
+  return {
+    maxRetries,
+    stats,
+    async pace(endpoint) {
+      const pace = pacing.get(endpoint);
+      if (!pace || (!pace.gapMs && pace.nextAt <= now())) return;
+      const t = now(), start = Math.max(t, pace.nextAt);
+      pace.nextAt = start + pace.gapMs;
+      if (start > t) { stats.waitMs += start - t; await wait(start - t); }
+    },
+    passed(endpoint) {
+      const pace = pacing.get(endpoint);
+      if (!pace) return;
+      pace.gapMs = pace.gapMs > 50 ? Math.floor(pace.gapMs * 0.9) : 0;
+      if (!pace.gapMs && pace.nextAt <= now()) pacing.delete(endpoint);
+    },
+    async limited(endpoint, retry, retryAfterMs) {
+      const pace = state(endpoint);
+      stats.limited += 1; stats.endpoints[endpoint] = (stats.endpoints[endpoint] || 0) + 1;
+      pace.gapMs = Math.min(RATE_LIMIT_POLICY.maxGapMs, Math.max(RATE_LIMIT_POLICY.minGapMs, pace.gapMs * 2));
+      const backoff = Math.min(maxMs, baseMs * 2 ** retry);
+      // Jitter keeps callers that were limited together from retrying together.
+      const ms = Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs + Math.floor(random() * 250) : Math.floor(backoff / 2 + random() * (backoff / 2));
+      // Retry-After is the site's own answer: every caller of this endpoint waits it out.
+      if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) pace.nextAt = Math.max(pace.nextAt, now() + retryAfterMs);
+      stats.retries += 1; stats.waitMs += ms;
+      await wait(ms);
+    },
+  };
+}
+
+function cmsItemQuotaRefusal(text) {
+  try { return cmsItemQuota.isCmsItemQuotaError({ body: JSON.parse(text) }); } catch { return false; }
+}
+
 function createWixClient(config) {
   config = config || {};
   if (Object.hasOwn(config, 'runContext') || Object.hasOwn(config, 'phase')) executionCapability.fail('CALLER_PHASE_REFUSED');
@@ -719,7 +560,11 @@ function createWixClient(config) {
   if (authority?.kind === 'import-run') executionCapability.fail('DEPENDENCY_TASK_REQUIRED');
   const dryRun = authority ? authority.dryRun : normalizeDryRunValue(config.dryRun, { defaultValue: false });
   config = { ...config, dryRun, ...(authority ? { siteId: authority.siteId, projectDir: authority.projectDir } : {}) };
-  if (!dryRun && (!config || !config.authToken)) {
+  // A `tokenSource` (lib/wix-auth.js) renews a short-lived CLI token for this same
+  // site; a plain `authToken` is sent as-is for the life of the client.
+  const tokenSource = config.tokenSource || null;
+  if (tokenSource && config.siteId && tokenSource.siteId !== config.siteId) executionCapability.fail('CAPABILITY_SITE_MISMATCH');
+  if (!dryRun && !config.authToken && !tokenSource) {
     throw new Error(
       'createWixClient: no Wix write credentials. Provide an OAuth access token / API ' +
         'key with the scopes required by the selected writers. In an autonomous run this ' +
@@ -728,43 +573,99 @@ function createWixClient(config) {
   }
   const headers = {
     'Content-Type': 'application/json',
-    ...(config && config.authToken ? { Authorization: authHeaderValue(config.authToken) } : {}),
-    ...(config && config.siteId ? { 'wix-site-id': config.siteId } : {}),
+    ...(config.authToken && !tokenSource ? { Authorization: authHeaderValue(config.authToken) } : {}),
+    ...(config.siteId ? { 'wix-site-id': config.siteId } : {}),
   };
   const fetchImpl = config.fetch || fetch;
+  const throttle = createRateLimitThrottle({ ...(config.now ? { now: config.now } : {}), ...(config.rateLimit || {}) });
   const client = {
     dryRun,
+    rateLimitStats: throttle.stats,
     async send(request) {
-      if ((authority?.siteId || config.siteId) && Object.entries(request.headers || {}).some(([key, value]) => key.toLowerCase() === 'wix-site-id' && value !== (authority?.siteId || config.siteId))) executionCapability.fail('CAPABILITY_SITE_MISMATCH');
-      const mark = requestMark(request);
-      const phase = authority?.kind?.startsWith('setup') ? 'setup' : authority?.kind === 'import-task' ? 'import' : authority?.kind?.startsWith('quick') ? 'quick' : 'probe';
-      if (authority && request.phase && request.phase !== phase) executionCapability.fail('REQUEST_PHASE_MISMATCH');
-      if (!mark?.read) {
-        if (!authority) executionCapability.fail('EXECUTION_CAPABILITY_REQUIRED');
-        if (authority.kind === 'import-task') {
-          if (!mark?.entity) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
-          const productTask = authority.task.entityRefs.includes('stores/product');
-          if (mark?.entity && !mark.auxiliary && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
-          if (mark?.partial && !productTask || mark?.productMembership && !productTask && !authority.task.entityRefs.includes('stores/category-membership') || mark?.inventoryOperation && !productTask && !authority.task.entityRefs.includes('stores/inventory-item') || mark?.auxiliary && mark.entity === 'ecom/order' && !authority.task.entityRefs.includes('ecom/order')) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
-          if (authority.task.entityRefs.includes('stores/product') && /\/stores\/v3\/(?:bulk\/)?inventory-items(?:\/|$)/.test(request.url) && !mark?.inventoryOperation) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-          if (mark?.productMembership && authority.task.entityRefs.includes('stores/product') && (!recordProductMatches(client, request, request.body?.item?.catalogItemId) || !require('../../../lib/dependency-readiness').verifyReferenceTargets(request.readinessGrant, authority, request.sourceStableKey, 'stores/category', request.body?.categoryIds))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-          if (mark?.partial && authority.task.entityRefs.includes('stores/product') && !recordProductMatches(client, request, mark.productId)) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-          if (mark?.entity === 'stores/inventory-item' && authority.task.entityRefs.includes('stores/product')) validateImportInventoryWrite(client, request, mark);
-          if (request.entity && !authority.task.entityRefs.includes(request.entity) && !(mark?.inventoryOperation && authority.task.entityRefs.includes('stores/product'))) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
-          if (!require('../../../lib/dependency-readiness').verifyGrant(request.readinessGrant, authority, request.sourceStableKey, request, { auxiliary: mark?.auxiliary === true, partial: mark?.partial === true })) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
-        } else if (authority.kind === 'setup-step') {
-          if (!mark || !(mark.setupOperation || (authority.step.entityRefs || []).includes(mark.entity))) executionCapability.fail('SETUP_WRITE_OUT_OF_STEP');
-        } else if (authority.kind === 'quick-entity') {
-          if (!mark || !(mark.entity === authority.target || authority.auxiliaryTargets.includes(mark.entity))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-          if (mark.entity === 'stores/inventory-item') validateQuickInventoryWrite(client, request, mark);
-        } else if (authority.kind === 'quick-setup') {
-          if (mark?.setupOperation !== authority.operation) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
-        } else if (authority.kind !== 'dev-probe') executionCapability.fail('EXECUTION_CAPABILITY_REQUIRED');
+      // Every refusal below happens before any byte leaves: its outcome is known (nothing was
+      // sent), so a caller must never record the record as possibly written.
+      let mark, readTimeoutMs;
+      try {
+        if ((authority?.siteId || config.siteId) && Object.entries(request.headers || {}).some(([key, value]) => key.toLowerCase() === 'wix-site-id' && value !== (authority?.siteId || config.siteId))) executionCapability.fail('CAPABILITY_SITE_MISMATCH');
+        mark = requestMark(request);
+        const phase = authority?.kind?.startsWith('setup') ? 'setup' : authority?.kind === 'import-task' ? 'import' : authority?.kind?.startsWith('quick') ? 'quick' : 'probe';
+        if (authority && request.phase && request.phase !== phase) executionCapability.fail('REQUEST_PHASE_MISMATCH');
+        if (!mark?.read) {
+          if (!authority) executionCapability.fail('EXECUTION_CAPABILITY_REQUIRED');
+          if (authority.kind === 'import-task') {
+            // An adopt-only task is exempt from write-time dependencies because it writes nothing.
+            if (authority.task.adoptOnly === true) executionCapability.fail('ADOPT_ONLY_TASK_WRITE_REFUSED');
+            if (!mark?.entity) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
+            const productTask = authority.task.entityRefs.includes('stores/product');
+            if (mark?.entity && !mark.auxiliary && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            if (mark?.partial && !productTask && !authority.task.entityRefs.includes('bookings/service-add-on') || mark?.productMembership && !productTask && !authority.task.entityRefs.includes('stores/category-membership') || mark?.inventoryOperation && !productTask && !authority.task.entityRefs.includes('stores/inventory-item') || mark?.auxiliary && ['ecom/order', 'forms/form-submission', 'stores/back-in-stock-request', 'stores/review'].includes(mark.entity) && !authority.task.entityRefs.includes(mark.entity)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            if (authority.task.entityRefs.includes('stores/product') && /\/stores\/v3\/(?:bulk\/)?inventory-items(?:\/|$)/.test(request.url) && !mark?.inventoryOperation) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (mark?.productMembership && authority.task.entityRefs.includes('stores/product') && (!recordProductMatches(client, request, request.body?.item?.catalogItemId) || !require('../../../lib/dependency-readiness').verifyReferenceTargets(request.readinessGrant, authority, request.sourceStableKey, 'stores/category', request.body?.categoryIds))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (mark?.partial && authority.task.entityRefs.includes('stores/product') && !recordProductMatches(client, request, mark.productId)) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            // An event's category assignment names only this record's own event and exactly the categories its grant resolved.
+            if (mark?.eventCategoryMembership && (!authority.task.entityRefs.includes('events/event') || !Array.isArray(request.body?.eventId) || request.body.eventId.length !== 1 || !recordProductMatches(client, request, request.body.eventId[0], 'events/event') || !require('../../../lib/dependency-readiness').verifyReferenceTargets(request.readinessGrant, authority, request.sourceStableKey, 'events/category', request.body?.categoryId))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            // A bookings add-on group call places this record's own add-on in a service the record was granted;
+            // a booking follow-up (confirm, cancel) acts only on this record's own booking.
+            if (mark?.addOnGroup && (!authority.task.entityRefs.includes('bookings/service-add-on') || !(request.body?.addOnIds || request.body?.addOnGroup?.addOnIds || []).some(id => recordSawTarget(client, request, 'bookings/service-add-on', id)) || !require('../../../lib/dependency-readiness').verifyReferenceMember(request.readinessGrant, authority, request.sourceStableKey, 'bookings/service', request.body?.serviceId))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            // A merchant reply goes only on this record's own review.
+            if (mark?.reviewReply !== undefined && (!authority.task.entityRefs.includes('stores/review') || decodeURIComponent(new URL(request.url).pathname.split('/')[4] || '') !== mark.reviewReply || !recordOwnReview(client, request, mark.reviewReply))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (mark?.bookingFollowUp && (!authority.task.entityRefs.includes('bookings/booking') || !recordSawTarget(client, request, 'bookings/booking', decodeURIComponent(new URL(request.url).pathname.split('/')[4] || '')))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            // A site-tags PATCH is a partial write (fieldMask tags); an og:image in it is the site's own or this record's granted image.
+            if (mark?.entity === 'seo/site-seo-tags' && (!mark.siteTags || !siteShareImageAdmitted(client, request, mark, authority, dryRun))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (mark?.entity === 'stores/inventory-item' && authority.task.entityRefs.includes('stores/product')) validateImportInventoryWrite(client, request, mark);
+            if (mark?.planOrderId !== undefined && !recordPlanOrderMatches(client, request, mark.planOrderId)) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            // A member's own contact, updated from the member task: only the contact of the member
+            // this record created (or already owns), as named by that member's own response.
+            if (mark?.memberContact && (!authority.task.entityRefs.includes('members/member') || !recordMemberContactMatches(client, request, decodeURIComponent(new URL(request.url).pathname.split('/')[4] || '')))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (request.entity && !authority.task.entityRefs.includes(request.entity) && !(mark?.inventoryOperation && authority.task.entityRefs.includes('stores/product'))) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+            const gate = require('../../../lib/dependency-readiness'), gateOptions = { auxiliary: mark?.auxiliary === true, partial: mark?.partial === true || mark?.siteTags === true };
+            // A bulk request names one source key per item; each item is checked against its own key.
+            if (request.sourceStableKeys !== undefined ? !gate.verifyBulkGrant(request.readinessGrant, authority, request.sourceStableKeys, request, gateOptions) : !gate.verifyGrant(request.readinessGrant, authority, request.sourceStableKey, request, gateOptions)) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
+          } else if (authority.kind === 'setup-step') {
+            if (!mark || !(mark.setupOperation || (authority.step.entityRefs || []).includes(mark.entity))) executionCapability.fail('SETUP_WRITE_OUT_OF_STEP');
+          } else if (authority.kind === 'quick-entity') {
+            if (!mark || !(mark.entity === authority.target || authority.auxiliaryTargets.includes(mark.entity))) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+            if (mark.entity === 'stores/inventory-item') validateQuickInventoryWrite(client, request, mark);
+          } else if (authority.kind === 'quick-setup') {
+            if (mark?.setupOperation !== authority.operation) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+          } else if (authority.kind !== 'dev-probe') executionCapability.fail('EXECUTION_CAPABILITY_REQUIRED');
+        }
+        readTimeoutMs = boundedReadTimeout(request);
+      } catch (e) {
+        if (e && typeof e === 'object') e.requestSent = false;
+        throw e;
       }
-      const readTimeoutMs = boundedReadTimeout(request);
-      if (dryRun) return dryRunSend(request, config, headers);
+      // A response is evidence of what this record wrote or read: follow-up checks (a booking's
+      // confirm, an add-on's group, a plan order's pause, an event's categories) look for it.
+      // A dry-run placeholder is recorded the same way, so a dry run takes the live path.
+      const keepEvidence = (json, siteId) => {
+        const receivedAt = new Date().toISOString();
+        responseEvidence.set(json, { client, request, mark, siteId, receivedAt, digest: executionCapability.digest(JSON.stringify(json)) });
+        for (const value of Object.values(json)) if (value && typeof value === 'object') responseEvidence.set(value, { client, request, mark, siteId, receivedAt, digest: executionCapability.digest(JSON.stringify(value)) });
+        if (mark?.read) { if (!clientReadResponses.has(client)) clientReadResponses.set(client, []); clientReadResponses.get(client).push(json); }
+        if ((['stores/product', 'bookings/service-add-on', 'bookings/booking', 'pricing-plans/plan-order'].includes(mark?.entity) || ['events/event', 'members/member'].includes(mark?.entity) && !mark.auxiliary) && !mark.read) { if (!clientReadResponses.has(client)) clientReadResponses.set(client, []); clientReadResponses.get(client).push(json); }
+        recordInventoryResponse(client, json, mark, request);
+      };
+      if (dryRun) {
+        const json = await dryRunSend(request, config, headers);
+        if (authority?.kind === 'import-task' && json && typeof json === 'object') keepEvidence(json, { ...headers, ...(request.headers || {}) }['wix-site-id']);
+        return json;
+      }
+      // A CMS item create spends the site's plan-wide item quota. While the shared hold
+      // is open it is refused here, before sending (typed `quotaHold`); every other write passes.
+      const quotaGate = cmsItemQuota.consumesItemQuota(request)
+        ? cmsItemQuota.quotaGate({ projectDir: authority?.projectDir || config.projectDir || null, siteId: authority?.siteId || config.siteId || null, ...(config.now ? { now: config.now } : {}) })
+        : null;
+      if (quotaGate) await quotaGate.admit({ request, readUsage: () => cmsItemQuota.readCmsItemQuota(client, { consistentRead: true, ...(config.now ? { now: config.now } : {}) }) });
       const { method, url, body } = request;
-      const requestHeaders = { ...headers, ...(request.headers || {}) };
+      if (tokenSource?.interruption) throw tokenSource.interruption;
+      let sentToken = null;
+      const authorized = async () => {
+        if (!tokenSource) return {};
+        sentToken = await tokenSource.current();
+        return { Authorization: authHeaderValue(sentToken) };
+      };
+      let requestHeaders = { ...headers, ...(await authorized()), ...(request.headers || {}) };
       // A REJECTED write and a write of UNKNOWN outcome are different results, and the reply is
       // read in that order: status first, parse second. Parsing first is what produced a bare
       // `SyntaxError: Unexpected token '<'` whenever a gateway or protection layer answered ahead
@@ -772,47 +673,98 @@ function createWixClient(config) {
       // replied. A caller cannot tell "the target refused this" from "nobody knows whether this
       // was applied", and recording the second as the first is how a record lands on a live site
       // that no later pass can see.
-      let res = null;
-      let text = null;
-      let retryAfterMs = null;
-      let timer;
-      let expired = false;
-      const controller = readTimeoutMs === null ? null : new AbortController();
-      try {
-        const consume = async () => {
-          const response = await fetchImpl(url, {
-            method, headers: requestHeaders, body: body ? JSON.stringify(body) : undefined,
-            ...(controller ? { signal: controller.signal } : {}),
-          });
-          // An abort-ignoring transport may finish later. It cannot publish a response
-          // after the caller's deadline, nor should its late body be consumed.
-          if (expired) return undefined;
-          res = response;
-          if (!res.ok) retryAfterMs = sanitizedRetryAfterMs(res, (config.now || Date.now)());
-          return res.text();
-        };
-        if (controller) {
-          const deadline = new Promise((resolve, reject) => {
-            timer = setTimeout(() => {
-              expired = true;
-              controller.abort();
-              reject(Object.assign(new Error('Wix read timed out'), { readTimedOut: true }));
-            }, readTimeoutMs);
-          });
-          text = await Promise.race([consume(), deadline]);
-        } else {
-          text = await consume();
+      const exchange = async () => {
+        let res = null;
+        let text = null;
+        let retryAfterMs = null;
+        let timer;
+        let expired = false;
+        const controller = readTimeoutMs === null ? null : new AbortController();
+        try {
+          const consume = async () => {
+            const response = await fetchImpl(url, {
+              method, headers: requestHeaders, body: body ? JSON.stringify(body) : undefined,
+              ...(controller ? { signal: controller.signal } : {}),
+            });
+            // An abort-ignoring transport may finish later. It cannot publish a response
+            // after the caller's deadline, nor should its late body be consumed.
+            if (expired) return undefined;
+            res = response;
+            if (!res.ok) retryAfterMs = sanitizedRetryAfterMs(res, (config.now || Date.now)());
+            return res.text();
+          };
+          if (controller) {
+            const deadline = new Promise((resolve, reject) => {
+              timer = setTimeout(() => {
+                expired = true;
+                controller.abort();
+                reject(Object.assign(new Error('Wix read timed out'), { readTimedOut: true }));
+              }, readTimeoutMs);
+            });
+            text = await Promise.race([consume(), deadline]);
+          } else {
+            text = await consume();
+          }
+        } catch (transportError) {
+          // Headers may already have arrived; preserve their status/retry metadata even
+          // when consuming the body failed. A timeout never proves a write refusal.
+          throw Object.assign(
+            transportError instanceof Error ? transportError : new Error(String(transportError)),
+            { status: res ? res.status : null, body: null, outcomeKnown: false, retryAfterMs },
+          );
+        } finally {
+          if (timer !== undefined) clearTimeout(timer);
         }
-      } catch (transportError) {
-        // Headers may already have arrived; preserve their status/retry metadata even
-        // when consuming the body failed. A timeout never proves a write refusal.
-        throw Object.assign(
-          transportError instanceof Error ? transportError : new Error(String(transportError)),
-          { status: res ? res.status : null, body: null, outcomeKnown: false, retryAfterMs },
-        );
-      } finally {
-        if (timer !== undefined) clearTimeout(timer);
+        return { res, text, retryAfterMs };
+      };
+      // An expired token is refused before the service sees the request, so the same request is
+      // sent once more with a renewed token; a second refusal interrupts the run instead of
+      // becoming the record's outcome. The refusal is judged against the token that was SENT,
+      // and a refusal whose body could not be read is still a refusal (its status arrived).
+      const expiryRefusal = (status) => Boolean(tokenSource) && tokenSource.isExpiryRefusal(status, sentToken);
+      const attempt = async () => {
+        try {
+          const exchanged = await exchange();
+          return exchanged.res.ok || !expiryRefusal(exchanged.res.status) ? exchanged : { refusedStatus: exchanged.res.status };
+        } catch (error) {
+          if (expiryRefusal(error.status)) return { refusedStatus: error.status };
+          throw error;
+        }
+      };
+      const sendOnce = async () => {
+        await throttle.pace(endpoint);
+        let exchanged = await attempt();
+        if (exchanged.refusedStatus !== undefined) {
+          // Another request may already have renewed the token this one was sent with.
+          if (!tokenSource.replaced(sentToken)) await tokenSource.renew();
+          requestHeaders = { ...headers, ...(await authorized()), ...(request.headers || {}) };
+          exchanged = await attempt();
+          if (exchanged.refusedStatus !== undefined) throw tokenSource.fail('still_rejected', { httpStatus: exchanged.refusedStatus });
+        }
+        return exchanged;
+      };
+      const endpoint = rateLimitEndpoint(config.siteId, request);
+      let exchanged;
+      for (let retry = 0; ; retry += 1) {
+        let limitedAfterMs;
+        try {
+          exchanged = await sendOnce();
+          if (exchanged.res.status !== 429) { throttle.passed(endpoint); break; }
+          // The CMS item quota (WDE0195) also answers 429, but waiting never frees it: it goes
+          // straight to the quota hold below, and the endpoint's pacing is left alone.
+          if (quotaGate && cmsItemQuotaRefusal(exchanged.text)) break;
+          limitedAfterMs = exchanged.retryAfterMs;
+        } catch (error) {
+          // A 429 whose body could not be read is still a 429; a timeout is not.
+          if (!(error && error.status === 429 && !error.readTimedOut)) throw error;
+          if (retry >= throttle.maxRetries) throw Object.assign(error, { requestApplied: false });
+          exchanged = null;
+          limitedAfterMs = error.retryAfterMs;
+        }
+        if (retry >= throttle.maxRetries) break;
+        await throttle.limited(endpoint, retry, limitedAfterMs);
       }
+      const { res, text, retryAfterMs } = exchanged;
       let json = null;
       let parsed = true;
       if (text) {
@@ -829,9 +781,11 @@ function createWixClient(config) {
         // must not parse it. Attach the status and the parsed body: a caller distinguishing a
         // transient refusal from a permanent one was reading a 400-character prefix, which fails
         // silently the day the provider reorders its own JSON.
-        throw Object.assign(new Error(`${method} ${url} → ${res.status}: ${text.slice(0, 400)}`), {
+        const refusal = Object.assign(new Error(`${method} ${url} → ${res.status}: ${text.slice(0, 400)}`), {
           status: res.status,
           retryAfterMs,
+          // Wix refuses a 429 before processing it, even when the edge's reply is an HTML page.
+          ...(res.status === 429 ? { requestApplied: false } : {}),
           body: json,
           // A rejection we could read is a DECISION the target made and stands behind. One we
           // could not read is an open question, and the report has to say so.
@@ -841,6 +795,13 @@ function createWixClient(config) {
           nonRefundableReason: json && json.details && json.details.applicationError
             && json.details.applicationError.data && json.details.applicationError.data.nonRefundableReason,
         });
+        // WDE0195 is the item quota, not a rate limit: open the shared hold and type the refusal
+        // so the caller journals a deferral (or the operator's recorded skip). Nothing was written.
+        if (quotaGate && cmsItemQuota.isCmsItemQuotaError(refusal)) {
+          quotaGate.opened({ request, error: refusal });
+          Object.assign(refusal, quotaGate.refusalFields(request));
+        }
+        throw refusal;
       }
       if (!parsed) {
         // A 2xx whose body does not parse usually means the request never reached the service at
@@ -853,15 +814,44 @@ function createWixClient(config) {
           outcomeKnown: false,
         });
       }
-      if (json && typeof json === 'object') {
-        responseEvidence.set(json, { client, request, mark, siteId: requestHeaders['wix-site-id'], digest: executionCapability.digest(JSON.stringify(json)) });
-        for (const value of Object.values(json)) if (value && typeof value === 'object') responseEvidence.set(value, { client, request, mark, siteId: requestHeaders['wix-site-id'], digest: executionCapability.digest(JSON.stringify(value)) });
-        if (mark?.read) { if (!clientReadResponses.has(client)) clientReadResponses.set(client, []); clientReadResponses.get(client).push(json); }
-        if (mark?.entity === 'stores/product' && !mark.read) { if (!clientReadResponses.has(client)) clientReadResponses.set(client, []); clientReadResponses.get(client).push(json); }
-        recordInventoryResponse(client, json, mark, request);
-      }
+      if (quotaGate) quotaGate.passed(request);
+      if (json && typeof json === 'object') keepEvidence(json, requestHeaders['wix-site-id']);
       return json;
     },
+  };
+  // A guarded raw request is sent only by an import task, re-checked on the outgoing
+  // request, and journaled around the send. A `started` row with no outcome is an unknown outcome
+  // that is never retried automatically; the normal task and grant checks still run.
+  // The checks, the journal and the send all use one private snapshot taken here: a caller that
+  // edits its request object after calling send cannot change what is sent.
+  const transmit = client.send;
+  client.send = async function send(input) {
+    const mark = requestMark(input);
+    if (!mark?.raw) return transmit(input);
+    const request = { ...input, ...(input.headers ? { headers: { ...input.headers } } : {}),
+      ...(input.body !== undefined ? { body: JSON.parse(JSON.stringify(input.body)) } : {}),
+      ...(Array.isArray(input.sourceStableKeys) ? { sourceStableKeys: [...input.sourceStableKeys] } : {}) };
+    markRequest(request, mark);
+    try {
+      if (authority?.kind !== 'import-task') executionCapability.fail('RAW_REQUEST_REFUSED');
+      rawGuard().assertAllowed({ entityRef: mark.entity, method: request.method, url: request.url, body: request.body });
+      if (!dryRun) rawGuard().assertWritable(authority, mark.entity, request);
+    } catch (e) {
+      if (e && typeof e === 'object') e.requestSent = false;
+      throw e;
+    }
+    if (dryRun) return transmit(request);
+    const callId = rawGuard().journalStarted(authority, mark.entity, request);
+    try {
+      const json = await transmit(request);
+      rawGuard().journalOutcome(authority, callId, mark.entity, 'succeeded');
+      return json;
+    } catch (e) {
+      // An auth interruption or a stop request says the request was never applied.
+      if (e?.requestSent === false || e?.requestApplied === false) rawGuard().journalOutcome(authority, callId, mark.entity, 'refused', { code: e.code || null });
+      else if (e?.outcomeKnown === true) rawGuard().journalOutcome(authority, callId, mark.entity, 'failed', { httpStatus: e.status ?? null });
+      throw e;
+    }
   };
   executionCapability.registerClient(client, config.capability);
   return client;
@@ -917,24 +907,59 @@ function createWixSetupExecutor(config = {}) {
   } };
 }
 
-// --- missing-writer bootstrap ---------------------------------------------
-// Generated migrations use this when Wix has a native entity but rp-target-wix does not
-// yet ship a dedicated writer primitive. This keeps the write path explicit and logged
-// without pretending generic CMS is an acceptable substitute for a native Wix entity.
-function buildDirectRestRequest({ method, path, url, body }, safeModeOptions) {
+// --- direct REST (dev probes only) -----------------------------------------
+// These requests carry no request mark, so an import, setup or quick client refuses them as
+// writes. They exist for dev-probe capabilities only. A native entity with no
+// reviewed writer here uses the guarded raw requests below, never a direct-REST import.
+function buildDirectRestRequest({ method, path, url, body }) {
   if (!method) throw new Error('buildDirectRestRequest: method is required');
   if (!path && !url) throw new Error('buildDirectRestRequest: path or url is required');
-  const prepared = applySafeModeToRequest(body, safeModeOptions);
   return {
     method,
     url: url || `${WIXAPIS}${path.startsWith('/') ? path : `/${path}`}`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body: copyRequestBody(body),
   };
 }
-async function sendDirectRest(wix, request, safeModeOptions) {
-  return wix.send(buildDirectRestRequest(request, safeModeOptions));
+async function sendDirectRest(wix, request) {
+  return wix.send(buildDirectRestRequest(request));
 }
+// --- guarded raw requests ---------------------------------------
+// A native entity with no reviewed writer here is written by raw requests the agent shapes, and
+// the import client guards: the task's own entity, POST/PUT/PATCH on www.wixapis.com, never
+// DELETE, never another entity's reviewed-writer URL or a toolkit-only service. Each call is
+// journaled; the first record is read back (verifyGuardedRawCanary) before any other is written.
+// A reviewed writer always wins: an entity that has one cannot be written this way.
+const rawGuard = () => require('../../../lib/raw-request-guard');
+function buildGuardedRawRequest({ entityRef, method, path, url, body }) {
+  const request = buildDirectRestRequest({ method: String(method || '').toUpperCase(), path, url, body });
+  rawGuard().assertAllowed({ entityRef, method: request.method, url: request.url, body: request.body });
+  return markRequest(request, { entity: entityRef, raw: true });
+}
+async function sendGuardedRawRequest(wix, request) {
+  return wix.send(buildGuardedRawRequest(request));
+}
+// A GET on www.wixapis.com for a raw-request entity: the canary read-back and lookups.
+function buildGuardedRawReadRequest({ entityRef, path, url }) {
+  const request = buildDirectRestRequest({ method: 'GET', path, url });
+  rawGuard().assertAllowed({ entityRef, method: 'GET', url: request.url }, { read: true });
+  return markRequest(request, { read: true });
+}
+// Records the first record's read-back verdict. `body` is the request body that was sent (the
+// journal binds it by digest), `readBack` a response object (or one of its top-level values)
+// this client read, unmodified. `sentPath` picks the part of the body to compare, e.g. 'brand'.
+// A mismatch holds the entity for the rest of the run (RAW_REQUEST_ENTITY_HELD).
+function verifyGuardedRawCanary(wix, { entityRef, sourceStableKey, body, sentPath = null, readBack, ignorePaths = [] }) {
+  const base = recordClients.get(wix)?.wix || wix;
+  const ctx = executionCapability.clientContext(base);
+  if (ctx?.kind !== 'import-task' || !ctx.task.entityRefs.includes(entityRef)) executionCapability.fail('DEPENDENCY_TASK_MISMATCH');
+  if (base.dryRun) return { entityRef, sourceStableKey, verdict: 'dry-run', mismatches: [] };
+  const evidence = readBack && typeof readBack === 'object' ? responseEvidence.get(readBack) : null;
+  if (!evidence?.mark?.read || evidence.client !== base || evidence.digest !== executionCapability.digest(JSON.stringify(readBack))) executionCapability.fail('RAW_REQUEST_CANARY_INVALID');
+  return rawGuard().recordCanary(ctx, entityRef, { sourceStableKey, sentBody: body, sentPath, readBack, ignorePaths });
+}
+const rawRequestSummary = projectDir => rawGuard().summary(projectDir);
+const resolveRawRequestOutcome = (projectDir, resolution) => rawGuard().resolveUnknownOutcome(projectDir, resolution);
+
 async function notifyMissingWriter({ sourceEntity, wixEntity, method, path, reason }) {
   // NOOP for now. Replace with Slack/Jira/telemetry once the RePlatform team chooses a
   // destination. Keep the return value structured so callers can log/report it.
@@ -1015,7 +1040,7 @@ async function convertHtmlToRichContent(wix, html, { plugins, mediaBySourceUrl, 
         break;
       } catch (err) {
         if (attempt >= RICOS_RETRY_DELAYS_MS.length || !isRetryableRicosError(err)) throw err;
-        await (sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms))))(RICOS_RETRY_DELAYS_MS[attempt]);
+        await pauseFor(wix, sleep)(RICOS_RETRY_DELAYS_MS[attempt]);
       }
     }
     if (!merged) merged = document;
@@ -1083,6 +1108,8 @@ async function waitUntilFileReady(wix, fileId, { tries = 10, delayMs = 1500 } = 
       // way to asking -- one is terminal, the other is worth retrying.
       throw Object.assign(new Error(`media import failed for ${fileId}`), { code: 'MEDIA_IMPORT_FAILED' });
     }
+    // A dry-run file never becomes READY: one captured read, then the still-pending answer.
+    if (wix.dryRun === true) return null;
     await new Promise((res) => setTimeout(res, delayMs));
   }
   return null; // caller decides whether to proceed with a still-PENDING file
@@ -1535,6 +1562,34 @@ async function updateOrderExtendedFields(wix, payload) {
   return (await wix.send(buildUpdateOrderExtendedFieldsRequest(payload))).order;
 }
 
+// VERIFIED LIVE 2026-08-16 (ecom/order-merchant-note): POST /ecom/v1/orders/{orderId}/activities/add
+// created a MERCHANT_COMMENT that Get Order returned verbatim. One order per request, up to 300
+// activities, message 1-5000 chars. Wix stamps createdDate and authorEmail (the token holder) at
+// call time; the caller carries source author/date in the message text. `orderId` is sent in the
+// body as well as the path (as the docs example does) so the readiness grant checks the granted
+// order target at send time. Not idempotent: after an unknown outcome, read the order back and
+// match MERCHANT_COMMENT messages before resending.
+const ORDER_MERCHANT_NOTES_MAX_PER_CALL = 300;
+const ORDER_MERCHANT_NOTE_MAX_LENGTH = 5000;
+function _buildAddOrderMerchantNotesRequest({ orderId, messages }) {
+  if (!orderId) throw new Error('adding order merchant notes needs the order id');
+  if (!Array.isArray(messages) || messages.length === 0) throw new Error('adding order merchant notes needs at least one message');
+  if (messages.length > ORDER_MERCHANT_NOTES_MAX_PER_CALL) throw new Error(`adding order merchant notes takes at most ${ORDER_MERCHANT_NOTES_MAX_PER_CALL} messages per order call`);
+  for (const message of messages) {
+    // Truncation or splitting is a mapping decision recorded in the ledger, never done here.
+    if (typeof message !== 'string' || message.trim() === '') throw new Error('an order merchant note must be a non-empty string');
+    if (message.length > ORDER_MERCHANT_NOTE_MAX_LENGTH) throw new Error(`an order merchant note must be at most ${ORDER_MERCHANT_NOTE_MAX_LENGTH} characters`);
+  }
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/ecom/v1/orders/${encodeURIComponent(orderId)}/activities/add`,
+    body: { orderId, orderActivities: messages.map(message => ({ activityType: 'MERCHANT_COMMENT', merchantComment: { message } })) },
+  };
+}
+async function addOrderMerchantNotes(wix, payload) {
+  return (await wix.send(buildAddOrderMerchantNotesRequest(payload))).activityIds || [];
+}
+
 function _buildGetOrderRequest(orderId) {
   return { method: 'GET', url: `${WIXAPIS}/ecom/v1/orders/${encodeURIComponent(orderId)}` };
 }
@@ -1640,11 +1695,47 @@ async function preserveOrderInvoiceDocument(wix, {
   // A value may not be written into an extended field that setup did not verify. This guard was
   // previously available and never called, so the rule existed only in prose.
   let overLengthUrl = null;
+  let overLengthNumber = null;
   const writePaths = invoiceContract.writePaths(namespace);
   const allowed = dataExtensionSchema.validateExtendedFieldWriterReferences({ writePaths, setupVerification, contractVersion: invoiceContract.version() });
   if (!allowed.valid) {
     return { outcome: 'invoice-fields-not-provisioned', fileId: null, imported: false, errors: allowed.errors };
   }
+
+  // The number and the link are decided BEFORE the order is read, so an order that is already
+  // preserved still reports what could never be stored on it: a rerun or a resume returns early
+  // below, and reporting zero there would hide a number that is still missing.
+  const values = {};
+  if (invoiceNumber) {
+    // NEVER truncate the legal identifier either. LIVE-VERIFIED 2026-10-27: Update Order answers
+    // 200 and silently DROPS a value longer than the field's maxLength, so an unchecked number
+    // vanished from the order while this writer reported it preserved. Over-length is reported and
+    // the field left unset; the file and the link are still written.
+    const number = String(invoiceNumber);
+    const cap = invoiceContract.maxLengthFor('number');
+    if (number.length <= cap) values[invoiceContract.ROLES.number] = number;
+    else overLengthNumber = { length: number.length, limit: cap };
+  }
+  // The original link, stored ALONGSIDE the preserved copy and never instead of it. It is what a
+  // merchant can actually click today; it is also the thing that rots, so its label says so. It is
+  // only recorded when the document was classified safe -- an unsafe URL is reported, not stored.
+  if (sourceUrl && importPermitted) {
+    // NEVER truncate. A signed or query-bearing URL cut at 2048 is not a shorter link, it is a
+    // broken one -- and it would be stored under a label promising the merchant it works, on an
+    // order the report calls preserved. Over-length is reported and the field is left unset; the
+    // preserved copy is unaffected, which is the point of it being the durable one.
+    // The cap comes from the entity that declares the field, not from a number retyped here --
+    // a writer carrying its own copy accepts 1500 characters the day the entity says 1024.
+    const link = String(sourceUrl);
+    const cap = invoiceContract.maxLengthFor('url');
+    if (link.length <= cap) values[invoiceContract.ROLES.url] = link;
+    else overLengthUrl = { length: link.length, limit: cap };
+  }
+
+  const findings = [];
+  if (overLengthUrl) findings.push({ code: 'invoice-link-over-length', ...overLengthUrl });
+  if (overLengthNumber) findings.push({ code: 'invoice-number-over-length', ...overLengthNumber });
+  const withFindings = (result) => (findings.length ? { ...result, findings } : result);
 
   // READ THE ORDER HERE, rather than trusting a caller-supplied copy. A stale copy is what makes
   // a second import of the same tax document possible, and patching a stale `extendedFields`
@@ -1655,10 +1746,9 @@ async function preserveOrderInvoiceDocument(wix, {
   const existingFileId = fields.replatformSourceInvoiceFileId;
 
   if (existingFileId) {
-    return { outcome: 'invoice-already-preserved', fileId: existingFileId, imported: false };
+    return withFindings({ outcome: 'invoice-already-preserved', fileId: existingFileId, imported: false });
   }
 
-  const values = {};
   let fileId = null;
   if (sourceUrl) {
     // A previous run may have left an import in flight. Resuming it is the difference between
@@ -1667,17 +1757,17 @@ async function preserveOrderInvoiceDocument(wix, {
       ? { fileId: pendingMediaFileId, operationStatus: 'PENDING' }
       : await uploadPrivateDocument(wix, { sourceUrl, invoiceNumber, orderId });
     if (imported.refused) {
-      return {
+      return withFindings({
         outcome: imported.refused.unsafe ? 'invoice-document-url-unsafe' : 'invoice-import-failed',
         fileId: null,
         imported: false,
         reason: imported.refused.reason,
         redactedUrl: documentUrlGuard.redactUrlForLog(sourceUrl),
-      };
+      });
     }
     if (!imported.fileId) {
       // No file id means nothing to record. The raw url is NOT stored as a consolation.
-      return { outcome: 'invoice-import-failed', fileId: null, imported: false };
+      return withFindings({ outcome: 'invoice-import-failed', fileId: null, imported: false });
     }
 
     // Media import is ASYNCHRONOUS: the response is normally PENDING and processing can fail
@@ -1702,7 +1792,7 @@ async function preserveOrderInvoiceDocument(wix, {
       const outcome = status === 'FAILED'
         ? 'invoice-import-failed'
         : (status === 'UNKNOWN' ? 'invoice-import-read-failed' : 'invoice-import-not-ready');
-      return {
+      return withFindings({
         outcome,
         fileId: null,
         imported: false,
@@ -1710,30 +1800,14 @@ async function preserveOrderInvoiceDocument(wix, {
         // Retryable only when the import itself has not failed.
         pendingMediaFileId: status === 'FAILED' ? null : imported.fileId,
         mediaFileId: imported.fileId,
-      };
+      });
     }
     fileId = imported.fileId;
     values.replatformSourceInvoiceFileId = fileId;
   }
-  if (invoiceNumber) values.replatformSourceInvoiceNumber = String(invoiceNumber);
-  // The original link, stored ALONGSIDE the preserved copy and never instead of it. It is what a
-  // merchant can actually click today; it is also the thing that rots, so its label says so. It is
-  // only recorded when the document was classified safe -- an unsafe URL is reported, not stored.
-  if (sourceUrl && importPermitted) {
-    // NEVER truncate. A signed or query-bearing URL cut at 2048 is not a shorter link, it is a
-    // broken one -- and it would be stored under a label promising the merchant it works, on an
-    // order the report calls preserved. Over-length is reported and the field is left unset; the
-    // preserved copy is unaffected, which is the point of it being the durable one.
-    // The cap comes from the entity that declares the field, not from a number retyped here --
-    // a writer carrying its own copy accepts 1500 characters the day the entity says 1024.
-    const link = String(sourceUrl);
-    const cap = invoiceContract.maxLengthFor('url');
-    if (link.length <= cap) values[invoiceContract.ROLES.url] = link;
-    else overLengthUrl = { length: link.length, limit: cap };
-  }
 
   if (Object.keys(values).length === 0) {
-    return { outcome: 'invoice-none-found', fileId: null, imported: false };
+    return withFindings({ outcome: 'invoice-none-found', fileId: null, imported: false });
   }
 
   // The patch is the LAST step, after the file is already READY in Media. If it fails, the file id
@@ -1741,61 +1815,71 @@ async function preserveOrderInvoiceDocument(wix, {
   // import a second private copy of a tax document -- review demonstrated exactly that. The id is
   // handed back as `pendingMediaFileId`, and the next run resumes from it (the same path a
   // still-PENDING import uses) instead of importing again.
+  let updated;
   try {
-    await updateOrderExtendedFields(wix, {
+    updated = await updateOrderExtendedFields(wix, {
       orderId,
       currentExtendedFields: order && order.extendedFields,
       namespace,
       values,
     });
   } catch (error) {
-    return {
+    return withFindings({
       outcome: 'invoice-fields-write-failed',
       fileId: null,
       imported: false,
       pendingMediaFileId: fileId || null,
       mediaFileId: fileId || null,
       error: { message: String((error && error.message) || error).slice(0, 300), ...(error && error.status ? { status: error.status } : {}) },
-    };
-  }
-  if (overLengthUrl) {
-    return { outcome: 'invoice-preserved', fileId, imported: Boolean(fileId), findings: [{ code: 'invoice-link-over-length', ...overLengthUrl }] };
+    });
   }
 
-  return {
+  // The 200 alone does not prove the values landed (see the number check above), so the returned
+  // order is compared with what was sent. Only ABSENCE counts as a drop: a value Wix stored in a
+  // normalized form is still stored. A response without extendedFields says nothing either way.
+  const stored = updated && updated.extendedFields
+    ? ((updated.extendedFields.namespaces && updated.extendedFields.namespaces[namespace]) || {})
+    : null;
+  const dropped = stored ? Object.keys(values).filter((key) => stored[key] === undefined || stored[key] === null) : [];
+  for (const key of dropped) findings.push({ code: 'invoice-field-dropped', field: key });
+  // A dropped file id leaves nothing on the order to suppress a re-import, so it is a failed
+  // write: the id rides back for the resume, exactly as when the patch itself fails.
+  if (fileId && dropped.includes(invoiceContract.ROLES.fileId)) {
+    return withFindings({ outcome: 'invoice-fields-write-failed', fileId: null, imported: false, pendingMediaFileId: fileId, mediaFileId: fileId });
+  }
+
+  return withFindings({
     outcome: fileId ? 'invoice-preserved' : 'invoice-number-only',
     fileId,
     imported: Boolean(fileId),
-  };
+  });
 }
 
 // --- blog taxonomies -------------------------------------------------------
 // VERIFIED: POST /blog/v3/categories with { category: { label, slug, description } }.
-function _buildCreateCategoryRequest({ label, slug, description }, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ category: { label, slug, description: description || '' } }, safeModeOptions);
+function _buildCreateCategoryRequest({ label, slug, description }) {
+  const body = copyRequestBody({ category: { label, slug, description: description || '' } });
   return {
     method: 'POST',
     url: `${WIXAPIS}/blog/v3/categories`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createBlogCategory(wix, payload, safeModeOptions) {
-  return (await wix.send(buildCreateCategoryRequest(payload, safeModeOptions))).category;
+async function createBlogCategory(wix, payload) {
+  return (await wix.send(buildCreateCategoryRequest(payload))).category;
 }
 // VERIFIED: POST /blog/v3/tags. Body is TOP-LEVEL { label, language } — NOT
 // { tag: { label, slug } }. `slug` is derived by Wix from the label.
-function _buildCreateTagRequest({ label, language = 'en' }, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ label, language }, safeModeOptions);
+function _buildCreateTagRequest({ label, language = 'en' }) {
+  const body = copyRequestBody({ label, language });
   return {
     method: 'POST',
     url: `${WIXAPIS}/blog/v3/tags`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createBlogTag(wix, payload, safeModeOptions) {
-  return (await wix.send(buildCreateTagRequest(payload, safeModeOptions))).tag;
+async function createBlogTag(wix, payload) {
+  return (await wix.send(buildCreateTagRequest(payload))).tag;
 }
 // VERIFIED: GET /blog/v3/tags lists tags as { id, label, slug, ... }. Used to resolve a
 // tag id after a 409 ALREADY_EXISTS so it can still be attached to a post.
@@ -1861,6 +1945,23 @@ function _buildCreateDraftPostRequest(payload) {
 }
 async function createDraftPost(wix, payload) {
   return (await wix.send(buildCreateDraftPostRequest(payload))).draftPost;
+}
+// The blog build client's own requests (blog-post-build-client.js). Create and update send the
+// whole build projection with the RICH_CONTENT and URL fieldsets, marked as blog/post writes so an
+// import task's client admits them; draft and post GETs are marked reads.
+const BLOG_BUILD_FIELDSETS = Object.freeze(['RICH_CONTENT', 'URL']);
+function buildCreateBuildDraftPostRequest(draftPost) {
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/blog/v3/draft-posts`,
+    body: { draftPost, fieldsets: [...BLOG_BUILD_FIELDSETS] } }, { entity: 'blog/post' });
+}
+function buildUpdateBuildDraftPostRequest(id, projection) {
+  if (!id) throw new Error('buildUpdateBuildDraftPostRequest: draft id is required');
+  return markRequest({ method: 'PATCH', url: `${WIXAPIS}/blog/v3/draft-posts/${encodeURIComponent(id)}`,
+    body: { action: 'UPDATE', draftPost: { id, ...projection }, fieldsets: [...BLOG_BUILD_FIELDSETS] } }, { entity: 'blog/post' });
+}
+function buildBlogBuildReadRequest(url) {
+  if (!/^https:\/\/www\.wixapis\.com\/blog\/v3\/(?:draft-posts|posts)(?:[/?]|$)/.test(String(url))) throw new Error('buildBlogBuildReadRequest: not a Blog draft-posts or posts read');
+  return markRequest({ method: 'GET', url }, { read: true });
 }
 async function publishDraftPost(wix, draftPostId) {
   return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/blog/v3/draft-posts/${draftPostId}/publish`, body: {} }, { entity: 'blog/post' }));
@@ -1953,21 +2054,42 @@ async function bulkCreateDraftPosts(wix, payloads) {
 // the source id), the live API 400s "WDE0080: dataItem id and data._id fields must match" unless
 // `dataItem.id` is ALSO set to that same value — `dataItem.id` is the authoritative item id;
 // `data._id` alone is not enough. Every insert failed on this until fixed here.
-function _buildInsertItemRequest(collectionId, data, safeModeOptions) {
+function _buildInsertItemRequest(collectionId, data) {
   const dataItem = { data };
   if (data && typeof data === 'object' && !Array.isArray(data) && data._id != null && String(data._id).trim() !== '') {
     dataItem.id = String(data._id);
   }
-  const prepared = applySafeModeToRequest({ dataCollectionId: collectionId, dataItem }, safeModeOptions);
+  const body = copyRequestBody({ dataCollectionId: collectionId, dataItem });
   return {
     method: 'POST',
     url: `${WIXAPIS}/wix-data/v2/items`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function insertDataItem(wix, collectionId, data, safeModeOptions) {
-  return (await wix.send(buildInsertItemRequest(collectionId, data, safeModeOptions))).dataItem;
+// VERIFIED (docs): PUT /wix-data/v2/items/{dataItem.id} with { dataCollectionId, dataItem: { id, data } }.
+// Replaces the payload of an item that must already exist; a missing id FAILS (never creates), so it
+// spends no CMS item quota and the quota hold does not refuse it. Use it to re-save an item whose id
+// the crosswalk already holds; insert would create it twice and `save` would re-create a deleted one.
+function _buildUpdateDataItemRequest(collectionId, id, data) {
+  if (id == null || String(id).trim() === '') throw new Error('buildUpdateDataItemRequest: an existing item id is required');
+  const itemId = String(id);
+  if (data && typeof data === 'object' && !Array.isArray(data) && data._id != null && String(data._id) !== itemId) {
+    throw new Error('buildUpdateDataItemRequest: data._id differs from the item id');
+  }
+  return {
+    method: 'PUT',
+    url: `${WIXAPIS}/wix-data/v2/items/${encodeURIComponent(itemId)}`,
+    body: copyRequestBody({ dataCollectionId: collectionId, dataItem: { id: itemId, data } }),
+  };
+}
+async function updateDataItem(wix, collectionId, id, data) {
+  return (await wix.send(buildUpdateDataItemRequest(collectionId, id, data))).dataItem;
+}
+// VERIFIED (docs): GET /wix-data/v1/site-data-usage/v1/site-data-usage → siteDataUsage
+// { itemCountLimit, totalUsedLive: { items } }. A read: any client may send it.
+const buildGetSiteDataUsageRequest = (options) => markRequest(cmsItemQuota.buildGetSiteDataUsageRequest(options), { read: true });
+async function insertDataItem(wix, collectionId, data) {
+  return (await wix.send(buildInsertItemRequest(collectionId, data))).dataItem;
 }
 // VERIFIED: POST /wix-data/v2/items/query with { dataCollectionId, query }. Paginates via
 // query.paging {limit,offset}; returns dataItems[] (we return their `.data`). Required for
@@ -2156,14 +2278,24 @@ function clampChoiceName(name) {
   const s = String(name);
   return s.length > CHOICE_NAME_MAX ? s.slice(0, CHOICE_NAME_MAX) : s;
 }
+// The same cut as wix-build.js truncateCodePoints (kept local: wix-writers is vendored without it):
+// whole characters within 80 UTF-16 units, so a name wix-build already shortened passes unchanged
+// and an astral character is never split into a lone surrogate.
 function clampProductName(name) {
   const s = String(name || '');
-  return s.length > PRODUCT_NAME_MAX ? s.slice(0, PRODUCT_NAME_MAX) : s;
+  if (s.length <= PRODUCT_NAME_MAX) return s;
+  let out = '';
+  for (const ch of s) { if (out.length + ch.length > PRODUCT_NAME_MAX) break; out += ch; }
+  return out.trimEnd();
 }
+// These URLs come from source-site metadata and Wix Media fetches them server-side, so the host must
+// not be loopback, private, link-local (cloud metadata) or local by definition. This is the shared
+// LEXICAL guard (see lib/document-url-guard.js): it does not resolve DNS, so it narrows the SSRF
+// surface rather than closing it.
 function isPublicHttpUrl(value) {
   try {
     const url = new URL(String(value));
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !documentUrlGuard.isPrivateHostname(url.hostname);
   } catch {
     return false;
   }
@@ -2427,20 +2559,21 @@ function normalizeStoresProductV3ForCreate(wix, input) {
 }
 
 // VERIFIED (2026-07-05): POST /stores/v3/products with { product } (+ optional fields[]).
-function _buildCreateStoresProductRequest(product, safeModeOptions, fields) {
-  const prepared = applySafeModeToRequest({ product: normalizeStoresProductV3(product) }, safeModeOptions);
-  const body = prepared.body;
+// Code generated before safe mode was removed passes (product, safeModeOptions, fields): the
+// field list is the first array argument, and anything else is ignored.
+function _buildCreateStoresProductRequest(product, ...rest) {
+  const fields = rest.find(Array.isArray);
+  const body = copyRequestBody({ product: normalizeStoresProductV3(product) });
   if (fields) body.fields = fields;
   return {
     method: 'POST',
     url: `${WIXAPIS}/stores/v3/products`,
     body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
   };
 }
-async function createStoresProduct(wix, product, safeModeOptions, fields) {
+async function createStoresProduct(wix, product, ...rest) {
   const normalized = normalizeStoresProductV3ForCreate(wix, product);
-  return (await wix.send(buildCreateStoresProductRequest(normalized, safeModeOptions, fields))).product;
+  return (await wix.send(buildCreateStoresProductRequest(normalized, ...rest))).product;
 }
 // --- bulk product create (the scale path) ----------------------------------
 // UNVERIFIED: POST /stores/v3/bulk/products-with-inventory/create — up to 100 products with
@@ -2637,12 +2770,96 @@ async function getStoresProductForVerification(wix, id) {
   return (await wix.send(buildGetStoresProductForVerificationRequest(id))).product;
 }
 
-// An item that carries no `image.id` is either still in flight or already dropped, and ONE read
-// cannot tell those apart. Both mean "not landed"; only re-sending distinguishes them.
+// An item has landed when Wix ingested it as its own type: an image carries `image.id`, a video
+// (`mediaType: "VIDEO"`) carries `video.id`. A queued (`UNKNOWN_MEDIA_TYPE`) or id-less item is
+// either still in flight or already dropped, and ONE read cannot tell those apart. Both mean
+// "not landed"; only re-sending distinguishes them.
+function storesProductMediaItemLanded(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item.mediaType === 'VIDEO') return Boolean(item.video?.id);
+  return (item.mediaType === undefined || item.mediaType === 'IMAGE') && Boolean(item.image?.id);
+}
 function storesProductMediaLanded(product, expectedCount) {
   const items = product?.media?.itemsInfo?.items || [];
-  const ingested = items.filter((item) => item?.image?.id);
+  const ingested = items.filter(storesProductMediaItemLanded);
   return ingested.length === expectedCount && expectedCount > 0;
+}
+
+// Media sent as URLs on Create Product is ingested AFTER the 200, so a product
+// whose media dependency is proven `within-write` verifies it by OBSERVATION only -- reads, never a
+// resend of the landed product. The policy is pinned: at most one initial read plus four more, at
+// least 15s apart, inside a 60s window per product. It is a cap, not a promise that ingestion
+// finishes in 60s: an item still missing is `unresolved` (a per-record gap the caller records
+// against the landed target ID), never proof of permanent loss.
+//
+// Verification correlates the INTENDED items (the sent `{ url, altText, displayName }` list) slot by
+// slot through write-verification's correlateProductMedia; a matching count, a wrong image or one
+// image substituted into two slots never verifies. Items with no surviving identity evidence are
+// `unverifiable` at once rather than polled.
+//
+// Scheduling: the observer does not hold a request slot while it waits. Each read goes through the
+// client's existing pacing; between reads the observer only sleeps, so the caller starts every
+// product's observation without waiting for the previous one and lets the waits overlap. End-to-end
+// time is therefore about one 60s window plus the total read service time spread over the
+// client's concurrency, not 60s per product per slot.
+//
+// The result is registered evidence (`withinWriteObservation`): only an observation this module
+// produced, for this client's site, can record or clear a within-write gap. Its inputs are trusted
+// the same way: every product it judges -- a caller's `initialProduct` (the create response or an
+// earlier read) and each read it makes -- must be an unmodified Wix response this process received
+// for this product id on the same site. Its `observedAt` is the receive time of the response that
+// decided the outcome, so a cached response from before a gap can never clear it.
+const STORES_MEDIA_CREATE_OBSERVATION = Object.freeze({ maxReads: 5, minSpacingMs: 15000, windowMs: 60000 });
+const withinWriteObservations = new WeakSet();
+function withinWriteObservation(value) { return value && typeof value === 'object' && withinWriteObservations.has(value) ? value : null; }
+async function observeStoresProductMediaIngest(
+  wix,
+  { productId, expectedItems, initialProduct = null },
+  { sleep = (ms) => new Promise((res) => setTimeout(res, ms)), now = () => Date.now(), policy = STORES_MEDIA_CREATE_OBSERVATION } = {},
+) {
+  if (!productId) throw new Error('observeStoresProductMediaIngest: productId is required');
+  if (!Array.isArray(expectedItems) || !expectedItems.length) throw new Error('observeStoresProductMediaIngest: expectedItems (the sent media items) is required');
+  if (policy.maxReads > STORES_MEDIA_CREATE_OBSERVATION.maxReads || policy.minSpacingMs < STORES_MEDIA_CREATE_OBSERVATION.minSpacingMs || policy.windowMs > STORES_MEDIA_CREATE_OBSERVATION.windowMs) throw new Error('observeStoresProductMediaIngest: policy exceeds the reviewed observation bound');
+  const { correlateProductMedia, digest } = require('../../../lib/write-verification');
+  const clientSite = executionCapability.clientContext(wix)?.siteId || null;
+  let site = clientSite;
+  const trusted = value => {
+    const evidence = value && typeof value === 'object' ? responseEvidence.get(value) : null;
+    if (!evidence || evidence.digest !== executionCapability.digest(JSON.stringify(value)) || String(value.id) !== String(productId) || !evidence.siteId || !evidence.receivedAt) return null;
+    if (site && evidence.siteId !== site) return null;
+    site = evidence.siteId;
+    return evidence;
+  };
+  let decidedBy = null;
+  const finish = (status, reads, correlation, timing) => {
+    const observation = Object.freeze({ ref: 'media/media-file', status, productId: String(productId), siteId: site,
+      expectedDigest: digest(expectedItems), expectedCount: expectedItems.length, reads, reasons: Object.freeze([...correlation.reasons]),
+      mediaIds: status === 'verified' ? Object.freeze([...correlation.mediaIds]) : undefined, observedAt: decidedBy.receivedAt, timing: Object.freeze(timing) });
+    withinWriteObservations.add(observation);
+    return observation;
+  };
+  const started = now();
+  let reads = 0, product = null, waitedMs = 0;
+  // A response the caller already has (the create response or a scheduled verification read)
+  // counts as the first read, but only if it is a trusted response for this product and site.
+  if (initialProduct) {
+    if (!trusted(initialProduct)) throw new Error('observeStoresProductMediaIngest: initialProduct is not a trusted Wix response for this product and site');
+    reads = 1; product = initialProduct;
+  }
+  for (;;) {
+    if (!product) {
+      product = await getStoresProductWithMedia(wix, productId); reads += 1;
+      if (!trusted(product)) throw new Error('observeStoresProductMediaIngest: read did not return a trusted response for this product and site');
+    }
+    decidedBy = responseEvidence.get(product);
+    const correlation = correlateProductMedia(expectedItems, product?.media?.itemsInfo?.items);
+    const timing = { elapsedMs: now() - started, waitedMs };
+    if (correlation.verified) return finish('verified', reads, correlation, timing);
+    if (!correlation.correlatable) return finish('unverifiable', reads, correlation, timing);
+    if (reads >= policy.maxReads || now() - started + policy.minSpacingMs > policy.windowMs) return finish('unresolved', reads, correlation, timing);
+    await pauseFor(wix, sleep)(policy.minSpacingMs); waitedMs += policy.minSpacingMs;
+    product = null;
+  }
 }
 
 async function patchStoresProductMediaVerified(
@@ -2680,7 +2897,7 @@ async function patchStoresProductMediaVerified(
       // so reusing the previous round's value 400s on the retry that was supposed to save us.
       const before = await getStoresProductWithMedia(wix, productId);
       await patchStoresProductMedia(wix, { productId, revision: before.revision, items });
-      await sleep(settleMs);
+      await pauseFor(wix, sleep)(settleMs);
       const after = await getStoresProductWithMedia(wix, productId);
       const landed = storesProductMediaLanded(after, expected);
       attempts.push({ round, landed });
@@ -2695,7 +2912,7 @@ async function patchStoresProductMediaVerified(
       // is worthless against the condition it is retrying, an edge 429 that outlasts tens of
       // seconds of backoff. Nothing to wait for after the last round, so that one returns
       // immediately rather than making the caller pay for a delay it cannot use.
-      if (round < rounds) await sleep(retryDelayMs);
+      if (round < rounds) await pauseFor(wix, sleep)(retryDelayMs);
     }
   }
   // Out of rounds. The product is in one of two states and this function cannot tell which: the
@@ -2710,6 +2927,89 @@ async function patchStoresProductMediaVerified(
     attempts,
     product: null,
     errors: attempts.map((attempt) => attempt.error).filter(Boolean),
+  };
+}
+
+// Product videos. A video goes to Wix Media first (import as VIDEO, wait for READY),
+// then onto the product as `{ id }` AFTER its images. Never as a `{ url }` in the image list: a
+// `.mov` there emptied the galleries of a whole 94-product batch with a 200. VERIFIED live (2026-10-20): Media import, READY file id,
+// attach after the verified create.
+//
+// `media.itemsInfo.items` is a FULL REPLACE, so the current gallery is re-sent by file id. A
+// gallery with an item that has not landed yet (still ingesting, or dropped) is never replaced:
+// the call returns `deferred` and the caller tries again later.
+//
+// Re-runs never add a second copy. A video may carry the `fileId` an earlier run recorded
+// (lib/product-videos.js `videosWithRecordedFiles`): if that id is already a landed VIDEO on the
+// product it is skipped; if it is not on the product it is re-attached from Wix Media without a
+// new import. With no recorded ids at all, a product that already has as many landed videos as
+// requested is `already-attached`.
+const STORES_PRODUCT_MEDIA_MAX_ITEMS = 15;
+async function attachStoresProductVideos(
+  wix,
+  { productId, videos = [] },
+  { importTries = 40, importDelayMs = 3000, ...patchOptions } = {},
+) {
+  if (!productId) throw new Error('attachStoresProductVideos: productId is required');
+  const wanted = (videos || []).filter((video) => video && typeof video.url === 'string' && isPublicHttpUrl(video.url));
+  if (!wanted.length) return { productId, status: 'nothing-to-attach', videos: [] };
+
+  const before = await getStoresProductWithMedia(wix, productId);
+  const existing = before?.media?.itemsInfo?.items || [];
+  const landedVideos = existing.filter((item) => item?.mediaType === 'VIDEO' && item.video?.id);
+  const landedIds = new Set(landedVideos.map((item) => item.video.id));
+  const anyRecorded = wanted.some((video) => typeof video.fileId === 'string' && video.fileId);
+  if (!anyRecorded && landedVideos.length >= wanted.length) {
+    return { productId, status: 'already-attached', videos: landedVideos.map((item) => ({ fileId: item.video.id, status: 'landed' })) };
+  }
+  const onProduct = wanted.filter((video) => landedIds.has(video.fileId));
+  const pending = wanted.filter((video) => !landedIds.has(video.fileId));
+  const skipped = onProduct.map((video) => ({ url: video.url, fileId: video.fileId, status: 'landed' }));
+  if (!pending.length) return { productId, status: 'already-attached', videos: skipped };
+  const kept = existing.map((item) => {
+    if (item?.mediaType === 'VIDEO') return item.video?.id ? { id: item.video.id } : null;
+    if ((item?.mediaType === undefined || item?.mediaType === 'IMAGE') && item?.image?.id) {
+      return { id: item.image.id, ...(typeof item.altText === 'string' && item.altText ? { altText: item.altText } : {}) };
+    }
+    return null;
+  });
+  if (kept.some((item) => item === null)) {
+    return { productId, status: 'deferred', reason: 'gallery-not-settled', videos: [] };
+  }
+  if (kept.length + pending.length > STORES_PRODUCT_MEDIA_MAX_ITEMS) {
+    return { productId, status: 'failed', reason: 'media-item-limit', limit: STORES_PRODUCT_MEDIA_MAX_ITEMS, videos: [] };
+  }
+
+  const results = [];
+  for (const video of pending) {
+    try {
+      // A file an earlier run already put in Wix Media is re-used, not imported again.
+      // eslint-disable-next-line no-await-in-loop
+      const file = video.fileId ? { id: video.fileId } : await importMedia(wix, {
+        sourceUrl: video.url,
+        displayName: video.displayName || decodeURIComponent(String(video.url).split('/').pop() || 'product video'),
+        mediaType: 'VIDEO',
+      });
+      // eslint-disable-next-line no-await-in-loop
+      const ready = file?.id ? await waitUntilFileReady(wix, file.id, { tries: importTries, delayMs: importDelayMs }) : null;
+      results.push(ready?.id
+        ? { url: video.url, fileId: ready.id, status: 'ready' }
+        : { url: video.url, fileId: file?.id || null, status: 'not-ready' });
+    } catch (error) {
+      results.push({ url: video.url, fileId: null, status: 'import-failed', error: String(error?.message || error).slice(0, 300) });
+    }
+  }
+  const ready = results.filter((result) => result.status === 'ready');
+  if (!ready.length) return { productId, status: 'failed', reason: 'video-import', videos: [...skipped, ...results] };
+
+  const items = [...kept, ...ready.map((result) => ({ id: result.fileId }))];
+  const patched = await patchStoresProductMediaVerified(wix, { productId, items }, patchOptions);
+  const status = !patched.landed ? 'unverified' : (ready.length === pending.length ? 'attached' : 'partial');
+  return {
+    productId,
+    status,
+    videos: [...skipped, ...results],
+    patch: { landed: patched.landed, rounds: patched.rounds, ...(patched.errors?.length ? { errors: patched.errors } : {}) },
   };
 }
 
@@ -2763,24 +3063,44 @@ async function deleteStoresProduct(wix, id) {
   return wix.send(buildDeleteStoresProductRequest(id));
 }
 
+// Setup-only deletes of the sample catalog the Wix Stores install itself added. The
+// caller (lib/catalog-baseline.js) passes only ids it proved appeared between its pre- and
+// post-install reads; these builders are marked as that setup operation, never as an import write.
+// Delete Category: DELETE /categories/v1/categories/{id} with the Stores tree as a query parameter.
+function _buildDeleteInstallSeededProductRequest(id) {
+  if (!id) throw new Error('buildDeleteInstallSeededProductRequest: id is required');
+  return _buildDeleteStoresProductRequest(id);
+}
+function _buildDeleteInstallSeededCategoryRequest(id) {
+  if (!id) throw new Error('buildDeleteInstallSeededCategoryRequest: id is required');
+  return { method: 'DELETE', url: `${WIXAPIS}/categories/v1/categories/${encodeURIComponent(id)}?treeReference.appNamespace=${encodeURIComponent(STORES_TREE_REFERENCE.appNamespace)}` };
+}
+// GET /stores/v3/all-products-category -> { categoryId, treeReference }: the built-in category
+// every product belongs to. Wix creates it with the store; it is never a sample to delete.
+function _buildGetAllProductsCategoryRequest() {
+  return { method: 'GET', url: `${WIXAPIS}/stores/v3/all-products-category` };
+}
+async function getAllProductsCategoryId(wix) {
+  return (await wix.send(buildGetAllProductsCategoryRequest())).categoryId || null;
+}
+
 // UNVERIFIED (endpoint VERIFIED via patchStoresProductMedia): PATCH /stores/v3/products/{id}
 // with arbitrary product fields. The `revision` from the existing product is required.
 // A string `description` is moved to `plainDescription` by normalizeStoresProductV3 (same as
 // createStoresProduct); Wix converts that HTML to rich content server-side.
 // Do not use this for media-only updates — patchStoresProductMedia is the verified path for that.
-function _buildPatchStoresProductRequest({ productId, revision, ...productFields }, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ product: { revision, ...normalizeStoresProductV3(productFields) } }, safeModeOptions);
+function _buildPatchStoresProductRequest({ productId, revision, ...productFields }) {
+  const body = copyRequestBody({ product: { revision, ...normalizeStoresProductV3(productFields) } });
   return {
     method: 'PATCH',
     url: `${WIXAPIS}/stores/v3/products/${productId}`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function patchStoresProduct(wix, { productId, revision, ...productFields }, safeModeOptions) {
+async function patchStoresProduct(wix, { productId, revision, ...productFields }) {
   // No description handling here: buildPatchStoresProductRequest runs normalizeStoresProductV3,
   // which moves a string `description` to `plainDescription` for Wix to convert server-side.
-  return (await wix.send(buildPatchStoresProductRequest({ productId, revision, ...productFields }, safeModeOptions))).product;
+  return (await wix.send(buildPatchStoresProductRequest({ productId, revision, ...productFields }))).product;
 }
 
 // Item SEO Tags (Developer Preview). Product SEO is WRITTEN through product.seoData
@@ -2789,19 +3109,268 @@ async function patchStoresProduct(wix, { productId, revision, ...productFields }
 // notes also record a 404 from this single-item GET; a canary is still needed to confirm today's read.
 function buildGetItemSeoTagsRequest(itemType, itemId) {
   if (!itemType || !itemId) throw new Error('buildGetItemSeoTagsRequest: itemType and itemId are required');
-  return { method: 'GET', url: `${WIXAPIS}/promote/seo/v1/item-seo-tags/${encodeURIComponent(itemType)}/${encodeURIComponent(itemId)}` };
+  // A read: the product SEO stage's resolution check runs under an import-task capability.
+  return markRequest({ method: 'GET', url: `${WIXAPIS}/promote/seo/v1/item-seo-tags/${encodeURIComponent(itemType)}/${encodeURIComponent(itemId)}` }, { read: true });
 }
 async function getItemSeoTags(wix, itemType, itemId) {
   return (await wix.send(buildGetItemSeoTagsRequest(itemType, itemId))).itemSeoTags;
 }
-function buildBulkSetItemSeoTagsRequest(itemType, entries, { publish = false, returnEntity = true } = {}) {
+// the seo/item-seo-tags writer covers BLOG_POST only. Other item types follow the
+// no-writer path; STORES_PRODUCT keeps its own refusal. `preservedTags[i]` are entry i's tags as
+// Wix already holds them, so a full-replacement write may carry an existing robots or canonical
+// back unchanged; only setItemSeoTags supplies them (the registry builder drops the option).
+function _buildBulkSetItemSeoTagsRequest(itemType, entries, { publish = false, returnEntity = true, preservedTags = [] } = {}) {
   productSeo.assertNotStoresProductBulkSeo(itemType);
-  if (!Array.isArray(entries) || entries.length < 1 || entries.length > 100) throw new Error('buildBulkSetItemSeoTagsRequest: 1..100 entries required');
-  return { method: 'POST', url: `${WIXAPIS}/promote/seo/v1/bulk/item-seo-tags/set`, body: { itemType, entries, publish, returnEntity } };
+  if (!seoTags.ITEM_SEO_ITEM_TYPES.includes(itemType)) throw new Error(`buildBulkSetItemSeoTagsRequest: item type ${itemType} has no reviewed writer (reviewed for ${seoTags.ITEM_SEO_ITEM_TYPES.join(', ')})`);
+  if (publish !== false) throw new Error('buildBulkSetItemSeoTagsRequest: publish is not used for BLOG_POST and is refused');
+  const limit = seoTags.ITEM_SEO_BULK_LIMITS[itemType] || 100;
+  if (!Array.isArray(entries) || entries.length < 1 || entries.length > limit) throw new Error(`buildBulkSetItemSeoTagsRequest: 1..${limit} entries required for ${itemType}`);
+  const body = entries.map((entry, i) => {
+    const { itemId, itemSeoTags = {}, fieldMask } = entry || {};
+    if (typeof itemId !== 'string' || !itemId) throw new Error(`buildBulkSetItemSeoTagsRequest: entries[${i}].itemId (the Wix item id) is required`);
+    if (itemSeoTags.language !== undefined) throw new Error('buildBulkSetItemSeoTagsRequest: language is read-only (primary language only)');
+    const mask = (Array.isArray(fieldMask) ? fieldMask : String(fieldMask || Object.keys(itemSeoTags).filter(k => ['tags', 'focusKeywords'].includes(k)).join(',')).split(',')).map(x => x.trim()).filter(Boolean);
+    if (!mask.length || mask.some(x => !['tags', 'focusKeywords'].includes(x))) throw new Error(`buildBulkSetItemSeoTagsRequest: entries[${i}].fieldMask names tags and/or focusKeywords`);
+    const out = {};
+    if (mask.includes('tags')) { seoTags.assertItemTags(itemSeoTags.tags, { preserved: preservedTags[i] }); out.tags = itemSeoTags.tags; }
+    if (mask.includes('focusKeywords')) {
+      if (!Array.isArray(itemSeoTags.focusKeywords) || itemSeoTags.focusKeywords.length > seoTags.ITEM_SEO_MAX_FOCUS_KEYWORDS) throw new Error(`buildBulkSetItemSeoTagsRequest: focusKeywords must be an array of at most ${seoTags.ITEM_SEO_MAX_FOCUS_KEYWORDS}`);
+      out.focusKeywords = itemSeoTags.focusKeywords;
+    }
+    // Per-entry fieldMask is a comma-separated string, and the payload nests under itemSeoTags
+    // (2026-08-27 probe: historical-request-shape-traps).
+    return { itemId, itemSeoTags: out, fieldMask: mask.join(',') };
+  });
+  return { method: 'POST', url: `${WIXAPIS}/promote/seo/v1/bulk/item-seo-tags/set`, body: { itemType, entries: body, publish, returnEntity } };
 }
 // A success response from this call is untrusted until an independent read-back confirms it.
 async function bulkSetItemSeoTags(wix, itemType, entries, options) {
   return wix.send(buildBulkSetItemSeoTagsRequest(itemType, entries, options));
+}
+const ITEM_SEO_WHOLE_CALL_CODES = new Set(['UNSUPPORTED_ITEM_TYPE', 'BULK_NOT_SUPPORTED_FOR_ITEM_TYPE', 'BULK_CHUNK_SIZE_EXCEEDED']);
+// The seo/item-seo-tags writer. entries: [{ itemId, tags?, focusKeywords? }] in the order of
+// `sourceStableKeys` (one per entry; required in an import task). Per entry it reads the item,
+// merges (writes replace in full), strips robots and canonicals into `exclusions`, writes in
+// chunks, and reads back. Only `verified` is a landed write.
+async function setItemSeoTags(wix, { itemType = 'BLOG_POST', entries = [] } = {}, { readinessGrant, sourceStableKeys } = {}) {
+  if (!seoTags.ITEM_SEO_ITEM_TYPES.includes(itemType)) throw new Error(`setItemSeoTags: item type ${itemType} has no reviewed writer`);
+  if (sourceStableKeys !== undefined && (!Array.isArray(sourceStableKeys) || sourceStableKeys.length !== entries.length)) throw new Error('setItemSeoTags: one sourceStableKey per entry');
+  const results = entries.map((entry, index) => ({ index, itemId: entry && entry.itemId, outcome: null, exclusions: [] }));
+  const prepared = [];
+  for (const [index, entry] of entries.entries()) {
+    let current;
+    // One unreadable item (a 404 post) fails that entry only; a refused request is not a read failure.
+    try { current = await getItemSeoTags(wix, itemType, entry.itemId); } catch (error) {
+      if (error && error.requestSent === false) throw error;
+      Object.assign(results[index], { outcome: 'failed', error: memberErrorFields(error) });
+      continue;
+    }
+    const ownTags = (current && current.tags) || [];
+    const split = seoTags.splitItemExclusions(entry.tags);
+    results[index].exclusions = split.exclusions;
+    const itemSeoTags = {}, mask = [];
+    if (entry.tags !== undefined) { itemSeoTags.tags = seoTags.mergeTags(ownTags, split.tags); mask.push('tags'); }
+    if (entry.focusKeywords !== undefined) { itemSeoTags.focusKeywords = entry.focusKeywords; mask.push('focusKeywords'); }
+    if (!mask.length || (entry.tags !== undefined && !split.tags.length && entry.focusKeywords === undefined)) { results[index].outcome = 'nothing-to-write'; continue; }
+    prepared.push({ index, written: split.tags, entry: { itemId: entry.itemId, itemSeoTags, fieldMask: mask.join(',') }, preserved: ownTags });
+  }
+  const limit = seoTags.ITEM_SEO_BULK_LIMITS[itemType] || 100;
+  for (let at = 0; at < prepared.length; at += limit) {
+    const chunk = prepared.slice(at, at + limit);
+    let request = markRequest(_buildBulkSetItemSeoTagsRequest(itemType, chunk.map(p => p.entry), { preservedTags: chunk.map(p => p.preserved) }), { entity: 'seo/item-seo-tags' });
+    if (sourceStableKeys !== undefined) request = withBulkReadinessGrant(request, { readinessGrant, sourceStableKeys: chunk.map(p => sourceStableKeys[p.index]) });
+    let response = null, failure = null;
+    try { response = await wix.send(request); } catch (error) { failure = error; }
+    if (failure && failure.requestSent === false) throw failure;
+    if (failure && failure.outcomeKnown !== false && ITEM_SEO_WHOLE_CALL_CODES.has(failure.applicationErrorCode)) {
+      // Whole-call rejection: no per-entry results exist. Reported once for the batch.
+      for (const p of chunk) Object.assign(results[p.index], { outcome: 'failed-whole-call', error: memberErrorFields(failure) });
+      continue;
+    }
+    const perEntry = new Map(((response && response.results) || []).map(r => [r && r.itemMetadata && r.itemMetadata.originalIndex, r]));
+    for (const [i, p] of chunk.entries()) {
+      const meta = perEntry.get(i) && perEntry.get(i).itemMetadata;
+      if (!failure && meta && meta.success === false) { Object.assign(results[p.index], { outcome: 'failed', error: meta.error || null }); continue; }
+      // Success, a missing result, or an unknown outcome: only the read-back decides.
+      let readBack = null;
+      try { readBack = await getItemSeoTags(wix, itemType, p.entry.itemId); } catch (error) { Object.assign(results[p.index], { outcome: failure ? 'unknown' : 'unverified-after-success', error: memberErrorFields(error) }); continue; }
+      const failures = seoTags.checkItemReadBack(readBack, p.written, p.entry.itemSeoTags.focusKeywords);
+      Object.assign(results[p.index], failures.length ? { outcome: failure ? 'not-landed' : 'unverified-after-success', failures } : { outcome: 'verified' });
+      if (failure && failures.length) results[p.index].error = memberErrorFields(failure);
+    }
+  }
+  return { itemType, results };
+}
+
+// SEO Pattern V1. A pattern applies to every item of its page type that has no
+// override, and has no revision: read immediately before writing.
+const SEO_PATTERNS_URL = pageType => `${WIXAPIS}/promote/seo/v1/seo-patterns/${encodeURIComponent(pageType)}`;
+function seoPatternPageType(pageType, where) {
+  if (typeof pageType !== 'string' || !/^[A-Z][A-Z0-9_-]*$/.test(pageType)) throw new Error(`${where}: pageType is required`);
+  if (pageType.startsWith('WIX_DATA_PAGE_ITEM')) throw new Error(`${where}: WIX_DATA_PAGE_ITEM patterns have no reviewed writer`);
+  return pageType;
+}
+function buildGetSeoPatternRequest(pageType) {
+  return markRequest({ method: 'GET', url: SEO_PATTERNS_URL(seoPatternPageType(pageType, 'buildGetSeoPatternRequest')) }, { read: true });
+}
+function buildListSeoPatternVariablesRequest(pageType) {
+  return markRequest({ method: 'GET', url: `${SEO_PATTERNS_URL(seoPatternPageType(pageType, 'buildListSeoPatternVariablesRequest'))}/variables` }, { read: true });
+}
+function _seoPatternBody(pageType, tags, preservedTags, where) {
+  seoPatternPageType(pageType, where);
+  seoTags.assertPatternTags(tags, { preserved: preservedTags });
+  return { seoPattern: { pattern: { tags } } };
+}
+function _buildCreateSeoPatternRequest({ pageType, tags, preservedTags = [] }) {
+  return { method: 'POST', url: SEO_PATTERNS_URL(pageType), body: _seoPatternBody(pageType, tags, preservedTags, 'buildCreateSeoPatternRequest') };
+}
+function _buildSetSeoPatternRequest({ pageType, tags, preservedTags = [] }) {
+  return { method: 'PATCH', url: SEO_PATTERNS_URL(pageType), body: { ..._seoPatternBody(pageType, tags, preservedTags, 'buildSetSeoPatternRequest'), fieldMask: 'pattern' } };
+}
+const seoPatternError = (error, code) => error && error.outcomeKnown !== false && error.applicationErrorCode === code;
+// The seo/seo-pattern writer. a site-owned pattern is overwritten for the identities the
+// source brings, and the old pattern is returned as `previousSitePattern` for restore.
+async function ensureSeoPattern(wix, { pageType, tags } = {}) {
+  const split = seoTags.splitPatternExclusions(tags);
+  const result = { pageType, outcome: null, exclusions: split.exclusions, defaultPattern: null, previousSitePattern: null };
+  if (!split.tags.length) return { ...result, outcome: 'nothing-to-write' };
+  let current;
+  try { current = (await wix.send(buildGetSeoPatternRequest(pageType))).seoPattern || {}; } catch (error) {
+    if (seoPatternError(error, 'PAGE_TYPE_NOT_ON_SITE')) return { ...result, outcome: 'setup-missing-app', error: memberErrorFields(error) };
+    if (seoPatternError(error, 'UNSUPPORTED_PAGE_TYPE')) return { ...result, outcome: 'unsupported-page-type', error: memberErrorFields(error) };
+    throw error;
+  }
+  const listed = await wix.send(buildListSeoPatternVariablesRequest(pageType));
+  const allowed = seoTags.allowedVariables(listed);
+  // A dry run cannot read the site's variables, so it leaves this check to the live run.
+  const unknown = listed && listed.dryRun === true && listed.stateKnown === false ? [] : seoTags.patternVariables(split.tags).filter(name => !allowed.has(name));
+  if (unknown.length) return { ...result, outcome: 'invalid-variable', unknownVariables: unknown, allowedVariables: [...allowed].sort() };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const own = current.source === seoTags.PATTERN_SOURCE_USER;
+    const base = own ? (current.pattern && current.pattern.tags) || [] : (current.defaultPattern && current.defaultPattern.tags) || [];
+    const merged = seoTags.mergeTags(base, split.tags);
+    result.defaultPattern = current.defaultPattern || null;
+    result.previousSitePattern = own ? current.pattern || null : null;
+    // Compared by identity and value: Wix echoes stored tags with default fields (custom, disabled).
+    if (own && !seoTags.checkStoredTags(base, split.tags).length) return { ...result, outcome: 'already-present' };
+    const args = { pageType, tags: merged, preservedTags: seoTags.preservedRobots(base) };
+    try {
+      await wix.send(own ? markRequest(_buildSetSeoPatternRequest(args), { entity: 'seo/seo-pattern' }) : markRequest(_buildCreateSeoPatternRequest(args), { entity: 'seo/seo-pattern' }));
+    } catch (error) {
+      // The other verb is never retried blindly: re-read, then decide again once.
+      if (attempt === 0 && (seoPatternError(error, 'PATTERN_ALREADY_EXISTS') || seoPatternError(error, 'PATTERN_NOT_FOUND') || error.status === 409)) { current = (await wix.send(buildGetSeoPatternRequest(pageType))).seoPattern || {}; continue; }
+      if (seoPatternError(error, 'INVALID_PATTERN')) return { ...result, outcome: 'invalid-variable', error: memberErrorFields(error) };
+      if (error.requestSent === false || error.outcomeKnown !== false) throw error;
+      result.error = memberErrorFields(error);
+    }
+    const after = (await wix.send(buildGetSeoPatternRequest(pageType))).seoPattern || {};
+    const missing = after.source === seoTags.PATTERN_SOURCE_USER ? seoTags.checkStoredTags(after.pattern && after.pattern.tags, split.tags) : split.tags.map(tag => ({ identity: seoTags.tagIdentity(tag) }));
+    return { ...result, outcome: missing.length ? (result.error ? 'unknown' : 'unverified-after-success') : 'verified', ...(missing.length ? { failures: missing } : {}) };
+  }
+  return { ...result, outcome: 'unknown' };
+}
+
+// Site SEO Tags V1. Verification tags, plus the source share image (og:image) from this record's
+// own imported image; robots is never written and a robots tag the site already has is sent back
+// verbatim, because leaving it out of the full-replacement PATCH would change indexing. embedTags
+// are never written.
+function buildGetSiteSeoTagsRequest() {
+  return markRequest({ method: 'GET', url: `${WIXAPIS}/promote/seo/v1/site-seo-tags` }, { read: true });
+}
+function _buildSetSiteSeoTagsRequest({ tags, preservedTags = [] }) {
+  seoTags.assertSiteTags(tags, { preserved: preservedTags });
+  return { method: 'PATCH', url: `${WIXAPIS}/promote/seo/v1/site-seo-tags`, body: { siteSeoTags: { tags }, fieldMask: 'tags' } };
+}
+// The share image's own media file, read by its granted id: the og:image URL is that file's url.
+function buildGetSiteShareImageFileRequest(mediaId) {
+  if (typeof mediaId !== 'string' || !mediaId) throw new Error('site share image: mediaId is required');
+  return markRequest({ method: 'GET', url: `${WIXAPIS}/site-media/v1/files/${encodeURIComponent(mediaId)}` }, { read: true });
+}
+const isShareImageTag = tag => { try { return seoTags.tagIdentity(tag) === 'meta:property:og:image'; } catch { return false; } };
+// An og:image in a site-tags PATCH is admitted only when it is the site's own (identical to one this
+// record read from the site) or the URL of the granted media file this record read. In a dry run
+// nothing leaves, so the read evidence is not required; the granted id still is.
+function siteShareImageAdmitted(wix, request, mark, authority, dryRun) {
+  const images = (request.body?.siteSeoTags?.tags || []).filter(isShareImageTag);
+  if (images.length > 1) return false;
+  if (!images.length) return true;
+  const content = seoTags.tagValue(images[0]);
+  const reads = (clientReadResponses.get(wix) || []).filter(value => {
+    const proof = responseEvidence.get(value);
+    return proof && proof.request.sourceStableKey === request.sourceStableKey && proof.request.readinessGrant === request.readinessGrant && proof.digest === executionCapability.digest(JSON.stringify(value));
+  });
+  if (reads.some(value => (value.siteSeoTags?.tags || []).some(tag => isShareImageTag(tag) && seoTags.tagValue(tag) === content))) return true;
+  const image = mark.shareImage;
+  if (!image || content !== image.url) return false;
+  if (!require('../../../lib/dependency-readiness').verifyReferenceMember(request.readinessGrant, authority, request.sourceStableKey, 'media/media-file', image.mediaId)) return false;
+  return dryRun || reads.some(value => value.file?.id === image.mediaId && value.file?.url === image.url && value.file?.operationStatus === 'READY');
+}
+// The share image, after the verification tags and in its own PATCH, so a missing or failed image
+// never holds them. Not written (any cause) is the cutover action site-share-image-not-written.
+async function writeSiteShareImage(wix, { mediaId, sourceUrl }) {
+  const notWritten = (cause, extra = {}) => ({ outcome: 'not-written', cause, sourceUrl, ...(mediaId ? { mediaId } : {}), ...extra });
+  if (!mediaId) return notWritten('media-not-imported');
+  let file;
+  try { file = (await wix.send(buildGetSiteShareImageFileRequest(mediaId))).file; }
+  catch (error) { if (error.requestSent === false) throw error; return notWritten('media-read-failed', { error: memberErrorFields(error) }); }
+  const dryRun = file?._dryRunPlaceholder === true;
+  const url = dryRun ? `https://static.wixstatic.com/media/${encodeURIComponent(mediaId)}` : file?.url;
+  if (!dryRun) {
+    if (file?.operationStatus === 'FAILED') return notWritten('media-failed');
+    if (file?.id !== mediaId || file?.operationStatus !== 'READY' || !/^https:\/\/static\.wixstatic\.com\//.test(url || '')) return notWritten('media-not-ready');
+  }
+  const tag = { type: 'meta', props: { property: 'og:image', content: url } };
+  const current = ((await wix.send(buildGetSiteSeoTagsRequest())).siteSeoTags || {}).tags || [];
+  if (!seoTags.checkStoredTags(current, [tag]).length) return { outcome: 'already-present', mediaId, url, sourceUrl };
+  const replacedTags = current.filter(isShareImageTag);
+  let error = null;
+  try {
+    await wix.send(markRequest(_buildSetSiteSeoTagsRequest({ tags: seoTags.mergeTags(current, [tag]), preservedTags: current }), { entity: 'seo/site-seo-tags', siteTags: true, shareImage: { mediaId, url } }));
+  } catch (caught) {
+    if (caught.requestSent === false) throw caught;
+    if (caught.outcomeKnown !== false) return notWritten('write-rejected', { url, error: memberErrorFields(caught) });
+    error = memberErrorFields(caught);
+  }
+  if (dryRun) return { outcome: 'dry-run', mediaId, url, sourceUrl };
+  // Some SEO writes succeed silently without storing: only a read-back counts.
+  const after = ((await wix.send(buildGetSiteSeoTagsRequest())).siteSeoTags || {}).tags || [];
+  if (seoTags.checkStoredTags(after, [tag]).length) return notWritten('read-back-missing', { url, ...(error ? { error } : {}) });
+  return { outcome: 'verified', mediaId, url, sourceUrl, ...(replacedTags.length ? { replacedTags } : {}) };
+}
+async function setSiteSeoTags(wix, { tags = [], shareImage } = {}) {
+  if (shareImage !== undefined && (!shareImage || typeof shareImage !== 'object' || typeof shareImage.sourceUrl !== 'string' || !shareImage.sourceUrl || (shareImage.mediaId !== undefined && (typeof shareImage.mediaId !== 'string' || !shareImage.mediaId)))) {
+    throw Object.assign(new Error('site SEO tags: shareImage must be { mediaId (from resolveReference("media/media-file", ...), absent when the image did not land), sourceUrl }'), { code: 'site_share_image_invalid', requestSent: false, outcomeKnown: true });
+  }
+  const split = seoTags.splitSiteExclusions(tags);
+  // Indexing is a launch decision on every run that writes site tags, whatever the source had.
+  const result = { outcome: null, exclusions: split.exclusions, operatorActions: [{ reasonCode: 'site-indexing-launch-decision' }] };
+  const finish = async tagResult => {
+    const out = { ...result, ...tagResult };
+    if (shareImage) {
+      out.shareImage = await writeSiteShareImage(wix, shareImage);
+      if (out.shareImage.outcome === 'not-written') out.exclusions = [...out.exclusions, { reasonCode: 'site-og-image-not-written', cause: out.shareImage.cause, tag: { type: 'meta', props: { property: 'og:image', content: shareImage.sourceUrl } } }];
+      if (!split.tags.length && ['verified', 'already-present', 'dry-run'].includes(out.shareImage.outcome)) out.outcome = out.shareImage.outcome === 'dry-run' ? 'verified' : out.shareImage.outcome;
+    }
+    if (out.exclusions.some(e => e.reasonCode === 'site-og-image-not-written')) out.operatorActions = [...out.operatorActions, { reasonCode: 'site-share-image-not-written' }];
+    return out;
+  };
+  if (!split.tags.length) return finish({ outcome: 'nothing-to-write' });
+  const current = ((await wix.send(buildGetSiteSeoTagsRequest())).siteSeoTags || {}).tags || [];
+  const merged = seoTags.mergeTags(current, split.tags);
+  if (!seoTags.checkStoredTags(current, split.tags).length) return finish({ outcome: 'already-present' });
+  // A verification tag the source replaces is returned, so the old property can be restored.
+  const incoming = new Set(split.tags.map(seoTags.tagIdentity));
+  const tagResult = { replacedTags: current.filter(tag => !seoTags.isRobots(tag) && incoming.has(seoTags.tagIdentity(tag))) };
+  try {
+    await wix.send(markRequest(_buildSetSiteSeoTagsRequest({ tags: merged, preservedTags: current }), { entity: 'seo/site-seo-tags', siteTags: true }));
+  } catch (error) {
+    if (error.requestSent === false || error.outcomeKnown !== false) throw error;
+    tagResult.error = memberErrorFields(error);
+  }
+  const after = ((await wix.send(buildGetSiteSeoTagsRequest())).siteSeoTags || {}).tags || [];
+  const missing = seoTags.checkStoredTags(after, split.tags);
+  const robotsKept = seoTags.tagsEqual(seoTags.preservedRobots(current), seoTags.preservedRobots(after));
+  return finish({ ...tagResult, outcome: missing.length || !robotsKept ? (tagResult.error ? 'unknown' : 'unverified-after-success') : 'verified', ...(missing.length ? { failures: missing } : {}), ...(robotsKept ? {} : { robotsChanged: true }) });
 }
 
 // UNVERIFIED: POST /categories/v1/categories/query returns ONE PAGE of Stores categories —
@@ -2847,20 +3416,19 @@ async function queryAllStoresCategories(wix, { pageSize = 100, maxPages = 200 } 
 // VERIFIED (2026-07-05): POST /categories/v1/categories with { category, treeReference }.
 // treeReference is TOP-LEVEL (sibling of category), NOT a category property — nesting it
 // 400s "treeReference must not be empty".
-function _buildCreateStoresCategoryRequest(category, safeModeOptions) {
-  const prepared = applySafeModeToRequest({
+function _buildCreateStoresCategoryRequest(category) {
+  const body = copyRequestBody({
     category: omitEmptyStringFields(category, ['description']),
     treeReference: STORES_TREE_REFERENCE,
-  }, safeModeOptions);
+  });
   return {
     method: 'POST',
     url: `${WIXAPIS}/categories/v1/categories`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createStoresCategory(wix, category, safeModeOptions) {
-  return (await wix.send(buildCreateStoresCategoryRequest(category, safeModeOptions))).category;
+async function createStoresCategory(wix, category) {
+  return (await wix.send(buildCreateStoresCategoryRequest(category))).category;
 }
 
 // VERIFIED (2026-07-05): add one product to categories in bulk —
@@ -3183,7 +3751,7 @@ function normalizeCouponSpecification(specification = {}) {
 // Accepts the flat GA `contact` directly; a legacy V4-style `info` payload is converted
 // via contactInfoToV5Contact (strict — throws on non-mechanical keys). At least one of
 // name.first, name.last, email.email, or phone.phone is required by the API.
-function _buildCreateContactRequest({ contact, info, allowDuplicates = false }, safeModeOptions) {
+function _buildCreateContactRequest({ contact, info, allowDuplicates = false }) {
   if (contact !== undefined && info !== undefined) {
     throw new Error('buildCreateContactRequest: pass either the flat GA `contact` or a legacy `info`, not both');
   }
@@ -3191,23 +3759,21 @@ function _buildCreateContactRequest({ contact, info, allowDuplicates = false }, 
   if (!flatContact || typeof flatContact !== 'object' || Array.isArray(flatContact)) {
     throw new Error('buildCreateContactRequest: contact must be a flat GA Contacts V5 contact object');
   }
-  const safeModeEnabled = isSafeModeEnabled(safeModeOptions);
-  const prepared = applySafeModeToRequest({
+  const body = copyRequestBody({
     contact: normalizeV5Contact(flatContact),
-    allowDuplicates: safeModeEnabled ? true : allowDuplicates,
-  }, safeModeOptions);
+    allowDuplicates,
+  });
   return {
     method: 'POST',
     url: `${WIXAPIS}/contacts/v5/contacts`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createContact(wix, payload, safeModeOptions) {
-  return (await wix.send(buildCreateContactRequest(payload, safeModeOptions))).contact;
+async function createContact(wix, payload) {
+  return (await wix.send(buildCreateContactRequest(payload))).contact;
 }
 
-// Evidence: safe-mode bulk upsert and query-back exercised basic contact fields.
+// Evidence: bulk upsert and query-back exercised basic contact fields with mock values.
 // Member updates, real contact values and extensions are not thereby verified. Endpoint: POST
 // /contacts/v5/bulk/contacts/upsert — the contact import path: 1-100 contacts per call,
 // synchronous, per-item results. Contact matching includes externalId, email and phone; V5 can match phone even with email present.
@@ -3217,7 +3783,7 @@ async function createContact(wix, payload, safeModeOptions) {
 // Contacts use the same flat GA shape as createContact; each array item wraps as
 // `{ contact }`.
 const CONTACTS_BULK_UPSERT_MAX = 100;
-function _buildBulkUpsertContactsRequest(contacts, { upsertMode, returnEntity = false, updateMember } = {}, safeModeOptions) {
+function _buildBulkUpsertContactsRequest(contacts, { upsertMode, returnEntity = false, updateMember } = {}) {
   if (!Array.isArray(contacts) || contacts.length === 0) {
     throw new Error('buildBulkUpsertContactsRequest: contacts must be a non-empty array');
   }
@@ -3226,24 +3792,23 @@ function _buildBulkUpsertContactsRequest(contacts, { upsertMode, returnEntity = 
       `buildBulkUpsertContactsRequest: ${contacts.length} contacts exceeds the per-request limit of ${CONTACTS_BULK_UPSERT_MAX} — batch upstream`,
     );
   }
-  const prepared = applySafeModeToRequest({
+  const body = copyRequestBody({
     contacts: contacts.map((contact) => ({ contact: normalizeV5Contact(contact) })),
     ...(upsertMode ? { upsertMode } : {}),
     ...(returnEntity ? { returnEntity: true } : {}),
     ...(typeof updateMember === 'boolean' ? { updateMember } : {}),
-  }, safeModeOptions);
+  });
   return {
     method: 'POST',
     url: `${WIXAPIS}/contacts/v5/bulk/contacts/upsert`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
 // Returns per-item outcomes correlated back to the input index — the same flat shape as
 // bulkCreateStoresProductsWithInventory, so callers cannot misread partial failure as
 // all-or-nothing.
-async function bulkUpsertContacts(wix, contacts, options = {}, safeModeOptions) {
-  const response = await wix.send(buildBulkUpsertContactsRequest(contacts, options, safeModeOptions));
+async function bulkUpsertContacts(wix, contacts, options = {}) {
+  const response = await wix.send(buildBulkUpsertContactsRequest(contacts, options));
   return bulkResults.normalizeBulk(response, contacts, 'contacts');
 }
 function _buildQueryContactsRequest(query = { paging: { limit: 100, offset: 0 } }) {
@@ -3261,6 +3826,23 @@ function _buildGetContactRequest(contactId) {
 }
 async function getContact(wix, contactId) {
   return (await wix.send(buildGetContactRequest(contactId))).contact;
+}
+// Create Member creates OR matches a contact and returns member.contactId.
+// Before that contact can satisfy another record's reference (an order's buyerInfo.contactId), read
+// the member back and require it to still point at exactly that contact, then read the contact.
+// The result is the secondary identity the member's crosswalk row records; `outcome` stays
+// 'unknown' unless the caller has evidence that distinguishes a new contact from a matched one.
+async function verifyMemberContactIdentity(wix, { memberId, contactId, siteId, outcome = 'unknown' }) {
+  if (!memberId || !contactId || !siteId) throw new Error('verifyMemberContactIdentity: memberId, contactId and siteId are required');
+  if (!['created', 'matched', 'unknown'].includes(outcome)) throw new Error('verifyMemberContactIdentity: outcome must be created, matched or unknown');
+  const member = await getMember(wix, memberId);
+  const contact = member && String(member.id) === String(memberId) && String(member.contactId || '') === String(contactId) ? await getContact(wix, contactId) : null;
+  const verified = Boolean(contact && String(contact.id) === String(contactId));
+  return {
+    verified,
+    identity: verified ? { ref: 'crm/contact', targetId: String(contactId), parentTargetId: String(memberId), siteId: String(siteId), outcome,
+      verification: { kind: 'member-contact-read-back', verified: true, parentTargetId: String(memberId), identityTargetId: String(contactId), verifiedAt: new Date().toISOString() } } : null,
+  };
 }
 // GA request: PATCH /contacts/v5/contacts/{id} { contact: { id, revision, <flat fields> },
 // allowDuplicates? }. The current revision is REQUIRED (optimistic concurrency); there is
@@ -3307,6 +3889,84 @@ async function findOrCreateContactExtendedField(wix, payload) {
   return (await wix.send(buildFindOrCreateContactExtendedFieldRequest(payload))).field;
 }
 
+// --- Contact labels (crm/label) and labels on contacts (crm/contact-label) -------------------
+// VERIFIED LIVE 2026-10-27: POST /contacts/v4/labels { displayName } finds
+// the label with that name or creates it, and says which (`newLabel`), so a retry or an unknown
+// outcome is safe to resend. The V4 label IS the V5 contact private tag: the response carries
+// `label.tagId` (5 chars), which V5 `tags.privateTags.tagIds` accepts and V4 shows back as the
+// label key. The crosswalk target for a label is that tagId.
+function _buildFindOrCreateContactLabelRequest({ displayName }) {
+  if (typeof displayName !== 'string' || displayName.trim() === '') throw new Error('finding or creating a contact label needs a non-empty displayName');
+  const body = copyRequestBody({ displayName });
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/contacts/v4/labels`,
+    body,
+  };
+}
+function _buildGetContactLabelRequest(key) {
+  if (!key) throw new Error('reading a contact label needs its key');
+  return { method: 'GET', url: `${WIXAPIS}/contacts/v4/labels/${encodeURIComponent(key)}` };
+}
+// A pre-send refusal (createWixClient) is a known outcome: nothing reached Wix. The flag and code
+// ride on the writer's error so the journal records the row not sent (failed_retryable).
+const notSentFields = error => (error && error.requestSent === false ? { requestSent: false, code: error.code === undefined ? null : error.code } : {});
+async function findOrCreateContactLabel(wix, { displayName } = {}) {
+  let found;
+  try {
+    found = await wix.send(buildFindOrCreateContactLabelRequest({ displayName }));
+  } catch (error) {
+    return { outcome: 'label-failed', tagId: null, labelKey: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status, outcomeKnown: error && error.outcomeKnown, ...notSentFields(error) } };
+  }
+  const label = found && found.label;
+  if (!label || !label.key || !label.tagId) return { outcome: 'label-failed', tagId: null, labelKey: null, error: { message: 'Find or Create Label returned no label key or tagId' } };
+  // Read back by key: the label exists under this name, and its tag id is the one we record.
+  let read;
+  try { read = (await wix.send(buildGetContactLabelRequest(label.key))).label; } catch (error) {
+    return { outcome: 'label-unverified', tagId: label.tagId, labelKey: label.key, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
+  }
+  if (!read || read.tagId !== label.tagId || read.displayName !== label.displayName) return { outcome: 'label-unverified', tagId: label.tagId, labelKey: label.key, error: { message: 'label read-back does not match the label written' } };
+  return { outcome: found.newLabel === true ? 'label-written' : 'label-reconciled-existing', tagId: label.tagId, labelKey: label.key, displayName: label.displayName };
+}
+
+// VERIFIED LIVE 2026-10-27: POST /contacts/v5/contacts/{id}/update-tags
+// { assignTags: { privateTags: { tagIds } } } adds tags and keeps the contact's others; a repeat
+// is harmless (revision only), so an unknown outcome is safe to resend. Assign-only: this writer
+// never unassigns. Traps: Wix ACCEPTS a tag id that does not exist (it is stored on the contact),
+// so tag ids come only from read-back labels via the readiness grant; and the PATH wins when the
+// body's contactId differs, so the path is built from the same contactId the grant checks in the
+// body. Do not send tags inside the contact upsert: the default OVERWRITE upsert replaces a
+// matched contact's existing tags.
+const CONTACT_TAG_ID_MAX_LENGTH = 5;
+const CONTACT_TAG_IDS_MAX_PER_CALL = 1000; // Update Contact Tags schema: tagIds maxItems 1000
+function _buildUpdateContactTagsRequest({ contactId, tagIds }) {
+  if (!contactId) throw new Error('labelling a contact needs the contact id');
+  if (!Array.isArray(tagIds) || tagIds.length === 0) throw new Error('labelling a contact needs at least one tag id');
+  if (tagIds.length > CONTACT_TAG_IDS_MAX_PER_CALL) throw new Error(`labelling a contact takes at most ${CONTACT_TAG_IDS_MAX_PER_CALL} tag ids per call`);
+  for (const tagId of tagIds) if (typeof tagId !== 'string' || !tagId || tagId.length > CONTACT_TAG_ID_MAX_LENGTH) throw new Error(`a contact tag id must be a label tagId of 1-${CONTACT_TAG_ID_MAX_LENGTH} characters, not a label key`);
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/contacts/v5/contacts/${encodeURIComponent(contactId)}/update-tags`,
+    body: { contactId, assignTags: { privateTags: { tagIds: [...tagIds] } } },
+  };
+}
+function _buildGetContactTagsRequest(contactId) {
+  if (!contactId) throw new Error('reading contact tags needs the contact id');
+  return { method: 'GET', url: `${WIXAPIS}/contacts/v5/contacts/${encodeURIComponent(contactId)}?fields=TAGS` };
+}
+async function assignContactLabels(wix, { contactId, tagIds } = {}) {
+  const request = buildUpdateContactTagsRequest({ contactId, tagIds });
+  try { await wix.send(request); } catch (error) {
+    return { outcome: 'contact-labels-failed', contactId, tagIds, error: { message: String(error && error.message).slice(0, 300), status: error && error.status, outcomeKnown: error && error.outcomeKnown, ...notSentFields(error) } };
+  }
+  let have;
+  try { have = ((await wix.send(buildGetContactTagsRequest(contactId))).contact || {}).tags?.privateTags?.tagIds || []; } catch (error) {
+    return { outcome: 'contact-labels-unverified', contactId, tagIds, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
+  }
+  const missing = tagIds.filter(tagId => !have.includes(tagId));
+  return missing.length ? { outcome: 'contact-labels-unverified', contactId, tagIds, missing } : { outcome: 'contact-labels-assigned', contactId, tagIds };
+}
+
 // --- Email Subscriptions ----------------------------------------------------
 // A dedicated resource keyed by EMAIL ADDRESS, not contactId -- so it covers guest-checkout
 // emails with no Contact behind them just as well as known contacts. Per Wix's own docs, a
@@ -3350,17 +4010,16 @@ async function bulkUpsertEmailSubscriptions(wix, subscriptions) {
 // that `scope: {namespace: "stores"}` is a valid storewide scope, and that a product scope
 // requires a VISIBLE product (a hidden one is rejected as `entityId not found`; V3 product
 // ids themselves resolve fine).
-function _buildCreateCouponRequest(specification, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ specification: normalizeCouponSpecification(specification) }, safeModeOptions);
+function _buildCreateCouponRequest(specification) {
+  const body = copyRequestBody({ specification: normalizeCouponSpecification(specification) });
   return {
     method: 'POST',
     url: `${WIXAPIS}/stores/v2/coupons`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createCoupon(wix, specification, safeModeOptions) {
-  const response = await wix.send(buildCreateCouponRequest(specification, safeModeOptions));
+async function createCoupon(wix, specification) {
+  const response = await wix.send(buildCreateCouponRequest(specification));
   // LIVE 2026-09-05 (two fresh sites): Create Coupon answers `{ id }` -- the id alone, no coupon
   // object -- exactly as the docs' response shape says. The branch below that expected
   // `response.coupon` never matched, so every create fell through to a query-by-code that the
@@ -3375,7 +4034,7 @@ async function createCoupon(wix, specification, safeModeOptions) {
       const matched = coupons.find((coupon) => String(coupon?.specification?.code || '').trim() === code);
       if (matched?.id) return matched;
       if (attempt < 3) {
-        await new Promise((resolve) => setTimeout(resolve, 750));
+        await pauseFor(wix)(750);
       }
     }
   }
@@ -3416,16 +4075,15 @@ function assertBulkCreateCannotLoseFields(specifications) {
   }
 }
 
-function _buildBulkCreateCouponsRequest(specifications, safeModeOptions) {
+function _buildBulkCreateCouponsRequest(specifications) {
   if (!Array.isArray(specifications) || specifications.length === 0) throw new Error('bulkCreateCoupons needs a non-empty array of specifications');
   assertBulkCreateCannotLoseFields(specifications);
   if (specifications.length > BULK_COUPON_BATCH) throw new Error(`bulk coupon create takes at most ${BULK_COUPON_BATCH} specifications per call, got ${specifications.length}`);
-  const prepared = applySafeModeToRequest({ specifications: specifications.map(normalizeCouponSpecification) }, safeModeOptions);
+  const body = copyRequestBody({ specifications: specifications.map(normalizeCouponSpecification) });
   return {
     method: 'POST',
     url: `${WIXAPIS}/stores/v2/bulk/coupons/create`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
 
@@ -3468,7 +4126,7 @@ function partitionRefusableCoupons(specifications, outcomes) {
 }
 
 // Returns one outcome per INPUT specification, in input order. Never fewer, never reordered.
-async function bulkCreateCoupons(wix, specifications, { safeModeOptions, onFallback } = {}) {
+async function bulkCreateCoupons(wix, specifications, { onFallback } = {}) {
   // The batch is all-or-nothing and its per-item errors are the SAME error repeated
   // against every row, so one undecided specification has to be named locally, by code, before
   // the first request. Outside the try below deliberately: this is a caller bug, not a transport
@@ -3481,10 +4139,10 @@ async function bulkCreateCoupons(wix, specifications, { safeModeOptions, onFallb
   // `sent` is what the server sees, so every index it reports is an index into `sent`. Results
   // are mapped back to input positions here and nowhere else.
   const merge = (sub) => { for (let i = 0; i < map.length; i += 1) outcomes[map[i]] = sub[i]; return outcomes; };
-  const fallback = async (reason) => merge(await retryBatchIndividually(wix, sent, new Array(sent.length).fill(null), { safeModeOptions, onFallback, reason }));
+  const fallback = async (reason) => merge(await retryBatchIndividually(wix, sent, new Array(sent.length).fill(null), { onFallback, reason }));
   let response;
   try {
-    response = await wix.send(buildBulkCreateCouponsRequest(sent, safeModeOptions));
+    response = await wix.send(buildBulkCreateCouponsRequest(sent));
   } catch (error) {
     // A transport-level failure tells us nothing about individual specifications either.
     return fallback(`batch request failed: ${String(error && error.message).slice(0, 200)}`);
@@ -3538,13 +4196,13 @@ async function reconcileCouponByCode(wix, code) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-async function retryBatchIndividually(wix, specifications, outcomes, { safeModeOptions, onFallback, reason } = {}) {
+async function retryBatchIndividually(wix, specifications, outcomes, { onFallback, reason } = {}) {
   if (typeof onFallback === 'function') onFallback({ reason, count: specifications.length });
   for (let i = 0; i < specifications.length; i += 1) {
     if (outcomes[i]) continue;
     const code = specifications[i] && specifications[i].code;
     try {
-      const created = await createCoupon(wix, specifications[i], safeModeOptions);
+      const created = await createCoupon(wix, specifications[i]);
       const couponId = typeof created === 'string' ? created : created && created.id;
       if (couponId) {
         outcomes[i] = { outcome: 'coupon-written', couponId: String(couponId), code, viaFallback: true };
@@ -3604,7 +4262,7 @@ function _buildUpdateCouponRequest(couponId, changes) {
 // Applies the change and VERIFIES IT BY READ-BACK. A 2xx is not evidence on this surface (TRAP 3),
 // so an unconfirmed update is reported `coupon-update-unverified`, never as applied.
 async function updateCouponFields(wix, couponId, changes, { settleMs = 8000, sleep } = {}) {
-  const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const wait = pauseFor(wix, sleep);
   let status = null;
   try {
     await wix.send(buildUpdateCouponRequest(couponId, changes));
@@ -3930,6 +4588,171 @@ function _buildRemoveDeliveryRegionRequest(deliveryProfileId, deliveryRegionId, 
 async function removeDeliveryRegion(wix, deliveryProfileId, deliveryRegionId, revision) {
   return withRegionsAlias((await wix.send(buildRemoveDeliveryRegionRequest(deliveryProfileId, deliveryRegionId, revision))).deliveryProfile);
 }
+// UPDATE one region in place. LIVE-VERIFIED 2026-10-28 on a throwaway site: renames a
+// region and replaces its destinations; its carriers and shipping options are untouched (they have
+// their own calls). `revision` is the profile's current revision.
+function _buildUpdateDeliveryRegionRequest(deliveryProfileId, deliveryRegion, revision) {
+  if (!deliveryRegion || !deliveryRegion.id) throw new Error('buildUpdateDeliveryRegionRequest: deliveryRegion.id is required');
+  return {
+    method: 'PATCH',
+    url: `${WIXAPIS}/ecom/v1/delivery-profiles/${encodeURIComponent(deliveryProfileId)}/delivery-region/${encodeURIComponent(deliveryRegion.id)}`,
+    body: { deliveryRegion, ...(revision !== undefined ? { revision } : {}) },
+  };
+}
+async function updateDeliveryRegion(wix, deliveryProfileId, deliveryRegion, revision) {
+  return withRegionsAlias((await wix.send(buildUpdateDeliveryRegionRequest(deliveryProfileId, deliveryRegion, revision))).deliveryProfile);
+}
+
+// DESTINATIONS_COLLISION, LIVE-VERIFIED 2026-10-28 on a throwaway site. Inside one
+// profile Wix refuses (428) a region that repeats a destination another region already has: the
+// same whole country twice, or the same subdivision twice. A subdivision inside a country another
+// region covers whole is accepted, and the rest-of-world region (no destinations) collides with
+// nothing. A new site's default profile already holds the site's own country whole ("Domestic")
+// plus a rest-of-world region, each with a carrier and an unconditional "Free shipping" option, so
+// a source zone for the store's home country ALWAYS collided on a plain addDeliveryRegion (a live
+// migration on 2026-10-28, IL).
+function destinationAtoms(destinations) {
+  const atoms = new Map();
+  for (const destination of destinations || []) {
+    const country = String((destination && destination.countryCode) || '').toUpperCase();
+    if (!country) continue;
+    const subdivisions = (destination.subdivisions || []).map(String);
+    for (const subdivision of subdivisions.length ? subdivisions : [null]) {
+      const key = `${country}:${subdivision || '*'}`;
+      atoms.set(key, { key, countryCode: country, subdivision });
+    }
+  }
+  return atoms;
+}
+function destinationsFromAtoms(atoms) {
+  const byCountry = new Map();
+  for (const atom of atoms) {
+    if (!byCountry.has(atom.countryCode)) byCountry.set(atom.countryCode, []);
+    if (atom.subdivision) byCountry.get(atom.countryCode).push(atom.subdivision);
+  }
+  return [...byCountry].map(([countryCode, subdivisions]) => ({ countryCode, subdivisions }));
+}
+const describeAtom = (atom) => atom.subdivision || atom.countryCode;
+
+// Pure: what ensureDeliveryRegion writes for `deliveryRegion` on `profile`, never a colliding add.
+//   - a region with exactly these destinations: reuse it (update only a differing name/active);
+//   - one region that collides and covers nothing beyond these destinations: update it to them;
+//   - otherwise add a region with the destinations nobody covers yet, or, when every destination is
+//     already covered, reuse the region covering most of them.
+// Destinations left on another region are listed in `coveredElsewhere`; nothing is ever narrowed
+// or removed, so no buyer loses a delivery route the site already had.
+function planDeliveryRegionWrite(profile, deliveryRegion) {
+  if (!deliveryRegion || !Array.isArray(deliveryRegion.destinations)) throw new Error('planDeliveryRegionWrite: deliveryRegion.destinations is required');
+  const want = destinationAtoms(deliveryRegion.destinations);
+  const regions = (profile && (profile.deliveryRegions || profile.regions)) || [];
+  const named = (region) => ({
+    id: region.id,
+    name: deliveryRegion.name || region.name,
+    active: deliveryRegion.active === undefined ? region.active : deliveryRegion.active,
+  });
+  const sameKeys = (a, b) => a.size === b.size && [...a.keys()].every((key) => b.has(key));
+  if (want.size) {
+    const exact = regions.find((region) => sameKeys(destinationAtoms(region.destinations), want));
+    if (exact) {
+      const changed = (deliveryRegion.name && deliveryRegion.name !== exact.name) || (deliveryRegion.active !== undefined && deliveryRegion.active !== exact.active);
+      return { action: changed ? 'update' : 'reuse', regionId: exact.id, region: changed ? { ...named(exact), destinations: exact.destinations } : null, coveredElsewhere: [] };
+    }
+  }
+  const colliders = regions
+    .map((region) => {
+      const atoms = destinationAtoms(region.destinations);
+      return { region, atoms, overlap: [...want.values()].filter((atom) => atoms.has(atom.key)) };
+    })
+    .filter((entry) => entry.overlap.length);
+  if (!colliders.length) return { action: 'add', regionId: null, region: { ...deliveryRegion }, coveredElsewhere: [] };
+  if (colliders.length === 1 && [...colliders[0].atoms.keys()].every((key) => want.has(key))) {
+    const { region } = colliders[0];
+    return { action: 'update', regionId: region.id, region: { ...named(region), destinations: deliveryRegion.destinations }, coveredElsewhere: [] };
+  }
+  const taken = new Set(colliders.flatMap((entry) => entry.overlap.map((atom) => atom.key)));
+  const free = [...want.values()].filter((atom) => !taken.has(atom.key));
+  if (free.length) {
+    const coveredElsewhere = colliders.flatMap((entry) => entry.overlap.map((atom) => ({ destination: describeAtom(atom), regionId: entry.region.id, regionName: entry.region.name || null })));
+    return { action: 'add', regionId: null, region: { ...deliveryRegion, destinations: destinationsFromAtoms(free) }, coveredElsewhere };
+  }
+  // Every destination is covered. Prefer the region an earlier run added for this zone (all its
+  // destinations inside the zone), then one with the zone's name, then the widest overlap, so a
+  // rerun resolves the zone to the same region it did the first time.
+  const inside = (entry) => [...entry.atoms.keys()].every((key) => want.has(key));
+  const rank = (entry) => [inside(entry) ? 1 : 0, deliveryRegion.name && entry.region.name === deliveryRegion.name ? 1 : 0, entry.overlap.length];
+  const better = (a, b) => { const [x, y] = [rank(a), rank(b)]; for (let i = 0; i < x.length; i += 1) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+  const best = colliders.reduce((top, entry) => (better(entry, top) ? entry : top));
+  const coveredElsewhere = colliders.filter((entry) => entry !== best)
+    .flatMap((entry) => entry.overlap.map((atom) => ({ destination: describeAtom(atom), regionId: entry.region.id, regionName: entry.region.name || null })));
+  const widerBy = [...best.atoms.values()].filter((atom) => !want.has(atom.key)).map(describeAtom);
+  return { action: 'reuse', regionId: best.region.id, region: null, coveredElsewhere, widerBy };
+}
+
+const DELIVERY_REGION_RETRY_CODES = new Set(['DESTINATIONS_COLLISION', 'INVALID_REVISION']);
+function deliveryRegionErrorCode(error) {
+  const code = error && (error.applicationErrorCode || (error.body && error.body.details && error.body.details.applicationError && error.body.details.applicationError.code));
+  if (code) return code;
+  const match = /"code"\s*:\s*"([A-Z_]+)"/.exec(String((error && error.message) || ''));
+  return match ? match[1] : null;
+}
+
+// The reviewed delivery-region writer: reads the profile, then reuses, updates or adds per
+// planDeliveryRegionWrite. A collision or stale revision re-reads and re-plans once (the plan is
+// rebuilt from the fresh profile, so nobody's newer edit is overwritten blindly); a collision that
+// survives returns `collision-unresolved` with a finding instead of throwing, so one zone never
+// stops the import. Any other error is thrown as before.
+// Returns { action: added|updated|reused|collision-unresolved, deliveryProfileId, deliveryRegionId,
+//   deliveryRegion, coveredElsewhere[], existingShippingOptions[], findings[] }. A reused or
+// updated region may already carry options the source never had (a new site's "Free shipping");
+// they are listed here, never deleted; the shipping stage decides (runShippingOptionStage).
+async function ensureDeliveryRegion(wix, deliveryRegion, { deliveryProfileId = null } = {}) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const profiles = await queryDeliveryProfiles(wix);
+    const profile = deliveryProfileId ? profiles.find((p) => p.id === deliveryProfileId) : (profiles.find((p) => p.default) || profiles[0]);
+    if (!profile) throw new Error(`ensureDeliveryRegion: ${deliveryProfileId ? `delivery profile ${deliveryProfileId} not found` : 'the site has no delivery profile'}`);
+    const plan = planDeliveryRegionWrite(profile, deliveryRegion);
+    let out;
+    try {
+      if (plan.action === 'reuse') out = profile;
+      else if (plan.action === 'update') out = await updateDeliveryRegion(wix, profile.id, plan.region, profile.revision);
+      else out = await addDeliveryRegion(wix, profile.id, plan.region, profile.revision);
+    } catch (error) {
+      if (!DELIVERY_REGION_RETRY_CODES.has(deliveryRegionErrorCode(error))) throw error;
+      lastError = error;
+      continue;
+    }
+    const regions = (out && (out.deliveryRegions || out.regions)) || [];
+    const addedKey = plan.action === 'add' ? [...destinationAtoms(plan.region.destinations).keys()].sort().join('|') : null;
+    const region = plan.regionId
+      ? regions.find((r) => r.id === plan.regionId)
+      : regions.find((r) => [...destinationAtoms(r.destinations).keys()].sort().join('|') === addedKey && r.name === plan.region.name)
+        || regions.find((r) => [...destinationAtoms(r.destinations).keys()].sort().join('|') === addedKey);
+    const action = { add: 'added', update: 'updated', reuse: 'reused' }[plan.action];
+    const findings = [];
+    let existingShippingOptions = [];
+    if (region && plan.action !== 'add') {
+      const scan = await queryAllShippingOptions(wix, { deliveryRegionId: region.id });
+      existingShippingOptions = scan.options.map((option) => ({ id: option.id, title: option.title || null }));
+      if (existingShippingOptions.length || !scan.complete) {
+        findings.push({ code: 'delivery-region-has-existing-options', regionId: region.id, options: existingShippingOptions, complete: scan.complete,
+          message: `Region "${region.name}" already had ${existingShippingOptions.map((o) => `"${o.title}"`).join(', ') || 'options that could not be listed'} when this zone was written. The shipping stage tells the migration's own options from the rest.` });
+      }
+    }
+    if (plan.action !== 'add' && region) findings.push({ code: 'delivery-region-reused', regionId: region.id, previousName: (profile.deliveryRegions || profile.regions || []).find((r) => r.id === region.id)?.name || null, action,
+      message: `The site already covered ${(deliveryRegion.destinations || []).map((d) => d.countryCode).join(', ')}; the zone uses existing region "${region.name}" instead of adding a second one.` });
+    if (plan.widerBy && plan.widerBy.length) findings.push({ code: 'delivery-region-shared-with-wider-region', regionId: plan.regionId, widerBy: plan.widerBy,
+      message: `Region "${region ? region.name : plan.regionId}" also covers ${plan.widerBy.join(', ')}; the zone's rates apply there too.` });
+    if (plan.coveredElsewhere.length) findings.push({ code: 'delivery-region-destinations-covered-elsewhere', coveredElsewhere: plan.coveredElsewhere,
+      message: `Already covered by other regions, so the zone's rates do not apply there: ${plan.coveredElsewhere.map((c) => `${c.destination} (${c.regionName || c.regionId})`).join(', ')}.` });
+    return { action, deliveryProfileId: profile.id, deliveryRegionId: region ? region.id : null, deliveryRegion: region || null,
+      coveredElsewhere: plan.coveredElsewhere, existingShippingOptions, findings };
+  }
+  const code = deliveryRegionErrorCode(lastError);
+  return { action: 'collision-unresolved', deliveryProfileId: null, deliveryRegionId: null, deliveryRegion: null, coveredElsewhere: [], existingShippingOptions: [],
+    findings: [{ code: 'delivery-region-collision-unresolved', errorCode: code,
+      message: `Wix refused the region twice (${code}) after a fresh read; nothing was added. Add the zone's rates by hand in Settings → Shipping & delivery.` }] };
+}
 function _buildAddDeliveryCarrierRequest(deliveryRegionId, deliveryCarrier) {
   return { method: 'POST', url: `${WIXAPIS}/ecom/v1/delivery-profiles/add-delivery-carrier`, body: { deliveryRegionId, deliveryCarrier } };
 }
@@ -4021,6 +4844,22 @@ function _buildUpdateShippingOptionEstimateRequest({ id, revision, estimatedDeli
   };
 }
 
+// LIVE-VERIFIED 2026-10-28 on a throwaway site: DELETE returns 200 {}; a read-back and a second
+// delete both return 404 NOT_FOUND. A 404 is reported as already gone, not as a failure.
+function _buildDeleteShippingOptionRequest(id) {
+  if (!id) throw new Error('buildDeleteShippingOptionRequest: id is required');
+  return { method: 'DELETE', url: `${WIXAPIS}/ecom/v1/shipping-options/${encodeURIComponent(id)}` };
+}
+async function deleteShippingOption(wix, id) {
+  try {
+    await wix.send(buildDeleteShippingOptionRequest(id));
+    return { deleted: true, alreadyGone: false };
+  } catch (error) {
+    if (error && error.status === 404) return { deleted: false, alreadyGone: true };
+    throw error;
+  }
+}
+
 const SHIPPING_OPTION_PAGE_LIMIT = 100;
 const SHIPPING_OPTION_MAX_PAGES = 1000;
 function shippingOptionInRegion(option, deliveryRegionId) {
@@ -4107,6 +4946,10 @@ async function createShippingOptionVerified(wix, shippingOption) {
   try {
     created = await createShippingOption(wix, shippingOption);
   } catch (error) {
+    // Refused before sending: known, nothing reached Wix, so never "unknown" (read back forever).
+    if (error && error.requestSent === false) {
+      return { outcome: 'shipping-option-failed', id: null, httpStatus: null, errorCode: error.code ? String(error.code) : null, requestSent: false };
+    }
     if (error && error.outcomeKnown === true) {
       return { outcome: 'shipping-option-failed', id: null, ...shippingOptionErrorFields(error) };
     }
@@ -4221,6 +5064,63 @@ function _buildUpdateBusinessContactRequest(businessContact, { clearPaths = [] }
 // accepted, not that the value landed; pair every write with getSiteProperties and compare.
 async function updateBusinessContact(wix, businessContact, options) {
   return wix.send(buildUpdateBusinessContactRequest(businessContact, options));
+}
+// --- Regional settings (payment currency, time zone, language, locale) -------------------------
+//
+// Two different calls. Payment currency and time zone go through Update Business Region
+// (documented, `fields.paths` names TOP-LEVEL fields). Language and locale go through a PATCH on
+// the Site Properties root; each has its own call, because setting `language` leaves `locale`
+// untouched and Update Business Region rejects both. Every mask is DERIVED from the payload's own
+// keys: a path named but not sent is cleared.
+//
+// The API stores whatever it is sent: a made-up currency, a made-up time zone and a three-letter
+// language all answered 200 and were stored. So every builder refuses a value the source-regional
+// validators refuse -- the importer is the only validation there is -- and every write must be
+// followed by getSiteProperties and a comparison. A write is also never a no-op: an identical
+// update still bumps the site version, so a caller reads, compares and skips instead of re-sending.
+const REGION_FIELDS = ['paymentCurrency', 'timeZone'];
+function _buildUpdateBusinessRegionRequest(businessRegion) {
+  const regional = require('../../../lib/source-regional.js');
+  if (!businessRegion || typeof businessRegion !== 'object' || Array.isArray(businessRegion)) {
+    throw new Error('buildUpdateBusinessRegionRequest: businessRegion object is required');
+  }
+  const unknown = Object.keys(businessRegion).filter((key) => !REGION_FIELDS.includes(key));
+  if (unknown.length) throw new Error(`buildUpdateBusinessRegionRequest: ${unknown.join(', ')} is not a business region field (language and locale have their own calls)`);
+  const sentPaths = REGION_FIELDS.filter((key) => businessRegion[key] !== undefined);
+  if (sentPaths.length === 0) throw new Error('buildUpdateBusinessRegionRequest: nothing to update — an empty mask is refused by the API');
+  if (businessRegion.paymentCurrency !== undefined && !regional.knownCurrency(businessRegion.paymentCurrency)) {
+    throw new Error(`buildUpdateBusinessRegionRequest: "${businessRegion.paymentCurrency}" is not a currency; the API would store it anyway`);
+  }
+  if (businessRegion.timeZone !== undefined && !regional.knownTimeZone(businessRegion.timeZone)) {
+    throw new Error(`buildUpdateBusinessRegionRequest: "${businessRegion.timeZone}" is not a time zone; the API would store it anyway`);
+  }
+  const body = {};
+  for (const key of sentPaths) body[key] = businessRegion[key];
+  return { method: 'POST', url: `${SITE_PROPERTIES_BASE}/business-region`, body: { businessRegion: body, fields: { paths: sentPaths } } };
+}
+function _buildUpdateSiteLanguageRequest(language) {
+  if (!require('../../../lib/source-regional.js').knownLanguage(language)) {
+    throw new Error(`buildUpdateSiteLanguageRequest: "${language}" is not a two-letter language code; the API stores three letters as sent`);
+  }
+  return { method: 'PATCH', url: SITE_PROPERTIES_BASE, body: { properties: { language }, fields: { paths: ['language'] } } };
+}
+function _buildUpdateSiteLocaleRequest(locale) {
+  const regional = require('../../../lib/source-regional.js');
+  if (!locale || !regional.knownLanguage(locale.languageCode) || !regional.knownCountry(locale.country)) {
+    throw new Error('buildUpdateSiteLocaleRequest: locale needs a two-letter languageCode and a two-letter uppercase country');
+  }
+  return { method: 'PATCH', url: SITE_PROPERTIES_BASE, body: { properties: { locale: { languageCode: locale.languageCode, country: locale.country } }, fields: { paths: ['locale'] } } };
+}
+// Update Business Region answers `{}`; language and locale answer `{ version }`. None of them proves
+// the value landed.
+async function updateBusinessRegion(wix, businessRegion) {
+  return wix.send(buildUpdateBusinessRegionRequest(businessRegion));
+}
+async function updateSiteLanguage(wix, language) {
+  return wix.send(buildUpdateSiteLanguageRequest(language));
+}
+async function updateSiteLocale(wix, locale) {
+  return wix.send(buildUpdateSiteLocaleRequest(locale));
 }
 function _buildGetSitePropertiesRequest() {
   return { method: 'GET', url: SITE_PROPERTIES_BASE };
@@ -4342,17 +5242,16 @@ async function removePickupLocationDeliveryRegion(wix, pickupLocationId, deliver
 // inventory, emails the buyer a confirmation, and auto-creates a contact. Historical
 // orders MUST go through importOrder below. createOrder remains only for creating a
 // genuine live/test order on purpose.
-function _buildCreateOrderRequest(order, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ order }, safeModeOptions);
+function _buildCreateOrderRequest(order) {
+  const body = copyRequestBody({ order });
   return {
     method: 'POST',
     url: `${WIXAPIS}/ecom/v1/orders`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createOrder(wix, order, safeModeOptions) {
-  return (await wix.send(buildCreateOrderRequest(order, safeModeOptions))).order;
+async function createOrder(wix, order) {
+  return (await wix.send(buildCreateOrderRequest(order))).order;
 }
 function _buildQueryOrdersRequest(query = { paging: { limit: 100 } }) {
   return { method: 'POST', url: `${WIXAPIS}/ecom/v1/orders/query`, body: { query } };
@@ -4413,18 +5312,33 @@ function assertKnownImportOrderTraps(order) {
   }
 }
 
-function _buildImportOrderRequest(order, safeModeOptions) {
+// lineItems[].image is an Image object on Import Order. A bare URL string is refused for the whole
+// order with 400 "Expected an object" (observed in a live run: every order). The URL is
+// what a source carries, so it is wrapped, never dropped: the order imports with its picture.
+function normalizeImportOrderLineItemImages(order) {
+  if (!order || !Array.isArray(order.lineItems)) return order;
+  for (const item of order.lineItems) {
+    if (!item || typeof item !== 'object') continue;
+    if (typeof item.image === 'string') {
+      if (item.image.trim()) item.image = { url: item.image.trim() };
+      else delete item.image;
+    }
+  }
+  return order;
+}
+
+function _buildImportOrderRequest(order) {
   assertKnownImportOrderTraps(order);
-  const prepared = applySafeModeToRequest({ order }, safeModeOptions);
+  const body = copyRequestBody({ order });
+  normalizeImportOrderLineItemImages(body.order);
   return {
     method: 'POST',
     url: `${WIXAPIS}/ecom/v1/orders/import`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function importOrder(wix, order, safeModeOptions) {
-  return (await wix.send(buildImportOrderRequest(order, safeModeOptions))).order;
+async function importOrder(wix, order) {
+  return (await wix.send(buildImportOrderRequest(order))).order;
 }
 
 // --- Order Transactions / Order Billing (VERIFIED 2026-08-12) ---------------------------------
@@ -4535,6 +5449,8 @@ async function refundOrderPayment(wix, payload) {
 const TRANSIENT_WIX_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 function isTransientWixError(error) {
+  // An expired token interrupts the run; retrying the record cannot clear it.
+  if (error && error.interruption === true) return false;
   const status = error && (error.status || error.statusCode || (error.response && error.response.status));
   // The transport threw before any response arrived: no status to key on, and the condition is
   // exactly the kind that clears. An unparseable response that DID arrive carries its status and
@@ -4633,7 +5549,11 @@ function createTargetReadPacer({ minIntervalMs = 0, maxAttempts = 3, backoffMs =
 // unpaced single-order reads. Sharing one instance is what makes the spacing meaningful -- a
 // per-call pacer paces nothing.
 let defaultTargetReadPacer = null;
-function sharedTargetReadPacer() {
+// A dry run sends nothing, so its reads are neither spaced nor backed off: same attempts, no waits.
+const dryRunTargetReadPacer = createTargetReadPacer({ minIntervalMs: 0, maxAttempts: 3, backoffMs: 0, sleep: async () => {} });
+const isDryRunClient = wix => Boolean(wix) && (wix.dryRun === true || recordClients.get(wix)?.wix?.dryRun === true);
+function sharedTargetReadPacer(wix) {
+  if (isDryRunClient(wix)) return dryRunTargetReadPacer;
   if (!defaultTargetReadPacer) {
     defaultTargetReadPacer = createTargetReadPacer({ minIntervalMs: 60, maxAttempts: 3, backoffMs: 250 });
   }
@@ -4642,7 +5562,7 @@ function sharedTargetReadPacer() {
 
 async function reconcileOrderPaymentTarget(wix, { orderId, payment = null, pacer = null } = {}) {
   const readOnce = () => listOrderTransactions(wix, orderId);
-  const effectivePacer = pacer || sharedTargetReadPacer();
+  const effectivePacer = pacer || sharedTargetReadPacer(wix);
   const result = effectivePacer
     ? await effectivePacer.read(readOnce)
     : await (async () => {
@@ -4807,7 +5727,7 @@ async function ensureOrderPaymentAndRefund(wix, { orderId, payment = null, refun
     } catch (error) {
       lastError = error;
       if (!isPendingRefund(error) || attempt === 6) break;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      await pauseFor(wix)(1000 * attempt);
     }
   }
   if (lastError) {
@@ -4893,7 +5813,7 @@ async function deleteCoupon(wix, couponId) {
 // A hidden target is REFUSED WHOLE. Never widen the scope to storewide, never substitute a
 // `minimumSubtotal`, never import it switched off to switch on later, and never change the
 // product's visibility to admit the coupon -- that is a storefront change and the owner's call.
-async function ensureCoupon(wix, { specification, pacer = null, safeModeOptions, scopeTarget } = {}) {
+async function ensureCoupon(wix, { specification, pacer = null, scopeTarget } = {}) {
   if (!specification || !specification.code) throw new Error('ensureCoupon needs a mapped coupon specification with a code');
   // BEFORE the paced query-by-code below, so a caller that never decided redeemability
   // pays a local error instead of spending a live call to find out.
@@ -4910,13 +5830,13 @@ async function ensureCoupon(wix, { specification, pacer = null, safeModeOptions,
   // Nothing to check on a storewide or unscoped coupon, so no marker for one.
   const unchecked = Boolean(scopeGroup) && (scopeTarget === undefined || scopeTarget === null);
   const mark = (result) => (unchecked ? { ...result, scopeTargetVisibility: 'coupon-scope-target-visibility-unchecked' } : result);
-  const effectivePacer = pacer || sharedTargetReadPacer();
+  const effectivePacer = pacer || sharedTargetReadPacer(wix);
   const read = await effectivePacer.read(() => queryCouponsByCode(wix, specification.code));
   if (!read.ok) return mark({ outcome: 'coupon-target-read-failed', couponId: null, error: read.error });
   if (read.value.length === 1) return mark({ outcome: 'coupon-reconciled-existing', couponId: read.value[0].id });
   if (read.value.length > 1) return mark({ outcome: 'coupon-reconciliation-ambiguous', couponId: null, matchCount: read.value.length });
   try {
-    const created = await createCoupon(wix, specification, safeModeOptions);
+    const created = await createCoupon(wix, specification);
     // LIVE 2026-09-05: createCoupon hands back the bare id string (Create Coupon answers `{ id }`
     // and the writer unwraps it). Reading `.id` off a string reported every successful create as
     // "no id" while the coupons were in fact on the site -- the first sentinel run refuted five
@@ -5005,7 +5925,7 @@ let lastPlanWriteAt = 0;
 async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPlanId = null, pacer = null, sleep = null } = {}) {
   pricingPlanDefinition.assertInertPlan(plan);
   const ids = planVariantIds(plan);
-  const effectivePacer = pacer || sharedTargetReadPacer();
+  const effectivePacer = pacer || sharedTargetReadPacer(wix);
   const findings = [];
   if (knownPlanId) {
     // A crosswalk row is a claim, not a fact: the plan may have been deleted (review demonstrated
@@ -5026,7 +5946,7 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
   const ours = read.value.filter((p) => p && p.archived !== true && carriesVariant(p, ids));
   if (ours.length === 1) { const adopted = adoptPlan(ours[0], 'variant-id'); return { ...adopted, findings: [...findings, ...adopted.findings] }; }
   if (ours.length > 1) return { outcome: 'plan-reconciliation-ambiguous', planId: null, matchCount: ours.length, findings };
-  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const wait = pauseFor(wix, sleep);
   const since = Date.now() - lastPlanWriteAt;
   if (since < PLAN_WRITE_MIN_INTERVAL_MS) await wait(PLAN_WRITE_MIN_INTERVAL_MS - since);
   try {
@@ -5051,6 +5971,169 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
   }
 }
 
+// --- pricing plans: orders (a member's subscription to a plan) ----------------
+// POST /pricing-plans/v2/checkout/orders/offline, verified live 2026-08-16 (plan-order.json). The
+// body is only planId, memberId, paid and startDate: a couponCode would use the coupon up again,
+// and submissionId names a source form submission Wix does not have. Status is read-only: a past
+// or present startDate lands ACTIVE, a future one PENDING; a paused source contract is created
+// ACTIVE and then paused (only ACTIVE orders can be paused). Canceled and expired contracts are
+// never written here (CMS history). Orders cannot be deleted, so a duplicate is permanent:
+// crosswalk first (read back), then the member's orders for the plan matched on startDate, then
+// create; after an unknown outcome the orders are listed again and a match adopted, never re-sent.
+const PLAN_ORDER_PAID_SETTLE_READS = 5;
+const PLAN_ORDER_PAID_SETTLE_MS = 1000;
+function _buildCreateOfflinePlanOrderRequest({ planId, memberId, paid = false, startDate } = {}) {
+  if (!planId) throw new Error('creating a plan order needs the plan id');
+  if (!memberId) throw new Error('creating a plan order needs the member id');
+  // The start date is the duplicate-check identity and keeps the billing anniversary: never defaulted.
+  if (!startDate || Number.isNaN(Date.parse(startDate))) throw new Error('creating a plan order needs the source start date');
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/pricing-plans/v2/checkout/orders/offline`,
+    body: { planId: String(planId), memberId: String(memberId), paid: paid === true, startDate: new Date(startDate).toISOString() },
+  };
+}
+async function createOfflinePlanOrder(wix, payload) {
+  return ((await wix.send(buildCreateOfflinePlanOrderRequest(payload))) || {}).order || null;
+}
+function _buildPausePlanOrderRequest(orderId) {
+  if (!orderId) throw new Error('pausing a plan order needs the order id');
+  return { method: 'POST', url: `${WIXAPIS}/pricing-plans/v2/orders/${encodeURIComponent(orderId)}/pause`, body: {} };
+}
+async function pausePlanOrder(wix, orderId) {
+  return wix.send(buildPausePlanOrderRequest(orderId));
+}
+function _buildListPlanOrdersRequest({ memberId, planId }) {
+  if (!memberId || !planId) throw new Error('listing plan orders needs the member id and the plan id');
+  const query = new URLSearchParams({ buyerIds: String(memberId), planIds: String(planId), limit: '50' });
+  return { method: 'GET', url: `${WIXAPIS}/pricing-plans/v2/orders?${query}` };
+}
+async function listPlanOrders(wix, filter) {
+  return ((await wix.send(buildListPlanOrdersRequest(filter))) || {}).orders || [];
+}
+function _buildGetPlanOrderRequest(orderId) {
+  return { method: 'GET', url: `${WIXAPIS}/pricing-plans/v2/orders/${encodeURIComponent(orderId)}` };
+}
+async function getPlanOrder(wix, orderId) {
+  return ((await wix.send(buildGetPlanOrderRequest(orderId))) || {}).order || null;
+}
+const sameInstant = (a, b) => Boolean(a && b) && Date.parse(a) === Date.parse(b);
+function planOrderIsFor(order, { planId, memberId }) {
+  return Boolean(order) && order.planId === planId && (order.buyer && order.buyer.memberId) === memberId;
+}
+function planOrderError(error) {
+  return { message: String(error && error.message).slice(0, 300), status: error && error.status, outcomeKnown: error && error.outcomeKnown === false ? false : true,
+    ...(error && error.requestSent === false ? { requestSent: false, code: error.code === undefined ? null : error.code } : {}) };
+}
+// An order settles after the create returns (verified live 2026-10-27): the create reply says
+// status DRAFT and lastPaymentStatus UNPAID; moments later Get Order says ACTIVE/PENDING and PAID.
+// So an order is re-read a few times before it is paused or judged.
+async function settledPlanOrder(wix, orderId, paid, { pacer, wait }) {
+  let order = null;
+  for (let attempt = 0; attempt < PLAN_ORDER_PAID_SETTLE_READS; attempt += 1) {
+    if (attempt) await wait(PLAN_ORDER_PAID_SETTLE_MS);
+    const read = await pacer.read(() => getPlanOrder(wix, orderId));
+    if (!read.ok) return { ok: false, error: planOrderError(read.error) };
+    order = read.value;
+    if (order && order.status !== 'DRAFT' && !(paid && order.lastPaymentStatus === 'UNPAID')) break;
+  }
+  return { ok: true, order };
+}
+// Read back what was written. planDescription is never read (the order snapshots the plan NAME there).
+async function readBackPlanOrder(wix, orderId, { planId, memberId, startDate, paid, paused }, options) {
+  const settled = await settledPlanOrder(wix, orderId, paid, options);
+  if (!settled.ok) return settled;
+  const { order } = settled;
+  const expectedStatus = paused ? 'PAUSED' : Date.parse(startDate) > Date.now() ? 'PENDING' : 'ACTIVE';
+  const mismatches = [];
+  if (!order) mismatches.push({ field: 'order', expected: orderId, actual: null });
+  else {
+    if (order.planId !== planId) mismatches.push({ field: 'planId', expected: planId, actual: order.planId });
+    if ((order.buyer && order.buyer.memberId) !== memberId) mismatches.push({ field: 'buyer.memberId', expected: memberId, actual: order.buyer && order.buyer.memberId });
+    if (!sameInstant(order.startDate, startDate)) mismatches.push({ field: 'startDate', expected: startDate, actual: order.startDate });
+    if (order.status !== expectedStatus) mismatches.push({ field: 'status', expected: expectedStatus, actual: order.status });
+    if (paid && !['PAID', 'NOT_APPLICABLE'].includes(order.lastPaymentStatus)) mismatches.push({ field: 'lastPaymentStatus', expected: 'PAID', actual: order.lastPaymentStatus });
+  }
+  return { ok: true, order, mismatches };
+}
+// One source contract -> at most one order. Returns { outcome, orderId, subscriptionId, planId,
+// memberId, startDate, ... }; outcomes are PLAN_ORDER_OUTCOME (plan-order-outcome-registry.js),
+// which the importer records for the journal and the cutover items. A non-null orderId always goes
+// to the crosswalk, whatever the outcome, because it cannot be undone.
+async function ensurePlanOrder(wix, { planId, memberId, startDate, paid = false, paused = false, knownOrderId = null, pacer = null, sleep = null } = {}) {
+  const body = _buildCreateOfflinePlanOrderRequest({ planId, memberId, paid, startDate }).body;
+  const want = { planId: body.planId, memberId: body.memberId, startDate: body.startDate, paid: body.paid, paused: paused === true };
+  const result = await planOrderPass(wix, want, { knownOrderId, pacer: pacer || sharedTargetReadPacer(wix), sleep });
+  return { ...result, planId: want.planId, memberId: want.memberId, startDate: want.startDate };
+}
+const PLAN_ORDER_RATE_LIMIT_WAIT_MS = 1000;
+async function planOrderPass(wix, want, { knownOrderId, pacer, sleep }) {
+  const effectivePacer = pacer || sharedTargetReadPacer();
+  const wait = pauseFor(wix, sleep);
+  const findings = [];
+  const ids = (order) => ({ orderId: String(order.id), subscriptionId: order.subscriptionId || null });
+  // Pause (when asked) and read back an order this contract owns.
+  const finish = async (order, outcome, extra = {}) => {
+    if (want.paused && order.status === 'DRAFT') {
+      const settled = await settledPlanOrder(wix, order.id, false, { pacer: effectivePacer, wait });
+      if (!settled.ok) return { outcome: PO.READBACK_FAILED, ...ids(order), ...extra, error: settled.error, findings };
+      order = settled.order || order;
+    }
+    if (want.paused && order.status !== 'PAUSED') {
+      if (order.status !== 'ACTIVE') {
+        findings.push({ code: 'plan-order-pause-not-possible', orderId: String(order.id), status: order.status, note: 'only ACTIVE orders can be paused; left as found' });
+        return { outcome: PO.PAUSE_FAILED, ...ids(order), ...extra, findings };
+      }
+      try { await pausePlanOrder(wix, order.id); } catch (error) {
+        return { outcome: PO.PAUSE_FAILED, ...ids(order), ...extra, error: planOrderError(error), findings };
+      }
+    }
+    const back = await readBackPlanOrder(wix, order.id, want, { pacer: effectivePacer, wait });
+    if (!back.ok) return { outcome: PO.READBACK_FAILED, ...ids(order), ...extra, error: back.error, findings };
+    if (back.mismatches.length) return { outcome: PO.READBACK_MISMATCH, ...ids(order), ...extra, mismatches: back.mismatches, findings };
+    return { outcome, ...ids(order), status: back.order.status, lastPaymentStatus: back.order.lastPaymentStatus, ...extra, findings };
+  };
+  const matches = async () => {
+    const read = await effectivePacer.read(() => listPlanOrders(wix, want));
+    return read.ok ? { ok: true, value: read.value.filter((order) => planOrderIsFor(order, want) && sameInstant(order.startDate, want.startDate)) } : read;
+  };
+  const adopt = async (found, matchedBy) => {
+    if (found.length > 1) return { outcome: PO.RECONCILIATION_AMBIGUOUS, orderId: null, matchCount: found.length, orderIds: found.map((order) => String(order.id)), findings };
+    // An order of ours that someone canceled or that ended is still ours: never mint a second, but
+    // the subscriber has no live plan -- its own outcome, a cutover item, not a success.
+    if (['CANCELED', 'ENDED'].includes(found[0].status)) return { outcome: PO.EXISTING_NOT_LIVE, ...ids(found[0]), matchedBy, status: found[0].status, findings };
+    return finish(found[0], PO.RECONCILED_EXISTING, { matchedBy });
+  };
+  if (knownOrderId) {
+    // A crosswalk row is a claim: read it back. Gone or someone else's -> stale, the list decides.
+    const known = await effectivePacer.read(() => getPlanOrder(wix, knownOrderId));
+    if (!known.ok && !(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(known.error), findings };
+    if (known.ok && planOrderIsFor(known.value, want) && sameInstant(known.value.startDate, want.startDate)) return adopt([known.value], 'crosswalk');
+    findings.push({ code: 'plan-order-crosswalk-row-stale', knownOrderId: String(knownOrderId), reason: known.ok && known.value ? 'not-this-contract' : 'not-found' });
+  }
+  const before = await matches();
+  if (!before.ok) return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(before.error), findings };
+  if (before.value.length) return adopt(before.value, 'member-plan-start');
+  let created;
+  try {
+    try { created = await createOfflinePlanOrder(wix, want); } catch (error) {
+      // A 429 is refused before processing: one wait and one more try is safe.
+      if (!(error && Number(error.status) === 429)) throw error;
+      await wait(error.retryAfterMs || PLAN_ORDER_RATE_LIMIT_WAIT_MS);
+      created = await createOfflinePlanOrder(wix, want);
+    }
+  } catch (error) {
+    // A readable 4xx is Wix's decision. An unreadable reply or a 5xx may have landed: look once,
+    // adopt a match, otherwise stop -- a resend could duplicate. (Never a retry.)
+    if (!(error && (error.outcomeKnown === false || Number(error.status) >= 500))) return { outcome: PO.FAILED, orderId: null, error: planOrderError(error), findings };
+    const after = await matches();
+    if (after.ok && after.value.length) return adopt(after.value, 'after-unknown-outcome');
+    return { outcome: PO.UNKNOWN_OUTCOME, orderId: null, error: planOrderError(error), findings };
+  }
+  if (!created || !created.id) return { outcome: PO.UNKNOWN_OUTCOME, orderId: null, error: { message: 'Create Offline Order returned no order id', outcomeKnown: false }, findings };
+  return finish(created, PO.WRITTEN);
+}
+
 // --- members ---------------------------------------------------------------
 // VERIFIED: GET /members/v1/members (reconcile), POST /members/v1/members (create).
 // Dedup by loginEmail — gated PII; null email cannot dedup/create (use a fallback).
@@ -5062,7 +6145,7 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
 // complete the standard forgot-password flow (confirmed 2026-08-03); delivery is
 // a post-import label-wave automation (owner-created, label-added trigger,
 // branded email pointing at Log in -> Forgot password; importer labels contacts
-// in API batches), enabled only after the import window. There is deliberately
+// one at a time with assignContactLabels), enabled only after the import window. There is deliberately
 // no send-set-password-email writer here: its link dies in 3h and mass-sending
 // it is the exact notification-blast this lib exists to avoid.
 // VERIFIED-TRAP (2026-07-19): the default (PUBLIC) fieldset OMITS loginEmail, which
@@ -5091,18 +6174,17 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
 async function listMembers(wix, { limit = 50 } = {}) {
   return wix.send(markRequest({ method: 'GET', url: `${WIXAPIS}/members/v1/members?fieldsets=FULL&paging.limit=${limit}` }, { read: true }));
 }
-function _buildCreateMemberRequest({ email, name, slug }, safeModeOptions) {
+function _buildCreateMemberRequest({ email, name, slug }) {
   if (!email) return { skipped: true, reason: 'no email — gated PII; authenticated source re-run required' };
-  const prepared = applySafeModeToRequest({ member: { loginEmail: email, contact: { firstName: name }, profile: { nickname: name, slug } } }, safeModeOptions);
+  const body = copyRequestBody({ member: { loginEmail: email, contact: { firstName: name }, profile: { nickname: name, slug } } });
   return {
     method: 'POST',
     url: `${WIXAPIS}/members/v1/members`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createMember(wix, payload, safeModeOptions) {
-  const request = buildCreateMemberRequest(payload, safeModeOptions);
+async function createMember(wix, payload) {
+  const request = buildCreateMemberRequest(payload);
   if (request.skipped) return request;
   return (await wix.send(request)).member;
 }
@@ -5125,12 +6207,13 @@ let lastMemberWriteAt = 0;
 // the process is correctly spaced against every other one, regardless of caller. Any future
 // caller that creates members outside ensureMember should go through this rather than calling
 // `createMember` directly.
-async function pacedCreateMember(wix, payload, safeModeOptions, sleep) {
-  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+// Older callers pass (wix, payload, safeModeOptions, sleep): sleep is the first function argument.
+async function pacedCreateMember(wix, payload, ...rest) {
+  const wait = pauseFor(wix, rest.find((arg) => typeof arg === 'function'));
   const since = Date.now() - lastMemberWriteAt;
   if (since < MEMBER_WRITE_MIN_INTERVAL_MS) await wait(MEMBER_WRITE_MIN_INTERVAL_MS - since);
   try {
-    return await createMember(wix, payload, safeModeOptions);
+    return await createMember(wix, payload);
   } finally {
     lastMemberWriteAt = Date.now();
   }
@@ -5140,6 +6223,14 @@ function _buildGetMemberRequest(memberId) {
 }
 async function getMember(wix, memberId) {
   return ((await wix.send(buildGetMemberRequest(memberId))) || {}).member || null;
+}
+// Updates the contact of a member from the member task. The member is read first and must still
+// point at exactly this contact; a stale or foreign id is refused before any write is sent.
+async function updateMemberContact(wix, { memberId, contactId, revision, contact }) {
+  if (!memberId || !contactId) throw new Error('updateMemberContact: memberId and contactId are required');
+  const member = await getMember(wix, memberId);
+  if (!member || member.contactId !== contactId) throw Object.assign(new Error('updateMemberContact: the member does not point at this contact'), { code: 'MEMBER_CONTACT_MISMATCH', requestSent: false });
+  return (await wix.send(buildUpdateMemberContactRequest({ contactId, revision, contact }))).contact;
 }
 function _buildQueryMembersByLoginEmailRequest(loginEmail) {
   return { method: 'POST', url: `${WIXAPIS}/members/v1/members/query`, body: { fieldsets: ['FULL'], query: { filter: { loginEmail: String(loginEmail) } } } };
@@ -5162,6 +6253,40 @@ async function queryContactsByPhone(wix, phone) {
 function normalizeLoginEmailForCompare(email) {
   return String(email || '').trim().toLowerCase();
 }
+// Members v1 loginEmail has format EMAIL. A structural check, not a full RFC parser (Wix accepts
+// unusual TLDs): one @, no whitespace, a local part of at most 64 chars with no leading or trailing
+// dot and no "..", and a dotted domain. LIVE-FOUND: a local part starting with "." is refused with
+// 400 "email is invalid", a terminal failure for a member that could never be created.
+function isValidLoginEmail(email) {
+  const e = String(email || '').trim();
+  if (!e || e.length > 254 || /\s/.test(e)) return false;
+  const parts = e.split('@');
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || local.length > 64 || local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+  return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.') && !domain.includes('..') && !/[^\p{L}\p{Nd}.-]/u.test(domain);
+}
+// Create Member refuses contact.company: every create that carried it failed with 400 "Unexpected
+// value for StringValue" (live, 57 of 57), though the docs type it as a string. company/jobTitle
+// are kept off the create and written afterwards through Contacts V5 (company { name, jobTitle }).
+function splitMemberCreateContact(contact) {
+  const { company, jobTitle, ...rest } = contact || {};
+  const name = typeof company === 'string' ? company.trim() : (company && typeof company === 'object' ? String(company.name || '').trim() : '');
+  const title = typeof jobTitle === 'string' ? jobTitle.trim() : (company && typeof company === 'object' ? String(company.jobTitle || '').trim() : '');
+  const later = name || title ? { company: { ...(name ? { name: name.slice(0, 100) } : {}), ...(title ? { jobTitle: title.slice(0, 100) } : {}) } } : null;
+  return { createContact: rest, later };
+}
+// Never fails the member: the member exists either way, and the outcome is a finding.
+async function writeMemberCompanyAfterCreate(wix, { memberId, contactId, later }) {
+  try {
+    const current = await getContact(wix, contactId);
+    await updateMemberContact(wix, { memberId, contactId, revision: current.revision, contact: later });
+    return { code: MF.COMPANY_WRITTEN_AFTER_CREATE };
+  } catch (error) {
+    if (String(error?.code || '').startsWith('target_operation_')) throw error;
+    return { code: MF.COMPANY_NOT_WRITTEN, status: error && error.status !== undefined ? error.status : null, requestSent: !(error && error.requestSent === false), errorCode: (error && (error.applicationErrorCode || error.code)) || null };
+  }
+}
 // Crosswalk first (read back and verified, like ensurePlanDefinition), then Query Members by
 // loginEmail -- one match reconciles, more than one is ambiguous and creates nothing -- then
 // Create Member >=1s apart, with the phone-collision guard immediately before the write.
@@ -5176,14 +6301,19 @@ function memberErrorFields(error, extra = {}) {
     status: e.status === undefined ? null : e.status,
     applicationErrorCode: e.applicationErrorCode === undefined || e.applicationErrorCode === '' ? null : e.applicationErrorCode,
     outcomeKnown: e.outcomeKnown === undefined ? null : e.outcomeKnown,
+    // A pre-send refusal (createWixClient) is a known outcome: nothing reached Wix.
+    ...(e.requestSent === false ? { requestSent: false, code: e.code === undefined ? null : e.code } : {}),
     ...extra,
   };
 }
 async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = null, pacer = null, sleep = null } = {}) {
   const email = normalizeLoginEmailForCompare(loginEmail);
   if (!email) return { outcome: MO.NOT_WRITTEN_NO_EMAIL, memberId: null, findings: [] };
+  // An email Wix refuses is no usable login email: the same deferred outcome as a missing one,
+  // nothing sent, instead of a terminal 400. The customer's contact is unaffected.
+  if (!isValidLoginEmail(loginEmail)) return { outcome: MO.NOT_WRITTEN_NO_EMAIL, memberId: null, findings: [{ code: MF.LOGIN_EMAIL_INVALID }] };
   const findings = [];
-  const effectivePacer = pacer || sharedTargetReadPacer();
+  const effectivePacer = pacer || sharedTargetReadPacer(wix);
   if (knownMemberId) {
     const known = await effectivePacer.read(() => getMember(wix, knownMemberId));
     if (!known.ok && !(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(known.error), wixApiSurface: 'members/v1', findings };
@@ -5221,7 +6351,9 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     }
   }
 
-  const wait = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const { createContact, later } = splitMemberCreateContact(effectiveContact);
+  effectiveContact = createContact;
+  const wait = pauseFor(wix, sleep);
   // LIVE-FOUND: in a large sequential batch, with the documented spacing floor already
   // enforced, a small fraction of otherwise-valid creates failed on the first attempt and
   // succeeded immediately when the exact same call was retried moments later -- transient, not
@@ -5231,7 +6363,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
   // member-failed only if BOTH attempts fail.
   async function attemptCreate() {
     const body = { member: { loginEmail, ...(Object.keys(effectiveContact || {}).length > 0 ? { contact: effectiveContact } : {}), privacyStatus: 'PRIVATE' } };
-    return wix.send({ method: 'POST', url: `${WIXAPIS}/members/v1/members`, body });
+    return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/members/v1/members`, body }, { entity: 'members/member' }));
   }
   const since = Date.now() - lastMemberWriteAt;
   if (since < MEMBER_WRITE_MIN_INTERVAL_MS) await wait(MEMBER_WRITE_MIN_INTERVAL_MS - since);
@@ -5240,6 +6372,9 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     try {
       created = await attemptCreate();
     } catch (firstError) {
+      if (String(firstError?.code || '').startsWith('target_operation_')) throw firstError;
+      // Refused before sending: the same request would be refused again, and nothing landed.
+      if (firstError?.requestSent === false) throw firstError;
       const status = firstError && firstError.status;
       const isAlreadyExists = status === 409 && /already exists/i.test(String(firstError.message));
       if (isAlreadyExists || (status && status >= 400 && status < 500)) throw firstError;
@@ -5257,8 +6392,13 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     const member = created && created.member;
     // A 2xx that carried no member: the member may exist, so the outcome is unknown, not rejected.
     if (!member || !member.id) return { outcome: MO.FAILED, memberId: null, error: { message: 'Create Member returned no id', status: null, applicationErrorCode: null, outcomeKnown: false, createReturnedNoId: true }, wixApiSurface: 'members/v1', findings };
+    if (later && member.contactId) findings.push(await writeMemberCompanyAfterCreate(wix, { memberId: String(member.id), contactId: String(member.contactId), later }));
+    else if (later) findings.push({ code: MF.COMPANY_NOT_WRITTEN, status: null, requestSent: false, errorCode: 'no-contact-id' });
     return { outcome: MO.WRITTEN, memberId: String(member.id), contactId: member.contactId ? String(member.contactId) : null, findings };
   } catch (error) {
+    // Local support refusals precede HTTP. Preserve the typed blocker for the operator;
+    // retrying or recording an unknown Create Member outcome would invent a sent write.
+    if (String(error?.code || '').startsWith('target_operation_')) throw error;
     lastMemberWriteAt = Date.now();
     // VERIFIED LIVE 2026-09-06: Query Members by loginEmail is eventually consistent -- up to ~5s
     // after Create Member before a fresh member is findable, while Create Member's own loginEmail
@@ -5271,8 +6411,78 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     if (error && error.status === 409 && /already exists/i.test(String(error.message))) {
       return { outcome: MO.ALREADY_EXISTS_UNRECONCILED, memberId: null, error: memberErrorFields(error), wixApiSurface: 'members/v1', findings };
     }
+    // The first create was sent and its outcome is unknown; a refused retry does not make it known.
+    if (error && error.requestSent === false && findings.some((f) => f.code === MF.CREATE_RETRIED)) {
+      return { outcome: MO.FAILED, memberId: null, error: memberErrorFields({ ...error, message: error.message, requestSent: undefined, outcomeKnown: false }), wixApiSurface: 'members/v1', findings };
+    }
     return { outcome: MO.FAILED, memberId: null, error: memberErrorFields(error), wixApiSurface: 'members/v1', findings };
   }
+}
+
+// --- members: About (members/member-about) ---------------------------------
+// VERIFIED LIVE 2026-08-16 and 2026-10-27: one About per member (a second
+// create answers 409 ALREADY_EXISTS on memberId); PATCH needs the current revision (a stale one
+// answers 409 INVALID_REVISION); deleting the member leaves the About. Wix ALSO creates an About
+// for a memberId that does not exist, so the memberId comes only from the readiness grant
+// (`memberAbout.memberId` is the per-record members/member reference). The writer upserts:
+// query by memberId, PATCH the one found, else create -- so an unknown outcome is safe to retry.
+function memberAboutContentFromText(text) {
+  const paragraphs = String(text ?? '').split(/\r?\n\s*\r?\n/).map(part => part.trim()).filter(Boolean);
+  if (!paragraphs.length) return null; // an empty bio is skipped, never written
+  return { nodes: paragraphs.map((part, index) => ({ type: 'PARAGRAPH', id: `p${index + 1}`, paragraphData: {}, nodes: [{ type: 'TEXT', id: '', nodes: [], textData: { text: part, decorations: [] } }] })) };
+}
+function assertMemberAboutContent(content) {
+  if (!content || !Array.isArray(content.nodes) || content.nodes.length === 0) throw new Error('a member About needs Ricos content with at least one node (memberAboutContentFromText wraps plain text)');
+}
+function _buildCreateMemberAboutRequest({ memberId, content }) {
+  if (!memberId) throw new Error('creating a member About needs the member id');
+  assertMemberAboutContent(content);
+  const body = copyRequestBody({ memberAbout: { memberId, content } });
+  return { method: 'POST', url: `${WIXAPIS}/members/v2/abouts`, body };
+}
+function _buildUpdateMemberAboutRequest({ id, revision, memberId, content }) {
+  if (!id || revision === undefined || revision === null || !memberId) throw new Error('updating a member About needs its id, revision and member id');
+  assertMemberAboutContent(content);
+  const body = copyRequestBody({ memberAbout: { id, revision, memberId, content } });
+  return { method: 'PATCH', url: `${WIXAPIS}/members/v2/abouts/${encodeURIComponent(id)}`, body };
+}
+function _buildQueryMemberAboutsRequest(memberId) {
+  if (!memberId) throw new Error('querying member Abouts needs the member id');
+  return { method: 'POST', url: `${WIXAPIS}/members/v2/abouts/query`, body: { query: { filter: { memberId } } } };
+}
+function _buildGetMemberAboutRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/members/v2/abouts/${encodeURIComponent(id)}` };
+}
+const aboutText = content => JSON.stringify((content?.nodes || []).flatMap(node => (node.nodes || []).map(child => child.textData?.text ?? null)));
+async function upsertMemberAbout(wix, { memberId, content } = {}) {
+  const failed = (error, extra = {}) => ({ outcome: 'member-about-failed', memberId, aboutId: null, ...extra, error: { message: String(error && error.message).slice(0, 300), status: error && error.status, code: error && error.applicationErrorCode, outcomeKnown: error && error.outcomeKnown, ...notSentFields(error) } });
+  const find = async () => ((await wix.send(buildQueryMemberAboutsRequest(memberId))).memberAbouts || []).filter(about => about.memberId === memberId);
+  let written, outcome, request;
+  try {
+    for (let attempt = 0; attempt < 2 && !written; attempt++) {
+      const found = await find();
+      if (found.length > 1) return { outcome: 'member-about-ambiguous', memberId, aboutId: null, matchCount: found.length };
+      request = found.length === 1
+        ? buildUpdateMemberAboutRequest({ id: found[0].id, revision: found[0].revision, memberId, content })
+        : buildCreateMemberAboutRequest({ memberId, content });
+      outcome = found.length === 1 ? 'member-about-updated' : 'member-about-written';
+      try {
+        written = (await wix.send(request)).memberAbout;
+      } catch (error) {
+        // Another write landed between the query and ours (ALREADY_EXISTS, INVALID_REVISION): query once more.
+        if (attempt === 0 && error && error.status === 409 && ['ALREADY_EXISTS', 'INVALID_REVISION'].includes(error.applicationErrorCode)) continue;
+        return failed(error);
+      }
+    }
+  } catch (error) { return failed(error); }
+  if (!written || !written.id) return failed(new Error('member About write returned no id'));
+  let read;
+  try { read = (await wix.send(buildGetMemberAboutRequest(written.id))).memberAbout; } catch (error) {
+    return { outcome: 'member-about-unverified', memberId, aboutId: written.id, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
+  }
+  // Compared with the body actually sent.
+  if (!read || read.memberId !== memberId || aboutText(read.content) !== aboutText(request.body.memberAbout.content)) return { outcome: 'member-about-unverified', memberId, aboutId: written.id };
+  return { outcome, memberId, aboutId: written.id, revision: read.revision };
 }
 
 // --- site notifications mute (Notification Preferences V1) ------------------
@@ -5314,6 +6524,200 @@ function _buildGetSiteMuteStateRequest() {
 }
 async function getSiteMuteState(wix) {
   return (await wix.send(buildGetSiteMuteStateRequest())).siteMuteState;
+}
+
+// --- Wix Events (VERIFIED LIVE 2026-10-27 on a throwaway site) -------------------------
+// What the writers below rely on:
+// - Categories are flat and names are NOT unique (two "Probe Jazz" were both created). Query
+//   Categories returns no rows unless `paging` is sent, and ignores a `name` filter: list with
+//   paging and match in code.
+// - Create Event accepts past dates (draft or published) and silently DROPS `categories` on create,
+//   so assignment is its own write (Bulk Assign Events, one event to all its categories).
+//   Query Events never returns drafts, so a draft whose create response was lost cannot be
+//   found again: the importer holds it rather than resending.
+// - Ticket definitions attach to past ticketing events. Only the alias host is used
+//   (`canonical-vs-alias-path`).
+// - RSVPs need a PUBLISHED RSVP event (a draft is EVENT_NOT_FOUND). A past event needs
+//   `ignoreResponseStatus` (`ignoreLimits` alone still 428 RSVPS_CLOSED). A repeated email with
+//   both overrides is ACCEPTED (a second RSVP), so the importer dedupes by email per event and
+//   recovers a lost response by listing the event's RSVPs (`email` is not filterable).
+const EVENT_INITIAL_TYPES = Object.freeze(['RSVP', 'TICKETING']);
+const EVENT_READ_FIELDS = Object.freeze(['DETAILS', 'REGISTRATION', 'CATEGORIES']);
+const EVENT_CATEGORY_ASSIGN_MAX = 100;
+const EVENT_TICKET_NAME_MAX = 30;
+const EVENT_TICKET_PAID_FEE_TYPES = Object.freeze(['FEE_INCLUDED', 'FEE_ADDED_AT_CHECKOUT']);
+const EVENT_RSVP_STATUSES = Object.freeze(['YES', 'NO', 'WAITLIST']);
+const EVENT_RSVP_READ_FIELDS = Object.freeze(['DETAILS', 'CONTACT_DETAILS']);
+const eventFieldsQuery = fields => fields.map(field => `fields=${field}`).join('&');
+
+function _buildCreateEventCategoryRequest({ name } = {}) {
+  if (typeof name !== 'string' || !name.trim()) throw new Error('events category requires a non-empty name');
+  return { method: 'POST', url: `${WIXAPIS}/events/v1/categories`, body: { category: { name, states: ['MANUAL'] } } };
+}
+async function createEventCategory(wix, payload) {
+  return (await wix.send(buildCreateEventCategoryRequest(payload))).category;
+}
+function _buildQueryEventCategoriesRequest({ limit = 100, offset = 0 } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/events/v1/categories/query`, body: { query: { paging: { limit, offset } } } };
+}
+// Every category on the site; a lost create response is resolved by exact name over this list.
+async function queryAllEventCategories(wix, { limit = 100, maxPages = 50 } = {}) {
+  const all = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const r = await wix.send(buildQueryEventCategoriesRequest({ limit, offset: page * limit }));
+    const rows = r.categories || [];
+    all.push(...rows);
+    if (rows.length < limit) return all;
+  }
+  throw new Error(`queryAllEventCategories: still paging after ${maxPages} pages; refusing to return a partial category index.`);
+}
+async function findEventCategoriesByName(wix, name) {
+  return (await queryAllEventCategories(wix)).filter(category => category.name === name);
+}
+
+// `draft` is required, never defaulted: the event's status comes from the source .
+function _buildCreateEventRequest({ event, draft } = {}) {
+  if (!event || typeof event !== 'object') throw new Error('events event requires an event object');
+  if (typeof draft !== 'boolean') throw new Error('events event requires an explicit draft boolean');
+  if (typeof event.title !== 'string' || !event.title.trim()) throw new Error('events event requires a title');
+  if (!event.location?.name) throw new Error('events event requires location.name (use an explicit placeholder for a source event with no venue)');
+  if (!event.dateAndTimeSettings) throw new Error('events event requires dateAndTimeSettings');
+  if (!EVENT_INITIAL_TYPES.includes(event.registration?.initialType)) throw new Error('events event requires registration.initialType RSVP or TICKETING');
+  if (event.categories !== undefined) throw new Error('events event: categories are dropped on create; assign them with assignEventToCategories');
+  // An imported image is referenced by its media id only: the readiness gate checks
+  // event.mainImage.id per record, and a URL would skip that check. Refused before send.
+  if (event.mainImage !== undefined && event.mainImage !== null) {
+    const image = event.mainImage;
+    if (typeof image !== 'object' || typeof image.id !== 'string' || !image.id) {
+      throw Object.assign(new Error('events event: mainImage needs the imported media id (mainImage.id from resolveReference("media/media-file", ...)); a mainImage with a url and no id is refused, because the per-record media check reads only mainImage.id'), { code: 'event_main_image_id_required', requestSent: false, outcomeKnown: true });
+    }
+    event = { ...event, mainImage: { id: image.id, ...(typeof image.altText === 'string' && image.altText ? { altText: image.altText } : {}) } };
+  }
+  return { method: 'POST', url: `${WIXAPIS}/events/v3/events`, body: { event, draft, fields: [...EVENT_READ_FIELDS] } };
+}
+async function createEvent(wix, payload) {
+  return (await wix.send(buildCreateEventRequest(payload))).event;
+}
+function _buildGetEventRequest(eventId) {
+  if (!eventId) throw new Error('getEvent requires an event id');
+  return { method: 'GET', url: `${WIXAPIS}/events/v3/events/${encodeURIComponent(eventId)}?${eventFieldsQuery(EVENT_READ_FIELDS)}` };
+}
+async function getEvent(wix, eventId) {
+  return (await wix.send(buildGetEventRequest(eventId))).event;
+}
+function _buildQueryEventsRequest({ filter = {}, limit = 100, offset = 0 } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/events/v3/events/query`, body: { query: { filter, paging: { limit, offset } }, fields: [...EVENT_READ_FIELDS] } };
+}
+// Published events only (Query Events never returns drafts). Matches title and start date as
+// instants: Wix reads dates back as second-precision UTC, whatever form the source sent.
+async function findPublishedEvents(wix, { title, startDate }) {
+  const r = await wix.send(buildQueryEventsRequest({ filter: { title } }));
+  const wanted = startDate ? Date.parse(startDate) : null;
+  if (startDate && Number.isNaN(wanted)) throw new Error('findPublishedEvents: startDate is not a date');
+  return (r.events || []).filter(event => event.title === title && (wanted === null || Date.parse(event.dateAndTimeSettings?.startDate) === wanted));
+}
+// After a lost create of a published event: one match is read by id on the record's own client and
+// adopted (that read is what lets the record's category assignment name the event); none means
+// resend; several are held. Outcomes: adopted (with `event`) | none | ambiguous (with `candidateIds`).
+async function adoptPublishedEvent(wix, { title, startDate }) {
+  const found = await findPublishedEvents(wix, { title, startDate });
+  if (!found.length) return { outcome: 'none', event: null };
+  if (found.length > 1) return { outcome: 'ambiguous', event: null, candidateIds: found.map(event => event.id) };
+  return { outcome: 'adopted', event: await getEvent(wix, found[0].id) };
+}
+
+// One event to all of its categories in one call; `categoryId` is checked against the record's
+// readiness grant and `eventId` against the record's own event before the request is sent.
+function _buildAssignEventToCategoriesRequest({ eventId, categoryIds } = {}) {
+  if (!eventId) throw new Error('events category assignment requires an event id');
+  if (!Array.isArray(categoryIds) || !categoryIds.length) throw new Error('events category assignment requires at least one category id');
+  if (categoryIds.length > EVENT_CATEGORY_ASSIGN_MAX) throw new Error(`events category assignment takes at most ${EVENT_CATEGORY_ASSIGN_MAX} categories`);
+  return { method: 'POST', url: `${WIXAPIS}/events/v1/bulk/categories/events`, body: { categoryId: [...categoryIds], eventId: [eventId] } };
+}
+async function assignEventToCategories(wix, payload) {
+  return wix.send(buildAssignEventToCategoriesRequest(payload));
+}
+function _buildListEventCategoriesRequest(eventId) {
+  if (!eventId) throw new Error('listEventCategories requires an event id');
+  return { method: 'GET', url: `${WIXAPIS}/events/v1/categories/${encodeURIComponent(eventId)}` };
+}
+async function listEventCategories(wix, eventId) {
+  return (await wix.send(buildListEventCategoriesRequest(eventId))).categories || [];
+}
+
+// A paid ticket's feeType comes from the source or the approved mapping review ;
+// the builder never picks one.
+function _buildCreateTicketDefinitionRequest(ticketDefinition = {}) {
+  const { eventId, name, pricingMethod, feeType } = ticketDefinition;
+  if (!eventId) throw new Error('events ticket definition requires eventId');
+  if (typeof name !== 'string' || !name.trim() || name.length > EVENT_TICKET_NAME_MAX) throw new Error(`events ticket definition name must be 1-${EVENT_TICKET_NAME_MAX} characters; truncate in the mapping and record it`);
+  if (!pricingMethod || typeof pricingMethod !== 'object') throw new Error('events ticket definition requires pricingMethod');
+  const fixed = pricingMethod.fixedPrice?.value, free = pricingMethod.free === true || (fixed !== undefined && Number(fixed) === 0);
+  if (free ? feeType !== 'NO_FEE' : !EVENT_TICKET_PAID_FEE_TYPES.includes(feeType)) throw new Error(free ? 'a free ticket uses feeType NO_FEE' : 'a paid ticket requires feeType FEE_INCLUDED or FEE_ADDED_AT_CHECKOUT from the source or the mapping review');
+  return { method: 'POST', url: `${WIXAPIS}/events/v3/ticket-definitions`, body: { ticketDefinition } };
+}
+async function createTicketDefinition(wix, payload) {
+  return (await wix.send(buildCreateTicketDefinitionRequest(payload))).ticketDefinition;
+}
+function _buildGetTicketDefinitionRequest(id) {
+  if (!id) throw new Error('getTicketDefinition requires an id');
+  return { method: 'GET', url: `${WIXAPIS}/events/v3/ticket-definitions/${encodeURIComponent(id)}` };
+}
+async function getTicketDefinition(wix, id) {
+  return (await wix.send(buildGetTicketDefinitionRequest(id))).ticketDefinition;
+}
+function _buildQueryTicketDefinitionsRequest({ eventId, limit = 100 } = {}) {
+  if (!eventId) throw new Error('queryTicketDefinitions requires an event id');
+  return { method: 'POST', url: `${WIXAPIS}/events/v3/ticket-definitions/query`, body: { query: { filter: { eventId }, cursorPaging: { limit } } } };
+}
+async function findTicketDefinitionsByName(wix, { eventId, name }) {
+  const r = await wix.send(buildQueryTicketDefinitionsRequest({ eventId }));
+  return (r.ticketDefinitions || []).filter(row => row.eventId === eventId && row.name === name);
+}
+
+// disableNotifications is always set; the two registration overrides default on so a historical
+// guest list loads into a closed or full event (disclosed as a cutover item). The form's email
+// input is rebuilt from rsvp.email, so the two never disagree.
+function _buildCreateRsvpRequest({ rsvp, options = {} } = {}) {
+  if (!rsvp || typeof rsvp !== 'object') throw new Error('events rsvp requires an rsvp object');
+  if (!rsvp.eventId) throw new Error('events rsvp requires eventId');
+  if (typeof rsvp.email !== 'string' || !rsvp.email.trim()) throw new Error('events rsvp requires an email');
+  if (!EVENT_RSVP_STATUSES.includes(rsvp.status)) throw new Error('events rsvp status must be YES, NO or WAITLIST');
+  const inputs = rsvp.form?.inputValues || [];
+  const emailInputs = inputs.filter(input => input.inputName === 'email');
+  const withoutEmailInputs = rsvp.form ? { ...rsvp, form: { ...rsvp.form, inputValues: inputs.filter(input => input.inputName !== 'email') } } : rsvp;
+  const body = copyRequestBody({
+    rsvp: { ...withoutEmailInputs, disableNotifications: true },
+    options: { ignoreResponseStatus: true, ignoreLimits: true, ...options },
+  });
+  if (emailInputs.length) body.rsvp.form.inputValues = [...body.rsvp.form.inputValues, ...emailInputs.map(() => ({ inputName: 'email', value: body.rsvp.email }))];
+  return { method: 'POST', url: `${WIXAPIS}/events/v2/rsvps`, body };
+}
+async function createRsvp(wix, payload) {
+  return (await wix.send(buildCreateRsvpRequest(payload))).rsvp;
+}
+function _buildGetRsvpRequest(id) {
+  if (!id) throw new Error('getRsvp requires an id');
+  return { method: 'GET', url: `${WIXAPIS}/events/v2/rsvps/${encodeURIComponent(id)}?${eventFieldsQuery(EVENT_RSVP_READ_FIELDS)}` };
+}
+async function getRsvp(wix, id) {
+  return (await wix.send(buildGetRsvpRequest(id))).rsvp;
+}
+function _buildQueryRsvpsRequest({ eventId, cursor = null, limit = 100 } = {}) {
+  if (!eventId) throw new Error('queryRsvps requires an event id');
+  return { method: 'POST', url: `${WIXAPIS}/events/v2/rsvps/query`, body: { query: { ...(cursor ? {} : { filter: { eventId } }), cursorPaging: { limit, ...(cursor ? { cursor } : {}) } }, fields: [...EVENT_RSVP_READ_FIELDS] } };
+}
+// `email` is not filterable on Query Rsvps: list the event's RSVPs and match in code.
+async function findRsvpsByEmail(wix, { eventId, email, maxPages = 100 }) {
+  const wanted = String(email).trim().toLowerCase(), found = [];
+  let cursor = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const r = await wix.send(buildQueryRsvpsRequest({ eventId, cursor }));
+    found.push(...(r.rsvps || []).filter(row => row.eventId === eventId && String(row.email || '').toLowerCase() === wanted));
+    cursor = r.pagingMetadata?.hasNext ? r.pagingMetadata.cursors?.next : null;
+    if (!cursor) return found;
+  }
+  throw new Error(`findRsvpsByEmail: still paging after ${maxPages} pages; refusing a partial answer.`);
 }
 
 // --- Bookings (VERIFIED 2026-08-12) -----------------------------------------------------
@@ -5363,7 +6767,7 @@ async function getInstalledWixApps(wix) {
 }
 async function isWixAppInstalled(wix, appDefId) {
   const apps = await getInstalledWixApps(wix);
-  return apps.some((a) => a && a.appDefId === appDefId);
+  return apps.some((a) => a && a.appDefId === appDefId && a.enabled !== false);
 }
 
 // VERIFIED (2026-08-12): POST /form-schema-service/v4/forms/{formId}/clone with an EMPTY body
@@ -5411,17 +6815,16 @@ async function queryBookingsResources(wix, query) {
 //    unmapped/invalid code is rejected, so callers must convert or omit it, never pass the
 //    source's country name through unchecked.
 // 4. `defaultCapacity` must be `1` for `type: 'APPOINTMENT'` and `> 1` for `CLASS`/`COURSE`.
-function _buildCreateBookingsServiceRequest(service, safeModeOptions) {
-  const prepared = applySafeModeToRequest({ service }, safeModeOptions);
+function _buildCreateBookingsServiceRequest(service) {
+  const body = copyRequestBody({ service });
   return {
     method: 'POST',
     url: `${WIXAPIS}/bookings/v2/services`,
-    body: prepared.body,
-    ...(prepared.safeMode ? { safeMode: prepared.safeMode } : {}),
+    body,
   };
 }
-async function createBookingsService(wix, service, safeModeOptions) {
-  return (await wix.send(buildCreateBookingsServiceRequest(service, safeModeOptions))).service;
+async function createBookingsService(wix, service) {
+  return (await wix.send(buildCreateBookingsServiceRequest(service))).service;
 }
 function _buildQueryBookingsServicesRequest(query = { paging: { limit: 100 } }) {
   return { method: 'POST', url: `${WIXAPIS}/bookings/v2/services/query`, body: { query } };
@@ -5483,7 +6886,7 @@ async function ensureBookingsProvisioned(wix, { siteId } = {}) {
   let resources = await queryBookingsResources(wix);
   if (!resources.length && !installed) {
     for (let attempt = 0; attempt < 4 && !resources.length; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 750));
+      await pauseFor(wix)(750);
       resources = await queryBookingsResources(wix);
     }
   }
@@ -5496,6 +6899,1302 @@ async function ensureBookingsProvisioned(wix, { siteId } = {}) {
 }
 
 
+// --- gift cards --------------------------------------------------------------
+// VERIFIED LIVE (2026-10-27, disposable site): see domains/gift-cards/entities/*.json.
+// - A site holds ONE gift card product, and installing the Gift Cards app seeds a default one a
+//   few seconds later. So the product writer ENSURES: query, create only when none exists, and
+//   on 409 GIFT_CARD_PRODUCT_ALREADY_EXISTS re-query and update the one that is there.
+// - Card codes are unique per site. A repeated create answers 409 ALREADY_EXISTS on `code`, even
+//   with the same idempotencyKey (the key does not replay the first answer). The card writer
+//   therefore reconciles by looking the card up by its FULL code, which Query Gift Cards accepts.
+// - `idempotencyKey` is a request parameter beside `giftCard`, not a card field.
+// - `notificationInfo` is never sent: an import copies cards, it does not sell them.
+const GIFT_CARD_CODE_PATTERN = /^[A-Za-z0-9]{8,20}$/;
+const GIFT_CARD_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
+const GIFT_CARD_PRODUCT_LIMITS = Object.freeze({ name: 55, description: 3000, presetVariants: 200 });
+
+function _buildCreateGiftCardRequest({ giftCard, idempotencyKey } = {}) {
+  if (!giftCard || typeof giftCard !== 'object') throw new Error('createGiftCard: giftCard is required.');
+  const { notificationInfo, idempotencyKey: nestedKey, ...card } = giftCard;
+  const key = idempotencyKey != null ? idempotencyKey : nestedKey;
+  if (card.source !== 'MANUAL') throw new Error('createGiftCard: source must be MANUAL for an imported card.');
+  if (!GIFT_CARD_CODE_PATTERN.test(String(card.code || ''))) throw new Error('createGiftCard: code must be 8-20 letters or digits (it is how the card is reconciled).');
+  if (!GIFT_CARD_AMOUNT_PATTERN.test(String(card.initialValue && card.initialValue.amount))) throw new Error('createGiftCard: initialValue.amount must be a decimal string with at most 2 decimal places.');
+  if (!/^[A-Z]{3}$/.test(String(card.currency || ''))) throw new Error('createGiftCard: currency must be a 3-letter ISO 4217 code beside initialValue.');
+  if (key != null && (String(key).length < 1 || String(key).length > 100)) throw new Error('createGiftCard: idempotencyKey must be 1-100 characters.');
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/gift-cards/v1/gift-cards`,
+    body: { giftCard: card, ...(key != null ? { idempotencyKey: String(key) } : {}) },
+  };
+}
+function _buildQueryGiftCardsByCodeRequest(code) {
+  return { method: 'POST', url: `${WIXAPIS}/gift-cards/v1/gift-cards/query`, body: { query: { filter: { code: String(code) } } } };
+}
+async function findGiftCardByCode(wix, code) {
+  const r = await wix.send(buildQueryGiftCardsByCodeRequest(code));
+  return ((r && r.giftCards) || [])[0] || null;
+}
+function sameGiftCard(sent, found) {
+  const sameTime = (a, b) => (a == null && b == null) || (a != null && b != null && Date.parse(a) === Date.parse(b));
+  return Number(found.initialValue && found.initialValue.amount) === Number(sent.initialValue.amount)
+    && found.currency === sent.currency && sameTime(sent.expirationDate, found.expirationDate);
+}
+// A client refusal (nothing sent) or a run stop / token expiry (the run is recording what it knows)
+// is not this record's outcome: rethrow it so no failed row is written for an unsent card.
+function rethrowGiftCardUnsent(error) {
+  if (error && (error.requestSent === false || require('../../../lib/wix-auth').isRunInterruption(error))) throw error;
+}
+function giftCardErrorFields(error) {
+  return { message: String(error && error.message).slice(0, 300), status: (error && error.status) || null,
+    applicationErrorCode: (error && error.applicationErrorCode) || null, outcomeKnown: error && error.outcomeKnown !== undefined ? error.outcomeKnown : null };
+}
+// Outcomes: created | adopted (the card was already there with our values) | conflict (a card with
+// this code holds other values) | failed. The code in the result is the one we sent; the response's
+// own `code` is masked.
+async function createGiftCard(wix, payload) {
+  const request = buildCreateGiftCardRequest(payload);
+  const sent = request.body.giftCard;
+  const findings = payload.giftCard.notificationInfo ? [{ code: 'gift-card-notification-not-sent' }] : [];
+  const done = (outcome, card, extra = {}) => ({ outcome, id: card ? card.id : null, code: sent.code, ...extra, findings });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let error;
+    try {
+      const card = (await wix.send(attempt ? buildCreateGiftCardRequest(payload) : request) || {}).giftCard;
+      if (card && card.id) return done('created', card);
+      error = { message: 'Create Gift Card returned no id', outcomeKnown: false };
+    } catch (e) {
+      rethrowGiftCardUnsent(e);
+      error = e;
+    }
+    const duplicate = error.status === 409 && error.applicationErrorCode === 'ALREADY_EXISTS';
+    const unknown = error.outcomeKnown === false || error.status == null || error.status >= 500 || error.status === 408;
+    if (!duplicate && !unknown) return done('failed', null, { error: giftCardErrorFields(error) });
+    let found;
+    try { found = await findGiftCardByCode(wix, sent.code); } catch (readError) {
+      rethrowGiftCardUnsent(readError);
+      return done('failed', null, { error: giftCardErrorFields(error), readError: giftCardErrorFields(readError) });
+    }
+    if (found) return sameGiftCard(sent, found) ? done('adopted', found) : done('conflict', found, { error: giftCardErrorFields(error) });
+    if (duplicate) return done('failed', null, { error: giftCardErrorFields(error) });
+  }
+  return done('failed', null, { error: { message: 'Create Gift Card outcome still unknown after one resend', outcomeKnown: false } });
+}
+
+function giftCardProductFields(product) {
+  if (!product || typeof product !== 'object') throw new Error('ensureGiftCardProduct: product is required.');
+  if ('variants' in product) throw new Error('ensureGiftCardProduct: denominations go in presetVariants, not variants.');
+  const { name, description, image, expirationType, fixedExpirationDate, relativeExpirationDate, presetVariants, customVariant } = product;
+  if (typeof name !== 'string' || !name.trim() || name.length > GIFT_CARD_PRODUCT_LIMITS.name) throw new Error('ensureGiftCardProduct: name must be 1-55 characters.');
+  if (description != null && String(description).length > GIFT_CARD_PRODUCT_LIMITS.description) throw new Error('ensureGiftCardProduct: description must be at most 3000 characters.');
+  if (presetVariants != null && (!Array.isArray(presetVariants) || presetVariants.length > GIFT_CARD_PRODUCT_LIMITS.presetVariants)) throw new Error('ensureGiftCardProduct: presetVariants must be an array of at most 200.');
+  if (!(presetVariants && presetVariants.length) && !customVariant) throw new Error('ensureGiftCardProduct: at least one preset variant or a customVariant is required.');
+  for (const v of presetVariants || []) if (!GIFT_CARD_AMOUNT_PATTERN.test(String(v && v.price && v.price.amount)) || !GIFT_CARD_AMOUNT_PATTERN.test(String(v && v.value && v.value.amount))) throw new Error('ensureGiftCardProduct: each preset variant needs price.amount and value.amount.');
+  if (image != null && !(image.id && image.width && image.height)) throw new Error('ensureGiftCardProduct: image needs a Media Manager id, width and height.');
+  if (expirationType === 'FIXED' && !(fixedExpirationDate && Date.parse(fixedExpirationDate) > Date.now())) throw new Error('ensureGiftCardProduct: FIXED expiration needs a future fixedExpirationDate.');
+  if (expirationType === 'RELATIVE' && !(relativeExpirationDate && relativeExpirationDate.value >= 1 && relativeExpirationDate.period)) throw new Error('ensureGiftCardProduct: RELATIVE expiration needs relativeExpirationDate { value, period }.');
+  const fields = { name };
+  for (const [key, value] of Object.entries({ description, image, expirationType, presetVariants, customVariant })) if (value != null) fields[key] = value;
+  if (expirationType === 'FIXED') fields.fixedExpirationDate = fixedExpirationDate;
+  if (expirationType === 'RELATIVE') fields.relativeExpirationDate = relativeExpirationDate;
+  return fields;
+}
+function _buildCreateGiftCardProductRequest(product) {
+  return { method: 'POST', url: `${WIXAPIS}/gift-cards/v1/gift-card-products`, body: { giftCardProduct: giftCardProductFields(product) } };
+}
+function _buildUpdateGiftCardProductRequest({ id, revision, ...product } = {}) {
+  if (!id || revision == null) throw new Error('updateGiftCardProduct: id and the current revision are required.');
+  return {
+    method: 'PATCH',
+    url: `${WIXAPIS}/gift-cards/v1/gift-card-products/${encodeURIComponent(id)}`,
+    // presetVariants are replaced whole and kept when omitted, so a custom-range-only source sends [].
+    body: { giftCardProduct: { id, revision: String(revision), presetVariants: [], ...giftCardProductFields(product) } },
+  };
+}
+function _buildQueryGiftCardProductsRequest() {
+  return { method: 'POST', url: `${WIXAPIS}/gift-cards/v1/gift-card-products/query`, body: { query: {} } };
+}
+function _buildGetGiftCardProductRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/gift-cards/v1/gift-card-products/${encodeURIComponent(id)}` };
+}
+async function queryGiftCardProducts(wix) {
+  return ((await wix.send(buildQueryGiftCardProductsRequest())) || {}).giftCardProducts || [];
+}
+// Does the product on the site already carry every field we would send?
+function giftCardProductMatches(fields, found) {
+  const amounts = (variants) => (variants || []).map(v => [Number(v.price.amount), Number(v.value.amount)]);
+  const range = (c) => c ? [Number(c.minValue && c.minValue.amount), Number(c.maxValue && c.maxValue.amount)] : null;
+  return found.name === fields.name
+    && (fields.description == null || found.description === fields.description)
+    && (fields.image == null || (found.image && found.image.id) === fields.image.id)
+    && (fields.expirationType == null || found.expirationType === fields.expirationType)
+    && JSON.stringify(amounts(found.presetVariants)) === JSON.stringify(amounts(fields.presetVariants))
+    && (fields.customVariant == null || JSON.stringify(range(found.customVariant)) === JSON.stringify(range(fields.customVariant)));
+}
+function giftCardProductSnapshot(found) {
+  const { id, revision, name, description, image, expirationType, fixedExpirationDate, relativeExpirationDate, presetVariants, customVariant } = found;
+  return structuredClone({ id, revision, name, description, image, expirationType, fixedExpirationDate, relativeExpirationDate, presetVariants, customVariant });
+}
+// Outcomes: created | adopted (the one product already carries our values) | updated-existing-product
+// (`previous` holds the replaced values, for the journal) | failed. Safe to run again after any
+// unknown outcome: it always converges on the one product carrying the source values.
+async function ensureGiftCardProduct(wix, product) {
+  const fields = giftCardProductFields(product);
+  const findings = [];
+  const fail = (error, extra = {}) => ({ outcome: 'failed', id: null, error: giftCardErrorFields(error), ...extra, findings });
+  let existing;
+  try {
+    existing = await queryGiftCardProducts(wix);
+    if (!existing.length) {
+      try {
+        const created = (await wix.send(buildCreateGiftCardProductRequest(product)) || {}).giftCardProduct;
+        if (created && created.id) return { outcome: 'created', id: created.id, revision: created.revision, findings };
+      } catch (error) {
+        rethrowGiftCardUnsent(error);
+        const seeded = error.status === 409 && error.applicationErrorCode === 'GIFT_CARD_PRODUCT_ALREADY_EXISTS';
+        if (!seeded && error.outcomeKnown !== false && !(error.status >= 500)) return fail(error);
+      }
+      existing = await queryGiftCardProducts(wix);
+      if (!existing.length) return fail({ message: 'No gift card product found after the create', outcomeKnown: false });
+    }
+  } catch (error) {
+    rethrowGiftCardUnsent(error);
+    return fail(error);
+  }
+  if (existing.length > 1) return fail({ message: `Found ${existing.length} gift card products; a site holds one`, outcomeKnown: true });
+  const found = existing[0];
+  if (giftCardProductMatches(fields, found)) return { outcome: 'adopted', id: found.id, revision: found.revision, findings };
+  if (found.customVariant && !fields.customVariant) findings.push({ code: 'gift-card-product-custom-variant-kept' });
+  try {
+    const updated = (await wix.send(buildUpdateGiftCardProductRequest({ ...product, id: found.id, revision: found.revision })) || {}).giftCardProduct;
+    const readBack = (await wix.send(buildGetGiftCardProductRequest(found.id)) || {}).giftCardProduct;
+    if (!readBack || !giftCardProductMatches(fields, readBack)) return fail({ message: 'Gift card product read-back does not match the update', outcomeKnown: true }, { id: found.id, previous: giftCardProductSnapshot(found) });
+    return { outcome: 'updated-existing-product', id: found.id, revision: (readBack || updated).revision, previous: giftCardProductSnapshot(found), findings };
+  } catch (error) {
+    rethrowGiftCardUnsent(error);
+    return fail(error, { id: found.id, previous: giftCardProductSnapshot(found) });
+  }
+}
+
+// --- Bookings add-ons and bookings (VERIFIED LIVE 2026-10-27) -----------------
+// Probed on a throwaway site. What the live calls showed, beyond the docs:
+// 1. Create Add On ACCEPTS a body with both durationInMinutes and maxQuantity (200) and silently
+//    keeps only durationInMinutes. The builder refuses both, so a dropped field is never silent.
+// 2. price.value comes back normalized ("10.50" -> "10.5"): read-back compares numbers.
+// 3. Wix stores any currency it is given (EUR on a USD site); the caller sends the site currency.
+// 4. Duplicate add-ons (same name, price, kind) are allowed, so the exact-field lookup can find
+//    several; more than one match is ambiguous and creates nothing.
+// 5. A group with 8 add-ons 400s "addOnIds has size 8, expected 7 or less". A 4th group on one
+//    service was accepted, despite the documented 3-group limit; the writer keeps one group per
+//    service, so it never relies on either way.
+// 6. A booked add-on needs a valid groupId GUID (400 without one, even with skipAddOnValidation).
+// 7. Past-dated slots are accepted with skipAvailabilityValidation; without it, 428
+//    SLOT_NOT_AVAILABLE. paymentStatus is ignored at create; Confirm Booking sets it from CREATED.
+// 8. A CONFIRMED booking's revision moves on its own (the calendar event is attached after the
+//    response), so every follow-up re-reads the revision first. Cancelling a past booking needs
+//    flowControlSettings.ignoreCancellationPolicy (else BOOKING_POLICY_VIOLATION).
+// 9. contactDetails.contactId of an existing contact creates no contact. externalUserId is stored,
+//    echoed and filterable in Query Extended Bookings, and NOT unique: it is the writer's
+//    client-assigned reconciliation key, derived from the source key.
+// Get Booking is not public (404); bookings are read through Query Extended Bookings.
+const BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS = 7;
+const BOOKINGS_ADD_ON_NAME_MAX = 100;
+const BOOKINGS_ADD_ON_DEFAULT_GROUP_NAME = 'Add-ons';
+const DECIMAL_2 = /^(?:0|[1-9]\d{0,14})(?:\.\d{1,2})?$/;
+
+// The Add On create body, refused (never repaired) where Wix would reject it or silently drop a
+// field. Truncation, the both-kinds split and the currency choice are mapping decisions.
+function bookingsAddOnBody(addOn) {
+  const { name, durationInMinutes, maxQuantity, price, taxGroup } = addOn || {};
+  if (typeof name !== 'string' || !name.trim() || name.length > BOOKINGS_ADD_ON_NAME_MAX) throw new Error(`a bookings add-on needs a name of 1-${BOOKINGS_ADD_ON_NAME_MAX} characters`);
+  const hasDuration = durationInMinutes !== undefined && durationInMinutes !== null, hasQuantity = maxQuantity !== undefined && maxQuantity !== null;
+  if (hasDuration === hasQuantity) throw new Error('a bookings add-on is either duration-based or quantity-based, never both or neither');
+  if (hasDuration && !(Number.isInteger(durationInMinutes) && durationInMinutes >= 1 && durationInMinutes <= 1440)) throw new Error('a bookings add-on durationInMinutes must be an integer 1-1440');
+  if (hasQuantity && !(Number.isInteger(maxQuantity) && maxQuantity >= 1 && maxQuantity <= 9999)) throw new Error('a bookings add-on maxQuantity must be an integer 1-9999');
+  if (!price || typeof price.value !== 'string' || !DECIMAL_2.test(price.value)) throw new Error('a bookings add-on price.value must be a decimal string with at most 2 decimals');
+  if (typeof price.currency !== 'string' || !/^[A-Z]{3}$/.test(price.currency)) throw new Error('a bookings add-on price.currency must be the ISO 4217 site currency');
+  return { name, ...(hasDuration ? { durationInMinutes } : { maxQuantity }), price: { value: price.value, currency: price.currency }, ...(taxGroup ? { taxGroup } : {}) };
+}
+function _buildCreateBookingsAddOnRequest(addOn) {
+  return { method: 'POST', url: `${WIXAPIS}/addons/v1/add-ons`, body: { addOn: bookingsAddOnBody(addOn) } };
+}
+function _buildGetBookingsAddOnRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/addons/v1/add-ons/${encodeURIComponent(id)}` };
+}
+function _buildQueryBookingsAddOnsRequest(filter) {
+  return { method: 'POST', url: `${WIXAPIS}/addons/v1/add-ons/query`, body: { query: { filter, cursorPaging: { limit: 100 } } } };
+}
+// Rollback only. Deleting an add-on also removes it from every group that holds it.
+function _buildDeleteBookingsAddOnRequest(id) {
+  return { method: 'DELETE', url: `${WIXAPIS}/addons/v1/add-ons/${encodeURIComponent(id)}` };
+}
+function addOnGroupIds(addOnIds) {
+  if (!Array.isArray(addOnIds) || !addOnIds.length || addOnIds.length > BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS || addOnIds.some(id => typeof id !== 'string' || !id)) throw new Error(`an add-on group holds 1-${BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS} add-on ids`);
+  return [...addOnIds];
+}
+function _buildCreateBookingsAddOnGroupRequest({ serviceId, name = BOOKINGS_ADD_ON_DEFAULT_GROUP_NAME, addOnIds }) {
+  if (!serviceId) throw new Error('an add-on group needs its service id');
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/services/add-on-groups/create`, body: { addOnGroup: { name, addOnIds: addOnGroupIds(addOnIds) }, serviceId } };
+}
+// Replaces the group's list; the order is the customer-facing display order.
+function _buildSetBookingsAddOnGroupAddOnsRequest({ serviceId, groupId, addOnIds }) {
+  if (!serviceId || !groupId) throw new Error('setting a group\'s add-ons needs the service id and the group id');
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/services/add-on-groups/set-add-ons-for-group`, body: { serviceId, groupId, addOnIds: addOnGroupIds(addOnIds) } };
+}
+function _buildListBookingsAddOnGroupsRequest(serviceId) {
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/services/add-on-groups/list-add-on-groups-by-service-id`, body: { serviceId } };
+}
+function _buildDeleteBookingsAddOnGroupRequest({ serviceId, groupId }) {
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/services/add-on-groups/delete`, body: { addOnGroupId: groupId, serviceId } };
+}
+async function listBookingsAddOnGroups(wix, serviceId) {
+  return (await wix.send(buildListBookingsAddOnGroupsRequest(serviceId))).addOnGroupsDetails || [];
+}
+function sameAddOn(found, wanted) {
+  return Boolean(found) && found.name === wanted.name && Number(found.price?.value) === Number(wanted.price.value) && found.price?.currency === wanted.price.currency &&
+    (found.durationInMinutes ?? null) === (wanted.durationInMinutes ?? null) && (found.maxQuantity ?? null) === (wanted.maxQuantity ?? null) && (found.taxGroup || null) === (wanted.taxGroup || null);
+}
+function bookingsWriteError(error) {
+  const e = error && typeof error === 'object' ? error : {};
+  return { message: String(e.message !== undefined ? e.message : error).slice(0, 300), status: e.status ?? null, applicationErrorCode: e.applicationErrorCode || null, outcomeKnown: e.outcomeKnown ?? null };
+}
+const localRefusal = error => String(error?.code || '').startsWith('target_operation_') || error?.requestSent === false;
+
+// One source extra -> one Wix add-on, then that add-on placed in the import group of every
+// service the extra belongs to. `serviceIds` are the record's granted
+// bookings/service targets; records run in source order, so appending keeps the source order.
+// A service whose group is full (7) leaves the add-on ungrouped there: reported, not hidden.
+// Re-run safe: crosswalk id first, then an exact-field lookup before any create.
+async function importBookingsAddOn(wix, { addOn, serviceIds = [], groupName = BOOKINGS_ADD_ON_DEFAULT_GROUP_NAME, knownAddOnId = null } = {}) {
+  const wanted = bookingsAddOnBody(addOn), findings = [];
+  let id = null, matchedBy = null;
+  if (knownAddOnId) {
+    // The crosswalk add-on with other values is drift (the source extra changed after import):
+    // report it and write nothing, never mint a second add-on.
+    try { const known = (await wix.send(buildGetBookingsAddOnRequest(knownAddOnId))).addOn; if (sameAddOn(known, wanted)) { id = known.id; matchedBy = 'crosswalk'; } else if (known?.id) return { outcome: 'target-drift', addOnId: known.id, findings }; else findings.push({ code: 'crosswalk-row-stale', knownAddOnId }); }
+    catch (error) { if (error?.status !== 404 || error.outcomeKnown === false) return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; findings.push({ code: 'crosswalk-row-stale', knownAddOnId }); }
+  }
+  const lookup = async () => ((await wix.send(buildQueryBookingsAddOnsRequest({ name: wanted.name }))).addOns || []).filter(found => sameAddOn(found, wanted));
+  if (!id) {
+    let matches;
+    try { matches = await lookup(); } catch (error) { return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; }
+    if (matches.length > 1) return { outcome: 'reconciliation-ambiguous', addOnId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), findings };
+    if (matches.length === 1) { id = matches[0].id; matchedBy = 'fields'; }
+  }
+  if (!id) {
+    try { id = (await wix.send(buildCreateBookingsAddOnRequest(wanted))).addOn?.id || null; }
+    catch (error) {
+      if (localRefusal(error)) throw error;
+      if (error?.outcomeKnown !== false) return { outcome: 'failed', addOnId: null, error: bookingsWriteError(error), findings };
+      let matches = [];
+      try { matches = await lookup(); } catch { /* still unknown */ }
+      if (matches.length !== 1) return { outcome: 'unknown-outcome', addOnId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), error: bookingsWriteError(error), findings };
+      id = matches[0].id; matchedBy = 'unknown-outcome-lookup';
+    }
+    if (!id) return { outcome: 'unknown-outcome', addOnId: null, error: { message: 'Create Add On returned no id', outcomeKnown: false }, findings };
+    if (!sameAddOn((await wix.send(buildGetBookingsAddOnRequest(id))).addOn, wanted)) return { outcome: 'read-back-mismatch', addOnId: id, findings };
+  }
+  const groups = [], ungroupedServiceIds = [], groupFailures = [];
+  for (const serviceId of [...new Set(serviceIds)]) {
+    let placed;
+    // The add-on exists now: a failed placement never loses its id. The record is
+    // partially-written, and a re-run finds the add-on and places it again.
+    try { placed = await placeAddOnInServiceGroup(wix, { serviceId, addOnId: id, groupName }); } catch (error) {
+      rethrowRunStop(error);
+      groupFailures.push({ serviceId, error: { ...bookingsWriteError(error), ...(error?.requestSent === false ? { requestSent: false, code: error.code ?? null } : {}) } });
+      continue;
+    }
+    if (placed.groupId) groups.push({ serviceId, groupId: placed.groupId }); else { ungroupedServiceIds.push(serviceId); findings.push({ code: 'add-on-group-full', serviceId, max: BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS }); }
+  }
+  if (groupFailures.length) return { outcome: 'partially-written', addOnId: id, ...(matchedBy ? { matchedBy } : {}), groups, ungroupedServiceIds, groupFailures, error: groupFailures[0].error, findings };
+  return { outcome: matchedBy ? 'reconciled-existing' : 'written', addOnId: id, ...(matchedBy ? { matchedBy } : {}), groups, ungroupedServiceIds, findings };
+}
+// List -> create/set -> read back is a read-modify-write of one service's group, so records of the
+// same service never run it at once: parallel records would each create a group, or each set
+// `current + own` and drop the other's add-on. One chain per service id, in this process.
+const addOnGroupLocks = new Map();
+function placeAddOnInServiceGroup(wix, options) {
+  const previous = addOnGroupLocks.get(options.serviceId) || Promise.resolve();
+  const run = previous.catch(() => {}).then(() => placeAddOnInServiceGroupNow(wix, options));
+  const settled = run.catch(() => {});
+  addOnGroupLocks.set(options.serviceId, settled);
+  settled.then(() => { if (addOnGroupLocks.get(options.serviceId) === settled) addOnGroupLocks.delete(options.serviceId); });
+  return run;
+}
+async function placeAddOnInServiceGroupNow(wix, { serviceId, addOnId, groupName }) {
+  const details = await listBookingsAddOnGroups(wix, serviceId);
+  const holding = details.find(group => (group.addOns || []).some(row => row.addOnId === addOnId));
+  if (holding) return { groupId: holding.groupId };
+  // An imported service starts with no groups, so the first group is the import's own.
+  const group = details[0];
+  let result;
+  if (!group) result = (await wix.send(buildCreateBookingsAddOnGroupRequest({ serviceId, name: groupName, addOnIds: [addOnId] }))).addOnGroup;
+  else {
+    const current = (group.addOns || []).map(row => row.addOnId);
+    if (current.length >= BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS) return { groupId: null };
+    result = (await wix.send(buildSetBookingsAddOnGroupAddOnsRequest({ serviceId, groupId: group.groupId, addOnIds: [...current, addOnId] }))).addOnGroup;
+  }
+  const after = await listBookingsAddOnGroups(wix, serviceId);
+  if (!after.some(row => row.groupId === result?.id && (row.addOns || []).some(item => item.addOnId === addOnId))) throw Object.assign(new Error(`add-on ${addOnId} is not in a group of service ${serviceId} after grouping`), { code: 'add-on-group-read-back-mismatch', outcomeKnown: true });
+  return { groupId: result.id };
+}
+
+// Bookings. The body always sets the import controls: no availability, business-confirmation or
+// payment-option validation (these are settled historical records), no participant message and no
+// SMS reminder. The status and payment status are replayed after create.
+const BOOKING_PAYMENT_STATUSES = new Set(['NOT_PAID', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'EXEMPT']);
+function bookingExternalKey(sourceStableKey) {
+  const h = crypto.createHash('sha256').update('rp-booking:' + String(sourceStableKey)).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+function _buildCreateBookingRequest({ booking, externalKey, confirmLater = false }) {
+  const entity = booking?.bookedEntity;
+  if (!entity || Boolean(entity.slot) === Boolean(entity.schedule)) throw new Error('a booking books either a slot (appointment, class) or a schedule (course)');
+  // A class booking names a calendar session (slot.eventId) that no import entity produces yet, so
+  // the id could not be checked against a granted target; importBooking holds such records.
+  if (entity.slot?.eventId) throw new Error('a class-session booking (slot.eventId) is not imported; the writer holds it as class-session-missing');
+  if (entity.slot && !(entity.slot.serviceId && entity.slot.startDate && entity.slot.endDate)) throw new Error('an appointment booking needs slot.serviceId, startDate and endDate');
+  if (entity.schedule && !(entity.schedule.serviceId && entity.schedule.scheduleId)) throw new Error('a course booking needs schedule.serviceId and scheduleId');
+  if (!booking.contactDetails?.contactId) throw new Error('a booking needs the imported contact id, so Wix matches the contact instead of creating one');
+  if (!Number.isInteger(booking.totalParticipants) || booking.totalParticipants < 1) throw new Error('a booking needs totalParticipants >= 1');
+  if (!externalKey) throw new Error('a booking needs its external key');
+  const { status: _status, paymentStatus: _payment, ...rest } = booking;
+  const addOns = Array.isArray(rest.bookedAddOns) && rest.bookedAddOns.length > 0;
+  return {
+    method: 'POST',
+    url: `${WIXAPIS}/bookings/v2/bookings`,
+    body: {
+      booking: { ...rest, status: confirmLater ? 'CREATED' : 'CONFIRMED', selectedPaymentOption: rest.selectedPaymentOption || 'OFFLINE', externalUserId: externalKey },
+      participantNotification: { notifyParticipants: false },
+      sendSmsReminder: false,
+      flowControlSettings: { skipAvailabilityValidation: true, skipBusinessConfirmation: true, skipSelectedPaymentOptionValidation: true, ...(addOns ? { skipAddOnValidation: true } : {}) },
+    },
+  };
+}
+function _buildConfirmBookingRequest({ bookingId, revision, paymentStatus }) {
+  if (!bookingId || !revision) throw new Error('confirming a booking needs its id and current revision');
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/bookings/${encodeURIComponent(bookingId)}/confirm`, body: { revision, ...(paymentStatus ? { paymentStatus } : {}), participantNotification: { notifyParticipants: false }, sendSmsReminder: false } };
+}
+function _buildCancelBookingRequest({ bookingId, revision }) {
+  if (!bookingId || !revision) throw new Error('cancelling a booking needs its id and current revision');
+  return { method: 'POST', url: `${WIXAPIS}/bookings/v2/bookings/${encodeURIComponent(bookingId)}/cancel`, body: { revision, flowControlSettings: { ignoreCancellationPolicy: true }, participantNotification: { notifyParticipants: false } } };
+}
+function _buildQueryBookingsRequest(filter) {
+  return { method: 'POST', url: `${WIXAPIS}/bookings/bookings-reader/v2/extended-bookings/query`, body: { query: { filter, cursorPaging: { limit: 100 } } } };
+}
+async function queryBookings(wix, filter) {
+  return ((await wix.send(buildQueryBookingsRequest(filter))).extendedBookings || []).map(row => row.booking).filter(Boolean);
+}
+function bookingMatches(found, booking) {
+  const slot = booking.bookedEntity.slot, schedule = booking.bookedEntity.schedule, got = found?.bookedEntity || {};
+  if (found?.contactDetails?.contactId !== booking.contactDetails.contactId) return false;
+  if (schedule) return got.schedule?.scheduleId === schedule.scheduleId && got.schedule?.serviceId === schedule.serviceId;
+  return got.slot?.serviceId === slot.serviceId && sameInstant(got.slot?.startDate || found.startDate, slot.startDate) && sameInstant(got.slot?.endDate || found.endDate, slot.endDate);
+}
+// One source booking -> one Wix booking in its final status. `booking` is the mapped Create
+// Booking `booking` object (service, contact, slot or schedule, participants, add-ons); the
+// add-on groupIds are filled here from the service's groups. `paymentStatus` other than
+// UNDEFINED is replayed by create-as-CREATED then Confirm; `canceled` cancels after that.
+// Resume: the crosswalk id, else the externalUserId key; each step runs only if not yet done.
+async function importBooking(wix, { booking, sourceStableKey, paymentStatus = null, canceled = false, knownBookingId = null } = {}) {
+  if (paymentStatus !== null && !BOOKING_PAYMENT_STATUSES.has(paymentStatus)) throw new Error(`a booking paymentStatus is one of ${[...BOOKING_PAYMENT_STATUSES].join(', ')}`);
+  if (booking?.bookedEntity?.slot?.eventId) return { outcome: 'class-session-missing', bookingId: null, findings: [] };
+  const findings = [], externalKey = bookingExternalKey(sourceStableKey ?? recordSourceKey(wix));
+  // Identity is the crosswalk id or the external key alone. A booking found that way with another
+  // service, contact or slot is drift (a source reschedule or contact change after import): it is
+  // reported and nothing is written, never a second booking under the same key.
+  const read = filter => queryBookings(wix, filter);
+  let current = null, matchedBy = null;
+  try {
+    if (knownBookingId) { [current] = await read({ id: knownBookingId }); if (current) matchedBy = 'crosswalk'; else findings.push({ code: 'crosswalk-row-stale', knownBookingId }); }
+    if (!current) {
+      const matches = await read({ externalUserId: externalKey });
+      if (matches.length > 1) return { outcome: 'reconciliation-ambiguous', bookingId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), findings };
+      if (matches.length === 1) { current = matches[0]; matchedBy = 'external-key'; }
+    }
+  } catch (error) { return { outcome: 'target-read-failed', bookingId: null, error: bookingsWriteError(error), findings }; }
+  if (current && !bookingMatches(current, booking)) return { outcome: 'target-drift', bookingId: current.id, matchedBy, findings };
+  const payload = await withAddOnGroups(wix, booking, findings);
+  if (payload.error) return { outcome: 'failed', bookingId: null, error: payload.error, findings };
+  if (!current) {
+    try { current = (await wix.send(buildCreateBookingRequest({ booking: payload.booking, externalKey, confirmLater: paymentStatus !== null }))).booking || null; }
+    catch (error) {
+      if (localRefusal(error)) throw error;
+      if (error?.outcomeKnown !== false) return { outcome: 'failed', bookingId: null, error: bookingsWriteError(error), findings };
+      let matches = [];
+      try { matches = await read({ externalUserId: externalKey }); } catch { /* still unknown */ }
+      if (matches.length !== 1) return { outcome: 'unknown-outcome', bookingId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), error: bookingsWriteError(error), findings };
+      current = matches[0]; matchedBy = 'unknown-outcome-lookup';
+    }
+    if (!current?.id) return { outcome: 'unknown-outcome', bookingId: null, error: { message: 'Create Booking returned no id', outcomeKnown: false }, findings };
+  }
+  const id = current.id, fresh = async () => (await read({ id }))[0];
+  try {
+    if (paymentStatus !== null && ['CREATED', 'PENDING', 'WAITING_LIST'].includes(current.status)) {
+      const now = await fresh();
+      current = (await wix.send(buildConfirmBookingRequest({ bookingId: id, revision: now.revision, paymentStatus }))).booking;
+    }
+    if (canceled && current.status !== 'CANCELED') {
+      const now = await fresh();
+      current = (await wix.send(buildCancelBookingRequest({ bookingId: id, revision: now.revision }))).booking;
+    }
+    const final = await fresh();
+    const expectStatus = canceled ? 'CANCELED' : 'CONFIRMED';
+    if (!final || final.status !== expectStatus || (paymentStatus !== null && final.paymentStatus !== paymentStatus)) return { outcome: 'read-back-mismatch', bookingId: id, status: final?.status ?? null, paymentStatus: final?.paymentStatus ?? null, findings };
+    return { outcome: matchedBy ? 'reconciled-existing' : 'written', bookingId: id, ...(matchedBy ? { matchedBy } : {}), status: final.status, paymentStatus: final.paymentStatus, findings };
+  } catch (error) {
+    if (localRefusal(error)) throw error;
+    // The booking exists; only a later step failed. A re-run resumes from the crosswalk id.
+    return { outcome: 'partially-written', bookingId: id, status: current?.status ?? null, error: bookingsWriteError(error), findings };
+  }
+}
+// Booked add-ons need the GUID of a group on that service (Wix 400s without one). The group that
+// holds the add-on is used; an add-on left ungrouped by a full group is attached through the service's
+// import group with skipAddOnValidation, which keeps its snapshot on the booking.
+async function withAddOnGroups(wix, booking, findings) {
+  const rows = booking.bookedAddOns || [];
+  if (!rows.length) return { booking };
+  const serviceId = booking.bookedEntity.slot?.serviceId || booking.bookedEntity.schedule?.serviceId;
+  let groups;
+  try { groups = await listBookingsAddOnGroups(wix, serviceId); } catch (error) { return { error: bookingsWriteError(error) }; }
+  if (!groups.length) return { error: { message: `service ${serviceId} has no add-on group to attach booked add-ons to`, code: 'booked-add-on-group-missing', outcomeKnown: true } };
+  const bookedAddOns = rows.map(row => {
+    const holding = groups.find(group => (group.addOns || []).some(item => item.addOnId === row.id));
+    if (!holding) findings.push({ code: 'booked-add-on-ungrouped', addOnId: row.id, groupId: groups[0].groupId });
+    return { ...row, groupId: (holding || groups[0]).groupId };
+  });
+  return { booking: { ...booking, bookedAddOns } };
+}
+function recordSourceKey(wix) {
+  const key = recordClients.get(wix)?.sourceStableKey;
+  if (!key) throw new Error('importBooking needs the record\'s sourceStableKey');
+  return key;
+}
+
+// --- forms ----------------------------------------------------------------------
+// VERIFIED LIVE (2026-10-26, throwaway site): see domains/forms/entities/*.json and the domain
+// pitfall form-submission-automations-email-the-owner.
+// - Create Form also creates an ACTIVE per-form automation ("New submission received for <form>",
+//   a transactional email to the site's team). With the site muted, an API-created entry still
+//   emailed the owner; with that automation and the preinstalled site-wide one INACTIVE, none did.
+//   So entries import with the form's submission automations paused, and the pause is best-effort:
+//   a failed pause is recorded (cutover item), never a reason to hold the form's entries.
+// - Updating the PREINSTALLED automation returns it under a NEW id (an override); the old id then
+//   404s. The pause ledger stores the returned id.
+// - Wix keeps the import date as the entry date (`createdDate` is ignored), so the form gets one
+//   hidden "Original submission date" field and each entry carries the source timestamp there.
+// - Create Submission answers PENDING; an async spam pass then confirms it or removes it. An entry
+//   that ends in spam is recorded and never re-sent; Report Not Spam is never called (it runs the
+//   form's automations, like any new submission).
+const FORMS_NAMESPACE = 'wix.form_app.form';
+const FORM_ORIGINAL_DATE_TARGET = 'original_submission_date';
+const FORM_ORIGINAL_DATE_LABEL = 'Original submission date';
+const FORM_SUBMITTED_TRIGGER = 'wix_form_app-form_submitted';
+const FORM_AUTOMATION_PAUSE_LEDGER = 'execution/forms/automation-pause.json';
+const FORM_FIELD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// A field target is a Wix field name: letters, digits and "_". Create Form refuses any other
+// character for the whole form (UNSUPPORTED_FIELD_TARGETS_NAME; observed in a live run:
+// Forminator element ids "name-1", "email-1" held every entry of the form). The writer maps a source-shaped
+// target deterministically, on the create AND on every entry, so both sides agree; a valid target
+// is unchanged.
+function formFieldTarget(target) {
+  return typeof target === 'string' ? target.replace(/[^A-Za-z0-9_]/g, '_') : target;
+}
+const formsSleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// The pause and the restore are best-effort: only a run stop (signal, token expiry) escapes them.
+// A refused or failed call is recorded, and the entries go ahead.
+function rethrowRunStop(error) {
+  if (require('../../../lib/wix-auth').isRunInterruption(error)) throw error;
+}
+
+// A GUID-shaped, lowercase id derived from a seed, so a retried create builds the same schema.
+function deterministicFieldId(seed) {
+  const h = crypto.createHash('sha256').update(String(seed)).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) % 4]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+function formOriginalDateField(id) {
+  return {
+    id, hidden: true, identifier: 'TEXT_INPUT', fieldType: 'INPUT',
+    inputOptions: { target: FORM_ORIGINAL_DATE_TARGET, pii: false, required: false, readOnly: false, inputType: 'STRING',
+      stringOptions: { validation: { format: 'UNKNOWN_FORMAT', enum: [] }, componentType: 'TEXT_INPUT', textInputOptions: { label: FORM_ORIGINAL_DATE_LABEL, showLabel: true } } },
+  };
+}
+const layoutItems = (form) => (form.steps || []).flatMap(step => Object.values((step && step.layout) || {}).flatMap(bp => (bp && bp.items) || []));
+
+// `form` is the Wix Forms schema the mapping built (formFields + steps). The builder checks the
+// live-verified invariants and appends the hidden original-date field, placed on the first step.
+// `sourceFieldTargets` ({ sourceFieldName: target }) is returned for the crosswalk.
+function formsCreatePlan({ form, sourceFieldTargets = {}, originalDateFieldId, sourceFormId } = {}) {
+  if (!form || typeof form !== 'object') throw new Error('createForm: form is required.');
+  if (typeof form.name !== 'string' || !form.name.trim()) throw new Error('createForm: form.name is required.');
+  if (form.namespace != null && form.namespace !== FORMS_NAMESPACE) throw new Error(`createForm: imported forms belong in ${FORMS_NAMESPACE}.`);
+  const rawFields = form.formFields;
+  if (!Array.isArray(rawFields) || !rawFields.length) throw new Error('createForm: formFields must be a non-empty array.');
+  if (!Array.isArray(form.steps) || !form.steps.length) throw new Error('createForm: at least one step with a layout is required.');
+  // VERIFIED LIVE 2026-10-27: a step id that is not a GUID fails the create (`steps[0] id is not a valid GUID`).
+  for (const step of form.steps) if (step && step.id != null && !FORM_FIELD_ID_PATTERN.test(String(step.id))) throw new Error('createForm: every step id must be a lowercase GUID.');
+  const placed = new Set(layoutItems(form).map(item => item.fieldId));
+  const targets = new Set();
+  const fields = rawFields.map(field => field && field.fieldType === 'INPUT' && field.inputOptions && typeof field.inputOptions.target === 'string' && formFieldTarget(field.inputOptions.target) !== field.inputOptions.target
+    ? { ...field, inputOptions: { ...field.inputOptions, target: formFieldTarget(field.inputOptions.target) } } : field);
+  sourceFieldTargets = Object.fromEntries(Object.entries(sourceFieldTargets).map(([name, target]) => [name, formFieldTarget(target)]));
+  for (const field of fields) {
+    if (!field || !FORM_FIELD_ID_PATTERN.test(String(field.id))) throw new Error('createForm: every field needs a lowercase GUID id (the layout matches it).');
+    if (!field.identifier) throw new Error(`createForm: field ${field.id} has no identifier (entries are then refused as UNKNOWN_VALUE_ERROR).`);
+    if (field.fieldType !== 'INPUT') continue;
+    const target = field.inputOptions && field.inputOptions.target;
+    if (!target) throw new Error(`createForm: INPUT field ${field.id} has no inputOptions.target.`);
+    if (target === FORM_ORIGINAL_DATE_TARGET) throw new Error(`createForm: target ${FORM_ORIGINAL_DATE_TARGET} is reserved for the original submission date.`);
+    if (targets.has(target)) throw new Error(`createForm: target ${target} is used twice.`);
+    targets.add(target);
+    if (!placed.has(field.id)) throw new Error(`createForm: INPUT field ${field.id} is not placed in a step layout (Wix shows its values as empty).`);
+  }
+  for (const [name, target] of Object.entries(sourceFieldTargets)) if (!targets.has(target)) throw new Error(`createForm: source field ${name} maps to ${target}, which is not a field target.`);
+  // Seeded by the source form id when given: two source forms with one name must not share it.
+  const dateId = String(originalDateFieldId || deterministicFieldId(`${FORMS_NAMESPACE}:${sourceFormId != null ? `source:${sourceFormId}` : form.name}:${FORM_ORIGINAL_DATE_TARGET}`));
+  if (!FORM_FIELD_ID_PATTERN.test(dateId)) throw new Error('createForm: originalDateFieldId must be a lowercase GUID.');
+  const [first, ...rest] = form.steps;
+  const breakpoints = Object.keys((first && first.layout) || {});
+  if (!breakpoints.length) throw new Error('createForm: the first step has no layout.');
+  const layout = Object.fromEntries(breakpoints.map(bp => {
+    const items = (first.layout[bp] && first.layout[bp].items) || [];
+    const row = items.reduce((max, item) => Math.max(max, Number(item.row || 0) + Number(item.height || 1)), 0);
+    return [bp, { ...first.layout[bp], items: [...items, { fieldId: dateId, row, column: 0, width: 12, height: 1 }] }];
+  }));
+  return {
+    form: { ...form, namespace: FORMS_NAMESPACE, formFields: [...fields, formOriginalDateField(dateId)], steps: [{ ...first, layout }, ...rest] },
+    dateId, sourceFieldTargets: { ...sourceFieldTargets },
+  };
+}
+function _buildCreateFormRequest(payload) {
+  return { method: 'POST', url: `${WIXAPIS}/form-schema-service/v4/forms`, body: { form: formsCreatePlan(payload).form } };
+}
+function _buildQueryFormsRequest({ cursor } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/form-schema-service/v4/forms/query`,
+    body: { query: { filter: { namespace: { $eq: FORMS_NAMESPACE } }, cursorPaging: cursor ? { limit: 100, cursor } : { limit: 100 } } } };
+}
+const nextCursor = (r) => { const m = (r && (r.pagingMetadata || r.metadata)) || {}; return m.hasNext === false ? null : (m.cursors && m.cursors.next) || null; };
+// A lost create is found only by the hidden original-date field id, which only this import puts on
+// a form. Never by name: Wix renames a colliding name ("Contact (1)"), and the one "Contact" form
+// on the site is usually the merchant's own, whose entries must not receive ours.
+async function findCreatedForm(wix, name, dateId) {
+  let cursor = null;
+  for (let page = 0; page < 20; page += 1) {
+    const r = await wix.send(buildQueryFormsRequest({ cursor }));
+    for (const form of (r && r.forms) || []) {
+      const ids = [...(form.formFields || []), ...(form.fields || [])].map(f => f && f.id);
+      if (ids.includes(dateId)) return form;
+    }
+    cursor = nextCursor(r);
+    if (!cursor) break;
+  }
+  return null;
+}
+function formsCreateResult(outcome, form, plan, extra = {}) {
+  const findings = [];
+  if (form && form.name && form.name !== plan.form.name) findings.push({ code: 'form-name-renamed', name: form.name });
+  return { outcome, id: form ? form.id : null, name: form ? form.name : null, revision: form ? form.revision : null,
+    fieldTargets: plan.sourceFieldTargets, originalDateTarget: FORM_ORIGINAL_DATE_TARGET, originalDateFieldId: plan.dateId, ...extra, findings };
+}
+// Outcomes: created | adopted (a lost create that is on the site) | failed. Record `name` from the
+// result (a collision renames it) and persist `fieldTargets` + `originalDateTarget` to the crosswalk.
+async function createForm(wix, payload, { readBackFirst = false } = {}) {
+  const plan = formsCreatePlan(payload);
+  // A re-run of a lost create (`readBack: 'not-found'`) looks for the form by its hidden field
+  // first: a create that landed after the read-back is adopted, not made twice.
+  if (readBackFirst) {
+    const found = await findCreatedForm(wix, plan.form.name, plan.dateId);
+    if (found) return formsCreateResult('adopted', found, plan);
+  }
+  try {
+    const form = (await wix.send(buildCreateFormRequest(payload)) || {}).form;
+    if (form && form.id) return formsCreateResult('created', form, plan);
+    throw Object.assign(new Error('Create Form returned no id'), { outcomeKnown: false });
+  } catch (error) {
+    rethrowGiftCardUnsent(error);
+    const unknown = error.outcomeKnown === false || error.status == null || error.status >= 500 || error.status === 408;
+    if (!unknown) return formsCreateResult('failed', null, plan, { error: giftCardErrorFields(error) });
+    try {
+      const found = await findCreatedForm(wix, plan.form.name, plan.dateId);
+      // Not found by its hidden field: the create did not land, and a re-run reads back first.
+      return found ? formsCreateResult('adopted', found, plan) : formsCreateResult('failed', null, plan, { error: giftCardErrorFields(error), readBack: 'not-found' });
+    } catch (readError) {
+      rethrowGiftCardUnsent(readError);
+      return formsCreateResult('failed', null, plan, { error: giftCardErrorFields(error), readError: giftCardErrorFields(readError) });
+    }
+  }
+}
+
+// One entry. `originalDate` is the source timestamp; it goes into the hidden field (and into
+// createdDate, which Wix ignores today). `submitter` is read-only and refused.
+// A source date with no zone ("2022-11-24 10:31:13", Forminator/WordPress local time) is read in
+// `timeZone` (the source's IANA zone) when given, else as UTC. Never in the importer machine's
+// zone: the same entry must land on the same instant wherever the import runs.
+const ZONELESS_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3})\d*)?)?$/;
+function zoneOffsetMs(at, timeZone) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    .formatToParts(new Date(at)).map(p => [p.type, p.value]));
+  return Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second) - Math.floor(at / 1000) * 1000;
+}
+function parseSourceDateTime(text, timeZone) {
+  const m = typeof text === 'string' ? ZONELESS_DATE_TIME.exec(text.trim()) : null;
+  if (!m) return Date.parse(text);
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0), +((m[7] || '0').padEnd(3, '0')));
+  if (!timeZone) return wall;
+  let at = wall - zoneOffsetMs(wall, timeZone);
+  at = wall - zoneOffsetMs(at, timeZone); // second pass settles a DST boundary
+  return at;
+}
+
+function _buildCreateFormSubmissionRequest({ submission, originalDate, originalDateTarget = FORM_ORIGINAL_DATE_TARGET, originalDateTimeZone = null } = {}) {
+  if (!submission || typeof submission !== 'object') throw new Error('createFormSubmission: submission is required.');
+  if (!submission.formId) throw new Error('createFormSubmission: submission.formId is required.');
+  if (!submission.submissions || typeof submission.submissions !== 'object' || Array.isArray(submission.submissions)) throw new Error('createFormSubmission: submission.submissions must be a map keyed by field target.');
+  if ('submitter' in submission) throw new Error('createFormSubmission: submitter is read-only; carry identity as contactId.');
+  const submissions = {};
+  for (const [target, value] of Object.entries(submission.submissions)) {
+    const key = formFieldTarget(target);
+    if (Object.prototype.hasOwnProperty.call(submissions, key)) throw new Error(`createFormSubmission: targets ${target} and another map to ${key}.`);
+    submissions[key] = value;
+  }
+  const body = { ...submission, submissions, seen: submission.seen === undefined ? true : submission.seen };
+  if (originalDate != null) {
+    const at = parseSourceDateTime(originalDate, originalDateTimeZone);
+    if (!Number.isFinite(at)) throw new Error('createFormSubmission: originalDate must be a date-time.');
+    const iso = new Date(at).toISOString();
+    body.submissions[originalDateTarget] = iso;
+    body.createdDate = iso;
+  }
+  return { method: 'POST', url: `${WIXAPIS}/forms/v4/submissions`, body: { submission: body } };
+}
+function _buildGetFormSubmissionRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/forms/v4/submissions/${encodeURIComponent(id)}` };
+}
+function _buildQueryFormSpamReportsRequest({ formId, cursor } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/form-spam-submission-report-service/v4/form-spam-submission-reports/namespace/query`,
+    body: { query: { filter: { namespace: { $eq: FORMS_NAMESPACE }, formId: { $eq: String(formId) } }, sort: [{ fieldName: 'reportedDate', order: 'DESC' }], cursorPaging: cursor ? { limit: 100, cursor } : { limit: 100 } } } };
+}
+// The spam report holding this entry, matched on every value it was sent with (the hidden date
+// makes it unique per source entry). Newest first, a few pages only: the import just sent it.
+async function findSpamReport(wix, formId, values) {
+  let cursor = null;
+  for (let page = 0; page < 5; page += 1) {
+    const r = await wix.send(buildQueryFormSpamReportsRequest({ formId, cursor }));
+    const hit = ((r && r.formSpamSubmissionReports) || []).find(report => Object.entries(values).every(([k, v]) => JSON.stringify((report.submissions || {})[k]) === JSON.stringify(v)));
+    if (hit) return hit;
+    cursor = nextCursor(r);
+    if (!cursor) break;
+  }
+  return null;
+}
+function _buildQueryFormSubmissionsRequest({ formId, cursor } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/form-submission-service/v4/submissions/namespace/query`,
+    body: { query: { filter: { namespace: { $eq: FORMS_NAMESPACE }, formId: { $eq: String(formId) } }, cursorPaging: cursor ? { limit: 100, cursor } : { limit: 100 } } } };
+}
+// The entry this import sent, matched on every value it was sent with (the hidden original date
+// makes it unique per source entry). `sent` is the submission body as sent ({ formId, submissions }).
+// Bounded: a form with more entries than the pages read is reported not found (unknown stays unknown).
+async function findFormSubmission(wix, sent, { maxPages = 50 } = {}) {
+  if (!sent || !sent.formId || !sent.submissions) throw new Error('findFormSubmission needs the submission as sent (formId, submissions).');
+  let cursor = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const r = await wix.send(buildQueryFormSubmissionsRequest({ formId: sent.formId, cursor }));
+    const hit = ((r && r.submissions) || []).find(row => row && row.formId === sent.formId && Object.entries(sent.submissions).every(([k, v]) => JSON.stringify((row.submissions || {})[k]) === JSON.stringify(v)));
+    if (hit) return hit;
+    cursor = nextCursor(r);
+    if (!cursor) break;
+  }
+  return null;
+}
+// Outcomes: created (read back CONFIRMED) | in-spam (Wix moved it to spam; `spamReportId`) |
+// deleted (gone and not in spam) | pending (not CONFIRMED within the wait; do not re-send) |
+// unknown (the create's outcome is unknown; read back before any re-send) | failed (refused).
+// None of in-spam, deleted, pending or unknown is ever re-sent by this writer.
+//
+// Two steps, so a bulk import can send every entry first and read them back after (Wix's spam pass
+// needs ~2 s per entry; waiting per entry would serialize that). sendFormSubmission returns
+// { outcome: 'sent', id, status, sentAt, sent } or a final outcome; verifyFormSubmission takes a
+// 'sent' result to its final outcome, sleeping only while the entry is younger than the interval.
+async function sendFormSubmission(wix, payload, { clock = Date.now } = {}) {
+  const request = buildCreateFormSubmissionRequest(payload);
+  const sent = request.body.submission;
+  const done = (outcome, extra = {}) => ({ outcome, formId: sent.formId, ...extra });
+  // A create whose reply was lost is read back once (the entry, else its spam report) before it is
+  // reported unknown, so a found entry gets its id and is verified like any other.
+  const readBack = async (error) => {
+    try {
+      const found = await findFormSubmission(wix, sent);
+      if (found) return found.status === 'CONFIRMED' ? done('created', { id: found.id, status: found.status, adopted: true }) : done('sent', { id: found.id, status: found.status || null, sentAt: clock(), sent, adopted: true });
+      const report = await findSpamReport(wix, sent.formId, sent.submissions);
+      if (report) return done('in-spam', { spamReportId: report.id, reportReason: report.reportReason || null });
+      return done('unknown', { error, readBack: 'not-found' });
+    } catch (readError) {
+      rethrowGiftCardUnsent(readError);
+      return done('unknown', { error, readError: giftCardErrorFields(readError) });
+    }
+  };
+  let created;
+  try {
+    created = (await wix.send(request) || {}).submission;
+  } catch (error) {
+    rethrowGiftCardUnsent(error);
+    const unknown = error.outcomeKnown === false || error.status == null || error.status >= 500 || error.status === 408;
+    return unknown ? readBack(giftCardErrorFields(error)) : done('failed', { error: giftCardErrorFields(error) });
+  }
+  if (!created || !created.id) return readBack({ message: 'Create Submission returned no id', outcomeKnown: false });
+  if (created.status === 'CONFIRMED') return done('created', { id: created.id, status: created.status });
+  return done('sent', { id: created.id, status: created.status || null, sentAt: clock(), sent });
+}
+async function verifyFormSubmission(wix, sendResult, { pollAttempts = 4, pollIntervalMs = 2000, sleep = formsSleep, clock = Date.now } = {}) {
+  if (!sendResult || sendResult.outcome !== 'sent') return sendResult;
+  const { id, sent } = sendResult;
+  const done = (outcome, extra = {}) => ({ outcome, formId: sent.formId, id, ...extra });
+  let status = sendResult.status;
+  for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+    const wait = attempt === 0 ? pollIntervalMs - (clock() - sendResult.sentAt) : pollIntervalMs;
+    if (wait > 0) await pauseFor(wix, sleep)(wait);
+    try {
+      const current = (await wix.send(buildGetFormSubmissionRequest(id)) || {}).submission;
+      status = (current && current.status) || status;
+      if (status === 'CONFIRMED') return done('created', { status });
+    } catch (error) {
+      rethrowGiftCardUnsent(error);
+      if (error.status !== 404) return done('pending', { status, readError: giftCardErrorFields(error) });
+      try {
+        const report = await findSpamReport(wix, sent.formId, sent.submissions);
+        return report ? done('in-spam', { spamReportId: report.id, reportReason: report.reportReason || null }) : done('deleted');
+      } catch (readError) {
+        rethrowGiftCardUnsent(readError);
+        return done('deleted', { spamCheck: 'failed', readError: giftCardErrorFields(readError) });
+      }
+    }
+  }
+  return done('pending', { status });
+}
+async function createFormSubmission(wix, payload, options = {}) {
+  return verifyFormSubmission(wix, await sendFormSubmission(wix, payload, options), options);
+}
+
+// Automations V2. Only the form's submission automations are touched: trigger
+// `wix_form_app-form_submitted` with a formId filter naming this form, or with no formId filter
+// (the preinstalled site-wide one). The update sends the full automation at its current revision.
+function _buildQueryAutomationsRequest({ cursor } = {}) {
+  return { method: 'POST', url: `${WIXAPIS}/automations-service/v2/automations/query`, body: { query: { cursorPaging: cursor ? { limit: 100, cursor } : { limit: 100 } } } };
+}
+function _buildGetAutomationRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/automations-service/v2/automations/${encodeURIComponent(id)}` };
+}
+function _buildUpdateAutomationStatusRequest({ automation, status } = {}) {
+  if (!automation || !automation.id || automation.revision == null || !automation.configuration) throw new Error('updateAutomationStatus: the full automation (id, revision, configuration) as read is required.');
+  if (!['ACTIVE', 'INACTIVE'].includes(status)) throw new Error('updateAutomationStatus: status must be ACTIVE or INACTIVE.');
+  if ((automation.configuration.trigger || {}).triggerKey !== FORM_SUBMITTED_TRIGGER) throw new Error(`updateAutomationStatus: only ${FORM_SUBMITTED_TRIGGER} automations are changed by the forms import.`);
+  return { method: 'PATCH', url: `${WIXAPIS}/automations-service/v2/automations/${encodeURIComponent(automation.id)}`,
+    body: { automation: { ...automation, configuration: { ...automation.configuration, status } } } };
+}
+function formAutomationApplies(automation, formId) {
+  const trigger = (automation && automation.configuration && automation.configuration.trigger) || {};
+  if (trigger.triggerKey !== FORM_SUBMITTED_TRIGGER) return false;
+  const formFilters = (trigger.filters || []).filter(f => f && f.fieldKey === 'formId');
+  return !formFilters.length || formFilters.some(f => String(f.filterExpression || '').includes(`"${formId}"`));
+}
+async function queryFormAutomations(wix, formId) {
+  const out = [];
+  let cursor = null;
+  for (let page = 0; page < 20; page += 1) {
+    const r = await wix.send(buildQueryAutomationsRequest({ cursor }));
+    out.push(...((r && r.automations) || []).filter(a => formAutomationApplies(a, formId)));
+    cursor = nextCursor(r);
+    if (!cursor) break;
+  }
+  return out;
+}
+async function readPauseLedger(projectDir) {
+  try { return JSON.parse(await fs.readFile(path.join(projectDir, FORM_AUTOMATION_PAUSE_LEDGER), 'utf8')); } catch (error) {
+    if (error.code === 'ENOENT') return { schemaVersion: 1, forms: [] };
+    throw error;
+  }
+}
+async function writePauseLedger(projectDir, ledger) {
+  const file = path.join(projectDir, FORM_AUTOMATION_PAUSE_LEDGER);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  await fs.writeFile(tmp, `${JSON.stringify(ledger, null, 2)}\n`);
+  await fs.rename(tmp, file);
+}
+const ledgerForm = (ledger, formId) => {
+  let row = ledger.forms.find(f => f.formId === formId);
+  if (!row) { row = { formId, automations: [] }; ledger.forms.push(row); }
+  return row;
+};
+// The pause ledger for one import, held in memory. A ledger that cannot be read or written never
+// blocks the import: it is a finding (`form-pause-ledger-unreadable`), nothing is paused or lowered
+// that could not be recorded first, and the restore works from these in-memory rows. An unreadable
+// ledger is never overwritten (it may hold other forms' rows).
+async function openPauseLedger(projectDir, formId) {
+  const session = { projectDir, formId, ledger: { schemaVersion: 1, forms: [] }, readError: null, findings: [] };
+  try { session.ledger = await readPauseLedger(projectDir); } catch (error) {
+    session.readError = error;
+    ledgerFinding(session, error);
+  }
+  return session;
+}
+function ledgerFinding(session, error) {
+  if (!session.findings.length) session.findings.push({ code: 'form-pause-ledger-unreadable', formId: session.formId, ledger: FORM_AUTOMATION_PAUSE_LEDGER, error: giftCardErrorFields(error) });
+}
+async function savePauseLedger(session) {
+  if (session.readError) return false;
+  try { await writePauseLedger(session.projectDir, session.ledger); return true; } catch (error) {
+    ledgerFinding(session, error);
+    return false;
+  }
+}
+const NOT_RECORDED = { message: 'the pause ledger could not be written first; left unchanged' };
+// An automation's current id: the recorded one, or (after an override changed it and the process
+// stopped before recording it) the one automation of this form with the same name.
+async function currentAutomation(wix, row, formId) {
+  try {
+    const a = (await wix.send(buildGetAutomationRequest(row.currentId)) || {}).automation;
+    if (a) return a;
+  } catch (error) {
+    rethrowGiftCardUnsent(error);
+    if (error.status !== 404) throw error;
+  }
+  const same = (await queryFormAutomations(wix, formId)).filter(a => a.name === row.name);
+  return same.length === 1 ? same[0] : null;
+}
+async function setAutomationStatus(wix, automation, status) {
+  const updated = (await wix.send(buildUpdateAutomationStatusRequest({ automation, status })) || {}).automation;
+  const id = (updated && updated.id) || automation.id;
+  const readBack = (await wix.send(buildGetAutomationRequest(id)) || {}).automation;
+  return { id, ok: Boolean(readBack && readBack.configuration && readBack.configuration.status === status) };
+}
+const pauseFindings = (formId, failed) => failed.map(row => ({ code: 'form-automations-not-paused', formId, automationId: row.automationId, error: row.error }));
+// VERIFIED LIVE 2026-10-27: Create Form adds the form's own "New submission received" automation
+// about 2 s AFTER the create returns, so a form created moments ago may not show it yet. Entries
+// never wait for it: `ownMissing` tells importFormEntries to query again after each sent entry for
+// up to OWN_AUTOMATION_WINDOW_MS. `ownAutomationWaitMs` stays 0 in imports.
+const OWN_AUTOMATION_WINDOW_MS = 10000;
+const ownFormAutomation = (automation, formId) => ((automation.configuration && automation.configuration.trigger && automation.configuration.trigger.filters) || [])
+  .some(f => f && f.fieldKey === 'formId' && String(f.filterExpression || '').includes(`"${formId}"`));
+// Best-effort and idempotent on resume: ONE bounded attempt per automation (query, update,
+// read-back), no retry or poll. The ledger row is written BEFORE each update, so a stop never
+// loses what to restore; when it cannot be written, that automation is left as it is. Returns
+// { paused, failed, ownMissing, findings }: a failed pause is a finding and the cutover item
+// `form-automations-not-paused`; the form's entries are still written right away.
+async function pauseInSession(session, wix, { now, ownAutomationWaitMs = 0, sleep = formsSleep }) {
+  const { formId } = session;
+  const form = ledgerForm(session.ledger, formId);
+  const paused = [], failed = [];
+  let found;
+  try {
+    found = await queryFormAutomations(wix, formId);
+    if (ownAutomationWaitMs > 0 && !found.some(a => ownFormAutomation(a, formId))) {
+      await pauseFor(wix, sleep)(ownAutomationWaitMs);
+      found = await queryFormAutomations(wix, formId);
+    }
+  } catch (error) {
+    rethrowRunStop(error);
+    const failedQuery = [{ automationId: null, name: null, error: giftCardErrorFields(error) }];
+    return { formId, paused, failed: failedQuery, ownMissing: false, findings: pauseFindings(formId, failedQuery) };
+  }
+  for (const automation of found) {
+    let row = form.automations.find(r => !r.restoredAt && (r.originalId === automation.id || r.currentId === automation.id));
+    if (row && row.pausedAt) { paused.push(row); continue; }
+    if (!row && automation.configuration.status !== 'ACTIVE') continue;
+    if (!row) {
+      row = { originalId: automation.id, currentId: automation.id, name: automation.name || null, statusBefore: automation.configuration.status, pausedAt: null, restoredAt: null };
+      form.automations.push(row);
+      if (!(await savePauseLedger(session))) {
+        form.automations.splice(form.automations.indexOf(row), 1);
+        failed.push({ automationId: automation.id, name: row.name, error: NOT_RECORDED });
+        continue;
+      }
+    }
+    try {
+      const result = await setAutomationStatus(wix, automation, 'INACTIVE');
+      row.currentId = result.id;
+      if (result.ok) { row.pausedAt = now(); paused.push(row); } else failed.push({ automationId: result.id, name: row.name, error: { message: 'read-back is not INACTIVE' } });
+    } catch (error) {
+      rethrowRunStop(error);
+      failed.push({ automationId: row.currentId, name: row.name, error: giftCardErrorFields(error) });
+    }
+    await savePauseLedger(session);
+  }
+  return { formId, paused, failed, ownMissing: !found.some(a => ownFormAutomation(a, formId)), findings: pauseFindings(formId, failed) };
+}
+async function pauseFormAutomations(wix, { projectDir, formId, now = () => new Date().toISOString(), ownAutomationWaitMs = 0, sleep = formsSleep } = {}) {
+  if (!projectDir || !formId) throw new Error('pauseFormAutomations: projectDir and formId are required.');
+  const session = await openPauseLedger(projectDir, formId);
+  const result = await pauseInSession(session, wix, { now, ownAutomationWaitMs, sleep });
+  return { ...result, findings: [...session.findings, ...result.findings] };
+}
+// Restores only what the ledger says this import paused, to its recorded status. Run it after the
+// form's entries, and on every stop and resume path. One bounded attempt per automation.
+// Returns { restored, notRestored, findings }: a failed restore is a finding and the cutover item
+// `form-automations-not-restored`.
+async function restoreAutomationsInSession(session, wix, { now }) {
+  const { formId } = session;
+  const form = session.ledger.forms.find(f => f.formId === formId);
+  const restored = [], notRestored = [];
+  for (const row of (form && form.automations) || []) {
+    if (row.restoredAt) continue;
+    try {
+      const automation = await currentAutomation(wix, row, formId);
+      if (!automation) { notRestored.push({ ...row, error: { message: 'automation not found' } }); continue; }
+      row.currentId = automation.id;
+      if (automation.configuration.status === row.statusBefore) { row.restoredAt = now(); restored.push(row); continue; }
+      const result = await setAutomationStatus(wix, automation, row.statusBefore);
+      row.currentId = result.id;
+      if (result.ok) { row.restoredAt = now(); restored.push(row); } else notRestored.push({ ...row, error: { message: `read-back is not ${row.statusBefore}` } });
+    } catch (error) {
+      rethrowRunStop(error);
+      notRestored.push({ ...row, error: giftCardErrorFields(error) });
+    } finally {
+      await savePauseLedger(session);
+    }
+  }
+  return { formId, restored, notRestored,
+    findings: notRestored.map(row => ({ code: 'form-automations-not-restored', formId, automationId: row.currentId, error: row.error })) };
+}
+async function restoreFormAutomations(wix, { projectDir, formId, now = () => new Date().toISOString() } = {}) {
+  if (!projectDir || !formId) throw new Error('restoreFormAutomations: projectDir and formId are required.');
+  const session = await openPauseLedger(projectDir, formId);
+  const result = await restoreAutomationsInSession(session, wix, { now });
+  return { ...result, findings: [...session.findings, ...result.findings] };
+}
+// The form's spam filter, handled like its automations. Under ADVANCED the async spam pass
+// removed a genuine historical entry, and nobody can submit the form while it is on no page, so
+// the import lowers it to NONE and puts it back afterwards. One bounded attempt (read, update,
+// read-back); a failure is a finding (`form-spam-filter-not-lowered` / `-not-restored`) and the
+// entries go ahead. The level before is in the pause ledger, written before the update; when it
+// cannot be written, the level is left as it is.
+const FORM_SPAM_LEVELS = ['NONE', 'BASIC', 'ADVANCED'];
+function _buildGetFormRequest(id) {
+  return { method: 'GET', url: `${WIXAPIS}/form-schema-service/v4/forms/${encodeURIComponent(id)}` };
+}
+// Update Form with a corrected schema at the form's current revision. The schema goes through the
+// same formsCreatePlan as Create Form (checked invariants, the hidden original-date field with its
+// deterministic id), so a form an earlier builder created with a broken field shape is repaired in
+// place instead of created a second time.
+function _buildUpdateFormSchemaRequest({ formId, revision, ...payload } = {}) {
+  if (!formId || revision == null) throw new Error('updateFormSchema: formId and the current revision are required.');
+  const plan = formsCreatePlan(payload);
+  return { method: 'PATCH', url: `${WIXAPIS}/form-schema-service/v4/forms/${encodeURIComponent(formId)}`,
+    body: { form: { ...plan.form, id: String(formId), revision: String(revision) } } };
+}
+// The INPUT field targets a form's live formFields carry. A form an earlier builder created can
+// hold its inputs only in the legacy fields[] projection; it then carries none here.
+const formInputTargets = form => new Set((form && form.formFields || []).filter(f => f && f.fieldType === 'INPUT' && f.inputOptions && f.inputOptions.target).map(f => f.inputOptions.target));
+// True when the live form lacks an input target the planned schema has (entries for it are refused).
+function formSchemaNeedsUpdate(liveForm, payload) {
+  const live = formInputTargets(liveForm);
+  return [...formInputTargets(formsCreatePlan(payload).form)].some(target => !live.has(target));
+}
+// LIVE-VERIFIED (2026-10-31): Update Form with the full schema body at the current revision repaired
+// a form created with inputs only in fields[] in place (same id; entries then landed).
+// Outcomes: unchanged (the live form already has every planned input target; nothing is sent, and
+// ownership is not checked) | updated | failed. Only a form this import created is updated: the live form must carry the hidden
+// original-date field id the plan derives (the identity findCreatedForm uses), so a merchant's own
+// form is never overwritten. The form is read first for its schema and current revision.
+async function updateFormSchema(wix, { formId, ...payload } = {}) {
+  if (!formId) throw new Error('updateFormSchema: formId is required.');
+  const plan = formsCreatePlan(payload);
+  const current = (await wix.send(buildGetFormRequest(formId)) || {}).form;
+  if (!current || current.revision == null) throw Object.assign(new Error('Get Form returned no form revision'), { outcomeKnown: true, requestSent: false });
+  // A healthy form is left as it is, whatever seeded its hidden field id; ownership gates only the write.
+  if (!formSchemaNeedsUpdate(current, payload)) return formsCreateResult('unchanged', current, plan);
+  const ids = [...(current.formFields || []), ...(current.fields || [])].map(f => f && f.id);
+  if (!ids.includes(plan.dateId)) return formsCreateResult('failed', current, plan, { reason: 'form-not-created-by-import' });
+  const form = (await wix.send(buildUpdateFormSchemaRequest({ formId, revision: current.revision, ...payload })) || {}).form;
+  if (!form || form.id !== String(formId)) throw Object.assign(new Error('Update Form returned no matching form'), { outcomeKnown: false });
+  return formsCreateResult('updated', form, plan);
+}
+// A partial Update Form: only `spamFilterProtectionLevel`, at the form's current revision
+// (formFields is not sent, so the fields are untouched).
+function _buildUpdateFormSpamFilterRequest({ formId, revision, level } = {}) {
+  if (!formId || revision == null) throw new Error('updateFormSpamFilter: formId and the current revision are required.');
+  if (!FORM_SPAM_LEVELS.includes(level)) throw new Error(`updateFormSpamFilter: level must be one of ${FORM_SPAM_LEVELS.join(', ')}.`);
+  return { method: 'PATCH', url: `${WIXAPIS}/form-schema-service/v4/forms/${encodeURIComponent(formId)}`,
+    body: { form: { id: String(formId), revision: String(revision), spamFilterProtectionLevel: level } } };
+}
+// Wix's documented default when the field is absent.
+const spamLevelOf = (form) => (form && form.spamFilterProtectionLevel) || 'ADVANCED';
+async function setFormSpamFilter(wix, formId, level) {
+  const form = (await wix.send(buildGetFormRequest(formId)) || {}).form;
+  if (!form) throw Object.assign(new Error('Get Form returned no form'), { outcomeKnown: true });
+  if (spamLevelOf(form) !== level) await wix.send(buildUpdateFormSpamFilterRequest({ formId, revision: form.revision, level }));
+  const readBack = (await wix.send(buildGetFormRequest(formId)) || {}).form;
+  return spamLevelOf(readBack) === level;
+}
+async function lowerSpamInSession(session, wix, { now }) {
+  const { formId } = session;
+  const form = ledgerForm(session.ledger, formId);
+  const fail = (error) => ({ formId, lowered: false, findings: [{ code: 'form-spam-filter-not-lowered', formId, error }] });
+  if (form.spamFilter && !form.spamFilter.restoredAt && form.spamFilter.loweredAt) return { formId, lowered: true, findings: [] };
+  try {
+    if (!form.spamFilter || form.spamFilter.restoredAt) {
+      const current = (await wix.send(buildGetFormRequest(formId)) || {}).form;
+      if (!current) return fail({ message: 'Get Form returned no form' });
+      const previous = form.spamFilter;
+      form.spamFilter = { levelBefore: spamLevelOf(current), loweredAt: null, restoredAt: null };
+      if (!(await savePauseLedger(session))) {
+        if (previous) form.spamFilter = previous; else delete form.spamFilter;
+        return fail(NOT_RECORDED);
+      }
+    }
+    const ok = await setFormSpamFilter(wix, formId, 'NONE');
+    if (ok) { form.spamFilter.loweredAt = now(); await savePauseLedger(session); }
+    return ok ? { formId, lowered: true, findings: [] } : fail({ message: 'read-back is not NONE' });
+  } catch (error) {
+    rethrowRunStop(error);
+    return fail(giftCardErrorFields(error));
+  }
+}
+async function lowerFormSpamFilter(wix, { projectDir, formId, now = () => new Date().toISOString() } = {}) {
+  if (!projectDir || !formId) throw new Error('lowerFormSpamFilter: projectDir and formId are required.');
+  const session = await openPauseLedger(projectDir, formId);
+  const result = await lowerSpamInSession(session, wix, { now });
+  return { ...result, findings: [...session.findings, ...result.findings] };
+}
+async function restoreSpamInSession(session, wix, { now }) {
+  const { formId } = session;
+  const form = session.ledger.forms.find(f => f.formId === formId);
+  const spam = form && form.spamFilter;
+  if (!spam || spam.restoredAt) return { formId, restored: true, findings: [] };
+  const fail = (error) => ({ formId, restored: false, levelBefore: spam.levelBefore, findings: [{ code: 'form-spam-filter-not-restored', formId, levelBefore: spam.levelBefore, error }] });
+  try {
+    if (!(await setFormSpamFilter(wix, formId, spam.levelBefore))) return fail({ message: `read-back is not ${spam.levelBefore}` });
+    spam.restoredAt = now();
+    await savePauseLedger(session);
+    return { formId, restored: true, findings: [] };
+  } catch (error) {
+    rethrowRunStop(error);
+    return fail(giftCardErrorFields(error));
+  }
+}
+async function restoreFormSpamFilter(wix, { projectDir, formId, now = () => new Date().toISOString() } = {}) {
+  if (!projectDir || !formId) throw new Error('restoreFormSpamFilter: projectDir and formId are required.');
+  const session = await openPauseLedger(projectDir, formId);
+  const result = await restoreSpamInSession(session, wix, { now });
+  return { ...result, findings: [...session.findings, ...result.findings] };
+}
+
+// What the session still has changed for its form: automations and the spam filter.
+function pendingInSession(session) {
+  const { formId } = session;
+  const form = session.ledger.forms.find(f => f.formId === formId);
+  return {
+    automations: ((form && form.automations) || []).filter(r => !r.restoredAt).map(r => ({ formId, currentId: r.currentId, originalId: r.originalId })),
+    spamFilter: form && form.spamFilter && !form.spamFilter.restoredAt ? { formId, levelBefore: form.spamFilter.levelBefore } : null,
+  };
+}
+// Restores both from the session's rows (this run's, plus an earlier run's read at the start),
+// best-effort: only a run stop escapes.
+async function restoreFormChanges(session, wix, { now }) {
+  let automations;
+  try { automations = await restoreAutomationsInSession(session, wix, { now }); } catch (error) {
+    rethrowRunStop(error);
+    const notRestored = pendingInSession(session).automations.map(row => ({ ...row, error: giftCardErrorFields(error) }));
+    automations = { notRestored, findings: notRestored.map(row => ({ code: 'form-automations-not-restored', formId: session.formId, automationId: row.currentId, error: row.error })) };
+  }
+  let spam;
+  try { spam = await restoreSpamInSession(session, wix, { now }); } catch (error) {
+    rethrowRunStop(error);
+    const pending = pendingInSession(session).spamFilter;
+    spam = pending ? { restored: false, levelBefore: pending.levelBefore, findings: [{ code: 'form-spam-filter-not-restored', formId: session.formId, levelBefore: pending.levelBefore, error: giftCardErrorFields(error) }] } : { restored: true, findings: [] };
+  }
+  return {
+    findings: [...automations.findings, ...spam.findings],
+    automationsNotRestored: automations.notRestored.map(row => ({ formId: session.formId, currentId: row.currentId, originalId: row.originalId, error: row.error })),
+    spamFilterNotRestored: spam.restored ? [] : [{ formId: session.formId, levelBefore: spam.levelBefore }],
+  };
+}
+
+const FORM_READ_POOL = 4;
+// One form's entries, in four phases, each best-effort and none ever delaying an entry:
+//   1. pause the form's automations and lower its spam filter (one attempt each);
+//   2. SEND every entry in order (while the form's own automation is still missing, for up to
+//      10 s after the pause, query again after each send: Wix adds it ~2 s after Create Form);
+//   3. READ BACK every sent entry with a pool of FORM_READ_POOL, each on its own record client,
+//      sleeping only while an entry is younger than the poll interval;
+//   4. restore the automations and the spam filter, also after a run stop.
+// `entries` are [{ wix, payload }], each `wix` the entry's own record client (bindRecordClient).
+// It ALWAYS returns its results; only a run stop (signal, token expiry) rethrows, after the restore
+// attempt. An entry the client refuses before sending is `not-sent`. `findings` go to the run
+// report; automationsNotPaused / automationsNotRestored / spamFilterNotRestored feed the cutover
+// items. The ledger keeps whatever is still changed for the resumed run to restore.
+//
+// Resume with no entries left: pass `wix`, a record client bound (under the entries task's grant)
+// to any one of this form's entry keys, and the earlier run's changes are restored. Without it they
+// are returned as not restored, so their cutover items are never lost.
+// `pauseLedgerUnreadable` feeds the cutover item of that name: with no readable ledger, an
+// automation an earlier stopped run left off cannot be told apart from one the owner turned off.
+async function importFormEntries(options = {}) {
+  const result = await importFormEntriesOnce(options);
+  const unreadable = result.findings.some(f => f.code === 'form-pause-ledger-unreadable');
+  return { ...result, pauseLedgerUnreadable: unreadable ? [{ formId: result.formId }] : [] };
+}
+async function importFormEntriesOnce({ projectDir, formId, entries = [], wix = null, writeOptions = {}, now = () => new Date().toISOString() } = {}) {
+  const session = await openPauseLedger(projectDir, formId);
+  const none = { formId, results: [], findings: [], automationsNotPaused: [], automationsNotRestored: [], spamFilterNotRestored: [] };
+  if (!entries.length) {
+    const pending = pendingInSession(session);
+    if (!pending.automations.length && !pending.spamFilter) return { ...none, findings: [...session.findings] };
+    if (wix) { const restore = await restoreFormChanges(session, wix, { now }); return { ...none, ...restore, findings: [...session.findings, ...restore.findings] }; }
+    return { ...none, findings: [...session.findings], automationsNotRestored: pending.automations, spamFilterNotRestored: pending.spamFilter ? [pending.spamFilter] : [] };
+  }
+  const clock = writeOptions.clock || Date.now;
+  let stopped = null;
+  const guard = async (step, fallback) => { if (stopped) return fallback; try { return await step(); } catch (error) { rethrowRunStop(error); return fallback; } };
+  let pause = { paused: [], failed: [], ownMissing: false, findings: [] }, spam = { findings: [] };
+  const lateFindings = [], sends = [];
+  try {
+    pause = await guard(() => pauseInSession(session, entries[0].wix, { now }), { paused: [], failed: [{ automationId: null, error: { message: 'pause failed' } }], ownMissing: false, findings: [] });
+    const pausedAt = clock();
+    spam = await guard(() => lowerSpamInSession(session, entries[0].wix, { now }), { findings: [{ code: 'form-spam-filter-not-lowered', formId, error: { message: 'lower failed' } }] });
+
+    for (const entry of entries) {
+      try { sends.push(await sendFormSubmission(entry.wix, entry.payload, { clock })); } catch (error) {
+        rethrowRunStop(error);
+        sends.push({ outcome: 'not-sent', formId, error: giftCardErrorFields(error) });
+      }
+      // The form's own automation was not there yet: query again now, at no extra wait. The pause
+      // is idempotent, so what was already paused is kept.
+      if (pause.ownMissing && clock() - pausedAt < OWN_AUTOMATION_WINDOW_MS) {
+        const again = await guard(() => pauseInSession(session, entry.wix, { now }), null);
+        if (again) {
+          const late = again.paused.filter(row => !pause.paused.some(p => p.originalId === row.originalId));
+          // Entries already sent may have run it once: a run-report finding, not a cutover item.
+          lateFindings.push(...late.map(row => ({ code: 'form-automation-paused-after-entries', formId, automationId: row.currentId, entriesBefore: sends.length })));
+          pause = { ...again, failed: [...pause.failed.filter(f => !again.paused.some(p => p.currentId === f.automationId || p.originalId === f.automationId)), ...again.failed.filter(f => !pause.failed.some(p => p.automationId === f.automationId))] };
+        }
+      }
+    }
+  } catch (error) {
+    stopped = error;
+  }
+
+  // Read-back pool: entries keep their order in `results`.
+  const results = sends.slice();
+  if (!stopped) {
+    let next = 0;
+    const worker = async () => {
+      while (!stopped && next < sends.length) {
+        const index = next++;
+        if (sends[index].outcome !== 'sent') continue;
+        try { results[index] = await verifyFormSubmission(entries[index].wix, sends[index], { ...writeOptions, clock }); } catch (error) {
+          if (require('../../../lib/wix-auth').isRunInterruption(error)) { stopped = stopped || error; return; }
+          results[index] = { outcome: 'pending', formId, id: sends[index].id, status: sends[index].status, readError: giftCardErrorFields(error) };
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(FORM_READ_POOL, sends.length) }, worker));
+  }
+  for (const [index, result] of results.entries()) if (result && result.outcome === 'sent') { const { sent, sentAt, ...rest } = result; results[index] = { ...rest, outcome: 'pending' }; }
+  const last = entries[Math.max(0, sends.length - 1)].wix;
+  // An automation that appeared after the pause, or that the pause never saw, ran for these entries:
+  // record it (one query, after the entries), never re-send anything.
+  let late = [];
+  if (!stopped) {
+    const known = new Set(ledgerForm(session.ledger, formId).automations.flatMap(r => [r.originalId, r.currentId]));
+    late = await guard(async () => (await queryFormAutomations(last, formId)).filter(a => a.configuration.status === 'ACTIVE' && !known.has(a.id))
+      .map(a => ({ automationId: a.id, name: a.name || null, error: { message: 'active during the import; not paused' } })), []);
+  }
+  let restore;
+  try { restore = await restoreFormChanges(session, last, { now }); } catch (error) {
+    throw stopped || error;
+  }
+  if (stopped) throw stopped;
+  const notPaused = [...pause.failed, ...late.filter(row => !pause.failed.some(f => f.automationId === row.automationId))];
+  return {
+    formId, results: results.map(({ sent, sentAt, ...rest }) => rest),
+    findings: [...session.findings, ...pauseFindings(formId, notPaused), ...lateFindings, ...spam.findings, ...restore.findings],
+    automationsNotPaused: notPaused.map(row => ({ formId, automationId: row.automationId, error: row.error })),
+    automationsNotRestored: restore.automationsNotRestored, spamFilterNotRestored: restore.spamFilterNotRestored,
+  };
+}
+
+// Every paused automation not yet restored, across forms: what a completion report turns into
+// `form-automations-not-restored`.
+async function pendingFormAutomationRestores(projectDir) {
+  const ledger = await readPauseLedger(projectDir);
+  return ledger.forms.flatMap(f => f.automations.filter(r => !r.restoredAt).map(r => ({ formId: f.formId, ...r })));
+}
+// Every lowered spam filter not yet restored: `form-spam-filter-not-restored`.
+async function pendingFormSpamFilterRestores(projectDir) {
+  const ledger = await readPauseLedger(projectDir);
+  return ledger.forms.filter(f => f.spamFilter && !f.spamFilter.restoredAt).map(f => ({ formId: f.formId, levelBefore: f.spamFilter.levelBefore }));
+}
+
+// Reviewed helpers that write an entity only through its own writer or marked builders (a
+// reconcile-then-create, or a batch the codegen guide prescribes). A task may name one as the
+// entity's write operation; the writer-gate test checks each one calls only that entity's writes.
+const WRITE_HELPERS_BY_ENTITY = Object.freeze({
+  // addDeliveryRegion stays accepted: importers generated on earlier toolkits name it.
+  'ecom/delivery-profile': Object.freeze(['addDeliveryRegion', 'ensureDeliveryRegion', 'updateDeliveryRegion']),
+  'stores/coupon': Object.freeze(['bulkCreateCoupons', 'ensureCoupon']),
+  'members/member': Object.freeze(['updateMemberContact']),
+});
+
+// Every function in this file that produces a marked write request, by the entity its mark names:
+// what an import client can accept a write for. A task's write operation counts as a writer for an
+// entity only through this map, the entity's writerId, or its operation contracts; a native entity
+// with none of them uses guarded raw requests. The contract test re-derives this map from the
+// markRequest calls in this file, so a new or moved builder must be listed here.
+const WRITE_BUILDERS_BY_ENTITY = Object.freeze({
+  'blog/category': Object.freeze(['buildCreateCategoryRequest']),
+  'blog/post': Object.freeze(['buildBulkCreateDraftPostsRequest', 'buildCreateBuildDraftPostRequest', 'buildCreateDraftPostRequest', 'buildDeleteDraftPostRequest', 'buildDeletePostRequest', 'buildUpdateBuildDraftPostRequest', 'publishDraftPost']),
+  'blog/tag': Object.freeze(['buildCreateTagRequest']),
+  'bookings/booking': Object.freeze(['buildCancelBookingRequest', 'buildConfirmBookingRequest', 'buildCreateBookingRequest']),
+  'bookings/booking-form': Object.freeze(['buildCloneBookingFormRequest']),
+  'bookings/calendar-event': Object.freeze(['buildCreateCalendarEventRequest', 'buildDeleteCalendarEventRequest']),
+  'bookings/service': Object.freeze(['buildCreateBookingsServiceRequest', 'buildDeleteBookingsServiceRequest']),
+  'bookings/service-add-on': Object.freeze(['buildCreateBookingsAddOnGroupRequest', 'buildCreateBookingsAddOnRequest', 'buildDeleteBookingsAddOnGroupRequest', 'buildDeleteBookingsAddOnRequest', 'buildSetBookingsAddOnGroupAddOnsRequest']),
+  'cms/data-item': Object.freeze(['buildBulkSaveDataItemsRequest', 'buildInsertItemRequest', 'buildUpdateDataItemRequest']),
+  'crm/contact': Object.freeze(['buildBulkUpsertContactsRequest', 'buildCreateContactRequest', 'buildUpdateBusinessContactRequest', 'buildUpdateContactRequest']),
+  'crm/contact-label': Object.freeze(['buildUpdateContactTagsRequest']),
+  'crm/email-subscription': Object.freeze(['buildBulkUpsertEmailSubscriptionsRequest']),
+  'crm/label': Object.freeze(['buildFindOrCreateContactLabelRequest']),
+  'events/category': Object.freeze(['buildCreateEventCategoryRequest']),
+  'events/event': Object.freeze(['buildAssignEventToCategoriesRequest', 'buildCreateEventRequest']),
+  'events/rsvp': Object.freeze(['buildCreateRsvpRequest']),
+  'events/ticket-definition': Object.freeze(['buildCreateTicketDefinitionRequest']),
+  'ecom/delivery-profile': Object.freeze(['buildAddDeliveryCarrierRequest', 'buildAddDeliveryRegionRequest', 'buildAddPickupLocationDeliveryRegionRequest', 'buildCreateDeliveryProfileRequest', 'buildRemoveDeliveryCarrierRequest', 'buildRemoveDeliveryRegionRequest', 'buildRemovePickupLocationDeliveryRegionRequest', 'buildUpdateDeliveryRegionRequest']),
+  'ecom/discount-rule': Object.freeze(['buildCreateDiscountRuleRequest', 'buildDeleteDiscountRuleRequest']),
+  'ecom/order': Object.freeze(['buildAddOrderPaymentRequest', 'buildCreateOrderRequest', 'buildImportOrderRequest', 'buildRefundOrderPaymentRequest', 'buildUpdateOrderExtendedFieldsRequest']),
+  'ecom/order-merchant-note': Object.freeze(['buildAddOrderMerchantNotesRequest']),
+  'ecom/pickup-location': Object.freeze(['buildCreatePickupLocationRequest', 'buildDeletePickupLocationRequest']),
+  'ecom/shipping-option': Object.freeze(['buildCreateShippingOptionRequest', 'buildDeleteShippingOptionRequest', 'buildUpdateShippingOptionEstimateRequest']),
+  'gift-cards/gift-card': Object.freeze(['buildCreateGiftCardRequest']),
+  'gift-cards/gift-card-product': Object.freeze(['buildCreateGiftCardProductRequest', 'buildUpdateGiftCardProductRequest']),
+  'forms/form': Object.freeze(['buildCreateFormRequest', 'buildUpdateFormSchemaRequest']),
+  'forms/form-submission': Object.freeze(['buildCreateFormSubmissionRequest', 'buildUpdateAutomationStatusRequest', 'buildUpdateFormSpamFilterRequest']),
+  'media/media-file': Object.freeze(['buildGenerateUploadUrlRequest', 'buildImportMediaRequest', 'buildImportPrivateDocumentRequest']),
+  'members/member': Object.freeze(['buildCreateMemberRequest', 'buildUpdateMemberContactRequest', 'ensureMember']),
+  'members/member-about': Object.freeze(['buildCreateMemberAboutRequest', 'buildUpdateMemberAboutRequest']),
+  'pricing-plans/plan': Object.freeze(['buildArchivePlanRequest', 'buildCreatePlanRequest']),
+  'seo/item-seo-tags': Object.freeze(['buildBulkSetItemSeoTagsRequest', 'setItemSeoTags']),
+  'seo/seo-pattern': Object.freeze(['buildCreateSeoPatternRequest', 'buildSetSeoPatternRequest', 'ensureSeoPattern']),
+  'seo/site-seo-tags': Object.freeze(['buildSetSiteSeoTagsRequest', 'setSiteSeoTags']),
+  'pricing-plans/plan-order': Object.freeze(['buildCreateOfflinePlanOrderRequest', 'buildPausePlanOrderRequest']),
+  'site/locale': Object.freeze(['buildUpdateBusinessRegionRequest', 'buildUpdateSiteLanguageRequest', 'buildUpdateSiteLocaleRequest']),
+  'stores/back-in-stock-request': Object.freeze(['buildCreateBackInStockRequest', 'buildMarkBackInStockNotificationSentRequest']),
+  'stores/brand': Object.freeze(['buildCreateStoresBrandRequest']),
+  'stores/category': Object.freeze(['buildCreateStoresCategoryRequest']),
+  'stores/category-membership': Object.freeze(['buildBulkAddItemToCategoriesRequest']),
+  'stores/coupon': Object.freeze(['buildBulkCreateCouponsRequest', 'buildCreateCouponRequest', 'buildDeleteCouponRequest', 'buildUpdateCouponRequest']),
+  'stores/inventory-item': Object.freeze(['buildBulkInventoryItemsRequest', 'buildCreateInventoryItemRequest']),
+  'stores/product': Object.freeze(['buildBulkCreateStoresProductsRequest', 'buildCreateStoresProductRequest', 'buildDeleteStoresProductRequest', 'buildPatchStoresProductMediaRequest', 'buildPatchStoresProductRequest', 'buildPatchStoresProductTagsRequest', 'bulkAddItemToCategories']),
+  'stores/product-customization': Object.freeze(['buildCreateStoresCustomizationRequest']),
+  'stores/product-tag': Object.freeze(['buildCreateStoresProductTagRequest']),
+  'stores/promotion': Object.freeze(['buildCreateStoresPromotionRequest']),
+  'stores/review': Object.freeze(['buildBulkCreateReviewsRequest', 'buildModerateReviewRequest', 'buildSetStoresReviewReplyRequest']),
+  'tax/manual-tax-mapping': Object.freeze(['buildCreateManualTaxMappingRequest', 'buildDeleteManualTaxMappingRequest']),
+  'tax/tax-group': Object.freeze(['buildCreateTaxGroupRequest', 'buildDeleteTaxGroupRequest']),
+  'tax/tax-region': Object.freeze(['buildCreateTaxRegionRequest', 'buildDeleteTaxRegionRequest']),
+  'tax/tax-settings': Object.freeze(['buildUpsertTaxSettingsRequest']),
+});
+
 // Closed registry of request builders. Raw REST requests carry no authority.
 const buildConvertToRicosRequest = (...args) => markRequest(_buildConvertToRicosRequest(...args), {"read": true});
 const buildImportMediaRequest = (...args) => markRequest(_buildImportMediaRequest(...args), {"auxiliary": true, "entity": "media/media-file"});
@@ -5503,6 +8202,12 @@ const buildImportPrivateDocumentRequest = (...args) => markRequest(_buildImportP
 const buildGenerateUploadUrlRequest = (...args) => markRequest(_buildGenerateUploadUrlRequest(...args), {"auxiliary": true, "entity": "media/media-file"});
 const buildGenerateFileDownloadUrlRequest = (...args) => markRequest(_buildGenerateFileDownloadUrlRequest(...args), {"read": true});
 const buildUpdateOrderExtendedFieldsRequest = (...args) => markRequest(_buildUpdateOrderExtendedFieldsRequest(...args), {"auxiliary": true, "entity": "ecom/order"});
+const buildAddOrderMerchantNotesRequest = (...args) => markRequest(_buildAddOrderMerchantNotesRequest(...args), {"entity": "ecom/order-merchant-note"});
+// The registry builders never take preservedTags: only the executors, which read the target first, supply them.
+const buildBulkSetItemSeoTagsRequest = (itemType, entries, { preservedTags, ...options } = {}) => markRequest(_buildBulkSetItemSeoTagsRequest(itemType, entries, options), {"entity": "seo/item-seo-tags"});
+const buildCreateSeoPatternRequest = ({ preservedTags, ...args } = {}) => markRequest(_buildCreateSeoPatternRequest(args), {"entity": "seo/seo-pattern"});
+const buildSetSeoPatternRequest = ({ preservedTags, ...args } = {}) => markRequest(_buildSetSeoPatternRequest(args), {"entity": "seo/seo-pattern"});
+const buildSetSiteSeoTagsRequest = ({ preservedTags, ...args } = {}) => markRequest(_buildSetSiteSeoTagsRequest(args), {"entity": "seo/site-seo-tags", "siteTags": true});
 const buildGetOrderRequest = (...args) => markRequest(_buildGetOrderRequest(...args), {"read": true});
 const buildCreateCategoryRequest = (...args) => markRequest(_buildCreateCategoryRequest(...args), {"entity": "blog/category"});
 const buildCreateTagRequest = (...args) => markRequest(_buildCreateTagRequest(...args), {"entity": "blog/tag"});
@@ -5512,6 +8217,7 @@ const buildDeletePostRequest = (...args) => markRequest(_buildDeletePostRequest(
 const buildBulkCreateDraftPostsRequest = (...args) => markRequest(_buildBulkCreateDraftPostsRequest(...args), {"entity": "blog/post"});
 const buildInsertItemRequest = (...args) => markRequest(_buildInsertItemRequest(...args), {"entity": "cms/data-item"});
 const buildBulkSaveDataItemsRequest = (...args) => markRequest(_buildBulkSaveDataItemsRequest(...args), {"entity": "cms/data-item"});
+const buildUpdateDataItemRequest = (...args) => markRequest(_buildUpdateDataItemRequest(...args), {"entity": "cms/data-item"});
 const buildCreateStoresProductRequest = (...args) => markRequest(_buildCreateStoresProductRequest(...args), {"entity": "stores/product"});
 const buildBulkCreateStoresProductsRequest = (...args) => markRequest(_buildBulkCreateStoresProductsRequest(...args), {"entity": "stores/product"});
 const buildQueryStoresProductsRequest = (...args) => markRequest(_buildQueryStoresProductsRequest(...args), {"read": true});
@@ -5522,6 +8228,9 @@ const buildPatchStoresProductTagsRequest = (...args) => markRequest(_buildPatchS
 const buildGetStoresProductRequest = (...args) => markRequest(_buildGetStoresProductRequest(...args), {"read": true});
 const buildGetStoresProductBySlugRequest = (...args) => markRequest(_buildGetStoresProductBySlugRequest(...args), {"read": true});
 const buildDeleteStoresProductRequest = (...args) => markRequest(_buildDeleteStoresProductRequest(...args), {"entity": "stores/product"});
+const buildDeleteInstallSeededProductRequest = (...args) => markRequest(_buildDeleteInstallSeededProductRequest(...args), {"entity": "internal/buildDeleteInstallSeededProductRequest", "setupOperation": "clear-install-seeded-catalog"});
+const buildDeleteInstallSeededCategoryRequest = (...args) => markRequest(_buildDeleteInstallSeededCategoryRequest(...args), {"entity": "internal/buildDeleteInstallSeededCategoryRequest", "setupOperation": "clear-install-seeded-catalog"});
+const buildGetAllProductsCategoryRequest = (...args) => markRequest(_buildGetAllProductsCategoryRequest(...args), {"read": true});
 const buildPatchStoresProductRequest = (...args) => markRequest(_buildPatchStoresProductRequest(...args), {entity: "stores/product", partial: true, productId: args[0].productId});
 const buildQueryStoresCategoriesRequest = (...args) => markRequest(_buildQueryStoresCategoriesRequest(...args), {"read": true});
 const buildCreateStoresCategoryRequest = (...args) => markRequest(_buildCreateStoresCategoryRequest(...args), {"entity": "stores/category"});
@@ -5531,7 +8240,19 @@ const buildBulkUpsertContactsRequest = (...args) => markRequest(_buildBulkUpsert
 const buildQueryContactsRequest = (...args) => markRequest(_buildQueryContactsRequest(...args), {"read": true});
 const buildGetContactRequest = (...args) => markRequest(_buildGetContactRequest(...args), {"read": true});
 const buildUpdateContactRequest = (...args) => markRequest(_buildUpdateContactRequest(...args), {"entity": "crm/contact"});
+// The member's own contact (Members v1 Create Member drops some contact fields, e.g. an address's
+// first line), updated inside the member task: the Contacts V5 update, marked as an auxiliary
+// members/member write. Transport admits it only for the contact of this record's own member.
+const buildUpdateMemberContactRequest = (...args) => markRequest(_buildUpdateContactRequest(...args), { entity: 'members/member', auxiliary: true, memberContact: true });
 const buildBulkUpsertEmailSubscriptionsRequest = (...args) => markRequest(_buildBulkUpsertEmailSubscriptionsRequest(...args), {"entity": "crm/email-subscription"});
+const buildFindOrCreateContactLabelRequest = (...args) => markRequest(_buildFindOrCreateContactLabelRequest(...args), {"entity": "crm/label"});
+const buildGetContactLabelRequest = (...args) => markRequest(_buildGetContactLabelRequest(...args), {"read": true});
+const buildUpdateContactTagsRequest = (...args) => markRequest(_buildUpdateContactTagsRequest(...args), {"entity": "crm/contact-label"});
+const buildGetContactTagsRequest = (...args) => markRequest(_buildGetContactTagsRequest(...args), {"read": true});
+const buildCreateMemberAboutRequest = (...args) => markRequest(_buildCreateMemberAboutRequest(...args), {"entity": "members/member-about"});
+const buildUpdateMemberAboutRequest = (...args) => markRequest(_buildUpdateMemberAboutRequest(...args), {"entity": "members/member-about"});
+const buildQueryMemberAboutsRequest = (...args) => markRequest(_buildQueryMemberAboutsRequest(...args), {"read": true});
+const buildGetMemberAboutRequest = (...args) => markRequest(_buildGetMemberAboutRequest(...args), {"read": true});
 const buildCreateCouponRequest = (...args) => markRequest(_buildCreateCouponRequest(...args), {"entity": "stores/coupon"});
 const buildBulkCreateCouponsRequest = (...args) => markRequest(_buildBulkCreateCouponsRequest(...args), {"entity": "stores/coupon"});
 const buildUpdateCouponRequest = (...args) => markRequest(_buildUpdateCouponRequest(...args), {"entity": "stores/coupon"});
@@ -5558,6 +8279,7 @@ const buildGetDeliveryProfileRequest = (...args) => markRequest(_buildGetDeliver
 const buildQueryDeliveryProfilesRequest = (...args) => markRequest(_buildQueryDeliveryProfilesRequest(...args), {"read": true});
 const buildAddDeliveryRegionRequest = (...args) => markRequest(_buildAddDeliveryRegionRequest(...args), {"entity": "ecom/delivery-profile"});
 const buildRemoveDeliveryRegionRequest = (...args) => markRequest(_buildRemoveDeliveryRegionRequest(...args), {"entity": "ecom/delivery-profile"});
+const buildUpdateDeliveryRegionRequest = (...args) => markRequest(_buildUpdateDeliveryRegionRequest(...args), {"entity": "ecom/delivery-profile"});
 const buildAddDeliveryCarrierRequest = (...args) => markRequest(_buildAddDeliveryCarrierRequest(...args), {"entity": "ecom/delivery-profile"});
 const buildRemoveDeliveryCarrierRequest = (...args) => markRequest(_buildRemoveDeliveryCarrierRequest(...args), {"entity": "ecom/delivery-profile"});
 const buildListInstalledDeliveryCarriersRequest = (...args) => markRequest(_buildListInstalledDeliveryCarriersRequest(...args), {"read": true});
@@ -5565,8 +8287,12 @@ const buildCreateShippingOptionRequest = (...args) => markRequest(_buildCreateSh
 const buildQueryShippingOptionsRequest = (...args) => markRequest(_buildQueryShippingOptionsRequest(...args), {"read": true});
 const buildGetShippingOptionRequest = (...args) => markRequest(_buildGetShippingOptionRequest(...args), {"read": true});
 const buildUpdateShippingOptionEstimateRequest = (...args) => markRequest(_buildUpdateShippingOptionEstimateRequest(...args), {"entity": "ecom/shipping-option"});
+const buildDeleteShippingOptionRequest = (...args) => markRequest(_buildDeleteShippingOptionRequest(...args), {"entity": "ecom/shipping-option"});
 const buildUpdateBusinessContactRequest = (...args) => markRequest(_buildUpdateBusinessContactRequest(...args), {"entity": "crm/contact"});
 const buildGetSitePropertiesRequest = (...args) => markRequest(_buildGetSitePropertiesRequest(...args), {"read": true});
+const buildUpdateBusinessRegionRequest = (...args) => markRequest(_buildUpdateBusinessRegionRequest(...args), {"entity": "site/locale"});
+const buildUpdateSiteLanguageRequest = (...args) => markRequest(_buildUpdateSiteLanguageRequest(...args), {"entity": "site/locale"});
+const buildUpdateSiteLocaleRequest = (...args) => markRequest(_buildUpdateSiteLocaleRequest(...args), {"entity": "site/locale"});
 const buildCreatePickupLocationRequest = (...args) => markRequest(_buildCreatePickupLocationRequest(...args), {"entity": "ecom/pickup-location"});
 const buildGetPickupLocationRequest = (...args) => markRequest(_buildGetPickupLocationRequest(...args), {"read": true});
 const buildQueryPickupLocationsRequest = (...args) => markRequest(_buildQueryPickupLocationsRequest(...args), {"read": true});
@@ -5586,6 +8312,10 @@ const buildCreatePlanRequest = (...args) => markRequest(_buildCreatePlanRequest(
 const buildQueryPlansByNameRequest = (...args) => markRequest(_buildQueryPlansByNameRequest(...args), {"read": true});
 const buildArchivePlanRequest = (...args) => markRequest(_buildArchivePlanRequest(...args), {"entity": "pricing-plans/plan"});
 const buildGetPlanRequest = (...args) => markRequest(_buildGetPlanRequest(...args), {"read": true});
+const buildCreateOfflinePlanOrderRequest = (...args) => markRequest(_buildCreateOfflinePlanOrderRequest(...args), {"entity": "pricing-plans/plan-order"});
+const buildPausePlanOrderRequest = (orderId) => markRequest(_buildPausePlanOrderRequest(orderId), {"auxiliary": true, "entity": "pricing-plans/plan-order", "planOrderId": String(orderId)});
+const buildListPlanOrdersRequest = (...args) => markRequest(_buildListPlanOrdersRequest(...args), {"read": true});
+const buildGetPlanOrderRequest = (...args) => markRequest(_buildGetPlanOrderRequest(...args), {"read": true});
 const buildCreateMemberRequest = (...args) => markRequest(_buildCreateMemberRequest(...args), {"entity": "members/member"});
 const buildGetMemberRequest = (...args) => markRequest(_buildGetMemberRequest(...args), {"read": true});
 const buildQueryMembersByLoginEmailRequest = (...args) => markRequest(_buildQueryMembersByLoginEmailRequest(...args), {"read": true});
@@ -5600,20 +8330,80 @@ const buildQueryBookingsResourcesRequest = (...args) => markRequest(_buildQueryB
 const buildCreateBookingsServiceRequest = (...args) => markRequest(_buildCreateBookingsServiceRequest(...args), {"entity": "bookings/service"});
 const buildQueryBookingsServicesRequest = (...args) => markRequest(_buildQueryBookingsServicesRequest(...args), {"read": true});
 const buildDeleteBookingsServiceRequest = (...args) => markRequest(_buildDeleteBookingsServiceRequest(...args), {"entity": "bookings/service"});
+const buildCreateEventCategoryRequest = (...args) => markRequest(_buildCreateEventCategoryRequest(...args), {"entity": "events/category"});
+const buildQueryEventCategoriesRequest = (...args) => markRequest(_buildQueryEventCategoriesRequest(...args), {"read": true});
+const buildCreateEventRequest = (...args) => markRequest(_buildCreateEventRequest(...args), {"entity": "events/event"});
+const buildGetEventRequest = (...args) => markRequest(_buildGetEventRequest(...args), {"read": true});
+const buildQueryEventsRequest = (...args) => markRequest(_buildQueryEventsRequest(...args), {"read": true});
+const buildAssignEventToCategoriesRequest = (...args) => markRequest(_buildAssignEventToCategoriesRequest(...args), {"entity": "events/event", "auxiliary": true, "eventCategoryMembership": true});
+const buildListEventCategoriesRequest = (...args) => markRequest(_buildListEventCategoriesRequest(...args), {"read": true});
+const buildCreateTicketDefinitionRequest = (...args) => markRequest(_buildCreateTicketDefinitionRequest(...args), {"entity": "events/ticket-definition"});
+const buildGetTicketDefinitionRequest = (...args) => markRequest(_buildGetTicketDefinitionRequest(...args), {"read": true});
+const buildQueryTicketDefinitionsRequest = (...args) => markRequest(_buildQueryTicketDefinitionsRequest(...args), {"read": true});
+const buildCreateRsvpRequest = (...args) => markRequest(_buildCreateRsvpRequest(...args), {"entity": "events/rsvp"});
+const buildGetRsvpRequest = (...args) => markRequest(_buildGetRsvpRequest(...args), {"read": true});
+const buildQueryRsvpsRequest = (...args) => markRequest(_buildQueryRsvpsRequest(...args), {"read": true});
 const buildCreateCalendarEventRequest = (...args) => markRequest(_buildCreateCalendarEventRequest(...args), {"entity": "bookings/calendar-event"});
 const buildDeleteCalendarEventRequest = (...args) => markRequest(_buildDeleteCalendarEventRequest(...args), {"entity": "bookings/calendar-event"});
+const buildCreateGiftCardRequest = (...args) => markRequest(_buildCreateGiftCardRequest(...args), {"entity": "gift-cards/gift-card"});
+const buildQueryGiftCardsByCodeRequest = (...args) => markRequest(_buildQueryGiftCardsByCodeRequest(...args), {"read": true});
+const buildCreateGiftCardProductRequest = (...args) => markRequest(_buildCreateGiftCardProductRequest(...args), {"entity": "gift-cards/gift-card-product"});
+const buildUpdateGiftCardProductRequest = (...args) => markRequest(_buildUpdateGiftCardProductRequest(...args), {"entity": "gift-cards/gift-card-product"});
+const buildQueryGiftCardProductsRequest = (...args) => markRequest(_buildQueryGiftCardProductsRequest(...args), {"read": true});
+const buildGetGiftCardProductRequest = (...args) => markRequest(_buildGetGiftCardProductRequest(...args), {"read": true});
+const buildCreateBookingsAddOnRequest = (...args) => markRequest(_buildCreateBookingsAddOnRequest(...args), {"entity": "bookings/service-add-on", "partial": true});
+const buildGetBookingsAddOnRequest = (...args) => markRequest(_buildGetBookingsAddOnRequest(...args), {"read": true});
+const buildQueryBookingsAddOnsRequest = (...args) => markRequest(_buildQueryBookingsAddOnsRequest(...args), {"read": true});
+const buildDeleteBookingsAddOnRequest = (...args) => markRequest(_buildDeleteBookingsAddOnRequest(...args), {"entity": "bookings/service-add-on"});
+const buildCreateBookingsAddOnGroupRequest = (...args) => markRequest(_buildCreateBookingsAddOnGroupRequest(...args), {"entity": "bookings/service-add-on", "auxiliary": true, "addOnGroup": true});
+const buildSetBookingsAddOnGroupAddOnsRequest = (...args) => markRequest(_buildSetBookingsAddOnGroupAddOnsRequest(...args), {"entity": "bookings/service-add-on", "auxiliary": true, "addOnGroup": true});
+const buildListBookingsAddOnGroupsRequest = (...args) => markRequest(_buildListBookingsAddOnGroupsRequest(...args), {"read": true});
+const buildDeleteBookingsAddOnGroupRequest = (...args) => markRequest(_buildDeleteBookingsAddOnGroupRequest(...args), {"entity": "bookings/service-add-on"});
+const buildCreateBookingRequest = (...args) => markRequest(_buildCreateBookingRequest(...args), {"entity": "bookings/booking"});
+const buildConfirmBookingRequest = (...args) => markRequest(_buildConfirmBookingRequest(...args), {"entity": "bookings/booking", "auxiliary": true, "bookingFollowUp": true});
+const buildCancelBookingRequest = (...args) => markRequest(_buildCancelBookingRequest(...args), {"entity": "bookings/booking", "auxiliary": true, "bookingFollowUp": true});
+const buildQueryBookingsRequest = (...args) => markRequest(_buildQueryBookingsRequest(...args), {"read": true});
+const buildCreateFormRequest = (...args) => markRequest(_buildCreateFormRequest(...args), {"entity": "forms/form"});
+const buildQueryFormsRequest = (...args) => markRequest(_buildQueryFormsRequest(...args), {"read": true});
+const buildCreateFormSubmissionRequest = (...args) => markRequest(_buildCreateFormSubmissionRequest(...args), {"entity": "forms/form-submission"});
+const buildGetFormSubmissionRequest = (...args) => markRequest(_buildGetFormSubmissionRequest(...args), {"read": true});
+const buildQueryFormSpamReportsRequest = (...args) => markRequest(_buildQueryFormSpamReportsRequest(...args), {"read": true});
+const buildQueryFormSubmissionsRequest = (...args) => markRequest(_buildQueryFormSubmissionsRequest(...args), {"read": true});
+const buildQueryAutomationsRequest = (...args) => markRequest(_buildQueryAutomationsRequest(...args), {"read": true});
+const buildGetAutomationRequest = (...args) => markRequest(_buildGetAutomationRequest(...args), {"read": true});
+// Pausing the form's automations is part of importing its entries, under the entries' task and grant.
+const buildUpdateAutomationStatusRequest = (...args) => markRequest(_buildUpdateAutomationStatusRequest(...args), {"auxiliary": true, "entity": "forms/form-submission"});
+const buildGetFormRequest = (...args) => markRequest(_buildGetFormRequest(...args), {"read": true});
+const buildUpdateFormSchemaRequest = (...args) => markRequest(_buildUpdateFormSchemaRequest(...args), {"entity": "forms/form"});
+const buildUpdateFormSpamFilterRequest = (...args) => markRequest(_buildUpdateFormSpamFilterRequest(...args), {"auxiliary": true, "entity": "forms/form-submission"});
 
 function withReadinessGrant(request, { readinessGrant, sourceStableKey }) {
   const marked = requestMark(request), copy = { ...request, readinessGrant, sourceStableKey };
+  return marked ? markRequest(copy, marked) : copy;
+}
+// One source key per bulk item (sourceStableKeys[i] <-> the request's i-th item): one record's
+// grant never covers the rest of the batch.
+function withBulkReadinessGrant(request, { readinessGrant, sourceStableKeys }) {
+  if (request.sourceStableKey !== undefined || !Array.isArray(sourceStableKeys)) throw new Error('withBulkReadinessGrant: sourceStableKeys[] is required and excludes sourceStableKey');
+  const marked = requestMark(request), copy = { ...request, readinessGrant, sourceStableKeys: [...sourceStableKeys] };
   return marked ? markRequest(copy, marked) : copy;
 }
 const recordClients = new WeakMap();
 function bindRecordClient(wix, { readinessGrant, sourceStableKey }) {
   const ctx = executionCapability.clientContext(wix);
   if (!ctx || ctx.kind !== 'import-task' || !require('../../../lib/dependency-readiness').verifyGrant(readinessGrant, ctx, sourceStableKey)) executionCapability.fail('DEPENDENCY_READINESS_REQUIRED');
-  const recordClient = Object.freeze({ send: request => wix.send(withReadinessGrant(request, { readinessGrant, sourceStableKey })) });
+  const recordClient = Object.freeze({ dryRun: wix.dryRun === true, send: request => wix.send(withReadinessGrant(request, { readinessGrant, sourceStableKey })) });
   recordClients.set(recordClient, { wix, readinessGrant, sourceStableKey });
   return recordClient;
+}
+// A landed record's recorded loss, from a toolkit composite holding only the record client: the
+// gap is filed under the client's own task and the record client's own source key, never another.
+// Returns false (nothing filed) for a client that is not an import-task record client.
+async function recordWrittenGap(recordClient, { code, action, detail = {}, operatorRole, severity }) {
+  const bound = recordClients.get(recordClient);
+  if (!bound || executionCapability.clientContext(bound.wix)?.kind !== 'import-task') return false;
+  await require('../../../lib/dependency-readiness').recordClientTaskGap({ wixClient: bound.wix, sourceStableKey: bound.sourceStableKey, code, action, detail, operatorRole, severity });
+  return true;
 }
 function validReadBackEvidence(result, { siteId, targetId }) {
   const evidence = result && responseEvidence.get(result);
@@ -5624,10 +8414,17 @@ function validReadBackEvidence(result, { siteId, targetId }) {
 function captureSetupReferenceBindings(wix, step) {
   const ctx = executionCapability.clientContext(wix);
   if (ctx?.kind !== 'setup-step' || ctx.stepId !== step.id) executionCapability.fail('SETUP_WRITE_OUT_OF_STEP');
+  if (!require('../../../lib/setup-verification').validatePlanShape({schemaVersion:1,steps:[step]},ctx.projectDir).ok) executionCapability.fail('SETUP_PLAN_INVALID');
   const reads = (clientReadResponses.get(wix) || []).filter(value => responseEvidence.get(value)?.digest === executionCapability.digest(JSON.stringify(value))), bindings = [];
   for (const declaration of step.referenceKeys || []) {
     const values = {}, candidates = [];
     for (const response of reads) {
+      if (declaration.readBack) {
+        const L=require('../../../lib/source-location'), ids=L.valuesAt(response,declaration.readBack.identityPath);
+        const mapped=Object.fromEntries(Object.entries(declaration.readBack.values).map(([key,p])=>[key,L.valuesAt(response,p)]));
+        if (ids.length===1 && typeof ids[0]==='string' && ids[0] && Object.values(mapped).every(v=>v.length===1 && typeof v[0]==='string' && v[0])) candidates.push({targetId:ids[0],values:Object.fromEntries(Object.entries(mapped).map(([key,v])=>[key,v[0]]))});
+        continue;
+      }
       if (declaration.ref === 'ecom/shipping-option' && response.shippingOption?.id) candidates.push({ targetId: response.shippingOption.id, values: { 'shippingInfo.code': response.shippingOption.id } });
       if (declaration.ref === 'tax/tax-group') for (const group of response.taxGroups || (response.taxGroup ? [response.taxGroup] : [])) candidates.push({ targetId: group.id, values: Object.fromEntries(declaration.paths.map(key => [key, group.id])) });
       if (declaration.ref === 'ecom/delivery-profile' && response.deliveryProfile?.id) for (const region of response.deliveryProfile.deliveryRegions || response.deliveryProfile.regions || []) for (const carrier of region.deliveryCarriers || region.carriers || []) if (carrier.appId) candidates.push({ targetId: response.deliveryProfile.id, values: { 'shippingInfo.carrierId': carrier.appId } });
@@ -5637,7 +8434,7 @@ function captureSetupReferenceBindings(wix, step) {
     for (const key of declaration.paths) values[key] = distinct[0].values[key];
     bindings.push({ ref: declaration.ref, sourceStableKey: declaration.sourceStableKey, targetId: distinct[0].targetId, values });
   }
-  const errors = require('../../../lib/setup-verification').validateReferenceBindings(step, bindings);
+  const errors = require('../../../lib/setup-verification').validateReferenceBindings(step, bindings, ctx.projectDir);
   if (errors.length) throw new Error(errors.join(';'));
   return bindings;
 }
@@ -5689,14 +8486,101 @@ function validateQuickInventoryWrite(wix, request, mark) {
     if (!scope.locations.has(pair.locationId) || !scope.pairs.has(pair.productId + ':' + pair.variantId) || scope.pairs.get(pair.productId + ':' + pair.variantId).inventory.inStock !== item.inStock) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
   }
 }
-function recordProductMatches(wix, request, targetId) {
+// Whether this record's own responses (its create, or a read it made) or its crosswalk row name
+// `targetId` as the record's own add-on or booking.
+const OWN_TARGET_IDS = {
+  'bookings/service-add-on': value => [value.addOn?.id, ...(value.addOns || []).map(row => row?.id)],
+  'bookings/booking': value => [value.booking?.id, ...(value.extendedBookings || []).map(row => row?.booking?.id)],
+};
+function recordSawTarget(wix, request, entity, targetId) {
+  const ctx = executionCapability.clientContext(wix);
+  if (!ctx || typeof targetId !== 'string' || !targetId) return false;
+  const seen = (clientReadResponses.get(wix) || []).some(value => {
+    const proof = responseEvidence.get(value);
+    return proof && proof.request.sourceStableKey === request.sourceStableKey && proof.request.readinessGrant === request.readinessGrant && (proof.mark?.read || proof.mark?.entity === entity) &&
+      proof.digest === executionCapability.digest(JSON.stringify(value)) && OWN_TARGET_IDS[entity](value).includes(targetId);
+  });
+  return seen || require('../../../lib/dependency-readiness').currentRecordTargetId(request.readinessGrant, ctx, request.sourceStableKey) === targetId;
+}
+// The member this record owns: one its own Create Member returned, or its current landed target.
+// The contact id must be that member's contactId in one of this record's own member responses.
+function recordMemberContactMatches(wix, request, contactId) {
+  const ctx = executionCapability.clientContext(wix);
+  if (!ctx || typeof contactId !== 'string' || !contactId) return false;
+  const own = value => { const proof = responseEvidence.get(value); return proof && proof.request.sourceStableKey === request.sourceStableKey && proof.request.readinessGrant === request.readinessGrant && proof.digest === executionCapability.digest(JSON.stringify(value)) ? proof : null; };
+  const responses = (clientReadResponses.get(wix) || []).filter(own);
+  const owned = new Set(responses.filter(value => { const mark = own(value).mark; return mark?.entity === 'members/member' && !mark.read && !mark.auxiliary; }).map(value => value.member?.id).filter(Boolean));
+  const current = require('../../../lib/dependency-readiness').currentRecordTargetId(request.readinessGrant, ctx, request.sourceStableKey);
+  if (current) owned.add(current);
+  return responses.some(value => value.member && owned.has(value.member.id) && value.member.contactId === contactId && /^(?:https:\/\/www\.wixapis\.com)?\/members\/v1\/members(?:[/?]|$)/.test(String(own(value).request.url)));
+}
+function recordProductMatches(wix, request, targetId, entity = 'stores/product') {
   const ctx = executionCapability.clientContext(wix);
   if (!ctx || !targetId) return false;
   const previous = (clientReadResponses.get(wix) || []).some(value => {
     const proof = responseEvidence.get(value);
-    return proof?.mark?.entity === 'stores/product' && !proof.mark.read && proof.request.sourceStableKey === request.sourceStableKey && (value.product?.id || value.id) === targetId && proof.digest === executionCapability.digest(JSON.stringify(value));
+    if (!proof || proof.request.sourceStableKey !== request.sourceStableKey || proof.digest !== executionCapability.digest(JSON.stringify(value))) return false;
+    if (proof.mark?.entity === entity && !proof.mark.read) {
+      // A product this record created through the bulk create (products-with-inventory): the
+      // response names it only in productResults.results[].itemMetadata (no product.id), and only
+      // a confirmed item counts. The flat `results` envelope is not this endpoint's shape.
+      const bulk = entity === 'stores/product' ? value.productResults?.results : undefined;
+      if (Array.isArray(bulk)) return bulk.some(row => row?.itemMetadata?.id === targetId && row.itemMetadata.success === true);
+      return (value.product?.id || value.event?.id || value.id) === targetId;
+    }
+    // An event adopted after a lost create (adoptPublishedEvent): this record's own Get Event of it.
+    return entity === 'events/event' && proof.mark?.read === true && String(proof.request.method).toUpperCase() === 'GET' &&
+      new URL(proof.request.url).pathname === `/events/v3/events/${encodeURIComponent(targetId)}` && value.event?.id === targetId;
   });
+  if (!previous && entity === 'stores/product' && adoptedProductTargets.get(wix)?.get(request.sourceStableKey) === targetId) return true;
   return previous || require('../../../lib/dependency-readiness').currentRecordTargetId(request.readinessGrant, ctx, request.sourceStableKey) === targetId;
+}
+// LIVE-FOUND: a product this record's own earlier create left on the site, which its marker cannot
+// match (a source with an empty slug created before the builder minted one: Wix generated a slug,
+// so verification reports an identity conflict on every resume and the product is never verified).
+// The saved write-verification row is the join: it names this target for this key and site, nothing
+// else claims it (no crosswalk row, no other state row, not a pre-import catalog product), it was
+// never verified, and the product read back on this record's own client is unedited since that
+// create (revision 1). Only then may this record's own writes name it (a slug PATCH so the marker
+// agrees); importProducts then reconciles and verifies it as usual. It never creates a product.
+// Returns the product, or null when it may not be adopted.
+const adoptedProductTargets = new WeakMap();
+async function admitSavedProductTarget(recordClient, { projectDir, siteId, expectedName }) {
+  const record = recordClients.get(recordClient);
+  const ctx = record && executionCapability.clientContext(record.wix);
+  if (!ctx || ctx.kind !== 'import-task' || !ctx.task.entityRefs.includes('stores/product') || !projectDir || !siteId || siteId !== ctx.siteId) executionCapability.fail('CAPABILITY_ENTITY_MISMATCH');
+  const key = record.sourceStableKey;
+  const state = await require('../../../lib/write-verification-state').load(projectDir, siteId);
+  const saved = state.rows[key], productId = saved?.targetId;
+  if (typeof expectedName !== 'string' || !expectedName || !productId || !saved.identityConflict || saved.receipt || saved.lastVerifiedReceipt) return null;
+  if (Object.entries(state.rows).some(([other, row]) => other !== key && row?.targetId === productId)) return null;
+  if (require('../../../lib/catalog-baseline').protectedIds(projectDir).products.has(productId)) return null;
+  const crosswalk = await require('../../../lib/local-state').loadCrosswalk(projectDir);
+  if (crosswalk.bySource[key] || crosswalk.rows.some(row => row.targetSystem === 'wix' && row.targetId === productId)) return null;
+  // A saved target that is gone (404) is simply not adoptable; any other error propagates.
+  let product;
+  try { product = await getStoresProduct(recordClient, productId); }
+  catch (error) { if (error?.status === 404 && error.outcomeKnown !== false) return null; throw error; }
+  // The name check comes before the authorization below: a different product is never admitted.
+  if (product?.id !== productId || String(product.revision) !== '1' || product.name !== expectedName) return null;
+  let ids = adoptedProductTargets.get(record.wix);
+  if (!ids) { ids = new Map(); adoptedProductTargets.set(record.wix, ids); }
+  ids.set(key, productId);
+  return product;
+}
+// A plan-order pause names only an order id, so the body carries no reference to check. It is
+// admitted only for an order this record already saw in a response to its own Pricing Plans
+// requests (create, list or get) whose plan and member are the ones the record's grant resolved.
+function recordPlanOrderMatches(wix, request, orderId) {
+  const ctx = executionCapability.clientContext(wix), gate = require('../../../lib/dependency-readiness');
+  if (!ctx || !orderId) return false;
+  return (clientReadResponses.get(wix) || []).some(value => {
+    const proof = responseEvidence.get(value);
+    if (!proof || proof.request.sourceStableKey !== request.sourceStableKey || !new URL(proof.request.url).pathname.startsWith('/pricing-plans/v2/') || proof.digest !== executionCapability.digest(JSON.stringify(value))) return false;
+    return [value.order, ...(Array.isArray(value.orders) ? value.orders : [])].some(order => order && order.id === orderId
+      && gate.verifyReferenceTargets(request.readinessGrant, ctx, request.sourceStableKey, 'pricing-plans/plan', [order.planId])
+      && gate.verifyReferenceTargets(request.readinessGrant, ctx, request.sourceStableKey, 'members/member', [order.buyer && order.buyer.memberId]));
+  });
 }
 function registerImportInventoryScope(recordClient, canonical, target) {
   const record = recordClients.get(recordClient), evidence = responseEvidence.get(target);
@@ -5733,34 +8617,400 @@ function buildListStoresProductTagsRequest() { return markRequest({ method: 'GET
 function buildCreateStoresProductTagRequest(name) { return markRequest({ method: 'POST', url: `${WIXAPIS}/tags/v1/tags`, body: { tag: { name, fqdn: 'wix.stores.catalog.v3.product' } }, entity: 'stores/product-tag' }, { entity: 'stores/product-tag' }); }
 function buildQueryBlogCategoriesRequest() { return markRequest({ method: 'POST', url: `${WIXAPIS}/blog/v3/categories/query`, body: {} }, { read: true }); }
 function buildListCmsCollectionsRequest() { return markRequest({ method: 'GET', url: `${WIXAPIS}/wix-data/v2/collections?query.paging.limit=100` }, { read: true }); }
+function buildGetCmsCollectionRequest(id) { return markRequest({ method: 'GET', url: `${WIXAPIS}/wix-data/v2/collections/${encodeURIComponent(id)}?consistentRead=true` }, { read: true }); }
+function buildGetCmsDataItemRequest(collectionId, id) {
+  if (!collectionId || !id) throw new Error('CMS item read requires collection and item identity');
+  return markRequest({ method: 'GET', url: `${WIXAPIS}/wix-data/v2/items/${encodeURIComponent(id)}?dataCollectionId=${encodeURIComponent(collectionId)}&consistentRead=true` }, { read: true });
+}
 function buildGetStoresCatalogVersionRequest() { return markRequest({ method: 'GET', url: `${WIXAPIS}/stores/v3/provision/version` }, { read: true }); }
 async function ensureCmsCollection(wix, collection) {
   return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/collections`, body: { collection } }, { setupOperation: 'ensure-cms-collection' }));
 }
-async function ensureBlogFallbackAuthor(wix, payload, safeModeOptions) {
-  return (await wix.send(markRequest(_buildCreateMemberRequest(payload, safeModeOptions), { setupOperation: 'blog-fallback-author' }))).member;
+async function ensureBlogFallbackAuthor(wix, payload) {
+  return (await wix.send(markRequest(_buildCreateMemberRequest(payload), { setupOperation: 'blog-fallback-author' }))).member;
 }
+
+// --- Stores brand, customization, promotion, back-in-stock request, review -------
+// VERIFIED LIVE 2026-10-27 on a throwaway site. Each payload is the request body
+// itself, so the readiness grant checks reference fields at the paths the entity declares.
+const alreadyExists = error => error?.status === 409 || error?.applicationErrorCode === 'ALREADY_EXISTS' || error?.applicationErrorCode === 'BACK_IN_STOCK_NOTIFICATION_REQUEST_ALREADY_EXISTS';
+async function queryAllPages(wix, build, key, { pageSize = 100, maxPages = 200 } = {}) {
+  const all = [];
+  let cursor = null, pages = 0;
+  do {
+    const response = await wix.send(build(cursor ? { cursorPaging: { limit: pageSize, cursor } } : { cursorPaging: { limit: pageSize } }));
+    all.push(...(response[key] || []));
+    cursor = response.pagingMetadata?.cursors?.next || response.metadata?.cursors?.next || null;
+    pages += 1;
+  } while (cursor && pages < maxPages);
+  if (cursor) throw new Error(`${key}: still paging after ${maxPages} pages; refusing a partial index`);
+  return all;
+}
+
+// Brand: { id, name } only. The name is unique: a duplicate create answers 409 ALREADY_EXISTS,
+// and the existing brand is reused by an exact-name query (the query filters on name).
+function buildCreateStoresBrandRequest({ brand } = {}) {
+  if (typeof brand?.name !== 'string' || !brand.name.trim()) throw new Error('a Stores brand needs a non-empty name');
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/brands`, body: { brand: { name: brand.name } } }, { entity: 'stores/brand' });
+}
+function buildQueryStoresBrandsRequest(query = {}) { return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/brands/query`, body: { query } }, { read: true }); }
+async function createStoresBrand(wix, payload) {
+  try {
+    return { outcome: 'created', brand: (await wix.send(buildCreateStoresBrandRequest(payload))).brand };
+  } catch (error) {
+    if (!alreadyExists(error)) throw error;
+    const found = ((await wix.send(buildQueryStoresBrandsRequest({ filter: { name: payload.brand.name } }))).brands || []).filter(row => row.name === payload.brand.name);
+    if (found.length !== 1) throw Object.assign(new Error(`brand "${payload.brand.name}" exists but could not be resolved to one id`), { code: 'BRAND_EXISTS_UNRESOLVED', outcomeKnown: true });
+    return { outcome: 'reused', brand: found[0] };
+  }
+}
+
+// Customization: unique by (name, customizationType, customizationRenderType) — a duplicate is
+// 409 ALREADY_EXISTS and is reused. The standalone shape uses freeTextInput /
+// customizationRenderType; the product-side modifier names are refused here so a payload copied
+// from a product never reaches this endpoint (connected-modifier-must-restate-the-settings).
+function buildCreateStoresCustomizationRequest({ customization } = {}) {
+  const c = customization || {};
+  if (typeof c.name !== 'string' || !c.name.trim()) throw new Error('a Stores customization needs a name');
+  if (!['MODIFIER', 'PRODUCT_OPTION'].includes(c.customizationType)) throw new Error('a Stores customization needs customizationType MODIFIER or PRODUCT_OPTION');
+  if (!['FREE_TEXT', 'TEXT_CHOICES', 'SWATCH_CHOICES'].includes(c.customizationRenderType)) throw new Error('a Stores customization needs customizationRenderType FREE_TEXT, TEXT_CHOICES or SWATCH_CHOICES');
+  for (const key of ['freeTextSettings', 'modifierRenderType']) if (Object.hasOwn(c, key)) throw new Error(`a Stores customization uses the standalone field names; ${key} belongs to a product modifier`);
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/customizations`, body: { customization: c } }, { entity: 'stores/product-customization' });
+}
+function buildQueryStoresCustomizationsRequest(query = {}) { return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/customizations/query`, body: { query } }, { read: true }); }
+// What makes two groups the same: the free-text limits and title, or the choice names and types in order.
+function customizationSettingsKey(c) {
+  if (c.customizationRenderType === 'FREE_TEXT') { const f = c.freeTextInput || {}; return JSON.stringify([f.title || '', f.minCharCount || 0, f.maxCharCount ?? null]); }
+  return JSON.stringify((c.choicesSettings?.choices || []).map(choice => [choice.choiceType || '', choice.name || '']));
+}
+async function createStoresCustomization(wix, payload) {
+  try {
+    return { outcome: 'created', customization: (await wix.send(buildCreateStoresCustomizationRequest(payload))).customization };
+  } catch (error) {
+    if (!alreadyExists(error)) throw error;
+    const c = payload.customization;
+    const found = ((await wix.send(buildQueryStoresCustomizationsRequest({ filter: { name: c.name } }))).customizations || [])
+      .filter(row => row.name === c.name && row.customizationType === c.customizationType && row.customizationRenderType === c.customizationRenderType);
+    if (found.length !== 1) throw Object.assign(new Error(`customization "${c.name}" exists but could not be resolved to one id`), { code: 'CUSTOMIZATION_EXISTS_UNRESOLVED', outcomeKnown: true });
+    // Same name, different settings: another add-on group. Reusing it would give products the
+    // wrong choices, so the mapping must name the groups apart.
+    if (customizationSettingsKey(found[0]) !== customizationSettingsKey(c)) throw Object.assign(new Error(`customization "${c.name}" exists with different settings; give same-named groups distinct names`), { code: 'CUSTOMIZATION_NAME_CONFLICT', outcomeKnown: true, existingId: found[0].id });
+    return { outcome: 'reused', customization: found[0] };
+  }
+}
+
+// The product-side modifier for a written customization: the id alone is refused, so the name,
+// render type and settings are restated under their product-side names. Verified live
+// 2026-10-27: a product created with this shape kept the customization's id.
+function connectedModifierFromCustomization(customization, { mandatory = customization?.modifierSettings?.defaultMandatory === true } = {}) {
+  const c = customization || {};
+  if (!c.id || c.customizationType !== 'MODIFIER') throw new Error('a connected modifier needs a written MODIFIER customization with its id');
+  const settings = c.customizationRenderType === 'FREE_TEXT' ? { freeTextSettings: c.freeTextInput } : { choicesSettings: c.choicesSettings };
+  if (!Object.values(settings)[0]) throw new Error(`customization ${c.id} has no settings for ${c.customizationRenderType}`);
+  return { id: c.id, name: c.name, modifierRenderType: c.customizationRenderType, mandatory, ...settings };
+}
+
+// Promotion: a category-page banner, never a discount. Only a Media Manager id is accepted: the
+// media.url path saves the promotion disabled and clears the media if the async import fails
+// (verified live), so the executor imports the image first and creates only once it is READY.
+const PROMOTION_FIELDS = new Set(['name', 'enabled', 'media', 'categories', 'destinationUrl']);
+function buildCreateStoresPromotionRequest({ promotion } = {}) {
+  const p = promotion || {};
+  for (const key of Object.keys(p)) if (!PROMOTION_FIELDS.has(key)) throw new Error(`a Stores promotion is a banner; field "${key}" is not part of it`);
+  if (typeof p.name !== 'string' || !p.name.trim()) throw new Error('a Stores promotion needs a name');
+  if (typeof p.media?.id !== 'string' || !p.media.id || Object.keys(p.media).length !== 1) throw new Error('a Stores promotion needs media.id of an imported, ready Media Manager file (media.url fails silently)');
+  if (!Array.isArray(p.categories) || !p.categories.length) throw new Error('a Stores promotion needs at least one category placement');
+  for (const c of p.categories) if (typeof c?.id !== 'string' || !Number.isInteger(c.position) || c.position < 1) throw new Error('each promotion category placement needs an id and an integer position from 1');
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/promotions`, body: { promotion: p } }, { entity: 'stores/promotion' });
+}
+function buildGetStoresPromotionRequest(id) { return markRequest({ method: 'GET', url: `${WIXAPIS}/stores/v3/promotions/${encodeURIComponent(id)}` }, { read: true }); }
+// The query filters on neither name nor category; callers match client-side.
+function buildQueryStoresPromotionsRequest(query = {}) { return markRequest({ method: 'POST', url: `${WIXAPIS}/stores/v3/promotions/query`, body: { query } }, { read: true }); }
+async function queryAllStoresPromotions(wix) { return queryAllPages(wix, buildQueryStoresPromotionsRequest, 'promotions'); }
+async function readyMediaFile(wix, fileId, { tries = 10, delayMs = 1500 } = {}) {
+  // A file just imported can answer 404 for a moment before it is readable.
+  for (let i = 0; i < tries; i++) {
+    try { return await waitUntilFileReady(wix, fileId, { tries: tries - i, delayMs }); } catch (error) { if (error?.status !== 404 || i === tries - 1) throw error; }
+    await pauseFor(wix)(delayMs);
+  }
+  return null;
+}
+// Ours: every non-media field this record sends, the same on the site (categories by id,
+// position and any placement flag sent). Two source banners that share a name on one category
+// still differ in another field, or are each created on their first attempt (no lookup then).
+function promotionKey(row, sent) {
+  const categoryFields = [...new Set((sent?.categories || []).flatMap(c => Object.keys(c || {})))].sort();
+  return JSON.stringify(Object.keys(sent || {}).filter(k => k !== 'media').sort().map(k => [k, k === 'categories'
+    ? (row?.categories || []).map(c => categoryFields.map(f => c?.[f] ?? null)).map(v => JSON.stringify(v)).sort()
+    : row?.[k] ?? null]));
+}
+async function findStoresPromotions(wix, promotion) {
+  const key = promotionKey(promotion, promotion);
+  return (await queryAllStoresPromotions(wix)).filter(row => promotionKey(row, promotion) === key);
+}
+async function adoptStoresPromotion(wix, found, imageUrl) {
+  const read = (await wix.send(buildGetStoresPromotionRequest(found[0].id))).promotion || found[0];
+  const duplicates = found.length > 1 ? { duplicateIds: found.slice(1).map(row => row.id) } : {};
+  if (!read?.media?.image) return { outcome: 'image-cleared', promotion: read, imageUrl, fileId: read?.media?.id || null, adopted: true, ...duplicates };
+  return { outcome: 'reused', promotion: read, ...duplicates };
+}
+// payload: { promotion: { name, enabled, categories, destinationUrl? }, imageUrl }. A failed image
+// is a known per-record failure: nothing is created. A create whose reply was lost is looked up
+// once before its error is passed on; a re-run of such a record passes `readBackFirst: true`, and
+// a promotion an earlier attempt created (every non-media field the same) is then reused before
+// any image import or create. A first attempt never looks: another record may share its name.
+async function createStoresPromotion(wix, { promotion, imageUrl }, { mediaTries, mediaDelayMs, readBackFirst = false } = {}) {
+  if (!imageUrl) throw Object.assign(new Error('a Stores promotion needs a source image URL'), { code: 'PROMOTION_IMAGE_MISSING', outcomeKnown: true });
+  if (readBackFirst) {
+    const existing = await findStoresPromotions(wix, promotion);
+    if (existing.length) return adoptStoresPromotion(wix, existing, imageUrl);
+  }
+  const file = await importMedia(wix, { sourceUrl: imageUrl, mediaType: 'IMAGE' });
+  let ready = null;
+  try { ready = file?.id ? await readyMediaFile(wix, file.id, { tries: mediaTries, delayMs: mediaDelayMs }) : null; } catch (error) { if (error?.code !== 'MEDIA_IMPORT_FAILED') throw error; }
+  if (!ready) return { outcome: 'image-failed', promotion: null, imageUrl, fileId: file?.id || null };
+  let created;
+  try {
+    created = (await wix.send(buildCreateStoresPromotionRequest({ promotion: { ...promotion, media: { id: ready.id } } }))).promotion;
+  } catch (error) {
+    if (error?.outcomeKnown !== false || error?.requestSent === false) throw error;
+    let found = [];
+    try { found = await findStoresPromotions(wix, promotion); } catch { /* still unknown */ }
+    if (!found.length) throw error;
+    return adoptStoresPromotion(wix, found, imageUrl);
+  }
+  const read = (await wix.send(buildGetStoresPromotionRequest(created.id))).promotion;
+  if (!read?.media?.image) return { outcome: 'image-cleared', promotion: read || created, imageUrl, fileId: ready.id };
+  return { outcome: 'created', promotion: read };
+}
+
+// Back-in-stock request: needs the Back in Stock app and request collection on (setup step
+// start-back-in-stock-collection), else 428 REQUEST_COLLECTION_DISABLED. itemDetails.name and
+// .price are required. Creating sends no email. A duplicate (same item, email, still RECEIVED)
+// is 409; Query filters on status only, so the existing request is found client-side.
+const BACK_IN_STOCK = `${WIXAPIS}/back-in-stock-service/v1/back-in-stock-notification-requests`;
+function buildCreateBackInStockRequest({ itemDetails, request } = {}) {
+  if (typeof request?.email !== 'string' || !request.email.includes('@')) throw new Error('a back-in-stock request needs an email');
+  const ref = request.catalogReference;
+  if (typeof ref?.catalogItemId !== 'string' || !ref.catalogItemId) throw new Error('a back-in-stock request needs catalogReference.catalogItemId');
+  if (ref.appId !== undefined && ref.appId !== WIX_STORES_APP_ID) throw new Error('back-in-stock requests only work for Wix Stores');
+  if (typeof itemDetails?.name !== 'string' || !itemDetails.name) throw new Error('a back-in-stock request needs itemDetails.name');
+  if (!/^\d+(\.\d+)?$/.test(String(itemDetails?.price ?? ''))) throw new Error('a back-in-stock request needs itemDetails.price as a non-negative decimal string');
+  const body = { itemDetails: { ...itemDetails, price: String(itemDetails.price) }, request: { ...request, catalogReference: { ...ref, appId: WIX_STORES_APP_ID } } };
+  return markRequest({ method: 'POST', url: BACK_IN_STOCK, body }, { entity: 'stores/back-in-stock-request' });
+}
+// Offline status change, sends nothing. Its body names no dependency, so it is auxiliary.
+function buildMarkBackInStockNotificationSentRequest(id) {
+  if (!id) throw new Error('marking a back-in-stock request needs its id');
+  return markRequest({ method: 'PUT', url: `${BACK_IN_STOCK}/${encodeURIComponent(id)}/mark-as-notification-sent`, body: {} }, { entity: 'stores/back-in-stock-request', auxiliary: true });
+}
+function buildGetBackInStockRequestRequest(id) { return markRequest({ method: 'GET', url: `${BACK_IN_STOCK}/${encodeURIComponent(id)}` }, { read: true }); }
+function buildQueryBackInStockRequestsRequest(query = {}) { return markRequest({ method: 'POST', url: `${BACK_IN_STOCK}/query`, body: { query } }, { read: true }); }
+function buildStartBackInStockCollectionRequest() { return markRequest({ method: 'POST', url: `${BACK_IN_STOCK}/settings/start-collecting`, body: { appId: WIX_STORES_APP_ID } }, { setupOperation: 'start-back-in-stock-collection' }); }
+// Get Settings is a PUT with an empty body; it changes nothing.
+function buildGetBackInStockSettingsRequest() { return markRequest({ method: 'PUT', url: `${BACK_IN_STOCK}/settings`, body: {} }, { read: true }); }
+const backInStockKey = r => [String(r?.email || '').toLowerCase(), r?.catalogReference?.catalogItemId || '', r?.catalogReference?.options?.variantId || ''].join('|');
+// payload: the create body, plus notified: true when the source already notified this shopper,
+// and knownRequestId: the request an earlier attempt of this record created (its journal or
+// crosswalk target id). A known request is read and finished, never created again: once marked
+// sent it no longer blocks a duplicate create, so a second create would make a second request.
+// A mark whose reply was lost is read back; one still unconfirmed is `mark-unverified` with the
+// request id, which the retry passes as knownRequestId.
+async function createBackInStockRequest(wix, { notified = false, knownRequestId = null, ...payload }) {
+  let request, outcome = 'created';
+  if (knownRequestId) {
+    try { request = (await wix.send(buildGetBackInStockRequestRequest(knownRequestId))).request || null; } catch (error) { if (error?.status !== 404) throw error; }
+    if (request && backInStockKey(request) !== backInStockKey(payload.request)) request = null;
+    if (request) outcome = 'reused';
+  }
+  if (!request) try {
+    request = (await wix.send(buildCreateBackInStockRequest(payload))).request;
+  } catch (error) {
+    if (error?.applicationErrorCode === 'REQUEST_COLLECTION_DISABLED') throw Object.assign(error, { code: 'BACK_IN_STOCK_COLLECTION_DISABLED', setupStep: 'start-back-in-stock-collection' });
+    if (!alreadyExists(error)) throw error;
+    const key = backInStockKey(payload.request);
+    const found = (await queryAllPages(wix, paging => buildQueryBackInStockRequestsRequest({ filter: { status: 'RECEIVED' }, ...paging }), 'requests')).filter(row => backInStockKey(row) === key);
+    if (found.length !== 1) return { outcome: 'deferred', request: null, deferralReason: 'back-in-stock-duplicate-unresolved' };
+    request = found[0]; outcome = 'reused';
+  }
+  if (notified && request.status !== 'NOTIFICATION_SENT') {
+    try {
+      request = (await wix.send(buildMarkBackInStockNotificationSentRequest(request.id))).request;
+    } catch (error) {
+      if (error?.requestSent === false || error?.outcomeKnown !== false) throw Object.assign(error, { requestId: request.id });
+      let read = null;
+      try { read = (await wix.send(buildGetBackInStockRequestRequest(request.id))).request; } catch { /* still unknown */ }
+      if (read?.status !== 'NOTIFICATION_SENT') return { outcome: 'mark-unverified', request: read || request, requestId: request.id };
+      request = read;
+    }
+  }
+  return { outcome, request };
+}
+
+// Review: needs the Wix Reviews app. Bulk create (1-100) requires author.contactId; one review per
+// author per product (ALREADY_EXISTS per item). Verified live: bulk create accepts rating 0, and a
+// REJECTED review is hidden from Get/Query unless returnPrivateReviews=true.
+const REVIEWS_BULK_MAX = 100;
+const REVIEW_TEXT_MAX = 3000;
+function validateReview(r) {
+  if (r?.namespace !== 'stores') throw new Error('a review namespace must be "stores"');
+  if (typeof r.entityId !== 'string' || !r.entityId || r.entityId.length > 36) throw new Error('a review needs entityId, the Wix Stores product id');
+  if (typeof r.author?.contactId !== 'string' || !r.author.contactId) throw new Error('a review needs author.contactId');
+  if (r.author.authorName !== undefined && String(r.author.authorName).length > 100) throw new Error('a review authorName must be at most 100 characters');
+  if (!Number.isInteger(r.content?.rating) || r.content.rating < 0 || r.content.rating > 5) throw new Error('a review rating must be an integer from 0 to 5');
+  for (const key of ['title', 'body']) if (r.content[key] !== undefined && String(r.content[key]).length > REVIEW_TEXT_MAX) throw new Error(`a review ${key} must be at most ${REVIEW_TEXT_MAX} characters (plain text)`);
+  if ((r.content.media || []).length > 10) throw new Error('a review takes at most 10 media items');
+}
+function buildBulkCreateReviewsRequest(reviews) {
+  if (!Array.isArray(reviews) || !reviews.length || reviews.length > REVIEWS_BULK_MAX) throw new Error(`bulk review create takes 1-${REVIEWS_BULK_MAX} reviews`);
+  reviews.forEach(validateReview);
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/reviews/v1/bulk/reviews/create`, body: { reviews, returnEntity: true } }, { entity: 'stores/review' });
+}
+// One review per call so each moderation belongs to one record; Wix answers with a jobId only.
+function buildModerateReviewRequest({ reviewId, status }) {
+  if (!reviewId) throw new Error('moderating a review needs its id');
+  if (!['APPROVED', 'REJECTED'].includes(status)) throw new Error('review moderation status must be APPROVED or REJECTED');
+  return markRequest({ method: 'POST', url: `${WIXAPIS}/reviews/v1/bulk/reviews/moderate`, body: { filter: { id: { $in: [reviewId] } }, status } }, { entity: 'stores/review', auxiliary: true });
+}
+function buildGetReviewRequest(id) { return markRequest({ method: 'GET', url: `${WIXAPIS}/reviews/v1/reviews/${encodeURIComponent(id)}?returnPrivateReviews=true` }, { read: true }); }
+function buildQueryReviewsRequest(query = {}) { return markRequest({ method: 'POST', url: `${WIXAPIS}/reviews/v1/reviews/query`, body: { query } }, { read: true }); }
+// records: [{ sourceStableKey, review }]. With an import-task grant every item is checked against
+// its own record. Returns one result per record by originalIndex; partial failure is normal.
+async function createStoresReviews(wix, { records, readinessGrant }) {
+  const results = [];
+  for (let start = 0; start < records.length; start += REVIEWS_BULK_MAX) {
+    const chunk = records.slice(start, start + REVIEWS_BULK_MAX);
+    let response;
+    try {
+      const request = buildBulkCreateReviewsRequest(chunk.map(row => row.review));
+      response = await wix.send(readinessGrant ? withBulkReadinessGrant(request, { readinessGrant, sourceStableKeys: chunk.map(row => row.sourceStableKey) }) : request);
+    } catch (error) {
+      // One chunk's failure never hides the reviews earlier chunks created; a request that left
+      // may have written, so its rows are unknown rather than failed.
+      const sent = error?.requestSent !== undefined || error?.status !== undefined || error?.outcomeKnown !== undefined;
+      const outcome = !sent || error?.requestSent === false || error?.outcomeKnown === true ? 'failed' : 'unknown';
+      for (const row of chunk) results.push({ sourceStableKey: row.sourceStableKey, outcome, error });
+      continue;
+    }
+    const byIndex = new Map((response.results || []).map(row => [row.itemMetadata?.originalIndex, row]));
+    chunk.forEach((row, i) => {
+      const item = byIndex.get(i);
+      if (!item) results.push({ sourceStableKey: row.sourceStableKey, outcome: 'unknown' });
+      else if (item.itemMetadata.success) results.push({ sourceStableKey: row.sourceStableKey, outcome: 'created', review: item.review, reviewId: item.itemMetadata.id });
+      else results.push({ sourceStableKey: row.sourceStableKey, outcome: item.itemMetadata.error?.code === 'ALREADY_EXISTS' ? 'already-exists' : 'failed', error: item.itemMetadata.error || null });
+    });
+  }
+  return results;
+}
+// Sets the source moderation state on created reviews: every moderation is sent first, then the
+// reviews are read back in shared rounds, so the wait is paid once per batch, not per review.
+// items: [{ wix, reviewId, status }] — wix is each record's own client.
+async function moderateStoresReviews(items, { tries = 5, delayMs = 2000 } = {}) {
+  const results = new Map(), pending = [];
+  for (const item of items) {
+    try { await item.wix.send(buildModerateReviewRequest(item)); pending.push(item); } catch (error) { results.set(item, { outcome: 'moderation-failed', reviewId: item.reviewId, status: item.status, error }); }
+  }
+  for (let round = 0; round < tries && pending.length; round++) {
+    if (round) await pauseFor(pending[0].wix)(delayMs);
+    for (const item of [...pending]) {
+      let review;
+      try { review = (await item.wix.send(buildGetReviewRequest(item.reviewId))).review; } catch { continue; } // stays pending, unconfirmed at the end
+      if (review?.moderation?.moderationStatus === item.status) { results.set(item, { outcome: 'moderated', reviewId: item.reviewId, review }); pending.splice(pending.indexOf(item), 1); }
+    }
+  }
+  for (const item of pending) results.set(item, { outcome: 'moderation-unconfirmed', reviewId: item.reviewId, status: item.status });
+  return items.map(item => results.get(item));
+}
+async function moderateStoresReview(wix, { reviewId, status }, options) {
+  return (await moderateStoresReviews([{ wix, reviewId, status }], options))[0];
+}
+// Merchant reply (Set Reply, PATCH /reviews/v1/reviews/{id}/reply): reply is read-only on create,
+// so it is a follow-up on a created review, sent with that review record's own grant (the client
+// admits it only for this record's own review). One reply per review; Set Reply overwrites, so a
+// retry is safe. Docs-verified, not yet exercised live. The read schema caps reply.message at 1000
+// characters (the request allows 10000), so a longer reply is not sent.
+const REVIEW_REPLY_MAX = 1000;
+function buildSetStoresReviewReplyRequest({ reviewId, message } = {}) {
+  if (typeof reviewId !== 'string' || !reviewId) throw new Error('a review reply needs the review id');
+  if (typeof message !== 'string' || !message.trim()) throw new Error('a review reply needs a non-empty message');
+  if (message.length > REVIEW_REPLY_MAX) throw Object.assign(new Error(`a review reply must be at most ${REVIEW_REPLY_MAX} characters (keep the full text in the CMS shadow)`), { code: 'review_reply_too_long', requestSent: false, outcomeKnown: true });
+  return markRequest({ method: 'PATCH', url: `${WIXAPIS}/reviews/v1/reviews/${encodeURIComponent(reviewId)}/reply`, body: { message } }, { entity: 'stores/review', auxiliary: true, reviewReply: reviewId });
+}
+// A reply goes only on the record's own review: its crosswalk target, or a review this record read
+// whose product and author are the ones its grant resolved (one review per author per product).
+function recordOwnReview(wix, request, reviewId) {
+  const ctx = executionCapability.clientContext(wix), gate = require('../../../lib/dependency-readiness');
+  if (!ctx || typeof reviewId !== 'string' || !reviewId) return false;
+  if (gate.currentRecordTargetId(request.readinessGrant, ctx, request.sourceStableKey) === reviewId) return true;
+  return (clientReadResponses.get(wix) || []).some(value => {
+    const proof = responseEvidence.get(value), review = value?.review;
+    return proof?.mark?.read && proof.request.sourceStableKey === request.sourceStableKey && proof.request.readinessGrant === request.readinessGrant && proof.digest === executionCapability.digest(JSON.stringify(value)) &&
+      review?.id === reviewId && gate.verifyReferenceMember(request.readinessGrant, ctx, request.sourceStableKey, 'stores/product', review.entityId) && gate.verifyReferenceMember(request.readinessGrant, ctx, request.sourceStableKey, 'crm/contact', review.author?.contactId);
+  });
+}
+// wix: the review record's own client (bindRecordClient). Outcomes: verified | already-present
+// (the review already has this reply: adopted on retry, nothing sent) | dry-run | not-sent (refused before
+// send; journal failed, requestSent false) | failed (rejected) | unverified (sent, read-back differs)
+// | review-not-found.
+async function setStoresReviewReply(wix, { reviewId, message } = {}) {
+  let request;
+  try { request = buildSetStoresReviewReplyRequest({ reviewId, message }); }
+  catch (error) { return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: { code: error.code || 'review_reply_invalid', message: error.message } }; }
+  const read = async () => (await wix.send(buildGetReviewRequest(reviewId))).review || null;
+  let before;
+  try { before = await read(); } catch (error) { if (error.requestSent === false) throw error; if (error.status === 404 && error.outcomeKnown !== false) return { outcome: 'review-not-found', reviewId }; return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: memberErrorFields(error) }; }
+  if (!before) return { outcome: 'review-not-found', reviewId };
+  if (before._dryRunPlaceholder) { await wix.send(request); return { outcome: 'dry-run', reviewId }; }
+  if (before.reply?.message === message) return { outcome: 'already-present', reviewId, review: before };
+  let error = null;
+  try { await wix.send(request); }
+  catch (caught) {
+    if (caught.requestSent === false) return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: { code: caught.code || null, message: String(caught.message).slice(0, 300) } };
+    if (caught.outcomeKnown !== false) return { outcome: 'failed', reviewId, requestSent: true, outcomeKnown: true, error: memberErrorFields(caught) };
+    error = memberErrorFields(caught);
+  }
+  let after = null;
+  try { after = await read(); } catch { after = null; }
+  return after?.reply?.message === message ? { outcome: 'verified', reviewId, review: after, ...(before.reply?.message ? { replacedReply: before.reply.message } : {}) } : { outcome: 'unverified', reviewId, requestSent: true, outcomeKnown: false, ...(error ? { error } : {}) };
+}
+// After ALREADY_EXISTS: the visible review by this author on this product, if exactly one.
+async function findStoresReview(wix, { entityId, contactId }) {
+  const found = (await queryAllPages(wix, buildQueryReviewsRequest, 'reviews')).filter(row => row.entityId === entityId && row.author?.contactId === contactId);
+  return found.length === 1 ? found[0] : null;
+}
+
 module.exports = {
-  withReadinessGrant, bindRecordClient, validReadBackEvidence, buildBoundedReadRequest, buildQueryBlogCategoriesRequest, captureSetupReferenceBindings, registerQuickInventoryScope, registerImportInventoryScope, buildQueryInventoryLocationsRequest, buildQueryInventoryItemsRequest, buildBulkInventoryItemsRequest,
-  buildListStoresProductTagsRequest, buildCreateStoresProductTagRequest, buildListCmsCollectionsRequest, buildGetStoresCatalogVersionRequest, ensureCmsCollection, ensureBlogFallbackAuthor,
+  normalizeV5AddressItem, V5_ADDRESS_ITEM_KEYS, withReadinessGrant, withBulkReadinessGrant, bindRecordClient, admitSavedProductTarget, validReadBackEvidence, buildBoundedReadRequest, buildQueryBlogCategoriesRequest, captureSetupReferenceBindings, registerQuickInventoryScope, registerImportInventoryScope, buildQueryInventoryLocationsRequest, buildQueryInventoryItemsRequest, buildBulkInventoryItemsRequest,
+  buildListStoresProductTagsRequest, buildCreateStoresProductTagRequest, buildListCmsCollectionsRequest, buildGetCmsCollectionRequest, buildGetCmsDataItemRequest, buildGetStoresCatalogVersionRequest, ensureCmsCollection, ensureBlogFallbackAuthor,
   WIXAPIS,
   TRANSIENT_WIX_STATUSES,
   isTransientWixError,
   isRetryableRicosError,
   RICOS_PLUGINS,
   RICOS_HTML_CAP,
-  DEFAULT_SAFE_MODE_PHONE_NUMBER,
-  SafeModeBlockedError,
-  createSafeModeConfig,
   createDryRunConfig,
   normalizeDryRunValue,
   createWixSetupExecutor,
-  mockEmailForEntity,
-  sanitizeContactFieldsForSafeMode,
-  sanitizeWixRequestBody,
   createWixClient,
+  createRateLimitThrottle,
+  rateLimitEndpoint,
+  RATE_LIMIT_POLICY,
+  createWixCaptureClient,
+  WRITE_BUILDERS_BY_ENTITY,
+  WRITE_HELPERS_BY_ENTITY,
+  buildCreateEventCategoryRequest, createEventCategory, buildQueryEventCategoriesRequest, queryAllEventCategories, findEventCategoriesByName,
+  buildCreateEventRequest, createEvent, buildGetEventRequest, getEvent, buildQueryEventsRequest, findPublishedEvents, adoptPublishedEvent,
+  buildAssignEventToCategoriesRequest, assignEventToCategories, buildListEventCategoriesRequest, listEventCategories,
+  buildCreateTicketDefinitionRequest, createTicketDefinition, buildGetTicketDefinitionRequest, getTicketDefinition, buildQueryTicketDefinitionsRequest, findTicketDefinitionsByName,
+  buildCreateRsvpRequest, createRsvp, buildGetRsvpRequest, getRsvp, buildQueryRsvpsRequest, findRsvpsByEmail,
   buildDirectRestRequest,
   sendDirectRest,
+  buildGuardedRawRequest,
+  sendGuardedRawRequest,
+  buildGuardedRawReadRequest,
+  verifyGuardedRawCanary,
+  rawRequestSummary,
+  resolveRawRequestOutcome,
   notifyMissingWriter,
   buildConvertToRicosRequest,
   splitHtmlIntoChunks,
@@ -5778,6 +9028,9 @@ module.exports = {
   buildCreateDraftPostRequest,
   createDraftPost,
   publishDraftPost,
+  buildCreateBuildDraftPostRequest,
+  buildUpdateBuildDraftPostRequest,
+  buildBlogBuildReadRequest,
   buildDeleteDraftPostRequest,
   deleteDraftPost,
   buildDeletePostRequest,
@@ -5786,7 +9039,10 @@ module.exports = {
   buildBulkCreateDraftPostsRequest,
   bulkCreateDraftPosts,
   buildInsertItemRequest,
+  buildGetSiteDataUsageRequest,
   insertDataItem,
+  buildUpdateDataItemRequest,
+  updateDataItem,
   queryAllDataItems,
   buildBulkSaveDataItemsRequest,
   bulkSaveDataItems,
@@ -5818,12 +9074,18 @@ module.exports = {
   buildPatchStoresProductMediaRequest,
   patchStoresProductMedia,
   patchStoresProductMediaVerified,
+  attachStoresProductVideos,
   buildGetStoresProductRequestWithFields,
   buildGetStoresProductWithMediaRequest,
   getStoresProductWithMedia,
+  observeStoresProductMediaIngest,
+  withinWriteObservation,
+  STORES_MEDIA_CREATE_OBSERVATION,
+  verifyMemberContactIdentity,
   buildGetStoresProductForVerificationRequest,
   getStoresProductForVerification,
   storesProductMediaLanded,
+  storesProductMediaItemLanded,
   STORES_MEDIA_INGEST_SETTLE_MS,
   STORES_MEDIA_INGEST_ROUNDS,
   buildPatchStoresProductTagsRequest,
@@ -5834,12 +9096,26 @@ module.exports = {
   getStoresProductBySlug,
   buildDeleteStoresProductRequest,
   deleteStoresProduct,
+  buildDeleteInstallSeededProductRequest,
+  buildDeleteInstallSeededCategoryRequest,
+  buildGetAllProductsCategoryRequest,
+  getAllProductsCategoryId,
   buildPatchStoresProductRequest,
   patchStoresProduct,
   buildGetItemSeoTagsRequest,
   getItemSeoTags,
   buildBulkSetItemSeoTagsRequest,
   bulkSetItemSeoTags,
+  setItemSeoTags,
+  buildGetSeoPatternRequest,
+  buildListSeoPatternVariablesRequest,
+  buildCreateSeoPatternRequest,
+  buildSetSeoPatternRequest,
+  ensureSeoPattern,
+  buildGetSiteSeoTagsRequest,
+  buildGetSiteShareImageFileRequest,
+  buildSetSiteSeoTagsRequest,
+  setSiteSeoTags,
   buildQueryStoresCategoriesRequest,
   queryStoresCategories,
   queryAllStoresCategories,
@@ -5864,16 +9140,32 @@ module.exports = {
   getContact,
   buildUpdateContactRequest,
   updateContact,
+  buildUpdateMemberContactRequest,
+  updateMemberContact,
   buildFindOrCreateContactExtendedFieldRequest,
   findOrCreateContactExtendedField,
   buildBulkUpsertEmailSubscriptionsRequest,
   bulkUpsertEmailSubscriptions,
+  buildFindOrCreateContactLabelRequest,
+  buildGetContactLabelRequest,
+  findOrCreateContactLabel,
+  CONTACT_TAG_ID_MAX_LENGTH,
+  CONTACT_TAG_IDS_MAX_PER_CALL,
+  buildUpdateContactTagsRequest,
+  buildGetContactTagsRequest,
+  assignContactLabels,
+  memberAboutContentFromText,
+  buildCreateMemberAboutRequest,
+  buildUpdateMemberAboutRequest,
+  buildQueryMemberAboutsRequest,
+  buildGetMemberAboutRequest,
+  upsertMemberAbout,
   assertCouponRedeemabilityDecided,
   normalizeCouponSpecification,
   buildCreateCouponRequest,
   createCoupon,
   buildQueryCouponsRequest,
-  queryCoupons, buildQueryCouponsByCodeRequest, queryCouponsByCode, buildDeleteCouponRequest, deleteCoupon, ensureCoupon, WIX_PRICING_PLANS_APP_DEF_ID, PLAN_WRITE_MIN_INTERVAL_MS, buildCreatePlanRequest, createPlan, buildQueryPlansByNameRequest, queryPlansByName, buildGetPlanRequest, getPlan, buildArchivePlanRequest, archivePlan, ensurePlanDefinition,
+  queryCoupons, buildQueryCouponsByCodeRequest, queryCouponsByCode, buildDeleteCouponRequest, deleteCoupon, ensureCoupon, WIX_PRICING_PLANS_APP_DEF_ID, PLAN_WRITE_MIN_INTERVAL_MS, buildCreatePlanRequest, createPlan, buildQueryPlansByNameRequest, queryPlansByName, buildGetPlanRequest, getPlan, buildArchivePlanRequest, archivePlan, ensurePlanDefinition, buildCreateOfflinePlanOrderRequest, createOfflinePlanOrder, buildPausePlanOrderRequest, pausePlanOrder, buildListPlanOrdersRequest, listPlanOrders, buildGetPlanOrderRequest, getPlanOrder, ensurePlanOrder, PLAN_ORDER_PAID_SETTLE_READS,
   buildCreateDiscountRuleRequest,
   createDiscountRule,
   buildQueryDiscountRulesRequest,
@@ -5917,6 +9209,12 @@ module.exports = {
   addDeliveryRegion,
   buildRemoveDeliveryRegionRequest,
   removeDeliveryRegion,
+  buildUpdateDeliveryRegionRequest,
+  updateDeliveryRegion,
+  planDeliveryRegionWrite,
+  ensureDeliveryRegion,
+  buildDeleteShippingOptionRequest,
+  deleteShippingOption,
   buildAddDeliveryCarrierRequest,
   addDeliveryCarrier,
   buildRemoveDeliveryCarrierRequest,
@@ -5938,6 +9236,12 @@ module.exports = {
   updateBusinessContact,
   buildGetSitePropertiesRequest,
   getSiteProperties,
+  buildUpdateBusinessRegionRequest,
+  updateBusinessRegion,
+  buildUpdateSiteLanguageRequest,
+  updateSiteLanguage,
+  buildUpdateSiteLocaleRequest,
+  updateSiteLocale,
   PICKUP_LOCATIONS_PUBLIC_BASE,
   PICKUP_LOCATIONS_PROXY_BASE,
   resolvePickupLocationsBase,
@@ -5989,6 +9293,51 @@ module.exports = {
   mergeOrderExtendedFields,
   buildUpdateOrderExtendedFieldsRequest,
   updateOrderExtendedFields,
+  ORDER_MERCHANT_NOTES_MAX_PER_CALL,
+  ORDER_MERCHANT_NOTE_MAX_LENGTH,
+  buildAddOrderMerchantNotesRequest,
+  addOrderMerchantNotes,
+  buildCreateGiftCardRequest,
+  buildQueryGiftCardsByCodeRequest,
+  createGiftCard,
+  findGiftCardByCode,
+  buildCreateGiftCardProductRequest,
+  buildUpdateGiftCardProductRequest,
+  buildQueryGiftCardProductsRequest,
+  buildGetGiftCardProductRequest,
+  queryGiftCardProducts,
+  ensureGiftCardProduct,
+  FORMS_NAMESPACE,
+  FORM_ORIGINAL_DATE_TARGET,
+  FORM_SUBMITTED_TRIGGER,
+  FORM_AUTOMATION_PAUSE_LEDGER,
+  buildCreateFormRequest,
+  buildQueryFormsRequest,
+  createForm,
+  buildUpdateFormSchemaRequest,
+  updateFormSchema,
+  formSchemaNeedsUpdate,
+  buildCreateFormSubmissionRequest,
+  buildGetFormSubmissionRequest,
+  buildQueryFormSpamReportsRequest,
+  buildQueryFormSubmissionsRequest,
+  findFormSubmission,
+  createFormSubmission,
+  sendFormSubmission,
+  verifyFormSubmission,
+  buildQueryAutomationsRequest,
+  buildGetAutomationRequest,
+  buildUpdateAutomationStatusRequest,
+  queryFormAutomations,
+  pauseFormAutomations,
+  restoreFormAutomations,
+  importFormEntries,
+  pendingFormAutomationRestores,
+  buildGetFormRequest,
+  buildUpdateFormSpamFilterRequest,
+  lowerFormSpamFilter,
+  restoreFormSpamFilter,
+  pendingFormSpamFilterRestores,
   preserveOrderInvoiceDocument,
   ADD_PAYMENTS_MAX_PER_CALL,
   createTargetReadPacer,
@@ -6007,7 +9356,7 @@ module.exports = {
   createMember,
   pacedCreateMember,
   buildGetMemberRequest, getMember, buildQueryMembersByLoginEmailRequest, queryMembersByLoginEmail,
-  buildQueryContactsByPhoneRequest, queryContactsByPhone, ensureMember,
+  buildQueryContactsByPhoneRequest, queryContactsByPhone, ensureMember, isValidLoginEmail, splitMemberCreateContact, recordWrittenGap,
   MEMBER_WRITE_MIN_INTERVAL_MS,
   SITE_MUTE_REASON_MAX,
   buildMuteSiteNotificationsRequest,
@@ -6038,4 +9387,29 @@ module.exports = {
   buildDeleteCalendarEventRequest,
   deleteCalendarEvent,
   ensureBookingsProvisioned,
+  BOOKINGS_ADD_ON_GROUP_MAX_ADD_ONS,
+  buildCreateBookingsAddOnRequest,
+  buildGetBookingsAddOnRequest,
+  buildQueryBookingsAddOnsRequest,
+  buildDeleteBookingsAddOnRequest,
+  buildCreateBookingsAddOnGroupRequest,
+  buildSetBookingsAddOnGroupAddOnsRequest,
+  buildListBookingsAddOnGroupsRequest,
+  buildDeleteBookingsAddOnGroupRequest,
+  listBookingsAddOnGroups,
+  importBookingsAddOn,
+  bookingExternalKey,
+  buildCreateBookingRequest,
+  buildConfirmBookingRequest,
+  buildCancelBookingRequest,
+  buildQueryBookingsRequest,
+  queryBookings,
+  importBooking,
+  // Stores domain writers
+  buildCreateStoresBrandRequest, buildQueryStoresBrandsRequest, createStoresBrand,
+  buildCreateStoresCustomizationRequest, buildQueryStoresCustomizationsRequest, createStoresCustomization, connectedModifierFromCustomization,
+  buildCreateStoresPromotionRequest, buildGetStoresPromotionRequest, buildQueryStoresPromotionsRequest, queryAllStoresPromotions, findStoresPromotions, createStoresPromotion,
+  buildCreateBackInStockRequest, buildMarkBackInStockNotificationSentRequest, buildGetBackInStockRequestRequest, buildQueryBackInStockRequestsRequest,
+  buildStartBackInStockCollectionRequest, buildGetBackInStockSettingsRequest, createBackInStockRequest,
+  REVIEWS_BULK_MAX, buildBulkCreateReviewsRequest, buildModerateReviewRequest, buildGetReviewRequest, buildQueryReviewsRequest, createStoresReviews, moderateStoresReviews, moderateStoresReview, findStoresReview, REVIEW_REPLY_MAX, buildSetStoresReviewReplyRequest, setStoresReviewReply,
 };

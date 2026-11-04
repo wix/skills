@@ -20,8 +20,8 @@
 //    final boxes in one call, and derives the mobile background bands from the groups.
 // Exit code 1 when a compliance error or a desktop overlap remains.
 import { chromium } from 'playwright';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { descHash, openItems, pendingItems } from './desc-hash.mjs';
 
 const args = process.argv.slice(2);

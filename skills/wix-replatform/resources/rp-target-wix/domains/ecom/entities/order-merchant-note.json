@@ -14,6 +14,14 @@
   "dependsOn": [
     "ecom/order"
   ],
+  "dependencyModes": {
+    "ecom/order": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "ecom/order": [
+      "orderId"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -35,7 +43,7 @@
   "preferredWrite": {
     "surface": "eCom Orders",
     "endpoint": "POST /ecom/v1/orders/{orderId}/activities/add",
-    "writerId": null,
+    "writerId": "addOrderMerchantNotes",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false
@@ -69,6 +77,11 @@
       "code": "message-cap-5000",
       "severity": "warning",
       "summary": "merchantComment.message is 1–5000 chars. Longer source notes (or notes bloated by the provenance prefix) must be truncated or split into multiple activities; record any truncation in the migration ledger."
+    },
+    {
+      "code": "add-activities-not-idempotent",
+      "severity": "warning",
+      "summary": "Add Activities has no client-assigned id and no upsert: a resend after an unknown outcome adds the comments again. Before resending a `started`/`succeeded_unverified` note, read the order back (`getOrder`) and match MERCHANT_COMMENT messages by exact text."
     }
   ],
   "mappingGuidance": [
@@ -76,7 +89,7 @@
     "Sequencing: import the order first (ecom/order via importOrder), resolve the Wix order id from the crosswalk, then add activities. Add Activities is currently documented to support MERCHANT_COMMENT only; up to 300 activities per request, but each request targets a single order.",
     "Author and timestamp are stamped at call time and cannot be backdated. Preserve provenance inside the message text, e.g. '[source note — {author}, {original ISO date}] {note text}', keeping the total within 5000 chars.",
     "Source notes are commingled with system and other plugins' notes on the source order — inspect note content at import time to decide which notes carry over; do not blindly replay every source order note.",
-    "No exported writer exists yet in rp-target-wix/lib/wix-writers.js (writerId null) — plan this as a direct REST call in the generated import script until a writer is added."
+    "Write with rp-target-wix `addOrderMerchantNotes({ orderId, messages })` (builder `buildAddOrderMerchantNotesRequest`): one order per call, 1-300 messages, each 1-5000 chars. Resolve `orderId` through the readiness gate (`resolveReference('ecom/order', orderSourceKey, 'orderId')`) — the edge is per-record, so a note on a held or not-yet-imported order is deferred while the rest are written. Never call this endpoint with sendDirectRest: the import client refuses unmarked writes."
   ],
   "setupRequirements": [
     "Order crosswalk (source order id -> Wix order id) populated by the order import before any activity write."
@@ -108,5 +121,5 @@
       "note": "Verified live: POST /ecom/v1/orders/{orderId}/activities/add created a MERCHANT_COMMENT that GET returned verbatim, including a caller-supplied source-author/date prefix. Wix assigned the activity ID and current createdDate and recorded the token holder's login email as authorEmail. Probe records were deleted after verification."
     }
   ],
-  "notes": "Authored 2026-08-16. Promoted to verified-live 2026-08-16 by an import-then-add-activity probe under this entity's own capability on an anonymized verification environment. writerId stays null — the direct-REST plan is unchanged; a dedicated writer in rp-target-wix/lib/wix-writers.js is still the open gap."
+  "notes": "Authored 2026-08-16. Promoted to verified-live 2026-08-16 by an import-then-add-activity probe under this entity's own capability on an anonymized verification environment. Writer `addOrderMerchantNotes` added 2026-10-25: the earlier direct-REST plan was refused by the import client, which accepts only marked writes."
 }

@@ -44,6 +44,8 @@
     "jetpack-global-styles": { "displayName": "Jetpack", "slug": "jetpack" },
     "videopress": { "displayName": "Jetpack VideoPress", "slug": "jetpack-videopress" },
     "wpjm-internal": { "displayName": "WP Job Manager", "slug": "wp-job-manager" },
-    "pw-woocommerce-gift-cards": { "displayName": "PW WooCommerce Gift Cards", "slug": "pw-woocommerce-gift-cards" }
+    "pw-woocommerce-gift-cards": { "displayName": "PW WooCommerce Gift Cards", "slug": "pw-woocommerce-gift-cards" },
+    "ctxfeed": { "displayName": "CTX Feed", "slug": "webappick-product-feed-for-woocommerce" },
+    "sliderrevolution": { "displayName": "Slider Revolution", "slug": "revslider" }
   }
 }

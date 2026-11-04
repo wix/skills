@@ -20,8 +20,12 @@ const {
   eligibilityByCapability,
   entityKeysForCapability,
   evaluateCmsFallbackDecision,
+  evaluateMappingTargetOverride,
+  mappingTargetOverrideProposal,
+  nativeRouteNotices,
   unionTargetRefs,
 } = require('../../../lib/plugin-cms-fallback.js');
+const { capabilityPresence, externalDataTasks } = require('./plugin-data-presence.js');
 
 const CONFIDENCE_ORDER = { high: 3, medium: 2, low: 1 };
 
@@ -273,6 +277,22 @@ function detectPlugins({
 
     if (signals.length === 0) continue;
 
+    // Add-ons (e.g. a PRO companion that stores everything in the parent's own tables) are
+    // claimed by the parent profile once the parent is detected. An add-on is never a signal on
+    // its own: it cannot make the parent match.
+    const addOns = [];
+    for (const addOnId of detect.addOnPluginFileIds || []) {
+      const addOnEntry = matchInstalled({ detect: { pluginFileIds: [addOnId] } }, installed);
+      if (!addOnEntry || claimedInstalled.has(addOnEntry.plugin)) continue;
+      claimedInstalled.add(addOnEntry.plugin);
+      addOns.push({
+        plugin: addOnEntry.plugin,
+        name: addOnEntry.name || null,
+        version: addOnEntry.version || null,
+        active: addOnEntry.status === 'active',
+      });
+    }
+
     const uniqueSignals = Array.from(new Set(signals)).sort();
     const version = installedEntry?.version || null;
     // A version below the profile's documented REST threshold means the capability is
@@ -292,8 +312,12 @@ function detectPlugins({
       signals: uniqueSignals,
       capabilities: [...(profile.capabilities || [])],
       profileVersion: profile.profileVersion,
+      // Where the plugin keeps its data. Only `wordpress` lets an empty presence check mean
+      // "no data"; missing (an older stored detection) is treated as unknown.
+      dataLocation: profile.dataLocation || null,
       apiBelowMinVersion,
       minVersion: detect.minVersion || null,
+      addOns,
       entities: (profile.entities || []).map((entity) => describeProfiledEntity(entity, {
         routes,
         rawRoutes,
@@ -657,6 +681,57 @@ function proposeCapability(kind, key, restBase, entry) {
   return kind === 'taxonomy' ? 'content.custom-taxonomy' : 'content.custom-records';
 }
 
+// Tier C: a detected plugin's OWN tables, read through wix-wp-plugin-v2 under a project-local
+// read plan (PLUGIN-READ-PLANS.md), when no profile covers the plugin. The canonical
+// source-schema.json entity (`plugin.<slug>.<entity>`) is the evidence; nothing is read here.
+// Proposed, never confirmed: native refs come from the same capability guess as a derived post
+// type, and `cms/data-item` is always offered beside them so the operator can archive instead.
+const BRIDGE_ENTITY_REF = /^plugin\.([a-z0-9_-]+)\.([a-z0-9_-]+)$/;
+
+function proposeBridgeEntity({ sourceEntityRef, table = null, displayName = null }, capabilityRefs = new Map()) {
+  const match = BRIDGE_ENTITY_REF.exec(String(sourceEntityRef || ''));
+  if (!match) return null;
+  const [, slug, entity] = match;
+  const proposedCapability = proposeCapability('plugin-table', entity, table || entity, { name: [slug, displayName].filter(Boolean).join(' ') });
+  const nativeRefs = (capabilityRefs.get(proposedCapability) || []).filter((ref) => !ref.startsWith('cms/'));
+  return {
+    slug,
+    entity,
+    proposedCapability,
+    candidateTargetRefs: Array.from(new Set([...nativeRefs, 'cms/data-item'])),
+  };
+}
+
+function deriveBridgePlannedEntities({ sourceEntities = [], detection = null, capabilityRefs = new Map() } = {}) {
+  const profiledSlugs = new Set((detection?.detected || []).map((plugin) => normalizeToken(plugin.plugin)));
+  const rows = Array.isArray(sourceEntities) ? sourceEntities
+    : Object.entries(sourceEntities || {}).map(([key, row]) => ({ sourceEntityRef: row?.sourceEntityRef || key, ...row }));
+  const entities = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    if (!row.sourceMeta?.extractionPlan && row.bridgeDesignated !== true) continue;
+    const proposal = proposeBridgeEntity({ sourceEntityRef: row.sourceEntityRef, table: row.schema?.table, displayName: row.displayName }, capabilityRefs);
+    // A profiled plugin's bridge entity is recognized through its profile, not here.
+    if (!proposal || profiledSlugs.has(normalizeToken(proposal.slug))) continue;
+    const declared = row.candidateTargetRefs || row.sourceMeta?.candidateTargetRefs;
+    entities.push({
+      entity: proposal.entity,
+      sourceEntityRef: row.sourceEntityRef,
+      slug: proposal.slug,
+      origin: 'bridge-plan',
+      recognized: false,
+      channel: 'db-only',
+      displayName: row.displayName || row.entityName || proposal.entity,
+      recordCount: typeof row.recordCount === 'number' ? row.recordCount : null,
+      inUse: row.inUse == null ? null : row.inUse,
+      candidateTargetRefs: Array.isArray(declared) && declared.length ? [...declared] : proposal.candidateTargetRefs,
+      proposedCapability: row.sourceMeta?.proposedCapability || proposal.proposedCapability,
+      capabilityConfidence: 'proposed',
+    });
+  }
+  return entities.sort((a, b) => a.sourceEntityRef.localeCompare(b.sourceEntityRef));
+}
+
 function buildGenericNotes(kind, entry) {
   const notes = [];
   if (kind === 'taxonomy' && entry?.hierarchical === true) {
@@ -693,6 +768,18 @@ function buildGenericNotes(kind, entry) {
 //                   nativeAlternativesChecked, proposalDigest, staleDecision?, invalidDecision?, decision? }
 //   cmsFallbackDecisionIgnored { reason: native-target-available | eligibility-removed, value, decidedAt }
 //     on a row whose stored CMS answer no longer applies.
+//
+// Operator override. Every natively routed row (migration-planned via api, or
+// manual-mapping) carries the offer the operator may take instead:
+//   mappingTargetOverride { available: true, proposedTargetRefsByEntity, featureLoss,
+//                           nativeTargetRefs, proposalDigest }
+// and, when the native target has a side effect worth weighing, `notices[]` (verbatim text).
+// A valid `mappingTargetOverride:<capability>` answer bound to that offer wins before native
+// precedence: migration-planned · via cms · basis decision, with
+//   cmsFallback { override: true, approvedBy, approvedAt, featureLoss, targetRefsByEntity,
+//                 nativeTargetRefs, proposalDigest, functionalityRestored: false }
+// A stale or malformed answer makes the row pending (reason mapping-target-override-stale) so
+// it is asked again; nothing is written to the native target or to CMS meanwhile.
 
 // For manual-mapping: every one of `refs` resolves to a manual-mapping target (never a mix — a
 // capability with some manual and some automated targets is a KB authoring error, not
@@ -709,6 +796,8 @@ function resolveManualMapping(refs, targetKnowledge) {
 function classifyCoverage({
   detection = null,
   genericEntities = [],
+  // Tier C entities (deriveBridgePlannedEntities): an unprofiled plugin's own tables, planned.
+  bridgeEntities = [],
   unprofiledRoutes = [],
   targetKnowledge = null,
   entityStatsByRoute = new Map(),
@@ -731,8 +820,19 @@ function classifyCoverage({
   // capabilities[]) and the run's decisions object (only `pluginCmsFallback:*` keys are read).
   cmsFallbackEntries = [],
   cmsFallbackDecisions = {},
+  // The cutover-task-only register (cutover-task-only.json): no data, a named task.
+  cutoverTasks = null,
+  // Routes this run actually read (sampled entities). A coreCovered plugin counts as covered
+  // only when one of its core namespaces is among them.
+  readRoutes = [],
+  // per detected plugin, what its profile's dataPresence checks found on this site
+  // (plugin-data-presence.js presenceByPlugin). Empty for every profile without dataPresence,
+  // so those classify exactly as before.
+  dataPresence = new Map(),
 } = {}) {
   const rows = [];
+  const registers = slugRegisters({ noMigrationNeeded, cutoverTasks });
+  const readNamespaceSet = readNamespaces(readRoutes);
   const knownRefs = targetKnowledge?.knownRefs || new Set();
   const capabilityRefs = targetKnowledge?.capabilityRefs || new Map();
   // A load failure leaves empty lookups; an empty lookup caused by a failure never counts as
@@ -750,10 +850,6 @@ function classifyCoverage({
   const pendingByCapability = new Map(
     pendingNotes.filter((entry) => entry && entry.capability).map((entry) => [entry.capability, entry]),
   );
-  const hintsBySlug = new Map();
-  for (const hint of noMigrationNeeded?.hints || []) {
-    if (hint && hint.slug) hintsBySlug.set(hint.slug, hint);
-  }
   // Only a SIGNED entry grants the verdict. An unsigned one is ignored here rather than
   // trusted, so a stale or hand-edited copy of the register cannot let automation decide a
   // customer has nothing to move; the validator rejects it in the repo, and the row falls
@@ -827,7 +923,23 @@ function classifyCoverage({
     const verdict = ruledOut.get(capability);
     const nativeRefsManualSteps = resolveManualMapping(nativeRefs, targetKnowledge);
     const refsManualSteps = resolveManualMapping(refs, targetKnowledge);
-    if (ruledOut.has(capability)) {
+    const presence = capabilityPresence(plugins, dataPresence);
+    if (presence?.outcome) {
+      // Checked on the site: nothing stored (no-data-found), or only an inactive plugin's
+      // leftovers (inactive-leftover, a product decision). Nothing to move, so nothing blocked.
+      // An unknown check never reaches here: it keeps the normal path below.
+      row = {
+        ...base,
+        status: 'no-need-to-migrate',
+        basis: 'probe',
+        reason: presence.outcome,
+        replacedBy: null,
+        rationale: presence.rationale,
+        dataPresence: presence.checks,
+        targetRefs: [],
+        blocked: [],
+      };
+    } else if (ruledOut.has(capability)) {
       // Only reachable from the human-signed register.
       row = {
         ...base,
@@ -897,6 +1009,17 @@ function classifyCoverage({
         searched: note?.searched ? [note.searched] : [],
         targetRefs: [],
       };
+    }
+    if (presence && !row.dataPresence) row.dataPresence = presence.checks;
+    if (!(row.status === 'no-need-to-migrate' && row.basis === 'decision')) {
+      const external = externalDataTasks(plugins);
+      // Only a cutover task: never a blocker, never a question, never a stop.
+      if (external.cutoverTask) {
+        row = { ...row, externalData: external.externalData, cutoverTask: row.cutoverTask || external.cutoverTask };
+      }
+    }
+    if (['manual-mapping', 'migration-planned'].includes(row.status) && row.via !== 'cms') {
+      row = applyMappingTargetOverride({ row, base, capability, plugins, decisions: cmsFallbackDecisions });
     }
     if (storedCmsAnswer !== undefined && !row.cmsFallback) {
       if (['manual-mapping', 'migration-planned'].includes(row.status)) {
@@ -1007,6 +1130,62 @@ function classifyCoverage({
     });
   }
 
+  // Tier C: an unprofiled plugin's own tables, planned through the bridge. Owned by the ref's
+  // slug exactly (the plan names it), never by token guessing. Merged into the plugin's
+  // `derived:` row when its post types already produced one, so a plugin has one row.
+  const bridgeBySlug = new Map();
+  for (const entity of bridgeEntities) {
+    if (!bridgeBySlug.has(entity.slug)) bridgeBySlug.set(entity.slug, []);
+    bridgeBySlug.get(entity.slug).push(entity);
+  }
+  for (const [slug, group] of bridgeBySlug) {
+    const installed = (detection?.installedButUnprofiled || [])
+      .find((candidate) => normalizeToken(String(candidate.plugin || '').split('/')[0]) === normalizeToken(slug));
+    const pluginId = installed ? installed.plugin : slug;
+    const nativeRefs = Array.from(new Set(group.flatMap((entity) => entity.candidateTargetRefs.filter((ref) => !ref.startsWith('cms/')))));
+    let row = rows.find((candidate) => candidate.capability === `derived:${pluginId}`);
+    if (!row) {
+      row = {
+        capability: `derived:${pluginId}`,
+        recognized: false,
+        basis: 'proposed',
+        plugins: installed ? [installed.plugin] : [],
+        sourceEntities: [],
+        recordCounts: {},
+        channels: [],
+        channel: 'db-only',
+        profileVersion: null,
+        status: 'migration-planned',
+        via: 'cms',
+        confidence: 'proposed',
+        targetRefs: [],
+        pitfalls: [],
+        blocked: [],
+        hierarchicalEntities: [],
+        action: null,
+      };
+      rows.push(row);
+    }
+    for (const entity of group) {
+      if (entity.recordCount !== null) row.recordCounts[entity.sourceEntityRef] = entity.recordCount;
+    }
+    row.sourceEntities = Array.from(new Set([...row.sourceEntities, ...group.map((entity) => entity.sourceEntityRef)])).sort();
+    row.channels = Array.from(new Set([...row.channels, 'db-only'])).sort();
+    row.bridgeEntities = group.map(({ sourceEntityRef, proposedCapability, candidateTargetRefs }) => ({ sourceEntityRef, proposedCapability, candidateTargetRefs }));
+    const native = Array.from(new Set([...(row.via === 'api' ? row.targetRefs : []), ...nativeRefs])).sort();
+    row.via = native.length > 0 ? 'api' : 'cms';
+    row.targetRefs = native.length > 0 ? native : [...GENERIC_TARGET_REFS];
+    const names = group.map((entity) => entity.displayName).join(', ');
+    row.userImpact = row.via === 'api'
+      ? `${names} (read from ${slug}'s own tables) appears to match a native Wix entity. We derived this mapping rather than authored it, so it is proposed and needs your confirmation at the mapping review; a private CMS archive is offered instead.`
+      : `${names} (read from ${slug}'s own tables) will come across as CMS collections, keeping original record IDs. We derived this mapping rather than authored it, so review it at the mapping review.`;
+    // The same side-effect notice a profiled native row carries. The CMS choice for a derived row is
+    // made between its candidate targets at the mapping review, so it needs no override offer.
+    const notices = row.via === 'api' ? nativeRouteNotices(row.targetRefs) : [];
+    if (notices.length) { row.notices = notices; row.userImpact = `${row.userImpact} ${notices.join(' ')}`; } else delete row.notices;
+    if (installed) attributed.add(installed.plugin);
+  }
+
   for (const unprofiled of unprofiledRoutes) {
     const read = unprofiled.read !== false;
     rows.push(read ? {
@@ -1071,15 +1250,35 @@ function classifyCoverage({
   }
 
   for (const installed of detection?.installedButUnprofiled || []) {
-    if (attributed.has(installed.plugin)) continue;
     const slug = String(installed.plugin || '').split('/')[0];
-    const hint = hintsBySlug.get(slug);
+    const keys = registerKeys(installed.plugin);
+    // This skill's own plugin on the source site: not the merchant's, left out of the report.
+    if (registers.lookup('toolkit', keys)) continue;
+    // A cutover task is added even when data was attributed to the plugin: the task never
+    // replaces a data row, it only replaces the "could not identify any data" one.
+    const task = registers.lookup('task', keys);
+    if (task) {
+      upsertRow(rows, cutoverTaskRow(task, installed.name || task.displayName), installed.plugin);
+      continue;
+    }
+    if (attributed.has(installed.plugin)) continue;
+    const core = registers.lookup('core', keys);
+    if (core && (core.coreNamespaces || []).some((ns) => readNamespaceSet.has(ns))) {
+      upsertRow(rows, coreCoveredRow(core, installed.name || core.displayName), installed.plugin);
+      continue;
+    }
+    const hint = registers.lookup('hint', keys);
+    if (hint && rows.some((row) => row.capability === `no-migration-needed:${hint.slug}`)) {
+      // A second copy of the same plugin in another folder (wp-rocket2/wp-rocket): one row.
+      upsertRow(rows, null, installed.plugin, `no-migration-needed:${hint.slug}`);
+      continue;
+    }
     if (hint) {
       // The no-migration-needed list: nothing to move. The row carries its rationale and is
       // marked `basis: list`, so the mapping review can see the answer came from the list
       // (the agent confirms it there — a list hit alone is evidence, not the decision).
       rows.push({
-        capability: `no-migration-needed:${slug}`,
+        capability: `no-migration-needed:${hint.slug}`,
         recognized: false,
         basis: 'list',
         plugins: [installed.plugin],
@@ -1122,8 +1321,12 @@ function classifyCoverage({
       targetRefs: [],
       pitfalls: [],
       blocked: [],
-      userImpact: `${installed.name || installed.plugin} is installed but we could not identify any migratable data for it. If it holds data you need, it will not migrate as things stand.`,
-      action: 'Tell us if this plugin holds data you need; it may need an export file or plugin support added.',
+      userImpact: core
+        ? `${installed.name || installed.plugin} holds the store's core data, but this run did not read ${core.coreNamespaces.join(', ')}. Its products, orders and customers will not migrate until that read runs.`
+        : `${installed.name || installed.plugin} is installed but we could not identify any migratable data for it. If it holds data you need, it will not migrate as things stand.`,
+      action: core
+        ? `Re-run discovery with the credential that reads ${core.coreNamespaces.join(', ')}.`
+        : 'Tell us if this plugin holds data you need; it may need an export file or plugin support added.',
     });
   }
 
@@ -1131,12 +1334,27 @@ function classifyCoverage({
   // (detectPlugins already deduplicates against the installed list). Each classifies exactly
   // like an installed-but-unrecognized plugin: the no-migration-needed list can
   // clear it, otherwise it is Pending — never silently fine, and never a route in scope.
+  const installedSlugs = new Set([
+    ...(detection?.installedButUnprofiled || []).map((entry) => String(entry.plugin || '').split('/')[0]),
+    ...(detection?.detected || []).map((entry) => entry.plugin),
+  ]);
   for (const print of detection?.fingerprinted || []) {
-    const hint = hintsBySlug.get(print.slug) || hintsBySlug.get(print.token);
+    // A fingerprint that names an installed plugin adds nothing (detectPlugins drops these;
+    // this also covers stored inventories from before an alias was added).
+    if (installedSlugs.has(print.slug)) continue;
+    const printKeys = [print.slug, print.token].filter(Boolean);
+    if (registers.lookup('toolkit', printKeys)) continue;
     const name = print.displayName || print.token;
+    const task = registers.lookup('task', printKeys);
+    if (task) {
+      const row = upsertRow(rows, cutoverTaskRow(task, print.displayName || task.displayName), print.slug);
+      row.fingerprintEvidence = Array.from(new Set([...(row.fingerprintEvidence || []), ...print.evidence])).sort();
+      continue;
+    }
+    const hint = registers.lookup('hint', printKeys);
     if (hint) {
       rows.push({
-        capability: `no-migration-needed:${print.slug}`,
+        capability: `no-migration-needed:${hint.slug}`,
         recognized: false,
         basis: 'list',
         plugins: [print.slug],
@@ -1183,6 +1401,62 @@ function classifyCoverage({
 
   for (const row of rows) row.plugins = Array.from(new Set(row.plugins)).sort();
   return rows.sort((a, b) => a.capability.localeCompare(b.capability));
+}
+
+// The operator's CMS override for a natively routed row. Without an answer the row keeps its
+// native route and only carries the offer; a valid answer bound to the offer replaces it.
+function applyMappingTargetOverride({ row, base, capability, plugins, decisions }) {
+  const proposal = mappingTargetOverrideProposal({
+    capability,
+    entityKeys: entityKeysForCapability(plugins, capability),
+    nativeTargetRefs: row.targetRefs || [],
+  });
+  const proposalDigest = cmsFallbackProposalDigest(proposal);
+  const offer = {
+    available: true,
+    proposedTargetRefsByEntity: proposal.targetRefsByEntity,
+    featureLoss: proposal.featureLoss,
+    nativeTargetRefs: proposal.nativeTargetRefs,
+    proposalDigest,
+  };
+  const evaluation = evaluateMappingTargetOverride({ capability, proposal, decisions: decisions || {} });
+  if (evaluation.state === 'cms') {
+    return {
+      ...base,
+      status: 'migration-planned',
+      via: 'cms',
+      confidence: 'confirmed',
+      basis: 'decision',
+      targetRefs: unionTargetRefs(proposal.targetRefsByEntity),
+      cmsFallback: {
+        override: true,
+        approvedBy: evaluation.raw.approvedBy,
+        approvedAt: evaluation.raw.decidedAt || null,
+        featureLoss: proposal.featureLoss,
+        targetRefsByEntity: proposal.targetRefsByEntity,
+        nativeTargetRefs: proposal.nativeTargetRefs,
+        proposalDigest,
+        functionalityRestored: false,
+      },
+    };
+  }
+  if (evaluation.state === 'stale' || evaluation.state === 'invalid') {
+    const raw = evaluation.raw && typeof evaluation.raw === 'object' && !Array.isArray(evaluation.raw) ? evaluation.raw : {};
+    return {
+      ...base,
+      status: 'pending',
+      reason: 'mapping-target-override-stale',
+      searched: [],
+      targetRefs: [],
+      mappingTargetOverride: {
+        ...offer,
+        staleDecision: { value: raw.value ?? null, decidedAt: raw.decidedAt ?? null },
+        ...(evaluation.state === 'invalid' ? { invalidDecision: { key: evaluation.key, problem: evaluation.problem } } : {}),
+      },
+    };
+  }
+  const notices = nativeRouteNotices(row.targetRefs);
+  return { ...row, mappingTargetOverride: offer, ...(notices.length ? { notices } : {}) };
 }
 
 // Step 4 of the recognized-capability precedence: a signed eligibility entry exists and steps
@@ -1245,6 +1519,113 @@ const NO_MIGRATION_REASONS = new Set(['platform-does-it', 'not-needed', 'reconfi
 
 // Accept the legacy `platform-replaced` value so a stale vendored list cannot crash a run;
 // the shipped list uses the current vocabulary.
+// Lookup keys for an installed plugin id (`dir/main-file`): the folder slug first, then the
+// main-file name, so a second copy in another folder (wp-rocket2/wp-rocket) still matches.
+// Folder slug first. The main-file name is a fallback only for a renamed copy of the same
+// plugin, where the folder starts with it (wp-rocket2/wp-rocket, code-snippets-pro/code-snippets);
+// an unrelated plugin whose main file happens to be called "worker" never borrows a register entry.
+function registerKeys(pluginId) {
+  const [dir, file] = String(pluginId || '').split('/');
+  const keys = [dir];
+  if (dir && file && file !== dir && dir.startsWith(file)) keys.push(file);
+  return keys.filter(Boolean);
+}
+
+// Slug-keyed registers in one place. Only signed cutover tasks and toolkit entries count:
+// an unsigned copy falls through to pending, the safe direction.
+function slugRegisters({ noMigrationNeeded = null, cutoverTasks = null } = {}) {
+  const maps = { hint: new Map(), core: new Map(), toolkit: new Map(), task: new Map() };
+  for (const hint of noMigrationNeeded?.hints || []) if (hint && hint.slug) maps.hint.set(hint.slug, hint);
+  for (const entry of noMigrationNeeded?.coreCovered || []) {
+    if (entry && entry.slug && Array.isArray(entry.coreNamespaces)) maps.core.set(entry.slug, entry);
+  }
+  for (const entry of noMigrationNeeded?.toolkitPlugins || []) {
+    if (entry && entry.slug && entry.decidedBy && entry.decidedOn) maps.toolkit.set(entry.slug, entry);
+  }
+  for (const entry of cutoverTasks?.tasks || []) {
+    if (entry && entry.slug && entry.decidedBy && entry.decidedOn && entry.task
+      && Array.isArray(entry.manualSteps?.steps) && entry.manualSteps.steps.length > 0) {
+      maps.task.set(entry.slug, entry);
+    }
+  }
+  return {
+    lookup(kind, keys) {
+      for (const key of keys) if (maps[kind].has(key)) return maps[kind].get(key);
+      return null;
+    },
+  };
+}
+
+function readNamespaces(routes) {
+  const namespaces = new Set();
+  for (const route of routes || []) {
+    const parts = String(route || '').replace(/^\//, '').split('/');
+    if (parts.length >= 2 && parts[0] && parts[1]) namespaces.add(`${parts[0]}/${parts[1]}`);
+  }
+  return namespaces;
+}
+
+// Add `plugin` to the row with this capability, creating it from `template` when absent.
+function upsertRow(rows, template, plugin, capability = template && template.capability) {
+  let row = rows.find((candidate) => candidate.capability === capability);
+  if (!row) {
+    row = template;
+    rows.push(row);
+  }
+  if (plugin) row.plugins.push(plugin);
+  return row;
+}
+
+function cutoverTaskRow(task, name) {
+  return {
+    capability: `cutover-task:${task.slug}`,
+    recognized: false,
+    basis: 'list',
+    plugins: [],
+    sourceEntities: [],
+    recordCounts: {},
+    channels: [],
+    channel: null,
+    profileVersion: null,
+    status: 'manual-mapping',
+    via: 'manual',
+    confidence: 'confirmed',
+    targetRefs: [],
+    manualSteps: task.manualSteps,
+    cutoverTask: { workType: task.workType, task: task.task, doneWhen: task.doneWhen },
+    rationale: [task.does, task.note].filter(Boolean).join(' '),
+    decidedBy: task.decidedBy,
+    decidedOn: task.decidedOn,
+    pitfalls: [],
+    blocked: [],
+    userImpact: `${name || task.displayName} holds no data to move. Cutover task: ${task.task}.${task.note ? ` ${task.note}` : ''}`,
+    action: task.task,
+  };
+}
+
+function coreCoveredRow(core, name) {
+  return {
+    capability: `core-covered:${core.slug}`,
+    recognized: false,
+    basis: 'core-reader',
+    plugins: [],
+    sourceEntities: [],
+    recordCounts: {},
+    channels: [],
+    channel: null,
+    profileVersion: null,
+    status: 'migration-planned',
+    via: 'api',
+    confidence: 'confirmed',
+    targetRefs: [],
+    rationale: core.does,
+    pitfalls: [],
+    blocked: [],
+    userImpact: `${name || core.displayName} is read natively (${core.coreNamespaces.join(', ')}): ${core.does} Each core entity has its own row in the mapping.`,
+    action: null,
+  };
+}
+
 function normalizeNoMigrationReason(value) {
   if (NO_MIGRATION_REASONS.has(value)) return value;
   if (value === 'platform-replaced') return 'platform-does-it';
@@ -1269,6 +1650,7 @@ function describeImpact(row, entities) {
   // A signed "nothing to move" row is not a loss report: whatever its entities' pitfalls say
   // about unmovable fields, the decision already accounts for them. The verdict is what the
   // customer reads, and the rationale on the row carries the detail.
+  if (row.status === 'no-need-to-migrate' && row.basis === 'probe') return row.rationale;
   if (row.status === 'no-need-to-migrate') {
     return [
       row.replacedBy
@@ -1277,7 +1659,18 @@ function describeImpact(row, entities) {
       row.decidedBy ? `Decided by ${row.decidedBy}${row.decidedOn ? ` on ${row.decidedOn}` : ''}.` : null,
     ].filter(Boolean).join(' ');
   }
+  if (row.cmsFallback && row.cmsFallback.override === true) {
+    return `${row.capability} will be archived as private Wix CMS data, as the operator chose. ${row.cmsFallback.featureLoss}`;
+  }
+  if (row.reason === 'mapping-target-override-stale') {
+    return `${row.capability}: the earlier choice to archive these records in Wix CMS no longer matches what is proposed, so it must be asked again. Until then they are not migrated.`;
+  }
   if (row.cmsFallback) return describeCmsFallbackImpact(row);
+  if (row.notices && row.notices.length) return [describeImpactBase(row, entities), ...row.notices].join(' ');
+  return describeImpactBase(row, entities);
+}
+
+function describeImpactBase(row, entities) {
   const blockers = entities.flatMap((entity) => entity.pitfalls).filter((pitfall) => pitfall.severity === 'blocker');
   if (blockers.length > 0) return blockers[0].summary;
   switch (row.status) {
@@ -1316,6 +1709,9 @@ function describeCmsFallbackImpact(row) {
 }
 
 function describeAction(row) {
+  if (row.reason === 'mapping-target-override-stale') {
+    return 'At the mapping review, ask again: keep the native Wix target, or archive these records in a private Wix CMS collection.';
+  }
   if (row.cmsFallback && row.status === 'pending') {
     return row.reason === 'cms-fallback-target-knowledge-unavailable'
       ? 'Rerun discovery once Wix target knowledge loads; the CMS fallback cannot be applied until then.'
@@ -1413,8 +1809,12 @@ module.exports = {
   collectUnprofiledRoutes,
   collectCandidateNamespaces,
   deriveGenericEntities,
+  deriveBridgePlannedEntities,
+  proposeBridgeEntity,
   proposeCapability,
   classifyCoverage,
+  registerKeys,
+  slugRegisters,
   coverageSummary,
   summarizeDetection,
   collectRecordProperties,

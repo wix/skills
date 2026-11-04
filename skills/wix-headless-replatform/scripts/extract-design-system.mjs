@@ -2,12 +2,16 @@
 import { spawn } from "node:child_process";
 import { copyFile, cp, readdir, readFile, rm, access, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { docsDir, ensureDir, normalizeUrl, parseArgs, readJson, resolveOutputDir, writeJson } from "./lib/common.mjs";
 import {
   resolveBrowserToolingContext,
   resolveDesignMdGeneratorFromContext,
 } from "./lib/browser-tooling.mjs";
 import { extractTokens } from "./extract-tokens.mjs";
+import { assertPublicHttpUrl, trustedOriginsEnv } from "./lib/url-safety.mjs";
+
+const REQUEST_GUARD_PRELOAD = fileURLToPath(new URL("./lib/playwright-request-guard.cjs", import.meta.url));
 
 const VALID_EXTRACTORS = new Set(["auto", "design-md-generator", "local"]);
 
@@ -111,6 +115,9 @@ async function extractLocal({ outputDir, reason, selectedExtractor = "local", at
 }
 
 async function extractWithDesignMdGenerator({ sourceUrl, outputDir, browserTooling }) {
+  // The generator browses on its own, so refuse an internal start URL here; redirects and subresources are
+  // blocked inside its process by the preloaded request guard (see designMdGeneratorEnv).
+  await assertPublicHttpUrl(sourceUrl);
   const tool = await resolveDesignMdGeneratorFromContext(browserTooling);
   const toolDir = tool.rootDir;
   const generatorDir = path.join(docsDir(outputDir), "design-md-generator");
@@ -479,7 +486,7 @@ async function runDesignMdGeneratorAttempt({ mode, sourceUrl, tool, runDir }) {
   const baseArgs = mode === "direct" ? tool.retryArgs : tool.args;
   const outputPath = resolveDesignMdGeneratorOutputPath(runDir);
   const args = [...baseArgs, sourceUrl, "--fast", "--output", outputPath];
-  const run = await runCommand(command, args, { cwd: tool.rootDir, timeoutMs: 240000 });
+  const run = await runCommand(command, args, { cwd: tool.rootDir, timeoutMs: 240000, env: designMdGeneratorEnv() });
   const artifacts = await inspectDesignMdArtifacts(runDir);
   const attempt = {
     extractor: "design-md-generator",
@@ -593,9 +600,19 @@ function tail(value, limit = 4000) {
   return String(value || "").slice(-limit);
 }
 
-function runCommand(command, args, { cwd, timeoutMs }) {
+/** Environment for the generator process: preload the request guard into every node it starts. */
+export function designMdGeneratorEnv(baseEnv = process.env) {
+  const preload = `--require ${JSON.stringify(REQUEST_GUARD_PRELOAD)}`;
+  return {
+    ...baseEnv,
+    ...trustedOriginsEnv(),
+    NODE_OPTIONS: [baseEnv.NODE_OPTIONS, preload].filter(Boolean).join(" "),
+  };
+}
+
+function runCommand(command, args, { cwd, timeoutMs, env = process.env }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     let timedOut = false;

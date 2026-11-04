@@ -122,6 +122,15 @@ function encodeImageUrl(url) {
   }
 }
 
+// Whether two references name the same file. Post HTML may carry a percent-encoded path while
+// the media record's `source_url` carries the decoded (e.g. non-Latin) filename, or the reverse;
+// both reduce to one canonical form through encodeImageUrl. Never a fuzzy match: scheme, host,
+// every path segment and the query must agree after that canonicalization.
+function sameImageUrl(a, b) {
+  if (!isNonEmptyString(a) || !isNonEmptyString(b)) return false;
+  return encodeImageUrl(a) === encodeImageUrl(b);
+}
+
 // The one entry point. Returns the encoded URL of the largest file the record offers, or null
 // when it offers none. Never invents a URL: a record with no image is a fact to report, not a
 // gap to fill with a placeholder.
@@ -183,4 +192,5 @@ module.exports = {
   resolveImageUrls,
   resolvedIsCrop,
   encodeImageUrl,
+  sameImageUrl,
 };

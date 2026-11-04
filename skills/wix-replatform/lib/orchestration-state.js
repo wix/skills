@@ -16,6 +16,8 @@ const ORCHESTRATION_STATES = new Set([
   'awaiting_source',
   'awaiting_import_scope',
   'awaiting_credentials',
+  'awaiting_user_action',
+  'user_action_recovery_running',
   'awaiting_files',
   'awaiting_destination_strategy',
   'destination_running',
@@ -41,6 +43,7 @@ const ORCHESTRATION_STATES = new Set([
   'executing_import',
   'storefront_running',
   'finalizing',
+  'migration_review_running',
   'completed',
   'partial',
   'blocked',
@@ -157,7 +160,8 @@ async function mkdirp(dirPath) {
 async function writeJsonAtomic(filePath, data) {
   const dirPath = path.dirname(filePath);
   await mkdirp(dirPath);
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  // pid + time alone collide for two writes in the same millisecond; the random part cannot.
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`;
   await fs.writeFile(tempPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
   await fs.rename(tempPath, filePath);
 }
@@ -305,11 +309,22 @@ function validateDecisions(decisions, errors, quarantined = []) {
       if (!shape.ok) quarantined.push({ key, problem: shape.problem });
       continue;
     }
+    // The operator's CMS override follows the same rule: a malformed entry is never honored and
+    // never fails the run; the capability is asked again at the mapping review.
+    if (cmsFallback.isMappingTargetOverrideKey(key)) {
+      const shape = cmsFallback.mappingTargetOverrideShape(key, value);
+      if (!shape.ok) quarantined.push({ key, problem: shape.problem });
+      continue;
+    }
     if (!value || typeof value !== 'object') {
       pushError(errors, 'decision_entry_invalid', `decision ${key} must be an object`);
       continue;
     }
     requireSetMember(errors, `decision_${key}_source`, value.source, DECISION_SOURCE, `decision ${key} source`);
+    // The owner's single approval for changing an existing site's settings, bound to the site and the exact changes.
+    if (key === 'siteLocaleDecision' && (!['change', 'keep'].includes(value.value) || typeof value.siteId !== 'string' || !/^[0-9a-f]{64}$/.test(value.changesDigest || '') || typeof value.requestId !== 'string' || !Array.isArray(value.rows))) {
+      pushError(errors, 'decision_siteLocaleDecision_shape', 'siteLocaleDecision must name a choice, a site, immutable rows, the changes digest and its request');
+    }
   }
 }
 
@@ -429,8 +444,14 @@ function updateDecisionObject(decisions, key, value, { source = 'user', rational
 }
 
 function assertGenericDecisionKey(key) {
+  if (key === 'siteLocaleDecision') {
+    throw new Error('siteLocaleDecision is the owner\'s answer to the site-locale question and is written only by answering its durable request (the answer binds the exact changes shown); the generic decide command cannot record it');
+  }
   if (cmsFallback.isCmsFallbackDecisionKey(key)) {
     throw new Error(`${key} is a CMS-fallback answer and is written only by \`orchestration-state.js decide-cms-fallback\` (it binds the answer to the exact proposal shown); the generic decide command cannot record it`);
+  }
+  if (cmsFallback.isMappingTargetOverrideKey(key)) {
+    throw new Error(`${key} is the operator's CMS override and is written only by \`orchestration-state.js decide-mapping-target-override\` (it binds the answer to the exact offer shown); the generic decide command cannot record it`);
   }
 }
 
@@ -514,6 +535,81 @@ function recordPluginCmsFallbackDecision(artifacts, {
   };
 }
 
+/**
+ * The only writer of `mappingTargetOverride:<capability>`: the operator chose a
+ * private CMS archive for a capability a native Wix target claims. Reads the offer from the
+ * capability's current plugin-coverage row (`mappingTargetOverride`, or the CMS row an earlier
+ * override produced) and binds the answer to it. Resets the mapping approval to pending in the
+ * same save. Never recorded in a one-click run. Mutates `artifacts` and returns the event.
+ */
+function recordMappingTargetOverride(artifacts, {
+  capability,
+  value = 'cms',
+  approvedBy,
+  coverageRow,
+  rationale = null,
+  timestamp = nowIso(),
+} = {}) {
+  if (!artifacts || !artifacts.decisions || !artifacts.approvals) {
+    throw new Error('artifacts.decisions and artifacts.approvals are required');
+  }
+  if (getDecisionValue(artifacts.decisions, 'automationMode') === 'one_click') {
+    throw new Error('decide-mapping-target-override is not allowed in a one-click/unattended run (automationMode=one_click): the capability keeps its native target');
+  }
+  if (!capability || typeof capability !== 'string') throw new Error('decide-mapping-target-override requires --capability');
+  if (value !== 'cms') throw new Error(`decide-mapping-target-override --value must be cms (got: ${value})`);
+  if (typeof approvedBy !== 'string' || approvedBy.trim().length === 0) {
+    throw new Error('decide-mapping-target-override requires a non-empty --approved-by naming who answered');
+  }
+  const row = coverageRow;
+  const offer = row && row.capability === capability
+    ? (row.mappingTargetOverride && row.mappingTargetOverride.available === true
+      ? { targetRefsByEntity: row.mappingTargetOverride.proposedTargetRefsByEntity, featureLoss: row.mappingTargetOverride.featureLoss, proposalDigest: row.mappingTargetOverride.proposalDigest }
+      : (row.cmsFallback && row.cmsFallback.override === true
+        ? { targetRefsByEntity: row.cmsFallback.targetRefsByEntity, featureLoss: row.cmsFallback.featureLoss, proposalDigest: row.cmsFallback.proposalDigest }
+        : null))
+    : null;
+  if (!offer) {
+    throw new Error(`no native-target row with a CMS override offer for ${capability} in plugin-coverage.json; there is nothing to override`);
+  }
+  const proposal = {
+    targetRefsByEntity: cmsFallback.canonicalTargetRefsByEntity(offer.targetRefsByEntity),
+    featureLoss: typeof offer.featureLoss === 'string' ? offer.featureLoss : null,
+  };
+  const proposalDigest = cmsFallback.cmsFallbackProposalDigest({ capability, ...proposal });
+  if (offer.proposalDigest !== proposalDigest) {
+    throw new Error(`plugin-coverage.json is stale or edited for ${capability}: its override offer does not match its digest; rerun reclassification (wp-discovery.js --reclassify-coverage) and ask again`);
+  }
+  const key = cmsFallback.overrideDecisionKey(capability);
+  artifacts.decisions[key] = {
+    value,
+    decidedAt: timestamp,
+    source: 'user',
+    rationale: rationale || null,
+    approvedBy: approvedBy.trim(),
+    proposal,
+    proposalDigest,
+  };
+  if (artifacts.approvals.mapping && artifacts.approvals.mapping.status !== 'pending') {
+    updateApprovalObject(artifacts.approvals, 'mapping', 'pending', {
+      artifactRefs: artifacts.approvals.mapping.artifactRefs || [],
+      notes: `${key} changed`,
+      timestamp,
+    });
+  }
+  return {
+    key,
+    event: {
+      id: randomId('evt'),
+      timestamp,
+      phase: artifacts.run ? artifacts.run.activePhase : 'mapping',
+      state: artifacts.run ? artifacts.run.currentState : null,
+      type: 'decision.recorded',
+      payload: { key, value },
+    },
+  };
+}
+
 function updateApprovalObject(approvals, approvalType, status, { artifactRefs = [], notes = null, decidedBy = 'user', timestamp = nowIso() } = {}) {
   if (!approvals[approvalType]) {
     throw new Error(`unknown approval type: ${approvalType}`);
@@ -556,8 +652,12 @@ function autoApproveOneClick(artifacts, approvalType, { artifactRefs = [], notes
   if (current.status === 'rejected') {
     return { ok: false, changed: false, reason: 'approval_rejected' };
   }
+  let strippedOmissionFields = false;
+  if (approvalType === 'mapping') for (const key of ['fieldDispositionDigests', 'approvedBy', 'requestId', 'omissionApprovalContext']) {
+    if (Object.hasOwn(current,key)) { delete current[key]; strippedOmissionFields = true; }
+  }
   if (current.status === 'approved') {
-    return { ok: true, changed: false, reason: 'already_approved' };
+    return { ok: true, changed: strippedOmissionFields, reason: 'already_approved' };
   }
   updateApprovalObject(artifacts.approvals, approvalType, 'approved', {
     artifactRefs,
@@ -572,12 +672,36 @@ function updateCheckpointObject(checkpoints, phase, patch, timestamp = nowIso())
   if (!checkpoints[phase]) {
     throw new Error(`unknown checkpoint phase: ${phase}`);
   }
+  // Reject a bad status before it is saved: the validator only sees it later and then fails the run.
+  const allowed = { status: PHASE_STATUS, ...(phase === 'execution' ? { setupStatus: EXECUTION_ITEM_STATUS, importStatus: EXECUTION_ITEM_STATUS } : {}) };
+  for (const [field, values] of Object.entries(allowed)) {
+    if (patch && field in patch && !values.has(patch[field])) {
+      throw new Error(`invalid ${phase} checkpoint ${field}: ${patch[field]} (allowed: ${[...values].join(', ')})`);
+    }
+  }
   checkpoints[phase] = {
     ...checkpoints[phase],
     ...patch,
     updatedAt: timestamp,
   };
   return checkpoints;
+}
+
+// Project the durable stop without inventing an underlying cause or recovery attempts.
+// Legacy holds may have no note; the missing details are themselves an actionable blocker.
+function explicitRunBlocker(resumeFrom) {
+  const details = resumeFrom && typeof resumeFrom === 'object' && !Array.isArray(resumeFrom) ? resumeFrom : null;
+  const hasReason = details && ['message', 'note', 'reason', 'requiredInput'].some((key) => typeof details[key] === 'string' && details[key].trim());
+  return {
+    type: hasReason ? 'run_blocked' : 'run_blocked_details_required',
+    artifact: 'orchestration/run.json',
+    owner: 'Import Operator',
+    evidence: ['orchestration/run.json'],
+    attemptedRecovery: details?.attemptedRecovery ?? null,
+    requiredInput: hasReason
+      ? 'Resolve the recorded blocker in orchestration/run.json resumeFrom, then use replatform resume <project>.'
+      : 'Record the stop reason, evidence and attempted recovery with orchestration-state.js transition --state blocked --phase orchestration --status blocked --needs-user-input true --resume-from <jsonReasonRef>; resolve the blocker, then use replatform resume <project>.',
+  };
 }
 
 function transitionRun(run, { state, activePhase, status = run.status, needsUserInput = run.needsUserInput, needsLlm = run.needsLlm, resumeFrom = run.resumeFrom, timestamp = nowIso() }) {
@@ -598,6 +722,7 @@ function transitionRun(run, { state, activePhase, status = run.status, needsUser
     needsUserInput,
     needsLlm,
     resumeFrom,
+    ...(status === 'blocked' ? { blocker: explicitRunBlocker(resumeFrom) } : run.blocker ? { blocker: null } : {}),
     updatedAt: timestamp,
   };
 }
@@ -623,9 +748,11 @@ module.exports = {
   updateDecisionObject,
   assertGenericDecisionKey,
   recordPluginCmsFallbackDecision,
+  recordMappingTargetOverride,
   updateApprovalObject,
   autoApproveOneClick,
   isOneClickArtifacts,
   updateCheckpointObject,
   transitionRun,
+  explicitRunBlocker,
 };

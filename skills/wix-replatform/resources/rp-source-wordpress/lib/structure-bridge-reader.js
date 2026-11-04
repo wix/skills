@@ -555,7 +555,7 @@ const DEFERRED_ACTION_CODE = 'structure-bridge-extraction-deferred';
 const PRODUCER = 'rp-source-wordpress/lib/structure-bridge-reader.js';
 const SOURCE_PREREQUISITES = [
   'the source WordPress site is still online with the Wix WordPress plugin (wix-wp-plugin-v2) active',
-  'the plugin credential this migration was configured with (Application Password or WMH2_MIGRATION_KEY) is still valid in the original migration environment',
+  'the WordPress Application Password this migration was configured with is still valid in the original migration environment',
 ];
 const DISCOVERY_PREREQUISITES = [...SOURCE_PREREQUISITES, 'WordPress discovery can be re-run from the original migration project'];
 

@@ -1,0 +1,17 @@
+# scopes: read_discounts
+# Bulk query: the products and collections named by a customerBuys item scope, joined to the discounts core by node id.
+# Connections: discountNodes plus `products` and `collections` on each customerBuys item scope (5).
+{
+  discountNodes {
+    edges {
+      node {
+        id
+        discount {
+          __typename
+          ... on DiscountCodeBxgy { customerBuys { items { __typename ... on DiscountProducts { products { edges { node { __typename id } } } } ... on DiscountCollections { collections { edges { node { __typename id } } } } } } }
+          ... on DiscountAutomaticBxgy { customerBuys { items { __typename ... on DiscountProducts { products { edges { node { __typename id } } } } ... on DiscountCollections { collections { edges { node { __typename id } } } } } } }
+        }
+      }
+    }
+  }
+}

@@ -580,9 +580,12 @@ async function reconcileProductSeo({ projectDir, siteId, rows, readProduct, patc
           verifiedAt: now(),
           writtenFields: TAG_FIELDS.filter((f) => plan.fields[f].action === 'write'),
           journal: null,
+          openResiduals: null,
         });
       } else {
         // Nothing advances until verification passes; a written-but-unverified change keeps its journal.
+        // The open residuals are kept on the row so a later pass that does not reconcile this
+        // product still reports them (outstandingSeoResiduals) until a verification clears them.
         await done({ verified: false });
       }
     };
@@ -654,6 +657,19 @@ async function reconcileProductSeo({ projectDir, siteId, rows, readProduct, patc
     backoffWaitMs: (pacerAfter.backoffWaitMs || 0) - (pacerBefore.backoffWaitMs || 0),
     reads: (pacerAfter.reads || 0) - (pacerBefore.reads || 0),
   };
+  // Every product this pass could not verify keeps its open residuals on its saved row (early
+  // failures included), so a later pass that does not reconcile it still reports them through
+  // outstandingSeoResiduals until a verification clears them.
+  let carry = false;
+  for (const result of results) {
+    if (!result || result.verified) continue;
+    // A row saved for another target is not this product's history (firstPass ignores it too).
+    const saved = state.rows[result.sourceKey];
+    const own = saved && saved.targetId === result.targetId ? saved : {};
+    state.rows[result.sourceKey] = { ...own, targetId: result.targetId, verified: false, openResiduals: result.residuals.filter((r) => SEO_OUTCOMES.includes(r.outcome)) };
+    carry = true;
+  }
+  if (carry) await persist();
   return { siteId, results, stageResiduals: collectSeoStageResiduals(results), timing };
 }
 
@@ -674,6 +690,17 @@ function collectSeoStageResiduals(results) {
     entity: 'product', stage: 'seo', outcome, count: sourceKeys.length, sourceKeys: sourceKeys.sort(),
   }));
 }
+// Residuals still owed by products a pass did not reconcile: every saved row that has not passed
+// verification, with its last recorded outcomes (seo_resolution_unverified when none were kept).
+// Feed the result, with this pass's own results, to collectSeoStageResiduals.
+function outstandingSeoResiduals(state, { exclude = [] } = {}) {
+  const skip = new Set(exclude);
+  return Object.entries((state && state.rows) || {})
+    .filter(([sourceKey, row]) => !skip.has(sourceKey) && row && row.verified !== true)
+    .map(([sourceKey, row]) => ({ sourceKey, targetId: row.targetId || null, carried: true,
+      residuals: Array.isArray(row.openResiduals) && row.openResiduals.length ? row.openResiduals : [{ outcome: 'seo_resolution_unverified', field: 'seoData' }] }))
+    .sort((a, b) => a.sourceKey.localeCompare(b.sourceKey));
+}
 function seoStageBlocksCompletion(stageResiduals) {
   return (stageResiduals || []).some((row) => row.count > 0 && !SEO_ACCEPTED_OUTCOMES.includes(row.outcome));
 }
@@ -687,6 +714,7 @@ function assertNotStoresProductBulkSeo(itemType) {
 }
 
 module.exports = {
+  outstandingSeoResiduals,
   TAG_FIELDS,
   SEO_FIELDS,
   SEO_VALUES,

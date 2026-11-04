@@ -121,9 +121,9 @@
           "summary": "A booking has no status of its own: it inherits the WooCommerce order status (the plugin's own listing filters on wc-processing / wc-on-hold / wc-pending / wc-completed and marks per-item cancellation with _item_cancelled). Mapping to Wix is NOT a straight status copy - bookings/booking documents that Create Booking discards any paymentStatus you send and that Confirm Booking, the only way to set one, refuses a booking that is already CONFIRMED. So a PAID source order must be created as CREATED and then confirmed (pitfalls payment-status-is-ignored-at-create and created-is-invisible-confirmed-needs-permission), an unpaid/pending order maps to PENDING, and a cancelled order or an _item_cancelled line item CANNOT be recreated in its terminal state at all - the post-create Cancel Booking call is the notification-firing path we are avoiding. Land cancelled appointments as CMS history."
         },
         {
-          "code": "past-appointments-unproven-on-the-target",
-          "severity": "blocker",
-          "summary": "Most of a real store's booking history is in the past, and the Wix side is NOT documented as accepting it - see bookings/booking pitfall past-dated-bookings-unverified (403 BOOKING_POLICY_VIOLATION and 428 SLOT_NOT_AVAILABLE are both live gates, skipAvailabilityValidation covers only availability and itself demands a resource). Plan historical appointments as CMS archive rows until a live probe proves the native path, and never report this as 'Wix cannot do bookings'."
+          "code": "past-appointments-need-skip-availability",
+          "severity": "warning",
+          "summary": "Most of a real store's booking history is in the past. Wix accepts past-dated appointment bookings when skipAvailabilityValidation is set (live 2026-10-27) - see bookings/booking pitfall past-dated-bookings-need-skip-availability. Without it the create 428s SLOT_NOT_AVAILABLE. Import history natively through importBooking; never report this as 'Wix cannot do bookings'."
         },
         {
           "code": "sms-reminder-fires-on-future-bookings",

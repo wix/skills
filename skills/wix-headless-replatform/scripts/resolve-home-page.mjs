@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 import path from "node:path";
+import { fetchPublic } from "./lib/url-safety.mjs";
 import { docsDir, normalizeUrl, parseArgs, resolveOutputDir, writeJson } from "./lib/common.mjs";
 import { EXTRACTION_SCHEMA_VERSION, createGap, freezeSpec } from "./lib/extraction-contract.mjs";
 
 const LOCALE_SEGMENT = /^[a-z]{2}(?:-[a-z]{2})?$/i;
 
-export async function resolveHomePage(requestedUrl, { fetchImpl = fetch } = {}) {
+export async function resolveHomePage(requestedUrl, { fetchImpl = (url, init) => fetchPublic(url, init) } = {}) {
   const requested = normalizeUrl(requestedUrl);
   requested.search = "";
   const candidate = homeCandidate(requested);
   let response;
   try {
     response = await fetchImpl(candidate, {
-      redirect: "follow",
       signal: AbortSignal.timeout(15_000),
       headers: { accept: "text/html,application/xhtml+xml", "user-agent": "wix-headless-replatform/0083" },
     });

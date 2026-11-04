@@ -1,6 +1,6 @@
 ---
 name: "Create and Update Pricing Plans"
-description: Creates subscription and one-time payment plans using Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks configuration, and plan visibility.
+description: "Creates, finds and changes Wix Pricing Plans with the Plans API. Covers pricing models (recurring, one-time, free), trial periods, perks and plan visibility; finding a plan by name and listing the plans a site sells; and renaming, repricing, hiding and archiving a plan."
 ---
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Pricing Plans (Real-World, API-First)
 
@@ -8,26 +8,22 @@ description: Creates subscription and one-time payment plans using Plans API. Co
 
 
 ## Description
-Below are the recommended steps to successfully create or update a Wix Pricing Plans (or several at once) on Wix and attach a booking session to a pricing plan, with real-world troubleshooting and fixes for common API issues.
+Below are the steps to create, find and change Wix Pricing Plans, with real-world troubleshooting and fixes for common API issues. To give a plan's buyers booking sessions (packages, memberships, unlimited bookings), use [Pricing Plans Bookings Integration](pricing-plans-bookings-integration.md) instead.
 
 ---
 
 ## Overview
-Wix Pricing Plans includes Plans that allows Wix users to build a customized membership plan experiences and sell them to their customers. Pricing plans can also have bundled booking session as benefits.
+Wix Pricing Plans includes Plans that allows Wix users to build a customized membership plan experiences and sell them to their customers.
 
 - With Plans, a site owner can create different types of plans, such as, free, one-time or recurring subscriptions and memberships.
-- With Benefits, a site owner can connect other wix apps like booking service to a pricing plan subscription or membership. Read the full list of pricing plan integration [here](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/introduction#integrations).
+- With Benefits, a site owner can connect other Wix apps, such as Wix Blog, to a pricing plan subscription or membership. Read the full list of pricing plan integration [here](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/introduction#integrations).
 
 ### IMPORTANT NOTES
-- Always Prioritize Reading Full API Method Documentation: this overview article provides a general workflow. However, it repeatedly stresses the importance of reading the full documentation for each specific REST method you intend to use. This is critical for understanding detailed requirements.
-- Pay close attention to all required fields, data types, enum values, and specific ID types (e.g., resourceId vs. id) as defined in the detailed schema of each API endpoint. The overview article serves as a guide but doesn't replace the need to consult these specifics.
+- The steps below carry the request bodies for the common path. Open a linked method page only when the task needs a field that the step does not show.
 
 ---
 
 ## Steps
-### 0. Read pricing plans API docs
-Before proceeding to further steps I must read the following [documentation](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/introduction) on how to form request to pricing plans API.
-
 ### 1. Create a pricing plan
 Create plans with the [Create Plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan) endpoint: `POST https://www.wixapis.com/pricing-plans/v3/plans`.
 
@@ -111,9 +107,9 @@ Two more optional fields worth knowing:
 - **Free trials.** `pricingVariants[].freeTrialDays` only applies to recurring *paid* plans — using
   it on a free plan returns `400 FREE_TRIAL_IS_APPLICABLE`.
 
-### 2. Attach integrating app entity to pricing plans
+### 2. Attach integrating app entity to pricing plans (not Bookings)
 
-To attach integrating app entity, like bookings or blog to pricing plans read the [Benefit Programs](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/introduction) documentation and proceed to further steps.
+This step is not the path for booking access: for Wix Bookings services, use [Pricing Plans Bookings Integration](pricing-plans-bookings-integration.md). To attach another integrating app's entity, such as a blog post, to pricing plans read the [Benefit Programs](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/introduction) documentation and proceed to further steps.
 
 #### 2.1. Find program definition
 
@@ -150,9 +146,98 @@ Each item in the request for this endpoint must adhere to these rules:
 -  `category` must be empty string
 - provider app id must be the integrating app def id. For the full list of wix app def ids read [this](https://dev.wix.com/docs/api-reference/articles/get-started/apps-created-by-wix) article.
 - `itemSetId` must set to the created pool definition benefit item set id.
-- `externalId` must be set to the integrating app entity id, example: booking service id or blog post id.
+- `externalId` must be set to the integrating app entity id, for example a blog post id.
 
-### 3. Stop offering a plan — archive it, don't delete it
+### 3. Find a plan
+
+Find plans with [Query Plans](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/query-plans): `POST https://www.wixapis.com/pricing-plans/v3/plans/query`. Every later step that changes a plan needs its `id` and current `revision` from this result.
+
+**The plans the site sells** (archived plans are returned too unless you filter them out):
+
+```bash
+curl -X POST 'https://www.wixapis.com/pricing-plans/v3/plans/query' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "query": { "filter": { "archived": false }, "cursorPaging": { "limit": 100 } } }'
+```
+
+**One plan by name:**
+
+```bash
+curl -X POST 'https://www.wixapis.com/pricing-plans/v3/plans/query' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "query": { "filter": { "name": "Gold Membership", "archived": false } } }'
+```
+
+`name` matching is exact and case-sensitive: `"gold membership"` does not find `"Gold Membership"`. When the user's wording finds nothing, list the plans the site sells and match the name in code, ignoring case. Several plans fit: ask which one before changing anything.
+
+The plans are in `plans[]`. The fields the next steps read:
+
+| Field | What it holds |
+| --- | --- |
+| `id`, `revision` | Needed by every update |
+| `name`, `visibility`, `archived` | `visibility` is `PUBLIC` or `PRIVATE` |
+| `currency` | Currency of every amount in the plan |
+| `pricingVariants[]` (every field) | Sent back exactly as returned when the price changes (step 4) |
+| `pricingVariants[].pricingStrategies[0].flatRate.amount` | The price, as a decimal string (`"30"`) |
+
+Results come oldest first, up to 100 per page. While `pagingMetadata.hasNext` is `true`, send `{ "query": { "cursorPaging": { "limit": 100, "cursor": "<pagingMetadata.cursors.next>" } } }`; the cursor keeps the first request's filter.
+
+### 4. Change a plan
+
+Change a plan with [Update Plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/update-plan): `PATCH https://www.wixapis.com/pricing-plans/v3/plans/<PLAN_ID>`.
+
+A request that names the plan and the change ("raise Gold to $35 a month", "archive the Legacy plan") is already the user's confirmation, for this step and for step 5. Ask first when the plan or the new value is unclear, or when the currency or billing period the user names differs from the plan's `currency` or `billingCycle`; do not change `billingTerms` to match the user's wording.
+
+Send the plan's `id`, its current `revision` and only the fields that change; top-level fields you leave out keep their values. A `revision` that is no longer current returns `409 INVALID_REVISION`: read the plan again and resend with the new `revision`.
+
+**Rename a plan:**
+
+```bash
+curl -X PATCH 'https://www.wixapis.com/pricing-plans/v3/plans/<PLAN_ID>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "plan": { "id": "<PLAN_ID>", "revision": "<CURRENT_REVISION>", "name": "Gold Membership Plus" } }'
+```
+
+The pricing variant keeps its own `name`; renaming the plan does not change it.
+
+**Hide a plan from the site:** send `"visibility": "PRIVATE"`. The plan then no longer shows to site visitors and members, but it can still be bought. To stop selling it, archive it (step 5). Do not hide a plan with `buyable`: the field is deprecated, and `false` does not stop purchases. Keep `buyable: true` when you create a plan, as in step 1.
+
+**Change the price:** `pricingVariants` replaces the plan's variants. Send each variant back exactly as Query Plans returned it — every field, including `freeTrialDays`, `fees` and `billingTerms.cyclesCompletedDetails` when they are present — and change only `pricingStrategies[0].flatRate.amount`. A field you leave out is lost: a variant with only `id` and `pricingStrategies` returns `400` (`billingTerms must not be empty`, `name must not be empty`), and one without `freeTrialDays` drops the free trial. In the example below, every value except the amount is copied from the query result.
+
+```bash
+curl -X PATCH 'https://www.wixapis.com/pricing-plans/v3/plans/<PLAN_ID>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "plan": {
+      "id": "<PLAN_ID>",
+      "revision": "<CURRENT_REVISION>",
+      "pricingVariants": [
+        {
+          "id": "<VARIANT_ID>",
+          "name": "<VARIANT_NAME>",
+          "freeTrialDays": 0,
+          "fees": [],
+          "billingTerms": {
+            "billingCycle": { "period": "MONTH", "count": 1 },
+            "startType": "ON_PURCHASE",
+            "endType": "UNTIL_CANCELLED"
+          },
+          "pricingStrategies": [{ "flatRate": { "amount": "19" } }],
+          "visible": true,
+          "categoryIds": []
+        }
+      ]
+    }
+  }'
+```
+
+A new price applies to new purchases; existing subscribers keep the price they bought at ([Help Center: editing an existing plan](https://support.wix.com/en/article/pricing-plans-editing-an-existing-plan)). Tell the user so. When they want existing subscribers to renew at the new price too, give them the dashboard flow in [Changing the Price of a Subscription](https://support.wix.com/en/article/wix-pricing-plans-changing-a-price-of-a-subscription).
+
+### 5. Stop offering a plan — archive it, don't delete it
 
 When the user asks to archive, retire, or stop offering a plan, **archive** it so existing
 subscribers and order history are preserved. Archiving is an Update Plan call — there is no

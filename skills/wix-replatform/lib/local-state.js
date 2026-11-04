@@ -30,6 +30,7 @@ const ATTEMPT_STATUS = new Set([
   'deferred',
   'needs_verification',
   'skipped_already_imported',
+  // Legacy: written by safe mode, which was removed. Old ledgers still read; nothing writes it.
   'skipped_safe_mode_blocked',
   // A record excluded by an accepted
   // out-of-scope rule (`entityCompleteness.skippedOutOfScope`) needs its own
@@ -163,6 +164,28 @@ function sampleAttemptJournalPath(projectDir) {
   return path.join(sampleStateDir(projectDir), 'attempts', 'write-attempts.ndjson');
 }
 
+// Each dry run starts its own sample journal. Every pass reloads and folds that journal, so
+// keeping all earlier dry runs in it made each run of a fix loop slower than the last. The earlier
+// rows move unchanged to `previous/` (never deleted); the live journal is never touched.
+// Idempotent within a run: a journal that already starts with this run's rows stays in place.
+function startSampleJournal(projectDir, runId) {
+  const sync = require('node:fs');
+  const file = sampleAttemptJournalPath(projectDir);
+  let head;
+  try {
+    const fd = sync.openSync(file, 'r');
+    try { const buffer = Buffer.alloc(65536); head = buffer.toString('utf8', 0, sync.readSync(fd, buffer, 0, buffer.length, 0)); } finally { sync.closeSync(fd); }
+  } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  if (!head.trim()) return null;
+  let firstRunId = null;
+  try { firstRunId = JSON.parse(head.split(/\r?\n/)[0]).runId || null; } catch { /* unreadable first row: still moved aside, never folded into this run */ }
+  if (firstRunId && firstRunId === runId) return null;
+  const previous = path.join(path.dirname(file), 'previous', `write-attempts.${new Date().toISOString().replace(/[:.]/g, '-')}.${String(firstRunId || 'unknown').replace(/[^A-Za-z0-9_-]/g, '_')}.ndjson`);
+  sync.mkdirSync(path.dirname(previous), { recursive: true });
+  sync.renameSync(file, previous);
+  return previous;
+}
+
 // A derived re-read queue, rebuilt from the journal. It is a PROJECTION: deleting
 // it loses nothing and it is never a source of truth.
 function unresolvedWritesPath(projectDir) {
@@ -171,18 +194,6 @@ function unresolvedWritesPath(projectDir) {
 
 function cmsMirrorDir(projectDir) {
   return path.join(stateDir(projectDir), 'cms-mirror');
-}
-
-function safeModeDir(projectDir) {
-  return path.join(stateDir(projectDir), 'safe-mode');
-}
-
-function safeModeEmailReplacementsPath(projectDir) {
-  return path.join(safeModeDir(projectDir), 'email-replacements.ndjson');
-}
-
-function safeModeBlockedRecordsPath(projectDir) {
-  return path.join(safeModeDir(projectDir), 'blocked-records.ndjson');
 }
 
 function dryRunCrosswalkPath(projectDir) {
@@ -333,10 +344,35 @@ function validateCrosswalkRow(row, { allowThrow = true, label = 'crosswalk row' 
     && (typeof row.sourceHashDefinition !== 'string' || row.sourceHashDefinition === '')) {
     errors.push(`${label}.sourceHashDefinition must be a non-empty string when present`);
   }
+  if (row.secondaryIdentities !== undefined) {
+    if (!Array.isArray(row.secondaryIdentities)) errors.push(`${label}.secondaryIdentities must be an array when present`);
+    else for (const [index, entry] of row.secondaryIdentities.entries()) {
+      if (!entry || typeof entry !== 'object' || !/^[a-z0-9-]+\/[a-z0-9-]+$/.test(entry.ref || '') || typeof entry.targetId !== 'string' || !entry.targetId
+        || entry.parentTargetId !== row.targetId || typeof entry.siteId !== 'string' || !entry.siteId || !SECONDARY_OUTCOMES.has(entry.outcome)
+        || !entry.verification || typeof entry.verification !== 'object') errors.push(`${label}.secondaryIdentities[${index}] is malformed`);
+    }
+  }
   if (errors.length && allowThrow) {
     throw new Error(errors.join('; '));
   }
   return { ok: errors.length === 0, errors };
+}
+
+// An identity a parent write created or matched as part of itself -- the contact a
+// Create Member call created or matched -- recorded on the parent's own crosswalk row with the
+// parent's target ID, site and read-back proof. It is usable only when it is the single identity
+// for its ref, belongs to this parent on this site, and its read-back verified that the parent
+// still points at it. The read-back kind must be the one the parent's operation contract declares.
+// New versus matched stays `unknown` unless evidence distinguished it.
+const SECONDARY_OUTCOMES = new Set(['created', 'matched', 'unknown']);
+function verifiedSecondaryIdentity(row, ref, siteId, verificationKind) {
+  if (typeof verificationKind !== 'string' || !verificationKind) return null;
+  const matches = (row?.secondaryIdentities || []).filter(entry => entry && entry.ref === ref);
+  if (matches.length !== 1) return null;
+  const [entry] = matches, proof = entry.verification;
+  if (entry.siteId !== siteId || row.siteId !== undefined && row.siteId !== siteId || entry.parentTargetId !== row.targetId || row.status !== 'imported') return null;
+  if (proof.kind !== verificationKind || proof.verified !== true || proof.parentTargetId !== row.targetId || proof.identityTargetId !== entry.targetId || !Number.isFinite(Date.parse(proof.verifiedAt))) return null;
+  return { ref, targetId: entry.targetId, outcome: entry.outcome };
 }
 
 // Decides what a rerun does with one source record, given its crosswalk
@@ -778,86 +814,6 @@ function withIdentifierRedactionRetry(row) {
   return result.row;
 }
 
-function validateSafeModeEmailReplacementRow(row, { allowThrow = true, label = 'safe-mode email replacement row' } = {}) {
-  const errors = [];
-  try {
-    assertObject(row, label);
-  } catch (error) {
-    if (allowThrow) {
-      throw error;
-    }
-    return { ok: false, errors: [error.message] };
-  }
-  if (row.siteId !== undefined && (typeof row.siteId !== 'string' || !row.siteId)) errors.push(`${label}.siteId must be a nonempty string`);
-  if (row.schemaVersion !== SCHEMA_VERSION) {
-    errors.push(`${label}.schemaVersion must be ${SCHEMA_VERSION}`);
-  }
-  for (const field of [
-    'runId',
-    'sourceSystem',
-    'sourceEntityType',
-    'sourceId',
-    'sourceStableKey',
-    'targetSystem',
-    'targetEntityType',
-    'targetId',
-    'sourceEmail',
-    'targetEmail',
-    'createdAt',
-  ]) {
-    requireString(row, field, label, errors);
-  }
-  if (row.createdAt !== undefined && Number.isNaN(Date.parse(row.createdAt))) {
-    errors.push(`${label}.createdAt must be an ISO timestamp`);
-  }
-  if (errors.length && allowThrow) {
-    throw new Error(errors.join('; '));
-  }
-  return { ok: errors.length === 0, errors };
-}
-
-function validateSafeModeBlockedRecordRow(row, { allowThrow = true, label = 'safe-mode blocked record row' } = {}) {
-  const errors = [];
-  try {
-    assertObject(row, label);
-  } catch (error) {
-    if (allowThrow) {
-      throw error;
-    }
-    return { ok: false, errors: [error.message] };
-  }
-  if (row.siteId !== undefined && (typeof row.siteId !== 'string' || !row.siteId)) errors.push(`${label}.siteId must be a nonempty string`);
-  if (row.schemaVersion !== SCHEMA_VERSION) {
-    errors.push(`${label}.schemaVersion must be ${SCHEMA_VERSION}`);
-  }
-  for (const field of [
-    'runId',
-    'sourceSystem',
-    'sourceEntityType',
-    'sourceId',
-    'sourceStableKey',
-    'targetSystem',
-    'targetEntityType',
-    'reason',
-    'createdAt',
-  ]) {
-    requireString(row, field, label, errors);
-  }
-  if (!Array.isArray(row.paths) || row.paths.some((item) => typeof item !== 'string' || !item)) {
-    errors.push(`${label}.paths must be an array of non-empty strings`);
-  }
-  if (row.reason && row.reason !== 'SAFE_MODE_SUSPICIOUS_EMAIL') {
-    errors.push(`${label}.reason must be SAFE_MODE_SUSPICIOUS_EMAIL`);
-  }
-  if (row.createdAt !== undefined && Number.isNaN(Date.parse(row.createdAt))) {
-    errors.push(`${label}.createdAt must be an ISO timestamp`);
-  }
-  if (errors.length && allowThrow) {
-    throw new Error(errors.join('; '));
-  }
-  return { ok: errors.length === 0, errors };
-}
-
 function validateWixRequestCaptureRow(row, { allowThrow = true, label = 'Wix request capture row' } = {}) {
   const errors = [];
   try {
@@ -1122,7 +1078,49 @@ async function readAttemptJournalSince(projectDir, offset = 0) {
 // Append only. `appendNdjson` (-> fs.appendFile) is the only writer, and there is no flag, env
 // var or mode that selects a truncating open against this path. Rotation and compaction are not
 // permitted: a journal is never rewritten, folded in place, or trimmed.
+//
+// While this project's Wix token is interrupted (`wix_auth_expired`), a failed or
+// unresolved row is refused and the interruption is thrown instead. An expired token is never a
+// record outcome, and the throw stops the loop that would otherwise record the next one too.
+const INTERRUPTION_REFUSED_STATUSES = new Set(['failed_retryable', 'failed_terminal', 'succeeded_unverified']);
+function wixAuthInterruption(projectDir) {
+  try {
+    return require('./wix-auth.js').interruptionFor(projectDir);
+  } catch (error) {
+    // A project that never vendored wix-auth.js never created a token source to interrupt.
+    if (error && error.code === 'MODULE_NOT_FOUND' && String(error.message).includes('wix-auth.js')) return null;
+    throw error;
+  }
+}
+
+// A request the client refused before sending (`requestSent: false` on the row or its failure;
+// rp-target-wix createWixClient marks every pre-send refusal that way) has a KNOWN outcome:
+// nothing reached the target. It is a retryable failure, never `succeeded_unverified` -- an
+// unresolved row sends recovery to read back a record that cannot exist, and a resume cannot tell
+// it from one that may have landed. This holds for every entity, so it is settled here, on the
+// one write path every journal row takes, rather than in each writer's own classifier. It
+// rewrites the row instead of refusing it: the record is still journaled, and the import goes on.
+function settleNotSentAttempt(row) {
+  if (!row || typeof row !== 'object') return row;
+  const notSent = row.requestSent === false || (row.failure && row.failure.requestSent === false);
+  if (!notSent || row.status !== 'succeeded_unverified') return row;
+  return {
+    ...row,
+    status: 'failed_retryable',
+    requestSent: false,
+    ...(row.failure && typeof row.failure === 'object' ? { failure: { ...row.failure, outcome: 'failed_retryable' } } : {}),
+  };
+}
+
 async function appendAttempt(projectDir, row, options = {}) {
+  row = settleNotSentAttempt(row);
+  if (row && (INTERRUPTION_REFUSED_STATUSES.has(row.status) || row.status === 'started')) {
+    const interrupted = wixAuthInterruption(projectDir);
+    // A stopping run starts no new write, but a write already sent still records its outcome
+    // (with its target id). Only an expired token refuses outcomes: it is never a record's result.
+    const refused = interrupted && (interrupted.code === 'import_stopping' ? row.status === 'started' : row.status !== 'started');
+    if (refused) throw interrupted;
+  }
   row = stampSite(projectDir, row);
   const toWrite = withIdentifierRedactionRetry(row);
   await appendNdjson(attemptJournalPathFor(projectDir, options), toWrite);
@@ -1177,18 +1175,6 @@ async function rebuildUnresolvedWrites(projectDir) {
 
 async function loadUnresolvedWrites(projectDir) {
   return readNdjson(unresolvedWritesPath(projectDir));
-}
-
-async function appendSafeModeEmailReplacement(projectDir, row) {
-  validateSafeModeEmailReplacementRow(row);
-  await appendNdjson(safeModeEmailReplacementsPath(projectDir), row);
-  return row;
-}
-
-async function appendSafeModeBlockedRecord(projectDir, row) {
-  validateSafeModeBlockedRecordRow(row);
-  await appendNdjson(safeModeBlockedRecordsPath(projectDir), row);
-  return row;
 }
 
 async function appendWixRequestCapture(projectDir, row) {
@@ -1257,11 +1243,17 @@ async function markAttempt(projectDir, attemptId, patch, options = {}) {
   // The follow-on row carries the `runId` and `phase` of the run APPENDING it,
   // which may differ from the row it supersedes. That is the point — it is how a later pass's
   // confirmation of an earlier pass's write stays legible.
-  const row = {
-    ...current,
-    ...patch,
-    attemptId,
-  };
+  // A patch that sets a status is judged on its own facts: a not-sent marker on the row it
+  // supersedes says nothing about a later, really sent write.
+  const merged = { ...current, ...patch, attemptId };
+  if (patch.status !== undefined && patch.requestSent === undefined && !(patch.failure && patch.failure.requestSent === false)) {
+    delete merged.requestSent;
+    if (merged.failure && patch.failure === undefined && merged.failure.requestSent === false) {
+      merged.failure = { ...merged.failure };
+      delete merged.failure.requestSent;
+    }
+  }
+  const row = settleNotSentAttempt(merged);
   const toWrite = withIdentifierRedactionRetry(row);
   await appendNdjson(attemptJournalPathFor(projectDir, options), toWrite);
   return toWrite;
@@ -1432,6 +1424,7 @@ module.exports = {
   attemptJournalPath,
   sampleStateDir,
   sampleAttemptJournalPath,
+  startSampleJournal,
   unresolvedWritesPath,
   ATTEMPT_STATUS,
   ATTEMPT_REQUIRED_FIELDS,
@@ -1442,9 +1435,6 @@ module.exports = {
   loadUnresolvedWrites,
   wixRequestCapturesPath,
   cmsMirrorDir,
-  safeModeDir,
-  safeModeEmailReplacementsPath,
-  safeModeBlockedRecordsPath,
   dryRunCrosswalkPath,
   loadCrosswalk,
   appendCrosswalkRow,
@@ -1454,10 +1444,10 @@ module.exports = {
   loadAttemptJournal,
   readAttemptJournalSince,
   appendAttempt,
+  settleNotSentAttempt,
   validateCrosswalkRow,
+  verifiedSecondaryIdentity,
   validateAttemptRow,
-  appendSafeModeEmailReplacement,
-  appendSafeModeBlockedRecord,
   appendWixRequestCapture,
   loadWixRequestCaptures,
   appendDryRunCrosswalkRow,
@@ -1467,8 +1457,6 @@ module.exports = {
   rerunDecision,
   CONFIRMED_WRITE_OUTCOMES,
   nextCrosswalkBaseline,
-  validateSafeModeEmailReplacementRow,
-  validateSafeModeBlockedRecordRow,
   validateWixRequestCaptureRow,
   validateDryRunCrosswalkRow,
   markAttempt,

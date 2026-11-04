@@ -16,8 +16,8 @@
   "preferredWrite": {
     "surface": "SEO Pattern V1",
     "endpoint": "POST /promote/seo/v1/seo-patterns/{pageType}",
-    "writerId": null,
-    "verification": "docs",
+    "writerId": "ensureSeoPattern",
+    "verification": "verified-live",
     "importSafe": true,
     "bulk": false
   },
@@ -50,9 +50,20 @@
       "code": "boolean-fields-cannot-be-variables-round-trip",
       "severity": "info",
       "summary": "A tag whose `disabled` or `custom` value is itself a variable is returned with that value UNSET (they are booleans), even though the behaviour still applies at render time. A read-modify-write round trip therefore silently drops such a variable; re-send the intended value rather than echoing what was read."
+    },
+    {
+      "code": "robots-is-never-imported-in-a-pattern",
+      "severity": "blocker",
+      "summary": "a robots tag in a pattern de-indexes every item of the page type. ensureSeoPattern strips it into `exclusions` (pattern-robots-not-written) and the builders refuse it; a robots tag already in the site's pattern is kept unchanged."
+    },
+    {
+      "code": "needs-an-html-web-site",
+      "severity": "blocker",
+      "summary": "[LIVE 2026-10-27] The SEO services need a site with an HtmlWeb (editor) instance. On a site created by Create Project (type WIX, no template), every SEO surface failed with no typed error: Get/Create SEO Pattern returned an HTML 400, Set Site SEO Tags an HTML 500, Get Item SEO Tags an HTML 428, and Bulk Set returned per-entry BULK_ENTRY_FAILED 'FAILED_PRECONDITION ... Missing HtmlWeb instance in MetaSite'. The same calls succeeded on a site created from the blank Editor template. Headless sites are NEEDS-VERIFICATION. The executors surface these as unknown-outcome errors or failed entries; treat them as a site precondition, not a mapping gap."
     }
   ],
   "mappingGuidance": [
+    "Writer : ensureSeoPattern(wix, { pageType, tags }). Reads the pattern, checks every {{variable}} against List SEO Pattern Variables (an unknown one returns `invalid-variable` and writes nothing for that page type), merges the source tags over the site's own pattern or, when there is none, the Wix default, then creates or sets and reads back. a site-owned pattern is overwritten for the tag identities the source brings; the old pattern is returned as `previousSitePattern` and `defaultPattern` is always returned, so either can be restored. PAGE_TYPE_NOT_ON_SITE returns `setup-missing-app`. WIX_DATA_PAGE_ITEM patterns have no writer.",
     "Dependencies: no other modeled record must exist first; page types are site configuration, while a dynamic-page ID is only needed for the optional unmodeled dynamic-page case.",
     "This is where a WordPress SEO plugin's per-post-type TITLE and META DESCRIPTION TEMPLATES belong - Yoast's Settings > Content Types templates (wpseo_titles option) and Rank Math's equivalent. Migrating those as patterns reproduces the source's SEO conventions in one write per page type instead of one write per item, which is exactly the split the Wix SEO introduction asks for.",
     "The source side is the hard half: those templates live in wp_options, which WordPress REST does not expose, so they arrive only from a user-supplied export or by asking. No plugin profile claims content.seo-patterns today for that reason; the capability is here so the surface has an owner and the mapping is written down.",
@@ -85,7 +96,12 @@
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/api-reference/business-management/seo/seo-pattern-v1/list-seo-pattern-variables",
       "note": "GET https://www.wixapis.com/promote/seo/v1/seo-patterns/{pageType}/variables - the only authoritative source of the variables a page type offers (read 2026-08-16)"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "2026-10-27, throwaway editor site: ensureSeoPattern created a BLOG_POST pattern merged over the Wix default (default tags such as {{@TITLE}} og:title kept), a re-run returned already-present, an unknown {{post.nope}} returned invalid-variable with no write, and a second source title PATCHed the site-owned pattern with previousSitePattern returned and robots stripped. List SEO Pattern Variables returns variables[].key."
     }
   ],
-  "notes": "Authored 2026-08-16 with the seo domain. Docs-verified only. Unclaimed by any WordPress plugin profile today because the source templates are in wp_options and unreadable over REST - the honest verdict for the Yoast/Rank Math template settings is reconfigure-in-wix unless the user supplies an export, and this entity is where that reconfiguration lands if it is ever automated."
+  "notes": "Authored 2026-08-16 with the seo domain. Docs-verified only. Unclaimed by any WordPress plugin profile today because the source templates are in wp_options and unreadable over REST - the honest verdict for the Yoast/Rank Math template settings is reconfigure-in-wix unless the user supplies an export, and this entity is where that reconfiguration lands if it is ever automated. 2026-10-27 : reviewed writer ensureSeoPattern. 2026-10-27: verified live."
 }

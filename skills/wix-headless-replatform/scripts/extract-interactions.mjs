@@ -11,7 +11,8 @@ import {
   writeJson,
 } from "./lib/common.mjs";
 import { extractStylesheetUrls } from "./lib/html-extract.mjs";
-import { loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
+import { assertPublicHttpUrl, guardPageRequests } from "./lib/url-safety.mjs";
+import { chromiumLaunchOptions, loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
 import {
   DEFAULT_INTERACTION_TIMELINE_MS,
   compactInteractionTimeline,
@@ -104,6 +105,8 @@ async function main() {
 
 export async function extractInteractions(sourceUrl, { outputDir, pages = [], browserTooling } = {}) {
   const url = normalizeUrl(sourceUrl).toString();
+  // Source sites are untrusted input; only the clone under test (registered with trustOrigin) is exempt.
+  await assertPublicHttpUrl(url);
   await writeProgress(outputDir, "fetching_html");
   const html = await fetchText(url);
   await writeProgress(outputDir, "loading_stylesheets");
@@ -333,7 +336,7 @@ async function runDynamicProbe({ sourceUrl, outputDir, staticInventory, browserT
   const playwright = await loadPlaywrightFromContext(toolingContext);
   await writeProgress(outputDir, "launching_browser");
   const browser = await withTimeout(
-    playwright.chromium.launch({ headless: true }),
+    playwright.chromium.launch(chromiumLaunchOptions()),
     30_000,
     "Chromium launch",
   );
@@ -343,6 +346,8 @@ async function runDynamicProbe({ sourceUrl, outputDir, staticInventory, browserT
     30_000,
     "Chromium page creation",
   );
+  // Refuse internal destinations, including through redirects and from the clone under test (only its own origin is exempt).
+  await guardPageRequests(page);
   await writeProgress(outputDir, "browser_page_ready");
   const screenshotsDir = path.join(docsDir(outputDir), "screenshots");
   await ensureDir(screenshotsDir);
@@ -355,7 +360,7 @@ async function runDynamicProbe({ sourceUrl, outputDir, staticInventory, browserT
       await route.abort("blockedbyclient");
       return;
     }
-    await route.continue();
+    await route.fallback();
   };
   try {
     await writeProgress(outputDir, "loading_source_page");

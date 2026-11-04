@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "description": "Where WooCommerce stores keep product videos, by product meta key, independent of which plugin or theme wrote them. lib/product-video-extract.js reads these from a product's meta_data. Add a source with one entry; no code. `shape: object` reads one video from an object value (`url` names its field); `shape: url-list` reads an array of URLs.",
+  "sources": [
+    {
+      "key": "thegem_product_video",
+      "origin": "theme:thegem",
+      "shape": "object",
+      "url": "product_video_link",
+      "evidence": "Seen on a live store: 7 products with a self-hosted .mp4/.mov; value {product_video_type, product_video_link, product_video_id, product_video_thumb}."
+    },
+    {
+      "key": "_nickx_video_text_url",
+      "origin": "plugin:product-video-gallery-slider-for-woocommerce",
+      "shape": "url-list",
+      "evidence": "Plugin source admin/class-video-field.php: an array of URLs (YouTube, Vimeo or a file). The plugin saves [\"\"] on products with no video."
+    }
+  ],
+  "fileExtensions": ["mp4", "mov", "m4v", "webm", "avi", "wmv", "mpg", "mpeg", "3gp", "ogv"],
+  "embedHosts": {
+    "youtube": ["youtube.com", "youtu.be", "youtube-nocookie.com"],
+    "vimeo": ["vimeo.com"]
+  }
+}

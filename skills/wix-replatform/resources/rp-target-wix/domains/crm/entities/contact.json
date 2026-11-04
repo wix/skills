@@ -65,7 +65,7 @@
       "verification": "unverified",
       "importSafe": true,
       "bulk": false,
-      "when": "Single-record creates outside the bulk import path; same flat GA contact shape."
+      "when": "Not an import writer until verified live: it posts with allowDuplicates and has no identity check, so a re-run can duplicate contacts. Import single records and retries with bulkUpsertContacts. Same flat GA contact shape."
     },
     {
       "surface": "Contacts V4",
@@ -113,7 +113,7 @@
       "liveVerification": "UNVERIFIED — offline contract only; explicit opt-in per mapping."
     }
   },
-  "safeModeContactFields": [
+  "contactFields": [
     {
       "kind": "email",
       "targetPath": "contact.email.email",
@@ -196,9 +196,9 @@
     "Prefer contact extended fields for source CRM metadata before CMS fallback.",
     "Use Contacts V5 (GA) as the default contact writer surface; the GA contact shape is flat (main email/phone + additionalEmails/additionalPhones, addresses[] with nested address, company object) — never emit the V4 info wrapper to V5 endpoints.",
     "For contact custom fields, setup must define the Data Extension Schema (FQDN wix.contacts.*.contact) and carry the returned key into contact writers under extendedFields.namespaces._user_fields.",
-    "Source labels map to V5 tags (tags.privateTags.tagIds via the Tags API, FQDN wix.contacts.*.contact); resolve the tag/label story during setup before planning post-import label-wave automations.",
-    "Standard contact imports use lib/contact-import.js with stable source keys and per-record safe-mode options. Reuse the same wrapper on reruns; a crosswalk hit is not proof of identity. Field comparisons use a closed rule set: main email trim/lowercase, other mapped values exact.",
-    "LIVE-VERIFIED 2026-09-16: importing a contact does not create a Wix Member, and this repo's order/blog import passes deliberately stub memberCrosswalk to always return null -- so a contact-only import, safe-mode or not, leaves every customer with no login identity. If the merchant needs migrated customers to be able to log in, promoting a contact to a real email + Member is a distinct, separate write: read the contact's current revision, PATCH its email/phone from the real source values (only ever over a contact whose CURRENT email still matches the safe-mode mock pattern -- never blind-overwrite one already real), then call ensureMember() with the same real loginEmail. Doing the contact-email-update BEFORE ensureMember() is what makes the created Member land on the SAME existing contact (verified live: member.contactId === the pre-existing contact id) rather than a duplicate. See rp-execute-import/SKILL.md's 'Contacts/Members disposition' section for the required upfront question and status-reporting contract this implies."
+    "Source labels: write the definitions as crm/label (findOrCreateContactLabel; a V4 label is the V5 private tag, verified 2026-10-27) and put them on contacts as crm/contact-label (assignContactLabels). Never send tags inside the contact upsert body: the default OVERWRITE upsert replaces a matched contact's existing tags.",
+    "Standard contact imports use lib/contact-import.js with stable source keys. Reuse the same wrapper on reruns; a crosswalk hit is not proof of identity. Field comparisons use a closed rule set: main email trim/lowercase, other mapped values exact.",
+    "LIVE-VERIFIED 2026-09-16: importing a contact does not create a Wix Member, and this repo's order/blog import passes deliberately stub memberCrosswalk to always return null -- so a contact-only import leaves every customer with no login identity. If the merchant needs migrated customers to be able to log in, creating the Member is a distinct, separate write: call ensureMember() with the contact's own email as loginEmail. A contact that still carries a mock `replatform+...@wix.com` email (written while safe mode existed) needs its email PATCHed from the real source value first (read its current revision; never overwrite an email that is already real); doing that BEFORE ensureMember() is what makes the created Member land on the SAME existing contact (verified live: member.contactId === the pre-existing contact id) rather than a duplicate. See rp-execute-import/SKILL.md's 'Contacts/Members disposition' section for the required upfront question and status-reporting contract this implies."
   ],
   "setupRequirements": [
     "Contact extended fields when source-only CRM fields are preserved natively.",

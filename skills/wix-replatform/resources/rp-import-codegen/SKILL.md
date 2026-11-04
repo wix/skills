@@ -9,6 +9,39 @@ description: >-
 
 Generate source readers, transforms, setup/import entrypoints, and thin Wix write specs from approved migration artifacts.
 
+The mapping step owns every semantic decision. Implement the recorded operation, transform,
+reference policy, custom storage and temporary handling; do not choose an alternative or
+invent a missing default. Report the exact unanswered decision/output to mapping and emit
+no affected write behavior. A missing helper for a complete decision is implementation work.
+Validate generated output against mapper-authored examples before execution.
+The field-mapping example runner returns `mappingQuestions` with the source entity and
+exact missing contract elements. Return them to mapping before generating affected writes;
+independent complete decisions may still be exercised. Never fill these questions in code.
+
+Vendor `lib/operation-assessments.js`, `lib/setup-producers.js` and `lib/mapping-recovery.js`
+with their shared dependencies. Preserve pinned assessment/source/membership evidence and
+the mapping gap ledger. The dependency gate and immediate transport check enforce withheld
+fields and measured record holds. New mapping decisions use the mapper's
+`references/knowledge-and-recovery.md` contract. Reuse the normal builder-held inventory
+for record holds; preserve deferred source/intended dispositions without omission waivers.
+
+For repairs, generate code only after mapping and approval are revised. Use
+`mapping-recovery.repair({projectDir,gapId,sourceId,targetId,mappingPlanDigest,outputId,
+expected,readTarget,writeTarget,verify,runId,taskId,siteId})` for each affected output.
+`expected` comes from the mapped pure builder. The helper obtains the last verified field
+state from the source/target-bound attempt journal; before the first repair the withheld
+field must still be absent or already match the expected result. Caller-supplied baselines
+cannot authorize overwriting an edit.
+Use the normal capability-bound, readiness-gated writer for `writeTarget` and the ordinary
+read-back comparison for `verify`. This helper validates current mapping/source/crosswalk
+identity, reads before update, journals before transport and records verified output evidence.
+When the update supports a revision/precondition, bind it to the current read; a conflict
+keeps the gap open and returns to reconciliation instead of overwriting a concurrent edit.
+For a record hold, the ordinary importer handles create/reconciliation first; this helper
+only verifies the existing target and never issues another create. Several correction paths
+require verified evidence for every path before a record's gap closes. Rebuild completion
+and handoff after repair; do not close gaps by deleting projections.
+
 ## Purpose
 
 This skill turns the schema, mapping, and setup decisions into implementation files under the active migration project.
@@ -25,7 +58,8 @@ for humans, not the primary codegen contract.
 
 ## Dependency readiness contract
 
-Copy `lib/dependency-readiness.js` and its shared dependencies into the generated runtime.
+Copy `lib/dependency-readiness.js`, `lib/import-task-runner.js` and their shared dependencies into
+the generated runtime (`src/lib`, with `src/resources` for `rp-target-wix/lib`).
 Bind the execution manifest to the approved mapping plan with `mappingPlanDigest`.
 Each import task declares canonical `entityRefs`, the domain knowledge's `dependencyRefs`,
 and matching `dependencyEdges`. Every edge has exactly one producer: an import task,
@@ -39,11 +73,150 @@ mapping's census links rather than guessing associations from names. Setup-produ
 always use `task-complete`; use `per-record` only where target knowledge explicitly permits
 it for an import or excluded import dependency.
 
+**Dependencies with no separate producer.** Copy `lib/dependency-proofs.js` with
+the readiness library. Also vendor `lib/target-import-support.js`, `lib/config-env.js`, `lib/wix-auth.js`, `lib/import-interruption.js` and
+the selected target knowledge with their relative module layout: reconciliation and the
+shared Wix client read them.
+Declare `writeOperations: { "<entityRef>": "<operation>" }` on every
+import task whose approved mapping row resolved an operation with a reviewed contract (product
+`createStoresProduct`, member `createMember`, order `importOrder`); the contract scopes its
+refs (Import Order carries no `ecom/shipping-option` or `ecom/delivery-profile` reference) and
+its approved `dependencyProofs`. Do not hand-derive edges: write the tasks, call
+`deriveDependencyEdges(projectDir, manifest)` and copy each task's `dependencyRefs`,
+`dependencyEdges` and `dependsOn`, then validate as above. Producers may also be
+`no-producer` (with each proof's `operationContractDigest`), `secondary-output` (a member
+task's verified contacts satisfying a per-record contact reference when no contact import
+exists), `child-output` (a product task's verified variants satisfying a per-record
+`stores/product-variant` reference; it requires `writeOperations` on the product task) or
+`inherited` (a transitive ref carried by an intermediate dependency, or a child ref whose parent
+has no child producer; never written directly). `pending-setup` from the mapping preflight must become a real setup step here, unless an import
+task in this manifest writes that entity: then the import owns it and no setup step may list it
+(`setup_step_claims_import_entity`). A dependency on an entity the same task writes gets no edge.
+A task is never its own producer: validation refuses `task_depends_on_self`,
+`dependency_edge_self_producer` and `task_depends_on_cycle`. Regenerate the edges; never hand-edit
+`dependsOn`.
+- Payloads must not write a proof's guarded paths; the gate and transport refuse them
+  (`dependency-proof-contradicted`).
+- Order line variants (Stores Catalog V3): write `catalogReference.options.variantId` from
+  `resolveReference('stores/product-variant', variantKey, 'lineItems[i].catalogReference.options.variantId')`
+  beside `catalogItemId` from `resolveReference('stores/product', productKey, ...)` on the same
+  line. `variantKey` is the exact `sourceKey` the product import used for that variant expectation.
+  The gate reads it from the product's verified receipt and refuses a variant of another product
+  (`dependency-identity-pair-mismatch`); an unready or unknown variant defers the order. A
+  variation absent from the complete source variation extract requests no variant reference: keep
+  the product link, SKU and description lines.
+- Order buyers: build `memberCrosswalk` with `order-buyer.js` `gatedMemberCrosswalk({
+  resolveReference, memberKeyPrefix, loginEmailFor })`, so `buyerInfo.memberId` resolves
+  through the gate; an unready member defers the order, a corroboration mismatch drops the link.
+- Member contacts: after Create Member, call `verifyMemberContactIdentity(wix, { memberId,
+  contactId, siteId, outcome })` and record its `identity` in the member crosswalk row's
+  `secondaryIdentities` (keep `outcome: "unknown"` unless evidence distinguishes new from matched).
+- Product media from URLs: never resend the landed product. Observe with
+  `observeStoresProductMediaIngest(wix, { productId, expectedItems, initialProduct })`, passing the
+  sent `{ url, altText, displayName }` items: it verifies each intended item (a matching count, a
+  wrong image or a duplicated media ID does not verify). Policy is pinned: one initial read plus at
+  most four, 15s apart, 60s window. Start observations concurrently; do not hold a worker or request
+  slot per product while it waits. Record an `unresolved`/`unverifiable` result with
+  `recordWithinWriteGap({ grant, taskBinding, sourceStableKey, ref: "media/media-file", targetId,
+  code, observation })`; clear it with `resolved: true` and a later `verified` observation for the
+  same target and items. Only observations the writer returned are accepted as evidence, and the
+  observer only judges unmodified Wix responses for that product and site: pass the create
+  response (or a read) itself as `initialProduct`, never a copy or a cached object. Gap records
+  are serialized per project and stay recordable with the grant that admitted the write.
+- A member-produced contact and a member ID on the same order must belong to the same member;
+  the gate and transport refuse a mixed pair (`dependency-identity-pair-mismatch`).
+- Product media ids: the `media/media-file` edge is per-record. Resolve each
+  `media.itemsInfo.items[n].id` with `resolveReference`, placing each resolved id at the next
+  free index; never read media ids from the crosswalk (an id the gate did not resolve counts only
+  when it is exactly one ready media record's target; otherwise the gate drops it and records it).
+  A product never waits for an image: one that is not ready yet, held, or failed resolves to
+  `undefined` (`dependencyFailureActions: omit`); skip it. The gate records each pair in
+  `execution/dependency-readiness.json` `omittedReferences` (`pending`, `held`, or the reason it
+  cannot land). Media patch pass, after the media task's last wave and again after any media
+  `--failed-only`: call `omittedReady({ taskBinding })`; gate each listed product again with its
+  full gallery; send `patchStoresProductMediaVerified(recordClient, { productId, items })`; when it
+  returns `landed: true`, call `recordOmissionsResolved({ grant, taskBinding, sourceStableKey,
+  readBack: result.product, targetId: productId })`. Rows still open for a landed product become
+  `dependency-omitted-after-failure` cutover items, except where the entity declares
+  `dependencyFailureCutoverItems` (the site share image): its writer already reports the gap as
+  that cutover item, so no media patch pass runs for it.
+- Interleave per-record producers with their dependents (media and products): vendor
+  `lib/dependency-waves.js` and call `planDependencyWaves({ dependents: [{ sourceStableKey,
+  needs }], producerKeys, waveSize })`. For each wave, write its `producerKeys` through the
+  producer task, then its `dependentKeys` through the dependent task; media no product names
+  come last. Call `finishTaskPass` for each task once, after its last wave (a full pass that
+  finished in this run is final for readiness). Then resume the dependent task's deferred
+  records once. Products sending URL galleries name no media (`needs: []`) and start at once.
+  On a fixture of about 400 products and 1,000 media files, products finish in about half the
+  time with media ids, and in about a tenth with URL galleries.
+
+Every import task builds on the site's regional setup step: `evaluateTask` holds a money-bearing or wall-clock
+task (stores, ecom, gift cards, pricing plans, bookings, events) whose currency or time zone was kept, is unknown
+or spans several base currencies, as a blocked `site/locale` row. Nothing extra is needed in generated
+code: skip a held task, never retry it in the same run, and let the others proceed. Never create a write client
+for a held task.
+
+Use approved excluded dependencies as disposition producers, without generating an import
+task for a missing writer. Product tag edges use the declared per-record mode and exact
+`tags.publicTags.tagIds[]` reference path. Preserve the approved source membership and use
+`resolveReference` for populated tag references, including excluded tags: its approved omit
+rule returns no ID and the payload must omit that path. Never pass an undefined array item,
+invent an ID, remove the manifest edge, or turn a held tag task into a completed task. Products
+whose complete source record has no tags need no tag lookup; unknown or incomplete source
+evidence is not an empty tag population. Keep the exact mapping gap and missing behavior in
+the existing completion and Migration review handoff after supported product writes.
+
+### Per-record tasks: call the shared runner (required)
+
+Generated code holds only store-specific mapping. For a task that writes one record per
+request, call `lib/import-task-runner.js` `runRecordTask` and supply only:
+
+- `build(record, resolvers)`: the reviewed pure builder. It returns the gate payload, or the
+  decided hold `{ status: 'held', holds: [{ decisionId, code }] }`.
+- `send(recordClient, payload, record)`: the reviewed writer call. It returns
+  `{ targetId, revision?, findings?, crosswalkExtra? }`.
+- `reconcile(recordClient, payload, record)` when the target can be searched: `{ targetId }` for
+  exactly one match, `null` when there is none, `undefined` when it cannot tell. The runner has
+  a reader for `stores/category`.
+
+The runner never holds or refuses a record that would otherwise import. It defers only decided
+builder holds. A child whose parent did not land is written without the link. An earlier create
+with an unknown outcome is adopted when exactly one match is found. Otherwise it is created, and a
+possible duplicate is recorded when the lookup could not rule the earlier create out. Each such
+loss is a finding on the record's journal row and a `dependency-reference-gap` cutover item.
+
+```js
+// Vendored with the shared runtime, like dependency-readiness.js.
+const { runRecordTask } = require('../lib/import-task-runner.js');
+const taskBinding = bindTask({ runCapability, taskId: 'stores/category' });
+const result = await runRecordTask({ taskBinding, wix: taskClient, sourceSystem: 'woocommerce',
+  build: (record, resolvers) => buildStoresCategory(record, resolvers).category,
+  send: async (recordClient, category) => ({ targetId: (await writers.createStoresCategory(recordClient, category)).id }) });
+```
+
+The runner reads the task's source binding and extract, and then for every store:
+
+- it skips records already crosswalked;
+- it evaluates and gates each batch, then binds each record client before writing a `started` row;
+- it defers decided holds (the gate defers them as `builder-held` with their reasons);
+- it orders a same-entity tree parents first, and fills the parent id (see "Same-entity
+  hierarchies");
+- it looks up an earlier attempt whose outcome is unknown before sending, and adopts a single match;
+- it writes a terminal journal row for every attempted record, plus the crosswalk row;
+- it calls `finishTaskPass` when the pass is not stopped.
+
+Do not re-implement any of these in generated code. Keep a hand-written loop only for a
+writer the runner does not cover: bulk writers, composite flows (orders, members, products
+with variants) and quota-held secondary writes. That loop still follows the gate contract below.
+A transform that must decline a record with a named reason returns
+`{ deferred: true, reason }`; the gate records it in `execution/dependency-readiness.json`
+`referenceGaps` (a cutover item), never in `mapping/review/mapping-gaps.json`.
+
 Import the gate's `startImportRun`, `bindTask`, `evaluateTask`, `gateBatch` and
 `finishTaskPass`. For EAV extracts, source bindings additionally name the existing project-relative `readPlanPath`; the gate reuses the shipped EAV completeness and file-digest validator rather than treating a missing snapshot total as empty. Create one import run, bind each task, and create its Wix client from the
 returned capability. Immediately before every batch, including each selective/resume
 path, evaluate the task and pass the source-keyed records through `gateBatch`.
-Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges only after a complete current producer pass (empty producers cannot resolve a key). This separate resolver preserves whole-task blocking on any partial producer. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes. They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
+Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges only after a complete current producer pass (empty producers cannot resolve a key). This separate resolver preserves whole-task blocking on any partial producer; a producer whose only missing keys are approved builder holds is `complete-with-holds`, and a reference to a held key defers that one record with `dependency-held`. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes, and `resolveSameTaskReference(ref, sourceStableKey, path)` for a parent the same task writes (see "Same-entity hierarchies"). They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
 the returned `send` payloads, with each request's `sourceStableKey` and that batch's
 `readinessGrant`. Use `writers.bindRecordClient(taskClient, { readinessGrant: grant, sourceStableKey })` for existing writer composites, or `writers.withReadinessGrant(request, { readinessGrant: grant, sourceStableKey })` for individual builders. These retain trusted read/auxiliary marks. A valid grant never authorizes a raw or altered writer request; object-spreading a marked request loses its authority. Principal payloads still match every resolved reference. Closed product patch builders bind the current record’s product and compare references under each changed top-level field; omitted fields retain the existing product state. Only the closed media/payment/extended-field auxiliary builders omit those principal paths. For standard product stock, get the current product through the bound record client, call `registerImportInventoryScope(recordClient, canonicalProduct, targetProduct)`, and pass that record client to `storesInventory.reconcileInventory`. The same-record principal write or current site-bound crosswalk establishes product ownership; exact variant-choice matches, requested stock and actual location/item reads bound the composite. This preserves standard quantity/location mappings without expanding quick Shopify’s separate exception. Persist/report the returned deferrals without substituting empty IDs.
 The gate appends its own deferred attempt rows; do not append a duplicate deferred outcome. The runner appends started and terminal rows for attempted sends and persists confirmed crosswalks through the shared writers. Call `finishTaskPass` with the actual selection mode only after the pass finishes. Selective
@@ -51,47 +224,152 @@ work never establishes a full/empty pass. The append-only `state/readiness/task-
 is evidence; `execution/dependency-readiness.json` is a diagnostic projection, not authority. Prerequisite deferrals remain current recovery work after admission, `started`, uncertain outcomes or failed retries. Only a current-site confirmed `imported`/`skipped_already_imported` outcome for the same task/key clears that lineage; admission is not completion. The runtime updates this task-scoped recovery index from journal deltas, and completion uses the same reducer.
 
 `--describe` must include `dependencyReadiness.tasks` with each task's ID and exact
-`{ ref, mode }` edges. Run `import-contract-verify` against the manifest. Generated importers
+`{ ref, mode }` edges. Run `import-contract-verify` against the manifest; it also refuses an
+emitted edge mode that differs from current domain knowledge (`dependency_edge_mode_mismatch`), so
+a stale manifest/descriptor pair is regenerated, never matched to itself. One exception keeps
+shipped manifests valid: an emitted `task-complete` edge that target knowledge lists in
+`legacyTaskCompleteEdges` (it became `per-record` later; it waits for more, never less) is
+accepted and checked as it was when emitted. Generated importers
 must obtain capabilities only through the dependency gate: no setup/quick/probe issuer,
 caller-supplied phase, raw request escape, or direct execution-capability import. Site reconciliation uses `reconcileSiteEvidence({ taskBinding, readBack })`; reuse the existing unresolved-write reader/comparison against the recorded write. The callback returns `{ result, matchesRecordedWrite }` with the actual unchanged marked-read response from this site's registered client; a boolean or hand-built response never restamps evidence. Tasks with
 no dependencies still require their task capability and batch grant. For source orders call `orderShippingReadiness` from `lib/order-reference-readiness.js` with the bundled, verified `selectOrderReferenceMapping()` conclusion and the reviewed source delivery/pickup mapping as its `{ logistics }` option. Preserve source tax amounts/breakdown separately; omission of a target tax-group ID never permits losing source tax values. A missing or inconclusive conclusion returns a deferred reference-fidelity result; preserve it through `gateBatch` so the journal and existing mapping-gap ledger expose the affected records. No stored API response or accepted source ID proves dashboard fidelity. Always carry source currency explicitly: Import Order may store an empty currency rather than applying the documented site default. Keep the existing
 read-back gate below: readiness does not replace write verification or authorize resends.
 
+### Adopt-only tasks (mapping `writeMode: "adopt-only-no-writes"`)
+
+When the approved mapping adopts what a quick pass already created (`kind: "adopt-existing"`,
+`writeMode: "adopt-only-no-writes"`, e.g. products and categories after a quick pass), emit a task
+for that ref with `adoptOnly: true`. It reads and verifies; it never writes (the writer refuses
+`ADOPT_ONLY_TASK_WRITE_REFUSED`), so it declares no write-only dependencies: `dependencyRefs` and
+`dependencyEdges` are empty and no producer is needed for brand, product customization, tags or
+media. A task depending on it names the adopted ref and stops there. The flag is honoured only
+when the mapping plan marks every ref of the task adopt-only; otherwise validation reports
+`dependency_adopt_only_unapproved:<task>` and the creating-task rules apply. The reverse is
+refused too: a task owning a ref the plan marks adopt-only but emitted without the flag fails
+with `dependency_adopt_only_unmarked:<task>`, so emit the flag for every such task. A target
+whose rows mix adopt-only and creating modes fails with `dependency_adopt_only_mixed`. The mapper
+preflight, `deriveDependencyEdges` and the runtime gate read the same plan rows through one
+resolver, so they draw the same edges. Never set the flag to skip a dependency of a task that
+creates records.
+
+Declare its `sourceBindings` as usual with `keyPrefix` `<sourceEntity>:` and a `keyField` whose
+value is the plain source id (a gid is `lib/crosswalk-adoption.js` `normalizeSourceId`'s id tail).
+The importer's first step seeds the standard crosswalk from the quick crosswalk, either by
+`node skills/wix-replatform/scripts/crosswalk-adopt.js --project-dir <project>` (add `--dry-run`
+to only count) or by calling `adoptCrosswalk` from the vendored `lib/crosswalk-adoption.js`
+with `deriveBindings(projectDir, { contract })`. It appends the missing rows, never overwrites,
+and reports conflicts (a different existing target, one Wix id claimed by two source ids) without
+writing them; membership and tag sections are not seeded. A seeded row is a claim, not a result:
+the task then reads each adopted record by id (slug marker for products), appends the
+`skipped_already_imported` attempt row for the keys that match, and leaves the rest unready and
+reported. Variant ids are not in the quick crosswalk; read them from the Wix product when a
+dependent task builds its payload.
+
 ## Generated read-back gate contract
 
-For `order`, `member`, `contact` and `product`, reuse the reviewed pure `buildWrite(record)`
-module and the entity decision's copied `readBackContract`. Generate no new omission policy or
+**Builder-only step (before mapping approval).** When `rp-mapper` asks for it, generate only
+the pure `buildWrite(record)` module (for example `src/import/build-write.<entity>.cjs`) from
+the draft decisions' transforms: record in, request body out. Generate no reader, setup or
+import executor, descriptor, manifest, Wix client, capability, network or file write in this
+step; `read-back-gate.js inventory` refuses a builder that references them, and
+`import-contract-verify` refuses a project with no generated importer. The live importer is
+generated only after the named approval.
+The builder, like every generated transform, never reads crosswalks, `local-state` or
+`data/source-extract`; references come through gate-owned resolvers. The readiness scan skips
+only the file's header comment (before any code), so put provenance notes naming the source file
+there; a comment after code is scanned as text like the code around it.
+
+The builder must honor each output's `appliesWhen` exactly. Write the output when the predicate
+holds on the source record and its sources are populated. Leave it out entirely when the
+predicate is false: no placeholder, empty object or default value. An empty array such as
+default-variant `choices: []` counts as absent. Never infer applicability from lookup `cases`
+prose. If the decided transform needs a condition that no `appliesWhen` states, return it to
+`rp-mapper`. `validate` reports `Builder omits an applicable output` / `Builder emits a
+non-applicable output` with the output and record count. The gate refuses such a canary before
+writing (`builder-missing-intended-field` / `builder-emitted-inapplicable-field`), and refuses to
+compare such a sample.
+
+A record the decided transform cannot write is held, not written partially: return
+`{ status: 'held', holds: [{ decisionId, code }], … }` with one named reason per hold (a hold
+without a reason is refused, `builder_hold_invalid`; `decisionId` must be a decision of that
+entity in the plan, `builder_hold_unknown_decision`). `inventory` keeps the held record in source
+coverage, lists it with its reasons (`records[].held`, `heldRecords`) and leaves it out of output
+applicability and the canary universe; the held set is part of the inventory digest, so approval
+binds it. The read-back gate refuses a held body (`builder-held-record`). The dependency gate
+defers a held payload as `builder-held` with its `decisionId:code` reasons and never sends it.
+`runRecordTask` relies on that, so generated code neither catches nor re-journals holds.
+
+For `order`, `member`, `contact` and `product`, reuse that reviewed pure `buildWrite(record)`
+module unchanged (the read-back inventory pins its SHA-256; a change makes it stale) and the
+entity decision's copied `readBackContract`. Generate no new omission policy or
 comparison rules. Each mapping row retains its exact `sourcePaths[]`, canonical `writePath` and
 `readPath` or `unverifiableReason`, with `fieldDispositions[].mappingRef` pointing to that row.
 Copy the bundled read-back libraries with the shared runtime; importing a CLI must not execute
 an extract or write. Other entities call `declaration(entity, { verificationKind, reason })`
 from `lib/read-back-gate.js` and retain that explicit coverage declaration in their manifest.
+`verificationKind` is one of `contact`, `product` or `none` (`VERIFICATION_KINDS` in
+`lib/entity-verification.js`). Members, orders and other entities with their own verification
+flow declare `none`. The completion report refuses any other value at the end of the import;
+`import-contract-verify` refuses the same values at codegen, with the file and line. The manifest
+validator and the declaration do not check the value.
 Persist it with `recordDeclaration(projectDir, runId, entity, { verificationKind, reason })`
 from `lib/read-back-summary.js`; the existing gate artifact then supplies completion and CLI
 coverage reporting. A non-gated declaration never replaces gated-domain or earlier gate evidence.
 
-Before the first target write and every resume, load the existing
-`execution/read-back-inventory/<entity>.json` and call `ReadBackGate.prepare(inventory)`.
+Write every gated entity (`order`, `member`, `contact`, `product`: an entity decision with a
+`readBackContract`) through `runGatedEntity` from `lib/read-back-gate.js`. Do not
+construct `ReadBackGate` or call `prepare`, `executeCanaries`, `verifySample` or
+`reconcileInterval` yourself; `import-contract-verify` warns (never refuses) when no generated code
+calls `runGatedEntity`.
+
+```js
+const { runGatedEntity } = require(path.join(toolkitRoot, 'lib/read-back-gate.js'));
+const gate = await runGatedEntity({
+  projectDir, runId, siteId, wix, entity: 'product', records,      // source records, any order
+  buildWrite,                       // the reviewed pure builder, unchanged
+  write: async (record, expected) => …,   // one record: the confirmed write, or { deferred: true, reason }
+  writeBatch: async batch => …,     // optional bulk writer: [{ sourceId, targetId, findings }]
+  sourceKeyOf: id => `product:${id}`,     // the journal's sourceStableKey for a source id
+  marker, variants, read, lookup, repair, sourceSiteHost,           // entity options, as before
+});
+// gate.status: 'passed', or the gate's stop status; gate.written: the writeBatch/write outcomes.
+```
+
+It loads `execution/read-back-inventory/<entity>.json`, prepares the gate, reconciles a suspect
+interval carried from an earlier run, and settles a canary an earlier run sent that the target
+rejected with a readable 4xx (written again, never looked up as uncertain). It then runs the
+canaries and writes the remaining records in stable source order, in batches of at most 200. It
+samples every 200th and the last landed record, and a failed sample stops new batches until
+`reconcileInterval` clears it. A missing inventory or a failed preparation stops the entity
+before any write. The `write` callback returns the confirmed write, or exactly
+`{ deferred: true, reason }` when it declines before sending anything (for example, `gateBatch`
+deferred the record), with no other keys. Never return a deferral after a request may have been
+sent; a deferral that carries an id or any other key is treated as a possible write. The gate
+records a deferral as not sent, stops with `canary-write-deferred`, and writes the record again
+on the next resume.
 The inventory is built by the streaming `scripts/read-back-gate.js inventory` command using the
 same builder; a missing extract means the check was not run. Validation requires the reviewed
 mapping, decision, resolution and inventory bindings. Missing, stale or incomplete field
 accounting holds the entity. Populated omissions require the existing identified mapping
 approval user action, including all four current references; 1-click cannot approve them.
+The deterministic canary schedule covers every populated intended write path, with a default
+ceiling of ten records; raising it to at most thirty requires the recorded user decision.
+Canaries run serially, stop at the first failed or unknown verification, and are excluded from
+the later writes. A run that sends no write for a gated entity records `not-run-no-writes`; it
+adds no new stop when an earlier run holds that entity's gate result.
 
-Wire `executeCanaries(getRecord)` before the entity's bulk import. The deterministic schedule
-covers every populated intended write path, with a default ceiling of ten records; raising it
-to at most thirty requires the recorded user decision. Canaries run serially, stop at the first
-failed or unknown verification, and are excluded from subsequent create calls. Keep normal bulk
-batching and concurrency after they pass. Call `verifySample({ record, sourceId, targetId,
-index, isLast })` after every 200th record and the final record, using one-based stable source
-order and a confirmed target ID. Synchronize at those sample boundaries; a failed sample stops
-new batches and requires `reconcileInterval(getRecord, targetIdFor)` before continuation.
-A partial final batch still performs its last-record check.
+Pass the loaded write-verification state to completion instead of carrying each writer's report:
+`createCompletionReport({ …, verificationState: await require(path.join(toolkitRoot,
+'lib/write-verification-state.js')).load(projectDir, siteId) })`. A `verification[entity]` the
+caller passes still takes precedence.
 
 An uncertain send is reconciled through the gate's existing identity lookup before any retry.
 Every lookup page and by-ID read must use the gate's budgeted read proxy (`reads.wix`), including
 product catalog sweeps and contact candidate reads; a failed or truncated lookup is unknown,
-never permission to send again. Preserve the gate and write-verification evidence across
+never permission to send again. A product `read` hook that joins variant stock (Get Product V3
+returns none) calls `storesInventory.resolveInventoryLocation(wix)` and `readInventory(wix, …)`
+with the `wix` it is given; Query Inventory Items and its location query are registered bounded
+reads. Preserve the gate and write-verification evidence across
 resumes. Never rewrite an imported order. Contact, product and member repairs use the gate's
 single-attempt-per-contract rule, unchanged revision marker and existing update path; a member
 repair writes its contact with that contact's current revision. Never overwrite a record edited
@@ -99,20 +377,43 @@ since import.
 
 When `ensureMember` removes a phone through its approved phone-collision guard, compare against
 the request actually sent and preserve the writer's `guard-dropped` paths in the gate summary.
-Canaries record it automatically. For bulk writes, pass each returned `findings` array to
-`gate.recordGuard(sourceId, findings)` (it persists only the recognized collision finding), or
-as `verifySample({ ..., findings })` on a sampled record; samples and `reconcileInterval` then
-exempt only that record's guarded phone path. A missing target phone is never treated as a guard.
+Canaries record it automatically. For bulk writes, return each record's `findings` array from
+`writeBatch` (or `write`); `runGatedEntity` passes it to the gate, which persists only the
+recognized collision finding. Samples and `reconcileInterval` then exempt only that record's
+guarded phone path. A missing target phone is never treated as a guard.
 Do not turn that guard into `notMigrated`, an observed Wix loss or a fabricated placeholder
 phone. Pending product-media processing is unknown until bounded settlement resolves; it cannot
-be classified as a permanent dropped field or used to approve an omission.
+be classified as a permanent dropped field or used to approve an omission. A media item has
+landed when it carries its own id: `image.id`, or `video.id` with `mediaType: VIDEO`
+(`storesProductMediaItemLanded`); a landed video is never re-sent.
+
+**Product videos.** When `execution/product-videos.json` has `attach[]` rows, the
+product task attaches them after the product's verified create, under that record's grant:
+`writers.attachStoresProductVideos(wix, { productId, videos })`, with `videos` from
+`lib/product-videos.js` `videosWithRecordedFiles(projectDir, row)` (Wix Media import as VIDEO, wait
+for READY, then the file id after the kept images; a gallery that has not settled is `deferred`; a
+re-run skips videos already on the product and never imports a recorded file twice). Record every result with `lib/product-videos.js`
+`recordProductVideoOutcome(projectDir, { productSourceId, productId, result })`; the completion
+report derives `product-video-not-attached` and `product-video-manual` from the plan and those
+outcomes. Never author those actions yourself, and never send a video as a `{ url }` image item.
+
+Never author `read-back-*` operator actions (a generated `recordStop` pushing
+`read-back-sample-failed` into memory): `writeCompletionReport` drops every caller action whose
+code starts with `read-back-` and derives them from `execution/read-back-gate.json`, which
+`verifySample`/`stop()` already persist. A stopped run reaches that writer through the shared
+interruption wrapper (see "Stops and interruption" below).
 
 Completion must retain `execution/read-back-gate.json`. Call the existing completion-report
 writer so its read-back producer supplies actual per-entity statuses, path counts, pending
 settlements, observed losses, approved omissions and merchant acknowledgements, plus recovery
 operator actions. Do not infer a pass from a successful HTTP write or emit a separate success
 summary. A held, not-run or unknown gate keeps the run incomplete, and missing acknowledgement
-for an approved omission remains a pre-launch task.
+for an approved omission remains a pre-launch task. The toolkit creates that acknowledgement
+request itself; a large approved set is listed in a sha256-pinned
+`execution/review/read-back-omissions-<entity>-<requestId>.json` that the bounded prompt points
+to, so never shorten, rebuild or re-create the request in project code. A later run's `prepare` takes over another
+run's unprepared entry (the completion `gate-not-run` placeholder); only its own verification
+clears it. Held records stay in `readBack` and the `read-back-held-records` operator action.
 
 ## Source read contract
 
@@ -248,15 +549,10 @@ reading from a different transport.
   action. Pass `restart: true` only when the record says `restartRequired`. It never promotes an EAV read whose
   plan has `droppedIdentityColumns`, and never sets `acknowledgedDroppedColumns` (complete
   identity). The rest of this section is the contract that file implements.
-- **Generate the same bridge credential selection discovery used.** When
-  `WMH2_MIGRATION_KEY` is configured, call `queryStructure()` with
-  `auth: { type: 'migration-key', migrationKey, siteId, migrationId, timeoutMs }` so the
-  vendored client uses signed `/query`; preferring the key when it is available avoids
-  capability drift on the `manage_woocommerce`-gated route. Otherwise, when WooCommerce is
-  present and a WordPress REST credential is configured, pass the generated `httpClient`
-  and omit `auth` to use `/query/admin-key`. Keep one stable `migrationId` for the
-  extraction process and let the client create a fresh request `jti` per page. If neither
-  usable bridge credential exists, halt to needs-user before opening the output file.
+- **Use the WordPress REST credential discovery used.** Pass the generated `httpClient`
+  (authenticated with `WP_USERNAME`/`WP_APPLICATION_PASSWORD`) and omit `auth`; the vendored
+  client calls `/query/admin-key`. If no WordPress REST credential is configured, halt to
+  needs-user before opening the output file.
 - **The structureRequest is fixed, not derived at codegen time.** Read it verbatim from
   the machine-readable artifact discovery already persisted:
   `data/wp-discovery/wix-wp-plugin-v2--<table>.structure-request.json`. **Never re-call
@@ -270,10 +566,8 @@ reading from a different transport.
   `sampleStructureRequest`, or a zero-column schema), this entity cannot be extracted
   yet: fail clearly, name the missing artifact path, and stop — do not invent a request.
 - **Page at the plugin's maximum, 200 — not discovery's small sample limit.** Loop: call
-  `queryStructure({ httpClient, auth: bridgeAuth, structureRequest, cursor, limit: 200,
-  onSourceRead })`, append every returned row, and continue only while
-  `pagingMetadata.hasNext` is true. `bridgeAuth` is `undefined` for the admin-key path and
-  the migration-key auth object above for the signed path.
+  `queryStructure({ httpClient, structureRequest, cursor, limit: 200, onSourceRead })`,
+  append every returned row, and continue only while `pagingMetadata.hasNext` is true.
 - **Pass `onSourceRead` on every `queryStructure` call, and file the totals once at the end**:
 
   ```js
@@ -494,7 +788,8 @@ reading from a different transport.
   recomputed), plus `rowsWritten`, `snapshotTotal`, and the extraction timestamp. Before
   treating an existing `data/source-extract/<entity>.ndjson` as already fully extracted,
   hash the CURRENT sidecar and compare it against the manifest's stored hash. A match
-  means skip re-extraction. A mismatch — the table's approved query changed since that
+  means skip re-extraction (except under `--entity`, which always re-reads from `cursor: null`).
+  A mismatch — the table's approved query changed since that
   file was written — or a missing manifest means the existing file is stale: do not reuse
   it; re-extract from `cursor: null` into a fresh `.tmp` the same as if no file existed.
 
@@ -646,7 +941,7 @@ not a per-project regeneration.
 2. Generate machine-readable execution artifacts:
    - `execution/execution-manifest.json`
    - `execution/llm-handoff.json`
-   - when `SAFE_MODE=true` or `DRY_RUN=true`, `execution/review/code-safety-review.md`
+   - when `DRY_RUN=true`, `execution/review/code-safety-review.md`
    - optional supporting execution subplans only when the runtime truly needs them
 3. Generate setup code that can verify/provision Wix prerequisites by executing the
    machine setup artifacts through the shared setup runtime.
@@ -691,8 +986,44 @@ not a per-project regeneration.
    product that declared options but built zero. Catch that throw in the existing per-record
    error handling: do not create the product, and write a `mapping-gaps.json` entry naming the
    product (`sourceId`, name) and its declared-but-unresolved option names, so it is reported
-   for human review rather than counted as created. Do not guess combinations or map them to
-   modifiers. The only exception is an existing `orchestration/decisions.json` entry under
+   for human review rather than counted as created. Never guess combinations by hand.
+   **Route selection attributes through the shipped router, never in generated code**.
+   When the source adapter can say which declared attributes share price and stock, set
+   canonical `selectionAttributes` (`[{ name, choices, priceStockScope, required }]`, source
+   order) and put each sellable source record on `variants` in matching precedence, with
+   `choices` listing only the attributes it fixes. WordPress: call `wooSelectionAttributes(parent,
+   variations)` from `rp-source-wordpress/lib/woo-selection-attributes.js`; it reads "Any" and
+   menu order, resolves term-slug values to the parent's display names, and tags each record
+   choice with its `attributeIndex` (keep it: two attributes may share a label). Do not
+   re-resolve slugs in generated code. The variation's price, sale price, SKU and stock map as
+   before. Then call
+   `routeSelections(product)` from `rp-target-wix/lib/selection-route.js`. It returns the
+   product with `optionNames`, `variants` and `modifiers` (shared attributes: mandatory modifiers;
+   others: variants within Wix limits; a stock pool is never copied), plus `operatorActions`:
+   put each in `execution/completion-report.json` `operatorActions` through the existing
+   completion step. A thrown `SELECTION_ROUTE_CONTRADICTION` is a `mapping-gaps.json` entry, like
+   the 0170 throw, and the product is held with code `selection-route-contradiction`. Before products, run `planSelectionCustomizations(routedProducts)` once over
+   the whole catalog and write each returned customization with `createStoresCustomization`
+   (reused by name on rerun); the product task's `entityRefs` must include
+   `stores/product-customization`, or the writes are refused as `DEPENDENCY_TASK_MISMATCH`.
+   Build each product with `buildProduct(product, { connectedModifiers })`, where
+   `connectedModifiers` is `connectedModifierFromCustomization(written, { mandatory })` per
+   `product.modifiers[]` in order, and add `modifiers: modifierExpectation(product,
+   connectedModifiers)` to the import row's `expected`. Put `selectionRoute:
+   routeRecord(routed)` on every routed product's import row; `importProducts` refuses a row
+   with modifiers but no route record, and persists it on the product's row in
+   `state/write-verification.json` and the import report, so the cutover storefront check can
+   list modifier-route products from that artifact. One source record can become several
+   variants: key each variant expectation (and crosswalk row) on the routed variant's
+   `variantKey`, never on the shared source record id. `variation-any-attribute-unresolved` is a
+   retired hold code (target knowledge `retiredHoldCodes`): import-contract-verify refuses
+   generated code that still emits one (`retired_hold_code`) and the read-back inventory refuses a
+   builder that holds with one (`builder_hold_retired`, with the record ids and the route to use),
+   so a hand-written variant builder that holds "Any" variations fails before import. A project that already holds such
+   products releases them through the held-record resume path (regenerate the mapping, rerun the
+   read-back inventory, re-approve, import, `--deferred-only`). The only `optionLoss` exception
+   below applies to unrouted products; a routed product must account for every declared
+   attribute. The only exception is an existing `orchestration/decisions.json` entry under
    `optionLoss:<product.sourceId>`: look it up and, if present, pass it as
    `buildProduct(product, { ..., optionLossDecision: { key, entry } })`. `buildProduct`
    accepts it only when `source` is `user`, `value.accept` is `default-variant`,
@@ -702,6 +1033,26 @@ not a per-project regeneration.
    artifact, a mapping or execution approval, 1-click approvals, or a blanket answer. Even with
    a valid decision, still write the `mapping-gaps.json` entry, marked accepted with the
    decision key, so the loss stays reported.
+   **Bundles import as normal products; their parts become one operator task each.** A
+   canonical product with `product.bundle` is written like any product, at its source price
+   and its own stock. Never hold, defer or gap it because its parts cannot be linked, and never
+   turn its components or kit groups into options, modifiers or variants (`buildProduct`
+   ignores `product.bundle`). Before building a bundle product, call
+   `bundleWriteDecision({ sourceProductId, price })` from
+   `rp-target-wix/lib/stores-bundle-cutover.js` with the source's reported price: when `write`
+   is false (no source price), do not create the product (never substitute 0), add its `gap` to
+   `mapping-gaps.json`, and record the entry as `written: false` with its `reason`. While
+   writing, collect one entry per bundle record:
+   `{ sourceProductId, bundle, unreadableReason, written, wixProductId, reason }` (`reason` is
+   the not-written reason, for example `price-missing`). After the product task, call
+   `rp-target-wix/lib/stores-bundle-cutover.js` once with those entries and a crosswalk lookup
+   `resolve({ sourceProductId, sourceVariantId }) → { productId, variantId } | null` keyed exactly
+   as the product crosswalk keys its source ids (for Shopify, the full `gid://` ids):
+   `writeBundleSetupLedger(projectDir, input)` writes `execution/stores/bundle-setup.json`;
+   pass `bundleOperatorActions(input)` into the `createCompletionReport()` input's
+   `operatorActions`, and publish `bundleReviewTasks(input)` with producer `stores-bundles` in
+   the migration-review publication. It makes no Wix call. Never install, buy or configure an
+   app.
    Media scope should be relationship-driven by default: generate imports only for media
    referenced by mapped entities, not for the entire unattached source library. When the
    target adapter says an entity can ingest external URLs directly (for example Wix Stores
@@ -713,6 +1064,9 @@ not a per-project regeneration.
    defect, not a shortcut. Emit a call to the source adapter's resolver instead (WordPress:
    `resolveImageUrls` in `rp-source-wordpress/lib/wp-image-url.js`), which returns the
    original at maximum resolution, percent-encoded, with `altText` and `displayName` attached.
+   To check that a sent `displayName` landed as the Wix media name, use
+   `mediaTitleLanded(name, sentItem)` from `lib/write-verification.js`: Wix stores the title
+   with the original file's extension appended, and nothing else counts.
    The destination copies the one URL it is given and cannot be upgraded later, so a crop
    emitted here is permanent.
    **Never let generated code treat a media write's 200 as done.** Entity-native ingestion is
@@ -794,9 +1148,13 @@ not a per-project regeneration.
    describe *what* to write and in what order, not *how* to implement retries, throttling,
    checkpointing, or audit logging.
    Prefer the selected entity's `preferredWrite`; if it is not `verified-live`, surface an
-   execution warning before consent. Native mappings must have a known `writerId`, a
-   direct REST plan that calls `notifyMissingWriter`, or an explicit unsupported/gap
-   fallback.
+   execution warning before consent. Native mappings use the entity's reviewed writer, or
+   guarded raw requests when it has none (see "Missing writer policy");
+   `scripts/import-contract-verify.js` refuses a task whose write operation is neither
+   (`MISSING_WRITER`) and generated source that calls `sendDirectRest`
+   (`direct_rest_write_refused`). An entity whose knowledge names `writtenInTaskOf` (order
+   payments, refunds and invoices: `ecom/order`) is written by its host's task with the
+   host's grant, never by a task of its own (`PARENT_TASK_REQUIRED`).
 7. Generate or wire the deterministic execution-state preparation step before any import
    write. The generated runner should call the shared `execution-state` preparation
    contract, or the execution instructions should run
@@ -809,17 +1167,87 @@ not a per-project regeneration.
    `execution/review/import-plan.freshness.json` using
    `skills/wix-replatform/scripts/artifact-freshness.js write ...`. The freshness metadata
    must include hashes for `source-schema.json`, `mapping/mapping-plan.json`,
-   `setup/setup-verification.json`, generated import code, and the target contract ledger
-   revision. If codegen follows a newly promoted write contract, regenerated code and this
+   `setup/setup-verification.json` (bound to the `setup/setup-plan.json` hash and the
+   configured `WIX_SITE_ID`), generated import code, and the target contract ledger
+   revision. The plan is approved before setup runs, so it normally records no receipt; the
+   first valid receipt that unchanged plan then produces on the approved site after approval
+   keeps the plan fresh (`rp-execute-import` "freshness"). Any other receipt change, a site
+   change, or a later setup re-run stays stale. If codegen follows a newly promoted write contract, regenerated code and this
    metadata must reflect that promotion.
 10. Document any manual code follow-up still required.
 11. Generate any post-import remediation helpers that are required to reach the accepted
    mapping fidelity when the source capture cannot express the relationship inline during
    the first create pass.
 
+## Exact mappings, resolved scope and synthetic examples
+
+For a revised `fieldContractVersion:1` mapping, consume its exact decisions and projections.
+Never choose source precedence, dates, missing values, relationships or fallback semantics in
+codegen. Proposed omission scope is conditional until its identified exact approval validates;
+retain the original project context in every shared handler/descriptor guard. Incomplete/conflicting decisions return to mapper through the existing review route;
+wrong implementation of a complete decision returns to the codegen Developer. Customer mode
+reopens mapping as pending. An unattended one-click test makes one bounded mapping resolution
+attempt, then defers unresolved entities/dependencies and continues independent work.
+
+Vendor product-root `lib/mapping-field-contract.js` and `lib/mapping-omission-approval.js`
+with their shared read-back, identity, environment and artifact-binding helpers.
+Pin `digest(mappingAuthority)` in the generated import manifest/codegen evidence. Entrypoint
+dispatch filters by `executionScope.resolvedEntityRefs`, while each generated entity handler
+calls `assertExecutionScope(mappingAuthority, sourceEntityRef, pinnedMappingDigest, projectDir)` before
+its first write, including direct invocation. Extend the existing `--describe` descriptor
+with `mappingPlanDigest`, exact `resolvedEntityRefs` and
+`mappingScopeAssertion:assertExecutionScope`. The existing pre-write import-contract verifier
+compares these against the authority. The generated entrypoint self-check calls
+`assertGeneratedImporterContract(descriptor,{mappingPlan:mappingAuthority,projectDir})` before dispatch;
+QA also inspects every handler's actual shared guard. Do not compute the expected digest from the
+current plan at write time. Missing/stale binding, unauthorized omissions, manual runbooks
+or unresolved dependency closure must fail before any transport. Keep selected/deferred
+entities visible in status and entity-completeness reports; no silent scope pruning.
+
+The Developer invokes product-root `lib/field-mapping-examples.js`'s
+`runFieldMappingExamples({projectDir,plan,mappingPlanDigest:pinnedMappingDigest,execute})` inside this existing codegen stage.
+The `execute` adapter invokes actual generated transforms and shared request builders,
+then sends the prepared request via the supplied isolated `wix`, tagging `operation` with
+its bound write operation. Its `input` is the example merged over the entity's `exampleBase`;
+run the same entity transform the importer runs. A builder refusal on a partial input means
+the mapping lacks `exampleBase`: return it to mapping instead of patching the adapter. Use only supplied synthetic input, fresh in-memory crosswalk. No live project configuration, credentials, audit or
+receipt sinks may be closed over or loaded. Exercise the same policy/request-building path
+as the generated importer. Expected values come from approved decisions before execution.
+
+Each pass creates an exclusive `state/attempts/field-mapping-examples/<passId>.ndjson`;
+older passes remain byte-identical audit evidence. Live dry-run captures retain their
+existing path and readers. Use `renderExampleResults` to write `Field mapping examples`
+in `execution/review/import-plan.md`, regardless of DRY_RUN. Include a non-Order
+case, IDs, operation, expected/actual values or omissions/findings, input/expectation/capture
+digests, pass identity and passed/failed/not-run reasons. Missing expected outputs and fake
+success responses cannot pass fidelity. Deferred/manual scopes are explicitly not-run.
+
+After writing the plan/results, use the existing freshness command with
+`--example-capture <returned captureRef>`. It binds authority/examples, entity projections,
+rendered plan, generated transforms/builders/helpers, that exact capture file and existing
+source/setup/target inputs. Record plan and freshness paths on the current checkpoint.
+QA remains read-only: inspect freshness, independently compare recorded expectations and
+prepared requests with generated implementation. QA never executes examples or writes captures.
+No additional stage, verification command or live pass is introduced.
+
+Persist the final report through shared `writeCompletionReport(projectDir, report,
+{mappingPlanDigest:pinnedMappingDigest})`. That writer stamps current scope only when the
+independently supplied pin matches; missing/stale binding produces a durable blocked report.
+Use its returned `report` for summaries and handoff. A missing/stale report/handoff binding
+returns a typed evidence blocker through the existing router, never unlimited redispatch.
+After independent work and current execution QA/evidence retention, use
+`deferredRunResult(mappingAuthority)` when selected work remains deferred. Persist its typed
+`mapping_scope_deferred` blocker and required input in the existing run/completion artifacts,
+set the existing run state to blocked and return it for the next session. A completely
+resolved scope uses existing completion checks. All-deferred/no importer attempts preserve
+ledger/handoff and report current-run Migration review publication unavailable; do not
+create a fake importer owner or claim tasks were published. Review service integration
+uses the importer-owned evidence contract when available and stays explicitly incomplete
+until then. No catch-up or launch-readiness policy is changed.
+
 ## Post-codegen code-safety review checkpoint
 
-When either `SAFE_MODE=true` or `DRY_RUN=true` for the active project, codegen must
+When `DRY_RUN=true` for the active project, codegen must
 produce a mandatory review artifact before the execution approval gate:
 
 - `migrations/<project>/execution/review/code-safety-review.md`
@@ -830,21 +1258,10 @@ generated code itself. It must check:
 - no generated file defines a local transient/retry predicate, and none tests an error's
   `message` for a status number or a status word; generated retry paths call the shared
   `isTransientWixError`
-- every generated write path that can carry email/phone data passes `safeModeOptions`
-  into the shared Wix runtime or direct REST wrapper
-- every shared/native writer reached by generated code actually consumes those
-  `safeModeOptions` and routes the request body through the shared sanitizer rather than
-  silently ignoring the parameter
-- no generated writer path silently bypasses safe mode because of a missing function
-  parameter or a direct call that skips the shared sanitizer
 - dry-run uses the same generated write code path as live import, with Wix calls skipped
   only at the shared `wix.send` boundary
 - dry-run reporting does not label would-send placeholders as live-created/imported site
   objects
-- mapping-declared `safeModeReplacements[]` are reflected in the generated write specs and
-  runner wiring, and any entity that still carries outbound contact data without matching
-  replacement-path coverage is treated as a review failure rather than left for the user
-  to reason about manually
 
 If the review finds a gap, execution approval must remain pending until the generated
 code is corrected and the review artifact is regenerated with a passing verdict. The
@@ -864,7 +1281,7 @@ It should generate:
 - import ordering and dependency wiring
 - project-local config loading
 - execution review artifacts
-- post-codegen code-safety review artifacts when safe mode or dry-run is enabled
+- post-codegen code-safety review artifacts when dry-run is enabled
 
 It must not regenerate for each migration:
 
@@ -908,7 +1325,14 @@ runnable entrypoints:
 - **`src/setup/run-setup.js`** or equivalent setup entrypoint — reads the machine setup
   artifacts and executes them through the shared setup runtime.
 - **`src/extract/run-extract.js`** or equivalent reader entrypoint — reads the source APIs and
-  writes durable extracted files under the project. Extraction is a separate step from
+  writes durable extracted files under the project. After each extract is complete it runs
+  `node <toolkit>/scripts/extract-ledger.js record --project <dir> --entity <entity> --extract <path>`.
+  It must accept `--entity <entity>` to re-extract one entity from the source, always from
+  `cursor: null` and never through the reuse check below: when the ledger
+  finds an extract changed after it was recorded, or missing fields an earlier version had on
+  unchanged records, the read-back inventory and the import re-run it, record what happened in
+  `execution/extract-integrity.json` and continue. Never edit, filter or strip an extract in
+  place. A field with no target stays in the extract; the mapping keeps it (extended field or CMS). Extraction is a separate step from
   destination writes, so large migrations can be resumed or re-imported without re-reading
   the whole source.
 - **`src/import/run-import.js`** or equivalent import entrypoint — reads the extracted files,
@@ -961,7 +1385,9 @@ runnable entrypoints:
     request capture, placeholder crosswalk row, and summary artifact.
   - construct its progress logger via `parseProgressArgs`/`createProgressLogger`
     (`lib/progress-log.js`, already shipped — vendor it the same way as any other shared
-    lib) and wrap the per-batch/per-record write loop with that logger's own
+    lib) with `progressLog: <projectDir>/execution/progress.ndjson` — the only path
+    `scripts/execution-health-check.js` reads; a log written anywhere else (e.g.
+    `logs/import-progress.ndjson`) leaves the health check with no progress record — and wrap the per-batch/per-record write loop with that logger's own
     `withHeartbeat(fields, fn)` (or the equivalent manual `startHeartbeat(fields)` /
     `stopHeartbeat()` pair around a longer-lived loop), carrying live counters as
     heartbeat fields: at minimum `recordsAttempted` (a running count), `currentEntity`
@@ -971,7 +1397,17 @@ runnable entrypoints:
     ticker reads from, so a fresh object per iteration never reaches the ticker and the
     heartbeat goes stale even though the loop is progressing. This covers the write loop, not
     just process start, and must not change the progress-log format, event names, or polling
-    contract in any way.
+    contract in any way. Every long phase gets the heartbeat, not only the generic task
+    loop: members, orders, products, the CMS archive and finalize each run inside
+    `withHeartbeat`, so a long phase never looks hung.
+  - read project JSON artifacts (the mapping plan, the execution manifest,
+    `source-schema.json`, setup receipts) through the vendored `lib/cached-json.js`
+    `readJson(absolutePath, fallback)`, never with a fresh `JSON.parse(readFileSync(...))`
+    inside a per-record or per-batch path. It parses a file once and re-parses only when the
+    file changes on disk. The value it returns is frozen and shared: copy it before you change
+    it. A helper such as `keyField(sourceEntity)` that runs once per record must not re-read
+    a file on each call; a multi-megabyte plan or a large schema parsed per record made a dry run
+    many minutes slower.
   - emit `execution/live-import-summary.json` and `execution/completion-report.json`
     through the shared completion-report runtime, with entity/subtype completeness counters
     for extracted, in-scope, attempted, imported, already present by crosswalk, deferred,
@@ -979,11 +1415,9 @@ runnable entrypoints:
   - stop before dependent phases when required upstream entities fail. For example, do not
     create products after product-category failures unless the execution plan explicitly
     marks category assignments as non-blocking.
-  - pass `safeModeOptions` to every relevant writer path, including direct REST fallback
-    paths and unverified native writers that can carry contact values.
 - **The dry-run is the same import code path with Wix calls skipped at the shared Wix
   boundary** — not a separate driver. Generated code must construct the same Wix client,
-  call the same writer helpers, run `SAFE_MODE` sanitization, and pass request metadata
+  call the same writer helpers, and pass request metadata
   (`phase`, `operation`, `entity`, `sourceId`, `verification`, and when needed
   `responseShape`) into `wix.send` so the runtime can capture would-send requests and
   return live-compatible dry-run placeholders.
@@ -1004,8 +1438,8 @@ Extraction format requirements:
 ### Notification-mute preflight (required)
 
 When mute is in effect — **always** for `WIX_SITE_STRATEGY=new` (unconditional,
-regardless of `WIX_MUTE_NOTIFICATIONS`), and for existing sites only when
-`WIX_MUTE_NOTIFICATIONS=on` — the generated import script must contain a mandatory
+regardless of `WIX_MUTE_NOTIFICATIONS`), and for existing sites only when the operator
+answered mute (`notificationMute=on`, mirrored as `WIX_MUTE_NOTIFICATIONS=on`) — the generated import script must contain a mandatory
 preflight step, **before the first entity write**, that asserts the site is muted:
 
 - Primary: `getSiteMuteState(wix)` (rp-target-wix, VERIFIED 2026-08-04) returns
@@ -1019,8 +1453,7 @@ If the preflight call fails or reads `muted: false` and the re-mute fails, the s
 **aborts before any write** with a clear error routing back to setup — exit non-zero, no
 degraded mode, no `--skip-mute-preflight`-style flag, no warning-and-continue. For
 new-site projects the preflight is emitted unconditionally and never appears as a
-skippable option; for existing-site projects with `WIX_MUTE_NOTIFICATIONS=off` (the
-default), no preflight is emitted. The preflight logs its re-verification and outcome
+skippable option; for existing-site projects whose operator answered `off`, no preflight is emitted. The preflight logs its re-verification and outcome
 into the run's execution/progress log (keyed by `runId`) — terminal reports read this
 recorded state, never strategy/config inference. In dry-run mode the preflight follows
 the shared dry-run contract like any other Wix call: the intent is captured and the
@@ -1029,6 +1462,46 @@ must never call `unmuteSiteNotifications` — unmute is an explicit owner reques
 the import path. A preflight mute-verification failure is recorded through the standard
 `rp-telemetry` recorder as an `error` event (with `error_code`) like any other run
 event — no new telemetry surface.
+
+### Stops and interruption: one completion call on every end (required)
+
+A run that stops still writes what it knows. An importer whose completion runs only
+after its last write leaves nothing when it is stopped by SIGTERM, a crash or a
+`wix_auth_expired` stop, and cutover refuses with `missing_completion_report`. Do not write
+signal handlers, `try/finally` around dispatch, or a second completion path yourself:
+
+- **Plugin entrypoints** (`src/import/run-import.js` from the committed template) already run
+  through `lib/import-interruption.js` `runImportWithFinalize`. It calls the adapter's
+  `finalizeImport` exactly once: with no `interruption` on a normal end, and with
+  `interruption: { kind: 'signal' | 'error' | 'wix_auth_expired', signal, code, at }` on a stop.
+- **Other entrypoints** wrap dispatch the same way and vendor `lib/import-interruption.js`:
+
+  ```js
+  const stops = require('./src/lib/import-interruption.js');
+  try {
+    await stops.runImportWithFinalize({
+      projectDir, // required: the stop latch refuses new requests and new `started` rows
+      dispatch: ({ stopRequested }) => runTasks(selection, { stopRequested }),
+      finalize: (interruption, results) => finalizeImport({ runId, results, ...(interruption ? { interruption } : {}) }),
+      onInterrupted: (interruption) => dryRun ? undefined : stops.recordInterruption(projectDir, { runId, interruption, mappingPlanDigest }),
+    });
+  } catch (error) { process.exitCode = await wixAuth.stopExitCode(error, projectDir); }
+  ```
+
+  `runTasks` checks `stopRequested()` before each task and each batch and returns what it has
+  so far; `finalize` gets that return value as `results`.
+
+- `finalizeImport` forwards `interruption` to `createCompletionReport`. That marks the report
+  `aborted`, records the interruption, and puts an `import-interrupted` operator action first.
+  It must work on partial in-memory state: counters already taken, half a pass, no
+  `orderResults`. It must never throw because a stage did not run.
+- `recordInterruption` stamps the report when an older `finalizeImport` ignored `interruption`,
+  or rebuilds it from the attempt journal when finalize threw. It then writes
+  `execution/discovered-set-status.json` and the post-execution handoff. A SIGKILL leaves no
+  report. The router then routes `missing_completion_report` with `interruptedReport: "missing"`,
+  and `scripts/interrupted-completion-report.js <projectDir>` writes the report from the journal.
+- An aborted report is never completion. The router routes it back to `import_interrupted`
+  (resume), aggregate completion refuses it, and the resumed run's report overwrites it.
 
 ### The per-record ledger (required)
 
@@ -1103,6 +1576,15 @@ with that derived id on **every** attempt row, success or failure, rather than d
 error message into an unstructured identifier, which is what trips the guard above in the first
 place.
 
+**A request refused before sending is a known failure, not an uncertain write.** Every
+pre-send refusal from `createWixClient` (readiness grant, capability, task or phase checks)
+carries `error.requestSent === false`. Journal it as `failed_retryable` with top-level
+`requestSent: false` and `failure.errorCode` set to `error.code`; never `succeeded_unverified`.
+`appendAttempt`/`markAttempt` settle a `succeeded_unverified` row that carries
+`requestSent: false` to `failed_retryable` for every entity, so the flag must be on the row.
+Check `requestSent` before any status, outcome or transient-error classifier: a refusal has no
+HTTP status, and "no status" otherwise reads as a transport error of unknown outcome.
+
 **An uncertain write is not a failure.** `succeeded_unverified`, and a `started` row that never
 got a terminal follow-on, are **unresolved**: the next action is to **read the target back**,
 never to re-send, because re-sending an uncertain write is how a recovery pass creates a
@@ -1110,8 +1592,18 @@ duplicate on a live store. They select under `--unresolved-only`, count as `unre
 recovery record, and are rebuilt into `execution/unresolved-writes.ndjson`
 (`rebuildUnresolvedWrites`) — a projection of the journal, so deleting it loses nothing and it
 is never a source of truth. A `deferred` record, including a source-data-rule skip, is **not**
-unresolved and never reaches that queue. Never sum unresolved into `failed`: a recovery record
+unresolved and never reaches that queue. A `needs_verification` row that names a target id (a
+create that landed and did not verify) is counted unresolved in the summary and completion
+report, but it is selected by `--deferred-only` or a full resume, not `--unresolved-only`, and it
+is not in that queue; the completion report's recovery action names its target id. Never sum unresolved into `failed`: a recovery record
 that does reconciles arithmetically and is wrong.
+
+**Count every uncertain write in `entityCompleteness.unresolved`, and name its target id as
+`targetId`.** A success, `succeeded_unverified` or `needs_verification` row carries the landed
+id in top-level `targetId` (`failure.targetEntityId` is for failure rows). A counter that skips
+the record (`counts.failed += 0`, or adding it to `attempted` only) leaves an unexplained
+shortfall. `attachAttemptReasons` fills such a gap from the journal, but only up to
+the gap, so count it yourself.
 
 ### Declaring the entry contract (required)
 
@@ -1135,9 +1627,52 @@ target:
     "unresolved": "execution/unresolved-writes.ndjson",
     "recoveryLog": "execution/recovery-log.json",
     "appendOnly": true
+  },
+  "migrationReview": {
+    "contractVersion": "migration-review/1",
+    "executionKind": "import",
+    "phases": ["before-write", "write-outcome", "recovery"],
+    "requiredCategories": ["source_scope", "mapping_fidelity", "execution_recovery",
+                           "setup_plugin", "explanations_checks"],
+    "durableBeforeNextWrite": true,
+    "probeFlag": "--migration-review-probe"
   }
 }
 ```
+
+Vendor `lib/migration-review.js` with its `config-env.js` and `orchestration-decisions.js`
+dependencies beside the generated importer and use its versioned interface. Initialize from
+the existing orchestration project/source and `config/wix.env` destination through
+`projectBinding`; do not invent a different identity for the publishing chat. Before the first target write, initialize the bound review store, register the
+execution with its publishing `producerId` and `executionKind: import`, and capture accepted
+source/scope plus mapping/setup capability evidence. Only the credential-free isolated probe
+registers `executionKind: probe`; never use that classification on the real import path.
+Source-scope evidence names capability scopes in `acceptedScopes`; keep accepted record IDs
+in their original artifact fields. Create one `createEvidenceCaptureQueue(projectDir)` per
+importer process and route every batch's capture through it. Concurrent write workers await
+their queued capture before starting another target write. The queue serializes captures,
+refreshes their expected version, and waits up to two seconds for a competing local mutation.
+A timeout or other capture failure stops queued successors; the queue never steals a lock.
+Route every target write through one `review.createWriteRecovery({ captureQueue, migrationId,
+executionId, scope })` wrapper: `recovery.write({ sourceStableKey, attemptId, operation }, send,
+{ unknownOutcome })`. A throw, or a result `unknownOutcome(result)` names, commits an
+`execution_recovery`/`recovery` capture (`failed` only for a readable 4xx rejection other than
+408; a 5xx, 408, timeout, abort or transport error is `uncertain`; no error text) before the
+error returns. Pass a distinct `attemptId` per write call; one is assigned when omitted. A capture failure throws with
+`writeError` retained and stops later writes. Publication
+and operator actions still use an explicitly read expected version. After
+every durable batch or repair checkpoint, capture write outcomes, uncertainty and recovery
+evidence before the next target write. A capture failure stops further writes through the
+existing recovery path; it cannot become a complete review or be reconstructed from summary
+prose. Final publication is cumulative and assessed-scope based. It may report explicit
+incomplete coverage, but it cannot omit a missing category or replace unrelated findings.
+For import executions, publication also requires non-probe before-write and write-outcome
+captures per assessed scope for complete coverage. Post-import backfill cannot substitute
+for these boundaries; missing phases become named incomplete evidence and Data investigations.
+Every published task declares `requirement: required|optional`. Machine-verified tasks name
+a committed `explanations_checks` capture with a passed machine check matching the finding
+key and material fingerprint; a readiness label alone cannot resolve a task. Repaired findings
+close through evidence-backed `applicabilityChanges`, never omission.
 
 **The importer checks itself.** `run-import.js` calls
 `assertGeneratedImporterContract(descriptor)` from `lib/import-recovery.js` as the **first
@@ -1147,7 +1682,17 @@ naming every problem at once and the importer refuses to run itself, exactly as 
 preflight aborts before any write: exit non-zero, no degraded mode, no skip flag.
 
 `rp-execute-import` step 2d runs `import-contract-verify.js` against the same descriptor from
-the outside before the first write. The two are not redundant: the self-check is what an
+the outside before the first write, then invokes `--migration-review-probe --project <scratch>`.
+The probe calls the same capture/publication functions used by the importer, with synthetic
+inputs in `MIGRATION_REVIEW_PROBE_PROJECT` and no target calls. Use migration/source identity
+`probe_<MIGRATION_REVIEW_PROBE_NONCE>`, destination `probe-site`, all five categories carrying
+`evidence.probeNonce`, and a published result carrying `probeNonce`; print its `executionId`.
+The probe registers the same mapping scopes as the real path (`mappingScopes(plan)`, selected and
+held) and calls `probeFailure()` on its `createWriteRecovery` wrapper.
+The verifier checks committed evidence bytes, coverage and publication, every selected/held
+mapping scope in the probe registration and the injected failure's `execution_recovery` capture,
+then deletes its scratch directory. It also refuses generated `src/` that reads
+`process.env.DRY_RUN` directly or registers `mappingScopes(..., resolvedEntityRefs)`. Printed readiness booleans fail the gate. The two gates are not redundant: the self-check is what an
 operator cannot skip, and the external gate is what catches an importer that never emitted the
 self-check at all — such an importer also cannot answer `--describe`.
 
@@ -1197,9 +1742,7 @@ The wrappers own prewrite reconciliation, source-index correlation, candidate pe
 read-back, and publication of verified mappings. Raw writers remain request primitives.
 
 Select `sourceKey` and all expected fields from the source mapping BEFORE sending a write.
-Contact rows carry `{sourceKey, sourceId, sourceSystem, contact, safeModeOptions,
-updateMember}`. Supply per-record safe-mode options so a batch cannot acquire one shared
-replacement identity. Phone-only identities and conflicting source/target identifiers
+Contact rows carry `{sourceKey, sourceId, sourceSystem, contact, updateMember}`. Phone-only identities and conflicting source/target identifiers
 block and report; there is no automatic merge or V4 fallback. Contact custom-field setup
 must already be resolved; the shared DES setup helper still supports orders only.
 
@@ -1208,7 +1751,10 @@ Product rows carry `{sourceKey, product, expected, marker, variantExpectations}`
 fields and verify them through the inventory pass. `marker: {path, value}` is source-derived
 (e.g. a unique mapped slug), not copied from a returned product. Each variant expectation
 carries `{sourceKey, expected, inventory}` with an unambiguous source-fixed SKU/choice
-projection. Include submitted variant choices in that projection; an unverified choice
+projection. A variant `sourceKey` is the source variation's own stable key (for example
+`<variationKeyPrefix><variation id>`); a product with no source variations uses
+`<productSourceKey>#default` for its single variant. Never derive it from an array position: order
+lines resolve variants by this key, and a catch-up pass must find the same one. Include submitted variant choices in that projection; an unverified choice
 shape must remain a gap, even when SKU and price agree. The wrapper resolves exact target
 variant IDs, retaining the correspondence
 in each verified receipt. A missing or ambiguous match remains a gap, never a positional zip.
@@ -1225,8 +1771,13 @@ const { importContacts } = require(require('node:path').join(toolkitRoot, 'resou
 const { createCompletionReport, writeCompletionReport, attachAttemptReasons } = require(require('node:path').join(toolkitRoot, 'lib/completion-report.js'));
 const { loadAttemptJournal } = require(require('node:path').join(toolkitRoot, 'lib/local-state.js'));
 const { writeLiveImportSummary } = require(require('node:path').join(toolkitRoot, 'lib/import-recovery.js'));
+// `wix` is the client created from the contact task's `bindTask` capability (`taskBinding`).
+// Evaluate the task immediately before the call and pass the evaluation: importContacts runs
+// the rows through `gateBatch` itself and grants every bulk item its own source key. Do not
+// wrap `wix` in bindRecordClient.
+const contactEvaluation = await evaluateTask({ taskBinding });
 const contactVerification = await importContacts(wix, {
-  projectDir, siteId, rows: contactRows, dryRun,
+  projectDir, siteId, rows: contactRows, evaluation: contactEvaluation, dryRun,
 });
 // Opt-in: flush BEFORE building the completion input, not after, so the run's
 // own `coverageCheck` (computed by this very flush) is available to pass through below. This is
@@ -1250,10 +1801,14 @@ if (!dryRun) {
 }
 // `sourceKeys` is required on every row: it is the only way a deferred or failed
 // count can later be joined back to the journal row that names its reason.
+// A row that did not verify is never a deferral and never `failed += 0`: one that names a target
+// id landed and is `unresolved` (read back by that id, never re-sent); one without stays deferred.
+const unverified = contactVerification.rows.filter(row => !row.verified);
 const rawEntityCompleteness = [{
   entity: 'contacts', verificationKind: 'contact', sourceKeys: contactRows.map(row => row.sourceKey),
   inScope: contactRows.length, imported: contactVerification.verified,
-  deferred: contactRows.length - contactVerification.verified,
+  unresolved: unverified.filter(row => row.targetId).length,
+  deferred: unverified.filter(row => !row.targetId).length,
 }];
 // Load the journal ONCE per report and join it in before building the report
 // -- never once per entity, and never read a second time by a later step of the same report.
@@ -1284,7 +1839,12 @@ never changes the held counters. This flush deliberately names only `imported`; 
 figure above is computed in the same pass for `entityCompleteness` but never carried into this
 `writeLiveImportSummary` call, and that is fine — an ordinary bucket (`imported`, `deferred`,
 `failed`, `attempted`) a flush does not name is simply not compared for that entity, never treated
-as a mismatched `0`. `unexpectedSkipped` is the one exception: its absence defaults to a held `0`,
+as a mismatched `0`. The journal side counts `attempted` as every record a write was sent for:
+`imported`, `failed_*`, and unresolved (`started`, `succeeded_unverified`, or a `needs_verification`
+row that names a target id -- a write that landed unverified, never a deferral). Each entity row
+also carries `project`: the latest row of every record across all runs (adoption and resume passes
+included), with each unresolved record's target id. It is informational, never compared, and is
+the project-level view a single run's buckets cannot give. `unexpectedSkipped` is the one exception: its absence defaults to a held `0`,
 so always name it explicitly, even as `0`, once a flush's journal rows can produce a
 `skipped_unexpected` row for that entity. The flush above passes
 `options.entityTypes: { contacts: 'contact' }` because `contact-import.js`'s own verified writes
@@ -1358,13 +1918,54 @@ and never fill `seoTitle`/`seoDescription` from rendered output. Then, per produ
    The stage already bounds its own concurrency, pacing and settle waits; do not wrap it in
    a per-product loop or add sleeps around it.
 3. Include `plan.projection` (never the receipt) in the product's `sourceHash`.
-4. Add `report.seo.stageResiduals` to the completion input's `stageResiduals`.
+4. Add `report.seo.stageResiduals` to the completion input's `stageResiduals`. A pass that does
+   not reconcile a product (a crosswalk hit, a selective pass, a stop) still owes that product's
+   open SEO residuals: build the SEO stage residuals from this pass's results plus
+   `outstandingSeoResiduals(await loadSeoState(projectDir, siteId), { exclude: <this pass's
+   reconciled source keys> })`, through `collectSeoStageResiduals`. Never drop a residual
+   because the product was not in this pass; only a passing verification clears it.
+   Owner questions and plan residuals (for example `focus_keywords_disposition_required`) are owed
+   by every imported or landed product, not only by products this pass reconciled: before building
+   the completion input, plan the SEO of every imported product the pass did not reconcile, from the
+   same local evidence (no Wix call), add those plans' residuals to the SEO stage residuals (skip a
+   product already counted through this pass's results or `outstandingSeoResiduals`), and build
+   `buildSeoDispositionQuestions` from all of these plans. A pass that touches no new product must
+   still report every open question.
 5. If `buildSeoDispositionQuestions(plans)` returns questions, ask the owner once per question
    and record the answer with `recordSeoDisposition` (source `user`). Never answer it for them,
    in any automation mode, including one-click.
 
 Never write product SEO through Item SEO Tags bulk set (`bulkSetItemSeoTags` refuses
 `STORES_PRODUCT`), and never write canonical, robots, schema, social tags or an SEO pattern.
+
+### Review merchant replies
+- `stores/review`: after `createStoresReviews` (and moderation), call
+  `setStoresReviewReply(bindRecordClient(wix, { readinessGrant, sourceStableKey }), { reviewId, message })`
+  for each review whose source has a merchant reply. Never put the reply in the create payload.
+  Journal `verified` / `already-present` as done, `not-sent` as failed with `requestSent: false`,
+  `failed` as `failed_retryable`, `unverified` as retryable (Set Reply overwrites, so a re-send is safe).
+  Replies over 1000 characters stay in the CMS shadow and the ledger.
+
+### SEO domain writers
+- `seo/item-seo-tags`: `setItemSeoTags(wix, { itemType: 'BLOG_POST', entries }, { readinessGrant, sourceStableKeys })`,
+  one source key per entry. `itemId` is resolved from the `blog/post` crosswalk through the
+  per-record edge. Journal an entry `imported` only for outcome `verified`; every other outcome is
+  a failed row (retried with `--failed-only`). Other item types (static, dynamic CMS, taxonomy pages)
+  use guarded raw requests: `sendGuardedRawRequest` with
+  `PATCH /promote/seo/v1/item-seo-tags/{itemType}/{itemId}`. The raw path is refused for the item
+  types the writer covers (`BLOG_POST`) and for `STORES_PRODUCT` (`preferredWrite.writerScope`). Blog posts that already carry `seoData` on create need no second pass.
+- `seo/seo-pattern`: `ensureSeoPattern(wix, { pageType, tags })` once per page type.
+- `seo/site-seo-tags`: `setSiteSeoTags(wix, { tags, shareImage })` once per site. Pass the source
+  share image as `shareImage: { mediaId: resolveReference('media/media-file', <its media key>,
+  'shareImage.mediaId'), sourceUrl }`, never as an `og:image` tag. A missing image resolves to
+  `undefined` and the record is still sent; journal the record by `outcome` (the tags) and pass the
+  result to `seoOperatorActions`, which turns `shareImage.outcome: not-written` into the cutover row.
+- Never pass a robots tag expecting it to land (indexing is a launch decision). The writers
+  strip robots and canonicals into `exclusions`.
+- On every run, including one that writes no SEO, call `seoOperatorActions({ site, patterns, items })`
+  (`rp-target-wix/lib/seo-tags.js`) with whatever SEO executors returned (or nothing) and append
+  the rows to the completion input's `operatorActions`. The indexing decision row is always there. That is the cutover hand-off for the indexing decision, replaced or
+  unwritten patterns, and tags not carried over.
 
 ### Product inventory: inline create, then reconcile and verify
 
@@ -1410,6 +2011,41 @@ read-back. Report unresolved inventory as partial, while allowing independent re
 continue. The setup inventory probe must pass before stock writes. Existing notification
 protection and dry-run boundaries still apply; a dry-run does not produce a live inventory
 verification receipt.
+
+### Same-entity hierarchies: one depth level at a time (required)
+
+When an entity's parent is the same entity (product categories, nested blog categories), the
+parent is written by the same task. No dependency edge can wait for it (a task is never its own
+producer), and a depth sort is not enough on its own. A pass that builds every record before the
+first write holds every child as `parent-not-imported`, so one tree level lands per run.
+
+`runRecordTask` handles this from knowledge, with no per-entity code. The target knowledge's
+`sameTaskReferenceFields` names the parent path (Stores category: `parentCategory.id`). The
+accepted mapping output for that path names the source field (WooCommerce: `parent`). The
+runner then:
+
+- writes one depth level at a time, parents first;
+- resolves each child's parent id with `resolveSameTaskReference`, from this task's own landed
+  crosswalk row, and sets it at that path.
+
+The builder does not set the parent path itself. A root has no parent value (missing, null, empty
+or `0`). A child still imports without the parent link when:
+
+- its parent is not in the source, failed or is held (`same-task-parent-not-written`);
+- it is on a parent cycle (`same-task-parent-cycle`, written last);
+- the mapping feeds the path from two source fields (`same-task-parent-field-ambiguous`).
+
+The finding `same-task-parent-unlinked` goes on its journal row. A `dependency-reference-gap`
+cutover item asks the Import Operator to set the parent once it exists. The record is never held
+for its parent.
+
+The gate refuses a parent id that came from anywhere else: `dependency-reference-unresolved` for
+an id read from the crosswalk, `REFERENCE_UNDECLARED` for `resolveReference`. A hand-written loop
+(see "Per-record tasks") uses `rp-target-wix/lib/same-entity-hierarchy.js` `runByDepthLevel` and
+the same resolver. It follows the same never-block rule: a child whose parent did not land is
+written without the link, and its `unplaceable` records are written last without the link, each
+with the `same-task-parent-unlinked` finding and a gap from `recordTaskGap`. Never hold or refuse
+the record for its parent.
 
 ### Product category attachment: attach, then verify (required)
 
@@ -1660,7 +2296,16 @@ the product was already on the site, so it was skipped, so it had no crosswalk r
 category-link phase could not resolve its id and it ended up in no category at all. Index the
 net as `name -> { id, revision }`, not as a `Set` of names, so the id is available to adopt.
 
-An ambiguous match is the one case that must not be adopted: if the source key is not unique
+**A baseline item is never adopted**. Products and categories that were on the
+store before this import are listed in `setup/destination-catalog-baseline.json`. Before
+building a slug or name net, split the sweep with
+`require('<toolkit>/lib/catalog-baseline').protectedIds(projectDir)` and `partition(items, ids)`:
+only the `open` items may be adopted. A source record matching a `held` item is neither
+adopted nor created: call `recordCollision(projectDir, { entity, sourceKey, targetId, slug })`
+and report it as failed with `collisionError(entity, targetId)`. The product importer and the
+read-back gate already do this; generated category, tag-less or custom nets must too.
+
+An ambiguous match is the other case that must not be adopted: if the source key is not unique
 (e.g. four source products share a title), the net cannot tell which existing entity
 corresponds to which source record. Import rather than guess, and report the ambiguity in the
 completion report.
@@ -1689,7 +2334,14 @@ Two properties to preserve when a generated transform sets a slug explicitly:
   Unicode letters, marks and decimal digits, so an all-Hebrew or all-Chinese title survives as a
   transliterated slug instead of collapsing to empty). A genuinely empty result is a signal to
   supply a deterministic fallback — the record's source id — not to omit the slug and let Wix
-  derive one, which breaks URL preservation with no trace.
+  derive one, which breaks URL preservation with no trace. `buildProduct` already does this for
+  `product.slug`: it mints `product-<sourceId>` and pushes `product-slug-minted` into its
+  `findings` option (with no source id the slug is left to Wix and the finding records
+  `slug: null`); it never throws for a slug.
+- **Product names over 80 characters are `buildProduct`'s job too.** Catalog V3 caps `name` at 80
+  (400 MAX_LENGTH); `buildProduct` cuts on whole characters within 80 and pushes
+  `product-name-truncated` with the full name into `findings`. Pass a `findings` array, carry its
+  rows into the record's journal/report, and do not truncate or hold in generated code.
 
 **WordPress source: decode before sanitizing (required).** WordPress's REST API
 (`wp/v2`/`wc/v3`) returns a post/product's `slug`/`post_name` percent-encoded whenever the
@@ -1751,8 +2403,6 @@ load these files before reading config:
   WIX_AUTH_TOKEN=
   WIX_MUTE_NOTIFICATIONS=
   DRY_RUN=false
-  SAFE_MODE=true
-  SAFE_MODE_PHONE_NUMBER=+972 50 0000000
   ```
 
 - `config/source.<platform>.env` exists after the source platform is known. For WordPress:
@@ -1761,7 +2411,6 @@ load these files before reading config:
   WP_BASE_URL=
   WP_USERNAME=
   WP_APPLICATION_PASSWORD=
-  WMH2_MIGRATION_KEY=
   WP_MEDIA_URL_REWRITE_FROM=
   WP_MEDIA_URL_REWRITE_TO=
   WC_CONSUMER_KEY=
@@ -1776,24 +2425,26 @@ load these files before reading config:
 
 Codegen rules:
 
-- Generate a small dependency-free config loader in the runnable entrypoint or `src/lib/`.
+- Read these files with vendored `config-env.js`'s `readEnvFile` (no new dependency). Values the
+  toolkit writes that contain spaces or shell characters are single-quoted; a hand-rolled
+  `KEY=value` splitter would keep the quotes.
 - Load `config/wix.env` and the selected source config before constructing source/Wix
   clients.
 - Default `DRY_RUN` to disabled. Treat `true`, `1`, `yes`, and `on` as enabled and
   `false`, `0`, `no`, and `off` as disabled. `--dry-run` must override config and enable
   dry-run. `--no-dry-run` may be supported to override `DRY_RUN=true`.
+- Read it only through vendored `config-env.js`'s `await resolveDryRun(projectDir)`:
+  `config/wix.env`, then a non-blank process value, then the flags; unknown values throw.
+  `import-contract-verify` refuses generated `src/` that reads `process.env.DRY_RUN`.
 - When scaffolding a project that is in dry-run mode, generated review artifacts must say
   that leaving dry-run later requires explicit user approval for any step other than
   new-site creation, and that such overrides should be avoided when a dry-run or report
   is sufficient.
 - Preserve an explicit `DRY_RUN=true` from project config when regenerating code or
   config. Do not reset it to `false` during later codegen passes.
-- Default safe mode to enabled when `SAFE_MODE` is missing or blank. Honor
-  `SAFE_MODE=false` when the user set it before mapping: do not require
-  `safeModeReplacements[]`, do not replace contact values, and do not write safe-mode email
-  recovery rows.
-- When safe mode is enabled, require `SAFE_MODE_PHONE_NUMBER`, default missing/blank values
-  to `+972 50 0000000`, and make the generated config explicit.
+- There is no safe mode (it was removed): never generate `SAFE_MODE` or
+  `SAFE_MODE_PHONE_NUMBER`, and send contact values as mapped. A leftover `SAFE_MODE` line in
+  an older `config/wix.env` is ignored.
 - Real process environment variables may override file values.
 - Blank values in config files must not overwrite non-empty process env values.
 - If a required key is still missing after loading file + env, fail fast with the key
@@ -1801,9 +2452,11 @@ Codegen rules:
 - In dry-run, missing or blank `WIX_AUTH_TOKEN` and `WIX_SITE_ID` are `would_block_live`
   findings, not blockers, unless a generated local artifact requires the site ID as a
   stable namespace. Do not mint a Wix CLI token solely for dry-run.
-- `WIX_MUTE_NOTIFICATIONS` resolves by strategy when blank: `new` → `on`,
-  `existing` → `off`; record the resolved value explicitly (mirrored from
-  `orchestration/decisions.json`). **`WIX_MUTE_NOTIFICATIONS=off` together with
+- `WIX_MUTE_NOTIFICATIONS`: `new` → always `on`; `existing` → the operator's
+  `notificationMute` answer from `orchestration/decisions.json`, never a
+  default. Resolve it with `lib/notification-mute.js` `readNotificationMute`; an unanswered
+  existing site or a value that disagrees with the answer halts codegen and routes back to
+  intake. **`WIX_MUTE_NOTIFICATIONS=off` together with
   `WIX_SITE_STRATEGY=new` fails codegen validation** — halt with the config conflict
   rather than generating artifacts (the same rule fails in `rp-setup-discovery`; fail
   fast at whichever runs first). Note the preflight emission rule below ignores the
@@ -1819,7 +2472,8 @@ Codegen rules:
   **site write credential** for import. With CLI-scaffolded headless sites this is a
   short-lived CLI token sent as a **Bearer** token — the generated Wix client must send
   `Authorization: Bearer <token>` (plus `wix-site-id`). Do not assume a raw, non-expiring API
-  key; mint the token at write time.
+  key, and do not read the token once into a string for a long run: build every live Wix
+  client with a token source (below), never `authToken: env.WIX_AUTH_TOKEN`.
 - Never log secret values. It is okay to log that a key is present/missing.
 - Dry-run must write request captures under `state/attempts/wix-request-captures.ndjson`
   and dry-run placeholder target IDs only under `state/crosswalk/dry-run-crosswalk.ndjson`
@@ -1907,6 +2561,30 @@ pre-import flow is:
 3. run the import — the generated client reads `WIX_AUTH_TOKEN` and sends it as
    `Authorization: Bearer <token>` with `wix-site-id`.
 
+**Token renewal and the `wix_auth_expired` stop — emit these, do not hand-roll them.** Vendor
+`lib/wix-auth.js` beside `lib/config-env.js` and `lib/local-state.js` (same relative layout).
+A full import runs for hours; the token does not.
+
+```js
+const wixAuth = require('./src/lib/wix-auth.js');
+// One token source per run; every task's client shares it.
+const tokenSource = wixAuth.createWixTokenSource({ projectDir, siteId: env.WIX_SITE_ID });
+const wix = writers.createWixClient({ capability: taskBinding, tokenSource }); // live runs
+```
+
+- The source renews through `scripts/mint-token.sh` for the same site only, from the token's
+  `exp` and once on a refusal; the client resends the refused request once. No generated retry,
+  re-mint loop, token-age check or per-request env read.
+- In every per-record `catch`, rethrow first: `if (wixAuth.isRunInterruption(error)) throw error;`.
+  An interruption is never a record outcome; the shared attempt journal also refuses a
+  failed/unresolved row while the project is interrupted, so a loop that forgets still stops.
+- The entrypoint's top-level catch sets the exit code from
+  `await wixAuth.stopExitCode(error, projectDir)`: an interruption records the
+  pending `manual_action` and exits 75 (`wixAuth.WIX_AUTH_EXIT_CODE`); anything else exits 1.
+  The plugin entrypoint template already does this. Before it exits, the stop also writes an
+  `aborted` completion report through `runImportWithFinalize` (see "Stops and interruption").
+- Dry-run keeps `authToken` (or none): it never mints.
+
 ## Members: full-fidelity create/reconcile, so orders can link to a buyer
 
 `resolveOrderBuyer` (below) links an order to a member only when the member crosswalk row for that
@@ -1963,6 +2641,15 @@ if (!memberPass.ok) console.error('member pass refused: source keys missing, dup
 
 What the call does, so the generated code must not:
 
+- **Keeps `contact.company` / `jobTitle` off Create Member and writes them afterwards.** Create
+  Member refuses `contact.company` (live 400 "Unexpected value for StringValue", though the docs
+  type it as a string); `ensureMember` sends the create without them and then writes
+  `company { name, jobTitle }` to the member's own contact through Contacts V5
+  (`member-company-written-after-create`, or `member-company-not-written` without failing the
+  member). Map company/jobTitle into `contact` as usual; never send them on a create yourself.
+- **Checks the login email before sending.** An email Wix refuses (for example a local part
+  starting with `.`) is not sent: `ensureMember` returns the deferred no-usable-email outcome with
+  `member-login-email-invalid`, never a terminal 400. Generated builders need no hold for it.
 - **Converts the phone to E.164 or drops it, never sends it as-is and never guesses.** Create
   Member 400s on anything that is not already E.164 (VERIFIED LIVE). `normalizePhoneE164` covers a
   small set of countries (`customer-member.js`'s `COUNTRY_PHONE_RULES`); an unlisted country is a
@@ -1984,17 +2671,21 @@ What the call does, so the generated code must not:
   crosswalk row first when a member id came back), in `state/attempts/write-attempts.ndjson`.
   Never add a private member results log, a hand-rolled `report(result)`, or a second tally.
 - **The whole pass stops before any write when source keys are bad.** A missing or duplicate
-  `sourceStableKey`, or (on a subset pass) a key the full pass never saw, means zero journal rows
-  and zero Wix calls; the refusal is projected into the report (`incomplete_with_mismatches`)
-  and one `pipeline_defect` event. Never deduplicate or skip records to get past it -- fix the
-  mapping. A full pass writes `execution/member-population.json` (keys only); subset passes
-  select within it, never shrink the report's denominator, and refuse when it is absent.
+  `sourceStableKey` means zero journal rows and zero Wix calls; the refusal is projected into the
+  report (`incomplete_with_mismatches`) and one `pipeline_defect` event. Never deduplicate or skip
+  records to get past it -- fix the mapping. A pass writes `execution/member-population.json`
+  (keys only) when it is absent, so `--missing-only` works with no full pass before it; subset
+  passes select within it, add any supplied key it lacks, and never shrink the report's
+  denominator.
 - **The report reads only the journal.** `projectMemberPass` folds the latest member row per
   key into the `members` completeness row (with the `unresolved` counter), `unresolved[]`,
   `droppedFields[]`, one operator action for ambiguous matches, and `memberOutcomes`. Declare no
   separate members row. Uncertain writes (409 already-exists, 5xx/transport/no-id creates, a
   dangling start) are **unresolved**: recover with `--unresolved-only`, which reads the member
-  back by login email before any create. Emit the returned telemetry events once, after the pass;
+  back by login email before any create. A create the client refused before sending
+  (`requestSent: false`, e.g. `DEPENDENCY_READINESS_REQUIRED`) is `failed_retryable`, never
+  unresolved: nothing reached Wix. If `ensure` itself refuses a record (no readiness grant),
+  throw an error with `requestSent: false`; the pass records it as not sent and goes on. Emit the returned telemetry events once, after the pass;
   a telemetry failure never aborts the run.
 
 ## Order history: payments, refunds and preserved invoice documents
@@ -2039,9 +2730,19 @@ for (const source of orders) {
   // BEGIN order-stage-result
   orderResults.push({ sourceKey: source.sourceStableKey, outcomes: result.outcomes });
   // END order-stage-result
+  // BEGIN order-attempt-row
+  // The journal row is the library's decision, never the runner's: status, targetId, findings and
+  // failure come from orderHistoryAttempt. Spread them onto the attempt row unchanged.
+  const attempt = H.orderHistoryAttempt(result, { sourceStableKey: source.sourceStableKey });
+  const attemptFields = { status: attempt.status, findings: attempt.findings,
+    ...(attempt.targetId ? { targetId: attempt.targetId } : {}), ...(attempt.failure ? { failure: attempt.failure } : {}) };
+  // END order-attempt-row
   // result.findings also carries the contact-field codes: order-contact-email-dropped,
   // order-contact-phone-dropped (removed after Import Order named the field), order-contact-email-suspect,
   // order-contact-phone-suspect (warnings; value kept and sent) and buyer-email-unusable.
+  // It also carries the invoice writer's codes: invoice-link-over-length and
+  // invoice-number-over-length (left unset, never truncated) and invoice-field-dropped (a key
+  // the order PATCH response did not carry back).
   report(result); // result.outcomes.{order, payment, refunds[], invoice, buyer}, result.findings, result.errors
 }
 
@@ -2054,8 +2755,17 @@ const { collectOrderStageResiduals, createCompletionReport, writeCompletionRepor
 const orderHistoryJournal = typeof journal === 'undefined'
   ? await require(require('node:path').join(toolkitRoot, 'lib/local-state.js')).loadAttemptJournal(ROOT)
   : journal;
+// Cart-offer plugins (profiles with `appliedOffers`): the offers seen on these same extracted
+// orders become one cutover row per plugin. Replaced by `code` on every run, never appended twice.
+const { appliedOfferOperatorActions } =
+  require(require('node:path').join(toolkitRoot, 'resources/rp-source-wordpress/lib/applied-offer-summary.js'));
+const cartOfferActions = appliedOfferOperatorActions({ orders });
 const completion = createCompletionReport({
   ...completionInput,
+  operatorActions: [
+    ...(completionInput.operatorActions || []).filter((row) => row.code !== 'cart-offer-recreate-in-wix'),
+    ...cartOfferActions,
+  ],
   entityCompleteness: attachAttemptReasons(completionInput.entityCompleteness, orderHistoryJournal.rows, { runIds: [runId] }),
   orderHistoryInScope: true,
   stageResiduals: [
@@ -2078,6 +2788,22 @@ orders adopted from the crosswalk; persist the compact outcomes with batch accou
 restore them on resume. Run the completion block once after the last write, including recovery,
 and only for a live run. Dry runs retain the existing simulated-report path. Do not substitute
 an empty residual list or derive it by counting retry attempts.
+
+**The attempt row comes from `H.orderHistoryAttempt(result, { sourceStableKey })`** (the
+`order-attempt-row` block above). Do not map `result.outcomes.order` to a status yourself, and
+never journal `deriveImportedOrderId(...)` as `targetId`: the derived id is where the order WOULD
+be, not proof that it is. The helper's rule (`lib/multi-step-attempt.js`, shared by every writer
+that creates a base record and then runs further steps on it):
+
+- Order on the target (`result.orderId`): `imported`, `targetId` = that id, and each failed
+  payment, refund, invoice or crosswalk stage as a `sub-step-failed` finding with
+  `retryable: true`. Never `failed_terminal`: the next full pass reconciles the order by id and
+  retries only those stages; the completion report lists them as stage residuals.
+- Order not created: no `targetId`; `failure.intendedTargetId` carries the derived id, and the
+  kept error decides the status -- refused before the network (`requestSent: false`) or a target
+  read that could not decide: `failed_retryable`; reply lost (`outcomeKnown: false`):
+  `succeeded_unverified`; a 4xx other than 408/429: `failed_terminal`; anything else:
+  `failed_retryable`. The failure message is the target's, not a fixed sentence.
 
 What the composite does, so the generated code must not:
 
@@ -2106,18 +2832,19 @@ What the composite does, so the generated code must not:
 - **Returns every outcome**, including the payment's when a refund exists, and a named
   partial-failure outcome (`payment-failed`, `refund-failed`, `invoice-failed`, with the cause in
   `errors`) instead of throwing, so a resume retries only what failed.
-- **Sanitises the mapped body's contact fields before the request is built**.
-  `sanitizeOrderContactFields` walks `safeModeContactFields[]` from
-  `rp-target-wix/domains/ecom/entities/order.json` — the same six paths safe mode replaces — and
-  either rewrites a phone into E.164 under the explicit country rule or removes the field and
-  emits `order-contact-email-dropped` / `order-contact-phone-dropped` carrying the field and a
-  stable reason, never the value. A removed buyer email also produces `buyer-email-unusable`,
-  because "we had a customer and lost them" must be countable apart from a real guest.
-  **Do not re-implement this in the generated runner and do not sanitise the body yourself**: a
-  second pass would double-count the findings, and one placed after the composite would run
-  after safe mode has already replaced every one of those paths with an always-valid mock. One
-  bad email or phone fails the entire Import Order, so this is a local refusal before the
-  network, never a send-then-retry loop.
+- **Imports a source order that has no line items.** Import Order requires at least one line;
+  `importOrderHistory` adds ONE custom line "Items not recorded in source" at the order total
+  (order currency, no tax fields) — a human-approved policy — emits
+  `order-line-items-not-recorded` and files a Cutover Operator item
+  (`execution/dependency-readiness.json` `referenceGaps`, listed by the completion report). Map
+  the order with whatever lines the source has, even none; never hold, skip or invent lines in
+  generated code. Read-back verifies the placeholder against a mapped body with no lines.
+- **Never holds an order for a contact value.** A phone or email that is not E.164 / not a sendable
+  address is sent as mapped with an `order-contact-*-suspect` warning, never held, never
+  rewritten by generated code. The paths are `contactFields[]` in
+  `rp-target-wix/domains/ecom/entities/order.json` (`buyerInfo.email`,
+  `billingInfo.contactDetails.phone`, the shipping destination and `recipientInfo` contact
+  phones); put contact values at exactly those paths so the rejection handling below applies.
 - **Sets `buyerInfo.memberId` only from `resolveOrderBuyer`** (`rp-target-wix/lib/order-buyer.js`):
   a member crosswalk row whose `loginEmail` equals the order's billing email. Persist `loginEmail`
   on the member crosswalk row when creating members, or nothing can be linked. Never put a
@@ -2128,10 +2855,9 @@ What the composite does, so the generated code must not:
   another order to that member.
 - **Handles contact fields Import Order refuses.** A contact
   field is removed only when Import Order's 400 names it in `fieldViolations[]` (exactly a
-  `safeModeContactFields[]` path, and no other violation); the order is then sent once more under
+  `contactFields[]` path, and no other violation); the order is then sent once more under
   the same id, and each removal is an `order-contact-*-dropped` finding naming the field, never the
-  value. A second refusal is `order-import-failed`. Before the first send, and so before safe mode,
-  the composite checks the source values and emits `order-contact-*-suspect` warnings without
+  value. A second refusal is `order-import-failed`. Before the first send the composite checks the source values and emits `order-contact-*-suspect` warnings without
   changing them. Phones are never rewritten. On a `buyer-member-linked` order the retry keeps
   `buyerInfo.memberId` and `contactId`. The generated runner must not remove, rewrite or pre-check
   contact fields itself, and must not add its own retry around the composite.
@@ -2161,7 +2887,11 @@ What is still the caller's, because it is source knowledge:
 Vendoring mirrors the skill's layout: the shared modules require each other across resources
 (`../../../lib/…`), so `src/` reproduces `lib/` + `resources/<resource>/lib/` — `order-history.js`
 lives at `src/resources/rp-target-wix/lib/` and reaches `src/lib/local-state.js`. A flat copy loads
-nothing.
+nothing. **After vendoring, run `node <skill>/scripts/vendor-closure.js <projectDir>`**: it copies
+every toolkit file a vendored file requires (or reads via `path.join(__dirname, '<file>')`) but the
+project lacks, to a fixed point. Never hand-pick the closure: a new shared lib is otherwise missed
+and the import stops with `MODULE_NOT_FOUND` hours in. `import-contract-verify` refuses a project
+that still has a gap (`vendored_require_missing:<path>:<requirer>`).
 
 **Two dependency shapes `require()` alone will not surface, both hit live 2026-09-06 running a
 generated-style project end to end:** a lib can read a **domain entity JSON file directly**
@@ -2191,12 +2921,12 @@ codegen supplies reads and facts.
 1. **Currency gate, before any order write.** Read `wc/v3/settings/general` →
    `store-currency.js` `readStoreCurrency`; resolve every order's currency with
    `resolveOrderCurrency(order, storeCurrency)` (an order field can be an encoded currency symbol such as `&#8362;`);
-   read the target site currency; call `currency-gate.js` `evaluateCurrencyGate`. `halt: true`
+   take the target site currency from the regional gate's live read of the site (never from an order or a cached value); call the WooCommerce adapter's `lib/currency-gate.js` `evaluateCurrencyGate`. `halt: true`
    stops the run at the approval gate with the named finding. `currency-validated` is a line too.
 2. **Coupons.** `sweepCoupons(page => wc/v3/coupons?per_page=100&page=N)` to exhaustion; the
    `posts` count by `post_status` through the plugin bridge for reconciliation;
    `summarizeCoupons` for the counts; per coupon `mapCouponToWix(coupon, { resolveProduct,
-   resolveCategory })` through the catalog crosswalks, then write them in BATCHES with
+   resolveCategory })` with resolvers taken from the readiness gate (below), then write them in BATCHES with
    `bulkCreateCoupons(wix, specifications)` -- 100 per call, and it returns one outcome per input
    specification in input order, so the coupon crosswalk row (`code → couponId`) is written per
    coupon exactly as before and a re-run still resumes. A few thousand coupons is ordinary for
@@ -2238,12 +2968,15 @@ codegen supplies reads and facts.
    `wc/v3/coupons?per_page=100&page=N` with `X-WP-Total` as `total`; `readFreshCoupon(id)` returns
    `wc/v3/coupons/{id}` re-read NOW, or `null` if that read failed; `recordCouponCrosswalk(code,
    couponId)` is the run's crosswalk writer; `couponUpdateOptions` is the shared runtime's settle
-   options for the read-back-verified PATCH.
+   options for the read-back-verified PATCH. `utcOffsetMinutes` is the SHOP's UTC offset in
+   minutes when it is known, else `null`: a coupon plugin's date-only start date is the shop's
+   midnight, so without the offset it is read as UTC midnight and reported as
+   `coupon-plugin-start-date-timezone-assumed`.
 
    ```js
    // BEGIN verified-coupon-import
    const couponPath = require('node:path');
-   const { sweepCoupons, mapCouponToWix, summarizeCoupons } = require(couponPath.join(toolkitRoot, 'resources/rp-source-wordpress/lib/coupon-discovery.js'));
+   const { sweepCoupons, mapCouponToWix, summarizeCoupons, couponOperatorActions } = require(couponPath.join(toolkitRoot, 'resources/rp-source-wordpress/lib/coupon-discovery.js'));
    const { classifySnapshot, isBearerVoucher, classifyPreWriteDrift } = require(couponPath.join(toolkitRoot, 'resources/rp-target-wix/lib/coupon-redemption-drift.js'));
    const { bulkCreateCoupons, updateCouponFields } = require(couponPath.join(toolkitRoot, 'resources/rp-target-wix/lib/wix-writers.js'));
 
@@ -2259,12 +2992,12 @@ codegen supplies reads and facts.
    for (const coupon of restCoupons) {
      // The mapper decides redeemability from the source usage count and REFUSES what it cannot
      // express. A project-local toSpecification is not an acceptable substitute -- see the table.
-     const mapping = mapCouponToWix(coupon, { resolveProduct, resolveCategory });
+     const mapping = mapCouponToWix(coupon, { resolveProduct, resolveCategory, utcOffsetMinutes });
      mappings.push(mapping);
      if (!mapping.specification) { notWritten.push({ code: coupon.code, outcome: mapping.outcome, reason: mapping.reason }); continue; }
      let specification = mapping.specification;
      if (isBearerVoucher(coupon)) {
-       const verdict = classifyPreWriteDrift({ snapshotCoupon: coupon, freshCoupon: await readFreshCoupon(coupon.id) });
+       const verdict = classifyPreWriteDrift({ snapshotCoupon: coupon, freshCoupon: await readFreshCoupon(coupon.id), hold: mapping.hold || null });
        if (!verdict.write) { notWritten.push({ code: coupon.code, outcome: verdict.outcome, reason: verdict.reason }); continue; }
        // The verdict IS the final state. Rebuild from it; never send the mapper's snapshot.
        specification = { ...specification, active: verdict.writeActive, tags: verdict.setTags };
@@ -2287,8 +3020,22 @@ codegen supplies reads and facts.
      }
    }
    const couponCounts = summarizeCoupons({ restCoupons, postsByStatus, mappings, writeOutcomes });
+   // Merge by `code` into the createCompletionReport() input's operatorActions.
+   const couponActions = couponOperatorActions({ mappings });
    // END verified-coupon-import
    ```
+
+   **Scope IDs come from the gate.** `stores/coupon` declares per-record edges to
+   `stores/product` and `stores/category` at `scope.group.entityId`, so the manifest already
+   orders coupons after their producers; do not reorder by hand. Call `mapCouponToWix` inside each
+   coupon's `gateBatch` transform with `resolveProduct: id => resolveReference('stores/product',
+   productKey(id), 'scope.group.entityId')` and the `stores/category` equivalent, never a
+   crosswalk lookup, and write only the batch's `send` payloads. A coupon scoped to a product the
+   owner held, or one not imported yet, is deferred by the gate (`dependency-held` /
+   `dependency-not-ready`) and reaches cutover with that cause; it is not a
+   `coupon-scope-unmappable` refusal. Discount-rule product scopes
+   (`discounts.values[].specificItemsInfo.scopes[].catalogItemFilter.catalogItemIds[]`, the
+   buy-X-get-Y and trigger scopes) resolve the same way through `resolveReference('stores/product', ...)`.
 
    ⚠️ **A project-local `toSpecification` is not an acceptable substitute for `mapCouponToWix`.**
    It is not a style preference. The mapper performs a list of refusals that do not survive being
@@ -2304,6 +3051,8 @@ codegen supplies reads and facts.
    | Scope the target cannot hold → `coupon-scope-unmappable`, no write | Widens it to the whole store |
    | More than two decimal places → `coupon-amount-precision-unsupported`, no write | Rounds, so the target amount differs while every check reports a match |
    | Free shipping beside an amount → keeps free shipping, reports the dropped amount | Sends both and loses one silently |
+   | A coupon plugin's rule Wix cannot hold (gift, shipping/payment/role/location limit, auto-apply; from the profiles' `couponRules[]`) → written `active: false`, tagged `Rule_Not_Carried`, `result.hold` set, one `coupon-plugin-rule-held` cutover task | Writes it live without the rule — a gift silently lost, a limit silently widened |
+   | A plugin start date (`meaning: start-date`) → `startTime` | Lets the code work before the merchant's start date |
 
    ⚠️ The writer now REFUSES a specification that never decided redeemability: `active` must be
    present and boolean, and `usageLimit` must be a positive integer unless `usageUnlimited: true`
@@ -2329,6 +3078,7 @@ codegen supplies reads and facts.
    | `writeUsageLimit` | `specification.usageLimit` — the uses the holder has LEFT |
    | `usageUnlimited: true` | **delete** `specification.usageLimit` entirely; a stale limit left on an unlimited coupon caps it |
    | `setTags` | `specification.tags` — replaces whatever the mapper stamped |
+   | `hold` passed in | always pass `hold: mapping.hold`: a held coupon comes back `writeActive: false` with the hold's tag kept, whatever the fresh read says |
 
    ⚠️ Mapping and then only checking `write` is the failure this table exists to prevent: a coupon
    spent after the snapshot comes back `write: true, writeActive: false` with `Already_Used`, and a
@@ -2405,6 +3155,24 @@ codegen supplies reads and facts.
    same way through `tallyPlanWriteOutcomes`. Every Appendix D line, zeros included; `written +
    unmappable + skipped = discovered` or the gate blocks; "imported N coupons" and "not supported"
    are refused.
+
+## Delivery regions: reuse what the site already covers
+
+Write each source shipping zone's region **only** through `rp-target-wix/lib/wix-writers.js`
+`ensureDeliveryRegion(wix, deliveryRegion)` (input from `shipping-build.js`
+`buildDeliveryRegionInput`), never a bare `addDeliveryRegion`. A new site's default profile already
+covers its own country, so a plain add for the home zone fails with `DESTINATIONS_COLLISION`.
+
+- Use `result.deliveryRegionId` as the zone's target id and as `regionIdByZone[zoneId]` for
+  `runShippingOptionStage`. Two zones may resolve to the same region.
+- Put `result.findings` on the zone's attempt row (`findings`) for the record. The shipping stage
+  reads the regions live, deletes Wix's placeholder "Free shipping" on a new site once imported
+  rates replace it, and writes the `shipping-region-*` and `shipping-placeholder-option-deleted`
+  operator actions. Do not build those rows or send that delete yourself.
+- `action: 'collision-unresolved'` (no region id) is a `failed_terminal` row with
+  `failure.errorCode: 'DESTINATIONS_COLLISION'`, and the import continues. Leave that zone out of
+  `regionIdByZone`: its options get retryable `DELIVERY_REGION_MISSING` rows. Never abort the run
+  over one zone.
 
 ## Shipping options: delivery estimate, verified write, recovery
 
@@ -2484,6 +3252,11 @@ Write code under the project-local source tree:
   `../resources/rp-target-wix/lib/wix-build.js`) — resolves unchanged from how it resolves
   in-repo. Do not flatten this vendoring; a flattened copy breaks any relative require that
   assumes the nested layout.
+  Keep `src/resources/**` byte-identical to the toolkit: the readiness scan skips a file there
+  only while it matches the toolkit file at the same path, and scans an edited copy as generated
+  code. Never mirror `lib/` + `resources/` under another folder (`src/lib/<x>/`,
+  `src/import/vendor/`): it loads a second `local-state.js` whose crosswalk listeners the
+  importer's `src/lib/local-state.js` never sees.
 - `migrations/<project>/src/extract/readers/`
 - `migrations/<project>/src/import/transforms/` — **thin glue only.** Vendor and call
   `wix-build.js`; do **not** re-derive the canonical→Wix payload layer here. Money objects, slug
@@ -2498,7 +3271,8 @@ Write code under the project-local source tree:
 - `migrations/<project>/src/import/write-specs/`
 - `migrations/<project>/src/setup/run-setup.js` — setup execution entrypoint
 - `migrations/<project>/src/extract/run-extract.js` — extraction entrypoint. It must accept
-  `--sample` (extract a small slice only); that is what the sample-preview gate runs.
+  `--sample` (extract a small slice only; the sample-preview gate runs it) and `--entity <entity>`
+  (re-extract one entity; the extract ledger runs it to repair a changed or stripped extract).
 - `migrations/<project>/src/import/run-import.js` — the runnable import entrypoint
   (required; see "Runnable setup/extraction/import entrypoints" above). `--dry-run`
   drives the safe-validation pass through the same import code path.
@@ -2524,8 +3298,7 @@ Write code under the project-local source tree:
   pending/unresolved destination queues, writer integration and post-frontend evidence
 - `migrations/<project>/logs/` — audit/error logs emitted by the shared runtime
 - `migrations/<project>/execution/review/import-plan.md`
-- `migrations/<project>/execution/review/code-safety-review.md` when `SAFE_MODE=true` or
-  `DRY_RUN=true`
+- `migrations/<project>/execution/review/code-safety-review.md` when `DRY_RUN=true`
 - `migrations/<project>/execution/recovery-log.json` — append-only standard recovery
   actions emitted by every resumed, partial, missing-only, failed-only, or deferred-only
   run
@@ -2596,27 +3369,9 @@ Each write spec should define, as applicable:
 - `dependencyRefs`: derive from each in-scope entity's domain-knowledge `dependsOn`,
   topologically sorted across the whole mapping plan — not re-derived from prose per project.
 - `verificationLevel`: `verified | unverified`
-- `safeMode.replacePaths[]`: resolved request-body paths copied from mapper
-  `safeModeReplacements[]`, with `{ kind: "email" | "phone", path }` entries. Paths use
-  the shared safe-mode grammar (`field`, `field[]`, `field.items[]`) and are relative to
-  the request body passed to the shared writer builder. The mapper is required to surface
-  these replacements in both machine artifacts and review markdown; codegen should treat
-  missing `safeModeReplacements[]` for an entity with outbound contact fields as a mapper
-  contract failure, not as a cue to infer or invent replacements silently.
 
 The transform layer should output Wix-shaped objects only. Request-envelope building and
 retry/reporting logic belong in the shared runtime.
-
-When safe mode is enabled, generated import code must derive one `safeModeOptions` object
-per source record and pass it to every Wix writer call. The options must include origin
-`entityType`, deterministic origin `entityId`, `safeModePhoneNumber`, and the write spec's
-resolved replacement paths. `entityId` must be the source ID or deterministic
-`sourceStableKey`, never the target Wix ID. If no deterministic origin identity exists,
-fail before writing.
-
-Generated code must not query Wix by original email or phone values while safe mode is
-enabled. Any destination lookup keyed by contact data must use the same mock value that the
-writer will send, with local crosswalk state remaining the primary idempotency authority.
 
 ## Execution artifact contract
 
@@ -2649,6 +3404,11 @@ Do not set `applyRedirects` to `true`; the current phase records redirect plans 
 not configure Wix redirects or site routes.
 
 ## Import completeness accounting contract
+
+Blocked-data requests (`state/blocked-data-requests/*.json`) are joined by
+`writeCompletionReport` itself: a declined, missing or offered request becomes a
+`blockedDataRequests` row and a handoff open blocker, with each dependent field's outcome filled
+from the attempt journal. Do not pass a second copy. A request you do pass is kept as you wrote it.
 
 Generated import runners must also produce `stageResiduals[]` rows — a per-stage failure
 against records the entity row already counts as `imported`:
@@ -2752,6 +3512,7 @@ is a defect, not a summary.
 | Named reason | Both carry `reason`, a stable kebab-case code naming the rule or runner branch, never prose built from the record |
 | Findings ride along | A row for an attempted write carries the write's `findings[]`, suspects and drops alike |
 | Counts are backed by rows | Per `entityCompleteness` row, take each in-scope record's latest row in the current `runId` for that entity and subtype: `deferred` equals the number whose status is `deferred`, `unexpectedSkipped` the number whose status is `skipped_unexpected` |
+| Unresolved rows are backed by rows | `attachAttemptReasons` also joins each row's unresolved records (latest run row `started`, `succeeded_unverified`, or `needs_verification` with a target id) and the records with a `started` row. `createCompletionReport` lists them in `unresolved[]` (`orphaned_target` with the target id, else `unmapped_source`) unless the caller already listed that entity, and warns when `attempted` is lower than the records the journal shows sent |
 | Reasons are backed by rows | A `deferred` or `failed` count with no stated reason is not an accounted-for shortfall. Call `attachAttemptReasons(entityCompleteness, journal.rows, { runIds: [runId] })` once per report, after folding in any member fragment and before `createCompletionReport`, so every row's `reasons` carries a per-code tally (`reason` for `deferred`, `failure.errorCode` for `failed_retryable`/`failed_terminal`) joined by that row's own `sourceKeys` -- never guessed, never renamed, never read from the journal more than once per report |
 | No values | A row never carries a contact value: `sourceStableKey`, `field`, `reason` |
 
@@ -2774,21 +3535,18 @@ record cannot agree by omission. See "Use this caller shape" above for the exact
 verified primitives when they exist.** That adapter is where each stable shape is
 verified-once (by a real call) and where a Wix surface change is fixed in one place.
 When Wix has a native entity but `rp-target-wix` does not yet have a dedicated writer,
-codegen must generate a Wix REST call for that native entity via the adapter's generic
-direct REST helper, log the missing writer, and call the RePlatform notification hook.
-Do **not** route to CMS merely because the writer is missing.
+write it with **guarded raw requests** (see "Missing writer policy"). Never use
+`sendDirectRest`: it builds an unmarked request, and the import client refuses every
+unmarked write (`DEPENDENCY_READINESS_REQUIRED`). Do **not** route to CMS merely because
+the writer is missing either.
 
-- If a Wix tool surface such as Wix MCP is available, prefer it to locate the endpoint
-  and request/response shape. If the shape is common enough, add a dedicated primitive to
-  `resources/rp-target-wix/lib/wix-writers.js`; otherwise generate a project-local native
-  REST call through `sendDirectRest` and mark it `UNVERIFIED`.
+- Adding a writer is a reviewed toolkit change in `resources/rp-target-wix/lib/wix-writers.js`
+  (a marked builder in the closed registry plus an executor), not code generated inside a
+  run. Cover it in `tests/target-wix/` and with an import-task client test so drift stays
+  visible.
 - **Confirm the shape with a real call, not a doc example** — public examples have been
-  wrong (e.g. lowercase Ricos plugin enums that 400). Cover the new primitive in
-  `tests/target-wix/contract-test.js` so drift stays visible.
-- **Fallback when no Wix tool surface is available:** rely on published Wix REST/SDK docs
-  and conservative names. Mark the generated native call `// UNVERIFIED:` until a real
-  call confirms it — never ship an unchecked Wix call to a user's live site without
-  surfacing it in the execution plan.
+  wrong (e.g. lowercase Ricos plugin enums that 400).
+- `sendDirectRest` is for dev-probe capabilities only.
 
 ## Runtime policy
 
@@ -2797,6 +3555,263 @@ fallback only for environments where no direct verification aid is available, no
 to ship unchecked calls that fail later on the user's live site. Anything unverified must
 be surfaced explicitly in downstream artifacts before execution.
 
+## Gift cards: one product, cards by code
+
+Import the gift card product before the cards, each in its own task, through the
+`rp-target-wix` writers. Never send `notificationInfo`; the writer drops it anyway.
+
+- **Product** (`gift-cards/gift-card-product`): one call, `ensureGiftCardProduct(wix, product)`,
+  with the source products already merged into one by the mapping (the merge's lost designs are
+  its fidelity-loss rows). A site holds one product and the Gift Cards app seeds a default one, so
+  the writer queries first and updates the one that is there. It is safe to re-run after any
+  unknown outcome.
+  - `created` / `adopted` → an `imported` journal row with the product id.
+  - `updated-existing-product` → an `imported` row, plus one operator action
+    `{ code: 'gift-card-product-replaced', severity: 'info', role: 'cutover-operator', actionId,
+    entity: 'gift-cards/gift-card-product', affectedIds: [id], artifactRefs: [<file with
+    result.previous>] }`. Write `result.previous` (the replaced name, amounts, image) to that
+    project file first; it is the only copy.
+  - `failed` → a `failed_terminal` row; `failure.errorCode` is `result.error.applicationErrorCode`.
+- **Cards** (`gift-cards/gift-card`): `createGiftCard(wix, { giftCard, idempotencyKey })` per
+  card, from `gift-card-build.js`'s payload (its nested `idempotencyKey` is lifted for you). The
+  code is unique on the site, so a retry or unknown outcome is reconciled by code inside the writer.
+  - `created` / `adopted` → `imported`, crosswalk `sourceStableKey` → `result.id`. Keep
+    `result.code` (the code you sent) in the crosswalk row; reads may mask it.
+  - `conflict` → `failed_terminal`, `failure.errorCode: 'gift-card-code-conflict'`,
+    `failure.targetEntityId: result.id` (another card already holds that code with other values).
+  - `failed` → `failed_terminal`, or `failed_retryable` when `result.error.outcomeKnown === false`.
+- Cards whose code Wix cannot take stay the builder's gaps (`code-length-out-of-range`,
+  `code-contains-disallowed-characters`); they are never sent.
+
+## Wix Events: categories, events, ticket types and RSVPs
+
+Writers: `createEventCategory`, `createEvent`, `assignEventToCategories`,
+`createTicketDefinition`, `createRsvp` (`rp-target-wix/lib/wix-writers.js`). Order: categories →
+events (then each event's category assignment) → ticket definitions → RSVPs, after `crm/contact`.
+
+- **Event status.** `draft` mirrors the source status. A source draft that has RSVPs is
+  created with `draft: false`, because RSVPs need a published event; record it in the ledger.
+  `registration.initialType` is `RSVP` for an attendee list and `TICKETING` for ticket types.
+- **Category assignment.** `createEvent` must not carry `categories` (Wix drops them). In the
+  event task, gate the create with the event payload, then gate a second batch for the same key
+  whose transform resolves `categoryId[i]` with `resolveTaskReference('events/category', …)`, and
+  send `assignEventToCategories(record, { eventId, categoryIds })` with that grant. The client
+  refuses any other event or category. Read back with `listEventCategories`.
+- **Ticket fee and tax.** Use the fee mode and tax from the source; otherwise the value the
+  approved mapping review chose. The builder refuses a paid ticket with no `feeType`.
+- **RSVPs.** Dedupe guests by email per event before writing (Wix accepts a repeat). Build
+  `form.inputValues` from the event's form; set `options.ignoreFormValidation` only for lossy
+  source data, and ledger it.
+- **Lost response (`outcomeKnown: false`).** Category: `findEventCategoriesByName` — one → adopt,
+  none → resend, several → hold. Published event: `adoptPublishedEvent(record, { title, startDate })`
+  (`adopted` → use `event.id`, also for the category assignment; `none` → resend; `ambiguous` →
+  hold). It reads the one match by id on the record's own client, which is what lets the
+  assignment name an adopted event. Draft event: hold as `failed_ambiguous` (drafts cannot be queried). Ticket:
+  `findTicketDefinitionsByName`. RSVP: `findRsvpsByEmail` — one → adopt, none → resend.
+- **Cutover.** Collect draft event ids, published-for-RSVP event ids, review-chosen ticket ids
+  and events whose RSVPs used the overrides, and pass
+  `eventsOperatorActions(...)` (`rp-target-wix/lib/events-cutover.js`) into the
+  `createCompletionReport()` input's `operatorActions`, merging by `code`.
+
+## Bookings: services, then add-ons, then bookings
+
+Three tasks in that order, each through its `rp-target-wix` writer, one record per call. Record
+every result with `bookingsJournalRow(entity, result, { sourceId })` and, at completion, merge
+`bookingsOperatorActions(entity, results)` into the `createCompletionReport()` operator actions
+(both from `rp-target-wix/lib/bookings-outcomes.js`). Never map a result to a status yourself.
+
+- **Add-ons** (`bookings/service-add-on`): `importBookingsAddOn(record, { addOn, serviceIds })`.
+  It looks for an exact match before every create, then appends the add-on to the one import
+  group of each service. Run records in source order (that is the display order). A service
+  whose group already holds 7 comes back in `ungroupedServiceIds`; the add-on is still
+  `imported`, and the operator action `add-on-ungrouped` lists it.
+- **Bookings** (`bookings/booking`): `importBooking(record, { booking, paymentStatus, canceled })`.
+  Do not map `status` or `externalUserId`; the writer owns both. Past dates are fine.
+- Status by outcome: `written` / `reconciled-existing` → `imported` (crosswalk the returned id);
+  `unknown-outcome` → `succeeded_unverified` (read back, never re-send);
+  `partially-written` / `target-read-failed` → `failed_retryable` (a re-run resumes);
+  `reconciliation-ambiguous` / `target-drift` / `read-back-mismatch` → `needs_verification`
+  plus the `bookings-record-unconfirmed` action; `class-session-missing` → `failed_terminal`
+  plus the `class-session-booking-not-imported` action; `failed` → `failed_terminal`.
+
+## Wix Forms: forms, then entries with the form's automations paused
+
+Writers: `createForm`, `updateFormSchema`, `importFormEntries` (which runs `pauseFormAutomations`,
+`createFormSubmission`, `restoreFormAutomations`), in `rp-target-wix/lib/wix-writers.js`. Forms
+are always recreated when they are mapped, whatever the entries' target. Order: `forms/form` →
+contacts/media the entries reference → `forms/form-submission`.
+
+- **Form** (`forms/form` task). `createForm(record, { form, sourceFieldTargets, sourceFormId })`
+  with the mapped schema (namespace `wix.form_app.form`, every field with `identifier`, a lowercase
+  GUID id and a layout slot, every step id a lowercase GUID). Always pass `sourceFormId`: it seeds
+  the hidden field's id, so two source forms with one name never share it. The writer adds the hidden "Original submission date" field. Crosswalk
+  `result.id`, `result.name` (a collision renames it), `result.fieldTargets` and
+  `result.originalDateTarget`. `created` / `adopted` → `imported`; `failed` → `failed_terminal`,
+  except `failed` with `result.error.status === 429` (a rate-limit refusal: Wix applied nothing,
+  even when its body was an unreadable HTML page) → `failed_retryable`.
+  A lost create is adopted only when a form carries the hidden field's id, never by name (the
+  site's own "Contact" form is the merchant's). A lost create not found that way is `failed` with
+  `readBack: 'not-found'` → `failed_retryable`; its re-run passes `{ readBackFirst: true }` as the
+  third argument, so a create that landed late is adopted, not made twice.
+- **Existing form repair** (same `forms/form` task and grant), on every run, before its entries:
+  for each form whose crosswalk row is `imported`, and for an `adopted` result, call
+  `updateFormSchema(record, { formId, form, sourceFieldTargets, sourceFormId })` with the same
+  mapped schema. It reads the form and sends Update Form at the current revision only when the
+  live `formFields` lack a planned input target (a form an earlier builder created with inputs only
+  in the legacy `fields[]`; every entry for it is refused). A repair never lowers a row that is
+  already `imported`: the row stays `imported` and its entries proceed whatever the result.
+  `updated` → update the crosswalk `fieldTargets` from the result; `unchanged` → nothing; `failed`
+  (`reason: 'form-not-created-by-import'`: the form lacks the hidden field id, so it is never
+  written) or a throw (including a refused or failed Get Form) → record a finding
+  `form-schema-repair-not-applied` with the form id and reason in the run's findings, no ledger
+  status change. Ledger statuses `failed_terminal` / `failed_retryable` / `succeeded_unverified`
+  come only from this run's `createForm` result above.
+- **Entries** (`forms/form-submission` task), one form at a time:
+  `importFormEntries({ projectDir, formId, entries: [{ wix: record, payload }], writeOptions })`,
+  where each `record` is that entry's `bindRecordClient` and `payload` is
+  `{ submission: { formId, submissions, contactId? }, originalDate, originalDateTimeZone }`, with
+  `originalDateTimeZone` the IANA zone in `discovery/source-locale.json` when the source date has
+  no offset (the writer never uses the importer machine's zone; without it a zone-less date is UTC).
+  The writer maps field targets to Wix-valid names on the form and on every entry. It pauses the form's
+  submission automations and lowers its spam filter to NONE (the form is on no page during the
+  import; under ADVANCED the spam pass removed a genuine entry), recording both in the ledger
+  `execution/forms/automation-pause.json` before each update. It then SENDS every entry of the
+  form in order, READS BACK every sent entry with a pool of 4 (each on its own record client,
+  sleeping only while an entry is younger than the 2 s poll interval), and only then restores
+  both, also after a run stop. Do not wrap it in your own per-entry loop or poll: one call per form.
+  Wix adds a new form's own automation about 2 s after Create Form returns; entries never wait for
+  it. While the pause has not seen it, the pause query runs again after each send for up to 10 s
+  (finding `form-automation-paused-after-entries`, with `entriesBefore`: those entries may have
+  run it once), and after the entries an automation that was still active is recorded as
+  `form-automations-not-paused`. All four steps are **best-effort**: one bounded attempt each
+  (read, update, read-back), no retry or poll. A failure never holds or delays an entry; the
+  entries are written right away. A pause ledger that cannot be read or written is a finding
+  (`form-pause-ledger-unreadable`): nothing is paused or lowered that could not be recorded first,
+  and the restore uses the run's in-memory rows. `importFormEntries` always returns its results;
+  only a run stop rethrows, after the restore attempt. Record `result.findings`
+  (`form-automations-not-paused`, `form-automations-not-restored`, `form-spam-filter-not-lowered`,
+  `form-spam-filter-not-restored`, `form-pause-ledger-unreadable`) in the run report as for any writer's findings, and pass
+  `automationsNotPaused` / `automationsNotRestored` / `spamFilterNotRestored` to the cutover items
+  below. The automation and spam-filter updates are `auxiliary` `forms/form-submission` writes:
+  the client admits them only under the entries task and only with a readiness grant for one of
+  its records (`DEPENDENCY_READINESS_REQUIRED` otherwise). Never send one from another task or as
+  a raw request.
+- **Resume.** For a form with entries left, `importFormEntries` resumes from the ledger without
+  pausing or lowering twice. For a form whose entries are all written, still call
+  `importFormEntries({ projectDir, formId, entries: [], wix })` on every start of the entries
+  task: `wix` is a record client bound to a grant for any one of that form's entry keys (gate the
+  already-written key again; `gateBatch` grants it), and it restores what an earlier stopped run
+  left changed. Without `wix` it changes nothing and returns those rows as
+  `automationsNotRestored` / `spamFilterNotRestored`, so the cutover items are never lost.
+- **Entry outcomes.** `created` → `imported`. `in-spam` → `failed_terminal`,
+  `failure.errorCode: 'form-entry-in-spam'` (keep `spamReportId`; the cutover item lists it);
+  `deleted` → `failed_terminal`, `failure.errorCode: 'form-entry-deleted-by-spam-filter'`. Never
+  re-send either, and never call Report Not Spam (it runs the automations). `pending` and
+  `unknown` → `succeeded_unverified`: read back before any re-send (`pending` by its id;
+  `unknown` has none, so `findFormSubmission(record, { formId, submissions })` matches every
+  value sent, the hidden original date included). The send already read a lost create back once:
+  a found entry comes back `adopted: true` with its id, and `unknown` with `readBack: 'not-found'`
+  was neither on the form nor in spam at that moment. `failed` →
+  `failed_terminal`, except `failed` with `result.error.status === 429` → `failed_retryable`. `not-sent` (the client refused it before sending) → `failed_retryable` with
+  `requestSent: false`. For a single entry outside `importFormEntries`, `createFormSubmission` is
+  still send + verify (`sendFormSubmission` then `verifyFormSubmission`).
+- **Source spam.** Entries the source flagged spam (Forminator `is_spam = "1"`) are excluded with
+  an `exclusions[]` row before any write, not skipped silently.
+- **CMS archive.** When the operator chose CMS for the entries (the mapping's override decision),
+  the entries task writes `cms/data-item` rows with `insertDataItem` into the private collection
+  instead; there is no pause and no spam check.
+- **Cutover.** Pass `formsOperatorActions({...})` (`rp-target-wix/lib/forms-cutover.js`) into the
+  `createCompletionReport()` input's `operatorActions` (merge by `code`), and publish
+  `formsReviewTasks({...})` with producer `forms` in the migration-review publication. Inputs: form
+  ids whose source had emails / conditional logic, every recreated form id, CMS-archived form ids,
+  in-spam and deleted entry ids, source-spam excluded ids, `automationsNotPaused`, the
+  `pendingFormAutomationRestores` and `pendingFormSpamFilterRestores` left at the end (as
+  `automationsNotRestored` / `spamFilterNotRestored`), each form's `pauseLedgerUnreadable`, and the form ids with native entries.
+
+## Pricing-plan orders: one order per subscription
+
+Import plan orders (`pricing-plans/plan-order`) after plans and members, in their own task, per
+record through a record client, with `ensurePlanOrder(record, { planId, memberId, startDate, paid,
+paused, knownOrderId })`. Orders cannot be deleted; the writer reconciles before it creates and
+never resends after an unknown outcome, so never wrap it in a retry.
+
+- **Which source subscriptions.** Active → `startDate` = the source start (past or now); pending
+  → its future start; paused → `paused: true`. Canceled or expired → never call the writer: land
+  the record in the CMS history path and call `recordPlanOrderHistoryOnly(projectDir, {
+  sourceStableKey, sourceStatus: 'canceled' | 'expired' })`.
+- **Record every result.** After each call, `recordPlanOrderOutcome(projectDir, { sourceStableKey,
+  result })` from `lib/plan-order-outcome-registry.js`. It returns the row; write the attempt
+  journal row with its `journalStatus` (a `failed_*` or `succeeded_unverified` row carries
+  `failure`). Any `result.orderId` goes to the crosswalk, whatever the outcome.
+- **Cutover items are not yours to write.** `writeCompletionReport` joins the registry's rows
+  (billing restarts, history only, not live, pause failed, unknown outcome, needs review, shared
+  order). Never add `plan-order-*` operator actions by hand.
+
+## CMS item quota and the source archive
+
+Every item in the site's own CMS collections (a source archive, source pages, a crosswalk mirror)
+counts against one plan-wide item quota. Use `resources/rp-target-wix/lib/cms-item-quota.js`;
+never write your own quota codes, hold file or probe.
+
+- **Archive only what the import writes.** A record gets archive rows only when its entity is in
+  `executionScope.resolvedEntityRefs` and the record passes the same record-selection predicate as
+  the entity's own pass (`archiveScope({ resolvedEntityRefs, inScope })`). Out-of-scope users,
+  unreferenced library media and excluded rows are never archived. Archive only `cms`-disposition
+  locations (`archivedLocations(row)`): a field with a native or extended-field home is not
+  archived again. Prefer the mapper's extended-field disposition for short scalars.
+- **Lean, packed, findable archive.** Use `resources/rp-target-wix/lib/source-archive.js`;
+  never hand-roll archive payloads. Create the collection from `ARCHIVE_COLLECTION` (setup's
+  `create-cms-collections` requirement). Per entity: `planEntityArchive({ sourceEntity, locations:
+  archivedLocations(row), excludedLocations: retentionExcludedLocations(row), records, knowledge:
+  loadArchiveKnowledge({ sourcePlatform }), archiveOnly })`
+  (`archiveOnly` for entities with no Wix home, e.g. abandoned carts), then `buildArchiveRecord(record,
+  plan, { sourceKey, wixId, name })` with the crosswalk Wix id and a display name (order number,
+  product name, email), then `packArchiveRecords(records, { sourceEntity, perRecord: archiveOnly })`.
+  A record too big for one item comes back as `<entity>:<sourceKey>#part-<n>` items under the same
+  source key; write every item it returns.
+  Write `aboutItem()`, one `entityInfoItem(plan)` per entity and the packed items as
+  `archiveDataItem(item)` (stable `_id`). On a re-run use `itemWriteAction(item, journaledDigest)`:
+  `skip`, `replace` (bulk save by id, full replace) or `insert`. Count with
+  `expectedSourceArchiveItems` for the quota plan line. Pass `keptForReferenceSummary(...)`'s
+  `keptForReference` and `droppedFields` to the completion report.
+  `keptForReference.optionalTasks` carries an optional owner task when customer IP addresses or
+  browser user-agent strings were not kept: show it as optional (nothing needed to go live), never
+  as an urgent action. If the owner asks to keep them, follow its `importOperatorPrompt`
+  (`loadArchiveKnowledge({ sourcePlatform, ownerKeeps })` and rerun only the archive step).
+- **One item per parent (older projects).** Build archive entries `{ parentKey, childKey?, sourceEntity, payload }`
+  and write `packArchiveItems(entries)`: a parent and its same-parent sub-records (an order and its
+  notes) share one item, with `childKeys` (an array field) so a child is still found by its own key.
+  Items over ~400 KB split into `<parentKey>#2`… with the same `parentKey`. Two source entities
+  for the same thing (a WordPress user and the WooCommerce customer with that id) use one
+  `parentKey` and each its own `sourceKey`: the item stores the second as an alias with only its
+  differing fields.
+- **Before consent.** Compute the rows with `expectedSourceArchiveItems(entityItems)` (or `expectedArchiveRows(entries, { otherRows })` for older projects) plus the other
+  custom-collection rows such as source pages), then run
+  `node skills/wix-replatform/scripts/cms-item-quota.js plan --project-dir <dir> --expected-rows <n>`.
+  Show its `summary` in the import plan. It never blocks consent; `exceeds` means the last rows
+  wait in the hold and the cutover action below is created.
+- **The hold is the client's.** The Wix client refuses CMS item creates before sending while
+  `state/holds/cms-item-quota.json` is held, and opens it on the first WDE0195. For any send error,
+  `quotaDeferral(error)` returns the journal row: `deferred`, reason `cms-item-quota-exhausted`
+  (check it before any `requestSent === false` → failed branch). Keep going: the hold refuses only
+  CMS item creates, so every other entity and task continues. Never retry such a row in the loop.
+- **Resume.** The client re-checks the quota every few minutes and at the first CMS write of every
+  run, and releases the hold when there is room. When the archive pass ends with deferred
+  quota rows and the hold has been released, run those rows once more in the same run (the
+  `--deferred-only` selection). Add `cutoverAction(projectDir)` (non-null while held) to the
+  completion report's operator actions; it is the Cutover Operator's task.
+- **Re-saving an archived row.** A row already in the archive (crosswalk `imported`) whose payload
+  must change is sent with `updateDataItem` (Update Data Item, `PUT /wix-data/v2/items/{id}`) on its
+  crosswalked item id: it fails rather than creates, spends no quota and is not refused by the hold.
+  Never re-send it through insert or `save`. A failed re-save (5xx, or the item was deleted) is
+  journaled like any other failed write (`failed_retryable`), so the next pass retries it.
+- **Explicit skip.** The operator may decide the waiting archive data is not needed
+  (`scripts/cms-item-quota.js skip --collection <archive id> --decided-by <name> --reason <why>`).
+  From then on the client refuses items of those collections with `archiveSkipped` (other
+  collections keep the hold); `quotaDeferral(error)` returns a
+  `skipped_out_of_scope` row with reason `cms-archive-skipped-by-operator` and the decision. Never
+  skip on your own; `unskip` restores the hold.
+
 ## Missing writer policy
 
 CMS fallback is for source concepts that do **not** have a suitable native Wix entity, or
@@ -2804,18 +3819,41 @@ for native entities explicitly rejected because they cannot preserve fidelity or
 cause unsafe side effects. CMS is **not** a fallback for a missing writer, and it is not a
 special default for coupons just because coupon scoping/restrictions need mapping.
 
-When the mapping targets a native Wix entity and no dedicated `rp-target-wix` writer
-exists:
+When the mapping targets a native (or native-plus-cms) Wix entity and no dedicated
+`rp-target-wix` writer exists, import it with guarded raw requests. A reviewed writer always wins:
+an entity that has one cannot use this path.
 
-1. Generate project-local code that calls the native Wix REST endpoint through
-   `sendDirectRest`.
-2. Add a clear log line before the first use of that generated REST path.
-3. Call `notifyMissingWriter({ sourceEntity, wixEntity, method, path, reason })`. The
-   current implementation may be a no-op; the generated code must still call it.
-4. Mark the path `UNVERIFIED` in `execution/review/import-plan.md` and the execution-plan report until a
-   live/sandbox call promotes it.
-5. Maintain the same idempotency rules as dedicated writers: crosswalk by source ID in
-   local state and never dedupe by slug.
+1. Generate a normal import task. Its write operation is `sendGuardedRawRequest`. You pick
+   the method and URL from the entity's knowledge and the Wix docs, including follow-up
+   steps (confirm, pause, add to a group). Build each request with
+   `buildGuardedRawRequest({ entityRef, method, path, body })` and send it
+   on the record client from `bindRecordClient`, as for a reviewed writer.
+2. The client refuses (`RAW_REQUEST_REFUSED:<reason>`) `DELETE` and delete paths sent as
+   POST, a host other than `www.wixapis.com`, an encoded or irregular path, a URL any
+   toolkit builder or another entity's reviewed writer sends, toolkit-only services, and a
+   request for another task's entity. Write plain lower-case paths. Do not work around a
+   refusal; record it as a gap.
+3. **First record.** Write one record (all its steps), then read it back with
+   `buildGuardedRawReadRequest({ entityRef, path })` on the same client and call
+   `verifyGuardedRawCanary(client, { entityRef, sourceStableKey, body: request.body,
+   sentPath, readBack, ignorePaths })`. Each `ignorePaths` row names one leaf of the sent
+   body and a `reason` (a write-only field, a value Wix normalizes); at least one leaf must
+   still be compared. Until it passes, other records are refused
+   (`RAW_REQUEST_CANARY_PENDING`). A mismatch holds the entity for this run
+   (`RAW_REQUEST_ENTITY_HELD`); the other tasks continue. Never ask mid-run.
+4. **Unknown outcome.** A call with no outcome is never retried
+   (`RAW_REQUEST_OUTCOME_UNKNOWN`). It stays a recovery item until the operator checks the
+   site and `resolveRawRequestOutcome(projectDir, { callId, resolution, evidence })` records it.
+5. Name each raw-request entity in `execution/review/import-plan.md` and the execution-plan
+   report as "raw request, no reviewed writer" before consent;
+   `scripts/import-contract-verify.js` lists them in `rawRequestTargets`.
+6. Pass `rawRequestSummary(projectDir)` rows to the completion report: a held entity is an
+   `exclusions[]` row with `reasonCode: raw-request-mismatch`, each unknown outcome an
+   unresolved row with the Business Manager check as its next action. Cutover reads them
+   from there.
+7. A write operation that is neither the entity's own writer nor the raw path is still a
+   missing-writer gap: the mapper records it (`reasonCode: missing-writer`) and the pre-write
+   gate refuses the task (`MISSING_WRITER`).
 
 ## Codegen rules
 
@@ -3018,7 +4056,7 @@ exists:
     try {
       media = existing
         ? await blogMedia.existingPostMedia({ post, richContent, state: pendingMedia,
-            resolveFromCrosswalk: lookupReadyBlogMedia })
+            resolveFromCrosswalk: lookupReadyBlogMedia, wix }) // wix: a never-imported inline image is imported, not held forever
         : await blogMedia.importAndConfirmPostMedia(wix, { post, richContent, state: pendingMedia, fetchFeaturedMedia });
     } catch (error) {
       if (error.code !== 'BLOG_LEGACY_MEDIA_UNRESOLVED') throw error;
@@ -3141,18 +4179,108 @@ polish.
 
 ## When codegen must halt to LLM
 
+List each item that stops codegen in `execution/llm-handoff.json` `blockers[]` (`{ code, detail }`);
+`stage end codegen --outcome passed` is refused while `blockers` is non-empty or `needsLlm` is true.
 Emit `execution/llm-handoff.json` with `needsLlm: true` when any of the following occur:
 
 - a native Wix path exists but only an unverified write surface is available
 - setup artifacts are insufficient to generate deterministic setup execution
 - transform semantics remain unresolved
-- a multi-pass relationship strategy cannot be derived deterministically
+- a multi-pass relationship strategy cannot be derived deterministically (a same-entity parent is
+  not this case: use `runByDepthLevel`)
 - the runtime contract required from `rp-target-wix` is missing for the mapped target
 
 ## Output
 
 Summarize which files were generated, which entities they cover, and any remaining implementation gaps.
 
+
+### Exact field mapping evidence in generated importers
+
+For a revised `fieldContractVersion:1` plan, vendor `lib/migration-review-mapping.js`
+and `lib/mapping-field-contract.js` beside the existing Migration review runtime. Legacy
+plans require explicit mapper reconciliation; do not silently fabricate exact decisions.
+Reuse the initialized project/site binding and actual importer producer/execution.
+Before registration, add `mappingScopes(plan)` to the execution’s existing assessed scopes.
+Manual-mapping runbooks keep their existing manual path and add no invented mapping write
+scopes. Initial mixed runs register selected resolved and deferred automatic mapping scopes with
+`mappingScopes(plan)` — never `mappingScopes(plan, resolvedEntityRefs)`; repair executions
+register only the scopes actually assessed in that repair and pass `repairOf` naming the earlier
+import execution that registered them. The adapter refuses any other subset. No registration fact can change
+on resume; a later newly resolved scope needs a new execution.
+
+Read back the stored execution: real imports are `executionKind:import`, and only isolated
+scratch probes are `probe`. The adapter refuses an unclassified/wrong-owner execution.
+All capture producers share the importer’s one `createEvidenceCaptureQueue(projectDir)`.
+
+```javascript
+const { mappingScopes, createMappingReviewAdapter } = require('./lib/migration-review-mapping.js');
+// In the existing registerExecution request:
+// assessedScope: [...new Set([...existingScopes, ...mappingScopes(plan, assessedSourceEntities)])]
+// Initial run: assessedSourceEntities = plan.executionScope.selectedEntityRefs (resolved + held).
+const mappingReview = await createMappingReviewAdapter({
+  projectDir, producerId, executionId, migrationId,
+  mappingPlanDigest: PINNED_MAPPING_PLAN_DIGEST, captureQueue: enqueueCapture,
+  assessedSourceEntityRefs: assessedSourceEntities, // omit for initial; explicit repair subset
+  repairOf: repairedExecutionId, // repair only: earlier import execution that registered the subset
+  // Supply probeNonce only inside the existing credential-free isolated probe path.
+});
+await mappingReview.captureBeforeWrite(); // await before ANY dependent target write
+```
+
+This startup call records the current plan/ledger revisions for registered resolved and
+deferred scopes. Deferred entities get genuine mapping-state observations and open tasks,
+not target-write outcomes. Direct entity handlers still assert the pinned resolved scope.
+Capture failure stops subsequent writes through the existing recovery path.
+
+After an assessed entity’s last durable batch checkpoint and final `entityCompleteness`
+row, before the single `createCompletionReport` call, persist one bounded outcome artifact
+using the importer’s existing atomic/fsynced artifact writer:
+`{ sourceEntity, entityCompleteness: finalRow, outcomeCounters: { attempted, succeeded,
+failed, deferred, unresolved } }`. Use actual final accounting; `succeeded` names the
+row’s imported/confirmed outcomes. Unknown outcomes remain `unresolved`, not failed.
+All five counts must be measured nonnegative integers; do not turn missing counts into zero.
+The artifact has no generated timestamp; the capture envelope supplies observation time.
+
+```javascript
+await mappingReview.captureWriteOutcome(sourceEntity, {
+  outcomeArtifact: projectRelativeFinalOutcomeArtifact,
+  unknownAreas: actualUnknownAreas,
+  sequence: durableCheckpointOrdinal,
+});
+```
+
+The adapter reads/hashes that bounded durable artifact, pins it to the same execution and
+mapping revisions, and captures `mapping_fidelity/write-outcome`. It never captures a
+write outcome for deferred work. Repairs recapture both boundaries and all assessed
+categories; old execution captures cannot supply current coverage. An identical replay
+uses the same immutable IDs; changed evidence uses new IDs with a new durable checkpoint ordinal. Publication checks the final outcome
+artifact against its retained capture. Do not rewrite an already
+captured outcome path on resume without completing the corresponding new capture.
+
+After the importer exits, use the [mapping publication recipe](../rp-migration-review/mapping-publication.md)
+from the existing Migration review step. Capture startup and outcome evidence during the
+actual import; do not reconstruct it later from completion prose. No new stage or CLI is
+introduced. All-deferred/no-importer attempts keep current ledger/handoff facts and return
+`publication unavailable`; do not initialize a fake execution just to publish tasks.
+
 ## Discovered sub-part outcome accounting
 
 For every planned registry sub-part, generated importers emit its own `entityCompleteness` row using the registry subtype and back every count with journal rows, as for whole entities. Keep the whole-entity row separate. Attribute dropped sub-part fields with `droppedFields[].subtype` so a missing shipping line, for example, makes that sub-part partial without misreporting the parent row. When an exclusion corresponds to a discovered scope decision, include its `censusId`; `writeCompletionReport` derives `operatorGateRecorded` from the exact approved reconciliation, never from the importer's claim. Record-level filters without a census decision keep their existing exclusion behavior.
+
+## Public multilingual adapter
+
+When proven public additional locales exist, vendor the shared multilingual core and target
+modules and emit one bounded target adapter for the documented locale, translation schema/content,
+and Wix Data routes. The adapter supplies the methods consumed by the inventory, setup, executor,
+and restore scripts; it uses the same destination credentials and capability boundary as the
+normal importer. Its patch/create methods accept one planned field and must omit every unrelated
+field. It must implement paginated `queryRecoveryRows(cursor)` even when the recovery collection
+is absent (return an empty page); omitting the method blocks inventory with
+`LANG_RECOVERY_JOURNAL_NOT_READY` rather than silently losing cross-machine authorship. Do not
+generate guessed route or app identifiers: the route map and Wix Multilingual app
+identity come from recorded versioned contract evidence. The normal writer's verified read-back
+must feed source/Wix object bindings to `multilingual-object-pairing.js` and, for repeated members,
+member bindings to `multilingual-member-pairing.js`; source IDs, display text, and position are not
+Wix identities. With no additional locales, generate no adapter, object/member pairing receipt, or
+sidecar call.

@@ -13,7 +13,8 @@ import {
   slugForUrl,
   writeJson,
 } from "./lib/common.mjs";
-import { loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
+import { assertPublicHttpUrl, guardPageRequests } from "./lib/url-safety.mjs";
+import { chromiumLaunchOptions, loadPlaywrightFromContext, resolveBrowserToolingContext } from "./lib/browser-tooling.mjs";
 import { extractSeo, extractSectionsFromHtml, inferTokensFromHtml } from "./lib/html-extract.mjs";
 
 async function main() {
@@ -37,10 +38,13 @@ export async function extractPage(url, options = {}) {
 }
 
 async function extractWithPlaywright(url, { outputDir, screenshots = true, browserTooling, screenshotDir: suppliedScreenshotDir, screenshotPrefix = "source" } = {}) {
+  // Source sites are untrusted input; only the clone under test (registered with trustOrigin) is exempt.
+  await assertPublicHttpUrl(url);
   const toolingContext = browserTooling || await resolveBrowserToolingContext({ startDir: process.cwd() });
   const playwright = await loadPlaywrightFromContext(toolingContext);
-  const browser = await playwright.chromium.launch({ headless: true });
+  const browser = await playwright.chromium.launch(chromiumLaunchOptions());
   const page = await browser.newPage();
+  await guardPageRequests(page);
   const screenshotMap = {};
   try {
     const htmlByViewport = {};

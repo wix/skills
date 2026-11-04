@@ -15,6 +15,18 @@
     "stores/product",
     "crm/contact"
   ],
+  "dependencyModes": {
+    "stores/product": "per-record",
+    "crm/contact": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "stores/product": [
+      "entityId"
+    ],
+    "crm/contact": [
+      "author.contactId"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -28,16 +40,16 @@
   "preferredWrite": {
     "surface": "Wix Reviews",
     "endpoint": "POST /reviews/v1/bulk/reviews/create",
-    "writerId": null,
-    "verification": "docs",
-    "importSafe": false,
+    "writerId": "createStoresReviews",
+    "verification": "verified-live",
+    "importSafe": true,
     "bulk": true
   },
   "alternateWrites": [
     {
       "surface": "Wix Reviews",
       "endpoint": "POST /reviews/v1/reviews",
-      "when": "Single-review create. Use for retries of bulk failures and for the tail of a batch; the required-parameter sets differ (see the required-field-asymmetry pitfall)."
+      "when": "Not used by the import: no reviewed writer sends it, so naming it as a write operation is refused (MISSING_WRITER). Retry reviews whose bulk result was failed by calling createStoresReviews again with only those records (a chunk of one is valid); the tail of a batch is just a smaller chunk. A retry of a review that did land answers already-exists (one review per author per product)."
     },
     {
       "surface": "Wix Reviews",
@@ -47,7 +59,10 @@
     {
       "surface": "Wix Reviews",
       "endpoint": "PATCH /reviews/v1/reviews/{reviewId}/reply",
-      "when": "Third pass, only if the source carries merchant replies to reviews; reply is read-only on create."
+      "writerId": "setStoresReviewReply",
+      "importSafe": true,
+      "verification": "docs",
+      "when": "Follow-up on a created review, only when the source carries a merchant reply (reply is read-only on create). Sent by setStoresReviewReply with the review record's own grant, never as a task write operation. Docs-verified only: a live probe is owed before verification becomes verified-live."
     }
   ],
   "fallbacks": [
@@ -57,7 +72,7 @@
     }
   ],
   "reliability": {
-    "status": "unknown",
+    "status": "partially-reliable",
     "flags": []
   },
   "pitfalls": [
@@ -69,7 +84,7 @@
     {
       "code": "moderation-status-read-only-on-create",
       "severity": "warning",
-      "summary": "moderation.moderationStatus is read-only on create; a created review starts as SUBMITTED and is then moved by the site's moderation rules to APPROVED / IN_MODERATION / REJECTED. Source approval state (WooCommerce approved vs hold vs spam vs trash) survives only via a second pass — Bulk Update Moderation Status (POST /reviews/v1/bulk/reviews/moderate), whose status enum accepts APPROVED or REJECTED only (not IN_MODERATION), is filter-based, and returns a jobId (asynchronous — completion is not observable in the create response)."
+      "summary": "moderation.moderationStatus is read-only on create; a created review starts as SUBMITTED and is then moved by the site's moderation rules to APPROVED / IN_MODERATION / REJECTED. Source approval state (WooCommerce approved vs hold vs spam vs trash) survives only via a second pass — Bulk Update Moderation Status (POST /reviews/v1/bulk/reviews/moderate), whose status enum accepts APPROVED or REJECTED only (not IN_MODERATION), is filter-based, and returns a jobId (asynchronous — completion is not observable in the create response). VERIFIED LIVE 2026-10-27: on a new site a created review came back APPROVED at once. Bulk moderate returns a jobId; the reviewed writer moderateStoresReview moderates one review per call and reads it back until the status matches."
     },
     {
       "code": "verified-badge-not-writable",
@@ -78,13 +93,13 @@
     },
     {
       "code": "rating-1-to-5-only",
-      "severity": "warning",
-      "summary": "content.rating is an integer with Min 1 / Max 5, and it is required on single create. WooCommerce permits rating 0 (\"no rating\" — a review with text and no stars), which cannot be created natively. A run must pick a policy per source site: drop those rows to the CMS shadow, or coerce to a rating the merchant approves. Never silently coerce."
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-10-27: bulk create ACCEPTED content.rating 0 and stored it as 0 (the docs list Min 1; single create may still require 1-5). The reviewed writer uses bulk create and accepts integers 0-5, so a WooCommerce rating-0 review imports natively."
     },
     {
       "code": "one-review-per-author-per-entity",
       "severity": "warning",
-      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — an anonymized verification environment had 0 collisions across 120 reviews, which makes this easy to miss on a first run."
+      "summary": "\"A review author is limited to 1 review per entity. Duplicate reviews receive an error response.\" WooCommerce permits many reviews by the same author (same email) on the same product, so a collision policy is required BEFORE the write: keep newest / keep highest-rated / merge bodies / spill the losers to the CMS shadow. Detect collisions during mapping by grouping source reviews on (reviewer_email, product_id) — an anonymized verification environment had 0 collisions across 120 reviews, which makes this easy to miss on a first run. VERIFIED LIVE 2026-10-27: a second review by the same contact on the same product fails that bulk item with ALREADY_EXISTS (uniqueConstraintViolation on namespace, contextId, author.contactId) while the rest of the batch succeeds. The mapping keeps the newest native and sends the rest to the CMS shadow."
     },
     {
       "code": "body-plain-text-3000",
@@ -103,29 +118,44 @@
     },
     {
       "code": "docs-endpoint-path-inconsistency",
-      "severity": "warning",
-      "summary": "The Create Review and Set Reply reference pages print two different base paths: the Schema \"URL:\" line says https://www.wixapis.com/reviews/api/v1/reviews while the curl example on the same page says https://www.wixapis.com/reviews/v1/reviews. Bulk Create is consistent at /reviews/v1/bulk/reviews/create. This entity records the /reviews/v1/... form (the executable examples); confirm live before promoting verification above docs."
+      "severity": "info",
+      "summary": "VERIFIED LIVE 2026-10-27: GET /reviews/v1/reviews/{id} and GET /reviews/api/v1/reviews/{id} both answer. The writers use /reviews/v1/..."
     },
     {
       "code": "bulk-batch-100",
       "severity": "warning",
       "summary": "Bulk Create takes minItems 1 / maxItems 100 reviews per call and returns per-item results with originalIndex and a success flag (entities only when returnEntity is true). Chunk at 100, always request returnEntity so the crosswalk can record server-assigned review IDs, and treat partial failure as normal — the call succeeds while individual items fail."
+    },
+    {
+      "code": "reviews-app-required",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-10-27: bulk create answers 428 APP_NOT_INSTALLED (appId a95a5fce-e370-4402-9ce4-96956acc747d) until Wix Reviews is installed - the install-wix-reviews setup step."
+    },
+    {
+      "code": "rejected-reviews-hidden-from-reads",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: a REJECTED review answers 404 on GET and is missing from Query unless returnPrivateReviews=true is passed on GET. buildGetReviewRequest always passes it; findStoresReview (Query) only sees visible reviews."
+    },
+    {
+      "code": "merchant-reply-is-a-follow-up",
+      "severity": "warning",
+      "summary": "Docs (Set Reply, read 2026-10-29): reply is read-only on create; PATCH /reviews/v1/reviews/{reviewId}/reply with { message } sets the one reply a review can have and overwrites any existing reply. The request allows 10000 characters but the Review object caps reply.message at 1000, so setStoresReviewReply refuses a longer reply before sending (review_reply_too_long). reply.createdDate is read-only: the source reply date cannot carry. Whether Wix notifies the review author is not documented; site mute covers it. Not exercised live."
     }
   ],
   "mappingGuidance": [
-    "Import order: products first (entityId is a Wix product ID), then contacts for reviewers, then reviews. Write via POST /reviews/v1/bulk/reviews/create in chunks of 100 with returnEntity=true, recording sourceReviewId -> Wix review ID in the crosswalk.",
-    "REVIEWER CONTACTS ARE A SIDE EFFECT THE USER MUST APPROVE AT THE REVIEW GATE. Every imported review needs author.contactId, so importing reviews grows the site's CRM by one contact per distinct reviewer email, including reviewers who are not customers and would otherwise never appear in Contacts. Present the run-specific distinct-reviewer count, state that these contacts are created by the review import, and let the user choose whether to import or skip reviews.",
+    "Import order: products first (entityId is a Wix product ID), then reviewer contacts through the crm/contact task (resolve by email, create on miss), then reviews through createStoresReviews(wix, { records: [{ sourceStableKey, review }], readinessGrant }) in chunks of 100. Each record payload is the review item itself, so entityId and author.contactId are checked per record.",
+    "Reviewer contacts are created for reviewers with no contact: show the distinct-reviewer contact count in the plan before consent.",
+    "Moderation, per batch: right after each batch's createStoresReviews and before the task's next evaluateTask, pass that batch's reviews whose created status differs from the source to moderateStoresReviews([{ wix, reviewId, status }]) in one call, each wix the record client bound to that batch's grant: APPROVED for WooCommerce approved; REJECTED for hold, spam and trash. It sends all moderations, then reads them back in shared rounds. A grant from an earlier evaluation is stale: its moderation is refused unsent (moderation-failed, error.requestSent false). A review created earlier (another batch or run) is moderated by gating its key again in the current batch and using that grant. Record the source state in the ledger.",
+    "Merchant replies: after create (and moderation), for every review whose source has a merchant reply call setStoresReviewReply(recordClient, { reviewId, message }) with that review record's own client (bindRecordClient with the review task's grant and the review's sourceStableKey). Keep the reply out of the create payload (reply is read-only on create). The client admits the reply only on the record's own review (its crosswalk target, or a review it read whose product and author are its granted references). Outcomes: verified | already-present (a retry finds the same reply and sends nothing) | not-sent (refused before send, e.g. review_reply_too_long; journal failed with requestSent false) | failed (rejected; failed_retryable) | unverified (sent, read-back differs; Set Reply overwrites, so the retry re-sends safely) | review-not-found. A reply over 1000 characters or its source date goes to the CMS shadow (fallbacks) and the faithfulness ledger.",
     "Carry the original review date with review.reviewDate (writable at create, format date-time) — the docs designate it as the import path: \"This should match createdDate, except for reviews imported from another system.\" createdDate is read-only and will be the import timestamp, so reviewDate is the only faithful date.",
-    "Approval state needs a second pass. Create everything, then group the created review IDs by the source status and call POST /reviews/v1/bulk/reviews/moderate once per target status (APPROVED for WooCommerce approved, REJECTED for spam/trash). WooCommerce `hold` has no exact native equivalent — IN_MODERATION is not settable through the bulk moderate enum — so decide with the user whether held reviews are left to the site's moderation rules, rejected, or skipped entirely.",
     "Map author.authorName from the WooCommerce reviewer display name (maxLength 100) and author.contactId from the resolved contact. If authorName is omitted, Wix falls back to the member name for members and to null otherwise — always send it explicitly so anonymous reviewers do not lose their display name.",
-    "Record in the faithfulness ledger, per run: reviews whose `verified` badge was lost, reviews with source rating 0, reviews whose stripped body exceeded 3000 characters, and reviews dropped by the one-per-author-per-entity collision policy."
+    "Record in the faithfulness ledger, per run: reviews whose `verified` badge was lost, reviews with source rating 0, reviews whose stripped body exceeded 3000 characters, and reviews dropped by the one-per-author-per-entity collision policy, and merchant replies not written natively (over 1000 characters, or not-sent/failed after retry) with their source reply date."
   ],
   "setupRequirements": [
-    "Wix Reviews app",
+    "Wix Reviews app (appDefId a95a5fce-e370-4402-9ce4-96956acc747d) - setup step install-wix-reviews",
     "Wix Stores app (Reviews is only integrated with Wix Stores, and the products must already exist)",
     "SCOPE.DC-REVIEWS.MANAGE-REVIEWS",
-    "Contacts write access (SCOPE.DC-CONTACTS.MANAGE-CONTACTS) — every review requires a contact ID",
-    "User approval at the review gate for the reviewer-contact side effect"
+    "Contacts write access (SCOPE.DC-CONTACTS.MANAGE-CONTACTS) - every review requires a contact ID"
   ],
   "evidence": [
     {
@@ -172,7 +202,12 @@
       "type": "live-run",
       "path": "tests/fixtures/wordpress/rest-index-scope.json",
       "note": "Live source verification established that /wc/v3/products/reviews exposes review status and reviewer email and is classified backend_data/sample by the /wc/v3/products* catch-all rule in lib/wp-route-classifier.js. The fixture pins that classification so future narrowing cannot silently drop reviews."
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/reviews/reviews/set-reply",
+      "note": "PATCH https://www.wixapis.com/reviews/v1/reviews/{reviewId}/reply, body { message } (required, maxLength 10000); response { review } with reply.message (maxLength 1000), reply.createdDate/updatedDate read-only; one reply per review, a second call overwrites; scope SCOPE.DC-REVIEWS.MANAGE-REVIEWS (read 2026-10-29). Docs-verified; no live probe yet."
     }
   ],
-  "notes": "Authored 2026-08-16. Before this file no domain entity claimed a product-review capability, so every run dropped its source reviews into a pending row despite Wix having a native, explicitly import-oriented API. Docs-verified only — nothing here has been exercised live, hence verification=docs / reliability=unknown / importSafe=false. importSafe is false because a review import writes into CRM (a contact per distinct reviewer) as well as the catalog, which is a side effect a user must accept at the gate, not a silent consequence. Promote verification after a live subset write that exercises bulk create + the moderation second pass."
+  "notes": "Authored 2026-08-16. Before this file no domain entity claimed a product-review capability, so every run dropped its source reviews into a pending row despite Wix having a native, explicitly import-oriented API. Docs-verified only — nothing here has been exercised live, hence verification=docs / reliability=unknown. A review import writes into CRM (a contact per distinct reviewer) as well as the catalog; that is an ordinary dependency, not a reason for importSafe false. Promote verification after a live subset write that exercises bulk create + the moderation second pass."
 }

@@ -33,7 +33,7 @@
   "preferredWrite": {
     "surface": "Tags",
     "endpoint": "POST /tags/v1/tags",
-    "writerId": null,
+    "writerId": "buildCreateStoresProductTagRequest",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false

@@ -15,6 +15,18 @@
     "pricing-plans/plan",
     "members/member"
   ],
+  "dependencyModes": {
+    "pricing-plans/plan": "per-record",
+    "members/member": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "pricing-plans/plan": [
+      "planId"
+    ],
+    "members/member": [
+      "memberId"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -29,9 +41,9 @@
   "preferredWrite": {
     "surface": "Orders (CheckoutService)",
     "endpoint": "POST /pricing-plans/v2/checkout/orders/offline",
-    "writerId": null,
+    "writerId": "ensurePlanOrder",
     "verification": "docs",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
   "reliability": {
@@ -41,13 +53,13 @@
   "pitfalls": [
     {
       "code": "create-notification-behavior-undocumented",
-      "severity": "blocker",
-      "summary": "STILL UNPROVEN after a live probe (2026-08-16) — importSafe deliberately stays false. Create Offline Order documents no member-notification behavior and has no suppress/silent flag (the request is only planId, memberId, paid, startDate, couponCode, submissionId), while the sibling Mark As Paid explicitly documents that offline payments 'trigger events and emails'. The 2026-08-16 probe created a real offline order with paid:true and observed NOTHING that indicates an email either way — but the observation is worthless as proof of silence for two independent reasons: (a) the target site was under a site-wide notification mute for the whole probe, which by design suppresses all notifications to all recipients on all channels, so no email could have been sent regardless of the API's default behavior; and (b) the probe member's address was deliberately undeliverable (example.invalid), and there is no Wix read API that lists emails a site has sent, so even unmuted there would have been nothing to inspect. Absence of evidence here is an artifact of the method, not a finding. See notification-proof-requirements for what would actually settle it."
+      "severity": "info",
+      "summary": "Create Offline Order documents no member-notification behavior and has no suppress flag (request: planId, memberId, paid, startDate, couponCode, submissionId); the sibling Mark As Paid documents that offline payments 'trigger events and emails'. A 2026-08-16 probe on a muted site observed no email. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
     },
     {
       "code": "notification-proof-requirements",
-      "severity": "warning",
-      "summary": "To make importSafe true, obtain either a controlled notification test on a separately provisioned, unmuted throwaway site with monitored mailboxes and a positive-control Mark As Paid message, or an authoritative Pricing Plans statement that Create Offline Order sends no member notification. The migration flow never unmutes a destination, so this test must never run on a migration target."
+      "severity": "info",
+      "summary": "No notification proof is required for import (site mute is trusted). Never unmute a migration target to test notifications."
     },
     {
       "code": "lifecycle-state-not-settable-at-create",
@@ -63,6 +75,11 @@
       "code": "paid-flag-settles-asynchronously",
       "severity": "warning",
       "summary": "VERIFIED LIVE 2026-08-16: with paid:true at create, the CREATE RESPONSE returned lastPaymentStatus: 'UNPAID' and a GET moments later returned 'PAID'. The payment state settles asynchronously behind the create call. An importer that asserts lastPaymentStatus off the create response will record a false negative for every contract; re-read the order (or accept eventual consistency) before writing the crosswalk or the verification artifact."
+    },
+    {
+      "code": "status-settles-from-draft",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: the Create Offline Order reply carries status DRAFT (with lastPaymentStatus UNPAID) even for a backdated, paid order; Get Order moments later returns ACTIVE (or PENDING for a future start) and PAID. Pause Order needs ACTIVE, so a pause sent straight after create finds a DRAFT order. ensurePlanOrder re-reads the order until it leaves DRAFT before pausing and before judging the read-back."
     },
     {
       "code": "next-payment-date-not-settable",
@@ -90,10 +107,11 @@
     "Set paid:true for contracts whose current cycle is already collected on the source (lastPaymentStatus becomes PAID); leave paid:false only when the source cycle is genuinely unpaid. For free plans lastPaymentStatus is NOT_APPLICABLE regardless.",
     "Recurring BILLING never migrates - payment tokens do not carry and an offline order has no charge method attached; collection restarts on Wix (owner collects off-platform and marks paid, or subscribers re-purchase online). Required migration policy.",
     "The Stores-product linkage is severed: the contract is recreated as a Pricing Plans membership and the source product name survives only in the plan title/description - required migration trade-off.",
-    "Status mapping: source active -> startDate now or past (ACTIVE); source pending-start -> future startDate (PENDING); source paused -> create ACTIVE then Pause Order; source cancelled/expired -> do not recreate natively, land the historical record in CMS.",
+    "Status mapping: source active -> startDate now or past (ACTIVE); source pending-start -> future startDate (PENDING); source paused -> ensurePlanOrder({ paused: true }) creates ACTIVE then calls Pause Order; source cancelled/expired -> do not recreate natively, land the historical record in CMS and report it as a cutover item.",
     "Plan purchase limits are ignored for offline orders (documented), so per-member limits on the recreated plan cannot block the import.",
     "Persist the returned order.id and subscriptionId against the source subscription id in the crosswalk at create time; the order also snapshots planName/planPrice at creation (but NOT a usable planDescription — see order-snapshot-mislabels-plan-description).",
-    "Observed live 2026-08-16: the created order also carries buyer.contactId, a wixPayOrderId, and onEcom: true — plan orders now surface through the eCom stack, so a plan-order import is visible to eCom-side views even though it is not an eCom order. Factor that into any post-import reconciliation that counts orders."
+    "Observed live 2026-08-16: the created order also carries buyer.contactId, a wixPayOrderId, and onEcom: true — plan orders now surface through the eCom stack, so a plan-order import is visible to eCom-side views even though it is not an eCom order. Factor that into any post-import reconciliation that counts orders.",
+    "Writer: ensurePlanOrder({ planId, memberId, startDate, paid, paused, knownOrderId }). startDate is required (the source start date) and is the duplicate-check identity: crosswalk read-back first, then List Orders for that member and plan matched on startDate, then Create Offline Order. couponCode and submissionId are never sent. After an unknown outcome the writer lists once and adopts a match; otherwise it returns plan-order-unknown-outcome and must not be retried automatically (orders cannot be deleted). Any returned orderId goes to the crosswalk whatever the outcome."
   ],
   "setupRequirements": [
     "Wix Pricing Plans app installed — appDefId 1522827f-c56c-a5c9-2ac9-00f9e6ae12d3, installable via the App Installation API (see pricing-plans/plan). Observed live 2026-08-16: the actual pre-install failure on Plans V3 is 428 APP_NOT_INSTALLED carrying that appId, not the documented PRICING_PLANS_NOT_INSTALLED — match on the HTTP 428 and the appId, not the application-code string.",
@@ -130,8 +148,13 @@
     {
       "type": "live-run",
       "path": "anonymized-live-verification",
-      "note": "Verified live on a muted site: Create Offline Order accepted paid:true with a backdated startDate, preserved the start date, derived the current cycle, returned the expected offline-order identifiers, and changed lastPaymentStatus from UNPAID on create to PAID on readback. Notification behavior remains unverified because the site was muted and the test address was undeliverable, so importSafe stays false. Orders can be cancelled but not deleted; probe records were cleaned up accordingly."
+      "note": "Verified live on a muted site: Create Offline Order accepted paid:true with a backdated startDate, preserved the start date, derived the current cycle, returned the expected offline-order identifiers, and changed lastPaymentStatus from UNPAID on create to PAID on readback. Notification behavior was not observed (muted site, undeliverable address); notifications are covered by the site mute. Orders can be cancelled but not deleted; probe records were cleaned up accordingly."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "2026-10-27, new throwaway site, muted: ensurePlanOrder wrote one active (backdated, paid), one pending (future start) and one paused order; all read back with the expected status and PAID. Re-runs adopted the same order by List Orders (buyerIds + planIds, matched on startDate) and by crosswalk read-back; exactly one order per member and plan. First run showed the create reply is DRAFT, so an immediate pause is refused (status-settles-from-draft); fixed and re-run clean."
     }
   ],
-  "notes": "WooCommerce active-subscription records migrate by recreation as Pricing Plans memberships using Plans V3 Create Plan and Create Offline Order per subscriber. Live verification established the end-to-end write mechanics and preservation of backdated start dates and billing anniversaries. preferredWrite.verification remains docs and importSafe remains false because member-notification behavior is unproven: verification used a muted site and an undeliverable address, so silence was not evidence. Codegen must keep this as a guarded write behind the approval gate."
+  "notes": "WooCommerce active-subscription records migrate by recreation as Pricing Plans memberships using Plans V3 Create Plan and Create Offline Order per subscriber. Live verification established the end-to-end write mechanics and preservation of backdated start dates and billing anniversaries. preferredWrite.verification remains docs. importSafe is true: member notifications are covered by the site mute."
 }

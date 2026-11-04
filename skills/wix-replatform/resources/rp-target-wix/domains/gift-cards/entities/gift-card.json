@@ -44,7 +44,7 @@
   "preferredWrite": {
     "surface": "Gift Cards",
     "endpoint": "POST /gift-cards/v1/gift-cards",
-    "writerId": null,
+    "writerId": "createGiftCard",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false
@@ -62,8 +62,8 @@
   "pitfalls": [
     {
       "code": "suppress-recipient-email-on-import",
-      "severity": "blocker",
-      "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder."
+      "severity": "info",
+      "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity. Omitting notificationInfo is still the simplest payload."
     },
     {
       "code": "code-length-8-to-20",
@@ -78,7 +78,7 @@
     {
       "code": "full-code-returned-only-at-create",
       "severity": "blocker",
-      "summary": "The create response is the only place the full unobfuscated code appears; Get/Query return it masked (`****-****-****-4444`) plus `codeSuffix`. Persist the code-to-id crosswalk in the same step as the create or it is unrecoverable."
+      "summary": "The create response is the only place the full unobfuscated code appears; Get/Query return it masked (`****-****-****-4444`) plus `codeSuffix`. Persist the code-to-id crosswalk in the same step as the create or it is unrecoverable. Observed 2026-10-27 with a site-owner token: Get and Query also returned a `fullCode` field. That contradicts the docs, so do not rely on it; keep the code from your own create request."
     },
     {
       "code": "balance-is-read-only",
@@ -89,15 +89,21 @@
       "code": "no-transaction-history-import",
       "severity": "warning",
       "summary": "No public method writes historical redemption transactions, so per-card spend history is not reproducible natively."
+    },
+    {
+      "code": "idempotency-key-is-not-a-replay",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: `idempotencyKey` is a request parameter beside `giftCard`, not a card field (a key nested in `giftCard` is accepted and ignored). Repeating a create with the same key does NOT return the first answer: it fails `409 ALREADY_EXISTS` with a uniqueConstraintViolation on `code`, as any repeated code does. Reconcile a retry or unknown outcome by Query Gift Cards with `filter: { code: <full code> }` and compare amount, currency and expiry; createGiftCard does this."
     }
   ],
   "mappingGuidance": [
     "Always send `source: \"MANUAL\"` — it is required, and it distinguishes imported cards from cards bought through a Wix order.",
-    "Pass a stable `idempotencyKey` derived from the source card id so a retried import cannot double-issue a card.",
+    "`idempotencyKey` is a request parameter beside `giftCard` (createGiftCard lifts a nested key). The card's unique code, not the key, is what prevents a second card: see idempotency-key-is-not-a-replay.",
     "`expirationDate` is accepted at create, so original expiry dates are preserved.",
     "Decide the partial-balance policy in the mapping plan and surface it in the execution plan; do not default silently.",
     "Amounts are decimal strings with at most 2 decimal places, and currency is ISO-4217 alphabetic.",
-    "CORRECTED 2026-08-17 (VERIFIED LIVE): `currency` is a TOP-LEVEL field on the giftCard object, NOT nested inside `initialValue`. `{ giftCard: { initialValue: { amount, currency } } }` fails with `400 currency must not be empty`; the working shape is `{ giftCard: { initialValue: { amount }, currency, source, code, idempotencyKey } }`."
+    "CORRECTED 2026-08-17 (VERIFIED LIVE): `currency` is a TOP-LEVEL field on the giftCard object, NOT nested inside `initialValue`. `{ giftCard: { initialValue: { amount, currency } } }` fails with `400 currency must not be empty`; the working shape is `{ giftCard: { initialValue: { amount }, currency, source, code }, idempotencyKey }`.",
+    "Write cards with createGiftCard. It never sends `notificationInfo` (an import copies cards, it does not sell them) and returns created | adopted | conflict | failed."
   ],
   "setupRequirements": [
     "Wix Gift Card app installed",
@@ -125,6 +131,11 @@
       "type": "live-verification",
       "path": "anonymized-live-verification",
       "note": "Verified live after installing the Wix Gift Cards app: create and read-back succeeded through rp-target-wix/lib/gift-card-build.js and established the currency-placement and code-alphanumeric constraints. Not exercised: Send Gift Card Email, Query/Search, checkout redemption, or disabling/deleting a card."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live on a disposable site: same code with the same top-level idempotencyKey → 409 ALREADY_EXISTS on code (no replay); same code with another amount → same 409; nested idempotencyKey accepted and ignored; Query Gift Cards with filter { code: <full code> } returned exactly that card and [] for an unknown code; Get returned masked code, codeSuffix and fullCode."
     }
   ]
 }

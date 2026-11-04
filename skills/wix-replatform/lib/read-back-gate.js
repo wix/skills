@@ -30,6 +30,11 @@ function sharedReads(projectDir, runId, wix) {
   if (!readSessions.has(key)) readSessions.set(key, new ReadBackReads(wix));
   return readSessions.get(key);
 }
+// Every shape a writer may use to report the target it wrote. The success path and the
+// deferral check share it, so a deferral can never hide an id the success path would accept.
+function writtenTargetId(entity, written) {
+  return written?.targetId || written?.id || written?.[`${entity}Id`] || written?.[entity]?.id;
+}
 function problem(reason) {
   return Object.assign(new Error(reason), {
     code: reason
@@ -166,7 +171,13 @@ class ReadBackGate {
     if (ceiling !== undefined) throw new Error('Canary ceiling must come from recorded user decision, not the caller');
     if (chosen && (chosen.source !== 'user' || !Number.isInteger(chosen.value))) throw problem('canary-ceiling-not-user-recorded');
     const history = await state.load(this.projectDir);
-    const previousRun = Object.entries(history.runs).reverse().find(([id, run]) => id !== this.runId && run.entities?.[this.entity] && !run.entities[this.entity].supersededBy);
+    // Only a prepared entry (schedule and bindings) is a previous run to continue. An unprepared
+    // one (completion's `gate-not-run` placeholder, a validation stop) is taken over by this run;
+    // it stays blocking until then, and this run's own gate status replaces it.
+    const others = Object.entries(history.runs).filter(([id, run]) => id !== this.runId && run.entities?.[this.entity] && !run.entities[this.entity].supersededBy);
+    const preparedEntry = e => Boolean(e.schedule && e.bindingDigests);
+    const previousRun = [...others].reverse().find(([, run]) => preparedEntry(run.entities[this.entity]));
+    const unprepared = others.filter(([, run]) => !preparedEntry(run.entities[this.entity])).map(([id]) => id);
     const own = await this.item();
     const existing = own?.schedule ? own : previousRun?.[1].entities[this.entity];
     const schedule = C.cover(inv, {
@@ -179,29 +190,35 @@ class ReadBackGate {
       comparator: 1
     });
     this.preparationMs += preparationMs + Math.max(0, this.reads.now() - preparingAt);
+    const approvedOmissionRows=this.validated.fieldContractVersion===1 ? require('./mapping-omission-approval').omissions(this.validated.decision) : null;
     await this.mutate((g, item) => {
       if (!own?.schedule && existing) {
         Object.assign(item, structuredClone(existing));
         delete item.supersededBy;
         if (previousRun) g.runs[previousRun[0]].entities[this.entity].supersededBy = this.runId;
       }
+      for (const id of unprepared) g.runs[id].entities[this.entity].supersededBy = this.runId;
       if (existing && C.digest(existing.bindingDigests) !== C.digest(this.validated.bindingDigests)) {
         item.approvedOmissions = [];
         delete item.pendingAcknowledgementRequest;
       }
       item.paths ||= {};
-      item.paths.notExercised = this.validated.contract.intendedFields.filter(f => !(this.validated.decision.fieldDispositions || []).some(d => d.status === 'notMigrated' && (d.path || d.targetPath) === f.targetPath)).filter(f => !Object.keys(inv.writePaths).some(p => p === f.targetPath || p.startsWith(f.targetPath + '.') || p.startsWith(f.targetPath + '[]'))).map(f => f.targetPath);
+      item.paths.notExercised = this.validated.contract.intendedFields.filter(f => !(this.validated.decision.fieldDispositions || []).some(d => ['notMigrated','deferred'].includes(d.status) && (d.path || d.targetPath) === f.targetPath)).filter(f => !Object.keys(inv.writePaths).some(p => p === f.targetPath || p.startsWith(f.targetPath + '.') || p.startsWith(f.targetPath + '[]'))).map(f => f.targetPath);
+      item.pendingFields = (this.validated.decision.fieldDispositions || []).filter(d=>d.status==='deferred');
       item.schedule = existing?.schedule?.universeDigest === schedule.universeDigest ? existing.schedule : schedule;
       item.status = 'stopped';
       item.stopReason = schedule.status === 'covered' ? 'canaries-pending' : schedule.status;
       item.retryStats = this.reads.stats;
       item.invocationStartedAt = this.now();
       item.bindingDigests = this.validated.bindingDigests;
+      if (inv.heldRecords) item.heldRecords = structuredClone(inv.heldRecords);else delete item.heldRecords;
       if (!inv.records.length) item.endOfRunVerified = true;
-      if (!item.approvedOmissions.length) item.approvedOmissions = (this.validated.decision.fieldDispositions || []).filter(d => d.status === 'notMigrated').map(d => ({
+      if (!item.approvedOmissions.length) item.approvedOmissions = (this.validated.decision.fieldDispositions || []).filter(d => d.status === 'notMigrated' &&
+        (!approvedOmissionRows || approvedOmissionRows.some(o=>o.kind===d.kind && o.path===d.path && o.writeOperation===(d.writeOperation || null)))).map(d => ({
         path: d.path || d.sourcePath || d.targetPath,
         kind: d.kind || 'source',
-        recordCount: inv.sourcePaths[d.path || d.sourcePath] || inv.records.length,
+        recordCount: d.affectedScope ? d.affectedScope.count : inv.sourcePaths[d.path || d.sourcePath] || inv.records.length,
+        ...(d.affectedScope ? {affectedScope:d.affectedScope,writeOperation:d.writeOperation || null} : {}),
         approvedBy: this.validated.approval?.approvedBy || null
       }));
     });
@@ -286,7 +303,15 @@ class ReadBackGate {
     const products = await writers.queryAllStoresProducts(w),
       marker = typeof this.marker === 'function' ? this.marker(record, body) : this.marker;
     if (!marker?.path) throw problem('product-marker-required');
-    return products.filter(p => C.valuesAt(p, marker.path).some(v => v === marker.value));
+    const matches = products.filter(p => C.valuesAt(p, marker.path).some(v => v === marker.value));
+    // A product that was on the store before this import is never this record's write.
+    const baseline = require('./catalog-baseline'),
+      held = matches.find(p => baseline.protectedIds(this.projectDir).products.has(p.id));
+    if (held) {
+      baseline.recordCollision(this.projectDir, { entity: 'stores/product', sourceKey: `read-back:${this.entity}:${record.id}`, targetId: held.id, slug: held.slug ?? null });
+      throw problem('target-baseline-collision');
+    }
+    return matches;
   }
   checkIdentity(expected, actual, id) {
     const e = expected[this.entity] || expected,
@@ -305,7 +330,19 @@ class ReadBackGate {
       sourceId: String(this.activeSourceId)
     }))) throw problem('identity-conflict');
   }
+  assertApplicability(record, expected, guarded, options = {}) {
+    if (C.builderHold(expected)) throw problem('builder-held-record');
+    const judged = C.outputApplicability(this.validated.rows, record, expected, { guarded: guarded || [], ...options });
+    if (judged.missing.length) throw problem('builder-missing-intended-field');
+    if (judged.unexpected.length) throw problem('builder-emitted-inapplicable-field');
+  }
   async observe(record, sourceId, targetId, expected) {
+    // Read-back compares only applicable outputs: an expected body carrying a non-applicable (or
+    // missing a declared applicable) output is refused before any read.
+    this.assertApplicability(record, expected, (WRITER_GUARDS[this.entity] || []).map(g => g.path), { declaredOnly: true });
+    // No target id means nothing was written to read: refused before any request (a read of
+    // `.../undefined` only spends the read budget on 404s).
+    if (noTarget(targetId)) throw Object.assign(problem('target-id-missing'), { requestSent: false });
     this.activeSourceId = sourceId;
     this.activeRecord = record;
     let actual = await this.read(targetId, this.reads.wix);
@@ -358,6 +395,8 @@ class ReadBackGate {
       }
     }
     await this.recordLosses(sourceId, result.checks);
+    // A record held earlier as a baseline collision that now verifies is no longer one.
+    if (result.verified && this.entity === 'product') require('./catalog-baseline').clearCollision(this.projectDir, 'stores/product', `read-back:${this.entity}:${sourceId}`);
     if (!result.verified) await this.stop('field-mismatch');else await this.mutate((g, item) => {
       for (const s of item.settlements.filter(s => s.sourceId === sourceId)) s.status = 'passed';
       for (const loss of g.observedLosses) if (loss.entity === this.entity && result.checks.some(c => c.matches && c.writePath === loss.writePath)) loss.resolvedBy = {
@@ -427,6 +466,8 @@ class ReadBackGate {
       let expected = await this.buildWrite(record),
         targetId = prior?.targetId,
         newWrite = false;
+      // A previous attempt the client refused before sending left nothing on the site: write again.
+      const notSent = prior?.outcome === 'not-sent' && !prior.targetId;
       await this.mutate((g, e) => {
         if (!e.canaries.some(c => c.sourceId === sourceId)) e.canaries.push({
           sourceId,
@@ -437,9 +478,10 @@ class ReadBackGate {
         });
       });
       expected = applyGuards(this.entity, expected, prior?.guardDroppedPaths);
-      // Every declared populated mapping must produce an expected target value; omission from the builder cannot pass silently.
-      for (const row of this.validated.rows) if (!prior?.guardDroppedPaths?.includes(row.writePath) && row.sourcePaths.some(p => C.valuesAt(record, p).some(C.populated)) && !C.valuesAt(expected, row.writePath).some(C.populated)) throw problem('builder-missing-intended-field');
-      if (prior && !targetId) {
+      // Every applicable populated mapping must produce an expected target value, and an output whose
+      // declared appliesWhen is false must be absent. The builder's own omission proves nothing.
+      this.assertApplicability(record, expected, prior?.guardDroppedPaths);
+      if (prior && !targetId && !notSent) {
         let found;
         try {
           found = await this.lookup(record, expected, this.reads.wix);
@@ -458,7 +500,7 @@ class ReadBackGate {
           uncertain: false
         });
       }
-      if (!prior) {
+      if (!prior || notSent) {
         await this.mutate((g, e) => {
           if (!e.canaries.some(c => c.sourceId === sourceId)) e.canaries.push({
             sourceId,
@@ -488,7 +530,23 @@ class ReadBackGate {
         });
         try {
           const written = await this.timeWrite(() => this.write(record, expected));
-          targetId = written?.targetId || written?.id || written?.[`${this.entity}Id`] || written?.[this.entity]?.id;
+          // The writer declined before sending (`{ deferred: true, reason }`, e.g. its dependency
+          // gate deferred the record): nothing reached the site, so it is not a possible write.
+          // Only the exact documented shape is trusted. Any id alias the success path accepts, or
+          // any other key, means a write may exist: keep the protection (unknown outcome).
+          if (written?.deferred === true) {
+            if (writtenTargetId(this.entity, written)) throw problem('unknown-write-deferred-with-id');
+            if (Object.keys(written).some(key => key !== 'deferred' && key !== 'reason')) throw problem('unknown-write-deferral-malformed');
+            await this.protect(sourceId, {
+              uncertain: false,
+              sentAt: null,
+              outcome: 'not-sent',
+              notSentReason: typeof written.reason === 'string' && written.reason ? written.reason : 'write-deferred'
+            });
+            await this.stop('canary-write-deferred');
+            return false;
+          }
+          targetId = writtenTargetId(this.entity, written);
           const guarded = await this.recordGuard(sourceId, written?.findings);
           if (guarded.length) expected = applyGuards(this.entity, expected, guarded);
           if (!targetId) throw problem('unknown-write-no-confirmed-id');
@@ -498,6 +556,14 @@ class ReadBackGate {
           });
           newWrite = true;
         } catch (e) {
+          // Refused before sending (a capability or readiness refusal): the outcome is known, so
+          // the record must not stay protected as possibly written.
+          if (e?.requestSent === false && !targetId) await this.protect(sourceId, {
+            uncertain: false,
+            sentAt: null,
+            outcome: 'not-sent',
+            notSentReason: e.code || e.message
+          });
           await this.stop(e.code || 'unknown-write-outcome');
           return false;
         }
@@ -660,17 +726,28 @@ class ReadBackGate {
         fromIndex: (e.lastGoodIndex || 0) + 1,
         toIndex: index,
         count: index - (e.lastGoodIndex || 0),
-        sourceIds: this.validated.inventory.records.slice(e.lastGoodIndex || 0, index).map(r => r.sourceId)
+        sourceIds: this.validated.inventory.records.slice(e.lastGoodIndex || 0, index).filter(r => !r.held).map(r => r.sourceId)
       };
     });
     return result;
   }
   async reconcileInterval(getRecord, targetIdFor) {
     const item = await this.item();
+    // The interval names every non-held record between the last good sample and the failed one,
+    // landed or not. Only a record with a target can have been written while the sample was
+    // failing; it is read back and compared. A record with no target is listed, never read --
+    // unless this gate holds it as a possibly-sent write, which stops the reconcile instead.
+    const noTargetSourceIds = [];
     for (const id of item.suspectInterval?.sourceIds || []) {
+      const targetId = await targetIdFor(id);
+      if (noTarget(targetId)) {
+        if ((await this.protected(id))?.uncertain) { await this.stop('suspect-write-outcome-unknown'); return false; }
+        noTargetSourceIds.push(String(id));
+        continue;
+      }
       const record = await getRecord(id);
       try {
-        const result = await this.observe(record, id, await targetIdFor(id), await this.expectedFor(record, id));
+        const result = await this.observe(record, id, targetId, await this.expectedFor(record, id));
         if (!result.verified) return false;
       } catch (e) {
         await this.stop(e.code || 'unknown-reconciliation');
@@ -678,7 +755,7 @@ class ReadBackGate {
       }
     }
     await this.mutate((g, e) => {
-      e.reconciledInterval = e.suspectInterval;
+      e.reconciledInterval = { ...e.suspectInterval, noTargetSourceIds };
       e.suspectInterval = null;
       e.status = 'passed';
       e.stopReason = null;
@@ -686,11 +763,15 @@ class ReadBackGate {
     return true;
   }
 }
+const noTarget = id => id === undefined || id === null || id === '' || id === 'undefined';
 function operatorActions(gate) {
   const rows = [];
   for (const [runId, run] of Object.entries(gate.runs)) for (const [entity, item] of Object.entries(run.entities || {})) {
     if (item.supersededBy && gate.runs[item.supersededBy]?.entities?.[entity]) continue;
     if (item.gated === false && !Object.hasOwn(C.DOMAINS, entity)) { declaration(entity, item); continue; }
+    // A run that wrote nothing of this entity defers to the runs that did. With no such
+    // run anywhere the entity was never gated, and it still blocks (not attempted is never success).
+    if (item.stopReason === 'not-run-no-writes' && Object.entries(gate.runs).some(([id, other]) => id !== runId && other.entities?.[entity] && other.entities[entity].stopReason !== 'not-run-no-writes' && !(other.entities[entity].supersededBy && gate.runs[other.entities[entity].supersededBy]?.entities?.[entity]))) continue;
     const prompt = `Requires Import Operator: In the migration project, resume read-back verification for ${entity} in run ${runId}; inspect execution/read-back-gate.json. Resolve the named mapping/credential/coverage finding; for media settlement wait and resume reads of confirmed ids without rewriting. Regenerate the completion report.`;
     if (item.status !== 'passed' || !item.endOfRunVerified) rows.push({
       code: 'read-back-gate-stopped',
@@ -698,7 +779,7 @@ function operatorActions(gate) {
       entity,
       affectedCount: item.canaries?.length || 0,
       action: prompt,
-      deadlineReason: 'Before DNS change or launch: entity import is unverified'
+      deadlineReason: item.status === 'passed' && !item.canaries?.length && item.heldRecords?.count ? 'Before DNS change or launch: every record is held by the builder; nothing was imported' : 'Before DNS change or launch: entity import is unverified'
     });
     for (const listed of item.listed || []) rows.push({
       code: 'read-back-listed-canary',
@@ -716,19 +797,145 @@ function operatorActions(gate) {
       action: `Requires Import Operator: Run read-only reconciliation for ${entity} records ${item.suspectInterval.fromIndex}–${item.suspectInterval.toIndex}, then regenerate the completion report.`,
       deadlineReason: 'Before DNS change or launch: sampled records may lack intended data'
     });
+    if (item.heldRecords?.count) rows.push({
+      code: 'read-back-held-records',
+      severity: 'high',
+      entity,
+      affectedCount: item.heldRecords.count,
+      action: `Requires Import Operator: In the migration project, ${item.heldRecords.count} ${entity} records are held by the builder and were not attempted (${Object.entries(item.heldRecords.reasons).slice(0, 10).map(([r, n]) => `${r}: ${n}`).join(', ')}${Object.keys(item.heldRecords.reasons).length > 10 ? ', …' : ''}); execution/read-back-inventory/${entity}.json lists each. Resolve the named decisions, re-run inventory and validate, then resume.`,
+      deadlineReason: 'Before DNS change or launch: held records are not imported'
+    });
     if (item.approvedOmissions?.some(o => o.merchantAcknowledgement?.status !== 'acknowledged')) rows.push({
       code: 'read-back-omission-ack',
       severity: 'high',
       entity,
-      affectedCount: Math.max(...item.approvedOmissions.map(o => o.recordCount)),
-      action: `Tell the merchant these fields were not migrated: ${item.approvedOmissions.map(o => o.path).join(', ')}. Requires Import Operator: In the migration project, run replatform answer --project <project> ${item.approvedOmissions[0].merchantAcknowledgement?.requestId || '<request-id>'} --acknowledge --note '<who acknowledged and when>'; regenerate completion.`,
+      affectedCount: item.approvedOmissions.every(o=>o.affectedScope?.sourceIdsComplete && Array.isArray(o.affectedScope.sourceIds))
+        ? new Set(item.approvedOmissions.flatMap(o=>o.affectedScope.sourceIds)).size
+        : item.approvedOmissions.some(o=>o.recordCount==null) || item.approvedOmissions.length>1 && item.approvedOmissions.some(o=>o.affectedScope)
+          ? null : Math.max(...item.approvedOmissions.map(o => o.recordCount)),
+      action: `Tell the merchant these fields were not migrated: ${item.approvedOmissions.slice(0, 10).map(o => o.path).join(', ')}${item.approvedOmissions.length > 10 ? `, and ${item.approvedOmissions.length - 10} more (${item.approvedOmissions.length} locations; ${(item.pendingAcknowledgementRequest?.artifactRefs || []).some(r => r?.path === approval.evidencePath(entity, item.pendingAcknowledgementRequest.requestId)) ? approval.evidencePath(entity, item.pendingAcknowledgementRequest.requestId) : `execution/read-back-gate.json ${entity} approvedOmissions`} lists each)` : ''}. Requires Import Operator: In the migration project, run replatform answer --project <project> ${item.approvedOmissions[0].merchantAcknowledgement?.requestId || '<request-id>'} --acknowledge --note '<who acknowledged and when>'; regenerate completion.`,
       deadlineReason: 'Before DNS change or launch: merchant acknowledgement required'
     });
   }
   return rows;
 }
+// The gate sequence for one gated entity, owned by the toolkit so generated code does
+// not wire it by hand. Generated code supplies the reviewed builder, the gate's entity options
+// (marker, variants, read, lookup, repair) and the writer:
+//   write(record, expected)  -> one record's confirmed write ({ id|targetId, findings }) or
+//                               exactly { deferred: true, reason } before anything was sent;
+//   writeBatch(records)      -> optional; [{ sourceId, targetId, findings }] for the non-canary
+//                               records (a bulk writer). Defaults to write() per record.
+// Order, as rp-import-codegen describes it: load the inventory and prepare; reconcile a suspect
+// interval carried from an earlier run; settle canaries an earlier run sent and the target refused
+// with a readable 4xx (never created, so written again); canaries; then the remaining records in
+// stable source order, sampled at every 200th and the last landed record; a failed sample stops
+// new batches until reconcileInterval clears it. Gate rules are unchanged.
+const NOT_CREATED = row => row?.status === 'failed_terminal' && !row.targetId && Number.isInteger(row.failure?.httpStatus) && row.failure.httpStatus >= 400 && row.failure.httpStatus < 500 && ![408, 429].includes(row.failure.httpStatus);
+async function runGatedEntity({
+  records,
+  sourceIdOf = record => String(record.id),
+  sourceKeyOf,
+  writeBatch,
+  batchSize = 200,
+  targetIdFor,
+  ...options
+} = {}) {
+  if (!Array.isArray(records)) throw new Error('runGatedEntity requires records');
+  if (!Number.isInteger(batchSize) || batchSize < 1 || 200 % batchSize !== 0) throw new Error('runGatedEntity batchSize must divide the 200-record sample interval');
+  const gate = new ReadBackGate(options),
+    entity = options.entity;
+  const byId = new Map(records.map(record => [String(sourceIdOf(record)), record]));
+  const getRecord = async id => {
+    const record = byId.get(String(id));
+    if (!record) throw problem('gated-record-not-in-input');
+    return record;
+  };
+  const result = (status, extra = {}) => ({ entity, status, ...extra });
+  const inv = await state.readJson(options.projectDir, `execution/read-back-inventory/${entity}.json`, null);
+  if (!inv) {
+    await gate.stop('read-back-inventory-missing');
+    return result('stopped', { stopReason: 'read-back-inventory-missing', written: [] });
+  }
+  try {
+    await gate.prepare(inv);
+  } catch (e) {
+    return result('stopped', { stopReason: e.code || 'gate-prepare-failed', errors: e.errors, written: [] });
+  }
+  const landed = new Map();
+  const targetOf = async id => landed.get(String(id)) || (targetIdFor && await targetIdFor(String(id))) || (await gate.protected(String(id)))?.targetId;
+  let item = await gate.item();
+  if (item.suspectInterval && !(await gate.reconcileInterval(getRecord, targetOf))) return result('stopped', { stopReason: (await gate.item()).stopReason || 'suspect-reconciliation-required', written: [] });
+  if (sourceKeyOf) {
+    const { rows } = await require('./local-state').loadAttemptJournal(options.projectDir).catch(e => { if (e.code === 'ENOENT') return { rows: [] }; throw e; });
+    const latest = new Map();
+    for (const row of rows) latest.set(row.sourceStableKey, row);
+    for (const id of item.schedule.canarySourceIds || []) {
+      const prior = await gate.protected(id), row = latest.get(sourceKeyOf(String(id)));
+      if (prior && !prior.targetId && prior.uncertain === true && prior.outcome !== 'not-sent' && NOT_CREATED(row)) await gate.protect(id, { uncertain: false, sentAt: null, outcome: 'not-sent', notSentReason: `target-rejected-${row.failure.httpStatus}:${row.attemptId}` });
+    }
+  }
+  if (!(await gate.executeCanaries(getRecord))) {
+    item = await gate.item();
+    return result(item.status, { stopReason: item.stopReason, written: [] });
+  }
+  item = await gate.item();
+  const canaries = new Set((item.schedule.canarySourceIds || []).map(String));
+  for (const c of item.canaries || []) if (c.targetId) landed.set(String(c.sourceId), c.targetId);
+  // Stable source order is the inventory's; held records are never written.
+  const order = inv.records.filter(r => !r.held && byId.has(String(r.sourceId))).map(r => String(r.sourceId));
+  const position = new Map(order.map((id, i) => [id, i + 1]));
+  const rest = order.filter(id => !canaries.has(id));
+  const written = [];
+  const writeOne = async record => {
+    const expected = await gate.expectedFor(record, sourceIdOf(record));
+    const out = await gate.timeWrite(() => options.write(record, expected));
+    if (out?.deferred === true) return { sourceId: String(sourceIdOf(record)), deferred: true, reason: out.reason };
+    return { sourceId: String(sourceIdOf(record)), targetId: writtenTargetId(entity, out), findings: out?.findings };
+  };
+  // Batches never cross a 200-record sample boundary of the source order, so a failed sample
+  // stops every record after it (canaries leave gaps, so slicing `rest` alone would not align).
+  const batches = [];
+  for (const id of rest) {
+    const window = Math.floor((position.get(id) - 1) / 200), last = batches.at(-1);
+    if (last && last.window === window && last.ids.length < batchSize) last.ids.push(id);
+    else batches.push({ window, ids: [id] });
+  }
+  let lastLanded = null;
+  for (const [batchIndex, { ids }] of batches.entries()) {
+    const batch = await Promise.all(ids.map(getRecord));
+    const outcomes = writeBatch ? await gate.timeWrite(() => writeBatch(batch)) : [];
+    if (!writeBatch) for (const record of batch) outcomes.push(await writeOne(record));
+    const isFinalBatch = batchIndex === batches.length - 1;
+    const confirmed = (outcomes || []).filter(o => o && o.targetId && byId.has(String(o.sourceId)));
+    for (const o of outcomes || []) if (o) written.push(o);
+    for (const o of confirmed) landed.set(String(o.sourceId), String(o.targetId));
+    for (const [n, o] of confirmed.entries()) {
+      const id = String(o.sourceId), isLast = isFinalBatch && n === confirmed.length - 1;
+      const sample = await gate.verifySample({ record: await getRecord(id), sourceId: id, targetId: String(o.targetId), index: position.get(id), isLast, findings: o.findings });
+      if (isLast) lastLanded = id;
+      if (!sample.skipped && !sample.verified) {
+        if (!(await gate.reconcileInterval(getRecord, targetOf))) {
+          item = await gate.item();
+          return result(item.status, { stopReason: item.stopReason || 'read-back-sample-failed', written });
+        }
+      }
+    }
+  }
+  // Every non-canary record landed earlier, or none remained: the end-of-run check reads the last
+  // landed record in source order, so a resume still verifies the entity's tail.
+  if (!lastLanded) {
+    const tail = [...order].reverse().find(id => landed.has(id));
+    if (tail && !canaries.has(tail)) await gate.verifySample({ record: await getRecord(tail), sourceId: tail, targetId: landed.get(tail), index: position.get(tail), isLast: true });
+    else if (tail) await gate.mutate((g, e) => { e.endOfRunVerified = e.canaries.find(c => String(c.sourceId) === tail)?.outcome === 'verified'; });
+    // Nothing landed (every write deferred): no claim either way; prepare's own rule stands.
+  }
+  item = await gate.item();
+  return result(item.status, { stopReason: item.stopReason || null, endOfRunVerified: item.endOfRunVerified === true, written });
+}
 module.exports = {
   ReadBackGate,
   declaration,
-  operatorActions
+  operatorActions,
+  runGatedEntity
 };

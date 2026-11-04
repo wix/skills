@@ -9,11 +9,13 @@
 // Runs the discovery steps in a fixed order. Each step records its result in
 // data/shopify-discovery/discovery-steps.json before the next starts, so a restart -- or a return
 // after a merchant question -- runs only the steps not yet recorded and reads nothing it already
-// captured. The last step writes data/shopify-discovery/source-coverage.json (rows: [] when
-// clean). All recorded state is bound to the one store it was read from: a run for a different
-// store stops with shopify_discovery_store_mismatch instead of mixing files, and --restart is the
-// explicit way to discard the capture and begin again. source-profile.md and source-schema.json are synthesized from the capture afterwards and
-// promoted with rp-discovery's promote-source-coverage.js --adapter shopify.
+// captured. The locale step writes data/shopify-discovery/source-locale.json (currency, time
+// zone, language, country; a value Shopify did not give is an explicit unknown). The last step
+// writes data/shopify-discovery/source-coverage.json (rows: [] when clean). All recorded state is
+// bound to the one store it was read from: a run for a different store stops with
+// shopify_discovery_store_mismatch instead of mixing files, and --restart is the explicit way to
+// discard the capture and begin again. source-profile.md and source-schema.json are synthesized
+// from the capture afterwards and promoted with rp-discovery's promote-source-coverage.js --adapter shopify.
 //
 // Exit codes: 0 complete; 3 waiting on a merchant question (the run holds at
 // awaiting_user_action); 2 stopped (the printed code says why; recorded steps are kept);
@@ -31,6 +33,7 @@ const { createStoreExecutor, ShopifyCliError } = require('../lib/shopify-cli.js'
 const { ALL_READS, ORDER_WINDOW_READS, SAMPLE_LIMIT, operationName, at } = require('../lib/discovery-reads.js');
 const { ShopifySessionStop, assertConnectionReady, recordAuthExpired, runSessionCheck } = require('../lib/shopify-session.js');
 const protectedFields = require('../lib/shopify-protected-fields.js');
+const { regionalStep } = require('../lib/shopify-regional.js');
 
 const RAW_DIR = ADAPTER_RAW_DIRS.shopify;
 const STEPS_FILE = 'discovery-steps.json';
@@ -398,6 +401,10 @@ function orderWindowRows(record, answers) {
 
 const ORDER_WINDOW_STEP = Object.freeze({ id: 'order-window', run: orderWindowStep, rows: orderWindowRows });
 
+// Not a coverage row source: a regional value is a field of the store, and an unknown one is
+// recorded in the regional file itself.
+const REGIONAL_STEP = Object.freeze({ id: 'regional', run: regionalStep });
+
 const GIFT_CARD_CENSUS_STEP = Object.freeze({
   id: 'gift-card-census',
   run: (ctx) => giftCards.giftCardCensusStep(ctx, bulk),
@@ -506,6 +513,7 @@ const DEFAULT_STEPS = Object.freeze([
   WITHHELD_DETAILS_STEP,
   GIFT_CARD_CENSUS_STEP,
   ORDER_WINDOW_STEP,
+  REGIONAL_STEP,
   { id: 'questions', run: questionsStep },
   { id: 'coverage', run: coverageStep },
 ]);
@@ -522,6 +530,7 @@ async function resetEntities(projectDir, rawDir, entities, now, store) {
   const state = await readSteps(rawDir, now, store);
   delete state.steps.capture;
   delete state.steps.coverage;
+  delete state.steps.regional;
   if (await protectedFields.resetProbeEntities(projectDir, entities)) delete state.steps['withheld-details'];
   await writeSteps(rawDir, state);
 }
@@ -684,6 +693,7 @@ module.exports = {
   WITHHELD_DETAILS_STEP,
   ORDER_WINDOW_STEP,
   GIFT_CARD_CENSUS_STEP,
+  REGIONAL_STEP,
   ORDER_WINDOW_FILE,
   CONNECTION_FILES,
   questionRequestId,

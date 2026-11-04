@@ -68,6 +68,8 @@ function validateManifest(manifest, producerInputs = null) {
       }
       if (!Array.isArray(task.dependsOn)) {
         errors.push(`task.dependsOn must be an array for ${task.id || '<unknown>'}`);
+      } else if (task.dependsOn.includes(task.id)) {
+        errors.push(`task_depends_on_self:${task.id}`);
       }
       if (!Array.isArray(task.artifactRefs)) {
         errors.push(`task.artifactRefs must be an array for ${task.id || '<unknown>'}`);
@@ -77,13 +79,39 @@ function validateManifest(manifest, producerInputs = null) {
         validateImportTaskState(task, errors);
         if (!Array.isArray(task.entityRefs) || !task.entityRefs.length || new Set(task.entityRefs).size !== task.entityRefs.length) errors.push(`task.entityRefs required:${task.id}`);
         if (!Array.isArray(task.dependencyEdges)) errors.push(`dependency_edges_required:${task.id}`);
+        else for (const edge of task.dependencyEdges) if (edge?.producer?.taskId === task.id) errors.push(`dependency_edge_self_producer:${task.id}:${edge.ref}`);
         if (!Array.isArray(task.dependencyRefs)) errors.push(`dependency_refs_required:${task.id}`);
         if (!/^[a-f0-9]{64}$/.test(manifest.mappingPlanDigest || '')) errors.push('mapping_plan_digest_required');
       }
     }
+    errors.push(...dependsOnCycles(manifest.tasks));
   }
   if (producerInputs && Array.isArray(manifest.tasks)) { const binding = require('./dependency-readiness').bindDependencyProducers({ manifest, ...producerInputs }); errors.push(...binding.errors); }
   return { ok: errors.length === 0, errors };
+}
+
+// A task that waits on itself through other tasks never runs: nextPendingTask skips it forever.
+// Self-loops are reported per task as task_depends_on_self. Every other group of tasks that wait on
+// each other (a strongly connected component) is reported once, listing all of its tasks, whatever
+// order dependsOn lists them in.
+function dependsOnCycles(tasks) {
+  const deps = new Map(tasks.filter(task => task && typeof task.id === 'string').map(task => [task.id, Array.isArray(task.dependsOn) ? task.dependsOn.filter(dep => dep !== task.id) : []]));
+  const index = new Map(), low = new Map(), stack = [], onStack = new Set(), groups = [];
+  const visit = id => {
+    index.set(id, index.size); low.set(id, index.get(id)); stack.push(id); onStack.add(id);
+    for (const dep of deps.get(id) || []) {
+      if (!deps.has(dep)) continue;
+      if (!index.has(dep)) { visit(dep); low.set(id, Math.min(low.get(id), low.get(dep))); }
+      else if (onStack.has(dep)) low.set(id, Math.min(low.get(id), index.get(dep)));
+    }
+    if (low.get(id) !== index.get(id)) return;
+    const group = [];
+    let member;
+    do { member = stack.pop(); onStack.delete(member); group.push(member); } while (member !== id);
+    if (group.length > 1) groups.push(group.sort().join(','));
+  };
+  for (const id of deps.keys()) if (!index.has(id)) visit(id);
+  return groups.sort().map(ids => `task_depends_on_cycle:${ids}`);
 }
 
 async function validateManifestForProject(projectDir) {
@@ -92,7 +120,7 @@ async function validateManifestForProject(projectDir) {
   const manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/execution-manifest.json'), 'utf8'));
   const setupPlan = JSON.parse(await fs.readFile(path.join(projectDir, 'setup/setup-plan.json'), 'utf8'));
   const adapter = await readiness.loadDependencyDispositions(projectDir);
-  const validation = validateManifest(manifest, { setupPlan, dispositions: adapter.dispositions });
+  const validation = validateManifest(manifest, { setupPlan, dispositions: adapter.dispositions, proofs: adapter.proofs, adoptOnlyRefs: adapter.adoptOnlyRefs, adoptOnlyMixed: adapter.adoptOnlyMixed });
   try { readiness.validateImportInputs(projectDir); } catch (error) { validation.errors.push(error.message); validation.ok = false; }
   return validation;
 }
@@ -201,3 +229,4 @@ module.exports = {
   validateManifestForProject,
   nextPendingTask,
 };
+module.exports.validateManifestForProject = projectDir => require('./operation-assessments').withProject(projectDir, () => validateManifestForProject(projectDir));

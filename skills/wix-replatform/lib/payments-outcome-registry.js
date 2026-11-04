@@ -104,6 +104,10 @@ const FINDING_CODES = Object.freeze([
   'refund-date-not-preserved',
   'refund-line-detail-not-preserved',
   'invoice-link-over-length',
+  // Live-verified 2026-10-27: Update Order silently drops an over-maxLength value, so the writer
+  // checks the number itself, and reports any key the PATCH response does not carry back.
+  'invoice-number-over-length',
+  'invoice-field-dropped',
   'saved-cards-not-transferred',
   'redacted-source-values',
   // Order-history composite: the order's id came from a crosswalk row rather than being derived from the source
@@ -139,6 +143,9 @@ const FINDING_CODES = Object.freeze([
   // The order carried an email `normalizeEmail` refused, so a named customer became
   // an anonymous guest. A finding, NOT an outcome: the buyer partition is unchanged.
   'buyer-email-unusable',
+  // A source order with no line items was imported with one custom "Items not recorded in source"
+  // line at the order total (human-approved policy); each is also a Cutover Operator item.
+  'order-line-items-not-recorded',
 ]);
 
 // Mutually exclusive per-order buyer outcomes. When a report carries any of them, they

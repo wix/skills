@@ -86,7 +86,14 @@ destination setup policy and must not infer additional import entities.
    step. Each ref must be in its `entityRefs`; keys come from the reviewed source mapping,
    and paths name the exact dependent payload fields. Never invent a target ID in the plan.
    Keep every setup-produced dependency `task-complete`, even when its target value is
-   used on individual records.
+   used on individual records. List a ref only when this setup step writes it. An entity an
+   import task writes (for example the delivery profile, when the mapping imports shipping
+   zones) is owned by that import: a read-only prerequisite check on it, such as
+   "the default delivery profile exists", declares `entityRefs: []`. Codegen refuses a
+   step that claims an import-owned ref (`setup_step_claims_import_entity`). A step that runs
+   a named executor lists what that executor writes: `create-cms-collections` declares
+   `entityRefs: ["cms/collection"]`. Setup refuses the plan otherwise
+   (`plan_step_entity_refs_missing`).
 7. Write a setup artifact that downstream execution can verify.
 8. Bind `setup/setup-plan.json` to the mapping plan it was derived from (a no-op when the
    project has no plugin coverage):
@@ -96,7 +103,8 @@ destination setup policy and must not infer additional import entities.
    ```
 
    It copies `mapping-plan.json` `inputs.cmsFallbackDigest` into `setup-plan.json`
-   `inputs.cmsFallbackDigest`. The router treats a setup plan without it, or with a different
+   `inputs.cmsFallbackDigest`. With no plugin coverage it prints `stamped: false` and exits 0;
+   a plugin-covered project whose mapping plan lacks the digest still fails. The router treats a setup plan without it, or with a different
    one, as stale (`setup_plan_stale_cms_fallback`) and routes back here before any setup or
    import step. Create CMS collections only for capabilities the mapping plan maps to CMS: a
    recognized capability whose CMS fallback is pending or declined gets no collection.
@@ -176,9 +184,12 @@ Emit a **`mute-site-notifications`** requirement into `setup/setup-plan.json` an
 - `WIX_SITE_STRATEGY=new` — **always**, as a standing rule keyed on the strategy value
   alone. Not derived from mapping decisions, domain knowledge, or agent judgment, and not
   conditional on `WIX_MUTE_NOTIFICATIONS` (for new sites the mute is unconditional).
-- `WIX_SITE_STRATEGY=existing` — only when the owner explicitly opted in with
-  `WIX_MUTE_NOTIFICATIONS=on`. Under the existing-site default (`off`), emit no
-  requirement.
+- `WIX_SITE_STRATEGY=existing` — only when the operator answered **mute** at intake
+  (`notificationMute=on` in `orchestration/decisions.json`, mirrored as
+  `WIX_MUTE_NOTIFICATIONS=on`). For `off`, emit no requirement. There is no default: an
+  unanswered existing site is an intake gap, so stop and route back to intake rather than
+  emitting artifacts. Read the answer through `lib/notification-mute.js`
+  `readNotificationMute`; the router refuses a plan whose mute step disagrees with it.
 
 Requirement contents: severity **blocker**, automation mode `automatable`, ordered
 **first among setup writes** (before app installs, collection creation, and any other
@@ -191,6 +202,23 @@ use the CLI-minted site token (`WIX_AUTH_TOKEN`) — an account API key gets 403
 **Config validation (fail fast):** `WIX_MUTE_NOTIFICATIONS=off` together with
 `WIX_SITE_STRATEGY=new` is a validation error — halt with the config conflict recorded
 rather than emitting artifacts. (`rp-import-codegen` re-validates the same rule.)
+
+## Wix site locale (currency, time zone, language, locale)
+
+Any migration into Wix needs the destination site's payment currency, time zone and language to match the
+business (a Wix price carries no currency of its own). Emit the **`import-site-locale`** requirement and
+step as a pair by running, after you
+write `setup/setup-plan.json` and `setup/setup-requirements.json` and **before** `cms-fallback.js stamp-plan`:
+
+```bash
+node skills/wix-replatform/scripts/site-regional.js emit <project>
+```
+
+It places the entity after notification safety and before every app install or other setup write, and copies
+all planned entity refs plus their audited money/wall-clock/neutral classifications into the requirement.
+Missing source locale data remains a blocker rather than an exemption. Never hand-write either half;
+`rp-execute-setup` fails closed when only one exists. `quick-setup-plan.js` does the same for quick runs. What
+the entity may write, and when it asks the owner, is decided at execution time. Every import task builds on it.
 
 ## Crosswalk authority and CMS mirror
 
@@ -212,6 +240,20 @@ share one contract.
 
 Do not assert "manual" / "cannot self-provision" by assumption — check the API surface.
 
+- Any task that writes, adopts or depends on a `stores/*` entity (and so every order, which
+  depends on `stores/product` and `stores/coupon`) needs an `install-wix-stores` step in the
+  setup plan, even when the products themselves are adopt-only. `lib/app-requirements.js` is
+  the machine-readable list; dependency readiness blocks those tasks with
+  `app_install_step_missing:wix-stores` when the step is absent.
+  A passed receipt is not enough: the step's check must be an `installed-apps-read` of the
+  Stores app id with `installed: true`, otherwise the task is blocked with
+  `app_install_not_read_back:wix-stores` and setup reruns (a receipt from an older installer
+  that recorded an install response, or another app, never satisfies it).
+- A task that writes `stores/review` also needs an **`install-wix-reviews`** step, and one
+  that writes `stores/back-in-stock-request` needs **`install-wix-back-in-stock`** followed by
+  **`start-back-in-stock-collection`** (turns on "Notify When Available"; emit it only when
+  the source has requests). `lib/app-requirements.js` lists both apps; the collection step is
+  read back from the Back in Stock settings. Both are automatable.
 - Enabling a Wix app (Blog, Members, etc.) **is** automatable via the App Installation
   API; classify it automatable and cite the method. (Common trap: do not mark Blog or
   Members "cannot self-provision" — both are installable via the API.)
@@ -251,3 +293,7 @@ verification aid is unavailable, use the documented fallback and mark the requir
 - Be explicit about which requirements come from which mapping decision.
 - Do not guess setup names or enum values when you cannot verify them. Mark them
   `unverified` and surface the risk before execution.
+
+## Field-preservation compatibility
+
+Resolved custom-field decisions specify concrete types, limits, permissions and source/parent linkage. Admit extended fields only under the existing Orders/Products/Contacts string/TEXT predicates; root-entity storage, `_user_fields`, migration-internal permissions, contacts-v5 default and explicit contacts-v4 choice still apply. Unsupported types/entities/subrecords use precisely bound CMS. Use the automated create-cms-collections requirement. Read compatible existing field types, reference metadata and permissions before reuse; an ID hit or 409 is insufficient. Conflicts return to mapping/setup recovery without delete/recreate or visitor exposure. Preserve absent-source and retention rules.

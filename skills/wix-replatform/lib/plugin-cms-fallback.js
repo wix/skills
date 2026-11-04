@@ -156,6 +156,90 @@ function cmsFallbackDecisionKeys(decisions = {}) {
   return Object.keys(decisions || {}).filter(isCmsFallbackDecisionKey).sort();
 }
 
+// ---- operator override: CMS instead of a native target -------------------------------
+//
+// The signed register above covers the DEFAULT fallback only: capabilities nothing native fits.
+// An operator may also choose a private CMS archive for a capability a native Wix target claims.
+// That answer is `mappingTargetOverride:<capability>` = { value: 'cms', source: 'user',
+// approvedBy, decidedAt, rationale, proposal, proposalDigest }, bound to the offer the native
+// coverage row shows (`mappingTargetOverride` on the row). No register entry, agent or
+// automation mode supplies it; one-click never records it.
+
+const OVERRIDE_PREFIX = 'mappingTargetOverride:';
+const OVERRIDE_VALUES = new Set(['cms']);
+const OVERRIDE_TARGET_REFS = Object.freeze(['cms/collection', 'cms/data-item']);
+
+function overrideDecisionKey(capability) {
+  return `${OVERRIDE_PREFIX}${capability}`;
+}
+
+function isMappingTargetOverrideKey(key) {
+  return typeof key === 'string' && key.startsWith(OVERRIDE_PREFIX);
+}
+
+function overrideCapabilityOfKey(key) {
+  return isMappingTargetOverrideKey(key) ? key.slice(OVERRIDE_PREFIX.length) : null;
+}
+
+function mappingTargetOverrideKeys(decisions = {}) {
+  return Object.keys(decisions || {}).filter(isMappingTargetOverrideKey).sort();
+}
+
+// The offer for one natively routed capability: every entity it resolves to goes to a private
+// CMS collection, and the featureLoss sentence names the native target given up.
+function mappingTargetOverrideProposal({ capability, entityKeys = [], nativeTargetRefs = [] } = {}) {
+  const targetRefsByEntity = canonicalTargetRefsByEntity(Object.fromEntries(
+    [...entityKeys].map((key) => [key, [...OVERRIDE_TARGET_REFS]]),
+  ));
+  const native = [...nativeTargetRefs].map(String).sort();
+  const featureLoss = `Records are kept as private Wix CMS data instead of ${native.length ? native.join(', ') : 'the native Wix target'}; that Wix feature does not receive them or act on them.`;
+  return { capability, targetRefsByEntity, featureLoss, nativeTargetRefs: native };
+}
+
+function mappingTargetOverrideShape(key, value) {
+  if (!isPlainObject(value)) return { ok: false, problem: 'not-object' };
+  const capability = overrideCapabilityOfKey(key);
+  if (!capability) return { ok: false, problem: 'capability-missing' };
+  if (!OVERRIDE_VALUES.has(value.value)) return { ok: false, problem: 'value-invalid' };
+  if (value.source !== 'user') return { ok: false, problem: 'source-not-user' };
+  if (!isValidDecidedAt(value.decidedAt)) return { ok: false, problem: 'decided-at-invalid' };
+  if (typeof value.approvedBy !== 'string' || value.approvedBy.trim().length === 0) {
+    return { ok: false, problem: 'approved-by-missing' };
+  }
+  if (!isPlainObject(value.proposal) || !isPlainObject(value.proposal.targetRefsByEntity)
+      || typeof value.proposal.featureLoss !== 'string') {
+    return { ok: false, problem: 'proposal-missing' };
+  }
+  const rehash = cmsFallbackProposalDigest({ capability, ...value.proposal });
+  if (typeof value.proposalDigest !== 'string' || rehash !== value.proposalDigest) {
+    return { ok: false, problem: 'digest-mismatch' };
+  }
+  return { ok: true, problem: null };
+}
+
+// What a stored override means against the offer computed now:
+//   none | cms | stale (valid shape, different offer) | invalid (quarantined)
+function evaluateMappingTargetOverride({ capability, proposal = null, decisions = {} }) {
+  const key = overrideDecisionKey(capability);
+  const raw = decisions ? decisions[key] : undefined;
+  if (raw === undefined) return { state: 'none', key, raw: null };
+  const shape = mappingTargetOverrideShape(key, raw);
+  if (!shape.ok) return { state: 'invalid', key, raw, problem: shape.problem };
+  if (!proposal || raw.proposalDigest !== cmsFallbackProposalDigest(proposal)) return { state: 'stale', key, raw };
+  return { state: raw.value, key, raw };
+}
+
+// The mapping-review notice for a native route whose target has a side effect the operator
+// should weigh against the CMS override. Keyed by target ref; null when none applies.
+const NATIVE_ROUTE_NOTICES = Object.freeze({
+  'forms/form-submission': 'Old entries will be added to Wix Forms. While they import, the toolkit tries to turn off the form\'s submission emails to you and turns them back on afterwards. If it can\'t, you may get one email per old entry. Choose a private CMS archive instead to avoid Wix Forms entirely.',
+});
+
+function nativeRouteNotices(targetRefs = []) {
+  return Array.from(new Set(targetRefs || [])).sort()
+    .map((ref) => NATIVE_ROUTE_NOTICES[ref]).filter(Boolean);
+}
+
 // ---- resolution-input digest -----------------------------------------------------------
 
 function entitiesForCapability(entities, capability) {
@@ -208,7 +292,8 @@ function cmsFallbackResolutionInputs({
   const noMigrationCapabilities = (registers.noMigrationNeeded && registers.noMigrationNeeded.capabilities)
     || registers.noMigrationCapabilities || [];
   const keys = cmsFallbackDecisionKeys(decisions);
-  const keyedCapabilities = new Set(keys.map(capabilityOfKey).filter(Boolean));
+  const overrideKeys = mappingTargetOverrideKeys(decisions);
+  const keyedCapabilities = new Set([...keys.map(capabilityOfKey), ...overrideKeys.map(overrideCapabilityOfKey)].filter(Boolean));
   const registeredCapabilities = new Set(eligibleEntries.filter(Boolean).map((entry) => entry.capability));
 
   const declaredBy = new Map();
@@ -268,6 +353,9 @@ function cmsFallbackResolutionInputs({
       noMigrationNeeded: signedRegisterEntry(noMigrationCapabilities, capability),
       eligibility: signedRegisterEntry(eligibleEntries, capability, { requireSignature: false }),
       decision: decisions && decisions[decisionKey(capability)] !== undefined ? decisions[decisionKey(capability)] : null,
+      // Only present when an override is stored, so projects without one keep their digest.
+      ...(decisions && decisions[overrideDecisionKey(capability)] !== undefined
+        ? { mappingTargetOverride: decisions[overrideDecisionKey(capability)] } : {}),
     };
   }
 
@@ -276,6 +364,9 @@ function cmsFallbackResolutionInputs({
   const otherDecisions = {};
   for (const key of keys) {
     if (!capabilities[capabilityOfKey(key)]) otherDecisions[key] = decisions[key];
+  }
+  for (const key of overrideKeys) {
+    if (!capabilities[overrideCapabilityOfKey(key)]) otherDecisions[key] = decisions[key];
   }
 
   return { version: DIGEST_VERSION, capabilities, otherDecisions };
@@ -404,6 +495,12 @@ function stampPlanDigest(projectDir, plan) {
   }
   const source = readJsonStrict(sourcePath);
   const digest = source && source.inputs && source.inputs.cmsFallbackDigest;
+  if (typeof digest !== 'string' && plan === 'setup' && !fs.existsSync(paths.coverage)) {
+    // No plugin coverage: the mapping plan has no digest to copy, and the router's freshness
+    // chain (checkCmsFallbackFreshness) checks nothing either. A plugin-covered project with a
+    // missing digest still falls through to the error below.
+    return { stamped: false, reason: 'no plugin coverage; nothing to bind the setup plan to' };
+  }
   if (typeof digest !== 'string') {
     throw new Error(`${path.relative(projectDir, sourcePath)} carries no inputs.cmsFallbackDigest; regenerate it before stamping`);
   }
@@ -492,6 +589,7 @@ function cmsFallbackWriteGuard(projectDir, { decisions = null, pluginsRoot, targ
     const entryDigest = entry ? cmsFallbackProposalDigest(entry) : null;
     let reason = null;
     if (!isApprovedCmsFallbackRow(row)) reason = 'coverage-row-not-approved-cms';
+    else if (row.cmsFallback.override === true) reason = overrideRowRefusal(capability, row, decisionsFile, fresh);
     else if (!entry) reason = 'eligibility-missing';
     else if (evaluation.state !== 'approved') reason = `decision-${evaluation.state}`;
     else if (row.cmsFallback.proposalDigest !== entryDigest) reason = 'coverage-proposal-stale';
@@ -504,6 +602,17 @@ function cmsFallbackWriteGuard(projectDir, { decisions = null, pluginsRoot, targ
     }
   }
   return { capabilities: result, refusals, digest: { current, ...chain } };
+}
+
+// An operator-override CMS row: the stored override must be valid and bound to the offer the row
+// carries, and the resolution chain must be fresh (it covers profiles, target knowledge and the
+// override itself, so a row built from other inputs is refused).
+function overrideRowRefusal(capability, row, decisions, fresh) {
+  const proposal = { capability, targetRefsByEntity: row.cmsFallback.targetRefsByEntity, featureLoss: row.cmsFallback.featureLoss };
+  if (row.cmsFallback.proposalDigest !== cmsFallbackProposalDigest(proposal)) return 'coverage-proposal-stale';
+  const evaluation = evaluateMappingTargetOverride({ capability, proposal, decisions });
+  if (evaluation.state !== 'cms') return `override-${evaluation.state}`;
+  return fresh ? null : 'resolution-inputs-changed';
 }
 
 // ---- completion operator actions --------------------------------------------------------
@@ -529,6 +638,17 @@ function cmsFallbackOperatorActions({ coverage = null, refusals = [], previousWr
     const records = totalRecords(row);
     const proposal = proposalFromRow(row);
     if (refused.has(capability)) continue;
+    if (isApprovedCmsFallbackRow(row) && row.cmsFallback.override === true) {
+      actions.push({
+        code: 'mapping-target-override-archived-in-cms',
+        severity: 'medium',
+        action: `${capability}: records were archived in a private Wix CMS collection (${refsText(row.targetRefs)}) because the operator chose CMS over ${refsText(row.cmsFallback.nativeTargetRefs)}. ${proposal.featureLoss || ''} Review it; dismiss if that is still what you want.`.replace(/\s+/g, ' ').trim(),
+        deadlineReason: DEADLINE,
+        entity: capability,
+        affectedCount: records,
+      });
+      continue;
+    }
     if (isApprovedCmsFallbackRow(row)) {
       actions.push({
         code: 'plugin-cms-fallback-feature-absent',
@@ -615,4 +735,13 @@ module.exports = {
   proposalFromRow,
   cmsFallbackWriteGuard,
   cmsFallbackOperatorActions,
+  OVERRIDE_TARGET_REFS,
+  overrideDecisionKey,
+  isMappingTargetOverrideKey,
+  overrideCapabilityOfKey,
+  mappingTargetOverrideKeys,
+  mappingTargetOverrideProposal,
+  mappingTargetOverrideShape,
+  evaluateMappingTargetOverride,
+  nativeRouteNotices,
 };

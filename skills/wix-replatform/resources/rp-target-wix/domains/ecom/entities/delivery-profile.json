@@ -12,6 +12,7 @@
     "crosswalkRequired": true
   },
   "dependsOn": [],
+  "setupProducible": true,
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -34,13 +35,13 @@
   ],
   "preferredWrite": {
     "surface": "eCommerce Delivery Profiles",
-    "endpoint": "POST /ecom/v1/delivery-profiles/add-delivery-region",
-    "writerId": "addDeliveryRegion",
+    "endpoint": "POST /ecom/v1/delivery-profiles/{deliveryProfileId}/delivery-region (add) or PATCH .../delivery-region/{regionId} (update)",
+    "writerId": "ensureDeliveryRegion",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": false,
     "releaseStatus": "stable",
-    "decision": "Verified live: add source zones as delivery regions on the existing DEFAULT delivery profile, then attach each zone's methods with addDeliveryCarrier. Each region write is followed by one or more carrier writes using the returned region ID. createDeliveryProfile remains available for projects that deliberately need a separate profile. Read profiles with GET /ecom/v1/delivery-profiles/{id} or POST /ecom/v1/delivery-profiles/query; there is no GET list endpoint."
+    "decision": "Verified live: write each source zone through ensureDeliveryRegion on the existing DEFAULT delivery profile, then attach the zone's methods with addDeliveryCarrier and its rates with runShippingOptionStage, using the returned deliveryRegionId. ensureDeliveryRegion reads the profile first and never sends a colliding add: a region with the same destinations is reused (renamed to the zone), a region that covers only part of the zone is extended to it, and destinations another region keeps are reported. A new site's default profile already covers the site's own country, so a plain addDeliveryRegion for the store's home zone always failed with 428 DESTINATIONS_COLLISION (a live migration on 2026-10-28, IL). addDeliveryRegion stays accepted for importers generated before this writer. createDeliveryProfile remains available for projects that deliberately need a separate profile. Read profiles with GET /ecom/v1/delivery-profiles/{id} or POST /ecom/v1/delivery-profiles/query; there is no GET list endpoint."
   },
   "reliability": {
     "status": "partially-reliable",
@@ -68,6 +69,11 @@
       "summary": "Installing Wix Stores/Bookings/Events/Restaurants auto-creates a default profile (observed: \"General profile\" with Domestic + International regions already bound to Basic Shipping). `default` is read-only, cannot be transferred, and the default profile cannot be deleted — plan Woo zones as regions added to that existing default (the normal path) or as additional profiles, and never assume an empty shipping config."
     },
     {
+      "code": "default-profile-covers-the-home-country",
+      "severity": "blocker",
+      "summary": "LIVE-VERIFIED 2026-10-28 on a new site after installing Wix Stores: the default \"General profile\" holds \"Domestic\" (the site's own country, whole) and \"International\" (no destinations = rest of world), each with the Basic Shipping carrier and an unconditional \"Free shipping\" option (amount 0). A source zone for the same country cannot be added beside Domestic (428 DESTINATIONS_COLLISION), which left the zone's rates unwritten and its options blocked as dependency-not-ready (a live migration on 2026-10-28). Use ensureDeliveryRegion: it reuses Domestic for that zone. On a NEW site, runShippingOptionStage then deletes that Wix placeholder (exactly: title \"Free shipping\", one unconditional zero rate) once the migration's own options are on the region, records the full option in execution/shipping-placeholder-deletions.json before the DELETE, and reports it (shipping-placeholder-option-deleted). On an existing site, and for any other option already on the region, nothing is deleted: shipping-region-preexisting-options asks the Cutover Operator. Delete Shipping Option LIVE-VERIFIED 2026-10-28: 200 {}, then 404 on read-back and on a repeat delete."
+    },
+    {
       "code": "response-field-is-deliveryRegions-not-regions",
       "severity": "blocker",
       "summary": "LIVE-VERIFIED: a DeliveryProfile object's regions array is `deliveryRegions` on every response that returns one (query, get, addDeliveryRegion, removeDeliveryRegion, addDeliveryCarrier, removeDeliveryCarrier) -- there is no `.regions` field at all on the raw HTTP response. A caller that reads `.regions` directly off a raw response after a successful addDeliveryRegion gets an empty array/undefined every time, so a follow-up 'find the region I just added by name' lookup silently fails even though the write itself returned 200 and the region really was created. This is exactly the class of defect the coupon/order request-shape bugs were: the write succeeds, the caller's OWN read of the response is wrong. Also confirmed live: removeDeliveryRegion cascades that region's own carriers in the same call -- no separate removeDeliveryCarrier first. ADDENDUM: `wix-writers.js`'s own DeliveryProfile-returning functions (createDeliveryProfile, queryDeliveryProfiles, addDeliveryRegion, etc.) now normalize their return value through `withRegionsAlias`, which mirrors `deliveryRegions` onto a `.regions` property -- so reading `.regions` off THIS LIBRARY's own return values is safe and either name works. The gap this pitfall documents still applies in full to a raw HTTP response read directly (bypassing this library's writers), which never gets that alias."
@@ -75,7 +81,7 @@
     {
       "code": "destination-and-subdivision-limits",
       "severity": "warning",
-      "summary": "Caps: 99 profiles/site, 100 regions/profile, 250 destinations/site, 100 subdivisions/destination. Overlapping destinations inside one profile fail with DESTINATIONS_COLLISION. AT, BE, BS, CH, CI, CZ, DO, GR, NO, PL, RS, SD, SI, SK and SN reject subdivisions entirely (SUBDIVISIONS_UNSUPPORTED_FOR_COUNTRY) — a Woo zone scoped to a state in those countries must widen to the whole country and be ledgered."
+      "summary": "Caps: 99 profiles/site, 100 regions/profile, 250 destinations/site, 100 subdivisions/destination. Inside one profile a repeated destination fails with 428 DESTINATIONS_COLLISION: the same whole country in two regions, or the same subdivision in two regions (LIVE-VERIFIED 2026-10-28). A subdivision inside a country another region covers whole is accepted, and the rest-of-world region (no destinations) collides with nothing. AT, BE, BS, CH, CI, CZ, DO, GR, NO, PL, RS, SD, SI, SK and SN reject subdivisions entirely (SUBDIVISIONS_UNSUPPORTED_FOR_COUNTRY) — a Woo zone scoped to a state in those countries must widen to the whole country and be ledgered."
     },
     {
       "code": "continent-zones-need-expansion",
@@ -131,7 +137,7 @@
     "Verify the economics, never the row count: after writing, assert that nothing is free-and-unconditional while something else on the same region costs money, that no shipping option came from a pickup method, that each carrier's appId matches its role, and that no two options on a region are identical. shipping-build.js's verifyShippingEconomics does this. A store can be left broken in several ways at once while a row-count check reports success.",
     "Report every resolution as well as every gap. A source defect that is silently cleaned up is indistinguishable from one that was never noticed, and leaves the merchant no way to confirm the intent was read correctly — surface collapsed duplicates, folded thresholds and removed coupon rows in the merchant's own terms at the approval gate.",
     "Never speculatively create a region for WooCommerce's unused default catch-all zone (id 0, empty locations and methods on a fresh install) — shipping-build.js's planShippingZones skips it, same discipline as the tax domain never creating a group for an unused default tax class.",
-    "Present the zone-to-profile plan (and every flagged gap: carrier-calculated methods, continent zones without a country table yet, lost free-shipping conditions, per-class cost overrides, postcode zones) at the setup approval gate as configuration, separate from data imports."
+    "Present the zone-to-profile plan (and every flagged gap: carrier-calculated methods, continent zones without a country table yet, lost free-shipping conditions, per-class cost overrides, postcode zones) at the approval gate as configuration, separate from data imports. When the mapping imports the zones, the region writes are an import task that owns ecom/delivery-profile; a setup step may check that the default profile exists but lists no entityRefs for it."
   ],
   "setupRequirements": [
     "Wix Stores app (eCommerce checkout) — auto-creates the site's one default delivery profile."

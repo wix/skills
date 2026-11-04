@@ -21,7 +21,7 @@
 // Text is made transparent (layout unchanged) and position:fixed elements (floating
 // buttons, chat widgets, cookie bars), including those in shadow DOM, are removed.
 import { chromium } from 'playwright';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : dflt; };

@@ -4,6 +4,8 @@
 // Public-only Shopify quick-mode capture. It intentionally has no credential, browser, or
 // endpoint-fallback path. All product-specific writes go through rp-target-wix.
 const capabilities = require('../../../lib/execution-capability');
+const siteRegional = require('../../../lib/site-regional');
+const wixAuth = require('../../../lib/wix-auth');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -11,6 +13,7 @@ const ADAPTER_DIR = path.resolve(__dirname, '..');
 const CONTRACT_PATH = path.join(ADAPTER_DIR, 'quick-mode.json');
 const CONTRACT = require(CONTRACT_PATH);
 const sourceCoverage = require(path.join(ADAPTER_DIR, '..', '..', 'lib', 'source-coverage.js'));
+const sourceRegional = require(path.join(ADAPTER_DIR, '..', '..', 'lib', 'source-regional.js'));
 const { buildProduct, toWixSlug } = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-build.js'));
 const inventory = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'stores-inventory.js'));
 const recovery = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'limit-recovery.js'));
@@ -18,6 +21,7 @@ const importProgress = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 
 
 const verification = require('../../rp-target-wix/lib/write-verification');
 const verificationState = require('../../../lib/write-verification-state');
+const catalogBaseline = require('../../../lib/catalog-baseline');
 const PRODUCT_LIMIT = 250;
 const MAX_DESCRIPTION_LENGTH = 16000;
 // Requests stay serial and paced; a full catalog is a handful of pages, so a short delay is
@@ -56,6 +60,8 @@ const IMAGE_CONNECTION = 'images(first: 20) { pageInfo { hasNextPage endCursor }
 const MEMBERSHIP_CONNECTION = 'collections(first: 50) { pageInfo { hasNextPage endCursor } nodes { id } }';
 const PRODUCTS_QUERY = `query QuickProducts($first: Int!, $after: String) { products(first: $first, after: $after) { pageInfo { hasNextPage endCursor } nodes { id handle title vendor productType tags descriptionHtml publishedAt options { name optionValues { name } } ${IMAGE_CONNECTION} ${MEMBERSHIP_CONNECTION} ${PRODUCT_CONNECTION} } } }`;
 const COLLECTIONS_QUERY = 'query QuickCollections($first: Int!, $after: String) { collections(first: $first, after: $after) { pageInfo { hasNextPage endCursor } nodes { id handle title descriptionHtml updatedAt } } }';
+// The storefront's own currency, language and country (the store's default market). It carries no time zone.
+const LOCALIZATION_QUERY = 'query QuickLocalization { localization { country { isoCode currency { isoCode } } language { isoCode } } }';
 // A product whose nested list exceeds the first page is completed through its own cursor.
 const NESTED_QUERIES = {
   variants: 'query QuickVariants($id: ID!, $after: String) { product(id: $id) { variants(first: 250, after: $after) { pageInfo { hasNextPage endCursor } nodes { id title sku availableForSale price { amount } compareAtPrice { amount } selectedOptions { name value } } } } }',
@@ -141,6 +147,14 @@ function toProductRow(node, variants, images) {
     }),
   };
 }
+// Best effort: a failed or empty read leaves the regional values unknown, it never blocks the capture.
+async function readLocalization(endpoint, io) {
+  const result = await storefrontQuery(endpoint, LOCALIZATION_QUERY, {}, io);
+  const localization = result.ok ? result.body.data.localization : null;
+  if (!localization) return { ok: false, errorCodes: result.errorCodes || [] };
+  const country = localization.country || {};
+  return { ok: true, countryCode: text(country.isoCode) || null, currencyCode: text(country.currency && country.currency.isoCode) || null, languageCode: text(localization.language && localization.language.isoCode) || null };
+}
 async function captureSource(origin, io = defaultIo) {
   const endpoint = storefrontEndpoint(origin);
   const productNodes = await fetchConnection(endpoint, PRODUCTS_QUERY, 'products', PRODUCT_LIMIT, io);
@@ -149,6 +163,7 @@ async function captureSource(origin, io = defaultIo) {
   // A blocked product read ends the capture: nothing downstream can be trusted, and the retry budget is spent.
   if (!productNodes.ok) return { products, collections: { ok: false, status: 0, url: endpoint, responseShape: 'not_attempted', errorCodes: [], attempts: 0, records: [], pages: [] }, memberships, membershipChecks };
   const collectionNodes = await fetchConnection(endpoint, COLLECTIONS_QUERY, 'collections', PRODUCT_LIMIT, io);
+  const localization = await readLocalization(endpoint, io);
   for (const node of productNodes.records) {
     const [variants, images, collections] = [await completeNested(endpoint, node, 'variants', io), await completeNested(endpoint, node, 'images', io), await completeNested(endpoint, node, 'collections', io)];
     const incomplete = [['variants', variants], ['images', images], ['collections', collections]].filter(([, result]) => !result.ok);
@@ -157,7 +172,7 @@ async function captureSource(origin, io = defaultIo) {
     for (const collection of collections.nodes) memberships.push({ collectionId: legacyId(collection.id), productId: legacyId(node.id) });
   }
   const collections = { ...collectionNodes, records: collectionNodes.records.map((node) => ({ id: legacyId(node.id), handle: node.handle, title: node.title, body_html: node.descriptionHtml || '', updated_at: node.updatedAt || null })) };
-  return { products, collections, memberships, membershipChecks };
+  return { products, collections, memberships, membershipChecks, localization };
 }
 // A blocked read is recorded with everything an operator needs: the connection, the page, the
 // last status, the GraphQL error codes and how many calls were made.
@@ -177,6 +192,27 @@ async function preflight(projectDir, io = defaultIo) {
   if (out.status === 'passed') await writeJson(path.join(projectDir, 'quick-mode', 'preflight-capture.json'), { schemaVersion: 1, generatedAt: out.generatedAt, adapter, sourceUrl, data });
   return out;
 }
+// The storefront's language code is an enum (`HE`, `PT_BR`); the regional library decides whether it is valid.
+function storefrontLanguage(code) {
+  if (!code) return undefined;
+  const [language, region] = code.toLowerCase().split('_');
+  return { value: language, locale: region ? `${language}-${region.toUpperCase()}` : undefined, evidence: 'storefront localization.language.isoCode' };
+}
+// Writes discovery/source-locale.json from the capture `preflight` stored. Time zone is not on the storefront.
+async function writeQuickRegional(projectDir, generatedAt) {
+  const capture = await readJsonIfPresent(path.join(projectDir, 'quick-mode', 'preflight-capture.json'));
+  const read = capture && capture.data ? capture.data.localization : null;
+  const gap = (evidence) => ({ reason: read && read.ok === false ? 'unreadable' : 'not-exposed', evidence });
+  const file = sourceRegional.buildSourceRegional({
+    adapter: 'quick-shopify',
+    generatedAt,
+    currency: read && read.currencyCode ? { value: read.currencyCode, evidence: 'storefront localization.country.currency.isoCode' } : gap('storefront localization'),
+    timeZone: { reason: 'not-exposed', evidence: 'the storefront API has no time zone' },
+    primaryLanguage: (read && storefrontLanguage(read.languageCode)) || gap('storefront localization'),
+    country: read && read.countryCode ? { value: read.countryCode, evidence: 'storefront localization.country.isoCode' } : gap('storefront localization'),
+  });
+  await sourceRegional.writeSourceRegional(projectDir, file);
+}
 async function plan(projectDir) {
   const { sourceUrl } = await context(projectDir); const preflightResult = await readJson(path.join(projectDir, 'quick-mode', 'preflight.json'));
   if (preflightResult.status !== 'passed') throw new Error('quick mode preflight must pass before planning');
@@ -185,6 +221,7 @@ async function plan(projectDir) {
   // Every excluded[] capability becomes a declared-exclusion coverage row, checked by the same
   // reconcile rule as a full run before the plan is written.
   const coverage = await sourceCoverage.writeQuickPlanCoverage(projectDir, CONTRACT, { rawText: await fs.readFile(CONTRACT_PATH, 'utf8'), generatedAt });
+  await writeQuickRegional(projectDir, generatedAt);
   const out = { schemaVersion: 1, generatedAt, managementImportMode: 'quick', adapter, sourceUrl, entities: CONTRACT.entities, requiredWixCapabilities: CONTRACT.requiredWixCapabilities, excluded: CONTRACT.excluded, excludedCapabilities: CONTRACT.excludedCapabilities, sourceAuth: 'none', sourceCoverageContract: coverage.sourceCoverageContract };
   await writeJson(path.join(projectDir, 'quick-mode', 'plan.json'), out);
   await fs.writeFile(path.join(projectDir, 'quick-mode', 'plan.md'), `# Shopify quick-mode plan\n\nAdapter: ${adapter.id} ${adapter.version}\n\nImported: collections, products, variants, tags, media, and collection membership.\n\nExcluded: ${CONTRACT.excluded.join(', ')}.\n`);
@@ -219,6 +256,8 @@ async function extract(projectDir, io = defaultIo) {
   await writeJson(path.join(projectDir, 'data', 'source-extract', 'manifest.json'), manifest); return manifest;
 }
 async function loadWixEnv(projectDir) { const values = {}; try { for (const line of (await fs.readFile(path.join(projectDir, 'config', 'wix.env'), 'utf8')).split(/\r?\n/)) { const match = line.trim().match(/^([A-Z0-9_]+)=(.*)$/); if (match) values[match[1]] = match[2].replace(/^['"]|['"]$/g, '').trim(); } } catch (error) { if (error.code !== 'ENOENT') throw error; } return { ...values, ...process.env }; }
+// A token from config/wix.env renews itself for this site; a process-env override is used as given.
+function wixCredentials(projectDir, env, dryRun) { return dryRun || process.env.WIX_AUTH_TOKEN ? { authToken: env.WIX_AUTH_TOKEN } : { tokenSource: wixAuth.createWixTokenSource({ projectDir, siteId: env.WIX_SITE_ID }) }; }
 async function loadCrosswalk(projectDir) { try { return await readJson(path.join(projectDir, 'state', 'crosswalk', 'quick-shopify.json')); } catch (error) { if (error.code === 'ENOENT') return {}; throw error; } }
 function canonicalProduct(row) {
   if (!text(row.id) || !text(row.title) || !text(row.handle)) throw new Error('missing product id, title, or handle');
@@ -336,6 +375,7 @@ async function finalizeReverification(projectDir, staged, hooks = {}) {
   completion.imported = { ...(completion.imported || {}), product: staged.importedProduct };
   completion.verification = { ...(completion.verification || {}), product: staged.verificationProduct };
   completion.status = staged.status;
+  catalogBaseline.quickReport(projectDir, completion);
   await writeJsonAtomic(report, completion);
   if (hooks.afterCompletionReport) await hooks.afterCompletionReport();
   await recovery.writeFinalReport(projectDir, completion, { dryRun: false });
@@ -359,7 +399,7 @@ async function reverify(projectDir, { wix: injectedWix, writers: injectedWriters
   const completion = await readJson(path.join(projectDir, COMPLETION_REPORT));
   const listed = (completion.writtenUnverified && completion.writtenUnverified.product) || [];
   if (!listed.length) throw new Error('the completion report lists no written-unverified products: nothing to re-check');
-  const wix = injectedWix || writers.createWixClient({ dryRun: false, authToken: env.WIX_AUTH_TOKEN, siteId: env.WIX_SITE_ID, projectDir });
+  const wix = injectedWix || writers.createWixClient({ dryRun: false, siteId: env.WIX_SITE_ID, projectDir, ...wixCredentials(projectDir, env, false) });
   const crosswalk = await loadCrosswalk(projectDir);
   const tagIds = new Map(Object.entries(crosswalk.product_tag || {}).filter(([, id]) => id));
   const rows = new Map((await readNdjson(file(projectDir, 'product'))).map((row) => [String(row.id), row]));
@@ -378,7 +418,7 @@ async function reverify(projectDir, { wix: injectedWix, writers: injectedWriters
       refreshedVerification.set(sourceId, { sourceKey: sourceId, targetId: entry.targetId, receipt });
       if (receipt.verified) cleared.push(sourceId);
       else { remaining.push(sourceId); kept.push({ ...entry, failedFields: failedFieldsOf(receipt) }); }
-    } catch (error) {
+    } catch (error) { if (wixAuth.isRunInterruption(error)) throw error;
       remaining.push(sourceId); kept.push(entry); errors.push({ sourceId, status: httpStatusOf(error) });
       if (!refreshedVerification.has(sourceId)) refreshedVerification.set(sourceId, { sourceKey: sourceId, targetId: entry.targetId, outcome: 'needs_verification' });
     }
@@ -405,118 +445,159 @@ async function importData(projectDir) {
   const env = await loadWixEnv(projectDir); if (!env.WIX_AUTH_TOKEN || !env.WIX_SITE_ID) throw new Error('WIX_AUTH_TOKEN and WIX_SITE_ID are required for quick import');
   const writers = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-writers.js')); const dryRun = writers.createDryRunConfig(env, process.argv.slice(2)).dryRun;
   const quickRun = capabilities.startQuickRun({ projectDir, adapterId: 'quick-shopify', siteId: env.WIX_SITE_ID, dryRun });
-  const clientFor = (id) => writers.createWixClient({ capability: capabilities.bindQuickEntity(quickRun, id), authToken: env.WIX_AUTH_TOKEN });
-  let wix = clientFor('collection'); const crosswalk = await loadCrosswalk(projectDir);
+  // The site's currency is checked before an entity that writes money-bearing records gets its write
+  // capability. A refused entity gets no client and writes nothing; whatever depends on it is skipped
+  // too. The gate records its own row.
+  const regionalRefused = {};
+  const clientFor = async (id) => {
+    const entity = CONTRACT.entities.find((row) => row.id === id);
+    const upstream = entity.dependsOn.find((dependency) => regionalRefused[dependency]);
+    if (upstream) { regionalRefused[id] = 'DEPENDENCY_REFUSED'; return null; }
+    // Every other entity builds on the regional setup step: a held entity writes nothing (files only; no site read).
+    const dependency = siteRegional.regionalDependency({ projectDir, siteId: env.WIX_SITE_ID, entityRefs: [entity.target, ...(entity.auxiliaryTargets || [])] });
+    if (!dependency.ok) { regionalRefused[id] = dependency.code; return null; }
+    return writers.createWixClient({ capability: capabilities.bindQuickEntity(quickRun, id), ...wixCredentials(projectDir, env, dryRun) });
+  };
+  const crosswalk = await loadCrosswalk(projectDir);
   const remember = (entity, sourceId, targetId) => { if (!dryRun) { crosswalk[entity] ||= {}; crosswalk[entity][String(sourceId)] = targetId; } }; const seen = (entity, id) => crosswalk[entity]?.[String(id)];
   const checkpoint = async () => { if (!dryRun) await writeJson(path.join(projectDir, 'state', 'crosswalk', 'quick-shopify.json'), crosswalk); };
   const excludedCollections = manifest.entities?.collection?.excluded || [];
-  const summary = { schemaVersion: 1, generatedAt: new Date().toISOString(), managementImportMode: 'quick', adapter: planResult.adapter, dryRun, imported: {}, skipped: { product: [] }, recovered: 0, recoveryCounts: {}, excluded: CONTRACT.excluded, excludedCollections };
-  const categoryIds = new Map(); const collectionRows = await readNdjson(file(projectDir, 'collection'));
-  // Category capacity: decided before the first write. A dry run cannot see the
-  // destination, so it applies the same rule with the built-in category as the floor.
-  const existingCategories = dryRun ? new Map() : new Map((await writers.queryAllStoresCategories(wix)).map((category) => [category.slug, category]));
-  const existingCount = dryRun ? 1 : liveExistingCount(existingCategories);
-  const capacity = categoryCapacity({ existingCount, rows: collectionRows, seen: dryRun ? () => false : (id) => seen('collection', id), existingSlugs: existingCategories });
-  const capacityRecord = { schemaVersion: 1, status: capacity.exceeds ? 'blocked' : dryRun ? 'passed_at_floor' : 'passed', existingCount, toCreate: capacity.toCreate, max: capacity.max, populatedSourceCount: collectionRows.length, ...(dryRun ? { existingCountBasis: 'built_in_floor', destinationHeadroom: 'unknown' } : { builtInCountedSeparately: !existingCategories.has('all-products') }) };
-  await writeJson(path.join(projectDir, dryRun ? 'execution/dry-run-category-capacity.json' : 'quick-mode/category-capacity.json'), capacityRecord);
-  if (capacity.exceeds) {
-    if (!dryRun) throw new Error(`Wix Stores category limit: site has ${existingCount} categories and this import must create ${capacity.toCreate} more (max ${capacity.max} per site); free categories on the destination or stop`);
-    Object.assign(summary, { status: 'blocked', reason: 'category_capacity', categoryCapacity: capacityRecord }); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir));
-    await recovery.writeFinalReport(projectDir, summary, { dryRun: true }); await writeJson(path.join(projectDir, 'execution', 'dry-run-completion-report.json'), summary); return summary;
+  const summary = { schemaVersion: 1, generatedAt: new Date().toISOString(), managementImportMode: 'quick', adapter: planResult.adapter, dryRun, imported: {}, skipped: { product: [] }, recovered: 0, recoveryCounts: {}, excluded: CONTRACT.excluded, excludedCollections, regionalRefused };
+  const categoryIds = new Map();
+  let wix = await clientFor('collection');
+  // Durable pre-write evidence, before the first destination create (idempotent: a refused first entity
+  // must not claim a start, and the marker must exist before whichever entity writes first).
+  let startedMarker = false;
+  const markStarted = async () => { if (!dryRun && !startedMarker) { startedMarker = true; await importProgress.writeQuickImportStartedMarker(projectDir, planResult.adapter); } };
+  if (wix) {
+    const collectionRows = await readNdjson(file(projectDir, 'collection'));
+    // Category capacity: decided before the first write. A dry run cannot see the
+    // destination, so it applies the same rule with the built-in category as the floor.
+    // Categories that were on the store before this import still take a slot, but are
+    // never adopted for a source collection: a slug match on one is held as a collision.
+    const destinationCategories = dryRun ? [] : await writers.queryAllStoresCategories(wix);
+    const baselineCategoryIds = catalogBaseline.protectedIds(projectDir).categories;
+    const allCategorySlugs = new Map(destinationCategories.map((category) => [category.slug, category]));
+    const existingCategories = new Map(destinationCategories.filter((category) => !baselineCategoryIds.has(category.id)).map((category) => [category.slug, category]));
+    const existingCount = dryRun ? 1 : liveExistingCount(allCategorySlugs);
+    const capacity = categoryCapacity({ existingCount, rows: collectionRows, seen: dryRun ? () => false : (id) => seen('collection', id), existingSlugs: allCategorySlugs });
+    const capacityRecord = { schemaVersion: 1, status: capacity.exceeds ? 'blocked' : dryRun ? 'passed_at_floor' : 'passed', existingCount, toCreate: capacity.toCreate, max: capacity.max, populatedSourceCount: collectionRows.length, ...(dryRun ? { existingCountBasis: 'built_in_floor', destinationHeadroom: 'unknown' } : { builtInCountedSeparately: !allCategorySlugs.has('all-products') }) };
+    await writeJson(path.join(projectDir, dryRun ? 'execution/dry-run-category-capacity.json' : 'quick-mode/category-capacity.json'), capacityRecord);
+    if (capacity.exceeds) {
+      if (!dryRun) throw new Error(`Wix Stores category limit: site has ${existingCount} categories and this import must create ${capacity.toCreate} more (max ${capacity.max} per site); free categories on the destination or stop`);
+      Object.assign(summary, { status: 'blocked', reason: 'category_capacity', categoryCapacity: capacityRecord }); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir));
+      await recovery.writeFinalReport(projectDir, summary, { dryRun: true }); await writeJson(path.join(projectDir, 'execution', 'dry-run-completion-report.json'), summary); return summary;
+    }
+    await markStarted();
+    for (const row of collectionRows) { try { const key = toWixSlug(row.handle); const savedCategory = seen('collection', row.id); const held = savedCategory ? (baselineCategoryIds.has(savedCategory) && { id: savedCategory }) : !existingCategories.has(key) && allCategorySlugs.get(key); if (held) { catalogBaseline.recordCollision(projectDir, { entity: 'stores/category', sourceKey: String(row.id), targetId: held.id, slug: key }); throw catalogBaseline.collisionError('stores/category', held.id); } const target = seen('collection', row.id) ? { id: seen('collection', row.id) } : existingCategories.get(key) || await writers.createStoresCategory(wix, { name: text(row.title), slug: key, description: text(row.body_html).slice(0, 600) || undefined, treeReference: writers.STORES_TREE_REFERENCE }); categoryIds.set(String(row.id), target.id); remember('collection', row.id, target.id); if (!dryRun) catalogBaseline.clearCollision(projectDir, 'stores/category', row.id); await checkpoint(); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; summary.skipped.collection ||= []; summary.skipped.collection.push({ sourceId: String(row.id), reason: error.message }); } }
+    summary.imported.collection = categoryIds.size;
+    capabilities.finishQuickEntity(quickRun, 'collection');
   }
-  // Durable pre-write evidence, before the first destination create. The
-  // crosswalk is checkpointed only after a create succeeds, so it cannot serve as this.
-  if (!dryRun) await importProgress.writeQuickImportStartedMarker(projectDir, planResult.adapter);
-  for (const row of collectionRows) { try { const key = toWixSlug(row.handle); const target = seen('collection', row.id) ? { id: seen('collection', row.id) } : existingCategories.get(key) || await writers.createStoresCategory(wix, { name: text(row.title), slug: key, description: text(row.body_html).slice(0, 600) || undefined, treeReference: writers.STORES_TREE_REFERENCE }); categoryIds.set(String(row.id), target.id); remember('collection', row.id, target.id); await checkpoint(); } catch (error) { summary.skipped.collection ||= []; summary.skipped.collection.push({ sourceId: String(row.id), reason: error.message }); } }
-  summary.imported.collection = categoryIds.size;
-  capabilities.finishQuickEntity(quickRun, 'collection'); wix = clientFor('product');
-  const existingTags = new Map(((await wix.send(writers.buildListStoresProductTagsRequest())).tags || []).map((tag) => [text(tag.name).toLowerCase(), tag]));
-  const tagIds = new Map(); let tagLimitReached = false;
-  for (const row of productRows) for (const name of (row.tags || [])) { const key = text(name).toLowerCase(); if (!key || tagIds.has(key)) continue; if (Object.prototype.hasOwnProperty.call(crosswalk.product_tag || {}, key)) { if (crosswalk.product_tag[key]) tagIds.set(key, crosswalk.product_tag[key]); continue; } if (tagLimitReached) { summary.skipped.product_tag ||= []; summary.skipped.product_tag.push({ sourceId: key, reason: 'destination_tag_limit_reached' }); remember('product_tag', key, null); await checkpoint(); continue; } try { const target = existingTags.get(key) || (await wix.send(writers.buildCreateStoresProductTagRequest(text(name)))).tag; tagIds.set(key, target.id); remember('product_tag', key, target.id); } catch (error) { if (!/TAG_NAME_ALREADY_EXISTS|TAGS_REACHED_LIMIT/.test(error.message)) throw error; tagLimitReached = /TAGS_REACHED_LIMIT/.test(error.message); summary.skipped.product_tag ||= []; summary.skipped.product_tag.push({ sourceId: key, reason: tagLimitReached ? 'destination_tag_limit_reached' : 'destination_tag_exists_but_is_not_returned_by_tag_list' }); remember('product_tag', key, null); } await checkpoint(); }
-  const catalog = await writers.queryAllStoresProducts(wix);
-  const existingProducts = new Map(catalog.map(product => [product.slug, product])); const productIds = new Map();
-  // Resolve collisions across the whole source set before any candidate product write.
-  // This pre-pass must call `toWixSlug` inside try/catch, like every other call site in this
-  // file -- otherwise one product whose handle sanitizes to a degenerate slug (e.g. an
-  // emoji/symbol-only handle, which `toWixSlug` rejects) crashes this `.map()` uncaught and
-  // aborts the ENTIRE quick-import run instead of being skipped for just that one row, same as
-  // every other per-row failure here.
-  const slugErrors = new Map();
-  const identities = productRows.map(row => {
-    let slug = null;
-    try {
-      slug = toWixSlug(row.handle);
-    } catch (error) {
-      slugErrors.set(String(row.id), error.message);
-    }
-    return { sourceId: String(row.id), slug,
-      targetId: seen('product', row.id) || seen('product_candidate', row.id) || (slug !== null ? existingProducts.get(slug)?.id : undefined) };
-  });
-  const ambiguousSources = new Set(identities.filter(identity =>
-    identities.some(other => other !== identity && (other.sourceId === identity.sourceId || other.slug === identity.slug || (identity.targetId && other.targetId === identity.targetId))) ||
-    catalog.filter(product => product.slug === identity.slug).length > 1
-  ).map(identity => identity.sourceId));
-  const inventoryRows = [], inventoryGaps = [], productVerification = [];
-  // Products that exist on the target with uniquely correlated variants but failed a field
-  // read-back (e.g. a description fragment Wix dropped). Stock and category membership depend
-  // only on product and variant identity, so they still apply; the product stays reported.
-  const unverifiedTargets = new Map();
-  const expectedVariants = productRows.reduce((count, row) => count + Math.max(1, (row.variants || []).length), 0);
-  for (const row of productRows) {
-    let stockQueued = false;
-    if (!dryRun && seen('product', row.id)) {
-      remember('product_candidate', row.id, seen('product', row.id));
-      delete crosswalk.product[String(row.id)];
-      await checkpoint();
-    }
-    try {
-      if (slugErrors.has(String(row.id))) throw new Error(slugErrors.get(String(row.id)));
-      if (ambiguousSources.has(String(row.id))) throw new Error('Ambiguous source product marker or target identity');
-      const { canonical, payload, normalized } = buildProductPayload(row, tagIds);
-      const knownId = seen('product', row.id) || seen('product_candidate', row.id);
-      const existing = knownId ? { id: knownId } : existingProducts.get(payload.slug);
-      const target = existing || await writers.createStoresProduct(wix, payload);
-      remember('product_candidate', row.id, target.id);
-      if (!dryRun && crosswalk.product) delete crosswalk.product[String(row.id)];
-      await checkpoint();
-      if (normalized.recoveries.length) { if (!dryRun) await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
-      if (!dryRun) {
-        // A post-write verification gate must not use the bare getStoresProduct read -- the same
-        // rule as at its sibling call site in product-import.js's verifyProductCandidate. The
-        // bare read omits plainDescription entirely and collapses media to `media.main` only (see
-        // getStoresProductForVerification's own comment in wix-writers.js), so `receipt.verified`
-        // below could never actually confirm either field, and a real loss there would pass
-        // silently instead of throwing.
-        const fullTarget = await readCreatedProduct(writers, wix, target.id);
-        const { receipt, correspondence } = verifyWrittenProduct(writers, { row, canonical, payload, fullTarget, targetId: target.id, siteId: env.WIX_SITE_ID });
-        writers.registerQuickInventoryScope(wix, canonical, fullTarget);
-        productVerification.push({ sourceKey: String(row.id), targetId: target.id, receipt });
-        if (!receipt.verified) {
-          inventoryRows.push(...correspondence); stockQueued = true; unverifiedTargets.set(String(row.id), { targetId: target.id, name: canonical.name, failedFields: failedFieldsOf(receipt) });
-          throw new Error('Product identity or values failed read-back');
-        }
-        inventoryRows.push(...correspondence);
+  const productIds = new Map(); const unverifiedTargets = new Map();
+  wix = await clientFor('product');
+  if (wix) {
+    await markStarted();
+    const existingTags = new Map(((await wix.send(writers.buildListStoresProductTagsRequest())).tags || []).map((tag) => [text(tag.name).toLowerCase(), tag]));
+    const tagIds = new Map(); let tagLimitReached = false;
+    for (const row of productRows) for (const name of (row.tags || [])) { const key = text(name).toLowerCase(); if (!key || tagIds.has(key)) continue; if (Object.prototype.hasOwnProperty.call(crosswalk.product_tag || {}, key)) { if (crosswalk.product_tag[key]) tagIds.set(key, crosswalk.product_tag[key]); continue; } if (tagLimitReached) { summary.skipped.product_tag ||= []; summary.skipped.product_tag.push({ sourceId: key, reason: 'destination_tag_limit_reached' }); remember('product_tag', key, null); await checkpoint(); continue; } try { const target = existingTags.get(key) || (await wix.send(writers.buildCreateStoresProductTagRequest(text(name)))).tag; tagIds.set(key, target.id); remember('product_tag', key, target.id); } catch (error) { if (!/TAG_NAME_ALREADY_EXISTS|TAGS_REACHED_LIMIT/.test(error.message)) throw error; tagLimitReached = /TAGS_REACHED_LIMIT/.test(error.message); summary.skipped.product_tag ||= []; summary.skipped.product_tag.push({ sourceId: key, reason: tagLimitReached ? 'destination_tag_limit_reached' : 'destination_tag_exists_but_is_not_returned_by_tag_list' }); remember('product_tag', key, null); } await checkpoint(); }
+    const catalog = await writers.queryAllStoresProducts(wix);
+    // Products that were on the store before this import are never adopted by slug.
+    const baselineProductIds = catalogBaseline.protectedIds(projectDir).products;
+    const heldProducts = new Map(catalog.filter(product => baselineProductIds.has(product.id)).map(product => [product.slug, product]));
+    const existingProducts = new Map(catalog.filter(product => !baselineProductIds.has(product.id)).map(product => [product.slug, product]));
+    // Resolve collisions across the whole source set before any candidate product write.
+    // This pre-pass must call `toWixSlug` inside try/catch, like every other call site in this
+    // file -- otherwise one product whose handle sanitizes to a degenerate slug (e.g. an
+    // emoji/symbol-only handle, which `toWixSlug` rejects) crashes this `.map()` uncaught and
+    // aborts the ENTIRE quick-import run instead of being skipped for just that one row, same as
+    // every other per-row failure here.
+    const slugErrors = new Map();
+    const identities = productRows.map(row => {
+      let slug = null;
+      try {
+        slug = toWixSlug(row.handle);
+      } catch (error) { if (wixAuth.isRunInterruption(error)) throw error;
+        slugErrors.set(String(row.id), error.message);
       }
-      productIds.set(String(row.id), target.id); remember('product', row.id, target.id); await checkpoint();
-    } catch (error) {
-      if (!productVerification.some(r => r.sourceKey === String(row.id))) productVerification.push({ sourceKey: String(row.id), outcome: 'needs_verification' });
-      summary.skipped.product.push({ sourceId: String(row.id), reason: error.message });
-      if (!stockQueued) for (const variant of row.variants?.length ? row.variants : [null]) inventoryGaps.push({ sourceProductId: String(row.id), sourceVariantId: variant ? String(variant.id) : null, reason: error.message });
+      return { sourceId: String(row.id), slug,
+        targetId: seen('product', row.id) || seen('product_candidate', row.id) || (slug !== null ? existingProducts.get(slug)?.id : undefined) };
+    });
+    const ambiguousSources = new Set(identities.filter(identity =>
+      identities.some(other => other !== identity && (other.sourceId === identity.sourceId || other.slug === identity.slug || (identity.targetId && other.targetId === identity.targetId))) ||
+      catalog.filter(product => product.slug === identity.slug).length > 1
+    ).map(identity => identity.sourceId));
+    const inventoryRows = [], inventoryGaps = [], productVerification = [];
+    // Products that exist on the target with uniquely correlated variants but failed a field
+    // read-back (e.g. a description fragment Wix dropped). Stock and category membership depend
+    // only on product and variant identity, so they still apply; the product stays reported.
+    const expectedVariants = productRows.reduce((count, row) => count + Math.max(1, (row.variants || []).length), 0);
+    for (const row of productRows) {
+      let stockQueued = false;
+      if (!dryRun && seen('product', row.id)) {
+        remember('product_candidate', row.id, seen('product', row.id));
+        delete crosswalk.product[String(row.id)];
+        await checkpoint();
+      }
+      try {
+        if (slugErrors.has(String(row.id))) throw new Error(slugErrors.get(String(row.id)));
+        if (ambiguousSources.has(String(row.id))) throw new Error('Ambiguous source product marker or target identity');
+        // A saved target id is checked too: an earlier run may have adopted a baseline product.
+        const savedProduct = seen('product', row.id) || seen('product_candidate', row.id);
+        const heldProduct = savedProduct ? (baselineProductIds.has(savedProduct) && (catalog.find(product => product.id === savedProduct) || { id: savedProduct })) : heldProducts.get(toWixSlug(row.handle));
+        if (heldProduct) { if (!dryRun) catalogBaseline.recordCollision(projectDir, { entity: 'stores/product', sourceKey: String(row.id), targetId: heldProduct.id, slug: heldProduct.slug ?? null }); throw catalogBaseline.collisionError('stores/product', heldProduct.id); }
+        const { canonical, payload, normalized } = buildProductPayload(row, tagIds);
+        const knownId = seen('product', row.id) || seen('product_candidate', row.id);
+        const existing = knownId ? { id: knownId } : existingProducts.get(payload.slug);
+        const target = existing || await writers.createStoresProduct(wix, payload);
+        remember('product_candidate', row.id, target.id);
+        if (!dryRun && crosswalk.product) delete crosswalk.product[String(row.id)];
+        await checkpoint();
+        if (normalized.recoveries.length) { if (!dryRun) await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
+        if (!dryRun) {
+          // A post-write verification gate must not use the bare getStoresProduct read -- the same
+          // rule as at its sibling call site in product-import.js's verifyProductCandidate. The
+          // bare read omits plainDescription entirely and collapses media to `media.main` only (see
+          // getStoresProductForVerification's own comment in wix-writers.js), so `receipt.verified`
+          // below could never actually confirm either field, and a real loss there would pass
+          // silently instead of throwing.
+          const fullTarget = await readCreatedProduct(writers, wix, target.id);
+          const { receipt, correspondence } = verifyWrittenProduct(writers, { row, canonical, payload, fullTarget, targetId: target.id, siteId: env.WIX_SITE_ID });
+          writers.registerQuickInventoryScope(wix, canonical, fullTarget);
+          productVerification.push({ sourceKey: String(row.id), targetId: target.id, receipt });
+          if (!receipt.verified) {
+            inventoryRows.push(...correspondence); stockQueued = true; unverifiedTargets.set(String(row.id), { targetId: target.id, name: canonical.name, failedFields: failedFieldsOf(receipt) });
+            throw new Error('Product identity or values failed read-back');
+          }
+          inventoryRows.push(...correspondence);
+        }
+        productIds.set(String(row.id), target.id); remember('product', row.id, target.id); if (!dryRun) catalogBaseline.clearCollision(projectDir, 'stores/product', row.id); await checkpoint();
+      } catch (error) { if (wixAuth.isRunInterruption(error)) throw error;
+        if (!productVerification.some(r => r.sourceKey === String(row.id))) productVerification.push({ sourceKey: String(row.id), outcome: 'needs_verification' });
+        summary.skipped.product.push({ sourceId: String(row.id), reason: error.message });
+        if (!stockQueued) for (const variant of row.variants?.length ? row.variants : [null]) inventoryGaps.push({ sourceProductId: String(row.id), sourceVariantId: variant ? String(variant.id) : null, reason: error.message });
+      }
     }
+    summary.verification = { product: dryRun ? { status: 'simulated' } : verificationState.report(productVerification, env.WIX_SITE_ID) };
+    summary.inventory = dryRun ? { status: 'simulated', complete: false, intended: expectedVariants }
+      : await inventory.reconcileInventory(wix, inventoryRows, { expectedCount: expectedVariants, gaps: inventoryGaps });
+    await inventory.persistInventoryReport(path.join(projectDir, dryRun ? 'execution/dry-run-inventory-report.json' : 'state/inventory-report.json'), summary.inventory);
+    summary.status = deriveStatus(summary);
+    summary.imported.product = productIds.size;
+    summary.writtenUnverified = { product: [...unverifiedTargets].map(([sourceId, entry]) => ({ sourceId, targetId: entry.targetId, name: entry.name, failedFields: entry.failedFields })) };
+    capabilities.finishQuickEntity(quickRun, 'product');
   }
-  summary.verification = { product: dryRun ? { status: 'simulated' } : verificationState.report(productVerification, env.WIX_SITE_ID) };
-  summary.inventory = dryRun ? { status: 'simulated', complete: false, intended: expectedVariants }
-    : await inventory.reconcileInventory(wix, inventoryRows, { expectedCount: expectedVariants, gaps: inventoryGaps });
-  await inventory.persistInventoryReport(path.join(projectDir, dryRun ? 'execution/dry-run-inventory-report.json' : 'state/inventory-report.json'), summary.inventory);
-  summary.status = deriveStatus(summary);
-  summary.imported.product = productIds.size;
-  summary.writtenUnverified = { product: [...unverifiedTargets].map(([sourceId, entry]) => ({ sourceId, targetId: entry.targetId, name: entry.name, failedFields: entry.failedFields })) };
-  capabilities.finishQuickEntity(quickRun, 'product'); wix = clientFor('collection_product');
-  let memberships = 0; for (const edge of await readNdjson(file(projectDir, 'collection_product'))) { const categoryId = categoryIds.get(edge.collectionId); const productId = productIds.get(edge.productId) || unverifiedTargets.get(edge.productId)?.targetId; if (!categoryId || !productId) continue; const edgeId = `${edge.collectionId}:${edge.productId}`; if (!seen('collection_product', edgeId)) { await writers.bulkAddItemToCategories(wix, { productId, categoryIds: [categoryId] }); remember('collection_product', edgeId, productId); await checkpoint(); } memberships += 1; }
-  capabilities.finishQuickEntity(quickRun, 'collection_product');
-  summary.imported.collection_product = memberships; if (!dryRun) await checkpoint(); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir)); await recovery.writeFinalReport(projectDir, summary, { dryRun }); await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary); return summary;
+  wix = await clientFor('collection_product');
+  let memberships = 0;
+  if (wix) {
+    for (const edge of await readNdjson(file(projectDir, 'collection_product'))) { const categoryId = categoryIds.get(edge.collectionId); const productId = productIds.get(edge.productId) || unverifiedTargets.get(edge.productId)?.targetId; if (!categoryId || !productId) continue; const edgeId = `${edge.collectionId}:${edge.productId}`; if (!seen('collection_product', edgeId)) { await writers.bulkAddItemToCategories(wix, { productId, categoryIds: [categoryId] }); remember('collection_product', edgeId, productId); await checkpoint(); } memberships += 1; }
+    capabilities.finishQuickEntity(quickRun, 'collection_product');
+    summary.imported.collection_product = memberships;
+  }
+  // A refusal means the run did not import everything: it is never reported complete.
+  if (!summary.status) summary.status = deriveStatus(summary); else if (!dryRun && Object.keys(regionalRefused).length) summary.status = 'partial';
+  if (!dryRun) await checkpoint(); Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir)); catalogBaseline.quickReport(projectDir, summary); await recovery.writeFinalReport(projectDir, summary, { dryRun }); await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary); return summary;
 }
 async function main() { const [command, projectDirArg] = process.argv.slice(2); if (!command || !projectDirArg || !['preflight', 'plan', 'extract', 'import', 'request-reverify', 'reverify'].includes(command)) throw new Error('Usage: quick-mode.js <preflight|plan|extract|import|request-reverify|reverify> <projectDir>'); const fn = { preflight, plan, extract, import: importData, 'request-reverify': requestReverify, reverify }[command]; const result = await fn(path.resolve(projectDirArg)); process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed' })}\n`); }
-if (require.main === module) main().catch((error) => { process.stderr.write(`${error.message}\n`); process.exit(1); });
+if (require.main === module) main().catch(async (error) => { process.stderr.write(`${error.message}\n`); process.exit(await wixAuth.stopExitCode(error, process.argv[3] && path.resolve(process.argv[3]))); });
 
 module.exports = { canonicalProduct, resolveInventoryRows, assertCategoryCapacity, categoryCapacity, readCreatedProduct, importData, storefrontQuery, retryWaitMs, captureSource, preflight, extract, plan, requestReverify, reverify, finalizeReverification, deriveStatus };

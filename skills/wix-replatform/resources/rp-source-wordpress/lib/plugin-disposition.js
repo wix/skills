@@ -9,6 +9,8 @@
 // The statuses are already customer-readable; STATUS_META only adds display order and the
 // one-line explanation each group renders under.
 
+const { slugRegisters, registerKeys } = require('./wp-plugin-detect.js');
+
 const STATUS_META = {
   'requires-development': {
     label: 'Requires development',
@@ -74,8 +76,9 @@ function buildDispositionRows({
   coverage = [],
   profiles = [],
   hints = null,
+  cutoverTasks = null,
 } = {}) {
-  const hintsBySlug = hintIndex(hints);
+  const registers = slugRegisters({ noMigrationNeeded: hints, cutoverTasks });
   const profilesBySlug = new Map(profiles.map((profile) => [profile.plugin, profile]));
   const rows = [];
 
@@ -146,13 +149,31 @@ function buildDispositionRows({
       blocked: capRows.flatMap((row) => row.blocked || []),
       blockers: capRows.flatMap((row) => (row.pitfalls || []).filter((pitfall) => pitfall.severity === 'blocker').map((pitfall) => pitfall.summary)),
     });
+    // Add-ons claimed by this profile: same status and coverage as the parent, their own identity.
+    const parentRow = rows[rows.length - 1];
+    for (const addOn of detected.addOns || []) {
+      rows.push({
+        ...parentRow,
+        plugin: addOn.plugin,
+        displayName: addOn.name || addOn.plugin,
+        version: addOn.version,
+        active: addOn.active,
+        addOnOf: detected.plugin,
+        consequence: `Add-on of ${parentRow.displayName}; its data is read and moved by that plugin's profile.${parentRow.consequence ? ` ${parentRow.consequence}` : ''}`,
+        inventoryBasis: detection.pluginListAvailable ? 'verified' : 'fingerprinted',
+        signals: ['wp.v2.plugins'],
+      });
+    }
   }
 
   // 2. Installed but unrecognized — projected from the rows classifyCoverage already made
   // (attributed namespace/CPT rows, no-migration-needed list rows, or pending/cannot-tell).
   for (const installed of detection?.installedButUnprofiled || []) {
     const slug = slugOf(installed.plugin);
-    const hint = hintsBySlug.get(slug);
+    const keys = registerKeys(installed.plugin);
+    // This skill's own bridge plugin is not the merchant's; it is counted, not listed.
+    if (registers.lookup('toolkit', keys)) continue;
+    const hint = registers.lookup('task', keys) || registers.lookup('hint', keys) || registers.lookup('core', keys);
     const capRows = coverageByPlugin.get(slug) || [];
     const status = worstStatus(capRows.map((row) => row.status)) || 'pending';
     const plannedRows = capRows.filter((row) => row.status === 'migration-planned');
@@ -173,6 +194,7 @@ function buildDispositionRows({
         || capRows.map((row) => row.userImpact).filter(Boolean).join(' ')
         || 'We could not identify migratable data for this plugin. If it holds data you need, tell us.',
       manualSteps: capRows.find((row) => row.status === 'manual-mapping')?.manualSteps || null,
+      cutoverTask: capRows.find((row) => row.cutoverTask)?.cutoverTask || null,
       recognized: false,
       inventoryBasis: 'verified',
       statusBasis: capRows.length > 0
@@ -192,7 +214,13 @@ function buildDispositionRows({
 
   // 3. Fingerprinted — public evidence only, typically an unauthenticated run. Named
   // from the alias map, projected from the coverage rows classifyCoverage already produced.
+  const installedSlugs = new Set([
+    ...(detection?.installedButUnprofiled || []).map((entry) => slugOf(entry.plugin)),
+    ...(detection?.detected || []).map((entry) => entry.plugin),
+  ]);
   for (const print of detection?.fingerprinted || []) {
+    // A fingerprint naming an installed plugin is that plugin's row already (ctxfeed -> CTX Feed).
+    if (installedSlugs.has(print.slug)) continue;
     // The fingerprinted-capability lookup and the plugin-slug lookup can surface the same
     // coverage row twice (a row attributed to this plugin also keyed under its own
     // fingerprint token) — dedupe by capability id or userImpact/blocked entries double up.
@@ -218,6 +246,7 @@ function buildDispositionRows({
       consequence: noNeedRow?.rationale
         || capRows.map((row) => row.userImpact).filter(Boolean).join(' '),
       manualSteps: capRows.find((row) => row.status === 'manual-mapping')?.manualSteps || null,
+      cutoverTask: capRows.find((row) => row.cutoverTask)?.cutoverTask || null,
       recognized: false,
       inventoryBasis: 'fingerprinted',
       statusBasis: Array.from(new Set(capRows.map((row) => row.basis))).sort().join('+'),
@@ -346,6 +375,7 @@ function renderDispositionMarkdown(rows, { host = null, generatedAt = null, plug
       for (const row of group) {
         lines.push(`### ${row.displayName} (\`${row.plugin}\`)`);
         lines.push('');
+        if (row.cutoverTask) lines.push(`**Cutover task:** ${row.cutoverTask.task}`);
         if (row.does) lines.push(`${row.does}`);
         const steps = row.manualSteps;
         if (steps?.prerequisite) lines.push(`**Before you start:** ${steps.prerequisite}`);
@@ -355,6 +385,10 @@ function renderDispositionMarkdown(rows, { host = null, generatedAt = null, plug
             const outsideWix = step.actor === 'external' ? ' *(outside Wix)*' : '';
             lines.push(`${index + 1}. ${step.text}${outsideWix}`);
           });
+        }
+        if (row.cutoverTask?.doneWhen) {
+          lines.push('');
+          lines.push(`**Done when:** ${row.cutoverTask.doneWhen}`);
         }
         if (steps?.mechanism) {
           lines.push('');

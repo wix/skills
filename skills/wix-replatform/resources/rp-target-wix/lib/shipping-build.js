@@ -882,7 +882,11 @@ const SHIPPING_COMPLETION_CODES = Object.freeze([
   'shipping-estimate-legacy-blank',
   'shipping-option-reconcile',
   'shipping-option-target-missing',
+  'shipping-region-preexisting-options',
+  'shipping-region-coverage-differs',
+  'shipping-placeholder-option-deleted',
 ]);
+const SHIPPING_PLACEHOLDER_LEDGER = 'execution/shipping-placeholder-deletions.json';
 const ACTION_LIST_LIMIT = 15;
 
 function textOf(value) {
@@ -1019,6 +1023,7 @@ function outcomeMessage(result, status) {
     case 'shipping-option-not-attempted':
       return result.reason || 'not attempted';
     case 'shipping-option-failed':
+      if (result.requestSent === false) return `create refused before sending${result.errorCode ? ` (${result.errorCode})` : ''}; nothing reached Wix`;
       return `create rejected with HTTP ${result.httpStatus === null || result.httpStatus === undefined ? 'unknown' : result.httpStatus}${result.errorCode ? ` (${result.errorCode})` : ''}`;
     default:
       return status;
@@ -1033,7 +1038,8 @@ function shippingOptionWriteRecord(result, ctx = {}) {
   let status;
   let errorCode = null;
   if (result.outcome === 'shipping-option-failed') {
-    status = failedStatusFor(result.httpStatus);
+    // A create refused before sending is retryable: nothing was sent.
+    status = result.requestSent === false ? 'failed_retryable' : failedStatusFor(result.httpStatus);
     errorCode = result.errorCode || null;
   } else if (OUTCOME_ROWS[result.outcome]) {
     status = OUTCOME_ROWS[result.outcome].status;
@@ -1063,6 +1069,7 @@ function shippingOptionWriteRecord(result, ctx = {}) {
     ...(status === 'imported' ? { targetId: id } : {}),
     ...(result.estimateKept ? { estimateKept: result.estimateKept } : {}),
     ...(reconcile ? { reconcile } : {}),
+    ...(result.requestSent === false ? { requestSent: false } : {}),
     updatedAt: ctx.now || new Date().toISOString(),
   };
   if (status !== 'imported') {
@@ -1271,9 +1278,93 @@ function decideCommand(projectDirArg, key, value) {
   return `\`node ${ORCHESTRATION_STATE_CLI} decide --project-dir ${projectDirArg} --key ${shellQuote(key)} --value ${shellQuote(value)} --source user\``;
 }
 
-// Builds the five shipping operatorActions from the CURRENT state, not just this run's events,
+// Wix's own option on a new site's default regions: "Free shipping", one unconditional zero rate.
+// Only this exact shape counts; anything else on a reused region is the merchant's and is kept.
+function isWixPlaceholderShippingOption(option) {
+  const rates = (option && option.rates) || [];
+  return Boolean(option) && String(option.title || '').trim() === 'Free shipping' && rates.length === 1
+    && Number(rates[0].amount) === 0 && !(rates[0].conditions || []).length && !rates[0].multiplyByQuantity;
+}
+
+// How each zone's region compares with the zone, read from the CURRENT profile (not from attempt
+// rows, which a generated importer may write without findings). `regions` is the profile's
+// deliveryRegions; a zone with no region id is listed as such.
+function regionCoverage({ zonePlans = [], regionIdByZone = {}, regions = [] } = {}) {
+  const atomsOf = (destinations) => new Set((destinations || []).flatMap((d) => ((d.subdivisions || []).length ? d.subdivisions : ['*']).map((sub) => `${String(d.countryCode).toUpperCase()}:${sub}`)));
+  const label = (key) => (key.endsWith(':*') ? key.slice(0, -2) : key.split(':')[1]);
+  const byId = new Map(regions.map((region) => [region.id, region]));
+  return zonePlans.map((plan) => {
+    const zoneId = String(plan.zone.id);
+    const regionId = regionIdByZone[zoneId] || null;
+    const region = regionId ? byId.get(regionId) : null;
+    const zoneAtoms = atomsOf(plan.destinations);
+    const regionAtoms = region ? atomsOf(region.destinations) : new Set();
+    return {
+      zoneId,
+      zoneName: plan.zone.name || null,
+      regionId,
+      regionName: region ? region.name || null : null,
+      noRegion: !regionId,
+      regionMissing: Boolean(regionId) && !region,
+      widerBy: region ? [...regionAtoms].filter((key) => !zoneAtoms.has(key)).map(label) : [],
+      missing: region ? [...zoneAtoms].filter((key) => !regionAtoms.has(key)).map(label) : [],
+    };
+  });
+}
+
+// The delivery-region state as Cutover Operator actions, all in Business Manager:
+//   coverage    from regionCoverage (live profile);
+//   preexisting [{ regionId, regionName, zones[], options[{id,title}], complete }] -- options on a
+//               zone's region the migration did not create, read live, so the item clears;
+//   deletions   the placeholder deletion ledger (execution/shipping-placeholder-deletions.json).
+function deliveryRegionCompletionActions({ coverage = [], preexisting = [], deletions = [] } = {}) {
+  const operatorActions = [];
+  const zoneLabel = (entry) => `zone ${entry.zoneName ? `"${entry.zoneName}"` : entry.zoneId}`;
+  const open = preexisting.filter((entry) => entry.options.length || !entry.complete);
+  if (open.length) {
+    operatorActions.push({
+      code: 'shipping-region-preexisting-options',
+      severity: 'high',
+      action: `Business Manager → Settings → Shipping & delivery: these regions have shipping options the migration did not create, and buyers see them at checkout beside the imported rates. Ask the merchant whether to keep each one; delete it if not. Affected: ${listItems(open.map((entry) => `region "${entry.regionName || entry.regionId}" (${entry.zones.join(', ')}): ${entry.complete ? entry.options.map((o) => `"${o.title || o.id}"`).join(', ') : 'its options could not be listed; check them by hand'}`))}.`,
+      deadlineReason: 'Buyers can pick an option the source store never offered',
+      entity: 'shipping-zone',
+      affectedCount: open.reduce((n, entry) => n + Math.max(entry.options.length, entry.complete ? 0 : 1), 0),
+    });
+  }
+  const differs = coverage.filter((entry) => entry.noRegion || entry.regionMissing || entry.widerBy.length || entry.missing.length);
+  if (differs.length) {
+    const why = (entry) => {
+      if (entry.noRegion) return 'has no delivery region; its rates were not written';
+      if (entry.regionMissing) return `its region ${entry.regionId} no longer exists`;
+      return [entry.widerBy.length ? `region "${entry.regionName}" also covers ${entry.widerBy.join(', ')}, so the zone's rates apply there too` : null,
+        entry.missing.length ? `${entry.missing.join(', ')} stay on another region, so the zone's rates do not apply there` : null].filter(Boolean).join('; ');
+    };
+    operatorActions.push({
+      code: 'shipping-region-coverage-differs',
+      severity: differs.some((entry) => entry.noRegion || entry.regionMissing) ? 'high' : 'medium',
+      action: `Business Manager → Settings → Shipping & delivery: the site already had regions for some source destinations, so these zones' rates do not cover exactly what the source did. Check each and adjust the regions or rates. Affected: ${listItems(differs.map((entry) => `${zoneLabel(entry)}: ${why(entry)}`))}.`,
+      deadlineReason: 'Some destinations get different shipping rates than on the source store',
+      entity: 'shipping-zone',
+      affectedCount: differs.length,
+    });
+  }
+  const done = deletions.filter((entry) => entry.status === 'deleted' || entry.status === 'already-gone');
+  if (done.length) {
+    operatorActions.push({
+      code: 'shipping-placeholder-option-deleted',
+      severity: 'low',
+      action: `Done by the import, for the record: on this new site, Wix's placeholder "Free shipping" option was deleted from each listed region, because the imported rates replace it. Nothing to do unless the merchant wants it back; each deleted option is kept in ${SHIPPING_PLACEHOLDER_LEDGER} to re-create in Business Manager → Settings → Shipping & delivery. Deleted: ${listItems(done.map((entry) => `"${entry.option && entry.option.title}" on region "${entry.regionName || entry.regionId}" (${(entry.zones || []).join(', ')})`))}.`,
+      deadlineReason: 'Record of a change the import made to checkout',
+      entity: 'shipping-zone',
+      affectedCount: done.length,
+    });
+  }
+  return operatorActions;
+}
+
+// Builds the shipping operatorActions from the CURRENT state, not just this run's events,
 // and also returns the per-option `items` written to execution/shipping-estimates.json.
-function shippingEstimateCompletionFragment({ resolution = null, readBack = {}, latestAttempts = {}, audit = null, projectDir = null } = {}) {
+function shippingEstimateCompletionFragment({ resolution = null, readBack = {}, latestAttempts = {}, audit = null, projectDir = null, regions = {} } = {}) {
   const projectDirArg = projectDir ? shellQuote(projectDir) : '<projectDir>';
   const operatorActions = [];
   const items = [];
@@ -1375,6 +1466,7 @@ function shippingEstimateCompletionFragment({ resolution = null, readBack = {}, 
     for (const entry of legacy) items.push({ code: 'shipping-estimate-legacy-blank', ...entry });
   }
 
+  operatorActions.push(...deliveryRegionCompletionActions(regions || {}));
   return { operatorActions, items };
 }
 
@@ -1432,6 +1524,10 @@ module.exports = {
   applyTargetMissingDecision,
   auditShippingEstimates,
   shippingEstimateCompletionFragment,
+  deliveryRegionCompletionActions,
+  isWixPlaceholderShippingOption,
+  regionCoverage,
+  SHIPPING_PLACEHOLDER_LEDGER,
   mergeShippingEstimateCompletion,
   shellQuote,
 };

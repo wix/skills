@@ -28,6 +28,11 @@ const MEMBER_FINDING = Object.freeze({
   PHONE_COLLISION_DROPPED: 'member-phone-collision-dropped',
   CREATE_RETRIED: 'member-create-retried-after-transient-error',
   CROSSWALK_ROW_STALE: 'member-crosswalk-row-stale',
+  // Create Member refuses contact.company (live 400 "Unexpected value for StringValue", though the
+  // docs type it as a string), so company/jobTitle are written after the create through Contacts V5.
+  COMPANY_WRITTEN_AFTER_CREATE: 'member-company-written-after-create',
+  COMPANY_NOT_WRITTEN: 'member-company-not-written',
+  LOGIN_EMAIL_INVALID: 'member-login-email-invalid',
 });
 const MEMBER_FINDINGS = Object.freeze(Object.values(MEMBER_FINDING));
 
@@ -48,7 +53,7 @@ const PROJECTION = Object.freeze({
 
 // A primary outcome splits into a policy CLASS when one outcome code needs two treatments: a
 // reconciliation by crosswalk versus by login email, and a member-failed that was definitely
-// rejected versus one whose result is unknown. Each class has exactly one row.
+// rejected, never sent, or of unknown result. Each class has exactly one row.
 const POLICY = Object.freeze({
   written: Object.freeze({
     outcome: MEMBER_OUTCOME.WRITTEN,
@@ -125,6 +130,18 @@ const POLICY = Object.freeze({
     selection: 'unresolved-only',
     telemetry: Object.freeze({ event_type: 'error', subtype: null, severity: 'degraded' }),
   }),
+  // The client refused the create before sending it (requestSent false): nothing reached Wix,
+  // so the outcome is known and a re-send is safe. Never unresolved: that would send a resume
+  // to read back a member that cannot exist.
+  'failed-not-sent': Object.freeze({
+    outcome: MEMBER_OUTCOME.FAILED,
+    journalStatus: 'failed_retryable',
+    failureOutcome: 'failed_retryable',
+    projection: PROJECTION.FAILED,
+    nextAction: 're-run with --failed-only; the request was never sent',
+    selection: 'failed-only',
+    telemetry: Object.freeze({ event_type: 'error', subtype: null, severity: 'degraded' }),
+  }),
   'failed-rejected': Object.freeze({
     outcome: MEMBER_OUTCOME.FAILED,
     journalStatus: 'failed_terminal',
@@ -144,6 +161,11 @@ const FINDING_POLICY = Object.freeze({
   [MEMBER_FINDING.PHONE_COLLISION_DROPPED]: Object.freeze({ droppedField: 'contact.phones' }),
   [MEMBER_FINDING.CREATE_RETRIED]: Object.freeze({ droppedField: null }),
   [MEMBER_FINDING.CROSSWALK_ROW_STALE]: Object.freeze({ droppedField: null }),
+  [MEMBER_FINDING.COMPANY_WRITTEN_AFTER_CREATE]: Object.freeze({ droppedField: null }),
+  // The member was written; its company/jobTitle follow-up did not land: a dropped field.
+  [MEMBER_FINDING.COMPANY_NOT_WRITTEN]: Object.freeze({ droppedField: 'contact.company' }),
+  // Accompanies the no-email outcome: nothing was sent, so no contact field was dropped.
+  [MEMBER_FINDING.LOGIN_EMAIL_INVALID]: Object.freeze({ droppedField: null }),
 });
 
 // Pre-write population gate defects. Any one stops the whole pass before its first write.
@@ -168,11 +190,19 @@ function isMemberFinding(code) {
   return MEMBER_FINDINGS.includes(code);
 }
 
+// A request the client refused before sending (wix-writers createWixClient sets requestSent
+// false on every pre-send refusal). Its outcome is known: nothing was sent.
+function memberRequestNotSent(error) {
+  return Boolean(error && typeof error === 'object' && error.requestSent === false);
+}
+
 // A member-failed whose result nobody knows: the target may or may not hold the member.
 // Unknown = the client said so, no status arrived (transport), a 5xx survived the retry, or a
-// 2xx came back without a member id. A readable 4xx is the target's own decision.
+// 2xx came back without a member id. A readable 4xx is the target's own decision, and a
+// request that was never sent is known too.
 function memberFailureOutcomeUnknown(error) {
   if (!error || typeof error !== 'object') return true;
+  if (memberRequestNotSent(error)) return false;
   if (error.outcomeKnown === false) return true;
   const status = error.status;
   if (status === null || status === undefined) return true;
@@ -195,7 +225,9 @@ function classifyMemberResult(result) {
     case MEMBER_OUTCOME.RECONCILIATION_AMBIGUOUS: return 'ambiguous';
     case MEMBER_OUTCOME.TARGET_READ_FAILED: return 'target-read-failed';
     case MEMBER_OUTCOME.ALREADY_EXISTS_UNRECONCILED: return 'already-exists-unreconciled';
-    case MEMBER_OUTCOME.FAILED: return memberFailureOutcomeUnknown(result.error) ? 'failed-unknown' : 'failed-rejected';
+    case MEMBER_OUTCOME.FAILED:
+      if (memberRequestNotSent(result.error)) return 'failed-not-sent';
+      return memberFailureOutcomeUnknown(result.error) ? 'failed-unknown' : 'failed-rejected';
     default:
       throw new Error(`unknown member outcome: ${JSON.stringify(outcome)}`);
   }
@@ -213,6 +245,9 @@ function sanitizeCode(value) {
 function deriveMemberErrorCode(error) {
   const e = error && typeof error === 'object' ? error : {};
   if (e.createReturnedNoId === true) return 'create-returned-no-id';
+  // The refusal's own code (e.g. DEPENDENCY_READINESS_REQUIRED), never 'transport-error':
+  // no transport happened.
+  if (e.requestSent === false) return (e.code !== undefined && e.code !== null && sanitizeCode(e.code)) || 'request-not-sent';
   if (e.applicationErrorCode !== undefined && e.applicationErrorCode !== null && e.applicationErrorCode !== '') {
     const code = sanitizeCode(e.applicationErrorCode);
     if (code) return code;
@@ -258,6 +293,7 @@ module.exports = {
   ERROR_CODE_MAX,
   isMemberOutcome,
   isMemberFinding,
+  memberRequestNotSent,
   memberFailureOutcomeUnknown,
   classifyMemberResult,
   deriveMemberErrorCode,

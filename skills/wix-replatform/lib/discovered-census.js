@@ -15,10 +15,22 @@ async function readJson(projectDir, file) {
     throw error;
   }
 }
+// Readiness re-checks freshness on every batch: a digest is reused while the file's identity
+// (inode, size, mtime, ctime) is unchanged, and recomputed as soon as it changes.
+const digests = new Map();
 async function fileDigest(projectDir, file) {
+  const absolute = path.resolve(projectDir, file);
   try {
-    return hash(await fs.readFile(path.join(projectDir, file)));
+    const stat = await fs.stat(absolute, { bigint: true });
+    const signature = [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+    const prior = digests.get(absolute);
+    if (prior?.signature === signature) return prior.digest;
+    const digest = hash(await fs.readFile(absolute));
+    if (digests.size >= 256) digests.delete(digests.keys().next().value);
+    digests.set(absolute, { signature, digest });
+    return digest;
   } catch (error) {
+    digests.delete(absolute);
     if (error.code === 'ENOENT') return null;
     throw error;
   }
@@ -87,10 +99,15 @@ async function buildCensus(projectDir, options = {}) {
       entity,
       subtype: 'all',
       recordCount: countOf(value.recordCount),
-      inUse: value.inUse == null ? null : value.inUse
+      inUse: value.inUse == null ? null : value.inUse,
+      // Discovery's canonical plugin ref (`plugin.<plugin>.<entity>`), which mapping rows may name instead of the key.
+      ...(typeof value.sourceEntityRef === 'string' && value.sourceEntityRef && value.sourceEntityRef !== entity ? { sourceEntityRef: value.sourceEntityRef } : {})
     });
-    const fields = new Set(fieldNames(value.fields));
-    for (const [subtype, entry] of Object.entries(registry && registry[entity] || {})) {
+    // A bridge-read plugin entity carries its live table columns (`schema.columns`), not `fields`.
+    const fields = new Set([...fieldNames(value.fields), ...fieldNames(value.schema && value.schema.columns)]);
+    // The registry may name a plugin entity by its canonical ref, whatever key discovery gave it.
+    const subParts = registry && (registry[entity] || typeof value.sourceEntityRef === 'string' && registry[value.sourceEntityRef]) || {};
+    for (const [subtype, entry] of Object.entries(subParts)) {
       if (!entry.evidenceFields.some(field => fields.has(field))) continue;
       rows.push({
         censusId: `entity:${entity}/${subtype}`,
@@ -107,6 +124,9 @@ async function buildCensus(projectDir, options = {}) {
   const capabilities = new Map();
   for (const row of plugins && plugins.capabilities || []) {
     if (!row || typeof row.capability !== 'string' || !row.capability) throw new Error('capability_invalid');
+    // A core-covered plugin (WooCommerce) is no decision of its own: the core entities
+    // it names are census rows already and carry the real outcome.
+    if (row.basis === 'core-reader') continue;
     if (!capabilities.has(row.capability)) capabilities.set(row.capability, []);
     capabilities.get(row.capability).push(row);
   }
@@ -124,12 +144,16 @@ async function buildCensus(projectDir, options = {}) {
       blocked: union('blocked'),
       recordCounts: selected.recordCounts || {},
       basis: selected.basis || null,
-      rationale: selected.rationale || null
+      rationale: selected.rationale || null,
+      // A no-data cutover task (cutover-task-only.json): its signed runbook travels with the row
+      // so the Cutover Operator action names the task, not a generic line.
+      ...(selected.cutoverTask ? { cutoverTask: selected.cutoverTask, manualSteps: selected.manualSteps || null } : {})
     });
   }
   for (const plugin of plugins && plugins.perPlugin || []) {
     const slug = slugOf(plugin.plugin);
     if (!slug) throw new Error('plugin_invalid');
+    if (plugin.statusBasis === 'core-reader') continue;
     const linkedCapabilities = [...capabilities.keys()].filter(capability => (plugin.capabilities || []).includes(capability) || capabilities.get(capability).some(row => (row.plugins || []).some(p => slugOf(p) === slug))).map(key => `capability:${key}`).sort();
     rows.push({
       censusId: `plugin:${slug}`,

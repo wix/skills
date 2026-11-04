@@ -39,7 +39,7 @@ function canonicalEntities(projectDir) {
 function templates(entities) {
   const config = JSON.stringify({ version: VERSION, entities }, null, 2);
   const wiring = `'use strict';\nconst runtime = require('../lib/plugin-entity-read-plan.js');\nconst config = ${config};\nmodule.exports = { config, run: (kind, projectDir, args) => runtime.runGeneratedPluginEntrypoint({ kind, projectDir, entities: config.entities }, args) };\n`;
-  const entry = (kind, directory) => `'use strict';\nconst path = require('node:path');\nconst handoff = require('${directory}plugin-handoff.js');\nhandoff.run('${kind}', path.resolve(__dirname, '../..'), process.argv.slice(2)).catch((error) => { console.error(error.message); process.exitCode = 1; });\n`;
+  const entry = (kind, directory) => `'use strict';\nconst path = require('node:path');\nconst handoff = require('${directory}plugin-handoff.js');\nhandoff.run('${kind}', path.resolve(__dirname, '../..'), process.argv.slice(2)).catch((error) => { console.error(error.message); process.exitCode = Number.isInteger(error.exitCode) ? error.exitCode : 1; });\n`;
   return { [FILES[0]]: wiring, [FILES[1]]: entry('import', './'), [FILES[2]]: entry('extract', '../import/') };
 }
 function moduleSourceDir() { return path.resolve(__dirname, '../resources/rp-source-wordpress/lib'); }
@@ -56,6 +56,9 @@ function vendorSharedDependencies(projectDir) {
   }
   copy(path.join(__dirname, 'import-recovery.js'));
   copy(path.join(__dirname, 'import-readiness-contract.js'));
+  // The entrypoint's stop handling and the wix_auth_expired exit code.
+  copy(path.join(__dirname, 'import-interruption.js'));
+  copy(path.join(__dirname, 'wix-auth.js'));
 }
 function noSymlinks(projectDir, relativePath) {
   let cursor = path.resolve(projectDir);
