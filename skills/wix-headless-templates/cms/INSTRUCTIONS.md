@@ -264,7 +264,8 @@ pointing at the build folder, an SSR build is hosted by you. Page tags from the 
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
 import the modules from the site's `js/wix/` folder and write the rendering on the stores;
-`static.md` gives the listing, the item page as code, with the routes, the rules and the seed.
+`static.md` shows how to drive each store, with the listing, the item page, the routes, the rules and
+the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

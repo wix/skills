@@ -169,9 +169,9 @@ in anything that came from the site.
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
-`/services.html`, `/service.html?slug=…`. A link to a folder gives the visitor a 404 page. Write
-the pages' scripts as files of their own and keep each file small; a page's code travels as text
-in the upload call.
+`/services.html`, `/service.html?slug=…`. A link to a folder gives the visitor a 404 page. Every
+page declares its charset in the head; the host sends none. Write the pages' scripts as files of
+their own and keep each file small; a page's code travels as text in the upload call.
 
 ## Rules
 
@@ -187,6 +187,7 @@ in the upload call.
 - Live data or an honest empty state; nothing invented: no reviews, no availability pressure, no
   guarantees, no Wix ids or technical words in visible text.
 - Browsing and booking need no login; the visitor session is already there.
+- Render form inputs once; a render touches their values, the button and the error, not the inputs.
 - Every control on the page has a rule in the stylesheet; one primary action per surface, the
   rest compact or text actions.
 

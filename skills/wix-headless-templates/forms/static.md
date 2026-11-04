@@ -153,10 +153,10 @@ markup that changed, or restore focus and selection after the render.
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
-`/contact.html`. A link to a folder gives the visitor a 404 page. When the submit leads to a
-checkout, the page navigates the whole document there and the visitor comes back to `/`. Write
-the page's script as a file of its own and keep it small; a page's code travels as text in the
-upload call.
+`/contact.html`. A link to a folder gives the visitor a 404 page. Every page declares its charset in
+the head; the host sends none. When the submit leads to a checkout, the page navigates the whole
+document there and the visitor comes back to `/`. Write the page's script as a file of its own and
+keep it small; a page's code travels as text in the upload call.
 
 ## Rules
 
@@ -177,6 +177,7 @@ upload call.
   through `setCaptchaToken`.
 - A form that cannot load is a setup problem to surface, never a reason for a hand-built form. A
   closed form shows the owner's message.
+- Render form inputs once; a render touches their values, the button and the error, not the inputs.
 - Every control on the page has a rule in the stylesheet; one primary action per step, the rest
   compact or text actions.
 

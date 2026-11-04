@@ -253,8 +253,9 @@ build is hosted by you. Page title and description from the event's `title` / `s
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
-import the modules from the site's `js/wix/` folder and write every surface on the stores;
-`static.md` gives each surface as code, with the pages, the routes, the rules and the seed.
+import the layer from the site's `js/wix/` folder and write every control on the stores;
+`static.md` shows how to drive each store, with the listing, the event page, the confirmation
+page, the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

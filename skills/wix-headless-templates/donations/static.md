@@ -87,8 +87,8 @@ function goalBlock(g) {
   if (!g) return "";
   var left = !g.endDate ? "" : g.ended ? "Ended" : g.lastDay ? g.hoursLeft + " hours left" : g.daysLeft + " days left";
   return '<p>' + esc(g.raised) + " raised of " + esc(g.target) + "</p>"
-    + '<div class="bar" role="progressbar" aria-valuenow="' + g.raisedAmount + '" aria-valuemax="' + g.targetAmount + '">'
-    + '<div class="bar-fill" style="width:' + Math.min(100, g.percent) + '%"></div></div>'
+    + '<div role="progressbar" aria-valuenow="' + g.raisedAmount + '" aria-valuemax="' + g.targetAmount + '">'
+    + '<div style="width:' + Math.min(100, g.percent) + '%"></div></div>'
     + "<p>" + g.percent + "% · " + g.donationCount + " donations" + (left ? " · " + left : "") + "</p>";
 }
 ```
@@ -191,9 +191,10 @@ to the campaign page.
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
-`/donate.html`, `/campaign.html?id=…`, `/thank-you.html`. A link to a folder gives the visitor a
-404 page. The `paths` given to the donation store point at these files, so the hosted checkout
-returns to them. Keep each page's script small; a page's code travels as text in the upload call.
+`/donate.html`, `/campaign.html?id=…`, `/thank-you.html`. A link to a folder gives the visitor a 404
+page. Every page declares its charset in the head; the host sends none. The `paths` given to the
+donation store point at these files, so the hosted checkout returns to them. Keep each page's script
+small; a page's code travels as text in the upload call.
 
 ## Rules
 
@@ -207,6 +208,7 @@ returns to them. Keep each page's script small; a page's code travels as text in
 - The story copy is the site's; the campaign data is the API's. No fabricated figures,
   beneficiaries or urgency; live data or an honest empty state.
 - Browsing and donating need no login; the visitor session is already there.
+- Render form inputs once; a render touches their values, the button and the error, not the inputs.
 - Every control on the page has a rule in the stylesheet; the submit is the one primary action,
   the presets and frequencies are chips with a selected state, the rest compact.
 
