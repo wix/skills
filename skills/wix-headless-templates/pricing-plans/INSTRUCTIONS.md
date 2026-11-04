@@ -237,26 +237,9 @@ and `description` — plans carry no `seoData`.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference file listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchPlans`, `fetchPlanBySlug`,
-`fetchPlansByIds`, `fetchPlanById` from `./js/wix/plans.js`; `purchasePlan` from
-`./js/wix/purchase.js`; `hasActiveOrderFor` from `./js/wix/plan-access.js`. The state machines ship
-too: `createPlansStore` from `./js/wix/plans-store.js` (the grid — `start()` once the page is up,
-render from `getState()` in `subscribe`), `createPlanPurchaseStore` from
-`./js/wix/plan-purchase-store.js` (one per surface; its `purchase(planId)` sets `purchasingId`,
-then navigates the document to the hosted checkout, or records `error`), and `createPlanAccessStore`
-from `./js/wix/plan-access-store.js` (gated content, members deployed too: `check({ loggedIn:
-loggedInHint(), loading: false })` with `loggedInHint` from `./js/wix/auth.js` — the token
-`client.js` holds is the member's after its login, so `plan-access.js` needs no `call`). No components ship — you
-write the rendering in plain JS: one render function per surface that reads `getState()`, called
-from `subscribe`, with the CTA calling `purchase`. Pages are `plans.html` and `plan.html?slug=…`
-(Wix static hosting serves files, not directories — name the file and link to it); the plan page
-reads the slug, `fetchPlanBySlug`, renders its not-found state on null, and sets `document.title`
-and the meta description from the DTO's `name`/`description`. The visitor token persists in
-`localStorage` on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write every surface on the stores;
+`static.md` gives each surface as code, with the pages, the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

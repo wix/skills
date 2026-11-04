@@ -252,27 +252,9 @@ build is hosted by you. Page title and description from the event's `title` / `s
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchEventsPage`, `fetchEvents`,
-`fetchEventBySlug`, `fetchEventById`, `fetchOccurrences`, `fetchCategories` from
-`./js/wix/events.js`; `fetchTicketTiers`, `startTicketCheckout`, `submitRsvp` from
-`./js/wix/registration.js`; `fetchOrder` from `./js/wix/orders.js`. The state machines ship too:
-`createEventsStore` from `./js/wix/events-store.js` (`start()` once the page is up;
-`setActiveCategoryId`, `loadMore`), `createRegistrationStore` from
-`./js/wix/registration-store.js`, and `createOrderStore` from `./js/wix/events-order-store.js`. No
-components ship — you write the rendering in plain JS: one render function per surface that reads
-`getState()`, called from `subscribe`, with the surface's controls calling the store's actions.
-Pages are `events.html`, `event.html?slug=…`, `event-confirmation.html` — Wix static hosting
-serves files, not directories, so the hosted checkout must return to those files: create the
-registration store with its paths, `createRegistrationStore(event, { paths: { confirmation:
-"/event-confirmation.html", event: "/event.html?slug=" + encodeURIComponent(event.slug) } })` (Wix
-appends `?orderNumber=&eventId=` to the confirmation URL; read them there into
-`createOrderStore`). Set `document.title` and the meta description from `title` /
-`shortDescription` once the event loads. The visitor token persists in `localStorage` on its own;
-never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write every surface on the stores;
+`static.md` gives each surface as code, with the pages, the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

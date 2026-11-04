@@ -274,29 +274,9 @@ tags from `post.seoTitle` and `post.seoDescription`.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchPosts`, `fetchPostBySlug`,
-`fetchRelatedPosts`, `postMetaLine`, `postPath`, `categoryPath`, `tagPath`, `formatCount` from
-`./js/wix/posts.js`; `fetchBlogCategories`, `fetchBlogTags`, `fetchTagsByIds`, `fetchCategoryBySlug`,
-`fetchTagBySlug` from `./js/wix/taxonomy.js`; `likePost`/`unlikePost`/`fetchLikeState` from
-`./js/wix/post-likes.js`; the comments from `./js/wix/comments.js`; `imgAttrs` from
-`./js/wix/media.js`. The state machines ship too: `createBlogFeedStore` from
-`./js/wix/blog-feed-store.js` (the feed — filters, cursor paging; `start()` once the page is up),
-`createPostStore` from `./js/wix/post-store.js` (the post, its resolved chips, related, the like
-toggle), and `createCommentsStore` from `./js/wix/comments-store.js`. No components ship — you write
-the rendering in plain JS: one render function per surface that reads `getState()`, called from
-`subscribe`, with the surface's controls calling the store's actions. Pages are `blog.html`,
-`post.html?slug=…`, `category.html?slug=…`, `tag.html?slug=…` (Wix static hosting serves files, not
-directories — name the file and link to it; on this stack pass your own `postHref`-style helpers to
-your renderers, the path helpers describe the Astro routes). The body is `post.bodyHtml`, set as
-the innerHTML of the body's wrapper (`post.paragraphs` when it is ""), and a comment is
-`comment.text` (no Ricos viewer without a bundler — see the reference files note). Set
-`document.title` and the meta description from `post.seoTitle` and `post.seoDescription` once the
-post loads, as the Astro page does. The visitor token persists in
-`localStorage` on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the rendering on the stores;
+`static.md` gives the feed, the post page with likes and comments as code, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

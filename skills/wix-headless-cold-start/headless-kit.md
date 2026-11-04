@@ -147,8 +147,11 @@ Do the six steps in this order. For each step: what you do, the call, and the re
   listing first, then its files. The modules export the same functions. If a file imports a
   function and exports it again, the function is written in the file it imports from.
 - Reference, what the functions return: `{TEMPLATES}/{solution}/app/wix/{solution}/types.ts`.
-- Reference, the design: `{TEMPLATES}/{solution}/INSTRUCTIONS.md`, `{TEMPLATES}/shared/DESIGN.md`,
-  `{TEMPLATES}/shared/CONTENT.md`. For a call that these files do not cover: `{DOCS}`.
+- Reference, the design: `{TEMPLATES}/{solution}/static.md`, the whole playbook for pages on the
+  modules in one file, with `{TEMPLATES}/shared/DESIGN.md` and `{TEMPLATES}/shared/CONTENT.md`.
+  For a call that these files do not cover: `{DOCS}`.
+- Read one file per call, and read it whole. A call that prints several files, or a long file
+  with other output, is cut in the middle and the end of the file is lost.
 
 **Step 6: close.**
 - Give the live URL and the dashboard URL, each on its own line.
@@ -237,8 +240,8 @@ changes the settings in the dashboard, and the page follows on the next load.
 
 ### Step 5: the design
 
-The modules carry the data. The pages are the design job. `INSTRUCTIONS.md` of the solution tells
-you how to do it, with `DESIGN.md` and `CONTENT.md`.
+The modules carry the data. The pages are the design job. `static.md` of the solution tells you
+how to do it, with `DESIGN.md` and `CONTENT.md`.
 
 If the pages show an item with a picture, put the picture on the item itself in step 4
 (`{TEMPLATES}/shared/seed/images.mjs`). Then the pages of Wix, for example checkout, show it too.
@@ -281,8 +284,8 @@ async function run() {
   });
 }
 // { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
-// Some solutions also ship their purchase controls (for example /js/wix/donate-form.js, /js/wix/form-renderer.js,
-// /js/wix/option-picker.js, /js/wix/cart-drawer.js). Render them as they are. Do not write those controls.
+// Donations and forms ship their controls (/js/wix/donate-form.js, /js/wix/form-renderer.js). Render those as
+// they are. The storefront's controls are yours to write on its stores; its static.md gives each one as code.
 ```
 
 The call keeps the pages. It returns the entry points and the file counts. The modules do not pass

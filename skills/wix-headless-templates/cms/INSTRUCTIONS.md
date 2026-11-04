@@ -262,23 +262,9 @@ pointing at the build folder, an SSR build is hosted by you. Page tags from the 
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above,
-so the contracts on this page hold unchanged: `queryItems`, `getItemBy`, `getItemById`,
-`countItems`, `distinctValues` (and the writes, `linkItems`/`unlinkItems` included) from
-`./js/wix/items.js`; `getCollectionSchema` from `./js/wix/collections.js`; `formatDate` from
-`./js/wix/items-core.js`; `imgAttrs` and `imgRatio` from `./js/wix/media.js`. The state machines
-ship too: `createCollectionStore` from `./js/wix/collection-store.js` (the listing — `start()` once
-the page is up, `loadMore()` or `goToPage(n)`, `setQuery()`, `refresh()` after a write; `fetching`
-dims the cards on screen), `createItemStore` from `./js/wix/item-store.js` (the item page —
-`notFound` is your 404 state). No components ship — you write the rendering in plain JS: one render function per
-surface that reads `getState()`, called from `subscribe`, with the surface's controls calling the
-store's actions. Pages are `<collection>.html` and `item.html?collection=…&slug=…` (Wix static
-hosting serves files, not directories — name the file and link to it). Set `document.title` and
-the meta description from the item's fields once it loads. The visitor token persists in
-`localStorage` on its own; never mint per page. Reads work on any collection whose `read` is
-`ANYONE`; a write from the page succeeds only where the seed opened that verb (403 → a permissions
-step).
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the rendering on the stores;
+`static.md` gives the listing, the item page as code, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

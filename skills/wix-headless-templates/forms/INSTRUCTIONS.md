@@ -238,8 +238,8 @@ export default function ContactForm({ formId, initialForm }: { formId: string; i
 ### The reference files for stacks where the components don't deploy
 
 On `lib`, `static`, and a port, nothing under `hooks/` arrives — and this vertical ships nothing
-under `components/` on any stack (on `static`, the form renderer arrives instead — see the static
-wiring below). The state machine behind the hook does arrive —
+under `components/` on any stack (on `static`, read `static.md` in this
+folder). The state machine behind the hook does arrive —
 `wix/forms/form-store.ts` — so you never rewrite it: `createFormStore` per form, `subscribe`,
 render from `getState()`, call its actions. Its `FormState` interface is the render contract;
 read that. What you write is the rendering, and one shipped file is worth reading first:
@@ -285,34 +285,9 @@ build is hosted by you.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference file listed above before writing the surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `getForm`, `listForms` from
-`./js/wix/forms.js`; `uploadFiles`, `createSubmission`, `checkoutUrl`, `toSubmissionValues`,
-`submissionErrors` from `./js/wix/submissions.js`. The state machine ships too: `createFormStore`
-from `./js/wix/form-store.js` (`start()` once the page is up; `setValue`, `validate`, `next`,
-`previous`, `submit`; `FORM_ERROR` beside it). On this stack the form itself ships as a plain-DOM
-renderer over that store — **wire it as-is**: `renderForm(root, { formId, classPrefix?, text?,
-onOutcome? })` from `./js/wix/form-renderer.js` (or `{ initialForm }` for a form you already
-fetched). It maps `form.fields` to controls per the table above, applies the owner's required
-indicator, shows help and errors under each control only after a blur or a submit, renders one
-step at a time with the owner's button wording, follows the rules (a field a rule hides leaves
-the page, the address parts follow the chosen country), handles "Other", keeps `File` objects for
-the store to upload, shows the owner's closed message, and replaces the form with the thank-you or
-navigates to checkout or the redirect. It sets no styles: every element has a class under one
-prefix (`form-field`, `form-field--<control>`, `form-label`, `form-control`, `form-choice`,
-`form-choice--selected`, `form-error`, `form-submit`, `form-success`, …) and the form has
-`data-state`. The file's header lists the classes and ends with a "To style" note: the per-control
-class, the state selectors (selected, `aria-invalid`, `aria-busy`, `data-state`) and the choice
-image that needs a size. Style them in the page's stylesheet on the same tokens as the rest of the
-page; each step has one primary button, as the file's note says. What you write is the page
-around it: heading, intro,
-where the form sits. Wix static hosting serves files, not directories: the page is
-`contact.html`, linked as such. The visitor token persists in `localStorage` on its own; never
-mint per page. The page's title and meta description are yours (a form is not an entity page;
-there is no `seoData`).
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The page
+imports the modules from the site's `js/wix/` folder and renders the shipped form renderer as it
+is; `static.md` gives the page around it as code, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
