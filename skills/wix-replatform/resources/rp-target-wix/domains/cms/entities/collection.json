@@ -12,6 +12,7 @@
     "crosswalkRequired": false
   },
   "dependsOn": [],
+  "setupProducible": true,
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

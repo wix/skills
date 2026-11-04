@@ -252,7 +252,7 @@ function upsertPlanRows(plan, decisions) {
     for (const d of decisions) plan.entities[d.sourceEntity] = mergeBridgeRow(plan.entities[d.sourceEntity], d);
     return plan;
   }
-  const key = PLAN_ROW_KEYS.find((k) => Array.isArray(plan[k])) || 'entityDecisions';
+  const key = ['entities', ...PLAN_ROW_KEYS].find((k) => Array.isArray(plan[k])) || 'entityDecisions';
   const rows = Array.isArray(plan[key]) ? plan[key] : [];
   for (const d of decisions) {
     const index = rows.findIndex((row) => row && (row.sourceEntityRef === d.sourceEntityRef || (row.sourceEntity || row.entityName || row.entityKey) === d.sourceEntity));
@@ -282,15 +282,35 @@ async function writeStructureBridgePlanning(projectDir, decisions) {
     throw new Error(`mapping review is already ${gate}; re-open the mapping review before adding structure-bridge-plugin entities`);
   }
   const decisionPaths = [];
-  for (const decision of decisions) {
-    const filePath = path.join(projectDir, 'mapping', 'entity-decisions', `${slugify(decision.sourceEntity)}.json`);
-    // eslint-disable-next-line no-await-in-loop
-    await writeJson(filePath, mergeBridgeRow(await readJsonIfExists(filePath), decision));
-    decisionPaths.push(filePath);
-  }
   const planPath = path.join(projectDir, 'mapping', 'mapping-plan.json');
   const plan = (await readJsonIfExists(planPath)) || {};
-  await writeJson(planPath, upsertPlanRows(plan, decisions));
+  const canonical = [];
+  for (const decision of decisions) {
+    const filePath = path.join(projectDir, 'mapping', 'entity-decisions', `${slugify(decision.sourceEntity)}.json`);
+    const prior=require('../../../lib/mapping-field-contract.js').entityRows(plan).find(r=>r.sourceEntity===decision.sourceEntity);
+    const legacy=await readJsonIfExists(filePath);
+    if (legacy) delete legacy.executionScope;
+    const row=mergeBridgeRow({...legacy,...prior},decision);
+    if (plan.fieldContractVersion===1 && !prior?.fieldMappings) {
+      row.fieldMappingStatus='pending';row.fieldMappings=[];row.requiredSourceEntityRefs=[];
+      row.discoveryCoverage={paths:[],uninspectedAreas:['Bridge source fields have not been inspected for exact mapping.'],sourceSnapshotDigest:null,inventoryDigest:null,evidence:[{ref:row.structureReadPlan || row.sourceEntityRef || row.sourceEntity}]};
+    }
+    canonical.push(row);
+    decisionPaths.push(filePath);
+  }
+  upsertPlanRows(plan,canonical);
+  if (plan.fieldContractVersion===1) {
+    const contract=require('../../../lib/mapping-field-contract.js');
+    plan.executionScope={selectedEntityRefs:[...new Set([...(plan.executionScope?.selectedEntityRefs || contract.entityRows(plan).map(contract.entityRef)),...canonical.map(contract.entityRef)])]};
+    await contract.writeMappingAuthority(projectDir,plan);
+    return {decisionPaths,planPath};
+  }
+  await writeJson(planPath,plan);
+  for (let i=0;i<canonical.length;i++) {
+    const rows=require('../../../lib/mapping-field-contract.js').entityRows(plan);
+    const row=rows.find(r=>r.sourceEntity===canonical[i].sourceEntity);
+    await writeJson(decisionPaths[i],plan.fieldContractVersion===1 ? {...row,executionScope:plan.executionScope} : row);
+  }
   return { decisionPaths, planPath };
 }
 

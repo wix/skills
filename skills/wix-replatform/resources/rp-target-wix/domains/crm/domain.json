@@ -12,6 +12,7 @@
   "defaultImportOrder": [
     "label",
     "contact",
+    "contact-label",
     "email-subscription"
   ],
   "sideEffectNotes": [

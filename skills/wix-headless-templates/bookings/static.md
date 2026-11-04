@@ -1,173 +1,177 @@
 # Bookings on a static site
 
-The pages are HTML files at the root of the site. They import the bookings modules from
-`/js/wix/` and render what the modules return. This file is the whole playbook for that path: the
-modules, the booking flow the page writes, the listing, the service page, the rules and the seed.
+The pages are HTML files at the root of the site. They import the bookings layer from `/js/wix/`:
+the service and availability calls, and two stores that hold the state and the rules of booking.
+Nothing on the screen ships; every element is yours, in the design of the site. This file shows
+how to drive the layer. The skeletons show the calls and the fields and leave the markup to you.
 
-## The modules
+## The layer
 
 `/js/wix/services.js`: `fetchServices({ limit, offset, categoryId, locationId })`,
-`fetchServiceBySlug(slug)`, `fetchBookingCategories()`, `fetchLocations()`. `/js/wix/booking.js`:
-`fetchSlots`, `fetchNextAvailableSlots`, `fetchBookingsSettings`, `fetchSessions`,
-`fetchOfferedDays`, `fetchCourseAvailability`, `fetchAddOnGroups`, `fetchBookingForm`,
-`bookService`. Prices, durations and time labels come formatted; images come as https URLs.
-Two stores hold the state and the rules: `createServicesStore(options)` in
-`/js/wix/services-store.js` (the listing) and `createBookingFlowStore(service)` in
-`/js/wix/booking-flow-store.js` (one service's booking surface, built from the `ServiceDetail`
-that `fetchServiceBySlug` returns). Each `.js` opens with its declarations. A store calls a
-listener on every change and not when it subscribes: render once after subscribing, then
-`start()`. The visitor token persists in `localStorage` on its own; never mint one in a page.
+`fetchServiceBySlug(slug)` (null when the slug resolves to nothing), `fetchBookingCategories()`,
+`fetchLocations()`. `/js/wix/booking.js`: `fetchSlots`, `fetchNextAvailableSlots`,
+`fetchBookingsSettings`, `fetchSessions`, `fetchOfferedDays`, `fetchCourseAvailability`,
+`fetchAddOnGroups`, `fetchBookingForm`, `bookService`; the pages reach these through the flow
+store. Prices, durations and time labels come formatted and images come as https URLs; render
+them as they are.
 
-The services store state: `services` (null on the first load, then the page), `categories`,
-`locations`, `hasOtherLocations`, `activeCategoryId`, `activeLocationId`, `hasMore`,
-`loadingMore`, `error`. Its actions: `setActiveCategoryId(id)`, `setActiveLocationId(id)`,
-`loadMore()`. It reads `?category=` and `?location=` on start and writes them back on change.
+Two stores: `createServicesStore(options)` in `/js/wix/services-store.js` for the listing, and
+`createBookingFlowStore(service)` in `/js/wix/booking-flow-store.js` for one service's booking
+surface, built from the `ServiceDetail` that `fetchServiceBySlug` returns. The flow store owns the
+rules: which slots are bookable, the seats left, the deposit, the add-ons' total, what the button
+says and whether it is enabled, what the booking sends. A page reads the state and calls the
+actions; it computes nothing of its own.
 
-The booking flow state: `days` (slots grouped by day, null while loading, `[]` for a course),
-`windowStart`, `nextAvailable`, `staffId`, `selectedSlot`, `timeZone`, `timeZoneLabel`,
-`displayTimeZone`, `customerCanChangeTimeZone`, `course`, `offeredDays`, `sessions`,
-`hasMoreSessions`, `participants`, `maxParticipants`, `payDeposit`, `addOnGroups`, `addOns`,
-`addOnsTotal`, `addOnsMinutes`, `formFields`, `values`, `ctaState`, `canBook`, `booking`,
-`confirmed`, `error`. Its actions: `nextWeek()`, `prevWeek()`, `jumpTo(dayKey)`,
-`setStaffId(id)`, `setSelectedSlot(slot)`, `setDisplayTimeZone(zone)`, `setParticipants(n)`,
-`setPayDeposit(bool)`, `toggleAddOn(id)`, `setAddOnQuantity(id, n)`, `loadMoreSessions()`,
-`setValue(target, value)`, `book()`.
+Every `.js` opens with its declarations: the state fields and the actions, with a comment on
+each. Read the declarations of the store you are about to use.
 
-## The booking flow
+## The pattern
 
-The booking surface is yours to write, on the flow store: the day strip, the slot chips, the
-staff and time zone controls, the participants control, the deposit choice, the add-ons, the form
-and the button. Markup in your page, one render function that reads the store's state, listeners
-that call its actions. The store holds every rule: which slots are bookable, the seats left,
-what the button says, whether it is enabled, what the booking sends. The example follows the
-store's declared interface; keep its calls and field names, the markup and the words are yours.
-
-Show one day at a time: a strip of the days in `days` (weekday and day number), the active day's
-slots under it, the week pagers at the strip's ends. A week of a busy calendar is over a hundred
-chips; never list every day's times at once. Switching day drops a slot chosen on another day. A
-course has no slots: show `service.course` dates, `offeredDays`, `course.spotsLeft` ("Full" when
-`course.full`), the sessions, the form and one button.
-
-```html
-<section id="book">
-  <p class="book-zone"></p>
-  <div class="book-days"></div>
-  <div class="book-slots"></div>
-  <form class="book-form"></form>
-  <p class="book-error" role="alert" hidden></p>
-  <p class="book-done" hidden></p>
-</section>
-```
+One shape for both stores: create it, subscribe a render function, render once, start. A store
+calls the listener on every change and not on subscribe, so the first render is yours. Controls
+call the store's actions; delegate from the surface's root and read what to do from the element,
+so a re-render of the markup keeps the listeners.
 
 ```js
 import { fetchServiceBySlug } from "/js/wix/services.js";
 import { createBookingFlowStore } from "/js/wix/booking-flow-store.js";
 
-const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-const root = document.querySelector("#book");
-const q = (sel) => root.querySelector(sel);
-const service = await fetchServiceBySlug(new URLSearchParams(location.search).get("slug"));
-if (!service) { root.innerHTML = `<p>This service is not available.</p>`; throw new Error("not found"); }
-document.title = service.name;
-const store = createBookingFlowStore(service);
-let activeDay = null;
-
-root.addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (!b) return;
-  const d = b.dataset;
-  if (d.day) { activeDay = d.day; render(store.getState()); }
-  else if (d.week === "next") store.nextWeek();
-  else if (d.week === "prev") store.prevWeek();
-  else if (d.jump) { activeDay = d.jump; store.jumpTo(d.jump); }
-  else if (d.slot) { const s = store.getState(); store.setSelectedSlot(s.days.flatMap((day) => day.slots).find((x) => x.key === d.slot) ?? null); }
-  else if (d.staff !== undefined) store.setStaffId(d.staff || undefined);
-  else if (d.zone) store.setDisplayTimeZone(d.zone);
-  else if (d.seats) store.setParticipants(store.getState().participants + Number(d.seats));
-  else if (d.deposit) store.setPayDeposit(d.deposit === "yes");
-  else if (d.addon) store.toggleAddOn(d.addon);
-});
-root.addEventListener("input", (e) => { if (e.target.dataset.field) store.setValue(e.target.dataset.field, e.target.value); });
-q(".book-form").addEventListener("submit", (e) => { e.preventDefault(); store.book().catch(() => {}); });
-
-const field = (f, value) => {
-  const common = `data-field="${f.target}" ${f.required ? "required" : ""} value="${esc(value)}"`;
-  if (f.options) return `<label>${esc(f.label)} <select ${common}>${f.options.map((o) => `<option ${o === value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>`;
-  const type = { EMAIL: "email", PHONE: "tel", NUMBER: "number", URL: "url" }[f.type] ?? "text";
-  return `<label>${esc(f.label)} <input type="${type}" ${common}></label>`;
-};
-
+var service = await fetchServiceBySlug(new URLSearchParams(location.search).get("slug"));
+var store = createBookingFlowStore(service);
 function render(s) {
-  q(".book-zone").textContent = s.timeZoneLabel ? `Times in ${s.timeZoneLabel}` : "";
-  if (s.customerCanChangeTimeZone && s.timeZoneLabel) q(".book-zone").innerHTML += ` <button type="button" data-zone="${s.displayTimeZone === "BUSINESS" ? "CUSTOMER" : "BUSINESS"}">Show in ${s.displayTimeZone === "BUSINESS" ? "my time" : "local time"}</button>`;
-  if (s.days === null) { q(".book-days").innerHTML = `<p>Loading times…</p>`; q(".book-slots").innerHTML = ""; }
-  else if (service.type === "COURSE") {
-    q(".book-days").innerHTML = `<p>${s.offeredDays.join(", ")}</p>`;
-    q(".book-slots").innerHTML = s.course ? `<p>${s.course.full ? "Full" : s.course.spotsLeft !== null ? `${s.course.spotsLeft} spots left` : ""}</p>` : "";
-  } else {
-    if (!s.days.some((d) => d.dayKey === activeDay)) activeDay = s.days[0]?.dayKey ?? null;
-    q(".book-days").innerHTML = `<button type="button" data-week="prev">‹</button>`
-      + s.days.map((d) => `<button type="button" class="day${d.dayKey === activeDay ? " day--active" : ""}" data-day="${d.dayKey}" ${d.slots.length ? "" : "disabled"}>${esc(d.dayLabel)}</button>`).join("")
-      + `<button type="button" data-week="next">›</button>`;
-    const day = s.days.find((d) => d.dayKey === activeDay);
-    q(".book-slots").innerHTML = day && day.slots.length
-      ? day.slots.map((sl) => `<button type="button" class="slot${s.selectedSlot?.key === sl.key ? " slot--selected" : ""}" data-slot="${sl.key}" ${sl.bookable ? "" : "disabled"} aria-pressed="${s.selectedSlot?.key === sl.key}">${esc(sl.label)}${sl.bookable ? (sl.remainingCapacity !== null && sl.remainingCapacity <= 3 ? ` <small>${sl.remainingCapacity} left</small>` : "") : sl.waitlistCapacity ? " <small>Full, waitlist</small>" : " <small>Full</small>"}</button>`).join("")
-      : s.nextAvailable === null ? `<p>Looking for the next available time…</p>`
-      : s.nextAvailable.length ? `<p>No times this week. <button type="button" data-jump="${s.nextAvailable[0].dayKey}">Next available: ${esc(s.nextAvailable[0].label)}</button></p>`
-      : `<p>No times available.</p>`;
-  }
-  const money = s.payDeposit && service.deposit?.amount ? ` · deposit ${service.deposit.amount}` : service.free ? " — free" : service.price ? ` · ${service.priceFrom ? "from " : ""}${service.price}` : "";
-  q(".book-form").innerHTML = `
-    ${service.staff.length > 1 ? `<fieldset><legend>With</legend><button type="button" data-staff="" aria-pressed="${!s.staffId}">Anyone</button>${service.staff.map((m) => `<button type="button" data-staff="${m.id}" aria-pressed="${s.staffId === m.id}">${esc(m.name)}</button>`).join("")}</fieldset>` : ""}
-    ${s.maxParticipants > 1 ? `<div class="seats"><button type="button" data-seats="-1" ${s.participants <= 1 ? "disabled" : ""}>−</button><span>${s.participants}</span><button type="button" data-seats="1" ${s.participants >= s.maxParticipants ? "disabled" : ""}>+</button></div>` : ""}
-    ${service.deposit?.fullUpfrontAllowed ? `<fieldset><legend>Pay</legend><button type="button" data-deposit="yes" aria-pressed="${s.payDeposit}">Deposit now</button><button type="button" data-deposit="no" aria-pressed="${!s.payDeposit}">Full amount now</button></fieldset>` : ""}
-    ${s.addOnGroups.map((g) => `<fieldset><legend>${esc(g.prompt || g.name)}</legend>${g.addOns.map((a) => `<button type="button" data-addon="${a.id}" aria-pressed="${(s.addOns[a.id] ?? 0) > 0}">${esc(a.name)} ${a.price}</button>`).join("")}</fieldset>`).join("")}
-    ${s.addOnsTotal ? `<p>Add-ons ${s.addOnsTotal}, added at the venue</p>` : ""}
-    ${s.formFields.map((f) => field(f, s.values[f.target] ?? "")).join("")}
-    <button type="submit" class="book-cta" ${s.canBook && !s.booking && s.ctaState !== "viewCourse" ? "" : "disabled"} aria-busy="${s.booking}">${s.booking ? "Booking…" : s.ctaState === "requestToBook" ? "Request to book" : "Book"}${money}</button>`;
-  q(".book-error").textContent = s.error ?? ""; q(".book-error").hidden = !s.error;
-  q(".book-done").hidden = !s.confirmed;
-  if (s.confirmed) { q(".book-done").textContent = s.ctaState === "requestToBook" ? "Request sent. You'll hear back once it's approved." : "You're booked. A confirmation email is on its way."; q(".book-form").hidden = true; }
+  // read s, write your markup into the page
 }
 store.subscribe(render);
 render(store.getState());
 store.start();
 ```
 
-`book()` navigates the whole document to the hosted checkout for a paid service; the site's
-origin must be on the OAuth app's allowed domains so checkout can return. For a free or
-pay-in-person service it sets `confirmed`, the only success signal. A visitor returning from the
-checkout page is not one. The confirmed copy follows `ctaState`: a request is not a confirmed
-seat. Add-ons are shown and selectable; `book()` does not send them, so say they are added at the
-venue, or leave them out of the surface.
+The visitor token persists in `localStorage` on its own; never mint one in a page.
 
 ## The listing
 
-`services.html` renders one grid from `createServicesStore()`: one render function that reads
-`getState()`, called from `subscribe`, then `start()`. A card shows `imageUrl`, `name`, the type
-("Appointment", "Class", "Course"; "Online" when `conferencing`), `durationLabel`, the price line
-and a link to `service.html?slug=…`. The price line is `price` with "From " before it when
-`priceFrom`, `basePrice` struck beside a discounted price, `discountName` when present, nothing
-when `price` is "". Classes and courses show `offeredDays` once loaded. Category pills only when
-`categories.length > 1`; a location filter only when there is more than one option (`locations`,
-plus "Other locations" with `OTHER_LOCATIONS_ID` from the store module when `hasOtherLocations`).
-A filter is a link, `services.html?category=<id>` or `services.html?location=<id>`. A "load more"
-control while `hasMore`. `services === null` is skeleton tiles, `[]` an honest empty state.
+`services.html` on `createServicesStore()`. The state: `services` (null on the first load, then
+the page), `categories`, `locations`, `hasOtherLocations`, `activeCategoryId`,
+`activeLocationId`, `hasMore`, `loadingMore`, `error`. The actions: `setActiveCategoryId(id)`,
+`setActiveLocationId(id)`, `loadMore()`. The store reads `?category=` and `?location=` on start
+and writes them back on change, so a filter is a link, `services.html?category=…`.
+
+A card shows the summary: `imageUrl`, `name`, `tagLine`, the type (`type` is "APPOINTMENT",
+"CLASS" or "COURSE"; "Online" when `conferencing`), `durationLabel`, the price line and a link to
+`service.html?slug=…`. The price line is `price`, with "From " before it when `priceFrom`,
+`basePrice` struck beside it when the price is discounted, `discountName` under it when present,
+and nothing when `price` is "". Classes and courses show `offeredDays` once loaded. Category
+chips only when `categories` has more than one; a location filter only when `locations` has more
+than one option, plus an "Other locations" entry with `OTHER_LOCATIONS_ID` (exported beside the
+store) when `hasOtherLocations`. A load-more control while `hasMore`; `services` null is a loading
+state, `[]` an honest empty state, `error` its own.
+
+```js
+import { createServicesStore, OTHER_LOCATIONS_ID } from "/js/wix/services-store.js";
+
+var shop = createServicesStore();
+moreEl.addEventListener("click", function () { shop.loadMore(); });
+shop.subscribe(function (s) {
+  moreEl.hidden = !s.hasMore;
+  // category links from s.categories, the grid from s.services, states for null, [] and s.error
+});
+shop.start();
+```
 
 ## The service page
 
 `service.html?slug=…` loads the service with `fetchServiceBySlug` and shows `name`, `tagLine`,
-`description` (stored HTML or text), `imageUrl` as a bounded band on a phone, the staff with their
-photos when `imageUrl`, the locations, `durationLabel`, the price line as on the card, then the
-booking surface above. The name, the price and the first bookable day's times stay in the first
-screen at 390px wide. A slug that resolves to nothing shows only the not-found state. Set
-`document.title` and the meta description from the service once it loads.
+`description` (stored HTML, render as HTML), `imageUrl` as a bounded band on a phone, the staff
+with their photos when `imageUrl` is set, the locations, `durationLabel`, the price line as on
+the card, then the booking surface. The name, the price and the first bookable day's times stay in
+the first screen at 390px wide. A slug that resolves to nothing shows only the not-found state.
+Set `document.title` and the meta description from the service once it loads.
+
+## The booking surface
+
+On `createBookingFlowStore(service)`. From the state, and the action each control calls:
+
+- `days` is null while loading, then the week's days, each with `dayKey`, `dayLabel` and
+  `slots`; `[]` for a course. Show one day at a time: a strip of days, the active day's slots
+  under it, `prevWeek()` and `nextWeek()` at the strip's ends. A week of a busy calendar is over a
+  hundred chips; never list every day's times at once. The active day is the page's own state;
+  switching day drops a slot chosen on another day.
+- A slot carries `label`, `bookable`, `remainingCapacity` and `waitlistCapacity`. A slot with
+  `bookable` false is disabled; a small `remainingCapacity` is worth a line; a full slot with
+  `waitlistCapacity` can say so. `setSelectedSlot(slot)` with the slot object; `selectedSlot` is
+  the chosen one.
+- `nextAvailable` is null while looking, then the next bookable slots when the week has none:
+  offer `jumpTo(slot.dayKey)`.
+- `timeZoneLabel` names the zone the times are shown in; when `customerCanChangeTimeZone`,
+  offer `setDisplayTimeZone("CUSTOMER")` or `"BUSINESS"`, the current one in `displayTimeZone`.
+- `service.staff` with more than one member renders a staff choice calling `setStaffId(id)`, or
+  `setStaffId(undefined)` for anyone; `staffId` is the pick.
+- `participants` and `maxParticipants`: a stepper calling `setParticipants(n)` when the maximum
+  is above one.
+- `service.deposit`: when `fullUpfrontAllowed`, a choice between the deposit and the full amount,
+  `setPayDeposit(true|false)`, with `payDeposit` as the current pick and `deposit.amount` as the
+  figure.
+- `addOnGroups`: one group per entry with its `prompt` or `name` and its `addOns` (`name`,
+  `price`); `toggleAddOn(id)`, `setAddOnQuantity(id, n)` up to `maxQuantity`, `canSelectMore(groupId)`
+  before offering another in a group; `addOns` holds the selection by id, `addOnsTotal` the
+  formatted sum. `book()` does not send add-ons, so say they are added at the venue, or leave
+  them out.
+- A course: `service.type` is "COURSE", `days` stays `[]`; show `service.course` (the span and
+  `ended`), `offeredDays`, `course.spotsLeft` and `course.full`, the `sessions` with
+  `loadMoreSessions()` while `hasMoreSessions`, the form and one button.
+- `formFields`: the booking form as given, each with `target`, `label`, `type` ("STRING",
+  "EMAIL", "PHONE", "NUMBER", "URL"), `options` for a choice field, `required`. One control per
+  field calling `setValue(field.target, value)`; `values` holds them by target.
+- `ctaState` is "book", "requestToBook" or "viewCourse"; the button's words follow it, and a
+  request is not a confirmed seat. `canBook` gates the button, `booking` is the in-flight state,
+  `error` is the message for the visitor when `book()` rejects.
+- `book()` navigates the whole document to the hosted checkout for a paid service; for a free or
+  pay-in-person service it sets `confirmed`, the only success signal. A visitor returning from
+  checkout is not one. Render the confirmed state from `confirmed` alone.
+
+A sketch of the binding, fields in, markup yours:
+
+```js
+root.addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (!b) return;
+  var d = b.dataset;
+  if (d.day) { activeDay = d.day; render(store.getState()); }
+  else if (d.week === "next") store.nextWeek();
+  else if (d.week === "prev") store.prevWeek();
+  else if (d.slot) store.setSelectedSlot(slotByKey(store.getState(), d.slot));
+  else if (d.staff !== undefined) store.setStaffId(d.staff || undefined);
+  else if (d.addon) store.toggleAddOn(d.addon);
+});
+root.addEventListener("input", function (e) {
+  if (e.target.dataset.field) store.setValue(e.target.dataset.field, e.target.value);
+});
+form.addEventListener("submit", function (e) { e.preventDefault(); store.book().catch(function () {}); });
+
+function render(s) {
+  var day = (s.days || []).find(function (x) { return x.dayKey === activeDay; });
+  var html = "";
+  (day ? day.slots : []).forEach(function (sl) {
+    html += '<button type="button" data-slot="' + sl.key + '"' + (sl.bookable ? "" : " disabled")
+      + ' aria-pressed="' + (s.selectedSlot && s.selectedSlot.key === sl.key) + '">' + esc(sl.label) + "</button>";
+  });
+  slotsEl.innerHTML = html;
+  ctaEl.disabled = !s.canBook || s.booking;
+  ctaEl.textContent = s.booking ? "Booking…" : s.ctaState === "requestToBook" ? "Request to book" : "Book";
+  errorEl.textContent = s.error || "";
+  doneEl.hidden = !s.confirmed;
+}
+```
+
+`slotByKey` finds the slot object in `s.days` by its `key`; `esc` escapes `&`, `<`, `>` and `"`
+in anything that came from the site.
 
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
-`/services.html`, `/service.html?slug=…`. A link to a folder gives the visitor a 404 page. One
-stylesheet shared by the pages, on one set of tokens.
+`/services.html`, `/service.html?slug=…`. A link to a folder gives the visitor a 404 page. Write
+the pages' scripts as files of their own and keep each file small; a page's code travels as text
+in the upload call.
 
 ## Rules
 
@@ -183,6 +187,8 @@ stylesheet shared by the pages, on one set of tokens.
 - Live data or an honest empty state; nothing invented: no reviews, no availability pressure, no
   guarantees, no Wix ids or technical words in visible text.
 - Browsing and booking need no login; the visitor session is already there.
+- Every control on the page has a rule in the stylesheet; one primary action per surface, the
+  rest compact or text actions.
 
 ## The owner's links
 

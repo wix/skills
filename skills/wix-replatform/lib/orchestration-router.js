@@ -2,13 +2,14 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { validateArtifacts } = require('./orchestration-state.js');
+const { validateArtifacts, explicitRunBlocker } = require('./orchestration-state.js');
 const { getDecisionValue, isEditorSiteType, isExplicitUserOneClick, isKnownSourceMode } = require('./orchestration-decisions.js');
 const { destinationGate, publicationRecheckGate } = require('./destination-route.js');
 const { validateWebsiteHandoff } = require('./website-handoff.js');
 const { statEnvKeys, readEnvFile } = require('./config-env.js');
 const { hashArtifact } = require('./artifact-freshness.js');
 const { validatePlanShape, validateSetupRequirementsShape, validateSetupVerification } = require('./setup-verification.js');
+const { NOTIFICATION_MUTE_QUESTION, readNotificationMute, setupPlanMuteMismatch } = require('./notification-mute.js');
 const { validateManifest } = require('./execution-manifest.js');
 const { QUICK_IMPORT_STARTED_MARKER, validateQuickExecutionManifest } = require('../resources/rp-quick-runtime/lib/import-progress.js');
 const { checkCmsFallbackFreshness } = require('./plugin-cms-fallback.js');
@@ -18,6 +19,12 @@ const {
   validateFrontendCompletion,
   validateMigrationCompletion,
 } = require('./migration-completion.js');
+const siteRegional = require('./site-regional.js');
+const { readReport: readMigrationReview, readLatestHandoff } = require('./migration-review.js');
+const { pendingUserActionGate } = require('./user-actions.js');
+const { localPreflightChecks } = require('./orchestration-preflight.js');
+const { SESSION_RECEIPT_FILE } = require('./source-access.js');
+
 const { readReconciliation, censusReconciliationFreshness, mappingApprovalBound, reconcileSourceCoverageForMapping } = require('./census-reconciliation.js');
 const { readCoverageContract, reconcileProject, SourceCoverageError } = require('./source-coverage.js');
 
@@ -53,8 +60,8 @@ function validateMappingPlanShape(value) {
     : { ok: false, errors: ['mapping/mapping-plan.json must be a JSON object'] };
 }
 
-function setupPlanRule(value) {
-  const result = validatePlanShape(value);
+function setupPlanRule(value, projectDir) {
+  const result = validatePlanShape(value, projectDir);
   return { ok: result.ok, errors: result.reasons };
 }
 
@@ -96,6 +103,14 @@ async function checkGatedOutput(readArtifact, relativePath, rule, { validate }) 
 
 function invalidOutputRoute(reason, nextResource, errors) {
   return { ok: true, nextState: 'blocked', nextResource, reason, errors, blocking: true };
+}
+
+// The setup plan mutes exactly when the answer says so; otherwise setup discovery
+// regenerates it before any setup write. A legacy run keeps the plan it already ran.
+async function muteMismatchRoute(readArtifact, notificationMute) {
+  if (notificationMute.source === 'legacy_config') return null;
+  const mismatch = setupPlanMuteMismatch(notificationMute, (await readArtifact(path.join('setup', 'setup-plan.json'))).value);
+  return mismatch ? { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: mismatch.code } : null;
 }
 
 async function nonEmptyFile(filePath, minBytes = 1) {
@@ -140,7 +155,24 @@ async function isSetupVerified(projectDir, readArtifact) {
   const verification = await readJson(verificationPath);
   const plan = (await readArtifact(path.join('setup', 'setup-plan.json'))).value;
   const planDigest = hashArtifact(projectDir, path.join('setup', 'setup-plan.json'));
-  return validateSetupVerification({ verification, plan, planDigest }).ok;
+  if (!validateSetupVerification({ verification, plan, planDigest, projectDir }).ok) return false;
+  // The regional row is bound to the source file, the answers and the approved regional plan it
+  // was produced under; a changed one makes the receipt stale, so setup re-reads the site.
+  if (siteRegional.planHasRegionalStep(projectDir)) {
+    const siteId = siteRegional.destinationSiteId(projectDir);
+    const row = (verification.requirements || []).find((item) => item && item.id === siteRegional.STEP_ID);
+    if (!siteRegional.receiptIsCurrent(projectDir, siteId, verification, row)) return false;
+  }
+  return true;
+}
+
+// The regional settings route, evaluated before the execution-approval gate. While the owner's one question
+// about an existing site's settings is open, nothing else proceeds -- in every mode, one-click included.
+async function regionalRoute(projectDir) {
+  if (!siteRegional.planHasRegionalStep(projectDir)) return null;
+  const open = await siteRegional.listRegionalRequests(projectDir).catch(() => []);
+  if (!open.length) return null;
+  return { ok: true, nextState: 'blocked', nextResource: 'resources/rp-execute-setup/', reason: 'site_regional_approval_pending', blocking: true, requestIds: open.map((request) => request.requestId) };
 }
 
 // A stamped project cannot leave mapping while any source-coverage row lacks
@@ -160,6 +192,43 @@ async function sourceCoverageGate(projectDir) {
   }
 }
 
+// rp-preflight's contract: source configuration/credential blocks go back to rp-source-inputs and
+// destination blocks to rp-destination; anything else (the Wix CLI) stays with rp-preflight. A
+// source_env block whose key statuses no longer match the env file is stale: preflight runs again.
+const PREFLIGHT_SOURCE_CHECKS = new Set(['source_mode', 'source_credentials', 'source_env', 'source_auth_intent', 'file_inputs']);
+const PREFLIGHT_DESTINATION_CHECKS = new Set(['target_site_strategy', 'wix_env', 'wix_site_id']);
+
+async function preflightBlockedRoute(projectDir, artifacts, sourcePlatform) {
+  const preflight = artifacts.preflight;
+  const blocked = (Array.isArray(preflight.checks) ? preflight.checks : []).filter((check) => check && check.status === 'blocked');
+  const blockedChecks = blocked.map((check) => check.id);
+  const sourceEnv = blocked.find((check) => check.id === 'source_env' && check.keyStatus && typeof check.keyStatus === 'object');
+  if (sourceEnv && sourcePlatform) {
+    const current = await statEnvKeys(path.join(projectDir, 'config', `source.${sourcePlatform}.env`), Object.keys(sourceEnv.keyStatus)).catch(() => null);
+    if (current && Object.entries(sourceEnv.keyStatus).some(([key, status]) => current.keys[key] !== status)) {
+      return { ok: true, nextState: 'preflight_running', nextResource: 'resources/rp-preflight/', reason: 'preflight_source_env_changed', blockedChecks };
+    }
+  }
+  // Reuse preflight's rules, but only read local evidence here. A changed/removed blocker
+  // dispatches the real preflight, which still owns live CLI/session verification. Never
+  // probe a service or replay the telemetry journal on a router poll.
+  if (blockedChecks.some((id) => PREFLIGHT_SOURCE_CHECKS.has(id) || PREFLIGHT_DESTINATION_CHECKS.has(id))) {
+    const current = await localPreflightChecks(projectDir, artifacts, {
+      probeShopifySession: async () => ({ receipt: await readJson(path.join(projectDir, SESSION_RECEIPT_FILE)) }),
+    });
+    if (blocked.some((check) => (PREFLIGHT_SOURCE_CHECKS.has(check.id) || PREFLIGHT_DESTINATION_CHECKS.has(check.id))
+      && !current.some((item) => item.id === check.id && item.status === 'blocked'))) {
+      return { ok: true, nextState: 'preflight_running', nextResource: 'resources/rp-preflight/', reason: 'preflight_inputs_changed', blockedChecks };
+    }
+  }
+  const nextResource = blockedChecks.some((id) => PREFLIGHT_SOURCE_CHECKS.has(id))
+    ? 'resources/rp-source-inputs/'
+    : blockedChecks.some((id) => PREFLIGHT_DESTINATION_CHECKS.has(id)) ? 'resources/rp-destination/' : 'resources/rp-preflight/';
+  return { ok: true, nextState: 'preflight_blocked', nextResource, reason: 'preflight_blocked', blockedChecks };
+}
+// The supported ways to clear an explicit `status: blocked` stop, surfaced on the route.
+const RUN_BLOCKED_RESUME = 'replatform resume <project>, or orchestration-state.js transition --status running';
+
 async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly = false, ...options } = {}) {
   const validation = validateArtifacts(artifacts);
   if (!validation.ok) {
@@ -178,6 +247,13 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   if (artifacts.run.status === 'canceled' || artifacts.run.status === 'interrupted') {
     return { ok: true, nextState: artifacts.run.status, nextResource: null, reason: artifacts.run.status, blocking: true };
   }
+  // An explicitly recorded stop: something wrote run.json `status: blocked` (an operator or
+  // agent via `orchestration-state.js transition --status blocked`). The router itself never
+  // writes run.json, so its own derived blocks (preflight_blocked, *_invalid, ...) never land
+  // here. Hold until a supported resume sets status back to running.
+  if (artifacts.run.status === 'blocked') {
+    return { ok: true, nextState: 'blocked', nextResource: null, reason: 'run_blocked', blocking: true, resumeFrom: artifacts.run.resumeFrom ?? null, resumeWith: RUN_BLOCKED_RESUME, blocker: explicitRunBlocker(artifacts.run.resumeFrom) };
+  }
 
   const decisions = artifacts.decisions || {};
   const approvals = artifacts.approvals || {};
@@ -193,6 +269,8 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   const sourcePlatform = getDecisionValue(decisions, 'sourcePlatform');
   const preflight = artifacts.preflight || null;
   const readArtifact = createArtifactReader(projectDir);
+  const actionGate = await pendingUserActionGate(projectDir);
+  if (actionGate?.route.reason === 'user_action_artifacts_unreadable') return actionGate.route;
 
   if (deliveryMode && !['management', 'website', 'management_and_website'].includes(deliveryMode)) {
     return { ok: false, nextState: 'failed', nextResource: 'resources/rp-project-intake/', reason: 'invalid_delivery_mode' };
@@ -222,6 +300,16 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
 
   if (!targetSiteStrategy) {
     return { ok: true, nextState: 'awaiting_destination_strategy', nextResource: 'resources/rp-destination/', reason: 'missing_target_site_strategy' };
+  }
+
+  // An existing site is muted only when the operator said so, asked here at
+  // intake (before any write), never mid-import. A conflicting config stops the run.
+  const notificationMute = await readNotificationMute(projectDir, { decisions });
+  if (notificationMute.errors.length) {
+    return { ok: false, nextState: 'failed', nextResource: 'resources/rp-project-intake/', reason: 'notification_mute_invalid', errors: notificationMute.errors };
+  }
+  if (notificationMute.needsAnswer) {
+    return { ok: true, nextState: 'awaiting_destination_strategy', nextResource: 'resources/rp-project-intake/', reason: 'missing_notification_mute_decision', question: NOTIFICATION_MUTE_QUESTION };
   }
 
   // The decision above only records which strategy was CHOSEN — it says nothing about
@@ -327,12 +415,14 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     return { ok: true, nextState: 'awaiting_import_scope', nextResource: 'resources/rp-source-inputs/', reason: 'invalid_source_mode' };
   }
 
+  // Preserve the destination/acquisition guards above and fresh post-preflight stage
+  // routing. Stale/unreadable requests still need repair after preflight has passed.
+  if (actionGate && (actionGate.route.reason !== 'pending_user_action' || preflight?.status !== 'pass')) return actionGate.route;
+
   if (!preflight || !preflight.status || preflight.status === 'not_started') {
     return { ok: true, nextState: 'preflight_running', nextResource: 'resources/rp-preflight/', reason: 'preflight_missing' };
   }
-  if (preflight.status === 'blocked') {
-    return { ok: true, nextState: 'preflight_blocked', nextResource: 'resources/rp-preflight/', reason: 'preflight_blocked' };
-  }
+  if (preflight.status === 'blocked') return preflightBlockedRoute(projectDir, artifacts, sourcePlatform);
   if (preflight.status === 'failed') {
     return { ok: false, nextState: 'failed', nextResource: null, reason: 'preflight_failed', errors: [] };
   }
@@ -372,7 +462,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
       return { ok: true, nextState: 'quick_mode_plan_required', nextResource: quickResource, reason: 'quick_mode_plan_missing' };
     }
 
-    const quickSetupPlan = await checkGatedOutput(readArtifact, path.join('setup', 'setup-plan.json'), setupPlanRule, { validate: !completionReportPresent });
+    const quickSetupPlan = await checkGatedOutput(readArtifact, path.join('setup', 'setup-plan.json'), value=>setupPlanRule(value,projectDir), { validate: !completionReportPresent });
     const quickSetupRequirements = await checkGatedOutput(readArtifact, path.join('setup', 'setup-requirements.json'), validateSetupRequirementsShape, { validate: !completionReportPresent });
     if (!quickSetupPlan.present || !quickSetupRequirements.present) {
       return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'quick_mode_setup_plan_missing' };
@@ -387,9 +477,11 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     if (quickManifest.errors) return invalidOutputRoute('execution_manifest_invalid', quickResource, quickManifest.errors);
 
     if (executionRejected) return executionRejectedRoute;
+    { const regional = await regionalRoute(projectDir); if (regional) return regional; }
     if (!isOneClick && approvals.execution && approvals.execution.status === 'pending') {
       return { ok: true, nextState: 'awaiting_execution_approval', nextResource: 'resources/rp-execution-policy/', reason: 'execution_approval_pending' };
     }
+    if (!completionReportPresent) { const mute = await muteMismatchRoute(readArtifact, notificationMute); if (mute) return mute; }
     if (!(await isSetupVerified(projectDir, readArtifact))) {
       return { ok: true, nextState: 'executing_setup', nextResource: 'resources/rp-execute-setup/', reason: 'missing_setup_verification' };
     }
@@ -442,6 +534,11 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
       return { ok: true, nextState: 'discovery_running', nextResource: 'resources/rp-discovery/', reason: 'missing_source_schema' };
     }
     if (sourceSchema.errors) return invalidOutputRoute('source_schema_invalid', 'resources/rp-discovery/', sourceSchema.errors);
+    // Discovery promoted under the coverage contract must also have promoted the store's regional
+    // settings; without them nothing can compare the destination's currency with the source's.
+    if (await exists(path.join(projectDir, 'discovery', 'source-coverage.json')) && !(await exists(path.join(projectDir, 'discovery', 'source-locale.json')))) {
+      return { ok: true, nextState: 'discovery_running', nextResource: 'resources/rp-discovery/', reason: 'source_regional_missing' };
+    }
   }
 
   // CMS-fallback freshness chain (plugin coverage -> mapping plan -> setup plan). A plan built
@@ -509,11 +606,19 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     return { ok: true, nextState: 'awaiting_mapping_approval', nextResource: 'resources/rp-mapper/', reason: 'mapping_approval_pending' };
   }
 
+  if (managementImportMode !== 'quick') {
+    const proposedPlan=await readJson(path.join(projectDir,'mapping/mapping-plan.json'));
+    if (proposedPlan?.fieldContractVersion===1 && require('./mapping-omission-approval').candidates(proposedPlan).length) {
+      try {require('./mapping-omission-approval').assertAuthorized(projectDir,proposedPlan);}
+      catch {return {ok:true,nextState:'mapping_running',nextResource:'resources/rp-mapper/',reason:'mapping_omission_approval_missing_or_stale',requiredArtifacts:['orchestration/approvals.json','mapping/mapping-plan.json']};}
+    }
+  }
+
   if (freshness && freshness.stale === 'setup') {
     return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'setup_plan_stale_cms_fallback' };
   }
 
-  const setupPlan = await checkGatedOutput(readArtifact, path.join('setup', 'setup-plan.json'), setupPlanRule, { validate: validateOutputs });
+  const setupPlan = await checkGatedOutput(readArtifact, path.join('setup', 'setup-plan.json'), value=>setupPlanRule(value,projectDir), { validate: validateOutputs });
   if (!setupPlan.present) {
     return { ok: true, nextState: 'setup_discovery_running', nextResource: 'resources/rp-setup-discovery/', reason: 'missing_setup_plan' };
   }
@@ -578,21 +683,31 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   }
 
   if (executionRejected) return executionRejectedRoute;
+  { const regional = await regionalRoute(projectDir); if (regional) return regional; }
   if (!isOneClick && approvals.execution && approvals.execution.status === 'pending') {
     return { ok: true, nextState: 'awaiting_execution_approval', nextResource: 'resources/rp-execution-policy/', reason: 'execution_approval_pending' };
   }
 
+  if (!completionReportPresent) { const mute = await muteMismatchRoute(readArtifact, notificationMute); if (mute) return mute; }
   if (!(await isSetupVerified(projectDir, readArtifact))) {
     return { ok: true, nextState: 'executing_setup', nextResource: 'resources/rp-execute-setup/', reason: 'missing_setup_verification' };
   }
 
-  if (!completionReportPresent) {
+  // A stopped run leaves an `aborted` report with an interruption. It is not
+  // completion: the route is the same resume, never finalizing.
+  const interruptedReport = completionReportPresent
+    && Boolean((await readJson(path.join(projectDir, 'execution', 'completion-report.json')))?.interruption);
+  if (!completionReportPresent || interruptedReport) {
+    const progress = await importProgressFields(projectDir);
     return {
       ok: true,
       nextState: 'executing_import',
       nextResource: 'resources/rp-execute-import/',
-      reason: 'missing_completion_report',
-      ...(await importProgressFields(projectDir)),
+      reason: interruptedReport ? 'import_interrupted' : 'missing_completion_report',
+      ...progress,
+      // A run killed before it could record its stop: write the aborted report from the journal
+      // (scripts/interrupted-completion-report.js) so cutover sees the pause, then resume.
+      ...(!completionReportPresent && progress.importProgress === 'interrupted' ? { interruptedReport: 'missing' } : {}),
     };
   }
 
@@ -623,6 +738,19 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     }
   }
 
+  const mappingPlan=await readJson(path.join(projectDir,'mapping/mapping-plan.json'));
+  if (mappingPlan?.fieldContractVersion===1 && mappingPlan.executionScope?.deferredEntities?.length) {
+    const {digest,canonical,deferredRunResult}=require('./mapping-field-contract.js');
+    const report=completionInputs.backendCompletion,summary=completionInputs.postExecutionHandoff?.mappingSummary;
+    // Finish the existing reports before stopping; never declare a partial scope complete.
+    const retained=report?.mappingPlanDigest===digest(mappingPlan) &&
+      canonical(report.executionScope)===canonical(mappingPlan.executionScope) &&
+      summary?.mappingPlanDigest===digest(mappingPlan) &&
+      canonical(summary.executionScope)===canonical(mappingPlan.executionScope) &&
+      completionInputs.executionLogPresent && completionInputs.postExecutionHandoff.lastWriteAt===report.lastWriteAt;
+    if (!retained) return {ok:true,nextState:'blocked',nextResource:null,blocking:true,reason:'mapping_deferral_report_missing_or_stale',blocker:{type:'mapping_deferral_evidence_required',artifact:'execution/completion-report.json',requiredInput:'Regenerate the existing report/handoff through shared writers using the importer mapping pin; retained counters must not be reported as completed.'}};
+    return {ok:true,nextState:'blocked',nextResource:null,reason:'mapping_scope_deferred',blocking:true,blocker:deferredRunResult(mappingPlan).blocker};
+  }
   const aggregate = validateMigrationCompletion(completionInputs.completion, {
     deliveryMode,
     backendCompletion: completionInputs.backendCompletion,
@@ -658,6 +786,35 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
     };
   }
 
+  // A verified historical run is being refinalized locally, not republished to Wix.
+  // Its aggregate checks above still apply; do not introduce a target-write stage.
+  if (reviewOnly) return {ok:true,nextState:'completed',nextResource:null,reason:'migration_completion_present'};
+  let migrationReview = null;
+  try {
+    migrationReview = await readMigrationReview(projectDir);
+  } catch (error) {
+    if (!error || error.code !== 'ENOENT') {
+      return {
+        ok: false,
+        nextState: 'failed',
+        nextResource: 'resources/rp-migration-review/',
+        reason: error.code || 'invalid_migration_review',
+        errors: [{ message: error.message }],
+      };
+    }
+  }
+  if (!migrationReview || !migrationReview.evidenceRevision) {
+    return { ok: true, nextState: 'migration_review_running', nextResource: 'resources/rp-migration-review/', reason: 'migration_review_missing' };
+  }
+  const completionReportDigest = hashArtifact(projectDir, path.join('execution', 'completion-report.json'));
+  if (!completionReportDigest || migrationReview.completionReportDigest !== completionReportDigest) {
+    return { ok: true, nextState: 'migration_review_running', nextResource: 'resources/rp-migration-review/', reason: 'migration_review_stale' };
+  }
+  const reviewHandoff = await readLatestHandoff(projectDir);
+  if (!reviewHandoff || reviewHandoff.evidenceRevision !== migrationReview.evidenceRevision || reviewHandoff.committedStateVersion !== migrationReview.stateVersion) {
+    return { ok: true, nextState: 'migration_review_running', nextResource: 'resources/rp-migration-review/', reason: 'migration_review_handoff_missing_or_stale' };
+  }
+
   return { ok: true, nextState: 'completed', nextResource: null, reason: 'migration_completion_present' };
 }
 
@@ -666,15 +823,21 @@ function applyReviewOnlyRoute(result) {
   const hold = (reason, detail = {}) => ({ ...result, ok: true, nextState: 'blocked', nextResource: null, reason, blocking: true, reviewOnly: true, ...detail });
   if (['missing_source_schema','source_schema_invalid','missing_mapping_plan','mapping_plan_invalid'].includes(result.reason)) return hold('review_only_input_unavailable', { errors: result.errors || [result.reason] });
   if (result.reason === 'source_coverage_unreconciled') return hold('review_only_source_coverage_unreconciled');
-  if (REVIEW_ONLY_MAPPING_REASONS.has(result.reason) || result.reason === 'mapping_approval_pending' || result.nextState === 'finalizing') return { ...result, reviewOnly: true };
+  if (REVIEW_ONLY_MAPPING_REASONS.has(result.reason) || result.reason === 'mapping_approval_pending' || ['finalizing','completed'].includes(result.nextState)) return { ...result, reviewOnly: true };
   return hold('review_only_unexpected_route', { wouldRoute: result.reason });
 }
 async function determineNextStepForMode(projectDir, artifacts, options, validation) {
   // Classification must precede every resource-bearing route, including intake and quick mode.
-  if (!validation.ok || ['cancel_requested','canceled','interrupted'].includes(artifacts.run.status)) return determineNextStepUnfiltered(projectDir, artifacts, options);
+  if (!validation.ok || ['cancel_requested','canceled','interrupted','blocked'].includes(artifacts.run.status)) return determineNextStepUnfiltered(projectDir, artifacts, options);
   const finalized = await classifyFinalizedRun(projectDir, { decisions: artifacts.decisions || {} });
   if (finalized.kind === 'unverified-v1') return { ok: true, nextState: 'blocked', nextResource: null, reason: 'finalized_receipt_unverified', errors: finalized.errors, reviewOnly: true, blocking: true };
-  const reviewOnly = finalized.kind === 'valid-v1';
+  // Keep the closed review-only route after v1 is archived and replaced by v2.
+  // Checking only the current receipt would dispatch publication on the next resume.
+  const archived = finalized.kind === 'current' ? await classifyFinalizedRun(projectDir, {
+    decisions: artifacts.decisions || {}, receiptFile:'completion/migration-completion.v1.json'
+  }) : null;
+  if (archived?.kind === 'unverified-v1') return {ok:true,nextState:'blocked',nextResource:null,reason:'finalized_receipt_unverified',errors:archived.errors,reviewOnly:true,blocking:true};
+  const reviewOnly = finalized.kind === 'valid-v1' || archived?.kind === 'valid-v1';
   const result = await determineNextStepUnfiltered(projectDir, artifacts, { ...options, reviewOnly });
   // A finalized review-only run must never dispatch destination work. Standard runs
   // still require master's fresh Editor publication readback before downstream work.

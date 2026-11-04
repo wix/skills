@@ -159,26 +159,49 @@ export async function installProjectDependencies({ outputDir }) {
   }
 }
 
-export async function installRegistrySelection({ selection, outputDir, registryRoot = new URL("../../registry/", import.meta.url), installDependencies = installProjectDependencies }) {
-  if (!selection || selection.strategy !== "curated-registry" || !selection.selected) return { strategy: "bounded-custom", installed: [] };
+export async function installRegistrySelection({ selection, ...options }) {
+  const { installations } = await installRegistrySelections({ selections: [selection], ...options });
+  return installations[0];
+}
+
+// Installs every curated selection of a page in one pass: each distinct item's files are copied
+// once, their exact dependencies are merged into package.json once, and the package manager runs
+// once. Installing per unit made a page with N approved buttons run N serial full installs.
+// Returns one installation record per selection, in order.
+export async function installRegistrySelections({ selections = [], outputDir, registryRoot = new URL("../../registry/", import.meta.url), installDependencies = installProjectDependencies }) {
   const root = registryRoot instanceof URL ? fileURLPath(registryRoot) : path.resolve(registryRoot);
   const destinationRoot = path.resolve(outputDir);
-  const installed = [];
-  for (const file of selection.selected.files || []) {
-    if (!file.path || !file.target || !file.sha256) throw new Error(`Registry file metadata is incomplete for ${selection.selected.name}`);
-    const source = safeJoin(root, file.path, "registry source");
-    const destination = safeJoin(destinationRoot, file.target, "registry target");
-    const sourceBytes = await readFile(source);
-    const actualHash = createHash("sha256").update(sourceBytes).digest("hex");
-    if (actualHash !== file.sha256) throw new Error(`Registry source hash mismatch for ${file.path}: expected ${file.sha256}, got ${actualHash}`);
-    await mkdir(path.dirname(destination), { recursive: true });
-    await copyFile(source, destination);
-    installed.push({ source: file.path, target: file.target, sha256: actualHash });
-  }
-  const dependencies = selection.selected.dependencies || {};
-  if (Array.isArray(dependencies)) throw new Error(`Registry dependencies must be exact name/version pairs for ${selection.selected.name}`);
-  for (const [name, version] of Object.entries(dependencies)) {
-    if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(String(version))) throw new Error(`Registry dependency ${name} must use an exact version, got ${version}`);
+  const items = new Map();
+  const dependencies = {};
+  const dependencyOwner = {};
+  for (const selection of selections) {
+    if (!selection || selection.strategy !== "curated-registry" || !selection.selected) continue;
+    const selected = selection.selected;
+    const key = `${selected.name}@${selected.revision}`;
+    if (items.has(key)) continue;
+    const installed = [];
+    for (const file of selected.files || []) {
+      if (!file.path || !file.target || !file.sha256) throw new Error(`Registry file metadata is incomplete for ${selected.name}`);
+      const source = safeJoin(root, file.path, "registry source");
+      const destination = safeJoin(destinationRoot, file.target, "registry target");
+      const sourceBytes = await readFile(source);
+      const actualHash = createHash("sha256").update(sourceBytes).digest("hex");
+      if (actualHash !== file.sha256) throw new Error(`Registry source hash mismatch for ${file.path}: expected ${file.sha256}, got ${actualHash}`);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await copyFile(source, destination);
+      installed.push({ source: file.path, target: file.target, sha256: actualHash });
+    }
+    const itemDependencies = selected.dependencies || {};
+    if (Array.isArray(itemDependencies)) throw new Error(`Registry dependencies must be exact name/version pairs for ${selected.name}`);
+    for (const [name, version] of Object.entries(itemDependencies)) {
+      if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(String(version))) throw new Error(`Registry dependency ${name} must use an exact version, got ${version}`);
+      if (dependencies[name] !== undefined && dependencies[name] !== String(version)) {
+        throw new Error(`Registry dependency ${name} is pinned to ${dependencies[name]} by ${dependencyOwner[name]} and ${version} by ${key}; approved items must agree`);
+      }
+      dependencies[name] = String(version);
+      dependencyOwner[name] = key;
+    }
+    items.set(key, { selected, installed, dependencies: itemDependencies });
   }
   let dependencyInstall = { ok: true, skipped: "no-dependencies" };
   if (Object.keys(dependencies).length) {
@@ -192,28 +215,34 @@ export async function installRegistrySelection({ selection, outputDir, registryR
     try {
       dependencyInstall = { ok: true, ...(await installDependencies({ outputDir: destinationRoot, dependencies })) };
     } catch (error) {
-      throw new Error(`Installing registry dependencies for ${selection.selected.name} failed: ${error.message}`);
+      throw new Error(`Installing registry dependencies for ${[...items.values()].map((item) => item.selected.name).join(", ")} failed: ${error.message}`);
     }
   }
-  const astroConfiguration = selection.selected.runtimeClass?.startsWith("react-")
+  const astroConfiguration = [...items.values()].some((item) => item.selected.runtimeClass?.startsWith("react-"))
     ? await ensureAstroReactIntegration(destinationRoot)
     : { changed: false, reason: "not-required" };
-  return {
-    strategy: "curated-registry",
-    item: selection.selected.name,
-    revision: selection.selected.revision,
-    sourceHash: selection.selected.sourceHash,
-    capabilitiesRef: selection.selected.capabilitiesRef,
-    capabilitiesHash: selection.selected.capabilitiesHash,
-    contractRef: selection.selected.contractRef,
-    contractHash: selection.selected.contractHash,
-    binding: selection.selected.binding,
-    approvalRef: selection.selected.approvalRef,
-    installed,
-    dependencies,
-    dependencyInstall,
-    astroConfiguration,
-  };
+  const installations = selections.map((selection) => {
+    const item = selection?.strategy === "curated-registry" && selection.selected ? items.get(`${selection.selected.name}@${selection.selected.revision}`) : null;
+    if (!item) return { strategy: "bounded-custom", installed: [] };
+    const { selected } = item;
+    return {
+      strategy: "curated-registry",
+      item: selected.name,
+      revision: selected.revision,
+      sourceHash: selected.sourceHash,
+      capabilitiesRef: selected.capabilitiesRef,
+      capabilitiesHash: selected.capabilitiesHash,
+      contractRef: selected.contractRef,
+      contractHash: selected.contractHash,
+      binding: selection.selected.binding,
+      approvalRef: selected.approvalRef,
+      installed: item.installed,
+      dependencies: item.dependencies,
+      dependencyInstall,
+      astroConfiguration,
+    };
+  });
+  return { installations, dependencyInstall, astroConfiguration };
 }
 
 async function ensureAstroReactIntegration(destinationRoot) {

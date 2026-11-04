@@ -25,8 +25,8 @@
     },
     {
       "code": "registration-notifications-default-on",
-      "severity": "warning",
-      "summary": "Registration side effects are on by default across this domain. RSVP creation sends a confirmation email unless disableNotifications is set."
+      "severity": "info",
+      "summary": "Registration side effects are on by default across this domain. RSVP creation sends a confirmation email unless disableNotifications is set. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
     }
   ],
   "evidence": [

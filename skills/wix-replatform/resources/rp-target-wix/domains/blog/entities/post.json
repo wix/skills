@@ -41,7 +41,7 @@
     "endpoint": "POST /blog/v3/draft-posts",
     "writerId": "createDraftPost",
     "verification": "verified-live",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
   "fallbacks": [

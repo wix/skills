@@ -24,6 +24,15 @@ Use `lib/plugin-entity-read-plan.js`:
    It sets `sourceEntity.sourceMeta.extractionPlan` and updates an existing
    `source-schema.json` (object or array entities). When canonical synthesis has not yet
    happened, carry that exact reference into it. Never infer filenames from table labels.
+   An entity with no declared `candidateTargetRefs` (an unprofiled plugin's own table) becomes
+   a **proposed** mapping entity: the writer stamps `sourceMeta.basis: "proposed"`,
+   `recognized: false`, `proposedCapability`, `readPlanRef` and `candidateTargetRefs` (the
+   native refs of the capability guess, then `cms/data-item`). Declared targets are never
+   replaced. Then rebuild coverage with no source calls (`wp-discovery.js
+   --reclassify-coverage --out-dir <project>/data/wp-discovery`): the plugin gets one
+   `derived:<plugin>` row instead of `unknown-plugin:` pending, and the census gets its entity
+   row. The operator confirms or changes the target at the mapping review. A missing profile
+   is never the blocker.
 4. Run the bounded samples through the same declared assembly. Inspect identity,
    required relationships and fields before treating the plan as prepared. Preview
    samples do not prove complete extraction. Preserve missing coverage and target decisions.
@@ -31,6 +40,28 @@ Use `lib/plugin-entity-read-plan.js`:
    canonical reference, typed code and precise reason. It works without a table or plan.
    Keep that entity in scope; an identical discovery rerun is not a remedy for missing
    producer support. Do not substitute empty output or fictitious business records.
+
+## Read in full before the mapping checkpoint
+
+Samples only prepare the plan. Before the mapping checkpoint, in both run modes, read every
+planned plugin entity completely, whatever its size (a large entity only takes longer):
+
+```bash
+node resources/rp-source-wordpress/scripts/plugin-full-read.js --project-dir <dir> --env-file <source env>
+```
+
+It uses discovery's credentials and bridge transport, and `readPluginEntitiesForMapping` to
+run `extractBoundPluginEntity` in full for each entity with a current plan (`--entity` narrows it;
+`--restart` discards interrupted component progress under the recorded restart policy). It is read-only: no source or target writes. A current full output is
+reused, never repeated, and import later accepts that same evidence. Map the entity's exact
+fields from `data/source-extract/<entity>.ndjson`. Exit 2 means some read failed: its
+`<entity>.deferred.json` carries the typed code and operator action, and that entity stays
+pending. For a plan whose assembly is a project-code `module`, every component is still read in
+full (`<entity>.components.json`), but the module runs only in the approved extraction path; map
+from the component outputs. Reuse is bound to the source URL, and changed evidence is never
+current. The mapping preflight refuses approval while a planned entity is pending with no full
+read attempt (`plugin_full_read_missing`) or with a complete read left unmapped
+(`plugin_inventory_unmapped`).
 
 Required plan members:
 
@@ -95,7 +126,14 @@ and target dependency order. The adapter exports:
   planned canonical entity reference exactly once in the existing target dependency order.
   The wrapper preserves this ordering and topologically orders source prerequisites;
   missing references, cycles or a conflict with the declared target order fail before hooks/writes. This does not add the separate
-  target-parent readiness gate.
+  target-parent readiness gate. Declare the same `migrationReview` capture contract as any
+  generated importer. When the mapping plan has an exact field contract, also declare its
+  `mappingPlanDigest`, `resolvedEntityRefs` and `mappingScopeAssertion: 'assertExecutionScope'`;
+  the wrapper then dispatches only resolved entities and re-checks that guard before each
+  `importEntity` call. A held-back entity is never written.
+- `migrationReviewProbe({probeProjectDir,args})`: the isolated review probe the verifier runs.
+  Write only under `probeProjectDir`, with synthetic inputs and no source or target calls,
+  using the same capture/publication functions as `importEntity`/`finalizeImport`.
 - `sourceTransport({entity,projectDir,siteBaseUrl})`: same authenticated shared HTTP bridge
   transport and telemetry callback discovery used; load secrets from the configured source.
 - `preview(entity)`: retained discovery samples only, or null. Never fetch full data here.
@@ -104,17 +142,22 @@ and target dependency order. The adapter exports:
   checks, once before the first ready write; throw on refusal. Do not replace them with a
   fixed successful response.
 - `importEntity({entity,selection,projectDir,dryRun})`: existing target writer, record
-  selectors, ledger, idempotency and recovery. Honour `dryRun` and every selection flag;
+  selectors, ledger, idempotency and recovery. It owns Migration review before-write,
+  write-outcome and recovery captures; the wrapper captures none, and passing the probe
+  does not prove them. Honour `dryRun` and every selection flag;
   the wrapper's source-readiness gate grants no target permission or omission approval.
 - `finalizeImport({results,selection,projectDir,runId,deferredExtraction})`: retain existing
   per-run recovery/completion publication, merging `deferredExtraction.operatorActions`
-  and `statuses` with the real journal-backed outcomes. It runs once even when all selected
+  and `statuses` with the real journal-backed outcomes. Pass the pinned `mappingPlanDigest`
+  to the completion writer so held-back mapping scope stays visible. It runs once even when all selected
   plugin entities are held. A local finalization error never rewrites target receipts as
   rejected creates.
 - `afterExtraction({results,selection,projectDir,runId})`: file accumulated source-read
   telemetry once after the read pass, including deferred reads. Telemetry failure must not
   discard extraction evidence.
 
+An entity already read in full before the checkpoint is not read again here unless its plan or
+output changed (`full-extraction-stale`).
 Full generated extraction covers mapped scopes and their source prerequisites; an excluded
 discovery entity does not become an extraction task. Only mapped target scopes dispatch
 for import, under existing mapping approval. One process run ID is supplied to adapter hooks. The

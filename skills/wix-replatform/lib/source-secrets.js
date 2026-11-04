@@ -255,8 +255,11 @@ async function resolveSourceSecrets(options) {
     { placeholder },
   );
 
+  // `ok` means every requested key is usable locally: an unresolved key is never ok, even
+  // when no vault call failed. needsUser and the per-key statuses tell the two apart.
   result.needsUser = result.unresolvedKeys.length > 0;
   if (result.needsUser) {
+    result.ok = false;
     result.instruction = [
       result.dashboardUrl ? `Open ${result.dashboardUrl}` : 'Open the site dashboard Secrets Manager.',
       `Keys: ${result.unresolvedKeys.join(', ')}`,

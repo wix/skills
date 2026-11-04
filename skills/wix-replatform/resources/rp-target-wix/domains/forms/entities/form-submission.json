@@ -12,13 +12,36 @@
     "crosswalkRequired": true
   },
   "sourceAliases": [],
-  "dependsOn": ["crm/contact", "forms/form", "media/media-file"],
+  "dependsOn": [
+    "crm/contact",
+    "forms/form",
+    "media/media-file"
+  ],
+  "dependencyModes": {
+    "forms/form": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "forms/form": [
+      "submission.formId"
+    ]
+  },
+  "legacyTaskCompleteEdges": [
+    "forms/form"
+  ],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.forminator.entry",
+      "degradedField": "submission",
+      "pitfallCode": "forminator-entries-via-bridge-plugin-not-rest",
+      "degradation": "warning"
+    }
+  ],
   "preferredWrite": {
     "surface": "Form Submissions V4 (FormSubmissionService)",
     "endpoint": "POST /forms/v4/submissions",
-    "writerId": null,
+    "writerId": "createFormSubmission",
     "verification": "verified-live",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
   "reliability": {
@@ -27,9 +50,9 @@
   },
   "pitfalls": [
     {
-      "code": "create-notification-behavior-undocumented",
-      "severity": "blocker",
-      "summary": "OBSERVED 2026-08-16, full method-parameter list of Create Submission read end to end: the call accepts exactly `submission`, `additionalMetadata` and `captchaToken`. There is NO disableNotifications, no suppressNotifications, no flowControlSettings, no participantNotification, and no `sendEmail`-style toggle anywhere on the Form Submissions surface; the words 'notification' and 'email' do not appear on the Create Submission, Submission Object, Confirm Submission or Form Submissions Introduction pages at all. What IS documented: creating a submission fires the `Submission Created` domain event, and the Form Schemas glossary defines 'post-submission trigger' as 'automated actions that are executed after a form submission is received' — i.e. the Wix Automations hook that the default 'new form submission' owner email rides on. Suppression therefore cannot be proven from the docs, so importSafe stays false, exactly as for events/rsvp. The only control we have is the site-wide MuteSite policy, which is not a per-call flag, is applied by default only to newly created target sites, and has not been verified to cover the Automations email path. PARTIAL LIVE DATA POINT 2026-09-16: MuteSite was applied before a bulk historical import through this endpoint (one single test submission first, then the full batch) and no notification complaint was raised — but no inbox check covered every record, so this is supporting evidence for MuteSite as the mitigation, not proof Create Submission is itself silent. Keep muting for any future bulk write through this endpoint until a dedicated probe (a throwaway form + a mailbox checked in real time) settles the underlying question."
+      "code": "create-emails-the-owner-even-when-muted",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-26: Create Submission has no notification control (only submission, additionalMetadata, captchaToken) and fires Submission Created, the trigger of the form's automations. With the site muted, an API-created entry STILL emailed the site owner: the per-form 'New submission received' automation is a transactional email that mute does not cover. With that automation and the preinstalled site-wide one set INACTIVE, no email was sent. Contact-facing notifications remain covered by site mute. The entries import pauses the form's automations first (pauseFormAutomations), best-effort: a failed pause never holds or delays the entries."
     },
     {
       "code": "submitter-is-read-only",
@@ -37,9 +60,9 @@
       "summary": "`submitter` (the oneOf memberId / visitorId / applicationId / userId) is READ-ONLY on both the request and the response — the original submitter cannot be set. A migrated submission will be attributed to the importing identity, not to the person who filled the WordPress form. The one identity field that IS settable at create is `contactId` (GUID, immutable), so submitter attribution has to be carried as a contact reference resolved through the CRM contacts crosswalk, and the loss of the true submitter identity must be ledgered rather than papered over."
     },
     {
-      "code": "backdating-is-documented-but-unverified",
+      "code": "created-date-is-ignored",
       "severity": "warning",
-      "summary": "`createdDate` IS a request field on Create Submission (format date-time, `immutable`, and — unlike id / namespace / updatedDate / revision / submitter — NOT marked read-only), so the docs say a submission can be created carrying its original date and that the date cannot be changed afterwards. Whether the server actually honours a past createdDate rather than overwriting it with now is not stated anywhere and has not been probed live. Verify on a throwaway form before promising historical fidelity; if it is overwritten there is no Update Submission path back, because the field is immutable."
+      "summary": "VERIFIED LIVE 2026-10-26: `createdDate` is accepted on Create Submission but IGNORED: an entry sent with createdDate 2023-03-15 was stored with the create time, and the field is immutable, so there is no way back. The original date is kept in the form's hidden 'Original submission date' field (target `original_submission_date`, added by createForm); createFormSubmission writes the source timestamp there. The Forms inbox shows the import date (cutover item form-entry-dates-in-hidden-field)."
     },
     {
       "code": "unknown-key-fails-the-whole-submission",
@@ -65,25 +88,32 @@
       "code": "seen-flag-should-be-set-on-import",
       "severity": "info",
       "summary": "`seen` is settable at create. Historical submissions imported from another platform were already read by the owner there; leaving `seen` false lands the whole history in the dashboard as unread and, on top of any notification behaviour, makes the migration look like a flood of new leads. Set seen:true for imported history unless the user asks otherwise."
+    },
+    {
+      "code": "forminator-entries-via-bridge-plugin-not-rest",
+      "severity": "warning",
+      "summary": "Forminator entries have no REST route: they live in Forminator's own tables `frmt_form_entry` and `frmt_form_entry_meta`, read through wix-wp-plugin-v2 (rp-source-wordpress/plugins/forminator.json). A source without the bridge plugin installed cannot migrate Forminator entries."
     }
   ],
   "mappingGuidance": [
-    "Dependencies: forms/form supplies required formId and field targets; crm/contact is required when contactId is crosswalked; media/media-file is required for file-upload answer IDs.",
+    "Dependencies: forms/form supplies required formId and field targets; each entry waits only for its own form (per record: submission.formId is resolved through the dependency gate); crm/contact is required when contactId is crosswalked; media/media-file is required for file-upload answer IDs and stays task-complete: those IDs sit under submissions.<field target>, a key the dependency gate cannot declare as a path.",
     "Import order is strict: forms/form (the schema) first, then contacts/members if contactId is to be populated, then media for any file-upload answers, then submissions. formId is required and is the crosswalked Wix schema id.",
     "Build `submissions` as a map keyed by the schema field's `target` — the value shape follows that field's inputType: STRING (including date and time fields), NUMBER, BOOLEAN, ARRAY (array of selected option values), ADDRESS (address object), PAYMENT (array of product objects), SCHEDULING (appointment object). The source-field-name -> target map written by the forms/form step is the input to this.",
-    "Set `createdDate` to the source submission's original timestamp (Flamingo inbound messages carry post_date; the CSV export carries a `Date` column produced by get_post_time('c')) and verify on the first record that the value came back unchanged before importing the rest.",
+    "Pass the source submission's original timestamp as `originalDate` to createFormSubmission: it is written to the hidden `original_submission_date` field (Wix ignores createdDate, see created-date-is-ignored). Flamingo inbound messages carry post_date; the CSV export carries a `Date` column produced by get_post_time('c').",
     "Resolve `contactId` from the submission's email through the CRM contacts crosswalk where a contact exists; leave it unset otherwise. Do not attempt to set `submitter` — it is read-only.",
     "Set `seen: true` on imported history so a migration does not present years of answered enquiries as new unread leads.",
     "LIVE-VERIFIED 2026-09-16 (supersedes the older 'anything but CONFIRMED on create is a stop signal' guidance): Create Submission for `wix.form_app.form` ALWAYS returns PENDING first, then an async spam-filter pass resolves it to CONFIRMED (stored) or silent deletion within 1-2 seconds -- PENDING on the immediate create response is the NORMAL case, not a stop signal. Only CONFIRMED means the record is stored; do not stop on an initial PENDING, and do not treat a bare create-response read as proof either way. Poll (2-3 attempts, ~2s apart) and only count a submission as landed once a re-fetch reads CONFIRMED -- a 404 on re-fetch is definitive proof of loss. See the status-is-namespace-dependent-not-chosen pitfall below for the full mechanism, causes of false-positive deletion, and required practice.",
-    "Until the notification behaviour is proven silent, treat this as a guarded write: run the first record against a throwaway form on the target site with a mailbox the team controls, confirm nothing was sent to the owner or the submitter, and only then release the batch. If a send is observed, the fallback is not 'skip the data' — it is site-level MuteSite for the import window, or landing the history in a CMS collection with its original ids and re-deciding at the gate.",
-    "Spam-flagged source records (Flamingo's flamingo-spam post status, Akismet meta) should be filtered out before import rather than recreated. LIVE-VERIFIED 2026-09-16: this is in ADDITION to Wix's own spam filter, not instead of it -- Wix's spamFilterProtectionLevel DOES evaluate every API-created submission (see the pitfall below); the older claim that it does not re-evaluate API-created submissions was wrong and is corrected there."
+    "Notifications are covered by the site mute; no throwaway-form probe or guarded first record is needed for notification reasons.",
+    "Spam-flagged source records (Flamingo's flamingo-spam post status, Akismet meta) should be filtered out before import rather than recreated. LIVE-VERIFIED 2026-09-16: this is in ADDITION to Wix's own spam filter, not instead of it -- Wix's spamFilterProtectionLevel DOES evaluate every API-created submission (see the pitfall below); the older claim that it does not re-evaluate API-created submissions was wrong and is corrected there.",
+    "Write entries with createFormSubmission, after pauseFormAutomations for that form and before restoreFormAutomations. Outcomes: created (read back CONFIRMED) | in-spam (moved to the form's spam tab; never re-sent and never restored by the import, because Report Not Spam runs the automations) | deleted | pending | unknown | failed. Only created counts as landed.",
+    "importFormEntries also lowers the form's spamFilterProtectionLevel to NONE for the import (the required practice in status-is-namespace-dependent-not-chosen: under ADVANCED a genuine record was removed as a false positive; the recreated form is on no page while the import runs, so no visitor can submit). It records the level before in execution/forms/automation-pause.json, uses a partial Update Form at the current revision (formFields untouched), and restores it afterwards. Best-effort, one attempt: a failure is a finding (form-spam-filter-not-lowered / form-spam-filter-not-restored) and the entries go ahead; a failed restore is a cutover item."
   ],
   "setupRequirements": [
     "Wix Forms app installed (`wix_forms`; the Form Submission API only works with it — confirm with GetAppInstance)",
     "SCOPE.DC-FORMS.MANAGE-SUBMISSIONS (Manage Submissions)",
     "The target form schema created and crosswalked first (404 FORM_NOT_FOUND otherwise)",
     "Target site must not be a template (428 SITE_IS_A_TEMPLATE)",
-    "Notification decision taken at the execution-plan gate: either a live probe proving Create Submission is silent, or site-level MuteSite for the import window"
+    "Site-wide notification mute verified active (getSiteMuteState muted:true) before any write"
   ],
   "evidence": [
     {
@@ -114,8 +144,13 @@
     {
       "type": "repo-research",
       "path": "skills/wix-replatform/resources/rp-target-wix/domains/events/entities/rsvp.json",
-      "note": "precedent: importSafe:false when a create call's member-notification behaviour cannot be proven suppressed from the docs"
+      "note": "former precedent (importSafe:false for unproven notification suppression), superseded 2026-10-27: notifications are covered by the site mute"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Throwaway site, 2026-10-26, owner inbox watched: (A) unmuted, automations active: owner email; (B) muted, automations active: owner email, createdDate 2023-03-15 stored as the create time, seen:true kept; (C) muted, per-form and preinstalled automations INACTIVE: no email. All entries read back CONFIRMED; none went to spam."
     }
   ],
-  "notes": "Authored 2026-08-16 (forms vertical). Docs-verified only. Two honest negatives recorded rather than guessed: the submitter CANNOT be set (read-only; contactId is the only settable identity), and notification behaviour CANNOT be proven safe — Create Submission has no suppression flag at all and fires Submission Created, which is the documented automation trigger. Backdating IS documented as settable (createdDate is a non-read-only, immutable request field) but has not been verified live, which is the single highest-value probe to run next on this entity."
+  "notes": "Authored 2026-08-16 (forms vertical). The submitter CANNOT be set (read-only; contactId is the only settable identity). VERIFIED LIVE 2026-10-26: createdDate is ignored (the original date goes to a hidden field), and the per-form owner-email automation emails the owner even when the site is muted; the import pauses it."
 }

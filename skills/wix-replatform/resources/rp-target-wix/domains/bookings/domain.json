@@ -24,8 +24,8 @@
     },
     {
       "code": "bookings-is-notification-heavy",
-      "severity": "blocker",
-      "summary": "Wix Bookings sends customer-facing email and SMS on booking lifecycle transitions. Two documented request-level controls exist on Bookings Writer V2 and they point in OPPOSITE directions: participantNotification.notifyParticipants defaults to false (the ad-hoc message is off unless asked for), while sendSmsReminder defaults to TRUE - an SMS goes to contactDetails.phone 24 hours before the session unless every create call explicitly sets sendSmsReminder:false. Neither flag is documented to govern the site's own Bookings automation emails (booking confirmation, reminders, staff alerts), and no suppression flag for those is documented anywhere in the tree. Until that is proven, every booking write in this domain is a guarded write: importSafe stays false and the site-wide notification mute is the only control we can actually prove."
+      "severity": "info",
+      "summary": "Wix Bookings sends customer-facing email and SMS on booking lifecycle transitions. Two documented request-level controls exist on Bookings Writer V2 and they point in OPPOSITE directions: participantNotification.notifyParticipants defaults to false (the ad-hoc message is off unless asked for), while sendSmsReminder defaults to TRUE - an SMS goes to contactDetails.phone 24 hours before the session unless every create call explicitly sets sendSmsReminder:false. Neither flag is documented to govern the site's own Bookings automation emails (booking confirmation, reminders, staff alerts), and no suppression flag for those is documented anywhere in the tree. These are covered by the site-wide mute, verified before any write. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
     },
     {
       "code": "staff-and-resources-are-a-prerequisite-graph",

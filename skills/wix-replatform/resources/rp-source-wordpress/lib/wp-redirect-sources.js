@@ -17,26 +17,84 @@ const crypto = require('node:crypto');
 //   unsupported      rules live where this pipeline cannot read them (server/CDN, options)
 // Logs, 404 records, hit counters and caches are never rules.
 
-const PROVIDERS = Object.freeze({
-  redirection: {
-    displayName: 'Redirection',
-    pluginSlugs: ['redirection'],
-    tables: ['redirection_items', 'redirection_groups'],
-    ruleTable: 'redirection_items',
-  },
-  'rank-math': {
-    displayName: 'Rank Math SEO redirections',
-    pluginSlugs: ['seo-by-rank-math', 'seo-by-rank-math-pro'],
-    tables: ['rank_math_redirections'],
-    ruleTable: 'rank_math_redirections',
-  },
-  'yoast-premium': {
-    displayName: 'Yoast SEO Premium redirects',
-    pluginSlugs: ['wordpress-seo-premium'],
-    tables: [],
-    storedIn: 'options',
-  },
+// Redirect providers are profile data, not code: a plugin profile entity with a
+// `redirectSource` block declares where its rules live (see plugins/README.md). A new plugin
+// whose storage matches a known format needs only a profile; a new storage format needs one
+// normalizer in FORMATS below.
+//   redirectSource: {
+//     provider: 'redirection',            stable id; prefixes every ruleKey, never renamed
+//     format: 'redirection',              one of FORMATS
+//     tables: { rules: 'redirection_items', groups: 'redirection_groups' },   bare names
+//     storedIn: 'options',                instead of tables: rules sit where reads are denied
+//     pluginSlugs: ['seo-by-rank-math-pro'],   optional extra slugs (pro/alias builds)
+//   }
+const FORMATS = Object.freeze({
+  redirection: { tableRoles: ['rules', 'groups'], requiredRoles: ['rules'] },
+  'rank-math': { tableRoles: ['rules'], requiredRoles: ['rules'] },
+  'csv-export': { tableRoles: [], requiredRoles: [] },
 });
+
+function pluginFolder(pluginFileId) {
+  return String(pluginFileId || '').split('/')[0] || null;
+}
+
+// Pure: profiles in, provider definitions out (keyed by provider id).
+function providersFromProfiles(profiles = []) {
+  const providers = {};
+  for (const profile of profiles) {
+    for (const entity of profile.entities || []) {
+      const def = entity.redirectSource;
+      if (!def) continue;
+      const slugs = new Set([profile.plugin, ...((profile.detect && profile.detect.pluginFileIds) || []).map(pluginFolder), ...(def.pluginSlugs || [])].filter(Boolean));
+      const tables = def.tables || {};
+      providers[def.provider] = {
+        displayName: profile.displayName,
+        profile: profile.plugin,
+        entity: entity.entity,
+        format: def.format,
+        pluginSlugs: [...slugs].sort(),
+        tables: Object.values(tables),
+        ruleTable: tables.rules || null,
+        groupsTable: tables.groups || null,
+        storedIn: def.storedIn || null,
+      };
+    }
+  }
+  return providers;
+}
+
+let defaultProviders = null;
+function loadDefaultProviders() {
+  if (!defaultProviders) {
+    const { loadProfiles, pluginsRoot } = require('./plugin-knowledge.js');
+    defaultProviders = Object.freeze(providersFromProfiles(loadProfiles(pluginsRoot(require('node:path').resolve(__dirname, '..')))));
+  }
+  return defaultProviders;
+}
+
+// Profile validation for a redirectSource block (called from plugin-knowledge.js).
+function validateRedirectSource(entity, label, errors) {
+  const def = entity.redirectSource;
+  if (def === undefined) return;
+  if (!def || typeof def !== 'object' || Array.isArray(def)) { errors.push(`${label}: redirectSource must be an object`); return; }
+  if (!def.provider || !/^[a-z0-9-]+$/.test(def.provider)) errors.push(`${label}: redirectSource.provider must be a lowercase id (it prefixes every ruleKey)`);
+  const format = FORMATS[def.format];
+  if (!format) { errors.push(`${label}: redirectSource.format must be one of ${Object.keys(FORMATS).join(', ')}`); return; }
+  if (def.storedIn !== undefined && def.storedIn !== 'options') errors.push(`${label}: redirectSource.storedIn may only be "options"`);
+  const tables = def.tables || {};
+  if (def.tables !== undefined && (typeof def.tables !== 'object' || Array.isArray(def.tables))) errors.push(`${label}: redirectSource.tables must be an object of role -> bare table name`);
+  for (const [role, name] of Object.entries(tables)) {
+    if (!format.tableRoles.includes(role)) errors.push(`${label}: redirectSource.tables.${role} is not a table role of format ${def.format}`);
+    if (typeof name !== 'string' || !/^[A-Za-z0-9_]+$/.test(name)) errors.push(`${label}: redirectSource.tables.${role} must be a bare table name`);
+  }
+  if (!def.storedIn) {
+    for (const role of format.requiredRoles) if (!tables[role]) errors.push(`${label}: redirectSource.tables.${role} is required for format ${def.format}`);
+  }
+  if (format.tableRoles.length && !def.storedIn && entity.channel !== 'db-only') errors.push(`${label}: a table-backed redirectSource needs channel db-only`);
+  if ((def.storedIn || def.format === 'csv-export') && entity.channel !== 'export-file') errors.push(`${label}: an options- or export-backed redirectSource needs channel export-file`);
+  if (def.pluginSlugs !== undefined && (!Array.isArray(def.pluginSlugs) || def.pluginSlugs.some((slug) => typeof slug !== 'string' || !slug))) errors.push(`${label}: redirectSource.pluginSlugs must be an array of slugs`);
+  if (entity.capability !== undefined && entity.capability !== 'content.url-redirects') errors.push(`${label}: a redirectSource entity must carry capability content.url-redirects`);
+}
 
 // Resolve a provider table among the discovered physical table names. The prefix is whatever
 // the site uses; several matches (for example multisite sub-site tables) are ambiguous.
@@ -103,7 +161,7 @@ function toStatus(value) {
   return Number.isInteger(n) ? n : null;
 }
 
-function normalizeRedirectionRows(items, groups, { providerActive, physicalTable, extractedAt }) {
+function normalizeRedirectionRows(items, groups, { provider = 'redirection', providerActive, physicalTable, extractedAt }) {
   const groupEnabled = new Map((groups || []).map((g) => [String(g.id), g.status === undefined || g.status === 'enabled']));
   const groupModule = new Map((groups || []).map((g) => [String(g.id), String(g.module_id || '1')]));
   return items.map((row) => {
@@ -125,8 +183,8 @@ function normalizeRedirectionRows(items, groups, { providerActive, physicalTable
     const enabled = providerActive && row.status === 'enabled' && groupEnabled.get(String(row.group_id)) !== false;
     return {
       schemaVersion: 1,
-      ruleKey: `redirection:${row.id}`,
-      provider: 'redirection',
+      ruleKey: `${provider}:${row.id}`,
+      provider,
       storage: { kind: 'table', name: physicalTable },
       stableId: String(row.id),
       enabled,
@@ -156,7 +214,7 @@ function parseRankMathSources(value) {
   return Array.isArray(parsed) ? parsed : Object.values(parsed || {});
 }
 
-function normalizeRankMathRows(rows, { providerActive, physicalTable, extractedAt }) {
+function normalizeRankMathRows(rows, { provider = 'rank-math', providerActive, physicalTable, extractedAt }) {
   const out = [];
   const errors = [];
   for (const row of rows) {
@@ -172,8 +230,8 @@ function normalizeRankMathRows(rows, { providerActive, physicalTable, extractedA
       const ignore = String((source && source.ignore) || '');
       out.push({
         schemaVersion: 1,
-        ruleKey: `rank-math:${row.id}:${index}`,
-        provider: 'rank-math',
+        ruleKey: `${provider}:${row.id}:${index}`,
+        provider,
         storage: { kind: 'table', name: physicalTable },
         stableId: `${row.id}:${index}`,
         sourceRuleId: `${row.id}:${crypto.createHash('sha256').update(String(source?.pattern || '')).digest('hex').slice(0, 16)}`,
@@ -255,13 +313,13 @@ function normalizeExportCsv(provider, text, { extractedAt, fileRef }) {
 //   exports: { <provider>: { text, fileRef } },      operator-supplied exports
 //   serverRulesSuspected: [{ provider, evidence }],  server/CDN rule stores seen elsewhere
 // }
-function extractRedirectSources(input) {
+function extractRedirectSources(input, { providers = loadDefaultProviders() } = {}) {
   const extractedAt = input.extractedAt || new Date().toISOString();
   const plugins = input.plugins || [];
   const coverage = [];
   const rules = [];
   const bySlug = new Map(plugins.map((p) => [p.slug, p]));
-  for (const [provider, def] of Object.entries(PROVIDERS)) {
+  for (const [provider, def] of Object.entries(providers)) {
     const plugin = def.pluginSlugs.map((slug) => bySlug.get(slug)).find(Boolean);
     const supplied = input.exports && input.exports[provider];
     if (!plugin && !supplied) continue;
@@ -272,8 +330,8 @@ function extractRedirectSources(input) {
       coverage.push({ provider, status: result.errors.length ? 'unreadable' : (result.rules.length ? 'extracted' : 'confirmed_empty'), channel: 'export', reason: result.errors[0]?.reason || null, ruleCount: result.rules.length, providerActive });
       continue;
     }
-    if (def.storedIn === 'options') {
-      coverage.push({ provider, status: 'unsupported', channel: 'none', reason: 'rules_stored_in_options_table; supply the plugin redirect export (CSV)', ruleCount: 0, providerActive });
+    if (def.storedIn === 'options' || !def.ruleTable) {
+      coverage.push({ provider, status: 'unsupported', channel: 'none', reason: def.storedIn === 'options' ? 'rules_stored_in_options_table; supply the plugin redirect export (CSV)' : 'rules_not_in_a_readable_table; supply the plugin redirect export (CSV)', ruleCount: 0, providerActive });
       continue;
     }
     if (!input.physicalTables) {
@@ -282,7 +340,9 @@ function extractRedirectSources(input) {
     }
     const resolved = resolveTable(def.ruleTable, input.physicalTables, { prefix: input.tablePrefix ?? null });
     if (!resolved.ok) {
-      coverage.push({ provider, status: 'unreadable', channel: 'structure-bridge', reason: resolved.reason, ruleCount: 0, providerActive });
+      // A failed schema read also leaves the table unlisted; report that error, not "not found".
+      const readError = (input.tables || {})[def.ruleTable]?.error;
+      coverage.push({ provider, status: 'unreadable', channel: 'structure-bridge', reason: readError || resolved.reason, ruleCount: 0, providerActive });
       continue;
     }
     const read = (input.tables || {})[def.ruleTable];
@@ -292,15 +352,16 @@ function extractRedirectSources(input) {
     }
     let normalized;
     let errors = [];
-    if (provider === 'redirection') {
-      const groupsRead = (input.tables || {}).redirection_groups;
-      if (read.rows.length && (!groupsRead || groupsRead.complete !== true)) {
+    if (def.format === 'redirection') {
+      const groupsRead = def.groupsTable ? (input.tables || {})[def.groupsTable] : null;
+      // Group status disables rules, so a declared groups table must be read completely too.
+      if (def.groupsTable && read.rows.length && (!groupsRead || groupsRead.complete !== true)) {
         coverage.push({ provider, status: 'unreadable', channel: 'structure-bridge', reason: 'groups_not_read', ruleCount: 0, providerActive, physicalTable: resolved.physicalTable });
         continue;
       }
-      normalized = normalizeRedirectionRows(read.rows, groupsRead ? groupsRead.rows : [], { providerActive, physicalTable: resolved.physicalTable, extractedAt });
+      normalized = normalizeRedirectionRows(read.rows, groupsRead ? groupsRead.rows : [], { provider, providerActive, physicalTable: resolved.physicalTable, extractedAt });
     } else {
-      const result = normalizeRankMathRows(read.rows, { providerActive, physicalTable: resolved.physicalTable, extractedAt });
+      const result = normalizeRankMathRows(read.rows, { provider, providerActive, physicalTable: resolved.physicalTable, extractedAt });
       normalized = result.rules;
       errors = result.errors;
     }
@@ -332,8 +393,65 @@ function extractRedirectSources(input) {
   return { rules, coverage: { schemaVersion: 1, generatedAt: extractedAt, providers: coverage } };
 }
 
+
+// Plugin-coverage rows for content.url-redirects, annotated with what discovery actually
+// captured. Pure. A row stays `pending` (the Wix side is applied at cutover, not at import);
+// what changes is that it says how many rules were captured, and its read blocker clears only
+// when every provider's capture is complete (`extracted` or `confirmed_empty`).
+const REDIRECT_CAPABILITY = 'content.url-redirects';
+const COMPLETE_CAPTURE = new Set(['extracted', 'confirmed_empty']);
+
+function annotateRedirectCoverageRows(rows, captureCoverage, { providers = loadDefaultProviders() } = {}) {
+  const captured = new Map(((captureCoverage && captureCoverage.providers) || []).map((row) => [row.provider, row]));
+  return rows.map((row) => {
+    if (row.capability !== REDIRECT_CAPABILITY || row.recognized !== true) return row;
+    const defs = Object.entries(providers).filter(([, def]) => (row.plugins || []).includes(def.profile));
+    if (defs.length === 0) return row;
+    const providerRows = defs.map(([provider, def]) => {
+      const hit = captured.get(provider);
+      return hit
+        ? { provider, plugin: def.profile, entity: def.entity, status: hit.status, channel: hit.channel || null, ruleCount: hit.ruleCount || 0, reason: hit.reason || null }
+        : { provider, plugin: def.profile, entity: def.entity, status: 'not_captured', channel: null, ruleCount: 0, reason: 'no capture recorded for this provider' };
+    });
+    const complete = providerRows.every((p) => COMPLETE_CAPTURE.has(p.status));
+    const recordCounts = { ...(row.recordCounts || {}) };
+    for (const p of providerRows) if (COMPLETE_CAPTURE.has(p.status)) recordCounts[p.entity] = (recordCounts[p.entity] || 0) + p.ruleCount;
+    const total = providerRows.reduce((sum, p) => sum + p.ruleCount, 0);
+    const names = defs.map(([, def]) => def.displayName).join(', ');
+    const failed = providerRows.filter((p) => !COMPLETE_CAPTURE.has(p.status));
+    const capturedEntities = new Set(providerRows.filter((p) => COMPLETE_CAPTURE.has(p.status)).map((p) => p.entity));
+    // The same entity name can belong to two providers; keep a blocker while any of them failed.
+    const failedEntities = new Set(failed.map((p) => p.entity));
+    return {
+      ...row,
+      recordCounts,
+      blocked: (row.blocked || []).filter((b) => !(capturedEntities.has(b.entity) && !failedEntities.has(b.entity))),
+      redirectCapture: {
+        complete,
+        ruleCount: total,
+        providers: providerRows,
+        artifacts: ['state/url-preservation/source-redirects.ndjson', 'state/url-preservation/source-redirect-coverage.json'],
+      },
+      userImpact: complete
+        ? `${total} redirect rule(s) captured from ${names}. They are installed and checked on Wix at cutover, after the website exists; until then, old links that rely on them are not yet protected.`
+        : `The redirect rules of ${failed.map((p) => p.plugin).join(', ')} could not be read or saved (${failed.map((p) => `${p.status}: ${p.reason}`).join('; ')}). Old links that rely on them will break after cutover unless the rules are supplied.`,
+      action: complete
+        ? 'None at import. At cutover, run url-redirects.js plan, apply and verify.'
+        : failed.some((p) => p.status === 'not_recorded')
+          ? 'Requires Import Operator: discovery read the redirect rules but could not save them (see the reason). Fix that state file or lock, then re-run discovery or url-redirects.js sources.'
+          : 'Requires Import Operator: re-run discovery with the wix-wp-plugin-v2 bridge connected, or export the plugin\'s redirects as CSV and pass them to url-redirects.js sources --input.',
+    };
+  });
+}
+
 module.exports = {
-  PROVIDERS,
+  FORMATS,
+  REDIRECT_CAPABILITY,
+  annotateRedirectCoverageRows,
+  get PROVIDERS() { return loadDefaultProviders(); },
+  providersFromProfiles,
+  loadDefaultProviders,
+  validateRedirectSource,
   resolveTable,
   phpUnserialize,
   normalizeRedirectionRows,

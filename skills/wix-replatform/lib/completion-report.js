@@ -9,7 +9,8 @@ const { OUTCOME_RANK, aggregateOutcome } = require('./blocked-data-requests.js')
 const { PAYMENT_OUTCOMES, WRITER_OUTCOMES } = require('./payments-outcome-registry.js');
 const memberRegistry = require('./member-outcome-registry.js');
 const { SEO_OUTCOMES, SEO_ACCEPTED_OUTCOMES, SEO_OUTCOME_ACTIONS } = require('./seo-outcome-registry.js');
-const { coverageDisagreements, describeCoverageMismatch } = require('./import-recovery.js');
+const { coverageDisagreements, describeCoverageMismatch, attemptTargetId, landedUnverified } = require('./import-recovery.js');
+const { UNRESOLVED_ATTEMPT_STATUSES } = require('./local-state.js');
 const { cmsFallbackOperatorActions } = require('./plugin-cms-fallback.js');
 const { summarizeProjectCoverage } = require('./source-coverage.js');
 const { readLinkAudit, linkOperatorActions, RELATIVE_PATH: LINK_AUDIT_PATH } = require('./link-audit.js');
@@ -221,6 +222,9 @@ function normalizeCompletenessRow(row, index = 0) {
     reasons,
     verificationKind: verificationKind(row),
     sourceKeys,
+    // Journal evidence joined by attachAttemptReasons; absent when the caller did not join it.
+    ...(Array.isArray(row.unresolvedRecords) ? { unresolvedRecords: row.unresolvedRecords } : {}),
+    ...(Number.isInteger(row.journalAttempted) ? { journalAttempted: row.journalAttempted } : {}),
   };
 }
 
@@ -567,6 +571,63 @@ const OPERATOR_ACTION_SEVERITIES = ['critical', 'high', 'medium', 'low'];
 // Anything the operator has to do by hand goes above the counts, with the
 // deadline reason attached. The worked example is a large batch of discount codes
 // with no redemption cap -- correctable only while the source is still the system of record.
+// A run that stopped before its end. The report it leaves is `aborted`: never final,
+// overwritten by the resumed run, and refused by aggregate completion. Only codes are kept --
+// an error message can echo a record value.
+const INTERRUPTION_KINDS = ['signal', 'error', 'wix_auth_expired'];
+const IMPORT_INTERRUPTED_CODE = 'import-interrupted';
+
+function normalizeInterruption(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('interruption must be an object');
+  if (!INTERRUPTION_KINDS.includes(value.kind)) throw new Error(`interruption.kind must be one of ${INTERRUPTION_KINDS.join(', ')}`);
+  const at = requireString(value.at, 'interruption.at');
+  if (Number.isNaN(Date.parse(at))) throw new Error('interruption.at must be an ISO timestamp');
+  const optional = (field) => (value[field] === undefined || value[field] === null ? null : requireString(value[field], `interruption.${field}`));
+  return { kind: value.kind, signal: optional('signal'), code: optional('code'), at, rebuiltFromJournal: value.rebuiltFromJournal === true };
+}
+
+function interruptionOperatorAction(interruption) {
+  const cause = interruption.kind === 'signal' ? `signal ${interruption.signal || 'unknown'}`
+    : interruption.kind === 'wix_auth_expired' ? 'the Wix token could not be renewed (wix_auth_expired)'
+      : `an error${interruption.code ? ` (${interruption.code})` : ''}`;
+  const prompt = `The import stopped at ${interruption.at} because of ${cause}. In the original migration project, resolve that cause${interruption.kind === 'wix_auth_expired' ? ' (answer the pending wix_auth_expired action first)' : ''}, then resume the import with src/import/run-import.js. Do not start a new import: the attempt journal resumes it and reads uncertain writes back before any create.`;
+  return {
+    actionId: IMPORT_INTERRUPTED_CODE,
+    code: IMPORT_INTERRUPTED_CODE,
+    severity: 'critical',
+    role: 'import-operator',
+    action: `Requires Import Operator: the import was interrupted (${cause}) and has not finished. Counts below are what was known at the stop${interruption.rebuiltFromJournal ? ', rebuilt from the attempt journal; records the run never reached are not counted' : ''}. Resume the import.`,
+    deadlineReason: 'Resolve before any cutover step; the new site is missing data until the import finishes.',
+    affectedCount: null,
+    importOperatorPrompt: prompt,
+    artifactRefs: ['execution/completion-report.json', 'state/attempts/write-attempts.ndjson'],
+    resolutionEvidence: 'A resumed run writes execution/completion-report.json with no interruption block and a status other than aborted.',
+  };
+}
+
+// Marks an already-built report as this stop's: `aborted`, the interruption block, and the
+// interruption action first. Used on a report written without it (an older generated importer)
+// and by the writer's fence below.
+function stampInterruption(report, interruption) {
+  const normalized = normalizeInterruption(interruption);
+  return { ...report, status: worseStatus(report.status, 'aborted'), interruption: normalized,
+    operatorActions: [normalizeOperatorAction(interruptionOperatorAction(normalized), 0),
+      ...(report.operatorActions || []).filter((row) => row.code !== IMPORT_INTERRUPTED_CODE)] };
+}
+
+// The stop latch of this process, as an interruption: a finalizer still running when SIGTERM
+// arrives must not write a report that says the run finished.
+function latchedInterruption(projectDir) {
+  let latch = null;
+  try { latch = require('./wix-auth.js').interruptionFor(projectDir); } catch (error) {
+    if (!(error && error.code === 'MODULE_NOT_FOUND')) throw error;
+  }
+  if (!latch) return null;
+  return latch.code === 'wix_auth_expired'
+    ? { kind: 'wix_auth_expired', signal: null, code: latch.code, at: new Date().toISOString() }
+    : { kind: 'signal', signal: latch.signal || null, code: null, at: new Date().toISOString() };
+}
+
 function normalizeOperatorAction(row, index) {
   if (!row || typeof row !== 'object' || Array.isArray(row)) {
     throw new Error(`operatorActions[${index}] must be an object`);
@@ -576,6 +637,32 @@ function normalizeOperatorAction(row, index) {
   if (!OPERATOR_ACTION_SEVERITIES.includes(severity)) {
     throw new Error(`${label}.severity must be one of ${OPERATOR_ACTION_SEVERITIES.join(', ')}`);
   }
+  // Existing action producers sometimes carry prose fields named `prerequisites` or
+  // `artifactRefs`; before this extension those fields were intentionally dropped. Keep that
+  // legacy normalization byte-for-byte unless the new structured contract is opted into with an
+  // actionId. Structured actions validate and preserve the whole extension.
+  const extended = row.actionId !== undefined && row.actionId !== null;
+  const actionId = extended ? requireString(row.actionId, `${label}.actionId`) : null;
+  const role = !extended || row.role === undefined || row.role === null ? null : requireString(row.role, `${label}.role`);
+  if (role && !['import-operator', 'cutover-operator', 'site-owner'].includes(role)) {
+    throw new Error(`${label}.role must be import-operator, cutover-operator, or site-owner`);
+  }
+  const importOperatorPrompt = !extended || row.importOperatorPrompt === undefined || row.importOperatorPrompt === null
+    ? null : requireString(row.importOperatorPrompt, `${label}.importOperatorPrompt`);
+  if (role === 'import-operator' && !importOperatorPrompt) throw new Error(`${label}.importOperatorPrompt is required for import-operator actions`);
+  const stringArray = (field) => {
+    if (!extended || row[field] === undefined || row[field] === null) return null;
+    if (!Array.isArray(row[field])) throw new Error(`${label}.${field} must be an array`);
+    return row[field].map((value, item) => requireString(value, `${label}.${field}[${item}]`));
+  };
+  const affectedIds = stringArray('affectedIds');
+  const artifactRefs = stringArray('artifactRefs');
+  if (artifactRefs && artifactRefs.some((ref) => path.isAbsolute(ref) || ref.split(/[\\/]/).includes('..'))) {
+    throw new Error(`${label}.artifactRefs must contain project-relative paths`);
+  }
+  const prerequisites = stringArray('prerequisites');
+  const resolutionEvidence = !extended || row.resolutionEvidence === undefined || row.resolutionEvidence === null
+    ? null : requireString(row.resolutionEvidence, `${label}.resolutionEvidence`);
   return {
     code: requireString(row.code, `${label}.code`),
     severity,
@@ -583,6 +670,13 @@ function normalizeOperatorAction(row, index) {
     deadlineReason: requireString(row.deadlineReason, `${label}.deadlineReason`),
     entity: row.entity || null,
     affectedCount: row.affectedCount === null ? null : count(row.affectedCount, `${label}.affectedCount`),
+    ...(actionId ? { actionId } : {}),
+    ...(role ? { role } : {}),
+    ...(importOperatorPrompt ? { importOperatorPrompt } : {}),
+    ...(affectedIds ? { affectedIds } : {}),
+    ...(artifactRefs ? { artifactRefs } : {}),
+    ...(prerequisites ? { prerequisites } : {}),
+    ...(resolutionEvidence ? { resolutionEvidence } : {}),
   };
 }
 
@@ -763,6 +857,52 @@ function normalizeDroppedField(row, index) {
   };
 }
 
+// What the source archive kept for reference, per entity. Informational: it never
+// changes the run status. Built by rp-target-wix/lib/source-archive.js keptForReferenceSummary.
+function normalizeKeptForReference(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('keptForReference must be an object');
+  const entities = asArray(value.entities, 'keptForReference.entities').map((row, index) => {
+    const label = `keptForReference.entities[${index}]`;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
+    return {
+      sourceEntity: requireString(row.sourceEntity, `${label}.sourceEntity`),
+      recordsArchived: count(row.recordsArchived, `${label}.recordsArchived`),
+      items: count(row.items, `${label}.items`),
+      groups: Array.isArray(row.groups) ? row.groups.map(String) : [],
+      sameInEveryRecord: count(row.sameInEveryRecord || 0, `${label}.sameInEveryRecord`),
+      notKept: count(row.notKept || 0, `${label}.notKept`),
+      archiveOnly: row.archiveOnly === true,
+    };
+  });
+  return {
+    collectionId: requireString(value.collectionId, 'keptForReference.collectionId'),
+    collectionName: requireString(value.collectionName, 'keptForReference.collectionName'),
+    policyRef: value.policyRef ? String(value.policyRef) : null,
+    totalItems: count(value.totalItems, 'keptForReference.totalItems'),
+    heldItems: count(value.heldItems || 0, 'keptForReference.heldItems'),
+    howToFind: requireString(value.howToFind, 'keptForReference.howToFind'),
+    entities,
+    optionalTasks: asArray(value.optionalTasks || [], 'keptForReference.optionalTasks').map((row, index) => {
+      const label = `keptForReference.optionalTasks[${index}]`;
+      if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
+      if (row.optional !== true) throw new Error(`${label}.optional must be true`);
+      return {
+        code: requireString(row.code, `${label}.code`), optional: true,
+        goLiveImpact: requireString(row.goLiveImpact, `${label}.goLiveImpact`),
+        role: requireString(row.role, `${label}.role`),
+        title: requireString(row.title, `${label}.title`),
+        action: requireString(row.action, `${label}.action`),
+        affected: asArray(row.affected || [], `${label}.affected`).map((a, i) => ({
+          entity: requireString(a.entity, `${label}.affected[${i}].entity`), field: requireString(a.field, `${label}.affected[${i}].field`),
+          recordCount: count(a.recordCount, `${label}.affected[${i}].recordCount`) })),
+        importOperatorPrompt: requireString(row.importOperatorPrompt, `${label}.importOperatorPrompt`),
+        resolutionEvidence: requireString(row.resolutionEvidence, `${label}.resolutionEvidence`),
+      };
+    }),
+  };
+}
+
 // The member pass's per-reason breakdown. Every registry code carries a line,
 // zeros included: an absent line is indistinguishable from a code nobody counted.
 function normalizeMemberOutcomes(value) {
@@ -913,18 +1053,36 @@ function attachAttemptReasons(entityCompleteness, journalRows, { runIds } = {}) 
   // `foldAttemptsBySourceKey`, applied after the run filter) -- forward iteration with a Map
   // overwrite means the last (latest) row for a key always wins.
   const latestByKey = new Map();
+  // A `started` row is the journal's record that a write was sent for that key in this run.
+  const sentKeys = new Set();
   for (const row of journalRows || []) {
     if (!row || !runIdSet.has(row.runId)) continue;
     const key = row.sourceStableKey;
     if (!keyToIndex.has(key)) continue;
     latestByKey.set(key, row);
+    if (row.status === 'started') sentKeys.add(key);
   }
+  // Unresolved records keep their target identity: an uncertain create is read back by that id,
+  // never re-sent, so the report must carry it rather than only a count.
+  const unresolvedByRow = entityCompleteness.map(() => []);
+  for (const [key, row] of latestByKey) {
+    if (!UNRESOLVED_ATTEMPT_STATUSES.has(row.status) && !landedUnverified(row)) continue;
+    unresolvedByRow[keyToIndex.get(key)].push({ sourceKey: key, status: row.status, runId: row.runId, targetId: attemptTargetId(row) });
+  }
+  // Every journal deferral, ordinary or uncertain without a target id: the caller's own `deferred`
+  // count is credited against all of them before any gap is filled.
+  const journalDeferredByRow = entityCompleteness.map(() => 0);
+  for (const [key, row] of latestByKey) if (row.status === 'deferred' || (row.status === 'needs_verification' && !landedUnverified(row))) journalDeferredByRow[keyToIndex.get(key)] += 1;
+  const sentByRow = entityCompleteness.map(() => 0);
+  for (const key of sentKeys) sentByRow[keyToIndex.get(key)] += 1;
 
   const tallies = entityCompleteness.map(() => new Map());
   for (const [key, row] of latestByKey) {
     let outcome = null;
     let code = null;
-    if (row.status === 'deferred') {
+    // A `needs_verification` row with no target id stays a deferral (import-recovery.js): it is
+    // resumed by --deferred-only, so it is explained as deferred, with its recorded reason.
+    if (row.status === 'deferred' || (row.status === 'needs_verification' && !landedUnverified(row))) {
       outcome = 'deferred';
       // The documented contract
       // (rp-import-codegen/SKILL.md's "Named reason" rule) is a top-level
@@ -934,7 +1092,11 @@ function attachAttemptReasons(entityCompleteness, journalRows, { runIds } = {}) 
       // `row.reason` keeps the documented contract authoritative when a future importer
       // actually writes it, while this fallback stops a real, already-recorded reason from
       // being silently dropped as "unexplained" just because it landed on the sibling field.
-      code = typeof row.reason === 'string' && row.reason ? row.reason : row.failure && row.failure.errorCode;
+      // A gate- or quota-held deferral may record its code only under `deferral.reason` (the
+      // structured deferral payload, e.g. cms-item-quota.js quotaDeferral); that is the same
+      // recorded reason, not a guess.
+      code = typeof row.reason === 'string' && row.reason ? row.reason
+        : (row.deferral && typeof row.deferral.reason === 'string' && row.deferral.reason) || (row.failure && row.failure.errorCode);
     } else if (row.status === 'failed_retryable' || row.status === 'failed_terminal') {
       outcome = 'failed';
       code = row.failure && row.failure.errorCode;
@@ -958,8 +1120,48 @@ function attachAttemptReasons(entityCompleteness, journalRows, { runIds } = {}) 
       })
       .sort((a, b) => (a.outcome === b.outcome ? (a.code < b.code ? -1 : a.code > b.code ? 1 : 0) : (a.outcome < b.outcome ? -1 : 1)));
     const strings = (row.reasons || []).filter((entry) => typeof entry === 'string');
-    return { ...row, reasons: [...structured, ...strings] };
+    const unresolvedRecords = unresolvedByRow[index].sort((a, b) => a.sourceKey.localeCompare(b.sourceKey));
+    return { ...raiseFromJournal(row, unresolvedRecords.length, journalDeferredByRow[index]), reasons: [...structured, ...strings], unresolvedRecords, journalAttempted: sentByRow[index] };
   });
+}
+
+// The journal is the record of what was sent. A caller that left an uncertain write out of every
+// counter (an unverified write counted nowhere) leaves an in-scope gap; the journal's own
+// unresolved, then uncertain-deferred, records fill that gap -- never more than the gap, so a
+// caller's complete accounting is never double counted. Each fill is the journal's count minus
+// what the caller already counted in that bucket.
+function raiseFromJournal(row, journalUnresolved, journalDeferred) {
+  if (!Number.isInteger(row.inScope)) return row;
+  const n = (value) => (Number.isInteger(value) && value > 0 ? value : 0);
+  const present = row.alreadyPresentByCrosswalk === undefined ? row.alreadyPresent : row.alreadyPresentByCrosswalk;
+  let gap = row.inScope - n(row.imported) - n(present) - n(row.deferred) - n(row.failed) - n(row.unresolved);
+  const unresolved = Math.max(0, Math.min(journalUnresolved - n(row.unresolved), gap));
+  gap -= unresolved;
+  const deferred = Math.max(0, Math.min(journalDeferred - n(row.deferred), gap));
+  if (!unresolved && !deferred) return row;
+  return { ...row, ...(unresolved ? { unresolved: n(row.unresolved) + unresolved } : {}), ...(deferred ? { deferred: n(row.deferred) + deferred } : {}) };
+}
+
+// unresolved[] rows from the journal evidence attachAttemptReasons joined: a record with a known
+// target id is written but unmapped (`orphaned_target`); one without is `unmapped_source`. Only
+// for an entity the caller listed no unresolved rows for -- a caller's own rows are never replaced.
+function journalUnresolvedRows(entityCompleteness, callerRows) {
+  const listed = new Set(callerRows.map((row) => row.entity));
+  const byEntity = new Map();
+  for (const row of entityCompleteness) {
+    if (!row.unresolved || listed.has(row.entity) || !Array.isArray(row.unresolvedRecords)) continue;
+    if (!byEntity.has(row.entity)) byEntity.set(row.entity, []);
+    byEntity.get(row.entity).push(...row.unresolvedRecords);
+  }
+  const out = [];
+  for (const [entity, records] of byEntity) {
+    for (const kind of ['orphaned_target', 'unmapped_source']) {
+      const group = records.filter((record) => (kind === 'orphaned_target') === Boolean(record.targetId));
+      if (!group.length) continue;
+      out.push({ entity, kind, count: group.length, targetIds: group.map((record) => record.targetId).filter(Boolean), sourceIds: group.map((record) => record.sourceKey) });
+    }
+  }
+  return out;
 }
 
 // CMS records this run wrote per approved fallback capability: { capability, collections[], count }.
@@ -976,6 +1178,16 @@ function normalizeCmsFallbackWrites(value) {
   });
 }
 
+// The verification report for one completeness row, rebuilt from loaded write-verification state
+// (`write-verification-state.load`): that entity's receipt kind and in-scope keys only. Absent
+// state or no matching row returns undefined, so the existing "not recorded" gap still applies.
+function persistedVerification(verificationState, row, siteId) {
+  if (!verificationState?.rows || verificationState.siteId !== siteId || !Array.isArray(row.sourceKeys)) return undefined;
+  const keys = new Set(row.sourceKeys);
+  const rows = Object.values(verificationState.rows).filter(r => keys.has(r?.sourceKey) && r.receipt?.kind === row.verificationKind);
+  return rows.length ? require('./write-verification-state').report(rows, siteId) : undefined;
+}
+
 function createCompletionReport(input = {}) {
   const entityCompleteness = asArray(input.entityCompleteness, 'entityCompleteness')
     .map((row, index) => normalizeCompletenessRow(row, index));
@@ -983,7 +1195,9 @@ function createCompletionReport(input = {}) {
   const verificationGaps = [];
   for (const row of entityCompleteness) {
     if (row.verificationKind === 'none') continue;
-    const report = verification[row.entity];
+    // The toolkit writers persist their verification rows (state/write-verification);
+    // a caller passes the loaded state as `verificationState` instead of carrying each report.
+    const report = verification[row.entity] || persistedVerification(input.verificationState, row, input.siteId || input.destinations?.siteId);
     const entries = Array.isArray(report?.rows) ? report.rows : [];
     const unique = new Set(entries.map(r => r.sourceKey));
     const ids = entries.map(r => r.targetId);
@@ -995,9 +1209,14 @@ function createCompletionReport(input = {}) {
       // Absence stays exactly as blocking as a failed check; only the wording differs,
       // so a reader can tell "never supplied" from "supplied and failed".
       const absent = !Array.isArray(report?.rows) || report.rows.length === 0;
+      // Every in-scope record held: nothing exists to verify, so say so instead of asking for
+      // verification input. Still blocking -- a held row is not verified.
+      const held = absent && row.inScope > 0 && row.deferred === row.inScope && row.attempted === 0;
       verificationGaps.push({
         entity: row.entity,
-        message: absent
+        message: held
+          ? `${row.entity}: not attempted (${row.deferred} of ${row.inScope} in-scope records deferred); nothing was written, so there is nothing to verify -- resolve the deferral and import before completing`
+          : absent
           ? `${row.entity}: verification not recorded; supply verification input before completing`
           : `${row.entity}: identity/value verification missing or invalid; reconcile source records before completing`,
       });
@@ -1028,10 +1247,22 @@ function createCompletionReport(input = {}) {
     ...voucherHeadline,
     ...openStageResiduals.map((row) => ({ entity: row.entity, stage: row.stage, message: stageResidualMessage(row) })),
   ];
-  const warnings = [...asArray(input.warnings, 'warnings'), ...voucherHeadline.map((row) => row.message)];
+  // A run-level `attempted` lower than the records the journal shows sent this run hides an
+  // uncertain write from the count. Only an undercount is flagged: a caller that journals no
+  // `started` rows cannot be checked this way.
+  const attemptedUndercounts = entityCompleteness
+    .filter((row) => Number.isInteger(row.journalAttempted) && row.journalAttempted > row.attempted)
+    .map((row) => `${row.entity}/${row.subtype}: attempted ${row.attempted}, but the attempt journal shows ${row.journalAttempted} record(s) sent in this run`);
+  const warnings = [...asArray(input.warnings, 'warnings'), ...voucherHeadline.map((row) => row.message), ...attemptedUndercounts];
   const recoveryActions = [
     ...asArray(input.recoveryActions, 'recoveryActions'),
     ...verificationGaps.map(g => ({ entity: g.entity, action: g.message })),
+    // A landed-unverified create (`needs_verification` with a target id) is reported unresolved but
+    // is selected by --deferred-only or a full resume, not --unresolved-only: say which, by id.
+    ...entityCompleteness.flatMap((row) => (row.unresolvedRecords || []).filter((r) => r.status === 'needs_verification' && r.targetId).map((r) => ({
+      entity: row.entity,
+      action: `Requires Import Operator: read ${r.sourceKey} back by target ${r.targetId}, never resend; run the importer with --deferred-only or a full resume (--unresolved-only does not select needs_verification rows).`,
+    }))),
     ...openStageResiduals.map((row) => ({
       entity: row.entity,
       stage: row.stage,
@@ -1041,7 +1272,12 @@ function createCompletionReport(input = {}) {
   const blockedDataRequests = asArray(input.blockedDataRequests, 'blockedDataRequests')
     .map((request, index) => normalizeBlockedDataRequest(request, index));
   const urlPreservation = normalizeUrlPreservation(input.urlPreservation);
-  const operatorActions = asArray(input.operatorActions, 'operatorActions').map(normalizeOperatorAction);
+  const interruption = input.interruption ? normalizeInterruption(input.interruption) : null;
+  const operatorActions = asArray(input.operatorActions, 'operatorActions')
+    .filter((row) => !interruption || !row || row.code !== IMPORT_INTERRUPTED_CODE)
+    .map(normalizeOperatorAction);
+  // First, so the handoff's urgent list opens with it.
+  if (interruption) operatorActions.unshift(normalizeOperatorAction(interruptionOperatorAction(interruption), 0));
   for (const action of urlPreservation ? urlPreservation.operatorActions : []) {
     if (!operatorActions.some((row) => row.code === action.code)) {
       operatorActions.push(normalizeOperatorAction(action, operatorActions.length));
@@ -1081,8 +1317,10 @@ function createCompletionReport(input = {}) {
   }
   const losses = asArray(input.losses, 'losses').map(normalizeLoss);
   const exclusions = asArray(input.exclusions, 'exclusions').map(normalizeExclusion);
-  const unresolved = asArray(input.unresolved, 'unresolved').map(normalizeUnresolved);
+  const callerUnresolved = asArray(input.unresolved, 'unresolved');
+  const unresolved = [...callerUnresolved, ...journalUnresolvedRows(entityCompleteness, callerUnresolved)].map(normalizeUnresolved);
   const droppedFields = asArray(input.droppedFields, 'droppedFields').map(normalizeDroppedField);
+  const keptForReference = normalizeKeptForReference(input.keptForReference);
 
   // Where the durable rows are absent for an entity that reports a shortfall, the
   // section says the shortfall is unexplained and the final status carries the mismatch. An
@@ -1160,7 +1398,7 @@ function createCompletionReport(input = {}) {
 
   const status = chooseCompletionStatus({
     statuses: input.statuses,
-    aborted: input.aborted,
+    aborted: input.aborted || Boolean(interruption),
     hasMismatches: mismatches.length > 0 || verificationGaps.length > 0 || unresolved.length > 0 || unexplainedShortfalls.length > 0
       || coverageEffect.hasMismatch,
     hasFailures: hasCount(entityCompleteness, 'failed') || losses.length > 0
@@ -1180,6 +1418,7 @@ function createCompletionReport(input = {}) {
     schemaVersion: 1,
     runId: input.runId || null,
     status,
+    ...(interruption ? { interruption } : {}),
     headline,
     voucherReconciliation,
     // The bound (or rejected/omitted) coverage check and whether this run declared
@@ -1209,6 +1448,7 @@ function createCompletionReport(input = {}) {
     exclusions,
     unresolved,
     droppedFields,
+    keptForReference,
     unexplainedShortfalls,
     memberOutcomes,
     // The handoff proves it postdates the import by comparing its own
@@ -1270,14 +1510,22 @@ function reasonLine(row, outcome, totalCount) {
 
 // The user-facing summary is RENDERED from the report object, never
 // composed independently and never derived from `execution-log.md`.
+function notificationMuteLine(mute) {
+  if (mute.mutedRecorded) return 'all site notifications are muted and stay muted until someone unmutes them; ask the agent to unmute';
+  if (mute.answer === 'off') return 'not muted, by the operator\'s choice; customers and the owner may have received emails for imported records';
+  return 'no successful mute is recorded';
+}
+
 function renderCompletionSummary(report) {
   const lines = [
     '# Migration Completion Summary',
     '',
     `- Status: ${report.status}`,
+    ...(report.interruption ? [`- Interrupted: ${report.interruption.kind}${report.interruption.signal ? ` ${report.interruption.signal}` : ''}${report.interruption.code ? ` (${report.interruption.code})` : ''} at ${report.interruption.at}; this report is not final`] : []),
     `- Run id: ${report.runId || 'not recorded'}`,
     `- Last write: ${report.lastWriteAt || 'not recorded'}`,
     ...(report.voucherReconciliation ? [`- Voucher reconciliation: ${report.voucherReconciliation}`] : []),
+    ...(report.notificationMute ? [`- Notifications: ${notificationMuteLine(report.notificationMute)}`] : []),
     ...(report.headline || []).map((row) => `- ${row.message}`),
     '',
     '## Urgent Operator Actions',
@@ -1309,6 +1557,13 @@ function renderCompletionSummary(report) {
     }
   }
 
+  if (report.mappingRecovery) {
+    const c=report.mappingRecovery.counts || {};
+    lines.push('', '## Pending mapping work', '',
+      `- Landed with pending fields: ${c['landed-with-pending-fields'] ?? 'unknown'}; not yet imported: ${c['not-yet-imported'] ?? 'unknown'}; needs reconciliation: ${c['needs-reconciliation'] ?? 'unknown'}.`,
+      '- These fields and records are retained recovery work. They are not permanent exclusions or completed data.');
+    if (report.mappingRecovery.unknownCounts) lines.push('- Recovery evidence is unavailable or inconsistent. Requires Import Operator: restore the named evidence before resolving these gaps.');
+  }
   lines.push('', '## Permanent Losses', '');
   if (!report.losses.length) lines.push(emptyPermanentLossesLine(report.exclusions));
   else for (const row of report.losses) lines.push(`- ${row.entity}: ${row.count} lost (${row.reasonCode}); ${row.whyNoRetry}; ${causeLine(row)}`);
@@ -1324,6 +1579,13 @@ function renderCompletionSummary(report) {
   lines.push('', '## Fields Dropped For The Destination', '');
   if (!report.droppedFields.length) lines.push('- None.');
   else for (const row of report.droppedFields) lines.push(`- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
+
+  if (report.keptForReference) {
+    const k = report.keptForReference;
+    lines.push('', '## Kept For Reference', '', `- ${k.collectionName} (CMS collection \`${k.collectionId}\`): ${k.totalItems} items${k.heldItems ? `, ${k.heldItems} waiting for CMS item room` : ''}. Not used by the live site.`, `- How to find a record: ${k.howToFind}`);
+    for (const row of k.entities) lines.push(`- ${row.sourceEntity}: ${row.recordsArchived} records in ${row.items} items${row.archiveOnly ? ' (no Wix home; one row each)' : ''}${row.groups.length ? `; ${row.groups.join(', ')}` : ''}${row.notKept ? `; ${row.notKept} source fields not kept (listed above)` : ''}`);
+    for (const task of k.optionalTasks || []) lines.push(`- ${task.title}. ${task.action}`, `  - To re-import (${task.role} asks): ${task.importOperatorPrompt}`);
+  }
 
   if ((report.acceptedStageOutcomes || []).length) {
     lines.push('', '## Accepted And Materialized Gaps', '');
@@ -1440,16 +1702,59 @@ async function joinSourceCoverage(projectDir, report) {
       operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
     }
   }
+  // The store's currency, time zone and language: unknowns, questions, gate refusals and warnings.
+  // Rows carry their own entity (the setting or the refused task), so none collapses under code + entity.
+  const regional = require('./site-regional.js').regionalReportRows(projectDir);
+  for (const row of regional.operatorActions) {
+    if (!operatorActions.some((existing) => existing.code === row.code && existing.entity === row.entity)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // Products and categories that were on the store before this import: seeded samples
+  // setup could not delete, pre-existing items, and source records held on a collision with them.
+  const catalog = require('./catalog-baseline.js').reportRows(projectDir);
+  for (const row of catalog.operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // Pricing-plan subscriptions: billing that no longer runs on its own, contracts kept as history,
+  // and orders that did not land live or cleanly (execution/outcomes/plan-order.json).
+  const planOrders = require('./plan-order-outcome-registry.js').reportRows(projectDir);
+  for (const row of planOrders.operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  const multilingual = require('./multilingual-public-report.js').multilingualReportRows(projectDir);
+  for (const row of multilingual.operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
+  // Product videos: linked videos to add by hand, and planned video files not on their product.
+  const productVideos = require('./product-videos.js').reportRows(projectDir);
+  for (const row of productVideos.operatorActions) {
+    if (!operatorActions.some((existing) => existing.actionId && existing.actionId === row.actionId)) {
+      operatorActions.push(normalizeOperatorAction(row, operatorActions.length));
+    }
+  }
   if (giftCards.action) operatorActions.push(normalizeOperatorAction(giftCards.action, operatorActions.length));
   const sourceCoverage = coverage.sourceCoverage.map((row) => (row.coverageId === GIFT_CODES_COVERAGE_ID
     ? { ...row, cutoverAction: giftCards.cutoverAction || row.cutoverAction }
     : row));
+  const joinedStatus = multilingual.operatorActions.length
+      ? worseStatus(linkStatus ? worseStatus(coverage.status ? worseStatus(report.status, coverage.status) : report.status, linkStatus)
+        : coverage.status ? worseStatus(report.status, coverage.status) : report.status, 'complete_with_warnings')
+      : linkStatus ? worseStatus(coverage.status ? worseStatus(report.status, coverage.status) : report.status, linkStatus)
+        : coverage.status ? worseStatus(report.status, coverage.status) : report.status;
+  // A sample a delete missed, a held collision, or a plan-order cutover item leaves work before go-live.
+  const catalogWarns = catalog.operatorActions.some((row) => row.severity === 'high') || planOrders.operatorActions.some((row) => row.severity === 'high');
   return {
     ...report,
     schemaVersion: 2,
-    status: linkStatus ? worseStatus(coverage.status ? worseStatus(report.status, coverage.status) : report.status, linkStatus)
-      : coverage.status ? worseStatus(report.status, coverage.status) : report.status,
-    headline: [...asArray(report.headline, 'headline'), ...coverage.headline],
+    status: catalogWarns ? worseStatus(joinedStatus, 'complete_with_warnings') : joinedStatus,
+    headline: [...asArray(report.headline, 'headline'), ...coverage.headline, ...regional.headline, ...multilingual.headline],
     operatorActions,
     ...(linkAudit ? { linkAudit: {
       path: LINK_AUDIT_PATH, stage: linkAudit.stage, counts: linkAudit.counts, estimate: linkAudit.estimate || null,
@@ -1458,30 +1763,150 @@ async function joinSourceCoverage(projectDir, report) {
       pendingWriterFields: (linkAudit.writerIntegrations || []).filter((row) => row.status === 'pending').map((row) => row.field),
       missingCutoverUiIntegration: true,
     } } : {}),
+    ...(catalog.destinationBaseline ? { destinationBaseline: catalog.destinationBaseline } : {}),
     sourceCoverageRecorded: coverage.sourceCoverageRecorded,
     ...(coverage.sourceCoverageReason ? { sourceCoverageReason: coverage.sourceCoverageReason } : {}),
     sourceCoverage,
   };
 }
 
+// What the extract ledger repaired or could not (execution/extract-integrity.json). The latest
+// event per extract decides: a re-extract that still lost fields, or a refused re-read, is an
+// operator action; a clean repair is a recorded event only.
+async function extractIntegrityActions(projectDir) {
+  const latest = new Map();
+  for (const event of await require('./extract-ledger').reportEvents(projectDir)) latest.set(event.extractPath, event);
+  const result = [];
+  for (const event of latest.values()) {
+    if (event.action === 're-extracted' && event.lostPaths?.length) result.push({ code: 'source-extract-fields-lost', severity: 'warning', entity: event.entity,
+      affectedCount: Math.max(...event.lostPaths.map(row => row.records)), cause: { extractPath: event.extractPath, lostPaths: event.lostPaths.map(row => row.path), before: event.before, after: event.after },
+      deadlineReason: 'Resolve before launch; the import continued without these source fields.',
+      action: `Requires Import Operator. Prerequisites: original migration project and source access. Copy prompt: execution/extract-integrity.json shows ${event.entity} re-extracted from the source with ${event.lostPaths.length} fields still missing on unchanged records (${event.extractPath}). Fix src/extract/run-extract.js so it keeps every source field, run it with --entity ${event.entity}, then rerun the import for ${event.entity}; already-imported records are updated, never duplicated.` });
+    if (event.action === 'refused') result.push({ code: 'source-extract-unreadable', severity: 'blocker', entity: event.entity, affectedCount: event.before?.rows ?? null, cause: { extractPath: event.extractPath, reason: event.reason, trigger: event.trigger },
+      deadlineReason: 'Resolve before launch; this entity was not imported because its source could not be re-read.',
+      action: `Requires Import Operator. Prerequisites: original migration project and source access. Copy prompt: Re-extraction of ${event.entity} failed (${event.reason}; see execution/extract-integrity.json). Check source credentials, make src/extract/run-extract.js accept --entity ${event.entity}, run it, then rerun the import for ${event.entity}.` });
+  }
+  return result;
+}
 async function dependencyOperatorActions(projectDir) {
   let diagnostic;
   try { diagnostic = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/dependency-readiness.json'), 'utf8')); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
   const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch(error => { if (error.code === 'ENOENT') return { rows: [] }; throw error; });
   const recovery = require('./dependency-recovery'), indexes = new Map(), result = [];
+  let latestByKey;
+  const latestAttempt = () => latestByKey ||= new Map(rows.map(row => [`${row.writeSpecId}\n${row.sourceStableKey}`, row]));
   for (const task of Object.values(diagnostic.tasks || {})) if (!indexes.has(task.siteId)) indexes.set(task.siteId, recovery.foldRecoveryAttempts(rows, task.siteId));
   for (const task of Object.values(diagnostic.tasks || {})) {
     const waiting = recovery.waitingForTask(indexes.get(task.siteId), task.taskId);
     const groups = new Map();
-    for (const block of task.blocked || []) groups.set(`${block.ref}:${block.recovery}`, { ref: block.ref, recovery: block.recovery, count: task.affectedCount ?? null });
-    for (const row of waiting) { const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0 }); groups.get(key).count++; }
+    for (const block of task.blocked || []) { if (block.ref === 'site/locale') continue; groups.set(`${block.ref}:${block.recovery}`, { ref: block.ref, recovery: block.recovery, count: task.affectedCount ?? null }); }
+    // A record waiting on an owner-held record is its own item, with the hold as cause.
+    const held = new Map();
+    for (const row of waiting) {
+      const causes = require('./dependency-readiness').holdCausesOf(row.deferral);
+      for (const ref of new Set(causes.map(cause => cause.ref))) {
+        const group = held.get(ref) || { ref, keys: new Set(), reasons: new Set(), count: 0 };
+        for (const cause of causes.filter(cause => cause.ref === ref)) { group.keys.add(cause.sourceStableKey); for (const reason of cause.holdReasons || []) group.reasons.add(reason); }
+        group.count++; held.set(ref, group);
+      }
+      // A record that also waits on something other than a hold keeps that recovery item too.
+      if (row.deferral.reason === 'dependency-held') continue;
+      const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0 }); groups.get(key).count++;
+    }
+    for (const group of held.values()) result.push({ code: 'dependency-held-record', severity: 'blocker', entity: task.taskId, affectedCount: group.count, cause: { ref: group.ref, heldSourceKeys: [...group.keys].sort(), holdReasons: [...group.reasons].sort() },
+      deadlineReason: 'Resolve before DNS change or launch; these records wait on records the owner held and are not on the new site.',
+      action: `Requires Import Operator. Prerequisites: original migration project and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} heldDependencies for ${group.ref} and execution/read-back-inventory records[].held (holds: ${[...group.reasons].sort().join(', ')}). For each hold the owner has now resolved, update the mapping, rerun the inventory, get the mapping re-approved and import the released records; then resume task ${task.taskId} with --deferred-only. If the owner accepts the loss instead, record it as an approved omission. Do not resend existing orders.` });
     for (const group of groups.values()) result.push({ code: 'dependency-readiness-blocked', severity: 'blocker', entity: task.taskId, affectedCount: group.count,
       deadlineReason: 'Resolve before launch; affected dependent records have not finished importing.',
       action: `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} and ref ${group.ref}; resolve ${group.recovery}, re-evaluate and resume only eligible deferred records. Read back uncertain writes, never infer completion from old-site evidence and do not resend existing orders. Completion requires terminal outcomes for dependent records as well as repaired prerequisites.` });
+    // A runtime gap: a record its transform deferred with a named reference blocker, or one the
+    // shared runner wrote with a recorded loss. Kept in the runtime diagnostic, not the reviewed
+    // mapping gaps.
+    for (const gap of task.referenceGaps || []) {
+      const records = gap.records || gap.affectedSourceKeys.map(sourceStableKey => ({ sourceStableKey }));
+      const list = records.map(({ sourceStableKey, ...facts }) => `${sourceStableKey}${Object.keys(facts).length ? ` (${Object.entries(facts).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`).join('; ');
+      // A Cutover Operator gap is resolved in Business Manager on the landed records: no original
+      // migration environment, so no Import Operator prompt.
+      const cutover = gap.operatorRole === 'Cutover Operator';
+      result.push({ code: 'dependency-reference-gap', severity: gap.severity || 'blocker', entity: task.taskId, affectedCount: records.length, affectedSourceKeys: records.map(r => r.sourceStableKey).sort(), records, reasonCode: gap.code,
+        ...(cutover ? { operatorRole: 'Cutover Operator' } : {}),
+        deadlineReason: gap.written ? 'Resolve before launch; the affected records are on the new site with the recorded loss.' : 'Resolve before launch; the affected records were not written.',
+        action: cutover
+          ? `Cutover Operator, in Business Manager. ${gap.action} Records: ${list}.`
+          : `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} referenceGaps code ${gap.code}. ${gap.action} Records: ${list}.` });
+    }
+    // A within-write dependency (product media from URLs) the landed parent initiated but
+    // read-back has not yet verified. The parent keeps its target ID; it is never recreated.
+    const gaps = new Map();
+    for (const gap of task.withinWriteGaps || []) { const key = `${gap.ref}:${gap.code}`; if (!gaps.has(key)) gaps.set(key, { ref: gap.ref, code: gap.code, keys: [] }); gaps.get(key).keys.push(gap.sourceStableKey); }
+    for (const group of gaps.values()) result.push({ code: 'within-write-unverified', severity: 'blocker', entity: task.taskId, affectedCount: group.keys.length, affectedSourceKeys: group.keys.sort(), reasonCode: group.code,
+      deadlineReason: 'Resolve before launch; the affected records landed but their within-write dependency is not verified.',
+      action: `Requires Import Operator. Prerequisites: original migration project and current-site access. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} withinWriteGaps for ${group.ref}; read back each recorded target ID, record the gap resolved only when the current read-back verifies it, and otherwise follow the existing ${group.ref} recovery for that record. Do not recreate or resend the landed records; a timeout is not proof of permanent loss.` });
+    // A record written without a dependency whose own record failed for good (a product image):
+    // only rows whose record landed on this site are open items; the rest never reached the site.
+    const omitted = new Map();
+    for (const row of task.omittedReferences || []) {
+      // The record's writer already reported this omission as its own cutover item.
+      if (row.cutoverItem) continue;
+      const latest = latestAttempt().get(`${task.taskId}\n${row.sourceStableKey}`);
+      if (latest?.siteId !== undefined && latest.siteId !== row.siteId) continue;
+      if (!['imported', 'skipped_already_imported'].includes(latest?.status)) continue;
+      const group = omitted.get(row.ref) || { ref: row.ref, keys: new Set(), dependencyKeys: new Set() };
+      group.keys.add(row.sourceStableKey); group.dependencyKeys.add(row.dependencySourceKey); omitted.set(row.ref, group);
+    }
+    for (const group of omitted.values()) result.push({ code: 'dependency-omitted-after-failure', severity: 'blocker', entity: task.taskId, affectedCount: group.keys.size, affectedSourceKeys: [...group.keys].sort(), cause: { ref: group.ref, failedSourceKeys: [...group.dependencyKeys].sort() },
+      deadlineReason: 'Resolve before launch; these records are on the new site without some of their ' + group.ref + ' references.',
+      action: `Requires Import Operator. Prerequisites: original migration project and current-site access. Copy prompt: Inspect execution/dependency-readiness.json task ${task.taskId} omittedReferences for ${group.ref}. Re-import each missing ${group.ref} record with its task's --failed-only (for an unchecked: key, first find the source record the unresolved id was meant to name), then run the media patch pass (omittedReady, gate the record with its full reference list, the reviewed update, recordOmissionsResolved); rows still listed after it need a manual fix. If the source file is gone, record the loss as an approved omission. Do not recreate or resend the landed records.` });
   }
   return result;
 }
-async function writeCompletionReport(projectDir, unjoinedReport, { runId = null, appendLog = true } = {}) {
+// Persisted blocked-data requests the caller did not pass: a declined or missing
+// request is an open blocker for cutover whether or not the importer remembered it. A request
+// whose record is invalid is named in warnings instead of failing the whole report.
+const BLOCKED_STATUS_EFFECT = { failed: 'incomplete_with_failures', deferred: 'complete_with_deferred_records', warning: 'complete_with_warnings' };
+async function joinBlockedDataRequests(projectDir, report) {
+  const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch((error) => { if (error.code === 'ENOENT') return { rows: [] }; throw error; });
+  const listed = new Set((report.blockedDataRequests || []).map((row) => row.sourceEntityRef));
+  const joined = [];
+  for (const request of await require('./blocked-data-requests.js').completionReportInput(projectDir, rows)) {
+    if (listed.has(request.sourceEntityRef)) continue;
+    try { joined.push(normalizeBlockedDataRequest(request, joined.length)); } catch (error) {
+      report.warnings = [...(report.warnings || []), `blocked-data request ${request.sourceEntityRef} could not be reported: ${error.message}`];
+    }
+  }
+  if (!joined.length) return;
+  report.blockedDataRequests = [...(report.blockedDataRequests || []), ...joined];
+  for (const request of joined) if (BLOCKED_STATUS_EFFECT[request.aggregateOutcome] && STATUS_RANK.has(report.status)) report.status = worseStatus(report.status, BLOCKED_STATUS_EFFECT[request.aggregateOutcome]);
+}
+
+// Gated entities (read-back-contract DOMAINS) this run sent at least one write for, from the
+// attempt journal, judged on each attempt's latest status (a `started` row its attempt later
+// closed as skipped is not a write; a dangling `started` is). A deferral or any `skipped_*`
+// outcome is not a write. A write row this cannot
+// place (no manifest task, unknown target type) counts for every gated entity, which keeps the
+// earlier `gate-not-run` behavior whenever the run's writes cannot be told apart.
+const notAWrite = (status) => status === 'deferred' || /^skipped_/.test(String(status || ''));
+async function gatedEntitiesWrittenInRun(projectDir, runId) {
+  const { DOMAINS } = require('./read-back-contract');
+  const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch((error) => { if (error.code === 'ENOENT') return { rows: [] }; throw error; });
+  let manifest = null;
+  try { manifest = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/execution-manifest.json'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
+  const taskRefs = new Map((Array.isArray(manifest?.tasks) ? manifest.tasks : []).map((task) => [task.id, new Set(task.entityRefs || [])]));
+  const names = Object.entries(DOMAINS).map(([entity, domain]) => [entity, `${domain}/${entity}`, new Set([entity, `${domain}/${entity}`, `${domain}-${entity}`, `${domain}.${entity}`])]);
+  const latest = new Map();
+  for (const row of rows) if (row.runId === runId) latest.set(row.attemptId || Symbol('unidentified'), { ...(latest.get(row.attemptId) || {}), ...row });
+  const wrote = new Set();
+  for (const row of latest.values()) {
+    if (notAWrite(row.status)) continue;
+    const refs = taskRefs.get(row.writeSpecId);
+    const matched = names.filter(([, ref, types]) => types.has(row.targetEntityType) || types.has(row.writeSpecId) || refs?.has(ref));
+    if (!refs && !matched.length) for (const [entity] of names) wrote.add(entity);
+    for (const [entity] of matched) wrote.add(entity);
+  }
+  return wrote;
+}
+
+async function writeCompletionReport(projectDir, unjoinedReport, { runId = null, appendLog = true, mappingPlanDigest = null } = {}) {
   if (!unjoinedReport || typeof unjoinedReport !== 'object' || !unjoinedReport.status) {
     throw new Error('writeCompletionReport requires a completion report object');
   }
@@ -1497,25 +1922,43 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
       if (!row.operatorGateRecorded && censusReport.status === 'complete') censusReport.status = 'complete_with_warnings';
     }
   }
+  await joinBlockedDataRequests(projectDir, censusReport);
   await require('./read-back-approval').recoverAcknowledgements(projectDir);
   const gateState = require('./read-back-state');
   const entities = await require('./read-back-approval').gatedEntities(projectDir);
   const gateRun = censusReport.runId || runId || 'unidentified-completion';
+  // A run that sent no write for a gated entity records `not-run-no-writes`, so a
+  // resume with nothing to write adds no new stop; an earlier run's gate result still decides.
+  const wrote = entities.length ? await gatedEntitiesWrittenInRun(projectDir, gateRun) : new Set();
   if (entities.length) await gateState.update(projectDir, gate => {
     gate.runs[gateRun] ||= { entities: {} };
-    for (const entity of entities) gate.runs[gateRun].entities[entity] ||= { status: 'unknown', stopReason: 'gate-not-run', canaries: [] };
+    for (const entity of entities) gate.runs[gateRun].entities[entity] ||= { status: 'unknown', stopReason: wrote.has(entity) ? 'gate-not-run' : 'not-run-no-writes', canaries: [] };
   });
   for (const entity of entities) await require('./read-back-approval').createAcknowledgement(projectDir, gateRun, entity);
   const gate = await gateState.load(projectDir);
   const readBack = require('./read-back-summary').projectReadBackSummary(gate);
   const gateActions = require('./read-back-gate').operatorActions(gate);
   const readinessActions = await dependencyOperatorActions(projectDir);
-  gateActions.push(...readinessActions);
+  gateActions.push(...readinessActions, ...await extractIntegrityActions(projectDir));
   const blocked = gateActions.some(a => ['read-back-gate-stopped', 'read-back-suspect-interval'].includes(a.code));
   let report = await joinSourceCoverage(projectDir, { ...censusReport,
     readBack,
     status: blocked ? worseStatus(censusReport.status, 'incomplete_with_failures') : censusReport.status,
     operatorActions: [...(censusReport.operatorActions || []).filter(a => !a.code?.startsWith('read-back-')), ...gateActions] });
+  const planFile=path.join(projectDir,'mapping/mapping-plan.json');
+  let plan=null;try {plan=JSON.parse(await fs.readFile(planFile,'utf8'));} catch(e) {if(e.code!=='ENOENT') throw e;}
+  if (plan?.fieldContractVersion===1) {
+    const {digest,deferredRunResult}=require('./mapping-field-contract.js');
+    const pin=mappingPlanDigest || report.mappingPlanDigest;
+    const retainedHeadlines=(Array.isArray(report.headline)?report.headline:[]).filter(row=>!['MAPPING_REPORT_BINDING_REQUIRED','MAPPING_SCOPE_DEFERRED'].includes(row?.code));
+    if (!pin || pin!==digest(plan) || !plan.executionScope) {
+      report={...report,status:'blocked',headline:[{code:'MAPPING_REPORT_BINDING_REQUIRED',message:'Migration is blocked by missing or stale mapping/report binding; independent import counters are retained.'},...retainedHeadlines],blocker:{type:'mapping_report_binding_required',artifact:'mapping/mapping-plan.json',requiredInput:'Regenerate importer/report against its pinned canonical mapping before resuming.'}};
+      delete report.mappingPlanDigest; delete report.executionScope;
+    } else {
+      report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope)};
+      const deferred=deferredRunResult(plan);if(deferred) report={...report,status:'blocked',headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Migration remains blocked by deferred mapping scope; independent import outcomes are retained.'},...retainedHeadlines],blocker:deferred.blocker};
+    }
+  }
   let redirectReport = null;
   try {
     redirectReport = JSON.parse(await fs.readFile(path.join(projectDir, 'execution', 'url-rewrite-report.json'), 'utf8'));
@@ -1539,6 +1982,17 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
     }
     report = { ...report, operatorActions: actions };
   }
+  // What was decided about notification mute, and the unmute reminder for cutover.
+  const mute = await require('./notification-mute.js').completionReportMute(projectDir);
+  const keptActions = (report.operatorActions || []).filter((row) => row.code !== 'notifications-muted');
+  report = { ...report, notificationMute: mute.block,
+    operatorActions: [...keptActions, ...mute.actions.map((row, index) => normalizeOperatorAction(row, keptActions.length + index))] };
+  report = await require('./mapping-recovery').joinReport(projectDir, report);
+  // Fence: checked last, so a stop that latched while this report was being joined still lands.
+  if (!report.interruption) {
+    const latched = latchedInterruption(projectDir);
+    if (latched) report = stampInterruption(report, latched);
+  }
   const reportPath = path.join(projectDir, COMPLETION_REPORT_FILE);
   const summaryPath = path.join(projectDir, COMPLETION_SUMMARY_FILE);
   const summary = renderCompletionSummary(report);
@@ -1558,6 +2012,7 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
 
 module.exports = {
   dependencyOperatorActions,
+  extractIntegrityActions,
   COMPLETION_STATUS,
   VOUCHER_RECONCILIATION,
   handoffVoucherSignal,
@@ -1577,4 +2032,9 @@ module.exports = {
   normalizeMemberOutcomes,
   collectOrderStageResiduals,
   attachAttemptReasons,
+  INTERRUPTION_KINDS,
+  IMPORT_INTERRUPTED_CODE,
+  normalizeInterruption,
+  interruptionOperatorAction,
+  stampInterruption,
 };

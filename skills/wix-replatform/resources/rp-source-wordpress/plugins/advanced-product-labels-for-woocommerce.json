@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "plugin": "advanced-product-labels-for-woocommerce",
+  "displayName": "WooCommerce Advanced Product Labels",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/advanced-product-labels-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.product-ribbons"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "advanced-product-labels-for-woocommerce/woocommerce-advanced-products-labels"
+    ],
+    "assetPathSlugs": [
+      "advanced-product-labels-for-woocommerce"
+    ]
+  },
+  "dataLocation": {
+    "where": "wordpress",
+    "evidence": "Plugin source: labels are posts of the br_labels custom post type plus br_labels product post meta; no remote calls or vendor account."
+  },
+  "dataPresence": {
+    "require": "any",
+    "checks": [
+      {
+        "kind": "postType",
+        "type": "br_labels"
+      },
+      {
+        "kind": "postMeta",
+        "key": "br_labels"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "entity": "product-label",
+      "capability": "commerce.product-ribbons",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "pitfalls": [
+        {
+          "code": "ribbon-target-not-authored",
+          "severity": "warning",
+          "summary": "Product badges/labels are pending: a Wix product ribbon is the likely target but is not authored. VERIFIED IN PLUGIN SOURCE (berocket/includes/custom_post.php): labels are `br_labels` posts with their settings in post meta `br_labels`."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Seen on a live store: plugin inactive, no br_labels posts or meta."
+  ]
+}

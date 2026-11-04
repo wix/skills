@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fetchPublic } from "./lib/url-safety.mjs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
@@ -94,7 +95,7 @@ async function loadStylesheets(html, url) {
 }
 
 async function downloadAsset(url, filePath) {
-  const response = await fetch(url, { redirect: "follow" });
+  const response = await fetchPublic(url);
   if (!response.ok) throw new Error(`Fetch failed ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
   await ensureDir(path.dirname(filePath));

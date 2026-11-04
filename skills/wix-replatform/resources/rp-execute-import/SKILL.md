@@ -9,6 +9,14 @@ description: >-
 
 Execute the generated migration pipeline and capture import results.
 
+Use mapper-authored operation assessments and temporary deferrals through the shared runtime.
+Do not decide new mappings during execution. An unanswered field returns to mapping; eligible
+optional fields stay visibly pending, and required-field records remain held. Keep their pinned
+source data and membership until verified repair. Every interrupted or all-held run still writes
+completion and cutover handoff; source/evidence loss is an actionable unknown, never success.
+Rebuild these artifacts after repairs. The existing journal and crosswalk distinguish landed
+parents from uncertain writes and records never created; repair never recreates a landed parent.
+
 ## Purpose
 
 This skill runs the generated extract/import pipeline for the active project once setup and code generation are complete.
@@ -19,9 +27,19 @@ This skill runs the generated extract/import pipeline for the active project onc
 - `migrations/<project>/execution/execution-manifest.json`
 - `migrations/<project>/execution/llm-handoff.json`
 - `migrations/<project>/execution/review/import-plan.md`
-- `migrations/<project>/execution/review/code-safety-review.md` when `SAFE_MODE=true` or
-  `DRY_RUN=true`
+- `migrations/<project>/execution/review/code-safety-review.md` when `DRY_RUN=true`
 - `migrations/<project>/setup/setup-verification.json`
+
+## Every task builds on the site locale entity
+
+An import task starts only when `import-site-locale` passed for this site, setup plan, source file and
+owner decision (the receipt in `setup/setup-verification.json`). Missing, stale, failed or incomplete locale
+state blocks every task with `SITE_LOCALE_NOT_READY`. After that universal check, a kept currency or time zone
+holds only explicitly classified money-bearing or wall-clock refs with `SITE_LOCALE_KEPT`; neutral refs import.
+The check reads files only — no read of the site at task time. A held task is a blocked dependency in
+`execution/dependency-readiness.json` and an operator action in the completion report; a catch-up run imports
+it once the cause is fixed and setup re-ran. Money is written in the store's base currency only and is never
+converted.
 
 ## Preconditions
 
@@ -31,7 +49,7 @@ Do not proceed until:
   halts to needs-user
 - reader, transform, and writer code exist for the intended entities
 - execution artifacts define batching, retries, checkpoints, and write order clearly
-- when `SAFE_MODE=true` or `DRY_RUN=true`, the post-codegen code-safety review exists and
+- when `DRY_RUN=true`, the post-codegen code-safety review exists and
   has been accepted before execution approval is sought
 - the **execution plan report has been presented and the user has accepted it** (see
   below). In explicit user-requested `1-click mode` (`automationMode=one_click`,
@@ -50,6 +68,15 @@ node skills/wix-replatform/scripts/artifact-freshness.js check migrations/<proje
   --delta execution/review/import-plan-delta.md
 ```
 
+The approval precedes setup and binds the setup-plan hash and the configured `WIX_SITE_ID`.
+A receipt-less approval stays fresh only for the first valid receipt the approved, unchanged
+setup plan produces on the approved site after approval: the receipt's `siteId` and the
+current config both equal the approved site, its `generatedAt` and every check's
+`checkedAt` are at or after the approval, and it replaced no receipt from after the
+approval (`replaces`). A retry after a failed setup attempt is still that first receipt.
+Stale: a changed setup plan, a different site, an invalid receipt, a receipt predating the
+approval (for example a restored older one), a re-run that replaces a post-approval
+receipt, or legacy metadata without the setup-plan or site binding.
 If the check is stale, do not silently continue from the old approval text. Regenerate
 `execution/review/import-plan.md` or append and present
 `execution/review/import-plan-delta.md`; completion reports must reference the latest
@@ -147,8 +174,8 @@ the user accepts. The report must show:
   import when required by the resolved site strategy/config, and how the owner can later
   ask for an unmute. State that site notifications will be muted before migration writes
   begin when mute is in effect. For a **new site** this is a one-line
-  factual disclosure (the mute is unconditional). For an **existing site that opted in**
-  (`WIX_MUTE_NOTIFICATIONS=on`) the disclosure is **mandatory and prominent** and must
+  factual disclosure (the mute is unconditional). For an **existing site whose operator
+  answered mute** at intake (`notificationMute=on`) the disclosure is **mandatory and prominent** and must
   state all three points:
   - all site notifications will be muted before migration writes begin;
   - visitor activity during the migration window (e.g. contact-form submissions,
@@ -156,9 +183,11 @@ the user accepts. The report must show:
   - the flow does **not** unmute automatically — after the migration the owner must
     re-enable notifications themselves, or simply ask the agent to unmute at any point.
 
-  The owner accepting the plan is the consent for muting their live site. If the owner
-  rejects the mute line, revert to the existing-site default (`off`) and regenerate the
-  affected artifacts before seeking acceptance again.
+  The mute answer itself was given at intake; this report restates it, it does
+  not ask again. For an existing site that answered **don't mute**, state plainly that
+  customers and the owner may get emails for imported records (orders, bookings, forms,
+  RSVPs). If the owner changes their answer here, record it with `decide --key
+  notificationMute` and regenerate the setup plan before any write — never after writes began.
 
 In explicit user-requested `1-click mode`, do not skip this report. Generate it, make sure it
 reflects the real setup changes / data writes / blockers, record it as accepted by the agent,
@@ -169,7 +198,7 @@ Persist this in `execution/review/import-plan.md` (or a sibling report). This is
 checkpoint: the job pauses, surfaces the plan to the user, and resumes **only** on
 accept. Nothing is written before acceptance.
 
-If `SAFE_MODE=true` or `DRY_RUN=true`, this execution-plan approval gate comes only after
+If `DRY_RUN=true`, this execution-plan approval gate comes only after
 the separate post-codegen code-safety review checkpoint has passed. Do not merge the two
 checkpoints into one prompt.
 
@@ -241,12 +270,15 @@ contain required values:
   - `WIX_SITE_ID`
   - `WIX_AUTH_TOKEN` or another generated-code-supported Wix auth key
   - `DRY_RUN`
-  - `SAFE_MODE`
-  - `SAFE_MODE_PHONE_NUMBER` when `SAFE_MODE` is enabled
+
+  Destination creation writes `WIX_SITE_STRATEGY=new` and `DRY_RUN=false` when they are
+  absent. Record the owner's `DRY_RUN` choice with
+  `node scripts/wix-env.js set --project-dir migrations/<project> --key DRY_RUN --value true|false`;
+  never hand-edit or shell-append `wix.env`.
 - `migrations/<project>/config/source.<platform>.env`
   - platform-specific source values, for example WordPress:
     `WP_BASE_URL`; `WP_USERNAME` and `WP_APPLICATION_PASSWORD` for authenticated REST
-    reads; and `WMH2_MIGRATION_KEY` when the generated bridge reader selected signed auth
+    and `wix-wp-plugin-v2` bridge reads
 
 The generated script should load these files and then allow process env to override them.
 `WIX_SITE_STRATEGY` is always required. `WIX_SITE_ID` is required before execution writes
@@ -271,7 +303,7 @@ make the execution plan state that a later live run needs separate acceptance an
 credentials.
 
 If `DRY_RUN=true`, do not override it with `--no-dry-run` for setup probes, setup
-provisioning, demo-catalog cleanup, extraction-side verification against Wix, or import
+provisioning, extraction-side verification against Wix, or import
 writes unless the user has explicitly approved leaving dry-run for that step or phase.
 Prefer to avoid that override when a dry-run artifact or report can be produced instead.
 The upstream new-site creation exception does not authorize this skill to make any other
@@ -289,7 +321,8 @@ npx @wix/cli@latest token --site "$WIX_SITE_ID"
 ```
 
 Persist the returned token as `WIX_AUTH_TOKEN` and send it as a Bearer token. The same Wix
-CLI account should create the site and mint this token.
+CLI account should create the site and mint this token. Mint it through `scripts/mint-token.sh`; the
+import renews it from there while it runs (see `wix_auth_expired` below).
 
 ## Workflow
 
@@ -326,10 +359,16 @@ CLI account should create the site and mint this token.
    `rp-source-wordpress/PLUGIN-READ-PLANS.md`; do not bypass those wrappers.
 
    This then spawns each generated import entrypoint with `--describe`, parses the single JSON
-   object it prints, and checks it against the generated-importer contract. It writes no state
-   and touches no target. A non-zero exit **aborts the import** and routes back to codegen —
+   object it prints, checks it against the generated-importer contract, and runs the declared
+   isolated `--migration-review-probe`. It verifies committed capture/publication evidence,
+   selected and held mapping-scope registration and an injected failing write's recovery
+   capture in a temporary folder, cleans that folder, and touches no target. It also refuses
+   stale dependency edge modes and generated code that bypasses shared DRY_RUN reading (a
+   bounded text check over comment-stripped `src/`, not a proof; broader analysis is deferred). A non-zero exit **aborts the import** and routes back to codegen —
    no degraded mode, no skip flag — naming every missing selection mode and every misplaced
-   ledger path at once.
+   ledger path at once. The descriptor also declares the `migration-review/1` capture
+   boundary at before-write, write-outcome and recovery phases, with all five required
+   evidence categories. A missing declaration routes back to codegen before any target write.
 
    The selective modes (`--entity`, `--source-type`, `--missing-only`, `--failed-only`,
    `--deferred-only`, `--unresolved-only`) are a **requirement on the generated importer**, not
@@ -370,38 +409,25 @@ CLI account should create the site and mint this token.
    that record to Wix.
    If the run needs live Stores evidence during setup or recovery, use the shared
    verification CLI and persist its JSON artifact:
-   `node skills/wix-replatform/resources/rp-target-wix/scripts/verify-stores.js stores product-count --artifact migrations/<project>/execution/stores-product-count-verification.json`
+   `node skills/wix-replatform/resources/rp-target-wix/scripts/verify-stores.js stores product-count --project migrations/<project> --artifact migrations/<project>/execution/stores-product-count-verification.json` (it reports `baseline` and `runOwned` when setup recorded a catalog baseline)
    or `stores product-by-source-marker --marker-path <path> --marker-value <value>`.
    Do not write migration-local verification snippets for Stores product counts,
    source-marker lookups, subscription probes, or probe cleanup.
-3b. **Clear the default demo catalog first — only when all three conditions hold.** A
-   freshly provisioned Wix Stores catalog (and `wix-headless`'s seed) ships ~12 placeholder
-   demo products + demo categories. Wiping them before importing is correct ONLY on a site
-   you created on this turn from a live source — never as a general cleanup step. All three
-   must hold; check them before deleting anything:
-
-   1. `WIX_SITE_STRATEGY=new`, **and**
-   2. the source is a **live site**, not supplied files (`sourceMode=files_only`), **and**
-   3. **you created the destination site on this turn.**
-
-   Each one guards against a different way of destroying data that is not template seed:
-
-   - **Existing site ⇒ never.** The catalog belongs to the owner; a bulk delete here is
-     data loss this pipeline cannot undo.
-   - **File-provided run ⇒ never, whatever the strategy.** File drops are recurring by
-     design — they can accumulate onto one site over multiple runs, so wiping on drop 2..N
-     would delete what an earlier drop imported, and the wipe cannot tell template seed
-     from migrated data.
-   - **A later turn ⇒ never.** This is the condition most likely to be missed: on turn two
-     of a new-site run, `WIX_SITE_STRATEGY` still reads `new` and the source is still a
-     live site, so only "did I create the destination on this turn" separates clearing the
-     template's placeholders from deleting the previous turn's import.
-
-   When in doubt, skip it — leaving a few template products behind is a cosmetic defect the
-   owner can fix later; deleting their catalog is not recoverable. When all three hold,
-   delete the default demo products and categories (keep the system `All Products`
-   category) so the final store holds only the migrated data — otherwise a clean
-   100-product import reads as 112. Applies in both delivery modes.
+3b. **Never delete the demo catalog here — setup already handled it.** Installing Wix
+   Stores adds sample products and categories. `rp-execute-setup` reads the catalog just
+   before and just after its own Stores install, deletes exactly the items the install
+   added (keeping the built-in `All Products` category), and records everything in
+   `setup/destination-catalog-baseline.json`. This stage deletes nothing: it
+   cannot tell a sample from the owner's product or an earlier turn's import.
+   - Every item still in the baseline (pre-existing, or a seeded item a delete missed) is
+     protected. The importers never take one over by slug or marker; a match is held as
+     `TARGET_BASELINE_COLLISION`, recorded in `execution/target-baseline-collisions.json`
+     and reported as an operator action.
+   - Count with `verify-stores.js stores product-count`, which splits `total` into
+     `baseline` and `runOwned` when the baseline exists. A clean 100-product import reads
+     as 100 run-owned, not 112.
+   - No baseline file (setup did not install Stores) means there is nothing to protect.
+     Never write one by hand.
 4. **Run source extraction first** using the generated extraction entrypoint (for example
    `node src/extract/run-extract.js`). This step writes durable source files under the
    project and must complete before the write phase unless the extraction artifacts are
@@ -459,13 +485,8 @@ CLI account should create the site and mint this token.
    complete zero-row extract and full task-pass evidence. Never infer readiness from task
    order, a success count, a crosswalk row alone, dry-run state, or prose best-effort consent.
    Capture compact reports, audit-log references, errors, retries, skipped records, and
-   checkpoint information from the shared runtime outputs.
-   Safe-mode outputs must be summarized by counts and paths only: include skipped
-   safe-mode blocked record counts, the project-relative
-   `state/safe-mode/blocked-records.ndjson` path when present, and the
-   `state/safe-mode/email-replacements.ndjson` row count/path when replacement rows were
-   written. Do not print original email addresses or phone numbers from the recovery
-   ledger.
+   checkpoint information from the shared runtime outputs. Do not print email addresses or
+   phone numbers from the recovery ledger.
 6b. **Reconcile bearer-voucher drift against a fresh source read — required, before cutover.**
    Run this after every write pass has finished and before anything declares the run
    complete. It is required whenever the accepted scope included coupons **and** the source
@@ -541,81 +562,43 @@ CLI account should create the site and mint this token.
 7. Save durable execution artifacts, including the authoritative completion artifact and
    deterministic user-facing completion summary.
 
-## Contacts/Members disposition (safe-mode vs. real, live at the destination)
+## Contacts/Members disposition (live at the destination)
 
-LIVE-VERIFIED: when `SAFE_MODE=true` covers `crm/contact`, every created Contact carries a
-mock `replatform+contact_<id>@wix.com` email (see `mockEmailForEntity` in
-`rp-target-wix/lib/wix-writers.js`). What that means for login identity depends on whether
-`members/member` is itself a generated import target for this run, per `rp-import-codegen`'s
-member pass:
+Contacts and members are written with the source's real email and phone (safe mode was
+removed; notifications rely on the site mute). What that means for login
+identity depends on whether `members/member` is itself a generated import target for this
+run, per `rp-import-codegen`'s member pass:
 
 - **`members/member` NOT in the generated scope:** the contact-import pass alone builds no
   Wix Members (`memberCrosswalk` is stubbed to always return `null` so order/blog author
-  resolution has something safe to call), so no customer gets a real, usable login identity
-  from this run at all — safe-mode or not. Promoting a contact to real-email-plus-Member is
-  then a distinct, separate, later write (see `rp-target-wix/lib/wix-writers.js`'s
-  `ensureMember` composite: read the contact's current revision, update its email/phone from
-  the real source values only when the current email still matches the safe-mode mock
-  pattern, then call `ensureMember` with the same real loginEmail so the created Member lands
-  on that same contact rather than a duplicate).
+  resolution has something safe to call), so no customer gets a login identity from this run.
+  Creating the Member is then a distinct, separate, later write (`ensureMember` with the
+  contact's email as loginEmail, so the Member lands on that same contact rather than a
+  duplicate).
 - **`members/member` IS in the generated scope:** the generated member pass runs `ensureMember`
-  directly against each registered customer's REAL email in its own loop before order history,
-  regardless of the `crm/contact` SAFE_MODE setting — that pass does not read or wait on the
-  safe-mode mock email at all, it goes straight to `ensureMember({loginEmail: customer.email, ...})`.
-  In this case customers DO get a real Member from the entity-import pass itself; a contact
-  left on a safe-mode mock email from a separate `crm/contact` pass is not the same customer
-  state as "no Member exists" and must not be reported as if it were.
+  against each registered customer's email in its own loop before order history, so
+  customers get a Member from the entity-import pass itself.
 
 Do not state either version as the migration's blanket behavior without checking which one
-this run's actual generated scope produces.
-
-Two requirements follow, both non-negotiable when `crm/contact` is in scope:
-
-1. **Ask before the contact import runs, in plain language — but only offer a choice the
-   generated scope can actually honor, not by assuming a SAFE_MODE default:**
-   - If `members/member` is NOT a generated target for this run: this pass never creates a
-     Member either way (see above), so do not offer "create a Wix Member directly" as an
-     option — that path does not exist without a member pass. Ask instead: "Import contacts
-     with their real email now, or with temporary safe-mode emails for review first? Either
-     way, no customer gets a Member or a login identity from this run alone — that is always
-     a distinct, later step (add `members/member` to the scope, or run the separate
-     promotion write afterward)." Record the answer in the execution plan/consent artifact
-     next to the SAFE_MODE decision; do not let an unset `SAFE_MODE` env var (which defaults
-     to `true`) decide this silently.
-   - If `members/member` IS a generated target: do **not** offer the safe-mode-contacts
-     choice at all. The member pass creates each registered customer's Member
-     directly against their REAL email regardless of `crm/contact`'s own SAFE_MODE setting,
-     and reconciles by that real loginEmail — a contact the SAFE_MODE pass created earlier
-     under the mock email will not match it, so the member pass creates a SECOND, separate
-     contact on the real email instead of landing on the existing one. This is a real
-     duplicate-contact gap, not a hypothetical: the ordering rule needed to prevent it (never
-     pre-create a safe-mode contact for someone who will become a member) is tracked as an
-     open, unresolved decision, not something already implemented. Until that ordering is
-     implemented, `crm/contact` must run in real-email mode whenever `members/member` is
-     also in scope, and the plan must say so plainly rather than presenting a safe-mode
-     choice it cannot deliver.
-2. **Every completion/status summary that touches contacts must report the disposition
-   explicitly and by count**, whichever path was chosen: how many contacts still carry a
-   safe-mode temp email with no Member (and therefore need a follow-up promotion run before
-   they have a real email on file or can log in), vs. how many were promoted to a real email
-   + Member. A status report that only says "N contacts imported" without this breakdown is
-   incomplete — the operator cannot tell from that alone whether any customer can currently be
-   reached or log in.
+this run's actual generated scope produces. Every completion/status summary that touches
+contacts reports by count how many contacts have a Member and how many do not. A contact
+written while safe mode existed may still carry a mock `replatform+...@wix.com` email; report those
+separately, since they need their real email PATCHed before a Member is created for them.
 
 ## Email marketing consent
 
 When the source records a real per-record consent signal for marketing email (e.g. a
-WooCommerce order's checkout consent-checkbox meta, not mere presence as a customer), do not
-write it to Wix Email Subscriptions yet. `crm/email-subscription`'s `bulkUpsertEmailSubscriptions`
-writer (`rp-target-wix/lib/wix-writers.js`) is mechanically live-verified — keyed by email
-address, covers guest-checkout consent with no Contact behind it, sets a status only with no
-confirmation/marketing email triggered — but the entity's `preferredWrite.importSafe` stays
-`false` because two product decisions are still unresolved: how several orders for one email
-fold to a single subscription state (`order-scoped-consent-has-no-decided-fold-rule`), and
-whether Email Subscriptions or the separate Marketing Consent API is the authoritative write
-target (`email-subscriptions-vs-marketing-consent-api-unresolved`). Surface the gap and these
-two open questions to the user rather than deciding either one inside an import run; only
-proceed once both are resolved and `importSafe` reflects that.
+WooCommerce order's checkout consent-checkbox meta, not mere presence as a customer), import
+it to Wix Email Subscriptions with `crm/email-subscription`'s `bulkUpsertEmailSubscriptions`
+writer (`rp-target-wix/lib/wix-writers.js`). It is live-verified: keyed by email address,
+covers guest-checkout consent with no Contact behind it, and sets a status only, with no
+confirmation or marketing email. Only write a subscribed state when there is consent evidence
+(`consent-proof-required`). Per email: every order ticked → write `SUBSCRIBED`; no order
+ticked → write nothing (an absent tick is not a decline and not consent); ticked and unticked
+orders mixed → do not pick a rule: keep that email's subscription pending with its order
+evidence, so it reaches cutover for the operator to decide
+(`order-scoped-consent-has-no-decided-fold-rule`). Write to Email Subscriptions, the
+entity's current writer (`email-subscriptions-vs-marketing-consent-api-unresolved`).
 
 ## Rerunning an import for new and modified records
 
@@ -722,9 +705,7 @@ When execution finishes, the deterministic completion outputs must explicitly in
 - whether store routes such as product/cart/checkout were verified or still unverified
 - URL preservation counts: base paths captured, URL ledger rows written, redirect plans
   recorded, unresolved public URLs, and manual-review URL rows
-- safe-mode counts: email fields replaced, phone fields replaced, records skipped with
-  `SAFE_MODE_SUSPICIOUS_EMAIL`, and the project-relative safe-mode ledger paths. Do not
-  include original email addresses or phone numbers.
+- do not include email addresses or phone numbers.
 - dry-run counts when `dryRun: true`: requests built, Wix calls skipped, would create,
   would update, would delete, would require live lookup, and local validation failures.
   Do not report dry-run rows as created, updated, imported, installed, published, or
@@ -759,7 +740,9 @@ When execution finishes, the deterministic completion outputs must explicitly in
   muted** and stay muted until re-enabled; that the owner can **simply ask the agent to
   unmute them** (on request the agent calls `unmuteSiteNotifications` and confirms
   `muted: false` via `getSiteMuteState`); and how to re-enable manually. For existing
-  sites this line is mandatory and prominent. If no successful mute is recorded, do not
+  sites this line is mandatory and prominent. The completion report carries this as
+  `notificationMute` plus the `notifications-muted` operator action (the unmute reminder
+  for cutover); report it from there. If no successful mute is recorded, do not
   claim the site is muted — for a run where mute was in effect, that is a blocker that
   should already have stopped the import at the preflight.
 
@@ -832,9 +815,42 @@ the affected source keys when any payment, refund, or invoice stage failed.
 `appendExecutionLog` is not a heartbeat. Liveness and progress output for watching a running
 script is `lib/progress-log.js`, writes to a caller-supplied path, and is a separate contract.
 
+### Run the import under the supervisor — one tool call, not one per poll
+
+Launch the generated entrypoint through the supervisor instead of polling it yourself:
+
+```bash
+node skills/wix-replatform/scripts/import-supervise.js --project <projectDir> \
+  [--entry src/import/run-import.js] [--poll 3m] [--max-resumes 3] [-- <entrypoint flags>]
+```
+
+Run it in the host's **background mode** (an import outlives any single tool call). If a call
+times out or is stopped, just run the same command again: it attaches to the import it launched
+if that is still alive, and never starts a second one. Stopping the supervisor stops the import
+with it; the next call resumes.
+
+It launches the entrypoint (output to `logs/import-supervise.log`, never your context), polls
+`execution-health-check.js` itself, and after a crash or a `stalled` verdict re-runs the same
+entrypoint with the same flags — a resume from the attempt journal and crosswalk, never a fresh
+import. It kills on `stalled` only when the generated code (anywhere under `src/`) has heartbeats
+(`withHeartbeat` / `startHeartbeat`). Without them it reports `heartbeatMissing: true` and lets the
+run go on, until it has looked stalled for six stale windows in a row; then it stops it and returns
+`resume_limit` with `reason: stalled_without_heartbeat`.
+Waits and holds sleep inside it. It prints one JSON line and exits:
+
+| Exit | `outcome` | What you do |
+| --- | --- | --- |
+| 0 | `complete` | Continue to the completion report and entity-by-entity QA. |
+| 10 | `needs_decision` | `reason` is `auth_stop`, `pending_user_action` or `awaiting_user_action`; handle the listed `userActionIds` as this resource already says, then run the supervisor again. |
+| 11 | `resume_limit` | `--max-resumes` failures in a row with no new settled progress (more records `imported`, more crosswalk rows), or `--max-launches` launches in this call (`reason: launch_cap`). See `reason` and `lastError`. This needs a fix: return it so the orchestrator dispatches a **fresh** Developer with a handoff (`subagent-handoff.js`). |
+| 1 | `error` | The supervisor itself failed (bad arguments, missing entrypoint). |
+
+Read results with `write-log-summary.js`, never the raw ledger. The manual polling below is
+the fallback only when the supervisor itself cannot run.
+
 ### Poll the health-check script, and redispatch on a stalled verdict
 
-Do not drive a long-running generated `run-import.js`/`run-extract.js` by raw `tail -n 1`
+Fallback when `import-supervise.js` cannot run. Do not drive a long-running generated `run-import.js`/`run-extract.js` by raw `tail -n 1`
 alone once it has been launched. After dispatching the script, poll
 `skills/wix-replatform/scripts/execution-health-check.js <projectDir> [--script <name>]
 [--stale-after <duration>]` on an interval — default every 3 minutes; a shorter interval is
@@ -871,7 +887,8 @@ and never the routing agent's own read of the summary — must, for every mapped
 
 - confirm its `completion-report.json` row reconciles (`imported + alreadyPresentByCrosswalk +
   deferred + failed == inScope`) and is backed by real rows in `state/attempts/write-attempts.ndjson`
-  or `state/crosswalk/crosswalk.ndjson` — a bare counter with no corresponding ledger rows is a
+  or `state/crosswalk/crosswalk.ndjson` (count them with `write-log-summary.js --entity <e>`, never
+  by reading the raw file) — a bare counter with no corresponding ledger rows is a
   swallowed error, not a clean pass;
 - for any entity reported blocked, deferred, or skipped, independently re-verify the stated
   reason is still true right now (spot-check the live source data or the live destination API,
@@ -893,7 +910,10 @@ completion report.
 every mapped entity/subtype above has been checked, compile the per-entity results (the ten
 `completion-report.js` fields for a full-mode row, or `imported`/`skipped` for a quick-mode
 row, plus `blockedReasonsReverified` for any row with a blocked, deferred, failed, unresolved
-or skipped count) into a JSON array and run:
+or skipped count) into a JSON array and run. A mapped entity's source-archive row
+(`archive.<entity>`, subtype `source-archive`) is a sub-part of that entity: attest it with the
+entity whenever the report carries it (the writer requires and count-checks it, never flags it
+unexpected); an `archive.*` row of an unmapped entity is not attested:
 
 ```
 node skills/wix-replatform/scripts/entity-qa-attestation.js <projectDir> \
@@ -960,6 +980,81 @@ indistinguishable from one nobody checked.
 Anything the operator must do by hand goes in `operatorActions[]`, which renders **above** the
 counts, each entry carrying a severity and a deadline reason.
 
+## Owner-readable actions in the completion handoff
+
+Before publishing an owner action, reconcile the final outcome, latest mapping and later
+recovery evidence with historical errors. A historical failure whose identity/outcome was
+subsequently recovered belongs in the report history, not an unresolved owner repair.
+A mapping alone does not establish current business behavior; name the specific remaining
+check when that is the actual issue.
+
+Group repeated attempts by source identity before building the affected-item list. Show each
+affected item once; keep attempt/error counts separately in the report. Do not present multiple
+rejection attempts as distinct coupons, or merge distinct remaining issues without
+reviewing their latest evidence.
+
+Write one concise explanation for each genuine action: what was observed, which items are
+affected, what the owner should do, and where to do it. Use a concrete Business Manager link
+when a supported destination page is known; otherwise say which configuration to open.
+The destination dashboard home is not a task CTA. Source-only work uses the relevant source
+page or the optional importer prompt, not an unrelated Wix page. Verify the destination/site
+of each supplied link; do not invent a dashboard route.
+Explain uncertainty precisely: an existing-code response with an unreadable ID is different
+from a rejected request or a lost response. If the evidence does not explain the cause, say
+what is missing and request the needed investigation; do not invent a cause or a repair.
+Avoid unexplained bookkeeping phrases such as “outcome not confirmed,” “historical error,”
+“reconcile identity” or “return evidence.” Use readable item names; when only internal source
+references are available, explain that the Import Operator must identify them first.
+
+Keep the useful affected-item table/configuration/export steps and an optional copyable
+Import Operator prompt. Put actual original-environment requirements in that prompt. The
+owner-facing manual task uses one description and Resolved/Dismiss; do not generate separate
+What to do, Done when or Before resolving fields, exclusive role labels, or an Issue found
+action for that task model. In the current runtime, preserve this content in the existing
+completion report/operator actions and migration handoff artifacts. Production cutover CMS
+publishing is not yet integrated: do not invent a schema or claim the app received the task.
+
+Review the explanation as the owner before finalizing it: can they identify the item,
+understand why attention is needed now, and take the next step without opening migration
+logs? If not, obtain missing facts or ask for importer investigation. Deterministic validation
+can check required content; this semantic review remains the importing agent's responsibility.
+Apply the cause-attribution rules below to any claimed reason.
+
+### Cutover coverage and general task types
+
+Review source discovery and plugin dispositions, approved mapping/manual steps, latest setup
+receipts and final import outcomes together. Include manual payment/account configuration
+where applicable. Historical shipping setup can require a precise current check before launch;
+do not recreate completed setup or reopen an explicitly deferred integration. Never choose a
+payment provider, commercial policy, app replacement or notification/consent action for the
+owner merely to close a task.
+
+Separate a plugin's data from its functionality. A readable/imported record does not establish
+that campaigns, automations, account connections or storefront behavior work in Wix. An active
+integration with no accessible local data may use an external system of record. Ask the owner
+to confirm what remains in use and identify the necessary source/service access; do not call
+it migrated, unused or a missing app without evidence. Preserve genuine exclusions and
+deferrals in the report, and use later reviewed dispositions rather than stale pending totals.
+
+The cutover contract distinguishes these general work types from business areas such as
+Products or Marketing:
+
+| Work type | Use when |
+| --- | --- |
+| Missing data | Needed records, fields, definitions or import links are missing or require recovery. |
+| Manual setup | The owner must configure an applicable setting or account. |
+| Missing apps | A specific required destination app is verified absent. |
+| Changed behavior | Data exists but the intended functionality differs or needs a solution. |
+| Checks | A specific configuration or customer flow needs a bounded verification. |
+| Review | An ambiguous identity, external service or unfamiliar capability needs investigation or a decision. |
+
+Use the publisher's supported task type and block schema when that integration is available.
+The app owns presentation, standard workflow placement and supported controls. The agent
+supplies reconciled facts, affected items, readable description and relevant links. Until
+production publication is integrated, preserve the explanation in the existing validated
+operator-action/manual-handoff fields; do not add unsupported task fields to those artifacts
+or hand-write new CMS collections. Record the missing integration explicitly.
+
 `writeCompletionReport` also appends source access that outlives the migration
 (`lib/source-access.js`). For a Shopify private-data run that connected, that is
 `shopify-staff-account-removal` (`high`, entity the store domain): the store owner removes the
@@ -978,6 +1073,34 @@ Shopify Admin; **Requires Import Operator** to run `rp-source-shopify`'s
 the report and verify the action is gone. A later extract `readAt` or a new withheld row reopens
 it. The catch-up/checklist integration is not wired yet; the completion report is the
 current durable handoff.
+
+**Wix token expiry (`wix_auth_expired`).** The CLI site token is short-lived, and `wix token`
+can return a cached one with only part of its life left. The shared client renews it through the
+project's `scripts/mint-token.sh` for the same `WIX_SITE_ID` only: before a request when under 10
+minutes remain (from the token's own `exp`), and once on a 401 (or a 403 after `exp`), resending
+that same request once. When renewal cannot help (CLI logged out, mint failed, `config/wix.env`
+unreadable or naming another site, refused again after renewal), the run stops with `wix_auth_expired`, exit 75:
+
+- No record is marked failed. The attempt journal refuses a failed or unresolved row while the
+  project is interrupted; at most the in-flight record stays `started` and is read back on resume.
+- One `manual_action` (`stage: execution`, title "Renew the Wix site token and resume the
+  import") is pending. **Requires Import Operator**, in the original migration environment: run
+  `npx @wix/cli@latest whoami` (log in if asked), then `bash migrations/<project>/scripts/mint-token.sh`,
+  answer the action and resume the import (standard resume, never a fresh run). Evidence that
+  resolves it: the action is answered and the resumed run's journal has no `failed_*` row with
+  HTTP 401.
+- A token set as a process environment variable is used as given and never renewed; keep it in
+  `config/wix.env` for long runs.
+- The stop still writes an `aborted` completion report and handoff. The resumed run's report overwrites it.
+
+**Any stop leaves a report.** SIGTERM/SIGINT, a thrown error and `wix_auth_expired`
+all end in the importer's single completion call with an `interruption`. The report is
+`aborted`, its first operator action is `import-interrupted` (**Requires Import Operator**:
+resume), and `execution/discovered-set-status.json` and the post-execution handoff are written
+for cutover. Stop a long run with SIGTERM, not SIGKILL. After a SIGKILL the router reports
+`interruptedReport: "missing"`. Run `node scripts/interrupted-completion-report.js <projectDir>`,
+which rebuilds the report from the attempt journal, then resume. Never treat an aborted report as
+the end of the import.
 
 Shopify extract stop codes (`rp-source-shopify`), each a stop, never a retry loop. A source
 catch-up (rerun for new and modified records) runs `shopify-extract.js --catch-up`, which reads
@@ -1115,14 +1238,19 @@ the projection cannot unlock writes. Preserve `state/readiness/task-passes.ndjso
 resumes. Legacy or foreign-site evidence requires the named reconciliation/read-back.
 Never adopt an unverified candidate ID or resend an order to repair dependency evidence.
 
-Retain record deferrals in the existing attempt journal and reference-fidelity/cardinality
-gaps in `mapping/review/mapping-gaps.json`. Generate the shared completion report so its
+Retain record deferrals in the existing attempt journal. The gate keeps reference-fidelity and
+cardinality gaps in `execution/dependency-readiness.json` `referenceGaps`; never write them into
+the reviewed `mapping/review/mapping-gaps.json`. Generate the shared completion report so its
 `operatorActions` carry the affected work, prerequisites, next action, resolution evidence
 and **Requires Import Operator** / **Copy prompt for Import Operator** instructions.
 The Cutover Operator works on another machine: recovery requiring the original project
 must name that role and prompt. Resolve the underlying producer/approval/reference,
 reevaluate, then resume only eligible deferred records. These artifacts preserve the handoff;
-future cutover UI ingestion is not yet wired.
+future cutover UI ingestion is not yet wired. Records the gated builder holds are deferred, never
+attempted: they stay in the read-back inventory and the completion report's `readBack` and
+`read-back-held-records` operator action until their decisions are resolved and inventory and
+validate are re-run. A gated entity a run never verified (`gate-not-run`) keeps completion
+incomplete until a later run prepares and verifies it.
 
 ## Recovery artifact contract
 
@@ -1308,9 +1436,9 @@ owner's live business data, and nothing in this pipeline can undo a bulk write.
   media or coupons — not to clear a failed partial import, not to "start clean" before a
   retry, not to resolve a collision. There is no reason good enough; a failed import is
   recovered by re-running an idempotent one, not by clearing the target.
-- **Never wipe the demo catalog.** That cleanup exists for a template's placeholder
-  products on a site this run just scaffolded (see `resources/rp-destination/`). On an
-  existing site those products are the owner's.
+- **Never wipe the demo catalog.** Only `rp-execute-setup` deletes, and only the items its
+  own Stores install added on this run (see step 3b). On an existing site every product
+  that was there before is the owner's.
 - **Skip, do not overwrite.** A record already present — by crosswalk, then by the
   mapping's natural key — is skipped and counted as `skipped`, not rewritten. Only augment
   a pre-existing entity when the plan the user accepted says so for that entity type.
@@ -1364,6 +1492,37 @@ The current verification report remains partial, so that retained mapping does n
 failed read into a new completion claim. Revoke mappings when identity is contradicted;
 value-only differences require the existing update/review flow.
 
+## Exact field gaps and deferred execution scope
+
+For revised mappings, show all selected/resolved/deferred entities and the canonical field-gap ledger in the existing execution plan and completion reports. Preserve native behavior missing separately from fallback storage. Unknown affected counts stay null/unknown, not zero. The existing website handoff carries the same extended gap keys. Machine checks may establish storage only for their matching scope; manual behavior decisions stay attributed. Call shared `writeCompletionReport` with the independently pinned `mappingPlanDigest`.
+It stamps `mappingPlanDigest` and `executionScope` only against that pin, or writes a blocked
+binding failure with retained counters. Use its returned report for the existing summaries.
+The pre-write `--describe` verification rejects absent/stale scope bindings. The existing post-execution handoff preserves the same scope/digest and full gap rows; the router includes a typed blocker in the run result. A missing/stale report or handoff produces a typed evidence-repair blocker, not repeated dispatch. This can mean the import stage skipped its post-execution handoff step; regenerate that artifact through the shared producer before resuming, rather than assuming corruption. Current reports and the execution log retain the genuine scope-deferral result. After independent imports, normal QA and evidence retention, persist the typed `mapping_scope_deferred` blocker and deferred entity-completeness rows, then return the existing blocked run result for a later session. No deferred row is imported or passed. If no importer starts, preserve gaps in ledger/handoff and report current-run Migration review publication unavailable. Importer-owned review capture/publication is integrated only when its contract is available; absence remains explicit.
+
+
+For exact field-mapping plans, the generated importer captures registered mapping scopes
+through the shared adapter before writes and after each entity’s final durable outcome,
+before completion reporting. Deferred scopes have startup mapping observations and no
+invented outcomes. Once the importer has exited, the existing Migration review step uses
+[the scoped mapping publication recipe](../rp-migration-review/mapping-publication.md)
+under the same canonical owner and retained capture IDs. Read actual import boundaries
+before enrichment; incomplete deferred scope is not a failure of unrelated resolved scope.
+All-deferred/no-importer runs retain ledger/handoff facts and report publication unavailable.
+
 ## Discovered-set outcome handoff
 
 After writing the final completion report and before generating the post-execution handoff, run `node scripts/discovered-set-status.js build <projectDir>` in standard mode. It joins the approved discovered scope to actual outcomes, with unknown counts retained as unknown. Its Import Operator prompts stay in the handoff under Urgent Operator Actions; send those prompts to the Import Operator for recovery in the original migration environment. Do not resolve partial, failed, deferred or pending scope by ticking a manual acknowledgement. Only a merchant or Cutover Operator may record completed `manual-open` work through `scripts/discovered-set-status.js resolve`, with short evidence containing no record values. Quick mode keeps its existing path.
+
+## Public multilingual execution
+
+After default import and verified object/member read-back, emit both multilingual identity receipts,
+inventory Wix translation capabilities, build the sidecar, and run the target's
+`multilingual-execute.js`. A value-changing row first secures and
+reads back an administrator-only destination recovery row. Unpublished values are verified before
+field publication; already-published values remain published while patched. Live Wix state is the
+rerun authority, so an unchanged rerun makes no value or publication writes. Persist the attempt,
+recovery, receipt, and cost artifacts under `state/multilingual-public/` before completion report
+generation, including failure receipts and a cost record when a mutation gate or read-back stops
+the executor. The completion writer projects unresolved `LANG_*` rows with exact Import Operator
+prompts. Migration-local decisions are recorded only by the target decision script; never edit its
+NDJSON ledger.

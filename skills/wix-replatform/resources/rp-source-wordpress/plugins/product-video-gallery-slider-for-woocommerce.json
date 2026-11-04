@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "plugin": "product-video-gallery-slider-for-woocommerce",
+  "displayName": "Product Video Gallery for Woocommerce",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/product-video-gallery-slider-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.product-video"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "product-video-gallery-slider-for-woocommerce/product-video-gallery-slider-for-woocommerce"
+    ],
+    "recordProperties": [
+      "_nickx_video_text_url"
+    ],
+    "assetPathSlugs": [
+      "product-video-gallery-slider-for-woocommerce"
+    ]
+  },
+  "dataLocation": {
+    "where": "wordpress",
+    "evidence": "Plugin source: video URLs saved as product post meta _nickx_video_text_url on product save; settings in wp_options; videos are links to self-hosted files or YouTube/Vimeo, no vendor account or sync service."
+  },
+  "dataPresence": {
+    "require": "any",
+    "checks": [
+      {
+        "kind": "postMeta",
+        "key": "_nickx_video_text_url"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "entity": "product-video",
+      "capability": "commerce.product-video",
+      "channel": "core-meta",
+      "embeddedIn": [
+        "/wc/v3/products"
+      ],
+      "propertyPath": "_nickx_video_text_url",
+      "candidateTargetRefs": [
+        "stores/product"
+      ],
+      "pitfalls": [
+        {
+          "code": "videos-ride-product-media",
+          "severity": "info",
+          "summary": "Video URLs (an array per product, YouTube/Vimeo/self-hosted) are read by lib/product-video-extract.js from resources/product-video-sources.json and land as product media videos; links Wix cannot hold become product-video-manual cutover items. VERIFIED IN PLUGIN SOURCE (admin/class-video-field.php): keys _nickx_video_text_url, _nickx_product_video_type, _nickx_product_video_thumb_ids, _custom_thumbnail."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "The plugin writes `[\"\"]` to _nickx_video_text_url on every product save, so the key is present on products with no video. Presence is decided by non-empty values, never by the key (seen on a live store: 382 products, all empty)."
+  ]
+}

@@ -9,7 +9,7 @@
 // from a previous one (types, addable components or API methods), the editor changed: re-check descriptions before deploying.
 import { chromium } from 'playwright';
 import { hideScrollbars } from './hide-scrollbars.mjs';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };

@@ -15,6 +15,7 @@
   "dependsOn": [
     "ecom/order"
   ],
+  "writtenInTaskOf": "ecom/order",
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",
@@ -29,7 +30,7 @@
     "surface": "Media Manager (private) + eCom Orders extended fields",
     "endpoint": "POST /site-media/v1/files/generate-upload-url (private), PUT the bytes to the signed uploadUrl, then PATCH /ecom/v1/orders/{order.id}",
     "writerId": "preserveOrderInvoiceDocument",
-    "verification": "docs",
+    "verification": "verified-live",
     "importSafe": true,
     "bulk": false
   },
@@ -62,7 +63,7 @@
     {
       "code": "patch-replaces-extended-fields",
       "severity": "blocker",
-      "summary": "SCHEMA-CONFIRMED 2026-09-03: `extendedFields` IS updatable via PATCH Update Order, and the call needs ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS / Manage Orders. MERGE SEMANTICS, re-established 2026-09-05 with a corrected oracle: a partial patch MERGES -- keys the patch omits survive. Three consecutive runs agree. The FIRST version of this probe could not have known: it patched, read once, and judged what survived, so a stale read returning the pre-patch order looked identical to a merge. It now polls until its own included marker is observable before inspecting the omitted keys, and answers UNKNOWN if the patch never becomes visible. What three runs buy and do not buy: they rule out the stale-read artefact and a one-off fluke on this site. They do not establish the behaviour across namespaces, across other extendable objects, or against a future change -- so the MERGE in our writer stays. It costs nothing if the behaviour holds and is the only protection if it ever changes."
+      "summary": "SCHEMA-CONFIRMED 2026-09-03: `extendedFields` IS updatable via PATCH Update Order, and the call needs ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS / Manage Orders. MERGE SEMANTICS, re-established 2026-09-05 with a corrected oracle: a partial patch MERGES -- keys the patch omits survive. Three consecutive runs agree. The FIRST version of this probe could not have known: it patched, read once, and judged what survived, so a stale read returning the pre-patch order looked identical to a merge. It now polls until its own included marker is observable before inspecting the omitted keys, and answers UNKNOWN if the patch never becomes visible. What three runs buy and do not buy: they rule out the stale-read artefact and a one-off fluke on this site. They do not establish the behaviour across namespaces, across other extendable objects, or against a future change -- so the MERGE in our writer stays. It costs nothing if the behaviour holds and is the only protection if it ever changes. ALSO LIVE-VERIFIED 2026-10-27: a value longer than the field's `maxLength` is SILENTLY DROPPED -- the PATCH returns 200, the other keys are stored, the over-length key is simply absent. So the writer checks the invoice number against the declared cap before sending (never truncating the legal identifier; `invoice-number-over-length`), and compares the PATCH response with what it sent, reporting any absent key as `invoice-field-dropped` (a dropped file id is `invoice-fields-write-failed` with the id handed back for resume)."
     },
     {
       "code": "download-url-default-expiry-is-ten-hours",
@@ -82,7 +83,7 @@
     {
       "code": "string-fields-require-maxlength",
       "severity": "blocker",
-      "summary": "LIVE-VERIFIED 2026-09-04 on a disposable site: Create Data Extension Schema REJECTS a string field that declares no `maxLength` -- `400 MANDATORY_FIELD_MISSING: <key>.maxLength`. It is a required part of the field definition, not an optional constraint. Both invoice fields therefore declare one (file id 256, invoice number 256); the earlier removal of a length contract went one step too far -- what was unverified was the SPECIFIC 64-character value, not whether a cap is needed at all."
+      "summary": "LIVE-VERIFIED 2026-09-04 on a disposable site: Create Data Extension Schema REJECTS a string field that declares no `maxLength` -- `400 MANDATORY_FIELD_MISSING: <key>.maxLength`. It is a required part of the field definition, not an optional constraint. Both invoice fields therefore declare one (file id 256, invoice number 256); the earlier removal of a length contract went one step too far -- what was unverified was the SPECIFIC 64-character value, not whether a cap is needed at all. The cap is also enforced at WRITE time, silently (see `patch-replaces-extended-fields`): a declared maxLength is a promise the writer has to check, not one the API reports."
     },
     {
       "code": "order-patch-validates-against-the-schema",
@@ -118,6 +119,11 @@
       "code": "invoice-media-destination",
       "severity": "medium",
       "summary": "LIVE-VERIFIED 2026-09-05 on a disposable site: the file id written to the order is an opaque string with nothing to click, so it is not an access path. The path that works is the MEDIA MANAGER -- the import sets `displayName` to `Source invoice <number>`, and the merchant finds and opens the document by searching that name. That makes the import's DESTINATION load-bearing rather than cosmetic: the default `media-root` drops one PDF per order into the same library the merchant keeps their own photos in -- potentially thousands of them. Import File accepts `filePath`, and it CREATES the folder when absent (probe: filePath '/Imported invoices' returned a parentFolderId that was a real folder of that name under media-root, NOT media-root itself). Preserved documents therefore all land in one folder. This does not close that gap: opening an invoice still means leaving the order and searching Media Manager by hand."
+    },
+    {
+      "code": "live-round-trip-verified",
+      "severity": "info",
+      "summary": "LIVE-VERIFIED 2026-10-27 through the real setup executor and import client: the three fields provision; a source-hosted PDF lands as a PRIVATE, READY Media file named `Source invoice <number>` in the invoice folder; file id, number and original link read back on the order; a number-only approval writes only the number; a lost order-PATCH response returns the Media id and the resume finds the landed patch with no second upload; a link over 2048 is left unset and reported; reruns in the same and a fresh process import nothing; a 5-minute download URL works while the private file URL alone is not reachable."
     }
   ],
   "mappingGuidance": [
@@ -187,6 +193,11 @@
       "type": "wix-docs",
       "url": "https://dev.wix.com/docs/rest/business-solutions/e-commerce/orders/orders/update-order",
       "note": "Re-checked 2026-09-03. `extendedFields` is in the updatable-fields list; permissions are ECOM.MODIFY_ORDERS + ECOM.ORDER_WRITE_ALL_EXTENDED_FIELDS; \"to remove a field's value, pass null\", which is why a partial extendedFields drops other namespaces."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Live probe 2026-10-27 on a disposable site: round-trip, reruns, lost-response recovery, over-length link, and the silent over-maxLength drop."
     }
   ]
 }

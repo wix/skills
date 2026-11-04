@@ -297,7 +297,9 @@ if [[ "$OS_TYPE" == "linux" && -z "${DISPLAY:-}" ]]; then
     nohup Xvfb ":${XVFB_DISPLAY_NUM}" -screen 0 1280x800x24 \
       >"${PROFILE}/xvfb.log" 2>&1 &
     xvfb_pid=$!
-    disown
+    # An Xvfb that exits at once may already be reaped, and a bare `disown` then fails with "no
+    # such job", which set -e turns into an exit before the liveness check below can explain why.
+    disown "$xvfb_pid" 2>/dev/null || true
     # A backgrounded Xvfb takes a moment to create its lock file and start serving the display;
     # `sleep 1` then unconditionally exporting DISPLAY assumed it always makes that window, with no
     # check that it actually came up. If Xvfb itself failed fast (missing X extension, a stale

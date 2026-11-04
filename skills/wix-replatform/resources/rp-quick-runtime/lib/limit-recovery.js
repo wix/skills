@@ -20,6 +20,8 @@ function renderFinalReport(summary) {
   if (collections.length) out += `\n## Collections not migrated\n\nThese source collections held no imported product, so no category was created. Recreate any the merchant still needs.\n\n${collections.map((c) => `- ${c.title || c.handle} (${c.handle}, source id ${c.sourceId})`).join('\n')}\n`;
   const unverified = (summary.writtenUnverified && summary.writtenUnverified.product) || [];
   if (unverified.length) out += `\n## Products to check\n\nThese products are on Wix with stock and categories, but a field differs from the source. Compare each with the source, then fix or accept it.\n\n${unverified.map((p) => `- ${p.name || p.sourceId} (source id ${p.sourceId}, Wix id ${p.targetId}): ${(p.failedFields || []).join(', ') || 'unspecified field'}`).join('\n')}\n`;
+  const beforeGoLive = (summary.operatorActions || []).filter((a) => String(a.actionId || '').startsWith('catalog-baseline:'));
+  if (beforeGoLive.length) out += `\n## Store items from before this import\n\n${beforeGoLive.map((a) => `- ${a.code}: ${a.action} Ids: ${(a.affectedIds || []).join(', ')}`).join('\n')}\n`;
   if (summary.inventory) out += `\n## Inventory\n\nStatus: ${summary.inventory.status}. Verified complete: ${summary.inventory.complete}. See ${summary.dryRun ? 'execution/dry-run-inventory-report.json' : 'state/inventory-report.json'}.\n`;
   return out;
 }

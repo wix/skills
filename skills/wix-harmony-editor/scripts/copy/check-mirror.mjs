@@ -13,7 +13,7 @@
 // where the mirror paints the recorded thumbnail. `diffPct` counts everything;
 // `diffOutsideMediaPct` ignores those regions and is the figure the 0.1% gate applies to.
 import { chromium } from 'playwright';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };

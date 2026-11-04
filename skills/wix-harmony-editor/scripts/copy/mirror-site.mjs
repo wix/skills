@@ -11,8 +11,8 @@
 // at 1280 px (index.embeds[src]) and served in place of the iframe.
 // Read only: plain anonymous page loads, nothing is posted to the source.
 import { chromium } from 'playwright';
-import fs from 'fs';
-import crypto from 'crypto';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };

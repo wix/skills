@@ -46,8 +46,15 @@ could close a migration gap.
 - Keep long analysis separate from the entity files; entity files should contain
   compact guidance and evidence links.
 - Use `preferredWrite.writerId` only for exported functions from
-  `rp-target-wix/lib/wix-writers.js`. Use `null` for direct REST plans, setup work, or
-  unsupported native gaps.
+  `rp-target-wix/lib/wix-writers.js`. Use `null` for setup work, or for a native entity
+  with no writer yet (it is written by guarded raw requests).
+- `preferredWrite.importSafe` is `true` unless the writer has a side effect that is not a
+  notification and that site mute cannot cover, such as moving stock or money. Customer or
+  owner notifications are never a reason for `false`: site mute covers them. Use `null`
+  only for `manual-mapping` entities. A `false` value needs `importSafeReason`
+  (`{ pitfall, summary }`, naming one of the entity's pitfall codes); the import gate refuses
+  the entity and shows that reason, on the reviewed-writer and raw-request paths alike.
+  Missing an API is not a reason for `false`.
 - Mark entity-level native import gaps with `IMPORT_UNRELIABLE` in
   `reliability.flags[]`. Field-level lossiness belongs in `pitfalls[]`.
 - Regenerate and validate the index after edits:

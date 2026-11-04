@@ -25,7 +25,7 @@
   "preferredWrite": {
     "surface": "Stores Catalog V3 Brands",
     "endpoint": "POST /stores/v3/brands",
-    "writerId": null,
+    "writerId": "createStoresBrand",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true,
@@ -61,6 +61,11 @@
       "code": "bulk-results-are-per-item",
       "severity": "warning",
       "summary": "POST /stores/v3/bulk/brands/create returns results[] with itemMetadata.{id, originalIndex, success} plus bulkActionMetadata.{totalSuccesses, totalFailures, undetailedFailures} — the usual Stores bulk contract. Correlate by originalIndex, never by position, and never infer success from the HTTP 200. returnEntity:true additionally returns the brand object; itemMetadata.id alone is enough for a crosswalk."
+    },
+    {
+      "code": "bulk-batch-duplicate-names",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: two items with the same name inside ONE bulk create batch: one item fails ALREADY_EXISTS (with a zero id) and the other succeeds. The reviewed writer createStoresBrand creates one brand per call and reuses an existing brand by exact-name query on 409, so no batch-level dedupe is needed."
     }
   ],
   "mappingGuidance": [

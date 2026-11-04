@@ -59,8 +59,8 @@
     },
     {
       "code": "bis-side-effects",
-      "severity": "warning",
-      "summary": "Avoid stock transitions that trigger Back in Stock notifications on live stores."
+      "severity": "info",
+      "summary": "Avoid stock transitions that trigger Back in Stock notifications on live stores. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
     },
     {
       "code": "tracking-oneof",
@@ -85,7 +85,7 @@
   ],
   "mappingGuidance": [
     "Use stores-inventory.js reconcileInventory with resolved product/variant IDs and an explicit expectedCount including source gaps. Reads are scoped to one resolved Stores location. Query before create; compare before accepting existing inventory; update with current id/revision and verify by read-back.",
-    "Write exactly one tracking field: inStock (boolean) or quantity (integer 0\u201399999 for creation). trackQuantity is read-only and derived. Verify its value, exact stock value, identity and availabilityStatus.",
+    "Write exactly one tracking field: inStock (boolean) or quantity (integer 0–99999 for creation). trackQuantity is read-only and derived. Verify its value, exact stock value, identity and availabilityStatus.",
     "Initial bulk product creation can include variantsInfo.variants[].inventoryItem in the default location. Always verify inventory independently of product success; recover stock using existing product/variant IDs.",
     "Unknown source stock is a named mapping gap, never implicit availability. Backorders, preorders and shared stock allocation require explicit policy decisions. Do not duplicate pooled quantity across variants.",
     "Bulk results require originalIndex and complete accounting. A 409, partial bulk response, stale revision or unreadable write remains failed/unverified until a later read confirms the intended value. Use absolute updates, not increment/decrement operations for reruns.",

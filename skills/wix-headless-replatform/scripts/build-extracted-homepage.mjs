@@ -2,10 +2,21 @@
 import path from "node:path";
 import { parseArgs, readJson, writeJson, writeText } from "./lib/common.mjs";
 import { verifyFrozenManifest } from "./lib/extraction-contract.mjs";
-import { installRegistrySelection } from "./lib/component-registry.mjs";
+import { installRegistrySelections } from "./lib/component-registry.mjs";
 import { inspectContentObject, removeContaminatedContent } from "./lib/content-boundary.mjs";
 
 const safe = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// Extracted link targets are untrusted page data: only relative links and these schemes survive into
+// the generated site, so a source `javascript:`/`data:`/`vbscript:` href cannot execute for visitors.
+const SAFE_HREF_SCHEMES = new Set(["http:", "https:", "mailto:", "tel:"]);
+export const safeHref = (value) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "#";
+  // Browsers ignore whitespace/control characters inside a scheme (`java\tscript:`), so classify the compacted form.
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(raw.replace(/[\u0000-\u0020\u007f-\u009f]/g, ""));
+  if (!scheme) return raw;
+  return SAFE_HREF_SCHEMES.has(`${scheme[1].toLowerCase()}:`) ? raw : "#";
+};
 const plain = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
 export async function buildExtractedHomepage({ outputDir, installDependencies } = {}) {
@@ -22,14 +33,14 @@ export async function buildExtractedHomepage({ outputDir, installDependencies } 
   if (plan.manifestHash !== integrity.manifest.manifestHash) throw new Error("Build plan is stale for the current frozen manifest");
   const componentSelection = await readJson(path.join(docs, "build", "component-selection.json"));
   if (componentSelection.manifestHash !== plan.manifestHash) throw new Error("Component selection is stale for the current frozen manifest");
-  const registryInstallations = [];
-  for (const selection of componentSelection.selections || []) {
-    if (selection.strategy !== "curated-registry") continue;
-    registryInstallations.push({ unitId: selection.unitId, ...(await installRegistrySelection({ selection, outputDir, ...(installDependencies ? { installDependencies } : {}) })) });
-  }
+  // One install pass for the whole page: files once per distinct item, one package-manager run.
+  const curatedSelections = (componentSelection.selections || []).filter((selection) => selection.strategy === "curated-registry");
+  const registry = await installRegistrySelections({ selections: curatedSelections, outputDir, ...(installDependencies ? { installDependencies } : {}) });
+  const registryInstallations = curatedSelections.map((selection, index) => ({ unitId: selection.unitId, ...registry.installations[index] }));
   await writeJson(path.join(docs, "build", "registry-installation.json"), {
     schemaVersion: plan.schemaVersion,
     manifestHash: plan.manifestHash,
+    dependencyInstall: registry.dependencyInstall,
     installations: registryInstallations,
   });
   const selectionByUnit = new Map((componentSelection.selections || []).map((selection) => [selection.unitId, selection]));
@@ -155,7 +166,7 @@ export function renderRegistryButton({ spec, selection, symbol, label }) {
   if (binding.composition === "as-link") {
     const href = (spec.content?.links || []).find((link) => link?.href)?.href;
     if (!href) throw new Error(`Registry button binding for ${spec.id} requires href`);
-    return `<${symbol} asChild ${props}><a href="${safe(href)}">${label}</a></${symbol}>`;
+    return `<${symbol} asChild ${props}><a href="${safe(safeHref(href))}">${label}</a></${symbol}>`;
   }
   if (binding.composition === "icon-only") {
     if (!iconSource || !accessibleName) throw new Error(`Registry button binding for ${spec.id} requires icon and accessible name`);
@@ -188,7 +199,7 @@ function registryComponentImports(selections) {
 
 function renderNavItem(item) {
   const label = safe(plain(item.label || item.text));
-  const href = safe(item.href || "#");
+  const href = safe(safeHref(item.href));
   const children = Array.isArray(item.children) ? item.children : [];
   return `<li><a href="${href}"${children.length ? ' aria-haspopup="true"' : ""}>${label}</a>${children.length ? `<ul>${children.map(renderNavItem).join("")}</ul>` : ""}</li>`;
 }
@@ -207,7 +218,7 @@ function normalizeAssetPath(value) {
 
 function footerContent(footer) {
   const groups = footer?.groups || footer?.linkGroups || [];
-  const links = groups.flatMap((group) => group.links || []).map((link) => `<a href="${safe(link.href || "#")}">${safe(plain(link.label || link.text))}</a>`).join(" ");
+  const links = groups.flatMap((group) => group.links || []).map((link) => `<a href="${safe(safeHref(link.href))}">${safe(plain(link.label || link.text))}</a>`).join(" ");
   const legal = safe(plain(footer?.legalText || footer?.text || ""));
   return `${links}${legal ? `<p>${legal}</p>` : ""}`;
 }

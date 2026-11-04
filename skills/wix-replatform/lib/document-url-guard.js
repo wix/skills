@@ -22,36 +22,63 @@
 // Wix Media, so Wix never fetches an untrusted URL at all.
 
 const dns = require('node:dns');
+const net = require('node:net');
 
-const PRIVATE_IPV4 = [
-  /^10\./,
-  /^127\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^0\./,
-  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // carrier-grade NAT
-];
+// Only a GLOBAL UNICAST address may be fetched. This is an allowlist, not a list of known-private
+// ranges: a deny list misses whatever it forgot (multicast, broadcast, benchmarking, documentation,
+// newer IPv6 scopes). The ranges below are the IANA IPv4/IPv6 Special-Purpose Address Registries'
+// entries that are not globally reachable, plus multicast and reserved space. IPv6 must also lie in
+// 2000::/3, the only block IANA allocates for global unicast. The same rules live in
+// wix-harmony-editor's copy/public-address.mjs (a separate published skill that cannot import this
+// file); tests/target-wix/public-address-parity-test.js keeps the two identical.
+const NON_GLOBAL = new net.BlockList();
+for (const [address, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16],
+  ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+]) NON_GLOBAL.addSubnet(address, prefix, 'ipv4');
+// Inside 2000::/3: IETF protocol assignments (incl. Teredo), documentation, 6to4 (it can wrap any
+// IPv4 address, private ones included), and the second documentation block.
+for (const [address, prefix] of [['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20]]) NON_GLOBAL.addSubnet(address, prefix, 'ipv6');
 
-function isPrivateHostname(hostname) {
-  let host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
-
-  // An IPv4-mapped IPv6 address is the same destination wearing a different notation, and Node
-  // canonicalizes `::ffff:127.0.0.1` to `::ffff:7f00:1` -- so a loopback check that only knows
-  // dotted-quad form waves it straight through. Unwrap the mapping, in both spellings, before
-  // any other test runs.
-  const mappedDotted = host.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (mappedDotted) host = mappedDotted[1];
-  const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (mappedHex) {
-    const high = parseInt(mappedHex[1], 16);
-    const low = parseInt(mappedHex[2], 16);
-    host = [high >> 8, high & 0xff, low >> 8, low & 0xff].join('.');
+function ipv6Hextets(address) {
+  let text = address;
+  const dotted = text.match(/^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (dotted) {
+    const octets = dotted[2].split('.').map(Number);
+    text = `${dotted[1]}${((octets[0] << 8) | octets[1]).toString(16)}:${((octets[2] << 8) | octets[3]).toString(16)}`;
   }
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
-  if (host === '::1' || host === '::' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80')) return true;
-  if (PRIVATE_IPV4.some((pattern) => pattern.test(host))) return true;
-  return false;
+  const [head, tail] = text.includes('::') ? text.split('::') : [text, null];
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const fill = tail === null ? [] : new Array(8 - left.length - right.length).fill('0');
+  return [...left, ...fill, ...right].map((part) => parseInt(part, 16));
+}
+
+// True only for a literal IP address that is globally routable unicast. Anything else -- a
+// hostname, an unparseable string, a private/special-purpose address -- is false.
+function isGlobalUnicastAddress(value) {
+  const address = String(value || '').toLowerCase().replace(/^\[|\]$/g, '');
+  const family = net.isIP(address);
+  if (family === 4) return !NON_GLOBAL.check(address, 'ipv4');
+  if (family !== 6) return false;
+  const hextets = ipv6Hextets(address);
+  // An IPv4-mapped address (::ffff:a.b.c.d, which Node prints as ::ffff:hhhh:hhhh) is the IPv4
+  // destination in another notation: judge the IPv4 address it carries.
+  if (hextets.slice(0, 5).every((part) => part === 0) && hextets[5] === 0xffff) {
+    return isGlobalUnicastAddress([hextets[6] >> 8, hextets[6] & 0xff, hextets[7] >> 8, hextets[7] & 0xff].join('.'));
+  }
+  if ((hextets[0] & 0xe000) !== 0x2000) return false;
+  return !NON_GLOBAL.check(address, 'ipv6');
+}
+
+// Lexical check on a URL hostname: an IP literal must be global unicast; a name is refused only
+// when it is local by definition, and is otherwise judged later by the addresses it resolves to.
+function isPrivateHostname(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return true;
+  if (net.isIP(host)) return !isGlobalUnicastAddress(host);
+  return host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local');
 }
 
 // Signal D. Every discovered document is classified, not only the sampled ones -- the strategy
@@ -86,7 +113,9 @@ function classifyDocumentUrl(rawUrl, { sourceSiteHost = null } = {}) {
 
 const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 20000;
-const DEFAULT_MAX_BYTES = 25 * 1024 * 1024;
+// The bytes go to Media's Generate File Upload URL, which is non-resumable; Wix sends files over
+// 10 MB to the resumable endpoint, so a document is capped below that.
+const DEFAULT_MAX_BYTES = 10 * 1000 * 1000;
 
 // Default transport: one GET over HTTPS, pinned to an address the caller already validated. TLS
 // still verifies the certificate against the hostname (`servername`), so pinning the address does
@@ -153,7 +182,7 @@ async function fetchPublicDocument(rawUrl, {
       return { ok: false, unsafe: false, reason: 'host-not-resolvable' };
     }
     const list = (Array.isArray(addresses) ? addresses : [addresses]).filter(Boolean);
-    if (!list.length || list.some((entry) => isPrivateHostname(entry.address))) {
+    if (!list.length || list.some((entry) => !isGlobalUnicastAddress(entry && entry.address))) {
       return { ok: false, unsafe: true, reason: 'resolves-to-private-address' };
     }
     const pinned = list[0];
@@ -196,6 +225,7 @@ function redactUrlForLog(rawUrl) {
 }
 
 module.exports = {
+  isGlobalUnicastAddress,
   isPrivateHostname,
   classifyDocumentUrl,
   fetchPublicDocument,

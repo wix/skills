@@ -240,7 +240,8 @@ These hold for the Harmony editor API as observed; check the live read when one 
   section, where they scale with everything else.
 - **Media.** `media.uploadFiles` accepts only temporary wixmp chat URLs. Import public web
   images from a copied page with `scripts/copy/import-media.mjs`, which downloads each one
-  itself (public destinations only) and uploads the bytes through `POST
+  itself (global-unicast destinations only, at most 10 MB, six at a time, once per distinct URL)
+  and uploads the bytes through `POST
   https://www.wixapis.com/site-media/v1/files/generate-upload-url` (site token, header
   `wix-site-id`); never pass an untrusted page's URL to `files/import`, which makes Wix fetch it.
   Then read the `uri` with `media.searchSiteFiles`. Upload local files with

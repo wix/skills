@@ -177,16 +177,21 @@ async function saveReceipt(projectDir, receipt, clock) {
   return receipt;
 }
 
+// Keys rp-execute-import requires that a created site settles. Each value is what the runtime
+// already assumes when the key is absent, so writing it changes no behavior; a present value is kept.
+const BINDING_DEFAULTS = Object.freeze({ WIX_SITE_STRATEGY: 'new', DRY_RUN: 'false' });
+
 // Persists WIX_SITE_ID only after the receipt holds it, and never over a different value.
+// Every site type binds through here, Headless included (its wrapper writes only WIX_SITE_ID).
 async function persistSiteBinding(projectDir, metaSiteId) {
   const env = await readWixEnv(projectDir);
   const current = env.WIX_SITE_ID && String(env.WIX_SITE_ID).trim();
   if (current && current !== 'REPLACE_WITH_REAL_VALUE' && current !== metaSiteId) {
     return { ok: false, conflict: current };
   }
-  const updates = { WIX_SITE_ID: metaSiteId };
-  if (!env.WIX_SITE_STRATEGY) updates.WIX_SITE_STRATEGY = 'new';
-  if (current !== metaSiteId || updates.WIX_SITE_STRATEGY) await upsertEnvFile(wixEnvPath(projectDir), updates);
+  const updates = current === metaSiteId ? {} : { WIX_SITE_ID: metaSiteId };
+  for (const [key, value] of Object.entries(BINDING_DEFAULTS)) if (!env[key]) updates[key] = value;
+  if (Object.keys(updates).length) await upsertEnvFile(wixEnvPath(projectDir), updates);
   return { ok: true };
 }
 
@@ -355,7 +360,8 @@ async function readPublication(deps, { siteToken, metaSiteId }) {
       if (res.status === 200) {
         const urls = res.json && res.json.urls;
         if (!Array.isArray(urls)) return finish('unknown', { reason: 'malformed_readback' });
-        return finish(urls.length ? 'published' : 'unpublished', { urlCount: urls.length });
+        const primary = urls.find((entry) => entry && entry.primary) || urls[0];
+        return finish(urls.length ? 'published' : 'unpublished', { urlCount: urls.length, ...(primary && typeof primary.url === 'string' ? { primaryUrl: primary.url } : {}) });
       }
       if (res.status === 401 || res.status === 403) {
         return finish('unknown', { reason: 'access_denied', accessNote: 'The site-scoped credential was refused; restore access for the bound site (access recovery), then recheck.' });
@@ -735,8 +741,51 @@ async function resumeFromRecovery(deps, projectDir, receipt, request, decisions)
   return result('blocked', receipt, { reason: 'unsupported_recovery_answer' });
 }
 
+// Headless evidence after the wrapper's site is confirmed: editor type and publication state.
+// Read-only and never a gate: it never changes the status, sets `error` or raises
+// a recovery request. A site that is not `published` becomes a cutover item in
+// destination-handoff.js.
+async function readBackHeadlessSite(deps, receipt) {
+  const { clock } = deps;
+  let siteToken = null;
+  try { siteToken = await deps.credentials.siteToken(receipt.metaSiteId); } catch { siteToken = null; }
+  if (!siteToken) {
+    const checkedAt = isoAt(clock);
+    receipt.editorReadback = { checkedAt, httpStatus: null, reason: 'site_credential_unavailable' };
+    receipt.observedEditorType = null;
+    receipt.publication = { state: 'unknown', checkedAt, httpStatus: null, urlCount: null, attempts: 0, reason: 'site_credential_unavailable' };
+    return;
+  }
+  const editor = await readEditor(deps, { siteToken, metaSiteId: receipt.metaSiteId });
+  receipt.editorReadback = { checkedAt: isoAt(clock), httpStatus: editor.httpStatus, ...(editor.ok ? {} : { reason: editor.reason }) };
+  receipt.observedEditorType = editor.ok ? editor.editorType : null;
+  if (editor.ok && editor.editorUrl) receipt.editorUrl = editor.editorUrl;
+  receipt.publication = await readHeadlessPublication(deps, { siteToken, metaSiteId: receipt.metaSiteId });
+}
+
+// For a Headless site the published-URLs readback lists the free URL whether or not the site
+// is published (observed live: the same URL before and after a release), so it cannot decide
+// the state. The public URL decides: 2xx is published, 404 is unpublished, anything else is
+// unknown. Redirects are not followed: a 3xx to some other page proves nothing, so it is
+// unknown. An empty URL list stays unpublished.
+async function readHeadlessPublication(deps, { siteToken, metaSiteId }) {
+  const listed = await readPublication(deps, { siteToken, metaSiteId });
+  if (listed.state !== 'published') return listed;
+  if (!listed.primaryUrl || !/^https:\/\//.test(listed.primaryUrl)) return { ...listed, state: 'unknown', reason: 'public_url_missing' };
+  let publicHttpStatus = null;
+  try {
+    const res = await boundedRequest(deps, listed.primaryUrl, { method: 'GET', redirect: 'manual' }, LIMITS.publicationTimeoutMs);
+    publicHttpStatus = res.status;
+  } catch (error) {
+    return { ...listed, state: 'unknown', publicHttpStatus, reason: error instanceof CallTimeoutError ? 'public_url_timeout' : 'public_url_transport', checkedAt: isoAt(deps.clock) };
+  }
+  const state = publicHttpStatus >= 200 && publicHttpStatus < 300 ? 'published' : publicHttpStatus === 404 ? 'unpublished' : 'unknown';
+  return { ...listed, state, publicHttpStatus, checkedAt: isoAt(deps.clock), ...(state === 'unknown' ? { reason: `public_url_http_${publicHttpStatus}` } : {}) };
+}
+
 async function runHeadless(deps, projectDir, receipt, clock) {
   receipt.creationMethod = 'headless_cli';
+  receipt.attempts.push({ attemptId: receipt.attemptId, startedAt: isoAt(clock) });
   await saveReceipt(projectDir, receipt, clock);
   const outcome = await deps.headless({ projectDir, businessName: receipt.projectId });
   const env = await readWixEnv(projectDir);
@@ -746,6 +795,8 @@ async function runHeadless(deps, projectDir, receipt, clock) {
     receipt.status = 'created';
     receipt.metaSiteId = siteId;
     receipt.error = null;
+    await persistSiteBinding(projectDir, siteId);
+    await readBackHeadlessSite(deps, receipt);
   } else {
     // The wrapper's own WIX_SCAFFOLD_STATUS safeguards decide recovery; the receipt only records.
     receipt.status = 'blocked';
@@ -766,12 +817,22 @@ async function resumeHeadless(deps, projectDir, receipt, env) {
   const siteId = env.WIX_SITE_ID && env.WIX_SITE_ID !== 'REPLACE_WITH_REAL_VALUE' ? String(env.WIX_SITE_ID).trim() : null;
   const marker = env.WIX_SCAFFOLD_STATUS;
   if (siteId && (marker === undefined || marker === 'complete')) {
-    if (receipt.status !== 'created' || receipt.metaSiteId !== siteId) {
-      receipt.status = 'created';
-      receipt.metaSiteId = UUID_RE.test(siteId) ? siteId : receipt.metaSiteId;
-      receipt.error = null;
-      await saveReceipt(projectDir, receipt, clock);
+    // Same gate as runHeadless: a malformed id is never adopted as a created site.
+    if (!UUID_RE.test(siteId)) {
+      if (receipt.status !== 'blocked' || !receipt.error || receipt.error.code !== 'headless_site_id_invalid') {
+        receipt.status = 'blocked';
+        receipt.error = { code: 'headless_site_id_invalid', message: 'config/wix.env WIX_SITE_ID is not a metasite id, so the Headless scaffold result cannot be adopted.', nextAction: 'Correct WIX_SITE_ID to the real site id, or follow the wrapper\'s WIX_SCAFFOLD_STATUS recovery; never retry blindly.' };
+        await saveReceipt(projectDir, receipt, clock);
+      }
+      return result('blocked', receipt, { reason: 'headless_site_id_invalid' });
     }
+    receipt.status = 'created';
+    receipt.metaSiteId = siteId;
+    receipt.error = null;
+    await persistSiteBinding(projectDir, siteId);
+    // Every rerun reads the site back again, so the cutover handoff reflects the latest state.
+    await readBackHeadlessSite(deps, receipt);
+    await saveReceipt(projectDir, receipt, clock);
     return result('created', receipt);
   }
   if (marker !== undefined) {

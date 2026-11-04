@@ -9,6 +9,7 @@
     "api-reference/business-management/site-properties"
   ],
   "defaultImportOrder": [
+    "locale",
     "business-contact"
   ],
   "sharedPitfalls": [
@@ -45,5 +46,5 @@
       "note": "the five property groups: Profile, Contact, Schedule, Region, Consent Policy"
     }
   ],
-  "notes": "Authored to give the business address a real home. It had been an unowned gap: a migrated site published with an empty address field, and the pickup-location entity needed an address the pipeline had no target for. Only `business-contact` is authored so far -- Profile (site display name, business name, logo, description), Schedule, Region (locale, currency, timezone) and Consent Policy are real siblings on the same API and are the obvious next entities, but each needs its own source mapping before it is worth authoring."
+  "notes": "The locale entity owns payment currency, time zone, language and locale before other imports. Business contact owns the public address and contact fields. Profile, Schedule and Consent Policy remain separate future entities that require their own source mappings."
 }

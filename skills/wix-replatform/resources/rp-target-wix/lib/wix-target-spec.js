@@ -79,6 +79,20 @@ const CANONICAL_FIELDS = {
   // non-empty, buildProduct refuses a product whose built options list is empty, so a lost
   // option set is reported instead of flattening to a silent default variant. Absent = inert.
   'product.sourceDeclaredOptionNames': { entity: 'product', kind: 'stringList', normalized: true },
+  // Source-neutral selection facts, set by an adapter that can tell them. One entry per
+  // declared selection attribute, in source order: { name, choices: [names], priceStockScope,
+  // required }. priceStockScope is 'shared' (no source record can give it a different price or
+  // stock), 'partial' (fixed in some records, open in others) or 'per-choice'; unset is never
+  // modifier-eligible. lib/selection-route.js reads only these fields, whatever the source.
+  'product.selectionAttributes': { entity: 'product', kind: 'selectionAttributeList', normalized: true },
+  // Route output, never adapter input: one { name, customizationName, choices, mandatory } per
+  // shared attribute. buildProduct attaches each through its written customization.
+  'product.modifiers': { entity: 'product', kind: 'modifierList', normalized: true },
+  // Structural signal, never a payload value: a bundle (one sellable product made of other
+  // products). Set only by a source adapter that detected one; see validateCanonicalBundle for the
+  // shape. Wix Stores has no bundle type, so buildProduct ignores it and the product imports as a
+  // normal product; lib/stores-bundle-cutover.js turns it into the operator's bundle-app task.
+  'product.bundle': { entity: 'product', kind: 'bundle', normalized: true },
   // secondary description — vendors that ship both a long and a short body
   'product.shortDescription': { entity: 'product', kind: 'string' },
   // The vendor idiom for "price after discount". See STORES_V3_TARGET.priceResolution: Wix models
@@ -245,7 +259,65 @@ const CATEGORY_TARGET = {
 
 const TARGETS = { product: STORES_V3_TARGET, category: CATEGORY_TARGET };
 
+// --- canonical bundle ------------------------------------------------------
+// The one source-neutral bundle shape. A source adapter emits it; nothing downstream reads the
+// source's own storage. `detectedBy` is provenance only: no rule may branch on it. `priceRule` and
+// `stockRule` inform the operator; they never change what is imported.
+const BUNDLE_KINDS = Object.freeze(['fixed', 'configurable']);
+const BUNDLE_PRICE_RULES = Object.freeze(['fixed', 'derived', 'unknown']);
+const BUNDLE_STOCK_RULES = Object.freeze(['own', 'from-components', 'unknown']);
+
+function validateBundleRef(ref, label, errors) {
+  if (!ref || typeof ref !== 'object' || Array.isArray(ref)) { errors.push(`${label} must be an object`); return; }
+  if (typeof ref.sourceProductId !== 'string' || !ref.sourceProductId) errors.push(`${label}.sourceProductId must be a non-empty string`);
+  if (ref.sourceVariantId !== undefined && ref.sourceVariantId !== null && (typeof ref.sourceVariantId !== 'string' || !ref.sourceVariantId)) {
+    errors.push(`${label}.sourceVariantId must be a non-empty string or null`);
+  }
+}
+
+// Returns a list of errors; empty means valid.
+function validateCanonicalBundle(bundle) {
+  const errors = [];
+  if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) return ['bundle must be an object'];
+  if (!BUNDLE_KINDS.includes(bundle.kind)) errors.push(`bundle.kind must be one of ${BUNDLE_KINDS.join(', ')}`);
+  if (!BUNDLE_PRICE_RULES.includes(bundle.priceRule)) errors.push(`bundle.priceRule must be one of ${BUNDLE_PRICE_RULES.join(', ')}`);
+  if (!BUNDLE_STOCK_RULES.includes(bundle.stockRule)) errors.push(`bundle.stockRule must be one of ${BUNDLE_STOCK_RULES.join(', ')}`);
+  if (typeof bundle.detectedBy !== 'string' || !/^[a-z0-9-]+:[^\s]+$/.test(bundle.detectedBy)) errors.push('bundle.detectedBy must read <adapter>:<feature>');
+  if (bundle.kind === 'fixed') {
+    if (!Array.isArray(bundle.components) || !bundle.components.length) errors.push('a fixed bundle needs at least one component');
+    else bundle.components.forEach((component, index) => {
+      const label = `bundle.components[${index}]`;
+      validateBundleRef(component, label, errors);
+      if (!Number.isInteger(component?.quantity) || component.quantity < 1) errors.push(`${label}.quantity must be a positive integer`);
+      if (typeof component?.optional !== 'boolean') errors.push(`${label}.optional must be a boolean`);
+    });
+    if (bundle.groups !== undefined && bundle.groups !== null && !(Array.isArray(bundle.groups) && bundle.groups.length === 0)) errors.push('a fixed bundle has no groups');
+  }
+  if (bundle.kind === 'configurable') {
+    if (!Array.isArray(bundle.groups) || !bundle.groups.length) errors.push('a configurable bundle needs at least one group');
+    else bundle.groups.forEach((group, index) => {
+      const label = `bundle.groups[${index}]`;
+      if (!group || typeof group !== 'object' || Array.isArray(group)) { errors.push(`${label} must be an object`); return; }
+      if (typeof group.label !== 'string') errors.push(`${label}.label must be a string`);
+      if (!Number.isInteger(group.min) || group.min < 0) errors.push(`${label}.min must be a non-negative integer`);
+      if (group.max !== null && (!Number.isInteger(group.max) || group.max < Math.max(1, group.min || 0))) errors.push(`${label}.max must be null or an integer >= min`);
+      if (typeof group.optional !== 'boolean') errors.push(`${label}.optional must be a boolean`);
+      if (!Array.isArray(group.candidates)) errors.push(`${label}.candidates must be an array`);
+      else group.candidates.forEach((candidate, item) => validateBundleRef(candidate, `${label}.candidates[${item}]`, errors));
+      const rule = group.candidateRule;
+      if (rule !== undefined && rule !== null && (typeof rule !== 'object' || Array.isArray(rule))) errors.push(`${label}.candidateRule must be an object or null`);
+      if (Array.isArray(group.candidates) && !group.candidates.length && !rule) errors.push(`${label} needs candidates or a candidateRule`);
+    });
+    if (bundle.components !== undefined && bundle.components !== null && !(Array.isArray(bundle.components) && bundle.components.length === 0)) errors.push('a configurable bundle has no components');
+  }
+  return errors;
+}
+
 module.exports = {
+  BUNDLE_KINDS,
+  BUNDLE_PRICE_RULES,
+  BUNDLE_STOCK_RULES,
+  validateCanonicalBundle,
   CANONICAL_FIELDS,
   STORES_V3_TARGET,
   CATEGORY_TARGET,

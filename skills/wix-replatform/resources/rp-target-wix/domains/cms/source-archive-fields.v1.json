@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "about": "Generic (any source) classification of source-archive leaves. Rules match a field name: every object key and every meta key (where key = \"...\") on the path, only the last key when `on` is `leaf`, or the last key plus every meta key when `on` is `named` (personal-drop and keep use `named`, so a parent such as `refunds` never keeps its plumbing). `under: list` limits a rule to a leaf directly inside a list item, `under: root` to a top-level leaf. Order of precedence: personal-drop, keep, noise; a leaf that no rule matches is kept. Source modules add rules in rp-source-<platform>/archive-fields.v1.json.",
+  "personalDrop": [
+    {
+      "id": "ip-address",
+      "reasonCode": "personal-data-not-retained",
+      "on": "named",
+      "regex": "(^|_)(customer_ip|client_ip|browser_ip|remote_addr|user_ip|ip_address|ip)$"
+    },
+    {
+      "id": "user-agent",
+      "reasonCode": "personal-data-not-retained",
+      "on": "named",
+      "regex": "(^|_)(user_agent|useragent|browser_user_agent)$"
+    }
+  ],
+  "keep": [
+    {
+      "id": "consent",
+      "on": "named",
+      "regex": "consent|opt_?in|accepts_marketing|marketing_(state|optin)"
+    },
+    {
+      "id": "payment-reference",
+      "on": "named",
+      "regex": "transaction|approval|authnr|auth(orization)?_?(code|num|number)|voucher|invoice|receipt|last_?4|four_digits|card_?(type|brand|acquirer|issuer)|issuer|acquirer|payment_method|gateway|installment|number_of_payments|refund"
+    }
+  ],
+  "noise": [
+    {
+      "id": "api-links",
+      "reasonCode": "archive-noise",
+      "on": "any",
+      "regex": "^(_links|_embedded|links|edges|pageInfo|__typename)$"
+    },
+    {
+      "id": "timezone-duplicate",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "_(gmt|utc)$"
+    },
+    {
+      "id": "modified-timestamp",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "^(date_)?(modified|updated)(_at|_on)?$|^updatedAt$|^modified_on$"
+    },
+    {
+      "id": "source-internal-column",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "^(id|key|display_key|instance_id|position|menu_order)$",
+      "under": "list"
+    },
+    {
+      "id": "record-id",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "^(id|ID)$",
+      "under": "root",
+      "about": "The source id is the archive record's own key."
+    },
+    {
+      "id": "cache-and-session-keys",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "^(cart_hash|order_key|checkout_token|cart_token|token|hash|etag|checksum|session_id|admin_graphql_api_id)$"
+    },
+    {
+      "id": "computed-flags",
+      "reasonCode": "archive-noise",
+      "on": "leaf",
+      "regex": "^(version|is_editable|needs_payment|needs_processing|purchasable|has_options|currency_symbol|price_html|payment_url|order_status_url|permalink|link)$"
+    },
+    {
+      "id": "analytics-flags",
+      "reasonCode": "archive-noise",
+      "on": "any",
+      "regex": "pixel|_event_(fired|tracked|sent)|_evt_sent|_sale_sent|ga_tracked|visitors?_counter|vistors_counter"
+    },
+    {
+      "id": "media-technical",
+      "reasonCode": "archive-noise",
+      "on": "any",
+      "regex": "^(media_details|image_meta|exif|exif_orientation|srcset|sizes|image_quality|image_save_progressive|filesize|thumbnail)$"
+    }
+  ],
+  "groups": [
+    {
+      "group": "Consent",
+      "regex": "consent|opt_?in|accepts_marketing"
+    },
+    {
+      "group": "Payment",
+      "regex": "payment|transaction|approval|authnr|voucher|invoice|receipt|card|issuer|acquirer|gateway|installment|refund|last_?4|four_digits"
+    },
+    {
+      "group": "Marketing",
+      "regex": "utm|referrer|referer|attribution|campaign|source_type|device_type|session_(count|entry|pages|start)|landing"
+    },
+    {
+      "group": "Dates",
+      "regex": "(^|_)(date|created|paid|completed|expires|time)(_|$)|_at$"
+    },
+    {
+      "group": "Customer",
+      "regex": "username|role|customer|billing|shipping_(first|last|address|city|country|postcode|company|phone)|avatar|is_paying"
+    },
+    {
+      "group": "Discounts",
+      "regex": "coupon|discount|bogo|gift|rule"
+    },
+    {
+      "group": "Items",
+      "regex": "^line_items|product|variation|attribute|quantity"
+    }
+  ],
+  "extendedFieldGroups": [
+    "Dates",
+    "Payment",
+    "Marketing",
+    "Customer"
+  ],
+  "extendedFieldLimits": {
+    "maxFieldsPerEntity": 8,
+    "maxLength": 200,
+    "minFillRate": 0.05
+  }
+}

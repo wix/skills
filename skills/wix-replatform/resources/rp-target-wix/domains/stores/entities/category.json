@@ -12,6 +12,11 @@
     "crosswalkRequired": true
   },
   "dependsOn": [],
+  "sameTaskReferenceFields": {
+    "stores/category": [
+      "parentCategory.id"
+    ]
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

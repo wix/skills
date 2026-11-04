@@ -2,11 +2,14 @@
 const ZERO = '00000000-0000-0000-0000-000000000000';
 const opaqueId = id => typeof id === 'string' && id.length > 0 && id.trim() === id && id !== ZERO && !/^dry[-_]run/i.test(id);
 const contactId = id => opaqueId(id) && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id);
+// The one list of declarable verification kinds. `import-contract-verify` checks generated code
+// through `verificationKind` below, so it refuses exactly what the completion report would.
+const VERIFICATION_KINDS = Object.freeze(['contact', 'product', 'none']);
 // The accepted mapping declares this policy independently of source naming.
 // Legacy inspected entity names remain compatible, but unknown names never opt out.
 function verificationKind({ verificationKind, entity, targetEntityType } = {}) {
   if (verificationKind !== undefined) {
-    if (!['contact', 'product', 'none'].includes(verificationKind)) throw new Error('verificationKind must be contact, product, or none');
+    if (!VERIFICATION_KINDS.includes(verificationKind)) throw new Error('verificationKind must be contact, product, or none');
     return verificationKind;
   }
   for (const name of [entity, targetEntityType]) {
@@ -15,4 +18,4 @@ function verificationKind({ verificationKind, entity, targetEntityType } = {}) {
   }
   return 'required';
 }
-module.exports = { opaqueId, contactId, verificationKind };
+module.exports = { VERIFICATION_KINDS, opaqueId, contactId, verificationKind };

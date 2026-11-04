@@ -1,0 +1,21 @@
+# scopes: read_products
+# Ordinary read (not a bulk query): the components of each bundle variant (requiresComponents true).
+# The products bulk query already nests variants under products; the components connection sits one
+# level deeper, so lib/shopify-nested-reads.js reads it per bundle variant id after the download.
+query RpShopifyReadVariantComponents($ids: [ID!]!, $first: Int!, $componentsAfter: String) {
+  nodes(ids: $ids) {
+    __typename
+    ... on ProductVariant {
+      id
+      productVariantComponents(first: $first, after: $componentsAfter) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          id
+          quantity
+          productVariant { id product { id } }
+        }
+      }
+    }
+  }
+}

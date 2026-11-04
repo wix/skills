@@ -26,12 +26,12 @@
       "channel": "core-meta",
       "embeddedIn": ["/wc/v3/products"],
       "propertyPath": "woosb_ids",
-      "candidateTargetRefs": [],
+      "candidateTargetRefs": ["stores/product-bundle"],
       "pitfalls": [
         {
-          "code": "no-wix-target-decided",
-          "severity": "warning",
-          "summary": "A WPC bundle is a normal WooCommerce product of custom type `woosb` whose composition rides in unregistered product meta `woosb_ids` inside the wc/v3/products meta_data array. The bundle product itself (name, price, media, SEO) migrates as a plain stores/product; the composition (which child products, at what quantity) has no native Wix Stores target — Catalog V3's productType enum is PHYSICAL | DIGITAL only, with no bundle/composite/child-product field (dev.wix.com product-object.md checked 2026-08-16). See capabilities-pending-decision.json: the suspected landing is bundle-as-product plus a CMS composition collection, mirroring Wix's own Velo 'Bundle Products' package model (bundleProductId + childProductIds in a CMS collection)."
+          "code": "emits-canonical-bundle",
+          "severity": "info",
+          "summary": "A WPC bundle is a normal WooCommerce product of custom type `woosb` whose composition rides in unregistered product meta `woosb_ids` inside the wc/v3/products meta_data array. The bundle product itself (name, price, media, SEO) maps through the normal product route; parse `woosb_ids` with lib/bundle-canonical.js into canonical product.bundle (kind fixed). What Wix does with it is decided by the stores/product-bundle target entity, not here."
         },
         {
           "code": "children-referenced-by-source-id",
@@ -41,7 +41,7 @@
         {
           "code": "derived-bundle-price",
           "severity": "warning",
-          "summary": "Unless woosb_disable_auto_price is 'on', the bundle's displayed price is derived from its children (sum, minus woosb_discount percentage or woosb_discount_amount) and the plugin keeps the WooCommerce _price/_regular_price meta in sync [VERIFIED IN PLUGIN SOURCE v8.6.4, class-woosb.php price-sync, 2026-08-16]. Migrating the bundle as a static product freezes that price: later child-price changes on Wix will not re-derive it. The wc/v3 price field carries the correct value at migration time."
+          "summary": "Unless woosb_disable_auto_price is 'on', the bundle's displayed price is derived from its children (sum, minus woosb_discount percentage or woosb_discount_amount) and the plugin keeps the WooCommerce _price/_regular_price meta in sync [VERIFIED IN PLUGIN SOURCE v8.6.4, class-woosb.php price-sync, 2026-08-16]. The wc/v3 price field carries the current value; the adapter reports it unchanged with priceRule derived (fixed when auto price is off)."
         }
       ]
     },

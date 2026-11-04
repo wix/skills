@@ -176,7 +176,7 @@ function readEntityMappings(mappingPlan) {
   if (Array.isArray(mappingPlan.entities)) {
     return mappingPlan.entities.map((row) => ({
       ...(row || {}),
-      sourceEntity: firstNonEmptyString((row || {}).entityKey, (row || {}).sourceEntityRef, (row || {}).targetEntity),
+      sourceEntity: firstNonEmptyString((row || {}).entityKey, (row || {}).sourceEntityRef, (row || {}).sourceEntity, (row || {}).targetEntity),
     }));
   }
   if (mappingPlan.entities && typeof mappingPlan.entities === 'object') {
@@ -423,8 +423,13 @@ function extractMappingSummary(entityMappings, mappingPlan, mappingGaps) {
     gapType: firstNonEmptyString(gap.gapType),
     description: firstNonEmptyString(gap.description),
     recommendedHandling: firstNonEmptyString(gap.recommendedHandling),
+    ...Object.fromEntries(require('./mapping-field-contract.js').GAP_KEYS
+      .filter(key=>Object.hasOwn(gap,key)).map(key=>[key,gap[key]])),
   }));
-  return { entities, gaps };
+  const reviewPublication=require('./mapping-field-contract.js').mappingReviewFallback(mappingPlan,mappingGaps);
+  return { entities, gaps, ...(reviewPublication ? {reviewPublication} : {}), ...(mappingPlan?.fieldContractVersion===1 ? {
+    mappingPlanDigest:require('./mapping-field-contract.js').digest(mappingPlan),executionScope:mappingPlan.executionScope,
+  } : {}) };
 }
 
 function extractLocale(sourceSchema) {
@@ -577,6 +582,7 @@ function renderSummary(handoff) {
     }
   }
 
+  if (handoff.mappingSummary?.reviewPublication) lines.push('', '- Current-run Migration review publication is unavailable (no importer execution).', `- ${handoff.mappingSummary.reviewPublication.requiredInput}`);
   lines.push('', '## Manual Blockers', '');
   if (handoff.setupContract.manualBlockers.length === 0) {
     lines.push('- None.');
@@ -689,7 +695,9 @@ async function generateWebsiteHandoff(projectDir) {
   const invoiceOutcome = await readJsonIfExists(path.join(projectDir, 'import', 'invoice-outcome.json'));
   const wixEnv = await readEnvIfExists(wixEnvPath);
   const frontendConfig = await readJsonIfExists(frontendConfigPath);
-  const completionReportExists = await pathExists(completionReportPath);
+  // A stopped run's aborted report is not the backend import completing.
+  const completionReportExists = await pathExists(completionReportPath)
+    && !(await readJsonIfExists(completionReportPath))?.interruption;
   const linkAudit = await readLinkAudit(projectDir);
 
   const deliveryMode = firstNonEmptyString(
@@ -939,7 +947,14 @@ function extractOpenBlockers(setupVerification, completionReport) {
       status: request.status,
       description: request.whatUserCanDoNext || 'blocked source data',
     }));
-  return uniqueBy([...fromVerification, ...fromReport], (row) => row.requirementId);
+  // A stopped run's report is not final: its interruption is the first blocker.
+  const interruption = completionReport && completionReport.interruption;
+  const fromInterruption = interruption ? [{
+    requirementId: 'import-interrupted',
+    status: 'interrupted',
+    description: `Requires Import Operator: the import stopped (${interruption.kind}${interruption.signal ? ` ${interruption.signal}` : ''}${interruption.code ? `, ${interruption.code}` : ''}) at ${interruption.at} and has not finished; resume it before any cutover step.`,
+  }] : [];
+  return uniqueBy([...fromInterruption, ...fromVerification, ...fromReport], (row) => row.requirementId);
 }
 
 function section(lines, title, rows, renderRow, emptyMessage = '- None.') {
@@ -1044,6 +1059,9 @@ function renderSourceCoverageSection(lines, handoff) {
 // it is trivia.
 function renderPostExecutionHandoff(handoff) {
   const lines = ['# Migration Handoff', ''];
+  if (handoff.importInterrupted) {
+    lines.push('> **Import interrupted — not final.** The import stopped before its end; the counts below are what was known at the stop. **Requires Import Operator:** resume the import before any cutover step.', '');
+  }
 
   section(lines, 'Urgent Operator Actions', handoff.operatorActions, (row) =>
     `- [${row.severity}] ${row.code}: ${row.action} (${row.affectedCount === null ? 'affected count unknown' : `${row.affectedCount} affected`}; act now because ${row.deadlineReason})`,
@@ -1071,11 +1089,33 @@ function renderPostExecutionHandoff(handoff) {
   emptyPermanentLossesLine(handoff.exclusions));
   section(lines, 'Deliberate Exclusions', handoff.exclusions, (row) =>
     `- ${row.entity}: ${row.count} excluded (${row.reasonCode}); ${row.rationale}; operator gate recorded: ${row.operatorGateRecorded}`);
+  // Name the records: an unresolved write is read back by its target id, never re-sent.
+  const named = (label, ids) => (Array.isArray(ids) && ids.length ? `; ${label}: ${ids.slice(0, 20).join(', ')}${ids.length > 20 ? `, … (${ids.length - 20} more)` : ''}` : '');
   section(lines, 'Unresolved And Orphaned', handoff.unresolved, (row) =>
-    `- ${row.entity}: ${row.count} ${row.kind}; ${handoffCauseLine(row)}`);
+    `- ${row.entity}: ${row.count} ${row.kind}${named('target ids', row.targetIds)}${named('source', row.sourceIds)}; ${handoffCauseLine(row)}`);
+  // Same split as the completion report: open = a count above zero and not an accepted outcome.
+  const { SEO_ACCEPTED_OUTCOMES } = require('./seo-outcome-registry.js');
+  const residualRows = (handoff.stageResiduals || []).filter((row) => row.count > 0);
+  const residualLine = (row) => `- ${row.entity}/${row.stage}: ${row.count} ${row.outcome}${named('source', row.sourceKeys)}`;
+  section(lines, 'Open Stage Residuals', residualRows.filter((row) => !SEO_ACCEPTED_OUTCOMES.includes(row.outcome)), residualLine);
+  const acceptedRows = residualRows.filter((row) => SEO_ACCEPTED_OUTCOMES.includes(row.outcome));
+  if (acceptedRows.length) section(lines, 'Accepted Stage Outcomes', acceptedRows, residualLine);
   section(lines, 'Fields Dropped For The Destination', handoff.droppedFields, (row) =>
     `- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
+  if (handoff.keptForReference) {
+    const k = handoff.keptForReference;
+    lines.push('', '## Kept For Reference', '', `- ${k.collectionName} (CMS collection \`${k.collectionId}\`): ${k.totalItems} items. Not used by the live site; informational, no action needed to go live.`, `- How to find a record: ${k.howToFind}`);
+    for (const row of k.entities || []) lines.push(`- ${row.sourceEntity}: ${row.recordsArchived} records in ${row.items} items${(row.groups || []).length ? `; ${row.groups.join(', ')}` : ''}`);
+    for (const task of k.optionalTasks || []) lines.push(`- ${task.title} (optional; the owner decides). ${task.action}`, `  - If the owner asks: ${task.importOperatorPrompt}`);
+  }
 
+  if (handoff.mappingSummary) {
+    lines.push('', '## Field mapping scope and gaps', '',
+      `- Mapping digest: ${handoff.mappingSummary.mappingPlanDigest}`,
+      `- Deferred entities: ${(handoff.mappingSummary.executionScope?.deferredEntities || []).map(d=>d.entityRef).join(', ') || 'none'}`);
+    if (handoff.mappingSummary.reviewPublication) lines.push('- Current-run Migration review publication is unavailable (no importer execution).', `- ${handoff.mappingSummary.reviewPublication.requiredInput}`);
+    for (const gap of handoff.mappingSummary.gaps) lines.push(`- ${gap.id || gap.code}: ${gap.description}; preservation ${gap.preservationStatus || 'unknown'}; affected count ${gap.affectedScope?.count ?? 'unknown'}`);
+  }
   if (handoff.unexplainedShortfalls.length) {
     lines.push('', '## Unexplained Shortfalls', '');
     for (const row of handoff.unexplainedShortfalls) lines.push(`- ${row.message}`);
@@ -1137,17 +1177,25 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
     return { ok: false, reason: 'handoff_predates_last_write', handoffPath: null, summaryPath: null, handoff: null };
   }
 
+  const mappingPlan=await readJsonIfExists(path.join(projectDir,'mapping/mapping-plan.json'));
+  const mappingGaps=await readJsonIfExists(path.join(projectDir,'mapping/review/mapping-gaps.json'));
+  const mappingSummary=mappingPlan?.fieldContractVersion===1 ? extractMappingSummary(readEntityMappings(mappingPlan),mappingPlan,mappingGaps) : null;
   const handoff = {
     schemaVersion: 1,
     generatedAt,
+    ...(mappingSummary ? {mappingSummary} : {}),
     runId: completionReport.runId || runId || null,
     lastWriteAt: completionReport.lastWriteAt,
     status: deriveFinalStatus(completionReport.status, discoveredSetStatus),
     backendStatus: completionReport.status,
+    // Copied through: the report is `aborted` and is overwritten when the import resumes.
+    ...(completionReport.interruption ? { importInterrupted: completionReport.interruption } : {}),
     discoveredSet: discoveredSetStatus ? { path: STATUS_FILE, sha256: hashArtifact(projectDir, STATUS_FILE), openCount: discoveredSetStatus.openCount } : null,
     discoveredSetActions: discoveredSetStatus ? discoveredSetStatus.rows.filter(row => row.open && row.kind !== 'source-coverage').map(({ censusId, outcome, action }) => ({ censusId, outcome, action })) : [],
     // Rendered from the report's durable rows, never recounted.
     operatorActions: ensureArray(completionReport.operatorActions),
+    pendingFields: ensureArray(completionReport.pendingFields),
+    ...(completionReport.mappingRecovery ? {mappingRecovery: completionReport.mappingRecovery} : {}),
     ...(completionReport.linkAudit ? { linkAudit: completionReport.linkAudit } : {}),
     // The handoff's own record is not thinner than the report on the voucher urgency
     // signal. Scoped to these three fields and narrowed to the fixed voucher messages -- a
@@ -1162,7 +1210,12 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
     losses: ensureArray(completionReport.losses),
     exclusions: ensureArray(completionReport.exclusions),
     unresolved: ensureArray(completionReport.unresolved),
+    // Open stage residuals (SEO owner questions and verifications, category membership, payments)
+    // are per-record work the Cutover owner must see; copied through, never recounted.
+    stageResiduals: ensureArray(completionReport.stageResiduals),
     droppedFields: ensureArray(completionReport.droppedFields),
+    // What the source archive kept for reference; copied through, never recounted.
+    ...(completionReport.keptForReference ? { keptForReference: completionReport.keptForReference } : {}),
     unexplainedShortfalls: ensureArray(completionReport.unexplainedShortfalls),
     // Copied through from the joined report, never re-derived.
     ...(Array.isArray(completionReport.sourceCoverage)
@@ -1198,6 +1251,7 @@ async function loadPostExecutionHandoff(projectDir) {
 }
 
 module.exports = {
+  extractMappingSummary,
   SCHEMA_VERSION,
   HANDOFF_ARTIFACTS,
   FRESHNESS_SCHEMA_VERSION,

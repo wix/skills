@@ -57,6 +57,30 @@ async function validateReference(projectDir, row) {
   return Boolean(receipt) && ref.receiptDigest === verification.digest(receipt) && verification.validReceipt(receipt,
     { siteId: ref.siteId, sourceKey: row.sourceStableKey, targetId: row.targetId, kind: ref.kind });
 }
+// The full verified receipts behind crosswalk rows, by source key. A row holding a digest reference
+// resolves it from the protected state (as validateReference does); a revoked, missing, wrong-site
+// or invalid receipt is simply absent. One state load per site for the whole set.
+const UNREADABLE = Symbol('unreadable-verification-state');
+async function verifiedReceipts(projectDir, rows) {
+  const states = new Map(), out = new Map();
+  for (const row of rows) {
+    const ref = row.verification;
+    let receipt = ref;
+    // Protected state is authoritative for revocation, whether the row holds a reference or the
+    // receipt inline. Missing state reads as empty (load); state that cannot be read or validated
+    // can never vouch that a receipt was not revoked, so it admits none for that site.
+    const siteId = ref?.siteId;
+    if (typeof siteId === 'string' && siteId && !states.has(siteId)) states.set(siteId, await load(projectDir, siteId).catch(() => UNREADABLE));
+    const state = states.get(siteId), candidate = state === UNREADABLE ? null : state?.rows[row.sourceStableKey];
+    if (state === UNREADABLE || !state || candidate?.identityConflict) receipt = null;
+    else if (ref?.storage === 'write-verification') {
+      receipt = [candidate?.receipt, candidate?.lastVerifiedReceipt].find(r => r && ref.receiptDigest === verification.digest(r));
+      if (receipt && (receipt.siteId !== ref.siteId || receipt.kind !== ref.kind)) receipt = null;
+    }
+    if (receipt && verification.validReceipt(receipt, { sourceKey: row.sourceStableKey, targetId: row.targetId })) out.set(row.sourceStableKey, receipt);
+  }
+  return out;
+}
 function publication(row, receipt, { baseline = null, confirmedCreate = false, sourceVersion, sourceVersionField, sourceHash, sourceHashDefinition } = {}) {
   if (!verification.validReceipt(receipt, { sourceKey: row.sourceStableKey, targetId: row.targetId })) throw new Error('Cannot publish an unverified mapping');
   // A read-only reconciliation must preserve the last confirmed write's version pair.
@@ -89,4 +113,12 @@ function report(rows, siteId) {
   return { siteId, intended: rows.length, rows: checked, verified: checked.filter(r => r.verified).length,
     status: !rows.length ? 'no-data' : checked.every(r => r.verified) ? 'complete' : 'partial' };
 }
-module.exports = { load, checkpoint, persist, publish, publishMany, report, validateReference };
+// A crosswalk row's sourceId is the raw source id: dependency readiness matches it against the
+// extract's id, so the stable key ("<entity>:<id>") would leave every dependant deferred as
+// "partial". A caller that omits it gets it from the key. Entity names carry no colon; ids may.
+function crosswalkSourceId(row) {
+  if (row.sourceId != null && row.sourceId !== '') return String(row.sourceId);
+  const key = String(row.sourceKey), at = key.indexOf(':');
+  return at > 0 ? key.slice(at + 1) : key;
+}
+module.exports = { crosswalkSourceId, load, checkpoint, persist, publish, publishMany, report, validateReference, verifiedReceipts };

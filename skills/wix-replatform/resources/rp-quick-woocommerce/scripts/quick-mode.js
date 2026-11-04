@@ -4,6 +4,10 @@
 // Public-only, read-only WooCommerce quick-mode capture. This deliberately contains no
 // credentials, browser automation, or fallback endpoint guessing.
 const capabilities = require('../../../lib/execution-capability');
+const siteRegional = require('../../../lib/site-regional');
+const wixAuth = require('../../../lib/wix-auth');
+const documentUrlGuard = require('../../../lib/document-url-guard');
+const catalogBaseline = require('../../../lib/catalog-baseline');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -12,6 +16,8 @@ const ADAPTER_DIR = path.resolve(__dirname, '..');
 const CONTRACT_PATH = path.join(ADAPTER_DIR, 'quick-mode.json');
 const CONTRACT = require(CONTRACT_PATH);
 const sourceCoverage = require(path.join(ADAPTER_DIR, '..', '..', 'lib', 'source-coverage.js'));
+const sourceRegional = require(path.join(ADAPTER_DIR, '..', '..', 'lib', 'source-regional.js'));
+const { buildQuickWooCommerceRegional } = require(path.join(ADAPTER_DIR, '..', 'rp-source-wordpress', 'lib', 'regional-capture.js'));
 const recovery = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'limit-recovery.js'));
 const importProgress = require(path.join(ADAPTER_DIR, '..', 'rp-quick-runtime', 'lib', 'import-progress.js'));
 // On the public Store API this is a no-op — `src` there is already the original — so
@@ -38,6 +44,12 @@ async function appendAudit(projectDir, entry, dryRun = false) {
 function origin(value) {
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('sourceUrl must use http or https');
+  // Every capture below fetches this origin from the operator's machine: refuse loopback, private and
+  // link-local (cloud metadata) hosts. Lexical only; it does not resolve DNS. RP_TRUSTED_ORIGINS (the
+  // same variable the headless bundle uses) names origins the operator explicitly trusts, e.g. a local
+  // test server.
+  const trusted = String(process.env.RP_TRUSTED_ORIGINS || '').split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (!trusted.includes(url.origin) && documentUrlGuard.isPrivateHostname(url.hostname)) throw new Error('sourceUrl must be a public host, not a loopback, private or link-local address');
   return url.origin;
 }
 function fingerprint(value) {
@@ -83,6 +95,20 @@ async function preflight(projectDir) {
   await writeJson(path.join(projectDir, 'quick-mode', 'preflight.json'), out);
   return out;
 }
+// Two bounded public GETs -- the first Store API product and the storefront home page -- for the
+// store's currency and language. A read that fails is an explicit unknown in the file, never a
+// plan failure.
+async function readPublic(url, accept, parse) {
+  try {
+    const response = await fetch(url, { headers: { accept }, signal: AbortSignal.timeout(15000) });
+    return response.ok ? parse(await response.text()) : null;
+  } catch { return null; }
+}
+async function captureRegional(projectDir, sourceUrl, generatedAt) {
+  const products = await readPublic(new URL('/wp-json/wc/store/v1/products?per_page=1', sourceUrl), 'application/json', (body) => { const parsed = JSON.parse(body); return Array.isArray(parsed) ? parsed : null; });
+  const page = await readPublic(new URL('/', sourceUrl), 'text/html', (html) => ({ html }));
+  return sourceRegional.writeSourceRegional(projectDir, buildQuickWooCommerceRegional({ products, page, generatedAt }));
+}
 async function plan(projectDir) {
   const { sourceUrl } = await projectContext(projectDir);
   const preflightResult = await readJson(path.join(projectDir, 'quick-mode', 'preflight.json'));
@@ -92,6 +118,7 @@ async function plan(projectDir) {
   // Every excluded[] capability becomes a declared-exclusion coverage row, checked by the same
   // reconcile rule as a full run before the plan is written.
   const coverage = await sourceCoverage.writeQuickPlanCoverage(projectDir, CONTRACT, { rawText: await fs.readFile(CONTRACT_PATH, 'utf8'), generatedAt });
+  await captureRegional(projectDir, sourceUrl, generatedAt);
   const planResult = { schemaVersion: 1, generatedAt, managementImportMode: 'quick', adapter, sourceUrl, entities: CONTRACT.entities, requiredWixCapabilities: CONTRACT.requiredWixCapabilities, excluded: CONTRACT.excluded, excludedCapabilities: CONTRACT.excludedCapabilities, sourceAuth: 'none', sourceCoverageContract: coverage.sourceCoverageContract };
   await writeJson(path.join(projectDir, 'quick-mode', 'plan.json'), planResult);
   await writeJson(path.join(projectDir, 'execution', 'execution-manifest.json'), { schemaVersion: 1, generatedAt: planResult.generatedAt, managementImportMode: 'quick', adapter, extractCommand: 'rp-quick-woocommerce extract', importCommand: 'rp-quick-woocommerce import', entities: CONTRACT.entities.map((entity) => entity.id) });
@@ -132,6 +159,8 @@ async function loadCrosswalk(projectDir) {
   try { return await readJson(path.join(projectDir, 'state', 'crosswalk', 'quick-mode.json')); }
   catch (error) { if (error.code === 'ENOENT') return {}; throw error; }
 }
+// A token from config/wix.env renews itself for this site; a process-env override is used as given.
+function wixCredentials(projectDir, env, dryRun) { return dryRun || process.env.WIX_AUTH_TOKEN ? { authToken: env.WIX_AUTH_TOKEN } : { tokenSource: wixAuth.createWixTokenSource({ projectDir, siteId: env.WIX_SITE_ID }) }; }
 async function ensureFallbackAuthor(projectDir) {
   const env = await loadWixEnv(projectDir);
   if (env.WIX_BLOG_FALLBACK_MEMBER_ID) return { status: 'already_configured', memberId: env.WIX_BLOG_FALLBACK_MEMBER_ID };
@@ -140,7 +169,7 @@ async function ensureFallbackAuthor(projectDir) {
   const dryRun = writers.createDryRunConfig(env, process.argv.slice(2)).dryRun;
   if (dryRun) return { status: 'planned_dry_run', memberId: null };
   const quickRun = capabilities.startQuickRun({ projectDir, adapterId: 'quick-woocommerce', siteId: env.WIX_SITE_ID, dryRun: false });
-  const wix = writers.createWixClient({ capability: capabilities.bindQuickSetup(quickRun, 'blog-fallback-author'), authToken: env.WIX_AUTH_TOKEN });
+  const wix = writers.createWixClient({ capability: capabilities.bindQuickSetup(quickRun, 'blog-fallback-author'), ...wixCredentials(projectDir, env, false) });
   const projectId = path.basename(projectDir).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'migration';
   const email = `replatform+${projectId}@wix.com`;
   const listed = await writers.listMembers(wix, { limit: 100 });
@@ -165,8 +194,19 @@ async function importData(projectDir) {
   const writers = require(path.join(ADAPTER_DIR, '..', 'rp-target-wix', 'lib', 'wix-writers.js'));
   const dryRun = writers.createDryRunConfig(env, process.argv.slice(2)).dryRun;
   const quickRun = capabilities.startQuickRun({ projectDir, adapterId: 'quick-woocommerce', siteId: env.WIX_SITE_ID, dryRun });
-  const clientFor = (id) => writers.createWixClient({ capability: capabilities.bindQuickEntity(quickRun, id), authToken: env.WIX_AUTH_TOKEN });
-  let wix = clientFor('product_category');
+  // The site's currency (and time zone) is checked before an entity that writes money or wall-clock
+  // records gets its write capability. A refused entity gets no client and writes nothing; whatever
+  // depends on it is skipped too, and every other entity still imports.
+  const regionalRefused = {};
+  const clientFor = async (id) => {
+    const entity = CONTRACT.entities.find((row) => row.id === id);
+    const upstream = entity.dependsOn.find((dependency) => regionalRefused[dependency]);
+    if (upstream) { regionalRefused[id] = 'DEPENDENCY_REFUSED'; return null; }
+    // Every other entity builds on the regional setup step: a held entity writes nothing (files only; no site read).
+    const dependency = siteRegional.regionalDependency({ projectDir, siteId: env.WIX_SITE_ID, entityRefs: [entity.target, ...(entity.auxiliaryTargets || [])] });
+    if (!dependency.ok) { regionalRefused[id] = dependency.code; return null; }
+    return writers.createWixClient({ capability: capabilities.bindQuickEntity(quickRun, id), ...wixCredentials(projectDir, env, dryRun) });
+  };
   const sourceDir = path.join(projectDir, 'data', 'source-extract');
   const crosswalk = await loadCrosswalk(projectDir);
   // Durable pre-write evidence, before the first destination create. Some
@@ -175,73 +215,112 @@ async function importData(projectDir) {
   const seen = (entity, sourceId) => crosswalk[entity] && crosswalk[entity][String(sourceId)];
   const remember = (entity, sourceId, targetId) => { if (!dryRun) { crosswalk[entity] ||= {}; crosswalk[entity][String(sourceId)] = targetId; } };
   const checkpointCrosswalk = async () => { if (!dryRun) await writeJson(path.join(projectDir, 'state', 'crosswalk', 'quick-mode.json'), crosswalk); };
-  const summary = { schemaVersion: 1, generatedAt: new Date().toISOString(), managementImportMode: 'quick', adapter: planResult.adapter, dryRun, imported: {}, recovered: 0, recoveryCounts: {}, excluded: CONTRACT.excluded };
+  const summary = { schemaVersion: 1, generatedAt: new Date().toISOString(), managementImportMode: 'quick', adapter: planResult.adapter, dryRun, imported: {}, recovered: 0, recoveryCounts: {}, excluded: CONTRACT.excluded, regionalRefused };
   const categoryIds = new Map(); const productTagIds = new Map(); const blogCategoryIds = new Map(); const blogTagIds = new Map();
-  const existingCategories = new Map((await writers.queryAllStoresCategories(wix)).map((item) => [slug(item.slug), item]));
-  for (const row of await readLines(path.join(sourceDir, 'product_category.ndjson'))) {
-    if (seen('product_category', row.id)) { categoryIds.set(String(row.id), seen('product_category', row.id)); continue; }
-    const sourceSlug = slug(row.slug); const existing = existingCategories.get(sourceSlug);
-    const target = existing || await writers.createStoresCategory(wix, { name: text(row.name), slug: sourceSlug, description: nonEmpty(text(row.description).slice(0, 600)), treeReference: writers.STORES_TREE_REFERENCE }); categoryIds.set(String(row.id), target.id);
-    remember('product_category', row.id, target.id); await checkpointCrosswalk();
+  // A source record whose slug matches an item that was on the store before this import is held,
+  // not adopted and not created; the completion report turns these into operator actions.
+  const holdCollision = (entity, sourceEntity, sourceId, target) => {
+    if (!dryRun) catalogBaseline.recordCollision(projectDir, { entity, sourceKey: String(sourceId), targetId: target.id, slug: target.slug ?? null });
+    summary.skipped ||= {}; summary.skipped[sourceEntity] ||= [];
+    summary.skipped[sourceEntity].push({ sourceId: String(sourceId), reason: catalogBaseline.collisionError(entity, target.id).message });
+  };
+  let wix = await clientFor('product_category');
+  if (wix) {
+    // Categories that were on the store before this import are never adopted by slug.
+    const baselineCategoryIds = catalogBaseline.protectedIds(projectDir).categories;
+    const destinationCategories = await writers.queryAllStoresCategories(wix);
+    const heldCategories = new Map(destinationCategories.filter((item) => baselineCategoryIds.has(item.id)).map((item) => [slug(item.slug), item]));
+    const existingCategories = new Map(destinationCategories.filter((item) => !baselineCategoryIds.has(item.id)).map((item) => [slug(item.slug), item]));
+    for (const row of await readLines(path.join(sourceDir, 'product_category.ndjson'))) {
+      if (seen('product_category', row.id) && baselineCategoryIds.has(seen('product_category', row.id))) { holdCollision('stores/category', 'product_category', row.id, { id: seen('product_category', row.id) }); continue; }
+      if (seen('product_category', row.id)) { categoryIds.set(String(row.id), seen('product_category', row.id)); continue; }
+      const sourceSlug = slug(row.slug); const existing = existingCategories.get(sourceSlug);
+      if (!existing && heldCategories.has(sourceSlug)) { holdCollision('stores/category', 'product_category', row.id, heldCategories.get(sourceSlug)); continue; }
+      const target = existing || await writers.createStoresCategory(wix, { name: text(row.name), slug: sourceSlug, description: nonEmpty(text(row.description).slice(0, 600)), treeReference: writers.STORES_TREE_REFERENCE }); categoryIds.set(String(row.id), target.id);
+      remember('product_category', row.id, target.id); if (!dryRun) catalogBaseline.clearCollision(projectDir, 'stores/category', row.id); await checkpointCrosswalk();
+    }
+    summary.imported.product_category = categoryIds.size;
+    capabilities.finishQuickEntity(quickRun, 'product_category');
   }
-  summary.imported.product_category = categoryIds.size;
-  capabilities.finishQuickEntity(quickRun, 'product_category'); wix = clientFor('product_tag');
-  const existingProductTags = new Map(((await wix.send(writers.buildListStoresProductTagsRequest())).tags || []).map((item) => [slug(item.name), item]));
-  for (const row of await readLines(path.join(sourceDir, 'product_tag.ndjson'))) {
-    if (seen('product_tag', row.id)) { productTagIds.set(String(row.id), seen('product_tag', row.id)); continue; }
-    const key = slug(row.name); const existing = existingProductTags.get(key);
-    const response = existing || (await wix.send(writers.buildCreateStoresProductTagRequest(text(row.name)))).tag;
-    productTagIds.set(String(row.id), response.id); remember('product_tag', row.id, response.id); await checkpointCrosswalk();
+  wix = await clientFor('product_tag');
+  if (wix) {
+    const existingProductTags = new Map(((await wix.send(writers.buildListStoresProductTagsRequest())).tags || []).map((item) => [slug(item.name), item]));
+    for (const row of await readLines(path.join(sourceDir, 'product_tag.ndjson'))) {
+      if (seen('product_tag', row.id)) { productTagIds.set(String(row.id), seen('product_tag', row.id)); continue; }
+      const key = slug(row.name); const existing = existingProductTags.get(key);
+      const response = existing || (await wix.send(writers.buildCreateStoresProductTagRequest(text(row.name)))).tag;
+      productTagIds.set(String(row.id), response.id); remember('product_tag', row.id, response.id); await checkpointCrosswalk();
+    }
+    summary.imported.product_tag = productTagIds.size;
+    capabilities.finishQuickEntity(quickRun, 'product_tag');
   }
-  summary.imported.product_tag = productTagIds.size;
-  capabilities.finishQuickEntity(quickRun, 'product_tag'); wix = clientFor('blog_category');
-  const existingBlogCategories = new Map(((await wix.send(writers.buildQueryBlogCategoriesRequest())).categories || []).map((item) => [slug(item.slug), item]));
-  for (const row of await readLines(path.join(sourceDir, 'blog_category.ndjson'))) { if (seen('blog_category', row.id)) { blogCategoryIds.set(String(row.id), seen('blog_category', row.id)); continue; } const existing = existingBlogCategories.get(slug(row.slug)); const created = existing || await writers.createBlogCategory(wix, { label: text(row.name), slug: slug(row.slug), description: nonEmpty(text(row.description)) }); blogCategoryIds.set(String(row.id), created.id); remember('blog_category', row.id, created.id); await checkpointCrosswalk(); }
-  summary.imported.blog_category = blogCategoryIds.size;
-  capabilities.finishQuickEntity(quickRun, 'blog_category'); wix = clientFor('blog_tag');
-  for (const row of await readLines(path.join(sourceDir, 'blog_tag.ndjson'))) { if (seen('blog_tag', row.id)) { blogTagIds.set(String(row.id), seen('blog_tag', row.id)); continue; } const created = await writers.createBlogTag(wix, { label: text(row.name) }); blogTagIds.set(String(row.id), created.id); remember('blog_tag', row.id, created.id); }
-  summary.imported.blog_tag = blogTagIds.size;
-  capabilities.finishQuickEntity(quickRun, 'blog_tag'); wix = clientFor('post');
-  const fallbackMemberId = env.WIX_BLOG_FALLBACK_MEMBER_ID;
-  if (!fallbackMemberId) throw new Error('setup must provision WIX_BLOG_FALLBACK_MEMBER_ID before importing blog posts');
-  let posts = 0;
-  for (const row of await readLines(path.join(sourceDir, 'post.ndjson'))) {
-    if (seen('post', row.id)) { posts += 1; continue; }
-    await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'creating_draft' }, dryRun);
-    const draft = await writers.createDraftPost(wix, { title: text(row.title?.rendered), memberId: fallbackMemberId, richContent: await writers.convertHtmlToRichContent(wix, row.content?.rendered || '<p></p>'), excerpt: text(row.excerpt?.rendered), slug: slug(row.slug), categoryIds: (row.categories || []).map((id) => blogCategoryIds.get(String(id))).filter(Boolean), tagIds: (row.tags || []).map((id) => blogTagIds.get(String(id))).filter(Boolean), firstPublishedDate: Number.isNaN(new Date(row.date).valueOf()) ? undefined : new Date(row.date).toISOString() });
-    await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'publishing_draft', targetId: draft.id }, dryRun);
-    if (!dryRun) await writers.publishDraftPost(wix, draft.id); remember('post', row.id, draft.id); posts += 1;
-    await checkpointCrosswalk(); await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'completed', targetId: draft.id }, dryRun);
+  wix = await clientFor('blog_category');
+  if (wix) {
+    const existingBlogCategories = new Map(((await wix.send(writers.buildQueryBlogCategoriesRequest())).categories || []).map((item) => [slug(item.slug), item]));
+    for (const row of await readLines(path.join(sourceDir, 'blog_category.ndjson'))) { if (seen('blog_category', row.id)) { blogCategoryIds.set(String(row.id), seen('blog_category', row.id)); continue; } const existing = existingBlogCategories.get(slug(row.slug)); const created = existing || await writers.createBlogCategory(wix, { label: text(row.name), slug: slug(row.slug), description: nonEmpty(text(row.description)) }); blogCategoryIds.set(String(row.id), created.id); remember('blog_category', row.id, created.id); await checkpointCrosswalk(); }
+    summary.imported.blog_category = blogCategoryIds.size;
+    capabilities.finishQuickEntity(quickRun, 'blog_category');
   }
-  summary.imported.post = posts;
-  capabilities.finishQuickEntity(quickRun, 'post'); wix = clientFor('product');
-  let products = 0;
-  // A process can stop after a product create succeeds but before the crosswalk is
-  // checkpointed. Build a complete destination slug index up front so a resumed run
-  // recovers that write instead of treating the source record as a new product.
-  const existingProducts = new Map(
-    (await writers.queryAllStoresProducts(wix)).map((item) => [slug(item.slug), item]),
-  );
-  const productRows = await readLines(path.join(sourceDir, 'product.ndjson'));
-  const productSlugCounts = new Map();
-  for (const row of productRows) {
-    const key = slug(row.slug);
-    productSlugCounts.set(key, (productSlugCounts.get(key) || 0) + 1);
+  wix = await clientFor('blog_tag');
+  if (wix) {
+    for (const row of await readLines(path.join(sourceDir, 'blog_tag.ndjson'))) { if (seen('blog_tag', row.id)) { blogTagIds.set(String(row.id), seen('blog_tag', row.id)); continue; } const created = await writers.createBlogTag(wix, { label: text(row.name) }); blogTagIds.set(String(row.id), created.id); remember('blog_tag', row.id, created.id); }
+    summary.imported.blog_tag = blogTagIds.size;
+    capabilities.finishQuickEntity(quickRun, 'blog_tag');
   }
-  for (const row of productRows) {
-    if (seen('product', row.id)) { products += 1; continue; }
-    const baseSlug = slug(row.slug);
-    const sourceSlug = productSlugCounts.get(baseSlug) > 1 ? `${baseSlug}-${row.id}` : baseSlug;
-    const actualPrice = price(row.prices?.price, row.prices?.currency_minor_unit); const regular = price(row.prices?.regular_price, row.prices?.currency_minor_unit);
-    const normalized = recovery.normalizeProduct({ sourceId: row.id, sku: nonEmpty(row.sku) || '', tagIds: (row.tags || []).map((tag) => productTagIds.get(String(tag.id))).filter(Boolean) });
-    const created = existingProducts.get(sourceSlug) || (productSlugCounts.get(baseSlug) > 1 && existingProducts.get(baseSlug)) || await writers.createStoresProduct(wix, { name: text(row.name), slug: sourceSlug, description: composeProductDescription({ description: row.description, shortDescription: row.short_description }), productType: 'PHYSICAL', visible: true, tags: { publicTags: { tagIds: normalized.tagIds } }, media: { itemsInfo: { items: resolveImageUrls(row.images).map(({ url, altText, displayName }) => ({ url, ...(altText ? { altText } : {}), ...(displayName ? { displayName } : {}) })) } }, variantsInfo: { variants: [{ visible: true, sku: normalized.sku || undefined, inStock: row.is_in_stock !== false, price: { actualPrice: { amount: actualPrice }, ...(Number(regular) > Number(actualPrice) ? { compareAtPrice: { amount: regular } } : {}) } }] } });
-    if (normalized.recoveries.length) { if (!dryRun) await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
-    const targets = (row.categories || []).map((category) => categoryIds.get(String(category.id))).filter(Boolean); if (targets.length) await writers.bulkAddItemToCategories(wix, { productId: created.id, categoryIds: targets }); remember('product', row.id, created.id); products += 1;
+  wix = await clientFor('post');
+  if (wix) {
+    const fallbackMemberId = env.WIX_BLOG_FALLBACK_MEMBER_ID;
+    if (!fallbackMemberId) throw new Error('setup must provision WIX_BLOG_FALLBACK_MEMBER_ID before importing blog posts');
+    let posts = 0;
+    for (const row of await readLines(path.join(sourceDir, 'post.ndjson'))) {
+      if (seen('post', row.id)) { posts += 1; continue; }
+      await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'creating_draft' }, dryRun);
+      const draft = await writers.createDraftPost(wix, { title: text(row.title?.rendered), memberId: fallbackMemberId, richContent: await writers.convertHtmlToRichContent(wix, row.content?.rendered || '<p></p>'), excerpt: text(row.excerpt?.rendered), slug: slug(row.slug), categoryIds: (row.categories || []).map((id) => blogCategoryIds.get(String(id))).filter(Boolean), tagIds: (row.tags || []).map((id) => blogTagIds.get(String(id))).filter(Boolean), firstPublishedDate: Number.isNaN(new Date(row.date).valueOf()) ? undefined : new Date(row.date).toISOString() });
+      await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'publishing_draft', targetId: draft.id }, dryRun);
+      if (!dryRun) await writers.publishDraftPost(wix, draft.id); remember('post', row.id, draft.id); posts += 1;
+      await checkpointCrosswalk(); await appendAudit(projectDir, { phase: 'post', sourceId: String(row.id), state: 'completed', targetId: draft.id }, dryRun);
+    }
+    summary.imported.post = posts;
+    capabilities.finishQuickEntity(quickRun, 'post');
   }
-  summary.imported.product = products;
-  capabilities.finishQuickEntity(quickRun, 'product');
+  wix = await clientFor('product');
+  if (wix) {
+    let products = 0;
+    // A process can stop after a product create succeeds but before the crosswalk is
+    // checkpointed. Build a complete destination slug index up front so a resumed run
+    // recovers that write instead of treating the source record as a new product.
+    const baselineProductIds = catalogBaseline.protectedIds(projectDir).products;
+    const destinationProducts = await writers.queryAllStoresProducts(wix);
+    const heldProducts = new Map(destinationProducts.filter((item) => baselineProductIds.has(item.id)).map((item) => [slug(item.slug), item]));
+    const existingProducts = new Map(destinationProducts.filter((item) => !baselineProductIds.has(item.id)).map((item) => [slug(item.slug), item]));
+    const productRows = await readLines(path.join(sourceDir, 'product.ndjson'));
+    const productSlugCounts = new Map();
+    for (const row of productRows) {
+      const key = slug(row.slug);
+      productSlugCounts.set(key, (productSlugCounts.get(key) || 0) + 1);
+    }
+    for (const row of productRows) {
+      // A saved target id is checked too: an earlier run may have adopted a baseline product.
+      if (seen('product', row.id) && baselineProductIds.has(seen('product', row.id))) { holdCollision('stores/product', 'product', row.id, destinationProducts.find((item) => item.id === seen('product', row.id)) || { id: seen('product', row.id) }); continue; }
+      if (seen('product', row.id)) { products += 1; continue; }
+      const baseSlug = slug(row.slug);
+      const sourceSlug = productSlugCounts.get(baseSlug) > 1 ? `${baseSlug}-${row.id}` : baseSlug;
+      const heldProduct = !existingProducts.has(sourceSlug) && heldProducts.get(sourceSlug);
+      if (heldProduct) { holdCollision('stores/product', 'product', row.id, heldProduct); continue; }
+      const actualPrice = price(row.prices?.price, row.prices?.currency_minor_unit); const regular = price(row.prices?.regular_price, row.prices?.currency_minor_unit);
+      const normalized = recovery.normalizeProduct({ sourceId: row.id, sku: nonEmpty(row.sku) || '', tagIds: (row.tags || []).map((tag) => productTagIds.get(String(tag.id))).filter(Boolean) });
+      const created = existingProducts.get(sourceSlug) || (productSlugCounts.get(baseSlug) > 1 && existingProducts.get(baseSlug)) || await writers.createStoresProduct(wix, { name: text(row.name), slug: sourceSlug, description: composeProductDescription({ description: row.description, shortDescription: row.short_description }), productType: 'PHYSICAL', visible: true, tags: { publicTags: { tagIds: normalized.tagIds } }, media: { itemsInfo: { items: resolveImageUrls(row.images).map(({ url, altText, displayName }) => ({ url, ...(altText ? { altText } : {}), ...(displayName ? { displayName } : {}) })) } }, variantsInfo: { variants: [{ visible: true, sku: normalized.sku || undefined, inStock: row.is_in_stock !== false, price: { actualPrice: { amount: actualPrice }, ...(Number(regular) > Number(actualPrice) ? { compareAtPrice: { amount: regular } } : {}) } }] } });
+      if (normalized.recoveries.length) { if (!dryRun) await recovery.appendRecoveries(projectDir, planResult.adapter, row.id, normalized.recoveries); recovery.recordRecoveredRecord(summary, normalized.recoveries); }
+      const targets = (row.categories || []).map((category) => categoryIds.get(String(category.id))).filter(Boolean); if (targets.length) await writers.bulkAddItemToCategories(wix, { productId: created.id, categoryIds: targets }); remember('product', row.id, created.id); if (!dryRun) catalogBaseline.clearCollision(projectDir, 'stores/product', row.id); products += 1;
+    }
+    summary.imported.product = products;
+    capabilities.finishQuickEntity(quickRun, 'product');
+  }
   if (!dryRun) await writeJson(path.join(projectDir, 'state', 'crosswalk', 'quick-mode.json'), crosswalk);
+  // A refusal means the run did not import everything: it is never reported completed (as in Shopify's quick mode).
+  if (!dryRun && Object.keys(regionalRefused).length) summary.status = 'partial';
   Object.assign(summary, await sourceCoverage.quickSummaryCoverage(projectDir));
+  catalogBaseline.quickReport(projectDir, summary);
   await recovery.writeFinalReport(projectDir, summary, { dryRun });
   await writeJson(path.join(projectDir, 'execution', dryRun ? 'dry-run-completion-report.json' : 'completion-report.json'), summary);
   return summary;
@@ -252,4 +331,4 @@ async function main() {
   const result = await ({ preflight, plan, 'setup-author': ensureFallbackAuthor, extract, import: importData })[command](path.resolve(projectDirArg));
   process.stdout.write(`${JSON.stringify({ ok: true, command, status: result.status || 'completed' })}\n`);
 }
-main().catch((error) => { process.stderr.write(`${error.message}\n`); process.exit(1); });
+main().catch(async (error) => { process.stderr.write(`${error.message}\n`); process.exit(await wixAuth.stopExitCode(error, process.argv[3] && path.resolve(process.argv[3]))); });

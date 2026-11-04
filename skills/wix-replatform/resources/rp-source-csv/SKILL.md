@@ -64,7 +64,16 @@ CSV_ENCODING=              # optional; blank = auto-detect (UTF-8 / BOM)
 CSV_VENDOR=                # optional; user-stated vendor overrides fingerprint detection
 CSV_MEDIA_URL_REWRITE_FROM=
 CSV_MEDIA_URL_REWRITE_TO=
+CSV_STORE_CURRENCY=        # ask the person: store currency, ISO 4217 (e.g. USD)
+CSV_STORE_TIME_ZONE=       # ask the person: store time zone, IANA name (e.g. America/New_York)
+CSV_STORE_LANGUAGE=        # ask the person: primary language, two letters (e.g. en) or en-US
+CSV_STORE_COUNTRY=         # ask the person: store country, ISO 3166-1 alpha-2 (e.g. US)
 ```
+
+A CSV does not carry the store's settings, so **ask the person for the four `CSV_STORE_*` values at
+intake** (each is optional; `--currency`, `--time-zone`, `--language`, `--country` override them).
+A value they cannot give stays blank and is recorded as unknown, never guessed. A `currency` column
+in the data is evidence only: it never fills in the store currency.
 
 Unlike `source.wordpress.env`, **`source.csv.env` is not secret-bearing** — it holds
 delimiter/encoding/vendor/rewrite hints only, no credentials. Regular file handling applies.
@@ -100,6 +109,10 @@ There is **no acquisition-mode fork and no credentials request** for a CSV run.
      drift, mapping hints, entities and relations. **This is what `rp-discovery` synthesizes
      `source-schema.json` from.**
    - `raw-capture.json` — per-column detail plus head/tail samples.
+   - `source-locale.json` — always written: the neutral `paymentCurrency`, `timeZone`, `language`
+     and `locale` fields as `supplied` by the person (or an explicit `unknown`). Per-row currency
+     counts remain CSV discovery evidence and do not enter this neutral record. `rp-discovery`
+     promotes it with the coverage file.
    - `source-coverage.json` — always written (`rows: []` when clean): one row per file with an
      unknown role and per stream whose layout halted, so the decision a halt asks for cannot
      disappear. `rp-discovery` promotes it.

@@ -9,7 +9,7 @@
 // summary (which lists completed writes: never re-run those, continue from the failed call).
 import { chromium } from 'playwright';
 import { hideScrollbars } from './hide-scrollbars.mjs';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : dflt; };

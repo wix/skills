@@ -37,7 +37,7 @@
     "endpoint": "POST /comments/v1/comments",
     "writerId": null,
     "verification": "docs",
-    "importSafe": false,
+    "importSafe": true,
     "bulk": false
   },
   "fallbacks": [

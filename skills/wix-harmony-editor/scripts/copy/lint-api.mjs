@@ -10,8 +10,8 @@
 //
 // Also used by editor-run.mjs (every snippet) and check-description.mjs (deploy-description.mjs
 // is linted with its generated snippets, since they are template strings in that file).
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const CALL = /\b(?:A|editorLLMApis)\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(/g;
 const OUTSIDE = /\b(fetch|require|eval|XMLHttpRequest|importScripts)\s*\(|\bimport\s*\(|\b(window|document|localStorage|process)\./g;

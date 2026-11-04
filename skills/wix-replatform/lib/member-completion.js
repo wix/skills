@@ -9,11 +9,10 @@
 //
 // What it guarantees:
 //   * Before the first journal row or Wix call, every supplied customer has a present, unique
-//     source key (and, on a subset pass, one the full pass saw). Otherwise the pass writes
-//     NOTHING and reports the defect -- a partial write here would corrupt journal/crosswalk
-//     identity and make the report's denominator unknowable.
-//   * The report's denominator is the full pass's key snapshot; recovery passes select within it
-//     and never shrink it.
+//     source key. Otherwise the pass writes NOTHING and reports the defect -- a partial write
+//     here would corrupt journal/crosswalk identity and make the report's denominator unknowable.
+//   * The report's denominator is the key snapshot; recovery passes select within it, may add a
+//     newly supplied key to it, and never shrink it.
 //   * The report reads only the journal: latest row per source key, in append order.
 //   * Telemetry is aggregate, derived from the same rows, and carries no record values.
 
@@ -226,6 +225,7 @@ function buildMemberTerminalRow(started, result, { builderFindings = [], knownMe
   if (result.memberId) row.targetId = String(result.memberId);
   if (policy.journalStatus === 'deferred') row.reason = result.outcome;
   if (cls === 'ambiguous' && Number.isInteger(result.matchCount)) row.matchCount = result.matchCount;
+  if (cls === 'failed-not-sent') row.requestSent = false;
   if (policy.failureOutcome) {
     const error = result.error || {};
     const message = String(error.message === undefined ? '' : error.message).slice(0, 300);
@@ -280,6 +280,17 @@ function selectMemberRecords(records, keys, mode, latestByKey) {
   return out;
 }
 
+function notSentError(error) {
+  return {
+    message: String(error.message === undefined ? error : error.message).slice(0, 300),
+    status: null,
+    applicationErrorCode: null,
+    outcomeKnown: true,
+    requestSent: false,
+    code: error.code === undefined ? null : error.code,
+  };
+}
+
 // The member pass. The caller supplies how to build and send one member (`ensure`) and how to
 // persist the crosswalk; everything about order, identity and journaling lives here.
 //
@@ -287,8 +298,14 @@ function selectMemberRecords(records, keys, mode, latestByKey) {
 //   persistCrosswalk(record, result)  called before the terminal row whenever result.memberId
 //
 // Returns { ok, gate, snapshot, mode, selected }. `ok: false` means the population gate refused:
-// zero journal rows and zero Wix calls were made. A subset pass with no snapshot throws before
-// anything is written (error.code === 'member-population-snapshot-missing').
+// zero journal rows and zero Wix calls were made. A subset pass with no snapshot (no full pass
+// ran yet) takes its snapshot from the supplied records, exactly as a full pass would, and then
+// selects within it: the supplied records are the population either way. A subset pass adds
+// supplied keys the snapshot lacks; it never drops one.
+//
+// An `ensure` that throws an error marked requestSent false (refused before anything was sent)
+// ends that record as member-failed, not sent, and the pass goes on. Any other throw stops the
+// pass and leaves the started row dangling (unresolved), because its outcome is unknown.
 async function runMemberPass({
   projectDir,
   records,
@@ -309,18 +326,21 @@ async function runMemberPass({
   if (typeof ensure !== 'function') throw new Error('runMemberPass needs an ensure(record) function');
   if (!Array.isArray(records)) throw new Error('runMemberPass needs the supplied records array');
 
-  let snapshot = null;
-  if (selection !== 'full') {
-    snapshot = await readMemberPopulation(projectDir);
-    if (!snapshot) {
-      throw Object.assign(new Error(`${selection} member pass refused: no ${MEMBER_POPULATION_FILE} from a full pass, so the report's denominator is unknown. Run a full member pass first.`), { code: SNAPSHOT_MISSING });
-    }
-  }
-  const gate = validateMemberPopulation(records, { getSourceStableKey, snapshotKeys: snapshot ? snapshot.keys : null });
+  let snapshot = selection === 'full' ? null : await readMemberPopulation(projectDir);
+  const gate = validateMemberPopulation(records, { getSourceStableKey });
   if (!gate.ok) return { ok: false, gate, snapshot, mode: selection, selected: 0 };
 
-  if (selection === 'full') {
-    snapshot = buildMemberPopulation({ runId, keys: gate.distinctKeys, sourceFile, sourceChecksum });
+  // The denominator only grows: a key a subset pass supplies that the snapshot lacks (a record
+  // added at source since the full pass) joins it. --missing-only then writes it; another subset
+  // mode reports it as having no journal row yet.
+  const known = new Set(snapshot ? snapshot.keys : []);
+  const added = gate.distinctKeys.filter((key) => !known.has(key));
+  if (!snapshot || added.length) {
+    // A grown snapshot keeps the original pass's sourceFile/sourceChecksum: provenance of the
+    // first population, not a digest of the current key list (nothing compares it to the keys).
+    snapshot = snapshot
+      ? buildMemberPopulation({ runId: snapshot.runId, keys: [...snapshot.keys, ...added], sourceFile: snapshot.sourceFile, sourceChecksum: snapshot.sourceChecksum, now: snapshot.createdAt })
+      : buildMemberPopulation({ runId, keys: gate.distinctKeys, sourceFile, sourceChecksum });
     // A sample pass writes nothing that a real pass would read as its denominator.
     if (!sample) await writeMemberPopulation(projectDir, snapshot);
   }
@@ -333,7 +353,13 @@ async function runMemberPass({
   for (const { record, sourceStableKey } of selected) {
     const started = buildStartedRow({ sourceStableKey, runId, phase, writeSpecId, mode: selection });
     await localState.appendAttempt(projectDir, started, journalOptions);
-    const outcome = await ensure(record);
+    let outcome;
+    try {
+      outcome = await ensure(record);
+    } catch (error) {
+      if (!R.memberRequestNotSent(error)) throw error;
+      outcome = { result: { outcome: R.MEMBER_OUTCOME.FAILED, memberId: null, error: notSentError(error), findings: [] } };
+    }
     const result = outcome && outcome.result;
     R.classifyMemberResult(result); // an unknown code stops here and leaves the start dangling (unresolved), never a guessed bucket
     if (result.memberId && typeof persistCrosswalk === 'function') await persistCrosswalk(record, result);
@@ -355,7 +381,7 @@ function classOfRow(row) {
     cls = row.matchedBy === 'crosswalk' ? 'reconciled-crosswalk' : row.matchedBy === 'loginEmail' ? 'reconciled-login-email' : null;
     if (!cls) throw new Error(`member journal row ${row.sourceStableKey}: reconciled row without matchedBy`);
   } else if (row.outcomeCode === R.MEMBER_OUTCOME.FAILED) {
-    cls = row.status === 'succeeded_unverified' ? 'failed-unknown' : row.status === 'failed_terminal' ? 'failed-rejected' : null;
+    cls = row.status === 'succeeded_unverified' ? 'failed-unknown' : row.status === 'failed_terminal' ? 'failed-rejected' : row.status === 'failed_retryable' ? 'failed-not-sent' : null;
     if (!cls) throw new Error(`member journal row ${row.sourceStableKey}: member-failed with status ${row.status}`);
   } else {
     cls = R.POLICY_CLASSES.find((name) => R.POLICY[name].outcome === row.outcomeCode);
@@ -551,7 +577,7 @@ function projectMemberCompletion({ rows = [], snapshot = null, runId = null, gat
   for (const cls of R.POLICY_CLASSES) {
     const entry = memberOutcomes.byClass[cls];
     if (!entry.count) continue;
-    const label = R.POLICY[cls].reasonLine || `${entry.outcome}${cls.startsWith('failed-') ? ` (${cls === 'failed-unknown' ? 'outcome unknown' : 'rejected'})` : ''}`;
+    const label = R.POLICY[cls].reasonLine || `${entry.outcome}${cls.startsWith('failed-') ? ` (${{ 'failed-unknown': 'outcome unknown', 'failed-not-sent': 'not sent' }[cls] || 'rejected'})` : ''}`;
     reasons.push(`${label}: ${entry.count}${entry.nextAction ? ` -- ${entry.nextAction}` : ''}`);
   }
   if (memberOutcomes.danglingStarted) reasons.push(`write started and never concluded: ${memberOutcomes.danglingStarted} -- re-run with --unresolved-only: reads the member back by login email`);

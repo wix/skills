@@ -32,6 +32,18 @@ Record it with `orchestration-state.js decide --key targetSiteType --value <type
 `unknown`. A choice the operator already gave counts; do not ask again. `rp-destination` raises
 the durable request when it is still missing. Existing-site adoption needs no type.
 
+For an **existing** destination site, ask whether to mute its notifications before the first
+write. The router returns the exact question and choices
+(`missing_notification_mute_decision`, `question`); show them in those plain words and do not
+pick for the operator. Mute: Wix stops all site notifications, including customers' emails,
+until someone unmutes, and the live business may miss real customer notifications during the
+import. Don't mute: customers and the owner may get emails for imported records (orders,
+bookings, forms, RSVPs, and so on). Record the answer with `orchestration-state.js decide
+--key notificationMute --value on|off` (it also writes `WIX_MUTE_NOTIFICATIONS`). A new site is
+always muted and is never asked. A supervised `replatform run` raises this question itself as
+a durable request; answer it with `replatform answer`. Once setup has written to the site the
+answer cannot change.
+
 For delivery modes that include management, also record `managementImportMode`. Default to
 `standard`; accept an explicit user choice of `quick` at intake even before the source URL is
 probed. The later source-inputs/probe result validates whether a matching quick adapter exists;
@@ -44,7 +56,7 @@ facelift stage is authorized without another routine approval.
 
 In normal mode ask only the current missing decision. In explicit user-requested 1-click mode
 record `automationMode=one_click` with `source=user`, collect every still missing intake value
-together, record the answers, and continue. Never infer one-click from an uploaded file or
+together (including the existing-site mute question), record the answers, and continue. Never infer one-click from an uploaded file or
 execution surface. Delegate all destination,
 source-file, and credential procedures to their dedicated modules.
 
@@ -52,4 +64,4 @@ source-file, and credential procedures to their dedicated modules.
 
 The resolved project, plus `orchestration/decisions.json` entries for whichever of
 `deliveryMode`, `managementImportMode`, `targetSiteType` (with `targetSiteBusinessType` for
-Harmony), `faceliftMode`, and `automationMode` this run resolved. This is what a dispatched run must produce.
+Harmony), `notificationMute` (existing sites), `faceliftMode`, and `automationMode` this run resolved. This is what a dispatched run must produce.

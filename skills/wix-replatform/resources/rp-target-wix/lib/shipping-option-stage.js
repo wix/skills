@@ -3,7 +3,8 @@
 // rp-target-wix — the shipping-option part of the import's shipping stage, as
 // deterministic code. A generated importer calls runShippingOptionStage after its delivery regions
 // exist, and the finished-project audit (rp-execute-import/scripts/shipping-estimate-audit.js)
-// calls runShippingEstimateAudit. Neither ever POSTs or PATCHes a crosswalked option.
+// calls runShippingEstimateAudit. Neither ever POSTs or PATCHes a crosswalked option. On a new
+// site the import stage deletes Wix's placeholder "Free shipping" option (regionState).
 //
 // What it guarantees, in order:
 //   1. the estimate resolution (execution/shipping-estimates.json) is written before any write;
@@ -20,6 +21,7 @@ const s = require('./shipping-build.js');
 const w = require('./wix-writers.js');
 const local = require('../../../lib/local-state.js');
 const recovery = require('../../../lib/import-recovery.js');
+const { getDecisionValue, isNewSiteStrategy } = require('../../../lib/orchestration-decisions.js');
 
 const EXTRACT_FILE = 'data/source-extract/shipping-zone.ndjson';
 const EXTRACT_MANIFEST = 'data/source-extract/shipping-zone.manifest.json';
@@ -93,6 +95,103 @@ function latestShippingAttempts(rows) {
   return recovery.foldAttemptsBySource(shippingAttemptRows(rows));
 }
 
+// Zone → region id: the importer's own map wins; a finished project falls back to the zones'
+// crosswalk rows (ecom/delivery-profile, keyed like "shipping-zone:1" with sourceId "1").
+function regionIdsByZone(regionIdByZone, crosswalkBySource) {
+  const out = {};
+  for (const row of Object.values(crosswalkBySource || {})) {
+    if (!row || row.targetEntityType !== 'ecom/delivery-profile' || !row.targetId) continue;
+    const zoneId = row.sourceId ? String(row.sourceId) : String(row.sourceStableKey || '').split(':').pop();
+    if (zoneId) out[zoneId] = row.targetId;
+  }
+  return { ...out, ...(regionIdByZone || {}) };
+}
+
+async function readPlaceholderLedger(projectDir) {
+  const ledger = await readJsonIfExists(path.join(projectDir, s.SHIPPING_PLACEHOLDER_LEDGER));
+  return ledger && Array.isArray(ledger.deletions) ? ledger : { schemaVersion: 1, deletions: [] };
+}
+
+// What was on each region before the migration's first create there (the earliest `started`
+// shipping-option row's reconcile.preWriteTargetIds), and the regions where a create's outcome is
+// still unknown. Only an option in the first set can be Wix's; while a region is in the second, an
+// uncrosswalked option there may be the migration's own, so nothing there is deleted.
+function regionWriteHistory(journalRows) {
+  const rows = shippingAttemptRows(journalRows);
+  const before = new Map();
+  for (const row of rows) {
+    const reconcile = row.reconcile || {};
+    if (row.status === 'started' && reconcile.deliveryRegionId && Array.isArray(reconcile.preWriteTargetIds) && !before.has(reconcile.deliveryRegionId)) {
+      before.set(reconcile.deliveryRegionId, new Set(reconcile.preWriteTargetIds));
+    }
+  }
+  const unresolved = new Set(Object.values(latestShippingAttempts(rows))
+    .filter((row) => row.status === 'started' || row.status === 'succeeded_unverified')
+    .map((row) => row.reconcile && row.reconcile.deliveryRegionId).filter(Boolean));
+  return { before, unresolved };
+}
+
+// The live delivery-region state for the completion fragment, and -- in the import stage only, on
+// a NEW site (Elad KC, 2026-10-29) -- the deletion of Wix's placeholder "Free shipping" option from
+// a zone's region once the migration's own options are on it. Only an option that was on the region
+// before the migration first wrote there is a candidate; the source store's own "Free shipping",
+// even one whose create outcome is unknown, never is. The full option is written to the
+// ledger BEFORE the DELETE, so it can be re-created; a row left `deleting` by a crash is retried
+// (a 404 means it is already gone). An existing site keeps every option and only reports it.
+// `snapshots` are the stage's own per-region scans (advanced with the ids it created), reused so a
+// region is still read once per run; a region without one is read here.
+async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {}, crosswalkBySource = {}, decisions = {}, mayDelete = false, snapshots = null, journalRows = [] } = {}) {
+  const byZone = regionIdsByZone(regionIdByZone, crosswalkBySource);
+  let regions = null;
+  try {
+    regions = (await w.queryDeliveryProfiles(wix)).flatMap((profile) => profile.deliveryRegions || profile.regions || []);
+  } catch {
+    regions = null; // coverage is then not reported this run; nothing is guessed
+  }
+  const coverage = regions ? s.regionCoverage({ zonePlans, regionIdByZone: byZone, regions }) : [];
+  const nameOf = (regionId) => (regions && (regions.find((region) => region.id === regionId) || {}).name) || null;
+  const zonesOf = (regionId) => zonePlans.filter((plan) => byZone[String(plan.zone.id)] === regionId).map((plan) => `zone ${plan.zone.name ? `"${plan.zone.name}"` : plan.zone.id}`);
+  const ours = new Set(Object.values(shippingCrosswalk(crosswalkBySource)).map((row) => row.targetId).filter(Boolean));
+  const newSite = isNewSiteStrategy(getDecisionValue(decisions, 'targetSiteStrategy'));
+  const ledger = await readPlaceholderLedger(projectDir);
+  const saveLedger = () => writeJsonAtomic(path.join(projectDir, s.SHIPPING_PLACEHOLDER_LEDGER), ledger);
+  const history = regionWriteHistory(journalRows);
+  const preexisting = [];
+  for (const regionId of new Set(zonePlans.map((plan) => byZone[String(plan.zone.id)]).filter(Boolean))) {
+    const snapshot = snapshots && snapshots.get(regionId);
+    const scan = snapshot && snapshot.complete && !snapshot.unprovable
+      ? { complete: true, options: [...snapshot.options, ...[...snapshot.ids].filter((id) => !snapshot.options.some((option) => option.id === id)).map((id) => ({ id }))] }
+      : await w.queryAllShippingOptions(wix, { deliveryRegionId: regionId });
+    let foreign = scan.options.filter((option) => !ours.has(option.id));
+    const replaced = scan.complete && scan.options.some((option) => ours.has(option.id));
+    const settled = !history.unresolved.has(regionId) && !(snapshot && snapshot.unprovable);
+    if (mayDelete && newSite && replaced && settled && history.before.has(regionId)) {
+      const wixOwned = history.before.get(regionId);
+      const pending = ledger.deletions.filter((entry) => entry.regionId === regionId && entry.status === 'deleting').map((entry) => entry.option);
+      const targets = [...pending, ...foreign.filter((option) => wixOwned.has(option.id) && s.isWixPlaceholderShippingOption(option) && !pending.some((p) => p.id === option.id))];
+      for (const option of targets) {
+        let entry = ledger.deletions.find((row) => row.option && row.option.id === option.id);
+        if (!entry) {
+          entry = { optionId: option.id, regionId, regionName: nameOf(regionId), zones: zonesOf(regionId), option, status: 'deleting', at: new Date().toISOString() };
+          ledger.deletions.push(entry);
+          await saveLedger();
+        }
+        try {
+          const result = await w.deleteShippingOption(wix, option.id);
+          Object.assign(entry, { status: result.deleted ? 'deleted' : 'already-gone', at: new Date().toISOString() });
+        } catch (error) {
+          Object.assign(entry, { status: 'failed', error: String((error && error.message) || error).slice(0, 300), at: new Date().toISOString() });
+        }
+        await saveLedger();
+        if (entry.status !== 'failed') foreign = foreign.filter((other) => other.id !== option.id);
+      }
+    }
+    preexisting.push({ regionId, regionName: nameOf(regionId), zones: zonesOf(regionId), complete: scan.complete,
+      options: foreign.map((option) => ({ id: option.id, title: option.title || null })) });
+  }
+  return { coverage, preexisting, deletions: ledger.deletions };
+}
+
 function shippingCrosswalk(bySource) {
   const out = {};
   for (const [key, row] of Object.entries(bySource || {})) if (row && row.targetEntityType === s.SHIPPING_OPTION_TARGET_TYPE) out[key] = row;
@@ -159,6 +258,8 @@ async function runShippingOptionStage(wix, {
   const resolution = s.planShippingEstimates({ zonePlans, decisions, siteLanguage });
   await writeEstimates(projectDir, resolution, null, null);
   const resolutionByKey = new Map(resolution.options.map((option) => [option.optionKey, option]));
+  // A zone already written on an earlier run keeps its region through its crosswalk row.
+  const regionByZone = regionIdsByZone(regionIdByZone, (await local.loadCrosswalk(projectDir)).bySource);
 
   // Planned payloads, keyed by the raw option key.
   const planned = [];
@@ -166,15 +267,17 @@ async function runShippingOptionStage(wix, {
     const zoneId = String(plan.zone.id);
     for (const option of plan.shippingOptions) {
       const optionKey = s.shippingOptionKey(zoneId, option);
-      const deliveryRegionId = regionIdByZone[zoneId];
-      if (!deliveryRegionId) throw new Error(`runShippingOptionStage: no delivery region id for zone ${zoneId}; create regions before options`);
+      // A zone whose region could not be written (e.g. an unresolved destination collision) keeps
+      // its options planned with no input: they get a retryable not-attempted row below, and the
+      // rest of the stage runs. One zone never stops the import.
+      const deliveryRegionId = regionByZone[zoneId] || null;
       const estimate = resolutionByKey.get(optionKey);
       planned.push({
         id: optionKey,
         optionKey,
         zoneId,
         deliveryRegionId,
-        input: s.buildShippingOptionInput(option.classified, { deliveryRegionId, estimatedDeliveryTime: estimate.text, rates: option.rates }),
+        input: deliveryRegionId ? s.buildShippingOptionInput(option.classified, { deliveryRegionId, estimatedDeliveryTime: estimate.text, rates: option.rates }) : null,
       });
     }
   }
@@ -219,6 +322,10 @@ async function runShippingOptionStage(wix, {
   for (const entry of routed.filter((item) => item.route === 'recover')) {
     const record = entry.record;
     const latest = entry.latestAttempt;
+    if (!record.input) {
+      results.push({ optionKey: record.optionKey, route: 'recover', outcome: 'shipping-option-recovery-incomplete', errorCode: 'DELIVERY_REGION_MISSING' });
+      continue; // nothing to compare against until the zone has a region; the row stays as it was
+    }
     const result = await w.recoverShippingOption(wix, latest, record.input, { decisions });
     if (result.outcome === 'shipping-option-recovery-incomplete') {
       results.push({ optionKey: record.optionKey, route: 'recover', outcome: result.outcome });
@@ -235,9 +342,16 @@ async function runShippingOptionStage(wix, {
   for (const entry of routed.filter((item) => item.route === 'create')) {
     const record = entry.record;
     const regionId = record.deliveryRegionId;
+    if (!regionId) {
+      const errorCode = 'DELIVERY_REGION_MISSING';
+      const { attempt } = s.shippingOptionWriteRecord({ outcome: 'shipping-option-not-attempted', id: null, errorCode, reason: `zone ${record.zoneId} has no delivery region yet; created on the next run once it has one` }, ctxFor(record, newAttemptId()));
+      await local.appendAttempt(projectDir, attempt);
+      results.push({ optionKey: record.optionKey, route: 'create', outcome: 'not-attempted', errorCode });
+      continue;
+    }
     if (!regions.has(regionId)) {
       const scan = await w.queryAllShippingOptions(wix, { deliveryRegionId: regionId });
-      regions.set(regionId, { complete: scan.complete, ids: new Set(scan.options.map((option) => option.id)), unprovable: false });
+      regions.set(regionId, { complete: scan.complete, ids: new Set(scan.options.map((option) => option.id)), unprovable: false, options: scan.options });
     }
     const region = regions.get(regionId);
     if (!region.complete || region.unprovable) {
@@ -283,7 +397,8 @@ async function runShippingOptionStage(wix, {
 
   journal = await local.loadAttemptJournal(projectDir);
   const latestAttempts = latestShippingAttempts(journal.rows);
-  const fragment = s.shippingEstimateCompletionFragment({ resolution, readBack, latestAttempts, audit, projectDir });
+  const regionReport = await regionState(wix, { projectDir, zonePlans, regionIdByZone: regionByZone, crosswalkBySource: (await local.loadCrosswalk(projectDir)).bySource, decisions, mayDelete: true, snapshots: regions, journalRows: journal.rows });
+  const fragment = s.shippingEstimateCompletionFragment({ resolution, readBack, latestAttempts, audit, projectDir, regions: regionReport });
   const estimates = await writeEstimates(projectDir, resolution, fragment, audit);
   return { resolution, estimates, fragment, audit, results, selection: selection.summary };
 }
@@ -329,7 +444,9 @@ async function runShippingEstimateAudit(wix, { projectDir } = {}) {
   });
   await persistUpserts(projectDir, audit);
   const latestAttempts = latestShippingAttempts(journal.rows);
-  const fragment = s.shippingEstimateCompletionFragment({ resolution, readBack: audit.readBack, latestAttempts, audit, projectDir });
+  // The audit only reads: it reports the region state and never deletes.
+  const regionReport = await regionState(wix, { projectDir, zonePlans: zones ? writableZonePlans(zones) : [], crosswalkBySource: crosswalk.bySource, decisions });
+  const fragment = s.shippingEstimateCompletionFragment({ resolution, readBack: audit.readBack, latestAttempts, audit, projectDir, regions: regionReport });
   const previous = await readJsonIfExists(path.join(projectDir, s.SHIPPING_ESTIMATES_FILE));
   const base = resolution || (previous ? { ...previous } : null);
   const estimates = await writeEstimates(projectDir, base, fragment, audit);

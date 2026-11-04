@@ -45,6 +45,10 @@ function moneyPrecision(value) {
 }
 
 const FINDINGS = Object.freeze([
+  'coupon-plugin-rule-held',
+  'coupon-plugin-start-date-carried',
+  'coupon-plugin-start-date-timezone-assumed',
+  'coupon-meta-unrecognized',
   'coupon-free-shipping-amount-dropped',
   'coupon-individual-use-implicit',
   'coupon-exhausted-imported-inactive',
@@ -193,6 +197,27 @@ function summarizeCoupons({ restCoupons = [], postsByStatus = null, now = Date.n
     counts['coupon-scope-unmappable'] = mappings.filter((m) => m && m.outcome === OUTCOMES.SCOPE_UNMAPPABLE).length;
     const unresolvedByMapper = mappings.filter((m) => m && m.outcome === OUTCOMES.USAGE_LIMIT_UNRESOLVED).length;
     if (unresolvedByMapper !== counts['coupons-usage-limit-unresolved']) throw new Error(`the mapper refused ${unresolvedByMapper} coupons as usage-unresolved but the classification counts ${counts['coupons-usage-limit-unresolved']}; the mappings do not describe these coupons`);
+    // Plugin rules. Held coupons ARE written (switched off), so this is a sub-count of
+    // the written coupons and never a term of the accounting identity.
+    counts['coupons-plugin-rule-held'] = mappings.filter((m) => m && m.hold && m.hold.reason === 'plugin-rule-not-carried').length;
+    counts['coupons-plugin-rule-held-redeemable'] = mappings.filter((m) => m && m.hold && m.classification && m.classification.redeemable).length;
+    counts['coupons-plugin-start-date-carried'] = mappings.filter((m) => m && (m.findings || []).some((f) => f.code === 'coupon-plugin-start-date-carried')).length;
+    const unrecognized = new Map();
+    mappings.forEach((m, i) => {
+      for (const key of (m && m.pluginRules && m.pluginRules.unrecognized) || []) {
+        const row = unrecognized.get(key) || { metaKey: key, coupons: 0, redeemable: 0 };
+        row.coupons += 1;
+        if (classes[i].redeemable) row.redeemable += 1;
+        unrecognized.set(key, row);
+      }
+    });
+    const zoneAssumed = mappings.filter((m) => m && (m.findings || []).some((f) => f.code === 'coupon-plugin-start-date-timezone-assumed')).map((m) => String(m.specification.code)).sort();
+    if (zoneAssumed.length > 0) {
+      findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', coupons: zoneAssumed.length, couponCodes: zoneAssumed, note: 'plugin start dates read as UTC midnight because the shop\'s UTC offset was not supplied; pass utcOffsetMinutes to mapCouponToWix' });
+    }
+    for (const row of [...unrecognized.values()].sort((a, b) => b.coupons - a.coupons || a.metaKey.localeCompare(b.metaKey))) {
+      findings.push({ code: 'coupon-meta-unrecognized', ...row, note: 'coupon meta no plugin profile names; the coupon was mapped from its core fields. If a plugin enforces this key as a rule, add it to that plugin profile\'s couponRules[]' });
+    }
   } else {
     counts['coupon-type-unmappable'] = Object.values(unmappableTypes).reduce((a, b) => a + b, 0);
     counts['coupon-scope-unmappable'] = 0;
@@ -215,11 +240,123 @@ function money(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Plugin coupon rules. A coupon plugin stores its extra rules as coupon meta. Each
+// plugin profile names its keys and what each one MEANS (`couponRules[]`, validated in
+// lib/plugin-knowledge.js); this module acts on the meaning, so a new coupon plugin is profile
+// data, never code here.
+//
+//   start-date    -> carried exactly: Wix `startTime`
+//   same-as-core  -> nothing, when it equals the named core field (and has no min/max)
+//   no-effect     -> nothing
+//   restriction / gift / auto-apply -> Wix cannot hold it. The coupon is still written, switched
+//                    OFF and tagged, with a cutover task (a product decision): nothing is lost and nothing is more generous than the merchant set.
+//
+// Core WooCommerce coupon meta that is not a rule, plus keys known to be bookkeeping. Anything else
+// that no profile names is reported once per key (`coupon-meta-unrecognized`), never refused.
+const CORE_COUPON_META = new Set(['apply_before_tax', 'product_brands', 'exclude_product_brands', '_used_by', '_wp_old_slug']);
+const CORE_COUPON_META_PREFIXES = ['_coupon_held_', '_wc_gla_'];
+const DEFAULT_INERT = Object.freeze(['', 'no', '0']);
+const RULE_NOT_CARRIED_TAG = 'Rule_Not_Carried';
+
+let bundledCouponRules = null;
+function defaultCouponRules() {
+  if (!bundledCouponRules) {
+    // eslint-disable-next-line global-require
+    bundledCouponRules = require('./plugin-knowledge.js').buildCouponRules();
+  }
+  return bundledCouponRules;
+}
+
+function isEmptyValue(value) {
+  if (value === undefined || value === null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return false;
+}
+
+function isInert(rule, value) {
+  if (isEmptyValue(value)) return true;
+  const inert = Array.isArray(rule.inertValues) ? rule.inertValues : DEFAULT_INERT;
+  return inert.some((candidate) => JSON.stringify(candidate) === JSON.stringify(value) || (typeof value !== 'object' && String(candidate) === String(value).trim()));
+}
+
+// `id-map-min-max`: { "<id>": { "min": "", "max": "" } }; `id-list`: "1,2" or [1, 2].
+function sameAsCore(rule, value, coupon) {
+  const core = (Array.isArray(coupon[rule.coreField]) ? coupon[rule.coreField] : []).map(String).sort();
+  let ids;
+  if (rule.shape === 'id-map-min-max') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const limited = Object.values(value).some((v) => v && typeof v === 'object' && (!isEmptyValue(v.min) && String(v.min).trim() !== '' || !isEmptyValue(v.max) && String(v.max).trim() !== ''));
+    if (limited) return false;
+    ids = Object.keys(value);
+  } else {
+    ids = Array.isArray(value) ? value : String(value).split(',');
+  }
+  ids = ids.map((id) => String(id).trim()).filter(Boolean).sort();
+  return ids.length === core.length && ids.every((id, i) => id === core[i]);
+}
+
+// A plugin start date. A date-only or zone-less value is the SHOP's wall clock: it takes the
+// shop's UTC offset when one is known; otherwise it is read as UTC and flagged `zoneAssumed`.
+// An epoch or a value with its own zone is already universal.
+function validOffset(utcOffsetMinutes) {
+  return Number.isInteger(utcOffsetMinutes) && utcOffsetMinutes >= -840 && utcOffsetMinutes <= 840;
+}
+
+function startOfDayInstant(value, utcOffsetMinutes = null) {
+  const text = String(value).trim();
+  if (/^\d{9,13}$/.test(text)) return { at: Number(text) * (text.length <= 10 ? 1000 : 1), zoneAssumed: false };
+  if (/Z$|[+-]\d{2}:\d{2}$/.test(text)) return { at: toInstant(text), zoneAssumed: false };
+  const wallClock = /^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T00:00:00` : text.replace(' ', 'T');
+  const asUtc = toInstant(wallClock);
+  if (asUtc === null) return { at: null, zoneAssumed: false };
+  if (validOffset(utcOffsetMinutes)) return { at: asUtc - utcOffsetMinutes * 60000, zoneAssumed: false };
+  return { at: asUtc, zoneAssumed: true };
+}
+
+// One coupon's meta, judged against the rules. Pure.
+function evaluateCouponPluginRules(coupon, rules, { utcOffsetMinutes = null } = {}) {
+  if (utcOffsetMinutes !== null && !validOffset(utcOffsetMinutes)) throw new Error(`utcOffsetMinutes must be an integer between -840 and 840 (the shop's offset), got ${utcOffsetMinutes}`);
+  const byKey = new Map((rules || []).map((rule) => [rule.metaKey, rule]));
+  const notCarried = [];
+  const unrecognized = [];
+  let startTime = null;
+  let startDateRule = null;
+  let startZoneAssumed = false;
+  for (const entry of Array.isArray(coupon && coupon.meta_data) ? coupon.meta_data : []) {
+    const key = entry && entry.key;
+    if (!key) continue;
+    const rule = byKey.get(key);
+    if (!rule) {
+      if (!CORE_COUPON_META.has(key) && !CORE_COUPON_META_PREFIXES.some((prefix) => key.startsWith(prefix))) unrecognized.push(key);
+      continue;
+    }
+    const value = entry.value;
+    if (isInert(rule, value)) continue;
+    const describe = (meaning) => ({ metaKey: key, meaning, plugin: rule.plugin || null, displayName: rule.displayName || null, value });
+    if (rule.meaning === 'no-effect') continue;
+    if (rule.meaning === 'same-as-core') {
+      if (!sameAsCore(rule, value, coupon)) notCarried.push(describe('restriction'));
+      continue;
+    }
+    if (rule.meaning === 'start-date') {
+      const { at, zoneAssumed } = startOfDayInstant(value, utcOffsetMinutes);
+      if (at === null) notCarried.push(describe('restriction'));
+      else { startTime = at; startDateRule = describe('start-date'); startZoneAssumed = zoneAssumed; }
+      continue;
+    }
+    notCarried.push(describe(rule.meaning));
+  }
+  return { startTime, startDateRule, startZoneAssumed, notCarried, unrecognized: [...new Set(unrecognized)].sort() };
+}
+
 // Source coupon + stores/coupon entity guidance -> one Wix coupon specification.
 // `resolveProduct(sourceProductId)` and `resolveCategory(sourceCategoryId)` map through the
 // catalog crosswalks (target ids); either may be omitted, in which case a scoped coupon is
 // reported as scope-unmappable rather than widened to the whole store.
-function mapCouponToWix(coupon, { now = Date.now(), resolveProduct = null, resolveCategory = null } = {}) {
+function mapCouponToWixCore(coupon, { now = Date.now(), resolveProduct = null, resolveCategory = null } = {}) {
   const findings = [];
   const code = coupon && coupon.code !== undefined && coupon.code !== null ? String(coupon.code).trim() : '';
   if (!code) throw new Error('a coupon needs a code');
@@ -397,6 +534,67 @@ function mapCouponToWix(coupon, { now = Date.now(), resolveProduct = null, resol
   return { outcome: OUTCOMES.MAPPED, specification: spec, classification, findings, reason: null };
 }
 
+// Source coupon -> one Wix coupon specification, with the plugin rules applied on top of the core
+// mapping. `couponRules` defaults to every bundled profile's rules (a key is plugin-specific, so
+// applying a rule whose plugin is not installed can only switch a coupon off, never widen it).
+function mapCouponToWix(coupon, options = {}) {
+  const { couponRules = null, utcOffsetMinutes = null } = options;
+  const pluginRules = evaluateCouponPluginRules(coupon, Array.isArray(couponRules) ? couponRules : defaultCouponRules(), { utcOffsetMinutes });
+  const result = mapCouponToWixCore(coupon, options);
+  result.pluginRules = pluginRules;
+  if (result.outcome !== OUTCOMES.MAPPED || !result.specification) return result;
+  const code = result.specification.code;
+  if (pluginRules.startTime !== null) {
+    result.specification.startTime = pluginRules.startTime;
+    result.findings.push({ code: 'coupon-plugin-start-date-carried', couponCode: code, metaKey: pluginRules.startDateRule.metaKey, plugin: pluginRules.startDateRule.plugin, startTime: new Date(pluginRules.startTime).toISOString() });
+    if (pluginRules.startZoneAssumed) {
+      result.findings.push({ code: 'coupon-plugin-start-date-timezone-assumed', couponCode: code, metaKey: pluginRules.startDateRule.metaKey, value: pluginRules.startDateRule.value, note: 'the shop\'s UTC offset was not supplied; the start date was read as UTC midnight and may be off by the shop\'s offset' });
+    }
+  }
+  if (pluginRules.notCarried.length > 0) {
+    // Written switched off, tagged, with a cutover task -- never live without its rule.
+    result.specification.active = false;
+    if (!result.specification.tags.includes(RULE_NOT_CARRIED_TAG)) result.specification.tags.push(RULE_NOT_CARRIED_TAG);
+    result.hold = { reason: 'plugin-rule-not-carried', tag: RULE_NOT_CARRIED_TAG };
+    result.findings.push({
+      code: 'coupon-plugin-rule-held',
+      couponCode: code,
+      redeemableAtSource: result.classification.redeemable,
+      rules: pluginRules.notCarried.map(({ metaKey, meaning, plugin }) => ({ metaKey, meaning, plugin })),
+    });
+  }
+  return result;
+}
+
+// The cutover task for coupons written switched off because a plugin rule could not be carried
+// Merge by `code` into the createCompletionReport() input's operatorActions.
+// One row; affectedIds are the coupon CODES, which is what the operator finds in Business Manager.
+function couponOperatorActions({ mappings = [] } = {}) {
+  const held = (mappings || []).filter((m) => m && m.hold && m.hold.reason === 'plugin-rule-not-carried' && m.specification);
+  if (held.length === 0) return [];
+  const codes = [...new Set(held.map((m) => String(m.specification.code)))].sort();
+  const redeemable = held.filter((m) => m.classification && m.classification.redeemable).map((m) => String(m.specification.code));
+  const details = held.map((m) => ({
+    code: String(m.specification.code),
+    redeemableAtSource: Boolean(m.classification && m.classification.redeemable),
+    rules: m.pluginRules.notCarried.map(({ metaKey, meaning, plugin }) => ({ metaKey, meaning, plugin })),
+  })).sort((a, b) => a.code.localeCompare(b.code));
+  return [{
+    code: 'coupon-plugin-rule-held',
+    actionId: 'coupon-plugin-rule-held',
+    severity: redeemable.length > 0 ? 'high' : 'low',
+    entity: 'stores/coupon',
+    role: 'cutover-operator',
+    action: `These coupons had a rule from a coupon plugin that Wix coupons cannot hold (a free gift, a shipping, payment, role or location limit, an automatic apply, or a product limit). They were imported switched off and tagged ${RULE_NOT_CARRIED_TAG}. In Business Manager → Marketing → Coupons, switch each one on as it is, change it, or leave it off.${redeemable.length ? ` ${redeemable.length} of them could still be used on the old store.` : ''}`,
+    consequence: 'Until switched on, customers cannot use these codes on Wix.',
+    deadlineReason: 'Before the DNS switch: live codes stop working at cutover until the operator acts.',
+    resolutionEvidence: 'Each listed coupon\'s active state on Wix matches the operator\'s recorded choice, or the operator dismisses it.',
+    affectedCount: codes.length,
+    affectedIds: codes,
+    details,
+  }];
+}
+
 // The exhaustive sweep. `fetchPage(page)` -> { items, total } where `total` is the
 // X-WP-Total header; runs until an EMPTY page (or, with the header present, a short one), and
 // refuses to report a denominator that disagrees with the header -- a one-page sweep reporting 100
@@ -437,4 +635,4 @@ async function sweepCoupons(fetchPage, { perPage = 100, maxPages = 1000 } = {}) 
   return { coupons: unique, headerTotal, duplicatesDropped: all.length - unique.length };
 }
 
-module.exports = { OUTCOMES, TYPE_MAP, FINDINGS, classifyCoupon, summarizeCoupons, mapCouponToWix, sweepCoupons, tallyCouponWriteOutcomes };
+module.exports = { OUTCOMES, TYPE_MAP, FINDINGS, RULE_NOT_CARRIED_TAG, classifyCoupon, summarizeCoupons, mapCouponToWix, evaluateCouponPluginRules, couponOperatorActions, sweepCoupons, tallyCouponWriteOutcomes };

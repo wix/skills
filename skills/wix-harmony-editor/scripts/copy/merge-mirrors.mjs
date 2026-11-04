@@ -6,7 +6,7 @@
 // A capture takes ~25 s per page: split a long URL list over several directories, run them at once, merge.
 // resources / embeds: the first entry for a URL wins; pages and captured are unioned; bodies (named by hash)
 // are copied when missing. <intoDir> may be one of the sources' ancestors' mirror: it is created if absent.
-import fs from 'fs';
+import fs from 'node:fs';
 
 const [into, ...from] = process.argv.slice(2);
 if (!into || !from.length) { console.error('usage: merge-mirrors.mjs <intoDir> <fromDir...>'); process.exit(2); }

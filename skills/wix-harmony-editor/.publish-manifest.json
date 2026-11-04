@@ -1,8 +1,8 @@
 {
   "bundle": "wix-harmony-editor",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "sourceRepo": "wix-private/replatform",
   "sourcePath": "skills/wix-harmony-editor/",
-  "sourceCommit": "6bde03f",
-  "publishedAt": "2026-10-22T22:14:11Z"
+  "sourceCommit": "9566899",
+  "publishedAt": "2026-11-03T11:17:58Z"
 }

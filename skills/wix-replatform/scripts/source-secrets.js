@@ -14,6 +14,8 @@ function usage() {
     '  node skills/wix-replatform/scripts/source-secrets.js resolve --env-file <path> --wix-env-file <path> --keys <A,B> --project <name> [--meta-site-id <id>] [--no-create-placeholders]',
     '',
     'Outputs only key names and statuses. Secret values are never printed.',
+    'Exit codes: 0 every key is usable locally (ok: true); 2 a key still needs the user (needsUser: true,',
+    'request only unresolvedKeys); 1 a vault read/create failed or the arguments are invalid.',
     '',
     'Example (confirm a hydration without opening the env file):',
     '  node skills/wix-replatform/scripts/source-secrets.js resolve --env-file migrations/<project>/config/source.env --wix-env-file migrations/<project>/config/wix.env --keys WP_USERNAME,WP_APPLICATION_PASSWORD --project <project>',
@@ -64,7 +66,8 @@ async function main() {
   });
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  process.exit(result.ok ? 0 : 1);
+  const vaultError = Object.values(result.keys).some((item) => item.status === 'unreadable' || item.status === 'failed');
+  process.exit(result.ok ? 0 : vaultError ? 1 : 2);
 }
 
 if (require.main === module) {

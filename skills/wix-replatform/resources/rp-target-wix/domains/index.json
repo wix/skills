@@ -53,7 +53,7 @@
           "classification": "native",
           "reliabilityStatus": "unknown",
           "reliabilityFlags": [],
-          "summary": "sendSmsReminder has 'Default: true' on both Create Booking and Bulk Create Booking (read 2026-08-16). This is the inverse of every other notification control the KB has met - events/rsvp's disableNotifications and this API's own participantNotification.notifyParticipants both default to OFF, so a generated payload built from the required-field list alone is SAFE there and UNSAFE here. Omitting the flag opts every migrated customer into an SMS to their real phone number. Every create call in the generated script must set sendSmsReminder:false explicitly, and the script's own test must assert its presence on every element of a bulk request, not just the first."
+          "summary": "sendSmsReminder has 'Default: true' on both Create Booking and Bulk Create Booking (read 2026-08-16), the inverse of events/rsvp's disableNotifications and this API's own participantNotification.notifyParticipants. Sending sendSmsReminder:false is harmless; it is not required. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
         },
         "service-add-on": {
           "path": "domains/bookings/entities/service-add-on.json",
@@ -61,7 +61,7 @@
           "classification": "native",
           "reliabilityStatus": "unknown",
           "reliabilityFlags": [],
-          "summary": "Create Add On declares durationInMinutes and maxQuantity as a required ONE-OF: every add-on is EITHER duration-based (durationInMinutes 1..1440, i.e. max 24 hours) OR quantity-based (maxQuantity 1..9999), never both and never neither. A source extra that is conceptually both ('add 30 minutes, up to 3 times') cannot be expressed as one add-on and must be split or ledgered. The two kinds also behave differently at booking time: for duration-based add-ons quantity is not applicable - passing quantity 1 is accepted but silently cleared, and any other value returns INVALID_ARGUMENT with the message 'Invalid AddOn details: either duration or quantity must be set correctly'."
+          "summary": "Create Add On declares durationInMinutes and maxQuantity as a required ONE-OF: every add-on is EITHER duration-based (durationInMinutes 1..1440, i.e. max 24 hours) OR quantity-based (maxQuantity 1..9999), never both and never neither. A source extra that is conceptually both ('add 30 minutes, up to 3 times') cannot be expressed as one add-on and must be split or ledgered. The two kinds also behave differently at booking time: for duration-based add-ons quantity is not applicable - passing quantity 1 is accepted but silently cleared, and any other value returns INVALID_ARGUMENT with the message 'Invalid AddOn details: either duration or quantity must be set correctly'. LIVE 2026-10-27 (throwaway site, muted): a create carrying BOTH durationInMinutes and maxQuantity is ACCEPTED (200) and silently keeps only durationInMinutes. importBookingsAddOn therefore refuses a both-kinds body before sending; the split is a mapping decision."
         },
         "service": {
           "path": "domains/bookings/entities/service.json",
@@ -109,6 +109,14 @@
       "displayName": "Wix CRM",
       "ownerHint": "Contacts, labels, extended fields, and subscription-consent domain owners",
       "entities": {
+        "contact-label": {
+          "path": "domains/crm/entities/contact-label.json",
+          "displayName": "Labels on a contact",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "VERIFIED LIVE 2026-10-27 : update-tags stores a tag id that does not exist (e.g. 'zzzzz'). Tag ids come only from read-back crm/label records via the readiness grant."
+        },
         "contact": {
           "path": "domains/crm/entities/contact.json",
           "displayName": "CRM Contact",
@@ -267,7 +275,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "Backdating is not documented either way. Historical events are the common migration case, so confirm a past startDate is accepted before promising event history; if rejected, past events fall back to CMS."
+          "summary": "VERIFIED LIVE 2026-10-27: a past startDate is accepted on create, as a draft and as a published event (status ENDED, registration CLOSED_AUTOMATICALLY). Historical events import natively."
         },
         "registration-form": {
           "path": "domains/events/entities/registration-form.json",
@@ -283,7 +291,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "RSVP creation emails the guest a confirmation unless disableNotifications is set — the domain's registration-notifications-default-on pitfall. An import that forgets the flag mass-mails migrated guests. importSafe is false until the generated script provably sets it on every call AND the suppression itself is proven."
+          "summary": "RSVP creation emails the guest a confirmation unless disableNotifications is set (the domain's registration-notifications-default-on pitfall). Setting disableNotifications:true is harmless; it is not required. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
         },
         "ticket-definition": {
           "path": "domains/events/entities/ticket-definition.json",
@@ -306,7 +314,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "OBSERVED 2026-08-16, full method-parameter list of Create Submission read end to end: the call accepts exactly `submission`, `additionalMetadata` and `captchaToken`. There is NO disableNotifications, no suppressNotifications, no flowControlSettings, no participantNotification, and no `sendEmail`-style toggle anywhere on the Form Submissions surface; the words 'notification' and 'email' do not appear on the Create Submission, Submission Object, Confirm Submission or Form Submissions Introduction pages at all. What IS documented: creating a submission fires the `Submission Created` domain event, and the Form Schemas glossary defines 'post-submission trigger' as 'automated actions that are executed after a form submission is received' — i.e. the Wix Automations hook that the default 'new form submission' owner email rides on. Suppression therefore cannot be proven from the docs, so importSafe stays false, exactly as for events/rsvp. The only control we have is the site-wide MuteSite policy, which is not a per-call flag, is applied by default only to newly created target sites, and has not been verified to cover the Automations email path. PARTIAL LIVE DATA POINT 2026-09-16: MuteSite was applied before a bulk historical import through this endpoint (one single test submission first, then the full batch) and no notification complaint was raised — but no inbox check covered every record, so this is supporting evidence for MuteSite as the mitigation, not proof Create Submission is itself silent. Keep muting for any future bulk write through this endpoint until a dedicated probe (a throwaway form + a mailbox checked in real time) settles the underlying question."
+          "summary": "VERIFIED LIVE 2026-10-26: Create Submission has no notification control (only submission, additionalMetadata, captchaToken) and fires Submission Created, the trigger of the form's automations. With the site muted, an API-created entry STILL emailed the site owner: the per-form 'New submission received' automation is a transactional email that mute does not cover. With that automation and the preinstalled site-wide one set INACTIVE, no email was sent. Contact-facing notifications remain covered by site mute. The entries import pauses the form's automations first (pauseFormAutomations), best-effort: a failed pause never holds or delays the entries."
         },
         "form": {
           "path": "domains/forms/entities/form.json",
@@ -337,7 +345,7 @@
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
-          "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder."
+          "summary": "Omit `giftCard.notificationInfo` entirely on import. Including it emails the recipient — immediately when `notificationDate` is empty — so a historical import would re-mail every card holder. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity. Omitting notificationInfo is still the simplest payload."
         }
       }
     },
@@ -401,7 +409,7 @@
           "reliabilityFlags": [
             "IMPORT_UNRELIABLE"
           ],
-          "summary": "VERIFIED LIVE 2026-08-16: safe mode cannot import members at all today. `mockEmailForEntity` (rp-target-wix/lib/wix-writers.js) mints `replatform+<type>_<id>@wix.com`, and POST /members/v1/members rejects that domain with 400 INVALID_EMAIL_DOMAIN — so a safe-mode member import fails wholesale on the first record. The bug hid because Contacts V5 ACCEPTS @wix.com (existing test contacts use it), so only the Members surface trips it. A reserved-TLD address (RFC 2606 `.invalid`) was accepted by other surfaces in the same probe session and is the obvious candidate, but changing the safe-mode address format alters what gets written to a customer's site on every entity, not just members — it needs an explicit decision, not a silent lib patch. Until then: treat safe mode + member import as unsupported and say so in the plan rather than discovering it mid-run."
+          "summary": "VERIFIED LIVE 2026-08-16: POST /members/v1/members rejects a `@wix.com` loginEmail with 400 INVALID_EMAIL_DOMAIN, although Contacts V5 accepts that domain. Never mint a synthetic member email on @wix.com. The reserved `.invalid` TLD was accepted by other surfaces in the same probe session but is NOT live-verified for Create Member: the first synthetic author or fallback member a run creates must record whether Members accepted it."
         }
       }
     },
@@ -416,7 +424,7 @@
           "classification": "native",
           "reliabilityStatus": "unknown",
           "reliabilityFlags": [],
-          "summary": "STILL UNPROVEN after a live probe (2026-08-16) — importSafe deliberately stays false. Create Offline Order documents no member-notification behavior and has no suppress/silent flag (the request is only planId, memberId, paid, startDate, couponCode, submissionId), while the sibling Mark As Paid explicitly documents that offline payments 'trigger events and emails'. The 2026-08-16 probe created a real offline order with paid:true and observed NOTHING that indicates an email either way — but the observation is worthless as proof of silence for two independent reasons: (a) the target site was under a site-wide notification mute for the whole probe, which by design suppresses all notifications to all recipients on all channels, so no email could have been sent regardless of the API's default behavior; and (b) the probe member's address was deliberately undeliverable (example.invalid), and there is no Wix read API that lists emails a site has sent, so even unmuted there would have been nothing to inspect. Absence of evidence here is an artifact of the method, not a finding. See notification-proof-requirements for what would actually settle it."
+          "summary": "Create Offline Order documents no member-notification behavior and has no suppress flag (request: planId, memberId, paid, startDate, couponCode, submissionId); the sibling Mark As Paid documents that offline payments 'trigger events and emails'. A 2026-08-16 probe on a muted site observed no email. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
         },
         "plan": {
           "path": "domains/pricing-plans/entities/plan.json",
@@ -515,7 +523,7 @@
           "classification": "native",
           "reliabilityStatus": "unknown",
           "reliabilityFlags": [],
-          "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on an anonymized verification environment 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data."
+          "summary": "A `robots` tag with `noindex` or `none` at site level stops search engines indexing the WHOLE site. A WordPress source in staging almost always carries site-wide noindex (blog_public = 0; verified live on an anonymized verification environment 2026-08-16, where every yoast_head_json.robots reported index: noindex). Copying the source's site-level robots value across would silently de-index the new Wix site. Never carry noindex; treat indexability as a launch decision, not migrated data. setSiteSeoTags never writes robots (exclusion site-noindex-refused), its builder refuses a new robots tag, and a robots tag the site already has is sent back verbatim - leaving it out of the full-replacement PATCH would make the site indexable, which is equally a launch decision. Every write also emits the operator action site-indexing-launch-decision."
         }
       }
     },
@@ -531,6 +539,14 @@
           "reliabilityStatus": "reliable",
           "reliabilityFlags": [],
           "summary": "`fields.paths[]` is destructive in one direction: a property NAMED in the mask but ABSENT from `businessContact` is CLEARED. Migrating only an address therefore means sending paths ['address'] and nothing more -- adding 'email','phone','fax' to be thorough wipes contact details the merchant may already have entered by hand. Build the mask from the payload's own keys. Wix's own documented example is itself unsafe to copy: it lists 'businessSchedule' in paths while sending none."
+        },
+        "locale": {
+          "path": "domains/site/entities/locale.json",
+          "displayName": "Site Locale (payment currency, time zone, language, locale)",
+          "classification": "setup-config",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "Update Business Region stored fabricated currency and time-zone strings exactly as sent, and a three-letter language was also stored. Validate currency against ISO 4217, require an IANA-shaped time-zone name of at most 30 characters that Intl accepts, require a two-letter lowercase language and a language-region locale, then read every value back."
         }
       }
     },
@@ -544,10 +560,8 @@
           "displayName": "Back In Stock Notification Request",
           "classification": "native",
           "reliabilityStatus": "partially-reliable",
-          "reliabilityFlags": [
-            "target-write-not-yet-live-verified"
-          ],
-          "summary": "Creating a request 428s with REQUEST_COLLECTION_DISABLED unless Start Collecting Requests has been called for the site first. This is a one-time setup step, not a per-record concern — emit it as a setup requirement, not a per-row retry."
+          "reliabilityFlags": [],
+          "summary": "VERIFIED LIVE 2026-10-27: create answers 428 REQUEST_COLLECTION_DISABLED until Start Collecting Requests (POST .../settings/start-collecting { appId: Wix Stores }) has run; it is the setup step start-back-in-stock-collection, verified by Get Settings (a PUT with an empty body) showing collectingRequests true for the Stores app id. createBackInStockRequest rethrows the 428 with code BACK_IN_STOCK_COLLECTION_DISABLED: a setup failure, not a per-row retry. Collecting also shows the \"Notify When Available\" button on out-of-stock products."
         },
         "brand": {
           "path": "domains/stores/entities/brand.json",
@@ -583,6 +597,16 @@
           "reliabilityFlags": [],
           "summary": "Inventory requires target product and variant IDs."
         },
+        "product-bundle": {
+          "path": "domains/stores/entities/product-bundle.json",
+          "displayName": "Stores Product Bundle (app setup)",
+          "classification": "manual-mapping",
+          "reliabilityStatus": "partially-reliable",
+          "reliabilityFlags": [
+            "not-independently-verified-live"
+          ],
+          "summary": "Wix Stores has no bundle product type: Catalog V3 productType is PHYSICAL | DIGITAL only, with no composed-product entity, child-product reference or component-group field (product-object docs checked 2026-08-16). The bundle imports as a normal product with its own price and stock; the links to its parts are set up in a bundle app by the merchant."
+        },
         "product-customization": {
           "path": "domains/stores/entities/product-customization.json",
           "displayName": "Stores Product Customization",
@@ -598,6 +622,14 @@
           "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
           "summary": "Use the verified product FQDN and resolve tag IDs before attaching them to products."
+        },
+        "product-variant": {
+          "path": "domains/stores/entities/product-variant.json",
+          "displayName": "Stores Product Variant",
+          "classification": "native",
+          "reliabilityStatus": "reliable",
+          "reliabilityFlags": [],
+          "summary": "A Catalog V3 variant is created inside its product's write (product.variantsInfo.variants[]); there is no standalone variant import. Never map a source variation to its own import task: map it into the stores/product row, and let the product task produce the variant identities (createStoresProduct operationContracts.childOutputs)."
         },
         "product": {
           "path": "domains/stores/entities/product.json",
@@ -619,7 +651,7 @@
           "path": "domains/stores/entities/review.json",
           "displayName": "Product Review",
           "classification": "native",
-          "reliabilityStatus": "unknown",
+          "reliabilityStatus": "partially-reliable",
           "reliabilityFlags": [],
           "summary": "Every review needs a contact: Bulk Create requires reviews.author.contactId, and the Create Review introduction states the single-create method requires a contact ID too. Importing reviews therefore CREATES OR RESOLVES A CONTACT PER DISTINCT REVIEWER — a CRM side effect well beyond the catalog, and reviewers are frequently not customers. Resolve each reviewer by email through Query Contacts first, create only on miss, and disclose the contact count at the execution gate."
         },
@@ -728,6 +760,12 @@
     ],
     "wix:cmsReference": [
       "cms/reference"
+    ],
+    "woocommerce:customer_tag_assignment": [
+      "crm/contact-label"
+    ],
+    "wix:contact.labelKeys": [
+      "crm/contact-label"
     ],
     "woocommerce:customer": [
       "crm/contact",
@@ -906,6 +944,15 @@
     "wix:inventoryItem": [
       "stores/inventory-item"
     ],
+    "woocommerce:bundle-definition": [
+      "stores/product-bundle"
+    ],
+    "woocommerce:composite-definition": [
+      "stores/product-bundle"
+    ],
+    "shopify:bundle-variant": [
+      "stores/product-bundle"
+    ],
     "woocommerce:addon-field-group": [
       "stores/product-customization"
     ],
@@ -1021,6 +1068,17 @@
     "Wix Data reference fields": [
       "cms/reference"
     ],
+    "customer metadata": [
+      "crm/contact-label",
+      "crm/label"
+    ],
+    "segments": [
+      "crm/contact-label",
+      "crm/label"
+    ],
+    "Contacts": [
+      "crm/contact-label"
+    ],
     "/wc/v3/customers": [
       "crm/contact",
       "members/member"
@@ -1043,12 +1101,6 @@
     ],
     "Email Subscriptions API": [
       "crm/email-subscription"
-    ],
-    "customer metadata": [
-      "crm/label"
-    ],
-    "segments": [
-      "crm/label"
     ],
     "Contacts Labels": [
       "crm/label"
@@ -1222,6 +1274,9 @@
     "cms.reference": [
       "cms/reference"
     ],
+    "crm.contact-label": [
+      "crm/contact-label"
+    ],
     "crm.contact": [
       "crm/contact"
     ],
@@ -1351,6 +1406,9 @@
     "site.business-contact": [
       "site/business-contact"
     ],
+    "site.locale": [
+      "site/locale"
+    ],
     "commerce.back-in-stock-notifications": [
       "stores/back-in-stock-request"
     ],
@@ -1366,11 +1424,17 @@
     "commerce.inventory": [
       "stores/inventory-item"
     ],
+    "commerce.product-bundles": [
+      "stores/product-bundle"
+    ],
     "commerce.product-addon-fields": [
       "stores/product-customization"
     ],
     "commerce.catalog-product-tag": [
       "stores/product-tag"
+    ],
+    "commerce.products": [
+      "stores/product-variant"
     ],
     "commerce.catalog-product": [
       "stores/product"
@@ -1406,13 +1470,11 @@
     ],
     "not-independently-verified-live": [
       "sales-channels/amazon-shop-connect",
-      "sales-channels/ebay-shop-connect"
+      "sales-channels/ebay-shop-connect",
+      "stores/product-bundle"
     ],
     "no-internal-fqdn-match": [
       "sales-channels/ebay-shop-connect"
-    ],
-    "target-write-not-yet-live-verified": [
-      "stores/back-in-stock-request"
     ]
   }
 }

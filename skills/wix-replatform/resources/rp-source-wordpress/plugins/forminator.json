@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "plugin": "forminator",
+  "displayName": "Forminator",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/forminator/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "content.form-definitions",
+    "content.form-submissions"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "forminator/forminator"
+    ],
+    "assetPathSlugs": [
+      "forminator"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "form",
+      "capability": "content.form-definitions",
+      "channel": "db-only",
+      "recordKeyField": "ID",
+      "candidateTargetRefs": [
+        "forms/form"
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "[DOCUMENTED, third-party integrations verified against Forminator 1.57.3] A form is a `forminator_forms` post; its fields and settings are the post meta `forminator_form_meta`. Neither is exposed over REST. wix-wp-plugin-v2 reads the post rows from `posts`, filtered to this post type (a shared core table needs the filter).",
+          "declined": false,
+          "fulfillment": {
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "posts",
+            "sampleStructureRequest": {
+              "select": [
+                { "column": "ID" },
+                { "column": "post_title" },
+                { "column": "post_name" },
+                { "column": "post_status" },
+                { "column": "post_date_gmt" },
+                { "column": "post_modified_gmt" }
+              ],
+              "where": [
+                { "column": "post_type", "op": "eq", "value": "forminator_forms" }
+              ],
+              "orderBy": [
+                { "column": "ID", "direction": "asc" }
+              ]
+            }
+          }
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "definition-is-serialized-post-meta",
+          "severity": "warning",
+          "summary": "[DOCUMENTED] The post row carries only the form's title and status. Its fields (each with a stable `element_id` such as `name-1`, `email-1`), conditional logic and email settings are one PHP-serialized array in post meta `forminator_form_meta`. Add it to this entity's read plan as a key-scoped child component (`postmeta`, `eav-pivot-v1`, foreign key `post_id`, keys `{ \"forminator_form_meta\": \"scalar\" }`, required) per PLUGIN-READ-PLANS.md. Pin exactly that key: never run key discovery over the whole `postmeta` table for this entity. The form's display name is `settings.formName` inside the meta, falling back to the post title. Unserialize it in code, never by pattern matching."
+        },
+        {
+          "code": "emails-and-logic-do-not-carry",
+          "severity": "warning",
+          "summary": "Recreated forms keep their fields, not their notification emails or conditional logic: Wix Forms has no import surface for either. The forms import hands each one to cutover as an item the operator can resolve or dismiss."
+        },
+        {
+          "code": "quizzes-and-polls-are-other-post-types",
+          "severity": "info",
+          "summary": "[DOCUMENTED] Forminator quizzes (`forminator_quizzes`) and polls (`forminator_polls`) are separate post types and are not forms. This entity reads `forminator_forms` only."
+        }
+      ]
+    },
+    {
+      "entity": "entry",
+      "capability": "content.form-submissions",
+      "channel": "db-only",
+      "recordKeyField": "entry_id",
+      "candidateTargetRefs": [
+        "forms/form-submission"
+      ],
+      "relations": [
+        { "field": "form_id", "targetEntity": "form", "cardinality": "many-to-one" }
+      ],
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "[DOCUMENTED, third-party integrations verified against Forminator 1.57.3] Entries live in Forminator's own table `frmt_form_entry` (one row per entry), with each answer in `frmt_form_entry_meta`. No REST route exposes them. wix-wp-plugin-v2 reads the entry rows; the sample keeps form entries only (the table also holds quiz and poll entries).",
+          "declined": false,
+          "fulfillment": {
+            "kind": "structure-bridge-plugin",
+            "handlerId": "wix-wp-plugin-v2",
+            "table": "frmt_form_entry",
+            "sampleStructureRequest": {
+              "select": [
+                { "column": "entry_id" },
+                { "column": "entry_type" },
+                { "column": "form_id" },
+                { "column": "is_spam" },
+                { "column": "date_created" }
+              ],
+              "where": [
+                { "column": "entry_type", "op": "eq", "value": "custom-forms" }
+              ],
+              "orderBy": [
+                { "column": "entry_id", "direction": "asc" }
+              ]
+            }
+          }
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "answers-are-in-the-entry-meta-table",
+          "severity": "warning",
+          "summary": "[DOCUMENTED] The entry row has no answers. Each answer is a row of `frmt_form_entry_meta` (`entry_id`, `meta_key` = the form field's `element_id`, `meta_value`; complex answers such as name parts, checkboxes and uploads are PHP-serialized arrays). Add it to this entity's read plan as a child component (`eav-pivot-v1`, foreign key `entry_id`, keys from key discovery over that table, `required: false`) per PLUGIN-READ-PLANS.md. Keys starting with `_` or `forminator_addon_` are Forminator's own bookkeeping, not answers. An upload answer's leaves include the server's file path; map only its `file_url`."
+        },
+        {
+          "code": "source-spam-is-a-string-flag",
+          "severity": "warning",
+          "summary": "[DOCUMENTED] `is_spam` arrives as the string \"0\" or \"1\" (every bridge value is a string): compare with `=== '1'`, never a truthiness test, or every entry reads as spam. Entries with `is_spam === '1'` are not imported. They are the census sub-part `entity:plugin.forminator.entry/spam`: the operator approves that exclusion at the mapping review, and the importer reports it as an `exclusions[]` row (`reasonCode: source-flagged-spam`, the counted `censusId`), never a silent skip."
+        },
+        {
+          "code": "one-entry-table-for-every-form",
+          "severity": "warning",
+          "summary": "Every form's entries share one table, keyed by `form_id`. Filter the source rows to the form being imported AND resolve that same form's crosswalked target form id; assert the pairing before the first write (rp-source-wordpress SKILL.md, 'A submissions table shared by every form')."
+        },
+        {
+          "code": "entry-status-column-is-version-dependent",
+          "severity": "info",
+          "summary": "[DOCUMENTED] Newer Forminator versions add a `status` column (`active`, `pending` for an unpaid Stripe checkout, `spam`, drafts and abandoned entries); older rows and versions have none. It is not in the sample request, because naming a missing column fails the whole read. Check the live `/structure` columns before using it, and treat a missing status as `active`."
+        },
+        {
+          "code": "dates-are-site-local",
+          "severity": "info",
+          "summary": "[DOCUMENTED] `date_created` is stored in the site's local time with no zone. Convert with the source site's time zone (source-locale.json) before writing it anywhere as an instant."
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "[DOCUMENTED] Facts in this profile come from Forminator's documented storage, as used by third-party integrations verified against Forminator 1.57.3. None was read from a live Forminator site yet; confirm the table columns with the bridge `/structure` route on the first run and update this profile.",
+    "This profile claims both `content.form-definitions` (forms/form) and `content.form-submissions` (forms/form-submission). Old entries default to native Wix Forms entries; a private CMS archive is the operator's override, never a profile ref."
+  ]
+}

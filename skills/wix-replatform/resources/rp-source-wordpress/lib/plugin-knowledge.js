@@ -59,7 +59,17 @@ const RESERVED_FILES = new Set([
   'no-migration-needed.json',
   'fingerprint-aliases.json',
   'cms-fallback-eligible.json',
+  'cutover-task-only.json',
 ]);
+// Cutover work types (rp-execute-import SKILL.md, "Cutover coverage and general task types").
+const CUTOVER_WORK_TYPES = new Set(['manual-setup', 'missing-apps', 'changed-behavior', 'checks', 'review']);
+// Same actors as an rp-target-wix manual-mapping runbook (domain-knowledge.js MANUAL_STEP_ACTORS).
+const CUTOVER_STEP_ACTORS = new Set(['merchant', 'external', 'wix-automatable']);
+// Coupon meta rules a profile may declare. Each meaning has one fixed mapper action in
+// lib/coupon-discovery.js; the list is closed so a new coupon plugin needs data, never code.
+const COUPON_RULE_MEANINGS = new Set(['start-date', 'same-as-core', 'no-effect', 'restriction', 'gift', 'auto-apply']);
+const COUPON_RULE_CORE_FIELDS = new Set(['product_ids', 'product_categories', 'excluded_product_ids', 'excluded_product_categories']);
+const COUPON_RULE_SHAPES = new Set(['id-map-min-max', 'id-list']);
 const NO_MIGRATION_REASONS = new Set(['platform-does-it', 'not-needed', 'reconfigure-in-wix']);
 // Namespaces every WordPress or WooCommerce site advertises. Using one as a detection
 // signal makes a profile match every such site, which is a false positive, not a detection.
@@ -130,6 +140,14 @@ function loadCmsFallbackEligible(pluginsDir) {
   const filePath = path.join(pluginsDir, 'cms-fallback-eligible.json');
   if (!fs.existsSync(filePath)) return { capabilities: [] };
   return { capabilities: [], ...readJson(filePath) };
+}
+
+// The cutover-task-only register: plugins with no data to move whose function the
+// owner must redo on Wix. Each entry becomes a named Cutover Operator task, not "pending".
+function loadCutoverTasks(pluginsDir) {
+  const filePath = path.join(pluginsDir, 'cutover-task-only.json');
+  if (!fs.existsSync(filePath)) return { tasks: [] };
+  return { tasks: [], ...readJson(filePath) };
 }
 
 // The fingerprint alias map: public evidence token -> plugin name. Names only —
@@ -327,6 +345,8 @@ function validateEntity(entity, label, errors, seenEntities) {
     if (!SEVERITIES.has(pitfall.severity)) errors.push(`${label}: invalid pitfall severity ${pitfall.severity}`);
     if (!pitfall.code || !pitfall.summary) errors.push(`${label}: pitfalls need code and summary`);
   }
+  // Redirect-map storage (format, bare tables) lives with the provider code that reads it.
+  require('./wp-redirect-sources.js').validateRedirectSource(entity, label, errors);
   validateBlockedEntries(entity.blocked, label, errors);
   for (const [index, pitfall] of (entity.pitfalls || []).entries()) {
     validateBlockedEntries(pitfall.blocked, `${label} pitfalls[${index}]`, errors);
@@ -539,6 +559,29 @@ function validateProfile(profile, slug, label, errors) {
     }
   }
 
+  validateCouponRules(profile.couponRules, label, errors);
+  if (profile.appliedOffers !== undefined) {
+    const offers = profile.appliedOffers;
+    if (!offers || typeof offers.lineMetaKey !== 'string' || !offers.lineMetaKey.trim()) errors.push(`${label}: appliedOffers.lineMetaKey is required`);
+    if (offers && offers.orderFreeShippingMetaKey !== undefined && (typeof offers.orderFreeShippingMetaKey !== 'string' || !offers.orderFreeShippingMetaKey.trim())) {
+      errors.push(`${label}: appliedOffers.orderFreeShippingMetaKey must be a non-empty string`);
+    }
+  }
+  if (detect.addOnPluginFileIds !== undefined) {
+    if (!Array.isArray(detect.addOnPluginFileIds) || detect.addOnPluginFileIds.some((id) => typeof id !== 'string' || !id.trim())) {
+      errors.push(`${label}: detect.addOnPluginFileIds must be an array of plugin file ids`);
+    } else {
+      const own = new Set((detect.pluginFileIds || []).map((id) => id.split('/')[0]));
+      for (const id of detect.addOnPluginFileIds) {
+        if (own.has(id.split('/')[0])) errors.push(`${label}: detect.addOnPluginFileIds ${id} is this profile's own plugin`);
+      }
+    }
+  }
+  // Required lazily: plugin-data-presence -> wp-redirect-sources -> plugin-knowledge.
+  const presenceRules = require('./plugin-data-presence.js');
+  presenceRules.validateDataPresence(profile.dataPresence, label, errors);
+  presenceRules.validateDataLocation(profile.dataLocation, label, errors, { required: profile.dataPresence !== undefined });
+
   for (const rule of profile.dataRoutePatterns || []) {
     if (!rule.pattern || !rule.reason) errors.push(`${label}: dataRoutePatterns entries need pattern and reason`);
     if (rule.pattern && !wildcardKeepsScope(rule.pattern)) {
@@ -553,6 +596,82 @@ function validateProfile(profile, slug, label, errors) {
       errors.push(`${label}: credentials entries need key and description`);
     }
   }
+}
+
+function validateCouponRules(rules, label, errors) {
+  if (rules === undefined) return;
+  if (!Array.isArray(rules) || rules.length === 0) {
+    errors.push(`${label}: couponRules must be a non-empty array when present`);
+    return;
+  }
+  const seen = new Set();
+  rules.forEach((rule, i) => {
+    const at = `${label} couponRules[${i}]`;
+    if (!rule || typeof rule.metaKey !== 'string' || !rule.metaKey.trim()) {
+      errors.push(`${at}: metaKey is required`);
+      return;
+    }
+    if (seen.has(rule.metaKey)) errors.push(`${at}: metaKey ${rule.metaKey} is declared twice`);
+    seen.add(rule.metaKey);
+    if (!COUPON_RULE_MEANINGS.has(rule.meaning)) {
+      errors.push(`${at}: meaning ${rule.meaning} is not one of ${[...COUPON_RULE_MEANINGS].join(', ')}`);
+    }
+    if (rule.meaning === 'same-as-core') {
+      if (!COUPON_RULE_CORE_FIELDS.has(rule.coreField)) errors.push(`${at}: same-as-core needs coreField, one of ${[...COUPON_RULE_CORE_FIELDS].join(', ')}`);
+      if (!COUPON_RULE_SHAPES.has(rule.shape)) errors.push(`${at}: same-as-core needs shape, one of ${[...COUPON_RULE_SHAPES].join(', ')}`);
+    } else if (rule.coreField !== undefined || rule.shape !== undefined) {
+      errors.push(`${at}: coreField/shape apply only to same-as-core`);
+    }
+    if (rule.inertValues !== undefined && !Array.isArray(rule.inertValues)) errors.push(`${at}: inertValues must be an array`);
+  });
+}
+
+// Cross-profile checks for couponRules and addOnPluginFileIds: a coupon meta key has one owner, and an
+// add-on is claimed by one profile and is never another profile's own plugin.
+function validateCrossProfileClaims(profiles, errors) {
+  const metaOwners = new Map();
+  const addOnOwners = new Map();
+  const ownDirs = new Map();
+  for (const profile of profiles) {
+    for (const id of profile.detect?.pluginFileIds || []) ownDirs.set(id.split('/')[0], profile.plugin);
+  }
+  for (const profile of profiles) {
+    for (const rule of Array.isArray(profile.couponRules) ? profile.couponRules : []) {
+      if (!rule || !rule.metaKey) continue;
+      if (metaOwners.has(rule.metaKey) && metaOwners.get(rule.metaKey) !== profile.plugin) {
+        errors.push(`plugins/${profile.plugin}.json: coupon metaKey ${rule.metaKey} is already declared by ${metaOwners.get(rule.metaKey)}`);
+      }
+      metaOwners.set(rule.metaKey, profile.plugin);
+    }
+    for (const id of Array.isArray(profile.detect?.addOnPluginFileIds) ? profile.detect.addOnPluginFileIds : []) {
+      const dir = String(id).split('/')[0];
+      if (addOnOwners.has(dir) && addOnOwners.get(dir) !== profile.plugin) {
+        errors.push(`plugins/${profile.plugin}.json: add-on ${id} is already claimed by ${addOnOwners.get(dir)}`);
+      }
+      addOnOwners.set(dir, profile.plugin);
+      if (ownDirs.has(dir) && ownDirs.get(dir) !== profile.plugin) {
+        errors.push(`plugins/${profile.plugin}.json: add-on ${id} has its own profile (${ownDirs.get(dir)})`);
+      }
+    }
+  }
+}
+
+// Every profile's coupon meta rules, flattened, each tagged with its owning plugin. The coupon
+// mapper defaults to this list (lib/coupon-discovery.js).
+function buildCouponRules(pluginsDir = pluginsRoot()) {
+  const rules = [];
+  for (const profile of loadProfiles(pluginsDir)) {
+    for (const rule of profile.couponRules || []) rules.push({ ...rule, plugin: profile.plugin, displayName: profile.displayName });
+  }
+  return rules;
+}
+
+// Every profile's applied-offer markers (order meta a cart-offer plugin leaves on the lines it
+// added), for lib/applied-offer-summary.js.
+function buildAppliedOfferMarkers(pluginsDir = pluginsRoot()) {
+  return loadProfiles(pluginsDir)
+    .filter((profile) => profile.appliedOffers && profile.appliedOffers.lineMetaKey)
+    .map((profile) => ({ plugin: profile.plugin, displayName: profile.displayName, ...profile.appliedOffers }));
 }
 
 // Cross-adapter integrity: candidateTargetRefs must resolve in the Wix target knowledge
@@ -782,6 +901,9 @@ function validateCmsFallbackEligible({
     if (noMigrationCapabilities.has(entry.capability)) {
       errors.push(`${label}: also listed in no-migration-needed.json capabilities[] — "nothing to move" and "archive the records in CMS" are contradictory verdicts; keep one`);
     }
+    // This register is the DEFAULT fallback only. An operator who wants CMS for a natively
+    // claimed capability records a per-migration `mappingTargetOverride:<capability>` answer
+    // (lib/plugin-cms-fallback.js); it never needs, or adds, an entry here.
     if (capabilityRefs && capabilityRefs.has(entry.capability)) {
       errors.push(`${label}: a Wix target entity now claims this capability; a native target exists, so the CMS eligibility is stale and must be removed`);
     }
@@ -811,6 +933,63 @@ function validateNoMigrationNeeded(pluginsDir, profiles, errors) {
     if (profileSlugs.has(hint.slug)) {
       errors.push(`${label}: this slug also has a full profile; keep the verdict in one place`);
     }
+  }
+}
+
+// Every register keyed by plugin slug, checked together so one slug has exactly one answer:
+// a profile, a no-migration-needed hint, a core-covered entry, a toolkit entry, or a cutover task.
+function validateSlugRegisters(pluginsDir, profiles, errors) {
+  const nmn = loadNoMigrationNeeded(pluginsDir);
+  const owners = new Map();
+  const claim = (slug, where) => {
+    if (!owners.has(slug)) owners.set(slug, []);
+    owners.get(slug).push(where);
+  };
+  for (const profile of profiles) if (profile && profile.plugin) claim(profile.plugin, 'a profile');
+  for (const hint of nmn.hints || []) if (hint && hint.slug) claim(hint.slug, 'no-migration-needed.json hints[]');
+  for (const entry of nmn.coreCovered || []) {
+    const label = `no-migration-needed.json coreCovered[${entry && entry.slug}]`;
+    if (!entry || !entry.slug) { errors.push('no-migration-needed.json: every coreCovered[] entry needs a slug'); continue; }
+    claim(entry.slug, 'no-migration-needed.json coreCovered[]');
+    if (!entry.does) errors.push(`${label}: needs a plain-language "does"`);
+    if (!Array.isArray(entry.coreNamespaces) || entry.coreNamespaces.length === 0
+      || entry.coreNamespaces.some((ns) => typeof ns !== 'string' || !SHARED_NAMESPACES.has(ns))) {
+      errors.push(`${label}: coreNamespaces must list core namespaces the adapter reads (${[...SHARED_NAMESPACES].join(', ')})`);
+    }
+  }
+  for (const entry of nmn.toolkitPlugins || []) {
+    const label = `no-migration-needed.json toolkitPlugins[${entry && entry.slug}]`;
+    if (!entry || !entry.slug) { errors.push('no-migration-needed.json: every toolkitPlugins[] entry needs a slug'); continue; }
+    claim(entry.slug, 'no-migration-needed.json toolkitPlugins[]');
+    if (!entry.does) errors.push(`${label}: needs a plain-language "does"`);
+    if (!entry.decidedBy || !entry.decidedOn) errors.push(`${label}: needs decidedBy and decidedOn — leaving a plugin out of the report is a signed decision`);
+  }
+  for (const entry of loadCutoverTasks(pluginsDir).tasks || []) {
+    const label = `cutover-task-only.json[${entry && entry.slug}]`;
+    if (!entry || !entry.slug) { errors.push('cutover-task-only.json: every entry needs a slug'); continue; }
+    claim(entry.slug, 'cutover-task-only.json');
+    for (const field of ['displayName', 'does', 'task', 'doneWhen', 'provenance']) {
+      if (typeof entry[field] !== 'string' || !entry[field].trim()) errors.push(`${label}: needs ${field}`);
+    }
+    if (!CUTOVER_WORK_TYPES.has(entry.workType)) {
+      errors.push(`${label}: invalid workType ${entry.workType} — one of ${[...CUTOVER_WORK_TYPES].join(', ')}`);
+    }
+    if (!entry.decidedBy || !entry.decidedOn) errors.push(`${label}: needs decidedBy and decidedOn (unsigned entries are ignored at runtime)`);
+    const steps = entry.manualSteps && entry.manualSteps.steps;
+    if (!Array.isArray(steps) || steps.length === 0) {
+      errors.push(`${label}: manualSteps.steps must be a non-empty array`);
+    } else {
+      steps.forEach((step, index) => {
+        if (!step || !CUTOVER_STEP_ACTORS.has(step.actor)) errors.push(`${label}: manualSteps.steps[${index}].actor must be one of ${[...CUTOVER_STEP_ACTORS].join(', ')}`);
+        if (!step || typeof step.text !== 'string' || !step.text.trim()) errors.push(`${label}: manualSteps.steps[${index}].text must be a non-empty string`);
+      });
+    }
+  }
+  for (const [slug, places] of owners) {
+    // Duplicates inside one register are reported by that register's own check.
+    const distinct = Array.from(new Set(places));
+    if (distinct.length > 1) errors.push(`plugin slug ${slug} is listed in ${distinct.join(' and ')}; keep its answer in one place`);
+    else if (places.length > 1 && distinct[0] !== 'no-migration-needed.json hints[]' && distinct[0] !== 'a profile') errors.push(`${distinct[0]}: duplicate slug ${slug}`);
   }
 }
 
@@ -887,6 +1066,8 @@ function validateKnowledge(pluginsDir, { targetKnowledge = null } = {}) {
   }
 
   validateNoMigrationNeeded(pluginsDir, profiles, errors);
+  validateSlugRegisters(pluginsDir, profiles, errors);
+  validateCrossProfileClaims(profiles, errors);
   validateNoMigrationCapabilities({
     entries: loadNoMigrationCapabilities(pluginsDir),
     requiresDevelopmentCapabilities: new Set(
@@ -1107,6 +1288,9 @@ module.exports = {
   loadPendingDecisions,
   loadNoMigrationNeeded,
   loadNoMigrationCapabilities,
+  loadCutoverTasks,
+  validateSlugRegisters,
+  CUTOVER_WORK_TYPES,
   generateIndex,
   validateKnowledge,
   writeJson,
@@ -1120,6 +1304,10 @@ module.exports = {
   buildResponseEnvelopes,
   buildResponseFragmentGroups,
   buildRecordKeyFields,
+  buildCouponRules,
+  buildAppliedOfferMarkers,
+  validateCouponRules,
+  COUPON_RULE_MEANINGS,
   buildRequestOverrides,
   patternMatchesRoute,
   wildcardKeepsScope,

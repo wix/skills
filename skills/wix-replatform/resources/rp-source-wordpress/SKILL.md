@@ -67,7 +67,6 @@ empty values:
 WP_BASE_URL=
 WP_USERNAME=
 WP_APPLICATION_PASSWORD=
-WMH2_MIGRATION_KEY=
 WP_MEDIA_URL_REWRITE_FROM=
 WP_MEDIA_URL_REWRITE_TO=
 WC_CONSUMER_KEY=
@@ -82,19 +81,17 @@ the user which data scope they want:
 
 This choice is mandatory and must be explicit. Do not ask for `WP_USERNAME`,
 `WP_APPLICATION_PASSWORD`, or WooCommerce keys until the user chooses `also include
-private/authenticated data`. Request `WMH2_MIGRATION_KEY` only when bridge-backed entities
-are actually in scope and the detected source has no WooCommerce. Collect every sensitive
+private/authenticated data`. Collect every sensitive
 value through the secure Secrets Manager flow; do not ask the user to paste it into chat.
 
-There are two independent scopes, and a complete run may need both credentials:
-
-- **Private WordPress/WooCommerce REST** (`wp/v2`, `wc/v3`) requires a WordPress
-  Application Password (`WP_USERNAME` + `WP_APPLICATION_PASSWORD`).
-- **`wix-wp-plugin-v2` bridge reads** use the Application Password path only when
-  WooCommerce is present, because that route requires `manage_woocommerce`. When the
-  source has no WooCommerce, collect `WMH2_MIGRATION_KEY` for bridge reads instead. The
-  key is generated and shown once on the plugin's wp-admin page at activation or rotation.
-  It never authenticates ordinary `wp/v2` or `wc/v3` reads.
+One credential covers both private WordPress/WooCommerce REST (`wp/v2`, `wc/v3`) and
+`wix-wp-plugin-v2` bridge reads: a WordPress Application Password (`WP_USERNAME` +
+`WP_APPLICATION_PASSWORD`) for an administrator or a WooCommerce shop manager. The bridge
+(0.5.0+) admits `manage_options` or `manage_woocommerce`, so it works with or without
+WooCommerce; it has no key of its own. A site without WooCommerce running a bridge copy older
+than 0.5.0 answers 403 to every user; discovery reports `bridge_plugin_update_required` --
+ask the site owner to upload the current zip. An old env file that still has
+`WMH2_MIGRATION_KEY` is harmless: the value is ignored.
 
 Key sensitivity is predefined and does not change at runtime. Requiredness is separate
 and may depend on the selected acquisition mode or source behavior.
@@ -104,7 +101,6 @@ and may depend on the selected acquisition mode or source behavior.
 | `WP_BASE_URL` | non-sensitive | Required for URL-based capture |
 | `WP_USERNAME` | sensitive | Required for private/authenticated WordPress capture via Application Password |
 | `WP_APPLICATION_PASSWORD` | sensitive | Required for private/authenticated WordPress capture via Application Password |
-| `WMH2_MIGRATION_KEY` | sensitive | Required for `wix-wp-plugin-v2` bridge reads when the source has no WooCommerce; optional otherwise |
 | `WP_MEDIA_URL_REWRITE_FROM` | non-sensitive | Optional |
 | `WP_MEDIA_URL_REWRITE_TO` | non-sensitive | Optional |
 | `WC_CONSUMER_KEY` | sensitive | Optional unless WooCommerce rejects the WordPress Application Password for `wc/v3` reads |
@@ -114,20 +110,6 @@ Required for a complete WordPress/WooCommerce capture:
 
 - `WP_BASE_URL`
 - `WP_USERNAME` + `WP_APPLICATION_PASSWORD` when private REST-visible data is in scope
-- `WMH2_MIGRATION_KEY` additionally when bridge-backed entities are in scope and the
-  source has no WooCommerce
-
-⚠️ **`WMH2_MIGRATION_KEY` only unblocks the plugin's own `/structure` and `/query` routes**
-(`wix-wp-plugin-v2`'s `structure-bridge-plugin` entities — custom plugin tables with no REST
-route) — `wp-discovery.js`/`wix-wp-plugin-v2-client.js` sign requests with it
-automatically when the signed bridge path is selected. It does **not** authenticate
-standard WordPress/WooCommerce REST (`wp/v2`, `wc/v3`) at all — reading posts, pages,
-products, orders, customers, and every other REST-visible entity still requires the
-Application Password. On a source site with no WooCommerce, the Application Password routes
-are `manage_woocommerce`-gated and unusable by any user regardless, so the migration key is
-the only credential that reaches the bridge. If no separate WordPress REST credential is
-available, ordinary private content still cannot be captured through this adapter and needs
-another source API or export.
 
 `WC_CONSUMER_KEY` and `WC_CONSUMER_SECRET` are optional when WooCommerce accepts the
 WordPress Application Password for `wc/v3` reads; ask for them only if WooCommerce routes
@@ -236,6 +218,16 @@ describing status, name keys only and never echo values.
    `source-unreadable`). One unconfirmed picture defers the entire product gallery; continue
    with non-media product fields and follow `rp-import-codegen`'s ledger/recovery contract.
    Quick mode is unchanged and does not use this boundary.
+
+   **Inline post images resolved to media records.** When an extractor maps an inline `<img>` in
+   post content to its `wp/v2/media` record, look up the `wp-image-<id>` attachment id first
+   (`include=<ids>&per_page=100` chunks). A filename `search` fallback must read every page
+   (`per_page=100` up to `X-WP-TotalPages`, or until a short page): a common filename stem
+   returns more than one page, and a capped search silently drops the image. Compare the
+   record's `source_url` with `sameImageUrl` from `lib/wp-image-url.js`, never raw string
+   equality: post HTML and `source_url` can differ only in percent-encoding (non-Latin
+   filenames). An image still unmatched is listed as unresolved in the extract manifest, never
+   dropped.
 
    ⚠️ This is not optional on the public path just because `src` happens to be right there
    today. Same call, everywhere — a contract test pins the Store API no-op, so a change in
@@ -380,6 +372,7 @@ produces a row the user sees. Nothing is silently ignored.**
 | --- | --- | --- |
 | recognized | a profile matched | named entities, declared read channels, Wix target refs; mapping `confirmed` |
 | derived | no profile, data is REST-visible | derived from `wp/v2/types` + `wp/v2/taxonomies`, mapping `proposed` (CMS, or native on a domain-KB match) |
+| derived (bridge) | no profile, the plugin's own tables read under a project-local plan | one `derived:<plugin>` row from the canonical `plugin.<slug>.<entity>` entities, mapping `proposed` (native on a domain-KB match, with `cms/data-item` offered beside it) |
 | named only | detected, no read channel | *Pending* with its reason, resolved by the no-migration-needed list or at the review gate |
 
 A plugin therefore does not need a profile to migrate — it needs one to migrate *natively*.
@@ -447,9 +440,16 @@ the route classifier's `/redirection/*` exclusion is never evidence that no rule
   plugin are kept as `enabled: false` exclusions, never reactivated.
 - A failed, partial or channel-less read is `unreadable`, never `confirmed_empty`.
 
-Feed the reads to `node skills/wix-replatform/scripts/url-redirects.js sources --project
-<dir> --input <file.json>`; it appends `state/url-preservation/source-redirects.ndjson` and
-writes `source-redirect-coverage.json`. When declared source domains are present, it also
+**Capture is automatic.** The providers are plugin profiles (an entity with a `redirectSource`
+block; see `plugins/README.md`). When discovery detects one, it reads the declared tables in
+full through the bridge (paged to completion), normalizes them and appends
+`state/url-preservation/source-redirects.ndjson` and writes `source-redirect-coverage.json`;
+the plugin-coverage row reports the captured rule count, or an operator action when the read
+is not complete. Do not probe the tables by hand.
+
+For an operator-supplied export (Yoast Premium, or a failed bridge read), feed it to
+`node skills/wix-replatform/scripts/url-redirects.js sources --project <dir> --input
+<file.json>`; it records the capture the same way. When declared source domains are present, it also
 plans the captured destinations into the redirect audit and URL rewrite report. If domains
 are declared later, run `url-redirects.js import-targets --project <dir>` after that
 declaration. Capability evidence for a specific rule can be supplied in the source input's
@@ -545,8 +545,8 @@ Things that will bite:
   normalized enum — and note that a source's own spam/status flags being uniformly clean is
   not evidence the data is clean, only that the source never flagged it.
 - **A submissions table shared by every form needs the source form id on BOTH sides.** Form
-  plugins that keep one entries table (Forminator's is the shape seen live; it has no profile
-  in `plugins/` yet) key each row by the source form id, while the target form ids are minted
+  plugins that keep one entries table (Forminator's is the shape seen live; see
+  `plugins/forminator.json`) key each row by the source form id, while the target form ids are minted
   per form by the forms import. That is two lookups, not one: filter the source rows to the
   form being imported, **and** resolve that same form's crosswalked target id. Getting either
   side wrong writes real submissions onto the wrong target form and the create still succeeds
@@ -641,6 +641,20 @@ confidence `confirmed` or `proposed`), `no-need-to-migrate`, `pending`,
 `requires-development`. A failed or unavailable read is never a status — it attaches to the
 row as `blocked[]` (`user-file` / `surface-changed`, with a `declined` flag).
 
+**Checked, not guessed.** A profile may declare `dataPresence` checks (product meta
+values, post counts, shipping-class product counts, enabled shipping methods). Discovery runs them
+and stores the raw results in `plugin-coverage.json` `dataPresence` (reused by
+`--reclassify-coverage`). Every check `absent` → `no-need-to-migrate`, `basis: probe`,
+`reason: no-data-found`, with the counts as the row's text. An **inactive** plugin whose data is
+still there → `no-need-to-migrate`, `reason: inactive-leftover` (product decision: leftover data
+is not moved; same as inactive redirect rules). Any `unknown` check (no bridge, failed or truncated
+read) keeps the profile's normal path. Never report "no data" from a read you could not do.
+Both no-need outcomes also need the profile's `dataLocation.where` to be `wordpress`: a plugin
+that keeps data on a vendor's service (`external` / `both`) is never no-need and gets a cutover task
+"Data lives in `<service>`" listing the profile's known `options`, or "options unknown: research
+needed" (only a task: no `blocked[]` entry, no question, no stop); `unknown`
+or a missing field keeps the normal path.
+
 The split is deliberate: `pending` (we do not know how to migrate this yet — our open item)
 and `requires-development` (a human established Wix has no surface) call for different
 conversations. Only the second is a closed door, and only a human may open it — the
@@ -648,8 +662,8 @@ human-signed register `plugins/requires-development.json` is its single source.
 
 ### Interaction rules
 
-- **The admin Application Password is the source REST credential; `wix-wp-plugin-v2`'s
-  migration key is scoped to that bridge.** A plugin REST namespace that honours
+- **The admin Application Password is the source REST credential, including for
+  `wix-wp-plugin-v2`.** A plugin REST namespace that honours
   WordPress authentication works with the Application Password, and that is the normal
   case — plugins with their own key systems offer them as an *alternative* for external
   callers, not a requirement (verified for Gravity Forms, which accepts Application
@@ -657,9 +671,7 @@ human-signed register `plugins/requires-development.json` is its single source.
   "this plugin has API keys" as "we need another credential"; that reasoning has been
   wrong every time it was applied. If a plugin genuinely rejects the platform credential,
   that is a config-gate requirement like the WooCommerce consumer keys — not a
-  per-capability runtime state. For the structure bridge specifically, select the
-  Application Password path only when WooCommerce is present; otherwise use
-  `WMH2_MIGRATION_KEY`. Never describe that bridge-only key as private REST authentication.
+  per-capability runtime state.
 - `blocked[]` entries are collected and asked **once**, batched, each individually
   skippable. A `user-file` blocker means no *WordPress API* can reach it: unregistered post
   meta and plugin tables are invisible to REST, and Application Passwords cannot reach
@@ -746,6 +758,31 @@ An untracked product can still be explicitly in stock; `manage_stock:false` is n
 inventory. Use variation records for variable products; never replicate a parent's shared
 tracked quantity onto each child. Preserve `decision-needed` outcomes for missing signals,
 backorders, invalid quantities, and shared stock; do not turn them into an empty success.
+
+## Product bundles
+
+WPC Product Bundles (`woosb`, meta `woosb_ids`) and WPC Composite Products (`composite`, meta
+`wooco_components`) store a bundle in product meta. During canonical mapping call
+`lib/bundle-canonical.js` → `canonicalBundleFromWooProduct(record, { productsForRule })` for
+every product. When `hasBundleFields` is true, set canonical `product.bundle` to its `bundle`, or
+keep its `unreadableReason`; never drop either. Meta left on a product whose type is not `woosb` / `composite`
+returns `staleBundleMeta: true`: the source sells it as a plain product, so it is not a bundle;
+list those product ids in one `info` entry in `mapping-gaps.json`. Pass `productsForRule` to resolve a kit group
+sourced from categories or tags against the extracted catalog. Keep the record's own `price`
+unchanged (empty stays empty; never compute one from the parts). `CARRIED_META_KEYS` lists the
+meta keys whose field decision is `excluded` with `policyRef: "carried-to-cutover"`,
+`canonicalField: "product.bundle"`, `carriedBy: "stores/product-bundle"`. What Wix does with a
+bundle is the target's rule (`rp-target-wix` stores/product-bundle), not this adapter's.
+
+## Product videos
+
+Product videos live in product meta written by a plugin or the theme, not in `images[]`.
+`product-video-sources.json` lists the meta keys (TheGem `thegem_product_video`, Product Video
+Gallery `_nickx_video_text_url`, ...); add a source there, not in code. After the product extract,
+run `node scripts/product-videos.js plan --project <dir>`. It writes `execution/product-videos.json`:
+`attach[]` (video files, attached by the importer, see rp-import-codegen "Product videos") and
+`manual[]` (YouTube/Vimeo/other links: the completion report turns them into the
+`product-video-manual` Cutover Operator item). Never put a video URL in the product's image list.
 
 ## Read contract (codegen-time)
 
@@ -907,6 +944,14 @@ them from discovery's prose notes. `rp-import-codegen`'s read contract depends o
 these under exactly those `sourceMeta` keys; omitting them silently degrades a declared
 non-GET/fragmented read into an unreadable one downstream.
 
+WooCommerce/WordPress `meta_data[]` is a keyed list (`{id, key, value}`). Record it for
+mapping as one dynamic coverage entry, `{path: "meta_data[].value", dynamic: true,
+selector: {keyPath: "meta_data[].key"}, observedKeys: [...]}`, never as a blanket claim.
+The read-back inventory then counts each key separately (`meta_data[key="_yoast_wpseo_title"].value`)
+and lists nested plugin values below it. Keys such as `@type`, `@graph`, Hebrew labels or
+percent-encoded attribute slugs are kept exactly, quoted per `lib/source-location.js`
+(`yoast_head_json.schema["@graph"][]["@type"]`); never strip, rename or decode them.
+
 ## Coupons, coupon usage and the currency gate
 
 Three source-side decisions, each in a library so a generated importer supplies facts rather than
@@ -934,6 +979,14 @@ rules. Read `lib/coupon-discovery.js` and `lib/currency-gate.js`; both are pure.
   minimum spend on a product/collection-scoped coupon — is a **refusal** (`coupon-scope-unmappable`,
   reason `scope: constraints`): dropped, each would make the coupon more generous than the
   merchant published. Only a dropped amount on a free-shipping coupon stays a per-coupon finding.
+- **Coupon plugins' rules are profile data.** A coupon plugin (Smart Coupons, …) stores extra
+  rules as coupon meta. Its profile's `couponRules[]` names each key's meaning, and
+  `mapCouponToWix` acts on it: `start-date` sets `startTime`; `same-as-core` and `no-effect` change
+  nothing; `restriction` / `gift` / `auto-apply` write the coupon **switched off**, tagged
+  `Rule_Not_Carried`, with `result.hold` and one `coupon-plugin-rule-held` cutover task
+  (`couponOperatorActions`). Coupon meta no profile names is reported once per key
+  (`coupon-meta-unrecognized` in `summarizeCoupons`); the coupon still maps. To support a new
+  coupon plugin, add `couponRules[]` to its profile — never code here.
 - **Coupon usage rides on the order.** On legacy post storage the surface is the order's REST
   `coupon_lines[]` (each carrying
   `discount` per code); HPOS stores have `wc_order_coupon_lookup`. Name whichever was found as
@@ -968,3 +1021,23 @@ mangles this field is a store whose other currency-bearing fields are suspect to
 
 It never infers a code from a symbol. `$` is at least a dozen different currencies, and guessing
 one silently mislabels money.
+
+## Site locale facts: `source-locale.json`
+
+Discovery also writes `data/wp-discovery/source-locale.json` (promotion copies it to
+`discovery/source-locale.json`; a missing or invalid file refuses promotion). It records the
+store's currency, time zone, language and country through `lib/regional-capture.js`, which maps
+the settings JSON onto `buildSourceRegional`:
+
+| Neutral field | WordPress / WooCommerce source | Rule |
+| --- | --- | --- |
+| `paymentCurrency` | `woocommerce_currency` from `wc/v3/settings/general` (`readStoreCurrency`; the `data/store-settings-general.json` capture is reused) | never read from an order |
+| `timeZone` | `wp/v2/settings` `timezone` (`timezone_string`) | a site on a fixed `gmt_offset` has no zone: `unknown` / `not-exposed`, never an offset |
+| `language`, `locale` | `wp/v2/settings` `language` tag plus `woocommerce_default_country` | `he_IL` → language `he`, locale `he-IL`; otherwise the country part before the colon supplies the region |
+
+Per-order currency counts remain WooCommerce adapter evidence and do not enter the neutral locale record.
+
+A denied read (401/403) is `auth-gated`, a missing route (404) `not-exposed`, any other failure
+`unreadable`; none of them fails discovery. `wp/v2/settings` needs an administrator credential, so
+a run without one records language and time zone as `auth-gated`. The field names come from the
+WordPress and WooCommerce REST schemas; the first run against a store confirms them.

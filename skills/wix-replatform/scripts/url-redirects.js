@@ -139,37 +139,10 @@ async function main() {
   }
   if (args.mode === 'sources') {
     const { extractRedirectSources } = require('../resources/rp-source-wordpress/lib/wp-redirect-sources.js');
+    const { recordSourceRedirectCapture } = require('../lib/source-redirect-capture.js');
     const input = JSON.parse(await fs.readFile(path.resolve(args.input), 'utf8'));
-    const result = extractRedirectSources(input);
-    const capturedRules = result.rules.slice();
-    const existing = await state.loadSourceRedirects(projectDir);
-    const complete = result.coverage.providers.length > 0 &&
-      result.coverage.providers.every((row) => ['extracted', 'confirmed_empty'].includes(row.status));
-    if (complete) {
-      const present = new Set(result.rules.map((rule) => rule.ruleKey));
-      for (const prior of existing.latest) {
-        if (present.has(prior.ruleKey) || prior.disabledReason === 'removed_from_complete_capture') continue;
-        result.rules.push({ ...prior, enabled: false, disabledReason: 'removed_from_complete_capture',
-          extractedAt: result.coverage.generatedAt });
-      }
-    }
-    let appended = 0;
-    for (const rule of result.rules) {
-      const prior = existing.byKey[rule.ruleKey];
-      const same = prior && JSON.stringify({ ...prior, extractedAt: null }) === JSON.stringify({ ...rule, extractedAt: null });
-      if (!same) { await state.appendSourceRedirectRow(projectDir, rule); appended += 1; }
-    }
-    await state.writeStateJson(projectDir, 'sourceRedirectCoverage', result.coverage);
-    const sourceDomains = await state.loadStateJson(projectDir, 'sourceDomains');
-    if (sourceDomains) {
-      await importedTargets.planImportedRedirectTargets({ projectDir,
-        runId: args.run || input.runId || result.coverage.generatedAt,
-        captureRevision: result.coverage.generatedAt,
-        rules: importedTargets.adaptSourceRedirects(capturedRules, {
-          captureRevision: result.coverage.generatedAt, sourceDomains,
-        }), fullCapture: complete });
-    }
-    console.log(JSON.stringify({ rules: capturedRules.length, appended, coverage: result.coverage.providers.map((p) => ({ provider: p.provider, status: p.status, ruleCount: p.ruleCount })) }, null, 2));
+    const summary = await recordSourceRedirectCapture({ projectDir, result: extractRedirectSources(input), runId: args.run || input.runId || null });
+    console.log(JSON.stringify({ rules: summary.rules, appended: summary.appended, coverage: summary.coverage }, null, 2));
     return;
   }
 

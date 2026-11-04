@@ -14,7 +14,7 @@
 //
 // Deterministic: the same inputs give the same file. Anything it cannot decide is listed in
 // `review` for the agent (or a person) instead of guessed.
-import fs from 'fs';
+import fs from 'node:fs';
 import { openItems, pendingItems } from './desc-hash.mjs';
 import { normU, stripTracking } from './link-url.mjs';
 

@@ -37,6 +37,17 @@ exclusion must name an `excluded[]` entry of the committed contract, with its co
 capability); re-run `plan` to fix any of these. The summary carries `sourceCoverage[]` and
 `sourceCoverageStatus`.
 
+`preflight` also reads the storefront's `localization` (country, its currency, and language) once,
+best effort, and `plan` writes it to `discovery/source-locale.json` (adapter `quick-shopify`).
+The storefront API has no time zone, so that is an explicit `unknown`; a failed read leaves every
+regional value `unknown` and never blocks the plan.
+
+Setup does block until all four locale values are known. For any value the storefront does not
+expose, ask the merchant and edit that field in `discovery/source-locale.json` to
+`{"state":"supplied","value":"<validated value>","evidence":"merchant input","suppliedBy":"<operator>"}`.
+Then re-run `plan` and setup. The shared writer preserves a valid supplied value when the new
+public capture is still unknown; never substitute a Wix default or guess.
+
 `preflight` pages through the product and collection connections (completing any product whose
 variants, images, or collections exceed the first nested page) and stores the capture that
 `extract` reuses, before `plan` writes the authoritative quick plan and execution manifest. HTTP

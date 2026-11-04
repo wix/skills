@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wt-smart-coupons-for-woocommerce",
+  "displayName": "Smart Coupons For WooCommerce Coupons",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "https://wordpress.org/plugins/wt-smart-coupons-for-woocommerce/",
+  "distribution": "wordpress-org",
+  "capabilities": [
+    "commerce.coupons"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wt-smart-coupons-for-woocommerce/wt-smart-coupon.php"
+    ],
+    "recordProperties": [
+      "_wt_coupon_start_date",
+      "_wt_sc_coupon_products",
+      "_wt_free_product_ids"
+    ],
+    "assetPathSlugs": [
+      "wt-smart-coupons-for-woocommerce"
+    ]
+  },
+  "entities": [
+    {
+      "entity": "coupon-rule",
+      "capability": "commerce.coupons",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/coupons"
+      ],
+      "propertyPath": "_wt_coupon_start_date",
+      "candidateTargetRefs": [
+        "stores/coupon"
+      ],
+      "pitfalls": [
+        {
+          "code": "rules-wix-coupons-cannot-hold",
+          "severity": "warning",
+          "summary": "Coupons with a Smart Coupons rule Wix coupons cannot hold (a free gift product, a shipping, payment, user-role or location limit, a per-product quantity or subtotal limit, a maximum discount, or an automatic apply) are imported switched off, with a cutover task to switch each on, change it, or leave it off. A start date is carried exactly as the Wix coupon start time. Authoring note: the rules ride in wc/v3/coupons meta_data; this profile's couponRules[] is what lib/coupon-discovery.js acts on."
+        }
+      ]
+    }
+  ],
+  "couponRules": [
+    {
+      "metaKey": "_wt_coupon_start_date",
+      "meaning": "start-date"
+    },
+    {
+      "metaKey": "_wt_sc_coupon_products",
+      "meaning": "same-as-core",
+      "coreField": "product_ids",
+      "shape": "id-map-min-max"
+    },
+    {
+      "metaKey": "_wt_sc_coupon_categories",
+      "meaning": "same-as-core",
+      "coreField": "product_categories",
+      "shape": "id-map-min-max"
+    },
+    {
+      "metaKey": "_wt_min_matching_product_qty",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_max_matching_product_qty",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_min_matching_product_subtotal",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_max_matching_product_subtotal",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_sc_shipping_methods",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_sc_payment_methods",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_sc_user_roles",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_coupon_available_location",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_max_discount",
+      "meaning": "restriction"
+    },
+    {
+      "metaKey": "_wt_free_product_ids",
+      "meaning": "gift"
+    },
+    {
+      "metaKey": "_wt_sc_bogo_free_products",
+      "meaning": "gift"
+    },
+    {
+      "metaKey": "_wt_sc_bogo_free_categories",
+      "meaning": "gift"
+    },
+    {
+      "metaKey": "_wt_make_auto_coupon",
+      "meaning": "auto-apply"
+    },
+    {
+      "metaKey": "_wt_enable_product_category_restriction",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "wt_apply_discount_before_tax_calculation",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_use_individual_min_max",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_category_condition",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_product_condition",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_need_check_location_in",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wc_make_coupon_available",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_sc_bogo_customer_gets",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_sc_bogo_product_condition",
+      "meaning": "no-effect"
+    },
+    {
+      "metaKey": "_wt_sc_bogo_apply_frequency",
+      "meaning": "no-effect"
+    }
+  ],
+  "quirks": [
+    "VERIFIED on a real store's wc/v3/coupons sweep (2026-10-28, 4,311 coupons): the _wt_* keys appear on every coupon edited after install (46), mostly at defaults. _wt_sc_coupon_products / _wt_sc_coupon_categories mirror core product_ids / product_categories with empty min/max; only a non-empty min/max or a differing id set is a real extra rule.",
+    "_wt_category_condition / _wt_product_condition ('and'/'or') only change behaviour together with per-item min/max, which is itself a restriction; _wt_need_check_location_in only names which address _wt_coupon_available_location is checked against.",
+    "_wc_make_coupon_available lists where the coupon is DISPLAYED (my account, cart, checkout); it does not limit who can redeem it.",
+    "_wt_coupon_start_date is a site-local date (Y-m-d); it is carried as midnight UTC of that date, which can differ from site-local midnight by the site's UTC offset."
+  ]
+}

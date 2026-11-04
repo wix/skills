@@ -456,7 +456,36 @@ function applyPostMedia(richContent, result) {
 // must not re-import media or close pending state before Wix identity is checked.
 // Prefer the existing media ledger; a pre-ledger import supplies its local media
 // crosswalk through resolveFromCrosswalk without making a new Wix media write.
-async function existingPostMedia({ post, richContent, state, resolveFromCrosswalk } = {}) {
+// LIVE-FOUND: a legacy post whose inline image has no media row anywhere (never imported by any
+// earlier run) was held on every pass. With `wix`, such an inline image is imported now through the
+// same checkpointed path as a new post's (import, record `imported`, wait until READY): a resumed
+// pass picks up the recorded file instead of importing again. Without `wix`, as before, it stays
+// unresolved. Featured images and unresolvable URLs are never imported here.
+async function importMissingLegacyInline(wix, post, item, row, state, settle) {
+  if (!wix || item.kind !== 'inline' || item.unresolvable || !item.sourceUrl) return row;
+  let fileId = row && row.fileId && RESUMABLE.has(row.outcome) ? String(row.fileId) : null;
+  if (!fileId) {
+    let file;
+    // A rejected import is recorded like a new post's (import-rejected) and leaves the post pending;
+    // it never escapes the media stage.
+    try { file = await writers.importMedia(wix, { sourceUrl: item.sourceUrl, displayName: displayNameFor(item.sourceUrl), mediaType: 'IMAGE' }); }
+    catch (error) { await state.appendMedia(mediaRow(post, item, 'import-rejected', { reason: errorText(error) })); return row; }
+    if (!file || !file.id) { await state.appendMedia(mediaRow(post, item, 'import-rejected', { reason: 'import response carried no file id' })); return row; }
+    fileId = String(file.id);
+    await state.appendMedia(mediaRow(post, item, 'imported', { fileId }));
+  }
+  try {
+    const ready = await writers.waitUntilFileReady(wix, fileId, settle || {});
+    const outcome = ready ? 'ready' : 'not-ready';
+    await state.appendMedia(mediaRow(post, item, outcome, { fileId, sizeInBytes: ready ? ready.sizeInBytes : null, reason: ready ? null : 'still PENDING when the settle window ended' }));
+    return { outcome, fileId, sizeInBytes: ready ? ready.sizeInBytes : null };
+  } catch (error) {
+    const outcome = error && error.code === 'MEDIA_IMPORT_FAILED' ? 'failed' : 'status-unknown';
+    await state.appendMedia(mediaRow(post, item, outcome, { fileId: outcome === 'failed' ? null : fileId, reason: errorText(error) }));
+    return row;
+  }
+}
+async function existingPostMedia({ post, richContent, state, resolveFromCrosswalk, wix = null, settle = null } = {}) {
   if (!state) throw new Error('existingPostMedia needs pending-media state');
   const needed = collectPostMedia({ post, richContent });
   if (!needed.length) return { allReady: true, heroImageId: null,
@@ -469,6 +498,7 @@ async function existingPostMedia({ post, richContent, state, resolveFromCrosswal
     if ((!row || row.outcome !== 'ready' || !row.fileId ||
       item.kind === 'featured' && !(Number(row.sizeInBytes) > 0)) &&
       typeof resolveFromCrosswalk === 'function') row = await resolveFromCrosswalk(post, item);
+    if (!row || row.outcome !== 'ready' || !row.fileId) row = await importMissingLegacyInline(wix, post, item, row || local?.get(item.mediaKey), state, settle);
     if (!row || row.outcome !== 'ready' || !row.fileId ||
       item.kind === 'featured' && !(Number(row.sizeInBytes) > 0)) {
       throw Object.assign(

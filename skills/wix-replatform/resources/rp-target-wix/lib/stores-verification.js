@@ -1,7 +1,7 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const w = require('./wix-writers');
 const verification = require('./write-verification');
 
@@ -159,7 +159,10 @@ async function verifyStoresSubscriptionCreate({ wix, siteId, artifactPath, probe
   return writeArtifact(artifactPath, artifact);
 }
 
-async function verifyStoresProductCount({ wix, siteId, artifactPath, query = { paging: { limit: 1, offset: 0 } } } = {}) {
+// With a catalog baseline the count is split: `baseline` is products that were on the
+// store before this import and are still there, `runOwned` the rest. That needs every product id,
+// so the whole catalog is read; without a baseline the single-page totalCount read is kept.
+async function verifyStoresProductCount({ wix, siteId, artifactPath, query = { paging: { limit: 1, offset: 0 } }, baselineIds = null } = {}) {
   const request = w.buildQueryStoresProductsRequest(query);
   const artifact = artifactBase({
     command: 'stores product-count',
@@ -168,6 +171,13 @@ async function verifyStoresProductCount({ wix, siteId, artifactPath, query = { p
     method: request.method,
   });
   try {
+    if (baselineIds) {
+      const products = await w.queryAllStoresProducts(wix);
+      const baseline = products.filter((product) => baselineIds.has(product.id)).length;
+      Object.assign(artifact, { count: products.length, total: products.length, baseline, runOwned: products.length - baseline });
+      artifact.status = 'passed';
+      return writeArtifact(artifactPath, artifact);
+    }
     const response = await wix.send(request);
     const products = response.products || [];
     artifact.count = Number.isInteger(response.totalCount) ? response.totalCount : products.length;

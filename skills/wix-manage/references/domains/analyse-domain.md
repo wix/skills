@@ -251,6 +251,7 @@ then hand over:
 
 - A domain's DNS records: the Analyse Domain DNS skill.
 - Changing its DNS: the Update Domain DNS skill.
-- Buying a domain, or connecting one to a site (assigning it): [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Buying a domain, or bringing one in from another registrar: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Putting a domain on a site, changing its role there, moving it, or taking it off: [Assign Domain](assign-domain.md).
 - Whether a name is available to register: [Check Domain Availability](check-domain-availability.md).
 - Renewing a domain: no skill covers it yet, so stop there.

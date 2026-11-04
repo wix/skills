@@ -12,11 +12,19 @@
     "crosswalkRequired": true
   },
   "dependsOn": [],
+  "blockedSourceDependencies": [
+    {
+      "sourceEntityRef": "plugin.forminator.form",
+      "degradedField": "form-definition",
+      "pitfallCode": "forminator-forms-via-bridge-plugin-not-rest",
+      "degradation": "warning"
+    }
+  ],
   "sourceAliases": [],
   "preferredWrite": {
     "surface": "Form Schemas V4 (FormSchemaService)",
     "endpoint": "POST /form-schema-service/v4/forms",
-    "writerId": null,
+    "writerId": "createForm",
     "verification": "verified-live",
     "importSafe": true,
     "bulk": true
@@ -75,6 +83,26 @@
       "code": "conditional-logic-and-notification-config-do-not-carry",
       "severity": "warning",
       "summary": "WordPress form plugins keep three things next to the field list that have no equivalent create input here: the mail/notification templates (CF7 `properties.mail` / `mail_2`, WPForms `settings.notifications`), the confirmation messages, and the conditional-show/hide rules. Wix has `submitSettings.submitSuccessAction` (NO_ACTION / THANK_YOU_MESSAGE / REDIRECT / POPUP) and `formRules[]`, but their shapes are unrelated to the source's. Treat notification templates as reconfigure-in-wix (they become Wix Automations) and ledger conditional logic as a manual follow-up rather than attempting a rule translation."
+    },
+    {
+      "code": "forminator-forms-via-bridge-plugin-not-rest",
+      "severity": "warning",
+      "summary": "Forminator form definitions have no REST route: a form is a `forminator_forms` post with its fields in post meta `forminator_form_meta`, read through wix-wp-plugin-v2 (rp-source-wordpress/plugins/forminator.json). A source without the bridge plugin installed cannot migrate Forminator forms; they are rebuilt by hand in Wix Forms."
+    },
+    {
+      "code": "create-form-adds-an-owner-email-automation",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-26: Create Form (wix.form_app.form) also creates an ACTIVE automation \"New submission received for <form name>\" (origin APPLICATION, trigger `wix_form_app-form_submitted`, a formId filter naming the new form, a transactional triggered email with sendToUnsubscribed:true to the site's team). It emails the owner on every new entry, including API-created ones, whether or not the site is muted. See the forms domain pitfall form-submission-automations-email-the-owner for how the entries import pauses it. VERIFIED LIVE 2026-10-27: the automation appears about 2 s AFTER Create Form returns, so a query made right after the create does not see it yet."
+    },
+    {
+      "code": "step-id-must-be-a-guid",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-10-27: a `steps[].id` that is not a GUID fails Create Form with `steps [at index 0] is invalid: id is not a valid GUID`. Use a lowercase GUID for every step id, as for field ids."
+    },
+    {
+      "code": "form-count-limit-by-plan",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27 on a free site: the fifth Create Form failed `400 Form validation failed` with fieldViolations ruleName `FORMS_COUNT_RESTRICTIONS_ERROR` (\"Form count reached its limit of 4\", data.limit 4). Read the site's cap with List Forms Providers Configs (`maxForms`) before creating, and record forms beyond it as a gap rather than retrying."
     }
   ],
   "mappingGuidance": [
@@ -85,7 +113,8 @@
     "Emit a single step unless the source form is genuinely paginated, and place every INPUT field this migration actually creates in that step's layout for at least one breakpoint; fall back across breakpoints when reading, never assume `large` exists. Do NOT include a submit DISPLAY field -- its valid shape is unresolved and a previously-tried shape was rejected at create (see submit-button-display-field-shape-unresolved-but-skippable below); omitting it is verified to still create the form and accept submissions fine.",
     "Persist the returned `form.id` against the source form id (CF7 post id, WPForms post id) in the crosswalk at create time — `id` is read-only, so the source id cannot be preserved and the submissions import depends on the crosswalk.",
     "Bulk Create Form accepts 1–30 schemas per call (POST /forms/v4/bulk/forms/create) and is the right shape for a site with many small forms; a single oversized form still has to go through Create Form.",
-    "Deleting a form schema in Wix moves it to a 90-day trash bin and permanently deleting it deletes all of its submissions — relevant to re-run/rollback design, which must never delete a schema that already carries imported submissions."
+    "Deleting a form schema in Wix moves it to a 90-day trash bin and permanently deleting it deletes all of its submissions — relevant to re-run/rollback design, which must never delete a schema that already carries imported submissions.",
+    "Write forms with createForm. It checks identifier, lowercase GUID ids and layout placement for every field, appends one hidden \"Original submission date\" field (target `original_submission_date`) placed on the first step, and returns created | adopted | failed with the stored `name` (a collision renames it), `fieldTargets` and `originalDateTarget` for the crosswalk. A lost create is found again by the hidden field id, so a retry does not make a second form."
   ],
   "setupRequirements": [
     "Wix Forms app installed (`wix_forms`; confirm with GetAppInstance)",
@@ -128,6 +157,11 @@
       "type": "live-run",
       "path": "anonymized-live-verification",
       "note": "Form schemas created (CF7, WPForms, Forminator, MetForm definitions), then historical submissions written and confirmed against them (see forms/form-submission's live-run evidence) — surfaced the missing-identifier and input-field-shape pitfalls above, and confirmed the submit-button DISPLAY field is skippable for a migration's purposes."
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Throwaway site, 2026-10-26: Create Form with INPUT fields placed in steps[0].layout.large created the form and its per-form owner-email automation; the site's preinstalled 'Receive notification when a form is submitted' automation also applies to every form."
     }
   ],
   "notes": "Authored 2026-08-16 alongside the contact-form-7 and wpforms-lite profiles. importSafe is true for the schema create itself: Create Form takes no visitor-facing action and emits only Form Created; the notification risk in this domain sits entirely on forms/form-submission. CORRECTION LOG: the first draft of this entity claimed an unrecognized `identifier` is silently dropped from the stored schema; re-reading About Form Fields on 2026-08-16 showed the docs claim only that a non-standard identifier may render incorrectly in the submission table while the API still accepts the field. The pitfall was downgraded from blocker to warning, then RE-UPGRADED to blocker on 2026-09-16 once a live migration proved the severe reading true and much worse than either docs page implies: missing `identifier` breaks Create Submission validation entirely, not just dashboard display (see missing-identifier-breaks-submission-validation-not-just-display). reliability and verification were updated from `unknown`/`docs` to `partially-reliable`/`verified-live` on the same date, once a real form was created and real submissions were written against it end to end."

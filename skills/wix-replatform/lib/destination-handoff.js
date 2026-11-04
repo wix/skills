@@ -1,6 +1,6 @@
 'use strict';
 
-// Work that remains on an Editor destination after the backend import, folded
+// Work that remains on a new destination after the backend import, folded
 // into `execution/completion-report.json.operatorActions` (projected to the post-execution
 // handoff). Pre-import recovery lives in orchestration/user-actions/ and is not repeated here.
 // The notification item is produced by setup and reused, never duplicated.
@@ -21,7 +21,45 @@ function websiteReleased(frontendCompletion) {
     && frontendCompletion.release && frontendCompletion.release.status === 'released');
 }
 
+const HEADLESS_READBACK_PROMPT = 'Requires Import Operator. In the original migration workspace, restore Wix CLI access to site {site}, then run `node skills/wix-replatform/scripts/wix-destination.js ensure --project-dir <migration project directory>` to repeat the published-URLs readback. Do not create a new site, and do not publish it without the cutover decision.';
+
+// A Headless site is created unpublished; publishing it is a cutover step. The item
+// stays until a readback records `published` or a website release is recorded.
+function headlessOperatorActions(receipt, { frontendCompletion }) {
+  if (!receipt.metaSiteId || !['created', 'verified'].includes(receipt.status)) return [];
+  const publication = receipt.publication || {};
+  if (publication.state === 'published' || websiteReleased(frontendCompletion)) return [];
+  const site = receipt.metaSiteId;
+  const base = {
+    code: 'headless_site_publication_outstanding',
+    severity: 'high',
+    deadlineReason: 'before switching traffic',
+    entity: 'website',
+    affectedCount: 1,
+    actionId: `headless_site_publication_outstanding:${site}`,
+    affectedIds: [site],
+    artifactRefs: ['orchestration/destination.json'],
+    resolutionEvidence: 'A `published` readback in orchestration/destination.json, or a released website/completion.json.',
+  };
+  if (publication.state === 'unpublished') {
+    return [{
+      ...base,
+      role: 'cutover-operator',
+      action: `Cutover Operator: Headless site ${site} is not published (verified unpublished at ${publication.checkedAt}) — customers have no public website yet. After the website and public-site checks pass, publish it from Business Manager (or \`npm run release\` in frontend/, which requires the Import Operator), then rerun the destination step to record a published readback. RePlatform never publishes it.`,
+    }];
+  }
+  // A receipt written before the Headless readback existed has no readback at all.
+  const reason = !publication.state ? ' (never read back)' : publication.reason ? ` (${publication.reason})` : '';
+  return [{
+    ...base,
+    role: 'import-operator',
+    importOperatorPrompt: HEADLESS_READBACK_PROMPT.replace('{site}', site),
+    action: `Import Operator: the publication state of Headless site ${site} could not be read${reason} — an unresolved check, not "unpublished". Restore access and repeat the readback; then the Cutover Operator publishes the site at cutover if it is still unpublished.`,
+  }];
+}
+
 function destinationOperatorActions(receipt, { frontendCompletion = null } = {}) {
+  if (receipt && receipt.requestedSiteType === 'headless') return headlessOperatorActions(receipt, { frontendCompletion });
   if (!receipt || !EDITOR_LABEL[receipt.requestedSiteType] || !receipt.metaSiteId || receipt.status !== 'verified') return [];
   if (websiteReleased(frontendCompletion)) return [];
   const editor = EDITOR_LABEL[receipt.requestedSiteType];

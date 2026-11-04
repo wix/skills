@@ -20,7 +20,7 @@
 // Clicks are dispatched in the page (el.click()), so a consent dialog or a sticky bar covering the
 // control does not block them. The page is never submitted anywhere: forms are not touched.
 import { chromium } from 'playwright';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };

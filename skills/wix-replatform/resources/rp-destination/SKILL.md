@@ -68,7 +68,12 @@ What the coordinator does:
   readback, and the router sends setup/import back here (`destination_publication_recheck`)
   when the last readback is more than 10 minutes old.
 - A Headless receipt is resumed, never re-delegated: a confirmed site is adopted, and any
-  `WIX_SCAFFOLD_STATUS` marker stays the wrapper's recovery.
+  `WIX_SCAFFOLD_STATUS` marker stays the wrapper's recovery. After creation and on every
+  rerun, a confirmed Headless site gets the same editor (`EDITORLESS`) and published-URLs
+  readback, recorded in the receipt. The published-URLs list names the free URL even for an
+  unpublished Headless site, so the public URL decides: 2xx published, 404 unpublished,
+  anything else unknown. For Headless the readback is evidence only: it never blocks, never
+  raises a recovery request, and the status stays `created`.
 - Never repeats a create whose outcome is unknown, never publishes,
   unpublishes or deletes a site, and never falls back to another editor or to Headless.
 
@@ -106,10 +111,12 @@ do not skip this module just because there is no backend work. Do not create pro
 replacement, or second sites without the explicit recovery authority in the existing
 destination contract.
 
-Scaffolding (`wix-headless-scaffold.js`) publishes the site as part of creation — this is
-the Wix CLI's own default; never add `--no-publish` back. A `management`-only migration's
-entire deliverable is this published site running its unmodified template: "no
-customer-facing website is built" means left un-customized, not left unpublished.
+Scaffolding (`wix-headless-scaffold.js`) passes `--no-publish`: a new Headless site stays
+unpublished until cutover, like an Editor site. RePlatform never publishes it. While the last readback is not
+`published` and no website release is recorded, the completion report carries
+`headless_site_publication_outstanding` for the Cutover Operator (or the Import Operator
+when the state could not be read). A `wix release` publishes the site; the next readback
+records that and clears the item.
 
 The script also patches the generated `astro.config.mjs`/`package.json` right after a
 destination is confirmed, once, so a `website`-mode project's local dev server works

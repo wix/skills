@@ -37,6 +37,9 @@ const FULL_MODE_FIELDS = [
 
 const QUICK_MODE_FIELDS = ['imported', 'skipped'];
 
+// The report entity prefix of a mapped entity's source-archive sub-part row.
+const ARCHIVE_SUB_PART_PREFIX = 'archive.';
+
 function entityKey(entity, subtype) {
   return `${entity}/${subtype || 'all'}`;
 }
@@ -59,6 +62,21 @@ function normalizeMappedEntities(mappedEntities) {
     map.set(entityKey(entity, subtype), { entity, subtype });
   }
   return map;
+}
+
+// The report's entity vocabulary decides the coverage key. An importer-written report names
+// mapped source entities; a report rebuilt from the attempt journal after an interruption
+// (import-interruption.js) names Wix target refs, because journal rows carry no source entity.
+// When a full-mode report names none of the mapped source entities but names their target refs,
+// coverage is keyed by target ref (one key per distinct target). A report that names source
+// entities keeps the source keys, so the two vocabularies are never mixed.
+function mappedForReport(mapped, mappedEntities, report) {
+  if (!mapped || !mapped.size || !report || report.managementImportMode === 'quick' || !Array.isArray(report.entityCompleteness)) return mapped;
+  const named = new Set(report.entityCompleteness.map((row) => row && row.entity).filter(Boolean));
+  if ([...mapped.values()].some(({ entity }) => named.has(entity))) return mapped;
+  const targets = [...new Set(mappedEntities.map((row) => row && typeof row.targetRef === 'string' && row.targetRef ? row.targetRef : null).filter(Boolean))];
+  if (!targets.some((target) => named.has(target))) return mapped;
+  return normalizeMappedEntities(targets.map((entity) => ({ entity })));
 }
 
 function firstNonEmptyString(...values) {
@@ -158,7 +176,7 @@ function validateEntityQaAttestation({ attestation, report, reportDigest, mapped
 
   // 3. The independent coverage source must itself be usable. An empty list is exactly as
   // unusable as a missing one -- it is never a legitimate "nothing was mapped".
-  const mapped = normalizeMappedEntities(mappedEntities);
+  const mapped = mappedForReport(normalizeMappedEntities(mappedEntities), mappedEntities, report);
   if (!mapped || mapped.size === 0) {
     return { ok: false, reasons: ['entity_qa_mapped_entities_unavailable'], qaStatus: 'missing', entities: [], recheck: 'full' };
   }
@@ -210,6 +228,18 @@ function validateEntityQaAttestation({ attestation, report, reportDigest, mapped
   }
 
   const mappedBaseEntities = new Set([...mapped.values()].map(({ entity }) => entity));
+  // A mapped entity's source archive is a declared sub-part of that entity, not a separate mapped
+  // entity: rp-import-codegen reports it as its own `archive.<entity>` row (subtype
+  // `source-archive`, the MigrationSourceArchive cms/data-item rows), never folded into the entity
+  // row. When the full-mode report carries such a row for a mapped entity, it is attested under
+  // that entity exactly like a subtype row -- required, count-compared, never "unexpected". An
+  // `archive.*` row whose base entity is not mapped stays unexpected.
+  if (!isQuickMode) {
+    for (const row of fullModeReportRows.values()) {
+      const entity = row.entity;
+      if (typeof entity === 'string' && entity.startsWith(ARCHIVE_SUB_PART_PREFIX) && mappedBaseEntities.has(entity.slice(ARCHIVE_SUB_PART_PREFIX.length))) mappedBaseEntities.add(entity);
+    }
+  }
   const attestedByBaseEntity = new Map(); // entity -> [{ key, subtype }]
   for (const [key, row] of attested) {
     const subtype = row.subtype || 'all';
@@ -334,6 +364,7 @@ module.exports = {
   ENTITY_QA_ATTESTATION_FILE,
   FULL_MODE_FIELDS,
   QUICK_MODE_FIELDS,
+  ARCHIVE_SUB_PART_PREFIX,
   normalizeMappedEntities,
   validateEntityQaAttestation,
 };

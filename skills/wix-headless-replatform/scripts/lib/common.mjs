@@ -1,3 +1,4 @@
+import { fetchPublic } from "./url-safety.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -164,8 +165,7 @@ export async function writeText(filePath, data) {
 
 export async function fetchText(url, options = {}) {
   const timeoutMs = Number(options.timeoutMs || 5000);
-  const response = await fetch(url, {
-    redirect: "follow",
+  const response = await fetchPublic(url, {
     signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "user-agent": "site-clone-skill/1.0 (+https://wix-headless.dev)",

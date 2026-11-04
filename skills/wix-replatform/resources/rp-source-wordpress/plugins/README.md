@@ -26,6 +26,7 @@ A plugin does not need a profile to migrate; it needs one to migrate *natively*.
 | --- | --- |
 | recognized | a profile matched — named entities, channels, and target refs are known; the mapping is `confirmed` |
 | derived | no profile, but the data is REST-visible; the mapping is `proposed` (CMS, or native when the domain KB confirms the proposed capability) |
+| derived (bridge) | no profile, but the plugin's own tables were read under a project-local plan ([PLUGIN-READ-PLANS.md](../PLUGIN-READ-PLANS.md)); the mapping is `proposed` (native on a domain-KB match, with `cms/data-item` offered beside it) |
 | named only | detected with no readable channel — lands in *Pending* or on the no-migration-needed list, reported, never silent |
 
 The invariant: **every installed plugin lands in exactly one of the four statuses**
@@ -106,9 +107,44 @@ discovery, mapper or codegen edit.
 | **Research phase** — we investigate a plugin we expect to matter | full profile | research doc → profile → target entity → area entry |
 | **After a run** — telemetry flags it unresolved, a human reviews it | full profile | same four |
 | Either, and it turns out to need **no** data migration | one `no-migration-needed.json` line | one line |
+| Either, no data to move but the owner must redo it on Wix (analytics, pixels, feeds, banners, popups, sliders, payment provider) | one `cutover-task-only.json` entry | one entry |
 
 **Order matters: author the target entity before the profile that points at it**, or record the
 capability as awaiting a target. Validation enforces this rather than leaving it to memory.
+
+### Slug registers for plugins without a profile
+
+One slug has one answer. The validator rejects a slug found in two of these, or in one of these
+and a profile. Lookups try the folder slug, then the main-file name, so a second copy of a plugin
+in another folder (`wp-rocket2/wp-rocket`) gets the same answer and joins the same coverage row.
+
+| Register | Row it produces | Use for |
+| --- | --- | --- |
+| `no-migration-needed.json` `hints[]` | `no-need-to-migrate`, basis `list` | nothing to move, nothing to redo |
+| `cutover-task-only.json` `tasks[]` | `manual-mapping`, basis `list`, `via: manual`, `manualSteps`, `cutoverTask { workType, task, doneWhen }` | no data, but the owner must redo the function on Wix |
+| `no-migration-needed.json` `coreCovered[]` | `migration-planned`, basis `core-reader`, only when the run read one of `coreNamespaces` (else the plugin stays pending) | a plugin whose data the core reader already moves (WooCommerce) |
+| `no-migration-needed.json` `toolkitPlugins[]` | none; counted in `statusInvariant.toolkitExcluded` | this skill's own plugins on the source site (`wix-wp-plugin-v2`) |
+
+**A cutover task never hides data.** It replaces only the "could not identify any data" pending
+row. If the run attributes readable or unread data to the plugin (a generic entity, a bridge table,
+an unread namespace route), that row keeps its own status and the task is added beside it.
+
+**Cutover task entries** need `slug`, `displayName`, `does`, `workType` (`manual-setup`,
+`missing-apps`, `changed-behavior`, `checks`, `review`), `task` (the title the Cutover Operator
+sees), `manualSteps` (the rp-target-wix runbook shape: `prerequisite`, `steps[{actor, text}]`
+with actors `merchant` / `external` / `wix-automatable`), `doneWhen` (the evidence that closes it),
+`provenance`, `decidedBy`, `decidedOn`, optional `note`. Unsigned entries fail validation and are
+ignored at runtime. Steps never choose a provider, app or consent setting for the owner.
+
+The task reaches the Cutover Operator through the existing path: census capability row (carrying
+`cutoverTask` and `manualSteps`) → census state `manual` → discovered-set outcome `manual-open` →
+a `before-dns` Cutover Operator action naming the task, its steps and `doneWhen`, closed only by
+`discovered-set-status.js resolve` with evidence. The production cutover CMS publisher is not yet
+integrated.
+
+Alias a fingerprint token to its installed folder in `fingerprint-aliases.json` (for example
+`ctxfeed` → `webappick-product-feed-for-woocommerce`) so the public fingerprint folds into the
+installed plugin's row instead of adding a second one.
 
 ## Read channels
 
@@ -161,19 +197,12 @@ capability as awaiting a target. Validation enforces this rather than leaving it
    See `lib/wix-wp-plugin-v2-client.js`, `scripts/wp-discovery.js`'s
    `sampleStructureBridgeEntities` for the full contract.
 
-   **Credential split, decided by whether the source site has WooCommerce.** The bridge's
-   routes register two ways: an Application Password path gated on
-   `current_user_can('manage_woocommerce')`, and a signed migration-key JWT path gated only
-   on the signature/request-binding. `manage_woocommerce` does not exist on a WordPress
-   site with no WooCommerce installed, not even for an administrator -- on such a site the
-   Application Password bridge routes are structurally unusable for every user, so do not
-   offer an Application Password as the bridge credential on a content-only/blog/marketing
-   WordPress site; collect the migration key (`WMH2_MIGRATION_KEY`) instead. An Application
-   Password may still be required separately for private `wp/v2` reads. When a migration
-   key is configured, `wp-discovery.js` prefers the signed bridge route; otherwise it uses
-   the Application Password route when WooCommerce supplies the required capability.
-   Standard private `wp/v2`/`wc/v3` reads still require their own WordPress REST credential;
-   the migration key is never a substitute for that scope.
+   **Credential.** The bridge's routes take the same WordPress Application Password as
+   every other private read, for a user with `manage_woocommerce` or `manage_options`
+   (plugin 0.5.0+), so it works with or without WooCommerce. A site without
+   WooCommerce running a plugin copy older than 0.5.0 answers 403 to every user;
+   `wp-discovery.js` reports that as `bridge_plugin_update_required` -- ask the site owner
+   to upload the current zip.
 5. **Know which tables the bridge can and cannot reach.**
 
    | Table | Reachable? |
@@ -298,6 +327,7 @@ purpose: a second non-enforcing definition of the same contract only drifts out 
 | `restNamespaces[]` | low | **shared platform namespaces are rejected** — `wc/v3` identifies WooCommerce, not your plugin |
 | `assetPathSlugs[]` | low | `/wp-content/plugins/<slug>/`, works with no credentials |
 | `minVersion` | — | below it, detection reports `api-below-min-version` rather than assuming the API |
+| `addOnPluginFileIds[]` | — | companion plugins (e.g. a PRO add-on) that store their data in this plugin's own tables. Once this profile is detected, an installed add-on is **claimed** (it is not "pending") and reported as "add-on, covered by" this profile. Never a signal on its own. One profile per add-on; an add-on with its own profile is rejected. |
 
 **`entities[]`** — each requires `entity`, `channel`, `candidateTargetRefs[]`. `capability` is
 optional for backward compatibility, but required on every entity once any entity in that profile
@@ -327,6 +357,50 @@ is absent (e.g. `"data.meta.count"` — without it, `recordCount` reflects only 
 page, same as a headerless flat array). Sampling and counting otherwise behave exactly as they
 would for a flat array once unwrapped — this only changes *where in the response* the sampler
 looks.
+
+**`redirectSource`** — on an entity of a plugin that stores URL redirect rules (capability
+`content.url-redirects`). Discovery reads the declared tables completely through the bridge,
+normalizes them with `lib/wp-redirect-sources.js` and writes
+`state/url-preservation/source-redirects.ndjson` plus `source-redirect-coverage.json`; no agent
+step. Fields: `provider` (stable lowercase id; prefixes every `ruleKey`, never rename it) ·
+`format` (`redirection`, `rank-math` or `csv-export`; one normalizer each) · `tables` (role →
+bare table name: `rules`, plus `groups` for the `redirection` format) · `storedIn: "options"`
+(rules sit where reads are denied; channel `export-file`, coverage `unsupported` until the
+operator supplies the CSV) · optional `pluginSlugs[]` (extra slugs such as a pro build). A new
+plugin whose storage matches a known format needs only a profile; a new storage format needs one
+normalizer. The coverage row stays `pending` until the Wix side is live-verified, carries the
+captured rule count, and keeps its read blocker unless every provider's capture is complete.
+
+**`couponRules[]`** (optional) — for a plugin that adds rules to WooCommerce coupons as coupon
+meta. One entry per meta key: `metaKey`, `meaning`, optional `inertValues[]` (values that mean
+"rule off"; default `""`, `"no"`, `"0"`, and empty arrays/objects). `meaning` is closed:
+`start-date` (carried as Wix `startTime`), `same-as-core` (needs `coreField` and `shape`
+`id-map-min-max` | `id-list`; no action when equal to that core field), `no-effect`,
+`restriction`, `gift`, `auto-apply` (the last three: Wix cannot hold them, so the coupon is
+written switched off with a cutover task). A meta key has one owning profile.
+`lib/coupon-discovery.js` reads these; a new coupon plugin needs only this data.
+
+**`dataPresence`** (optional) — how to check that THIS site holds the plugin's data:
+`{ "require": "any" | "all", "checks": [...] }`. Check kinds: `postMeta {key}` (non-empty decoded
+values, via the bridge), `postType {type, statuses?}` (bridge `posts` count),
+`shippingClassProducts {slug}` (`wc/v3` class `count`), `shippingMethod {methodId}` (an enabled zone
+method instance). `require: all` when the plugin needs every piece to do anything (Free Shipping
+Per Product: the class and the method). All absent → no-need (`basis: probe`, `no-data-found`);
+inactive with data → no-need (`inactive-leftover`); any unknown → the normal path. Both no-need
+outcomes need `dataLocation.where: wordpress`. Lib: `lib/plugin-data-presence.js`.
+
+**`dataLocation`** (required with `dataPresence`, optional otherwise) — where the plugin keeps its
+data: `{ "where": "wordpress" | "external" | "both" | "unknown", "service"?, "options"?, "evidence" }`. An empty
+WordPress read says nothing about data on a vendor's service, so:
+
+| `where` | Effect |
+| --- | --- |
+| `wordpress` | presence checks may rule the capability no-need |
+| `external` / `both` | never no-need; the row keeps its status and gets `externalData[]` and a `cutoverTask` (never a `blocked[]` entry, so no discovery ask and no stop) "Data lives in `<service>`: `<options>`", listing `options[]` (known ways to get the data out of that service) or "options unknown: research needed". `service` required |
+| `unknown`, or no field | never no-need; the normal path |
+
+`evidence` (vendor docs or plugin source) is required unless `where` is `unknown`. The `cutoverTask`
+has the cutover-task-only register's shape (`workType`, `task`, `doneWhen`).
 
 **Optional top level:** `distribution` · `credentials[]` (plugin-specific keys) ·
 `dataRoutePatterns[]` (wholly data-bearing namespaces) · `excludeRoutes[]` ·

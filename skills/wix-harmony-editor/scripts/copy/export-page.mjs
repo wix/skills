@@ -9,7 +9,7 @@
 // Read only. Results are fetched in batches: an editor result over ~50 KB comes back truncated.
 import { chromium } from 'playwright';
 import { hideScrollbars } from './hide-scrollbars.mjs';
-import fs from 'fs';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };

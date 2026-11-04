@@ -226,9 +226,9 @@ pointing at the build folder, an SSR build is hosted by you. Service-page tags f
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
-import the modules from the site's `js/wix/` folder and write the booking surface on the stores;
-`static.md` gives the flow as code, with the listing, the service page, the routes, the rules and
-the seed.
+import the layer from the site's `js/wix/` folder and write every control on the stores;
+`static.md` shows how to drive each store, with the listing, the service page, the routes, the
+rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

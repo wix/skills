@@ -73,6 +73,29 @@ SFCC product id, not by URL: locale renditions have their own canonicals.
   as reviews.
 - **Videos** may be opaque ids whose host is not exposed.
 
+## Regional settings (currency, language, country)
+
+Record the store's regional facts from the public pages, read-only. Time zone is not exposed
+publicly: leave it unknown (`not-exposed`).
+
+- **Currency:** the price currency code on product pages: the `Product-Variation` JSON price
+  (`price.sales.currency`) or the PDP JSON-LD `offers.priceCurrency`. Sample products from
+  every locale route you saw.
+- **Language and locale region:** the default locale in the pipeline URL
+  (`Sites-<site>-Site/<locale>/`, e.g. `en_US`) and the `hreflang` links. The language is the
+  two-letter part (`en`) and `locale` is the `en-US` tag. Other `hreflang` languages remain adapter
+  discovery evidence rather than fields in the neutral locale record.
+- **Several price currencies** (locale routes priced in different currencies): preserve the list in
+  SFCC discovery evidence and leave `paymentCurrency` unknown with reason `ambiguous`, unless the person
+  names the base one, which is then a `supplied` value. Never pick one from the default locale
+  alone.
+- A value you cannot read is `unknown` with a reason (`not-exposed`, `unreadable`, `ambiguous`),
+  never a guess or a default.
+
+Build the file with `buildSourceRegional` (adapter `sfcc`; evidence names the page or field the
+value came from) and write it with `writeSourceRegional` from `lib/source-regional.js` to
+`discovery/source-locale.json`. There is no promote step for this public path.
+
 ## Scan the other pages
 
 Product and category pages are covered by the capture above. Everything else (about,

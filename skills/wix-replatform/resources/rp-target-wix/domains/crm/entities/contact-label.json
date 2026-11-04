@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "domain": "crm",
+  "entity": "contact-label",
+  "displayName": "Labels on a contact",
+  "capability": "crm.contact-label",
+  "target": {
+    "classification": "native",
+    "nativeEntity": "Contact private tags",
+    "verifiedFqdn": null,
+    "idPolicy": "server-assigned",
+    "crosswalkRequired": true
+  },
+  "sourceAliases": [
+    {
+      "sourceSystem": "woocommerce",
+      "sourceEntity": "customer_tag_assignment",
+      "routes": [
+        "customer metadata",
+        "segments"
+      ],
+      "confidence": "low"
+    },
+    {
+      "sourceSystem": "wix",
+      "sourceEntity": "contact.labelKeys",
+      "routes": [
+        "Contacts"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "dependsOn": [
+    "crm/contact",
+    "crm/label"
+  ],
+  "dependencyModes": {
+    "crm/contact": "per-record",
+    "crm/label": "per-record"
+  },
+  "dependencyReferenceFields": {
+    "crm/contact": [
+      "contactId"
+    ],
+    "crm/label": [
+      "assignTags.privateTags.tagIds[]"
+    ]
+  },
+  "preferredWrite": {
+    "surface": "Contacts V5 tags",
+    "endpoint": "POST /contacts/v5/contacts/{contactId}/update-tags",
+    "writerId": "assignContactLabels",
+    "verification": "verified-live",
+    "importSafe": true,
+    "bulk": false,
+    "decision": "One record per contact: { contactId, assignTags: { privateTags: { tagIds } } }, contactId in the body as well as the path so the readiness grant checks both references. Assign-only (never unassign), so a retry or unknown outcome resends safely. Read back GET /contacts/v5/contacts/{id}?fields=TAGS and check every tag id is present. The crosswalk row maps the source assignment key to the contact id."
+  },
+  "reliability": {
+    "status": "reliable",
+    "flags": []
+  },
+  "pitfalls": [
+    {
+      "code": "unknown-tag-id-accepted",
+      "severity": "blocker",
+      "summary": "VERIFIED LIVE 2026-10-27 : update-tags stores a tag id that does not exist (e.g. 'zzzzz'). Tag ids come only from read-back crm/label records via the readiness grant."
+    },
+    {
+      "code": "path-wins-over-body",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: when body contactId differs from the path, Wix writes the path contact. The builder builds both from the same contactId."
+    },
+    {
+      "code": "not-in-contact-upsert",
+      "severity": "warning",
+      "summary": "VERIFIED LIVE 2026-10-27: tags sent inside the default (OVERWRITE) contact upsert replace a matched contact's existing tags; OVERWRITE without tags keeps them. Labels go on contacts through this entity only."
+    },
+    {
+      "code": "member-contact",
+      "severity": "info",
+      "summary": "A member's contact is a crm/contact produced as the member write's secondary output; the per-record crm/contact reference resolves it the same way."
+    }
+  ],
+  "mappingGuidance": [
+    "Dependencies: crm/contact (contactId) and crm/label (each tag id) are per-record; a contact with no source labels has no record here and never waits.",
+    "Emit one record per contact that has labels: contactId = resolveReference('crm/contact', contactKey, 'contactId'), each tag id = resolveReference('crm/label', labelKey, 'assignTags.privateTags.tagIds[i]'). Send with assignContactLabels(recordClient, { contactId, tagIds })."
+  ],
+  "setupRequirements": [],
+  "evidence": [
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/contact-object",
+      "note": "contact object: tags.privateTags.tagIds"
+    },
+    {
+      "type": "wix-docs",
+      "url": "https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/update-contact-tags",
+      "note": "Update Contact Tags: assign/unassign private tags on one contact"
+    },
+    {
+      "type": "live-run",
+      "path": "anonymized-live-verification",
+      "note": "Verified live 2026-10-27 (probe P1/P3/P4, throwaway site): update-tags with label.tagId -> tag on contact, repeat harmless; bulk upsert OVERWRITE replaces tags; body/path contactId mismatch writes the path contact; missing contact 404; unknown tag id accepted (trap); probe records deleted"
+    }
+  ],
+  "notes": "Added 2026-10-27 so source labels land on contacts. Kept apart from crm/contact so contacts without labels never wait for labels and the contact writers stay unchanged."
+}

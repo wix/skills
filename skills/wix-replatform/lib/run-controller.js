@@ -8,8 +8,10 @@ const crypto = require('node:crypto');
 const { loadArtifacts, initArtifacts, writeJsonAtomic, updateDecisionObject, transitionRun } = require('./orchestration-state.js');
 const { determineNextStep } = require('./orchestration-router.js');
 const { validateMigrationCompletion, loadMigrationCompletionInputs } = require('./migration-completion.js');
-const { listUserActions, readUserAction } = require('./user-actions.js');
+const { pendingUserActionGate } = require('./user-actions.js');
 const { applySiteTypePair, resolveSiteTypePair } = require('./destination-choice.js');
+const { normalizeTargetSiteStrategy } = require('./orchestration-decisions.js');
+const { readEnvFile, upsertEnvFile } = require('./config-env.js');
 const { chooseAdapter, launch, requestCancel } = require('./agent-adapters/index.js');
 const { readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, recordWorker, finishCurrent, reconcileTaskState } = require('./task-state.js');
 
@@ -70,13 +72,17 @@ async function readActive(projectDir) { return readJson(activePath(projectDir));
 async function applyInvocationInputs(projectDir, inputs) {
   const artifacts = await ensureInitialArtifacts(projectDir);
   const decisions = artifacts.decisions;
+  // `--destination existing:<site-id>` is a strategy plus the site to adopt; only the strategy is a decision.
+  const existingDestination = typeof inputs.destination === 'string' ? /^existing:(.+)$/.exec(inputs.destination) : null;
+  const destinationStrategy = existingDestination ? 'existing' : inputs.destination;
   const mappings = {
     sourceUrl: inputs.sourceUrl,
     sourceMode: inputs.sourceMode,
     fileInputPaths: inputs.fileInputPaths,
     deliveryMode: inputs.deliveryMode,
-    targetSiteStrategy: inputs.destination,
+    targetSiteStrategy: destinationStrategy === undefined ? undefined : normalizeTargetSiteStrategy(destinationStrategy),
     managementImportMode: inputs.managementImportMode,
+    notificationMute: inputs.notificationMute,
     ...(inputs.oneClick ? { automationMode: 'one_click' } : {}),
     ...(inputs.dryRun ? { dryRun: true } : {}),
   };
@@ -104,6 +110,14 @@ async function applyInvocationInputs(projectDir, inputs) {
     }
   } else if (inputs.siteBusinessType !== undefined) {
     throw new Error('site-business-type is valid only with --site-type harmony');
+  }
+  if (existingDestination) {
+    const wixEnvPath = path.join(projectDir, 'config', 'wix.env');
+    let current = {};
+    try { current = await readEnvFile(wixEnvPath); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
+    const recorded = String(current.WIX_SITE_ID || '').trim();
+    if (recorded && recorded !== existingDestination[1]) throw new Error('CLI input conflicts with existing user decision: WIX_SITE_ID');
+    await upsertEnvFile(wixEnvPath, { WIX_SITE_STRATEGY: 'existing', WIX_SITE_ID: existingDestination[1], ...(inputs.notificationMute ? { WIX_MUTE_NOTIFICATIONS: inputs.notificationMute } : {}) });
   }
   if (changed) await writeJsonAtomic(path.join(projectDir, 'orchestration', 'decisions.json'), decisions);
   return artifacts;
@@ -146,15 +160,18 @@ function makeResult({ id, projectDir, outcome, adapter = null, route = null, com
     project: path.basename(projectDir),
     outcome,
     agent: adapter ? { id: adapter.id, version: adapter.version || null, sessionId: null } : null,
-    router: route ? { state: route.nextState, reason: route.reason, nextResource: route.nextResource || null } : null,
+    router: route ? { state: route.nextState, reason: route.reason, nextResource: route.nextResource || null,
+      ...(route.reason === 'run_blocked' ? { resumeFrom: route.resumeFrom, resumeWith: route.resumeWith } : {}),
+    } : null,
     completion: { validated: Boolean(completion && completion.ok), artifact: completion && completion.ok ? 'completion/migration-completion.json' : null },
-    artifacts: request ? request.artifactRefs.map((ref) => ref.path) : [],
+    artifacts: request ? request.artifactRefs.map((ref) => ref.path) : route?.reason === 'run_blocked' ? ['orchestration/run.json'] : [],
     ...(request ? {
       requestId: request.requestId,
       kind: request.kind,
       choices: request.choices,
       userAction: userActionSummary(request),
     } : {}),
+    ...(route?.blocker ? {blocker:route.blocker} : {}),
     nextAction,
   };
 }
@@ -205,7 +222,7 @@ class RunController {
 
   async recordInvocation() {
     const filePath = path.join(this.projectDir, 'orchestration', 'cli-invocations.ndjson');
-    const safe = ['agent', 'sourceUrl', 'sourceMode', 'fileInputPaths', 'deliveryMode', 'destination', 'managementImportMode', 'siteType', 'siteBusinessType', 'oneClick', 'dryRun'].reduce((out, key) => {
+    const safe = ['agent', 'sourceUrl', 'sourceMode', 'fileInputPaths', 'deliveryMode', 'destination', 'managementImportMode', 'siteType', 'siteBusinessType', 'notificationMute', 'oneClick', 'dryRun'].reduce((out, key) => {
       if (this.options[key] !== undefined) out[key] = this.options[key]; return out;
     }, {});
     await appendLine(filePath, { schemaVersion: SCHEMA_VERSION, runId: this.id, acceptedAt: iso(), options: safe });
@@ -242,7 +259,8 @@ class RunController {
     }
     await applyInvocationInputs(this.projectDir, this.options);
     const existing = await loadArtifacts(this.projectDir);
-    if (this.options.resume && ['canceled', 'interrupted', 'cancel_requested'].includes(existing.run?.status)) {
+    const resumeHold = this.options.resume && this.options.resumeBlocked !== false;
+    if (this.options.resume && (existing.run?.status !== 'blocked' || resumeHold) && ['canceled', 'interrupted', 'cancel_requested', 'blocked'].includes(existing.run?.status)) {
       const resumed = transitionRun(existing.run, { state: 'initialized', activePhase: 'orchestration', status: 'running', needsUserInput: false, needsLlm: false });
       await writeJsonAtomic(path.join(this.projectDir, 'orchestration', 'run.json'), resumed);
       try { await fs.unlink(cancelPath(this.projectDir)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -252,7 +270,9 @@ class RunController {
     // last minute). Never from the loop, the router or `status`. Fail-soft and silent: the
     // result lives only in this run's record, never in the event stream or on screen.
     this.startedAt = iso();
-    this.telemetryResume = await resumeStaleTelemetry(this.projectDir);
+    this.telemetryResume = existing.run?.status === 'blocked' && !resumeHold
+      ? { resumed: false, reason: 'run_blocked', trigger: 'supervisor' }
+      : await resumeStaleTelemetry(this.projectDir);
     await this.recordInvocation();
     await this.writeRecord();
     const persistedTaskState = await readTaskState(this.projectDir);
@@ -270,9 +290,11 @@ class RunController {
       if (this.options.wallTimeoutMs && Date.now() - started > this.options.wallTimeoutMs) {
         return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out', nextAction: 'Resume with replatform resume <project> after investigating the timeout.' }));
       }
-      const pending = await listUserActions(this.projectDir, { status: 'pending' });
-      if (pending.length) {
-        const request = await readUserAction(this.projectDir, pending[0].requestId);
+      const artifacts = await loadArtifacts(this.projectDir);
+      // An explicit operator hold precedes pending requests and stale-request recovery.
+      const actionGate = artifacts.run?.status === 'blocked' ? null : await pendingUserActionGate(this.projectDir);
+      if (actionGate?.request) {
+        const request = actionGate.request;
         await this.updateTasks((state) => waitForInput(state, request));
         const route = { nextState: 'awaiting_user_action', reason: 'pending_user_action', nextResource: null };
         await this.emit('user_action_requested', 'waiting_for_user', request.prompt, {
@@ -287,11 +309,16 @@ class RunController {
           : request.response.mode === 'text' ? '--text "<answer>"' : '--acknowledge';
         return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'waiting_for_user', route, request, nextAction: `replatform answer --project ${this.projectDir} --request-id ${request.requestId} ${response} --continue` }));
       }
-      const artifacts = await loadArtifacts(this.projectDir);
       const route = await determineNextStep(this.projectDir, artifacts);
       await this.updateTasks((state) => selectRoute(state, route));
       await this.emit('routed', 'running', route.reason, { evidence: { kind: 'router', ref: route.nextResource || route.reason }, route });
       if (!route.ok) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: 'Inspect orchestration artifacts and repair the reported validation error.' }));
+      // The existing-site mute question is a durable request, not an agent turn: the next
+      // pass finds it pending and waits for `replatform answer`.
+      if (route.reason === 'missing_notification_mute_decision') {
+        await require('./notification-mute.js').ensureNotificationMuteRequest(this.projectDir);
+        continue;
+      }
       if (route.nextState === 'completed') {
         const completionInputs = await loadMigrationCompletionInputs(this.projectDir);
         const completion = validateMigrationCompletion(completionInputs.completion, completionInputs);
@@ -299,7 +326,7 @@ class RunController {
       }
       if (['blocked', 'canceled', 'interrupted', 'cancel_requested'].includes(route.nextState)) {
         const outcome = route.nextState === 'cancel_requested' ? 'interrupted' : route.nextState;
-        return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome, route, nextAction: route.nextState === 'blocked' ? 'Inspect the route reason and satisfy the named prerequisite.' : 'Use replatform resume <project> when ready.' }));
+        return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome, route, nextAction: route.reason === 'run_blocked' ? route.blocker.requiredInput : route.nextState === 'blocked' ? 'Inspect the route reason and satisfy the named prerequisite.' : 'Use replatform resume <project> when ready.' }));
       }
       const routeKey = `${route.nextState}:${route.reason}:${route.nextResource || ''}`;
       sameRoute = routeKey === priorRoute ? sameRoute + 1 : 0;

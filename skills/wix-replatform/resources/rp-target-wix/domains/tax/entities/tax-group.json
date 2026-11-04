@@ -12,6 +12,7 @@
     "crosswalkRequired": true
   },
   "dependsOn": [],
+  "setupProducible": true,
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

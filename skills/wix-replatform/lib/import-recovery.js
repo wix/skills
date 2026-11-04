@@ -15,6 +15,7 @@ const {
 } = require('./local-state.js');
 const { updateSupportFor } = require('./rerun-conflicts.js');
 const { appendExecutionLog } = require('./execution-log.js');
+const { validateGeneratedImporterReviewContract } = require('./migration-review.js');
 
 const RECOVERY_SCHEMA_VERSION = 1;
 const RECOVERY_MODES = ['partial', 'missing-only', 'failed-only', 'deferred-only', 'unresolved-only', 'resumed', 'rerun'];
@@ -635,7 +636,7 @@ const COVERAGE_NAMING_ONLY_BUCKETS = ['alreadyPresentByCrosswalk'];
 const coverageJournalCache = new Map();
 
 function emptyCoverageCacheEntry() {
-  return { offset: 0, runs: new Map(), reportedEntityCoverage: new Map() };
+  return { offset: 0, runs: new Map(), latest: new Map(), reportedEntityCoverage: new Map() };
 }
 
 // Reuses `foldAttemptsBySourceKey` (local-state.js) on just the newly read rows, grouped by run,
@@ -653,6 +654,11 @@ function mergeRowsIntoCoverageCache(entry, rows) {
     }
     byRun.get(row.runId).push(row);
   }
+  // Project-level latest row per record across every run, in file order: the same fold, without
+  // the run filter. It answers "where does each record stand now", which no single run can.
+  for (const [key, row] of foldAttemptsBySourceKey(rows.filter((row) => row && row.runId && row.sourceStableKey))) {
+    entry.latest.set(key, row);
+  }
   for (const [rowRunId, runRows] of byRun) {
     const folded = foldAttemptsBySourceKey(runRows);
     let runMap = entry.runs.get(rowRunId);
@@ -666,9 +672,24 @@ function mergeRowsIntoCoverageCache(entry, rows) {
   }
 }
 
+// A `needs_verification` row that names a target id records a write that LANDED and was not
+// verified: its next action is a read-back, exactly like `succeeded_unverified`, and it was
+// attempted. Counting it as `deferred` (never attempted) is how a created product disappeared
+// from both `attempted` and `unresolved`. Without a target id it stays a deferral.
+// `targetId` is the documented field; a top-level `targetEntityId` (what generated importers
+// wrote) names the same landed record and is read the same way.
+function attemptTargetId(row) {
+  const id = row && (row.targetId || row.targetEntityId || (row.failure && row.failure.targetEntityId));
+  return typeof id === 'string' && id ? id : null;
+}
+function landedUnverified(row) {
+  return Boolean(row) && row.status === 'needs_verification' && attemptTargetId(row) !== null;
+}
+
 // Count buckets, computed directly from the folded rows' latest status -- never derived by summing
-// other held counters. `attempted` matches this repo's documented semantics
-// (rp-import-codegen/SKILL.md:2181-2182): imported or failed, never deferred.
+// other held counters. `attempted` is every record a write was sent for: imported, failed, or
+// unresolved (sent, outcome not confirmed). `deferred` is never attempted
+// (rp-import-codegen/SKILL.md: `deferred` means intentionally not attempted).
 function coverageStatusCounts(rows) {
   const counts = { imported: 0, deferred: 0, failed: 0, attempted: 0, unexpectedSkipped: 0, unresolved: 0 };
   for (const row of rows) {
@@ -679,15 +700,40 @@ function coverageStatusCounts(rows) {
     } else if (status === 'failed_retryable' || status === 'failed_terminal') {
       counts.failed += 1;
       counts.attempted += 1;
+    } else if (UNRESOLVED_ATTEMPT_STATUSES.has(status) || landedUnverified(row)) {
+      counts.unresolved += 1;
+      counts.attempted += 1;
     } else if (DEFERRED_ATTEMPT_STATUSES.has(status)) {
       counts.deferred += 1;
     } else if (status === 'skipped_unexpected') {
       counts.unexpectedSkipped += 1;
-    } else if (UNRESOLVED_ATTEMPT_STATUSES.has(status)) {
-      counts.unresolved += 1;
     }
   }
   return counts;
+}
+
+// Where each record of one target type stands across ALL runs (latest row per record). Run-level
+// buckets above describe what one pass did; this describes project coverage after adoption and
+// resume passes. Informational: it is never compared against a held counter. `unresolvedRecords`
+// keeps each unresolved record's target identity, so the read-back target is never lost.
+function projectLatestCounts(rows) {
+  const counts = coverageStatusCounts(rows);
+  const alreadyPresent = rows.filter((row) => row.status === 'skipped_already_imported').length;
+  const unresolvedRecords = rows
+    .filter((row) => UNRESOLVED_ATTEMPT_STATUSES.has(row.status) || landedUnverified(row))
+    .map((row) => ({ sourceStableKey: row.sourceStableKey, status: row.status, runId: row.runId, targetId: attemptTargetId(row) }))
+    .sort((a, b) => a.sourceStableKey.localeCompare(b.sourceStableKey));
+  return {
+    scope: 'project-latest-across-runs',
+    records: rows.length,
+    imported: counts.imported,
+    alreadyPresent,
+    deferred: counts.deferred,
+    failed: counts.failed,
+    unresolved: counts.unresolved,
+    unexpectedSkipped: counts.unexpectedSkipped,
+    unresolvedRecords,
+  };
 }
 
 // A held counter is "carried" only when the summary names it explicitly, including an explicit 0
@@ -774,6 +820,7 @@ async function computeCoverageCheck(projectDir, summary, options, runId) {
 
   if (readResult.truncated) {
     entry.runs = new Map();
+    entry.latest = new Map();
     entry.reportedEntityCoverage = new Map();
   }
   mergeRowsIntoCoverageCache(entry, readResult.rows);
@@ -793,6 +840,12 @@ async function computeCoverageCheck(projectDir, summary, options, runId) {
         summaryKeys.add(key);
       }
     }
+  }
+
+  const projectRowsByTargetType = new Map();
+  for (const row of entry.latest.values()) {
+    if (!projectRowsByTargetType.has(row.targetEntityType)) projectRowsByTargetType.set(row.targetEntityType, []);
+    projectRowsByTargetType.get(row.targetEntityType).push(row);
   }
 
   const rowsByTargetType = new Map();
@@ -853,6 +906,7 @@ async function computeCoverageCheck(projectDir, summary, options, runId) {
       anyMismatch = true;
     }
     entityRow.unexpectedSkipped = { held: heldSkippedValue, journal: counts.unexpectedSkipped, agrees: skippedAgrees, compared: true };
+    entityRow.project = projectLatestCounts(projectRowsByTargetType.get(targetType) || []);
     entities[key] = entityRow;
   }
 
@@ -1030,7 +1084,7 @@ const REQUIRED_LEDGER_PATHS = {
 
 // Throws naming EVERY missing mode and EVERY misplaced path at once. One error per run of the
 // gate would turn a codegen fix into a guessing game.
-function assertGeneratedImporterContract(descriptor) {
+function assertGeneratedImporterContract(descriptor, {mappingPlan=null,projectDir=null}={}) {
   const problems = [];
   if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor)) {
     throw new Error('generated importer contract: descriptor must be an object — an entrypoint that ignores --describe fails the gate, it never passes by default');
@@ -1067,6 +1121,17 @@ function assertGeneratedImporterContract(descriptor) {
       problems.push('ledger.appendOnly must be true — a per-record log of what we wrote to a merchant store is only ever appended to');
     }
   }
+  problems.push(...validateGeneratedImporterReviewContract(descriptor.migrationReview));
+  if (mappingPlan?.fieldContractVersion===1) {
+    const {digest,canonical,assertExecutionScope}=require('./mapping-field-contract.js');
+    if (!Array.isArray(mappingPlan.executionScope?.resolvedEntityRefs)) problems.push('canonical mapping must contain its resolved execution scope');
+    if (descriptor.mappingPlanDigest!==digest(mappingPlan)) problems.push('mappingPlanDigest must match the pinned canonical authority');
+    if (canonical(descriptor.resolvedEntityRefs)!==canonical(mappingPlan.executionScope?.resolvedEntityRefs)) problems.push('resolvedEntityRefs must match the canonical execution scope');
+    if (descriptor.mappingScopeAssertion!=='assertExecutionScope') problems.push('mappingScopeAssertion must declare the shared direct-handler guard');
+    for (const ref of mappingPlan.executionScope?.resolvedEntityRefs || []) {
+      try {assertExecutionScope(mappingPlan,ref,descriptor.mappingPlanDigest,projectDir);} catch(e) {problems.push(e.message);}
+    }
+  }
   if (problems.length) {
     throw new Error(`generated importer contract violated:\n  - ${problems.join('\n  - ')}`);
   }
@@ -1078,6 +1143,8 @@ module.exports = {
   RECOVERY_MODES,
   DEFERRED_ATTEMPT_STATUSES,
   UNCERTAIN_ATTEMPT_STATUSES,
+  attemptTargetId,
+  landedUnverified,
   GENERATED_IMPORTER_CONTRACT_VERSION,
   REQUIRED_SELECTION_MODES,
   REQUIRED_LEDGER_PATHS,

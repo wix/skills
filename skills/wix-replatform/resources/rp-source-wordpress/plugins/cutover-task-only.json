@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "description": "Plugins that hold no data to move but need a named cutover task. An installed or fingerprinted plugin whose folder slug, or main-file name, matches an entry becomes one coverage row: status manual-mapping, basis list, via manual, the entry's manualSteps verbatim, and cutoverTask { workType, task, doneWhen }. The row reaches the Cutover Operator through the census (state manual) and the discovered-set status (manual-open). An entry never hides data: if the run attributes readable data to the plugin, that data keeps its own row and the task is added beside it. Signed (decidedBy, decidedOn); unsigned entries fail validation and are ignored at runtime. A slug here may not also have a profile, a no-migration-needed hint, or a toolkit entry.",
+  "workTypes": {
+    "manual-setup": "The owner must configure an applicable setting or account.",
+    "missing-apps": "A specific required destination app is verified absent.",
+    "changed-behavior": "Data exists but the intended functionality differs or needs a solution.",
+    "checks": "A specific configuration or customer flow needs a bounded verification.",
+    "review": "An unfamiliar capability needs investigation or a decision."
+  },
+  "tasks": [
+    {
+      "slug": "woocommerce-google-analytics-integration",
+      "displayName": "Google Analytics for WooCommerce",
+      "does": "Sends store events to Google Analytics.",
+      "workType": "manual-setup",
+      "task": "Reconnect Google Analytics",
+      "manualSteps": {
+        "prerequisite": "Access to the store's Google Analytics property.",
+        "steps": [
+          {
+            "actor": "external",
+            "text": "In Google Analytics, copy the GA4 measurement ID the store used."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Marketing Integrations > Google Tag and connect that measurement ID. Wix sends store events (view item, add to cart, purchase) by itself."
+          }
+        ]
+      },
+      "doneWhen": "Google Analytics Realtime shows a visit to the Wix site.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "google-site-kit",
+      "displayName": "Site Kit by Google",
+      "does": "Connects Google Analytics, Search Console and other Google services.",
+      "workType": "manual-setup",
+      "task": "Reconnect Google Analytics and Search Console",
+      "manualSteps": {
+        "prerequisite": "Access to the Google accounts the plugin used.",
+        "steps": [
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Marketing Integrations > Google Tag and connect the same GA4 measurement ID."
+          },
+          {
+            "actor": "merchant",
+            "text": "In Marketing & SEO, verify the site with Google Search Console (the Wix SEO setup connects it)."
+          }
+        ]
+      },
+      "doneWhen": "GA Realtime shows a Wix visit, and Search Console lists the Wix site as verified.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "google-listings-and-ads",
+      "displayName": "Google for WooCommerce",
+      "does": "Sends products to Google Merchant Center and runs Google Shopping ads.",
+      "workType": "manual-setup",
+      "task": "Reconnect Google Merchant Center",
+      "manualSteps": {
+        "prerequisite": "Access to the Google Merchant Center and Google Ads accounts.",
+        "steps": [
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Google & YouTube and connect the existing Merchant Center account (remove the old WooCommerce feed in Merchant Center first)."
+          },
+          {
+            "actor": "external",
+            "text": "In Google Ads, check that Shopping campaigns now use the Wix product feed."
+          }
+        ]
+      },
+      "doneWhen": "Merchant Center shows the Wix products as approved.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "pixelyoursite-pro",
+      "displayName": "PixelYourSite PRO",
+      "does": "Adds ad pixels (Meta, Google Ads, TikTok and more) to the site.",
+      "workType": "manual-setup",
+      "task": "Reconnect ad pixels",
+      "manualSteps": {
+        "prerequisite": "Access to the ad accounts and their pixel IDs.",
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, note which ad pixels and IDs the plugin sends (Meta Pixel, Google Ads, TikTok)."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Marketing Integrations and connect each one: Meta Pixel & CAPI, Google Ads Conversions, TikTok Pixel."
+          },
+          {
+            "actor": "merchant",
+            "text": "Use the same pixel and account IDs so ad reporting continues."
+          }
+        ]
+      },
+      "doneWhen": "Each pixel's own tool shows events from the Wix site (for example Meta Events Manager test events).",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "wemanage-ads-tracker",
+      "displayName": "Agency ads tracker",
+      "does": "Agency ad tracking on the site.",
+      "workType": "manual-setup",
+      "task": "Reconnect ad tracking",
+      "manualSteps": {
+        "prerequisite": "Access to the ad accounts and their pixel IDs.",
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, note which ad pixels and IDs the plugin sends (Meta Pixel, Google Ads, TikTok)."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Marketing Integrations and connect each one: Meta Pixel & CAPI, Google Ads Conversions, TikTok Pixel."
+          },
+          {
+            "actor": "merchant",
+            "text": "Use the same pixel and account IDs so ad reporting continues."
+          }
+        ]
+      },
+      "doneWhen": "Each pixel's own tool shows events from the Wix site (for example Meta Events Manager test events).",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "wm-ads",
+      "displayName": "Agency ads pixel plugin",
+      "does": "Agency ad tracking on the site.",
+      "workType": "manual-setup",
+      "task": "Reconnect ad tracking",
+      "manualSteps": {
+        "prerequisite": "Access to the ad accounts and their pixel IDs.",
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, note which ad pixels and IDs the plugin sends (Meta Pixel, Google Ads, TikTok)."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Marketing Integrations and connect each one: Meta Pixel & CAPI, Google Ads Conversions, TikTok Pixel."
+          },
+          {
+            "actor": "merchant",
+            "text": "Use the same pixel and account IDs so ad reporting continues."
+          }
+        ]
+      },
+      "doneWhen": "Each pixel's own tool shows events from the Wix site (for example Meta Events Manager test events).",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "webappick-product-feed-for-woocommerce",
+      "displayName": "CTX Feed",
+      "does": "Builds product feeds for Google, Facebook and other shopping channels.",
+      "workType": "manual-setup",
+      "task": "Recreate product feeds",
+      "manualSteps": {
+        "prerequisite": "Access to each shopping channel's account.",
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list which channels the feeds were sent to."
+          },
+          {
+            "actor": "merchant",
+            "text": "For each channel, connect it in the Wix dashboard: Google & YouTube, Facebook Catalog (Marketing Integrations), or the channel's Wix sales channel. Wix builds and updates the feed itself."
+          },
+          {
+            "actor": "external",
+            "text": "In each channel's account, replace the old feed URL with the Wix one."
+          }
+        ]
+      },
+      "doneWhen": "Each channel shows products from the Wix feed.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "header-footer-code-manager",
+      "displayName": "Header Footer Code Manager",
+      "does": "Adds code snippets (tracking, verification tags) to every page.",
+      "workType": "manual-setup",
+      "task": "Re-add header and footer code",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, copy each active snippet and note where it loads (head or body)."
+          },
+          {
+            "actor": "merchant",
+            "text": "Prefer a Marketing Integration if one covers the snippet (Google Tag, Meta Pixel). Otherwise add it in Settings > Custom Code with the same placement."
+          }
+        ]
+      },
+      "doneWhen": "Each snippet's tool sees the Wix site (or its verification passes).",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "code-snippets-pro",
+      "displayName": "Code Snippets Pro",
+      "does": "Runs custom PHP, JS and CSS snippets on the site.",
+      "workType": "review",
+      "task": "Review code snippets",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list each active snippet and what it does."
+          },
+          {
+            "actor": "merchant",
+            "text": "Re-add tracking or display snippets in Settings > Custom Code."
+          },
+          {
+            "actor": "merchant",
+            "text": "For snippets that change store behavior (PHP), decide what replaces them on Wix, or record that they are not needed."
+          }
+        ]
+      },
+      "doneWhen": "Every active snippet is re-added on Wix or recorded as not needed.",
+      "note": "PHP snippets can hold business logic; this is a decision for the owner, not a copy step.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "cookie-law-info",
+      "displayName": "CookieYes",
+      "does": "Shows a cookie consent banner.",
+      "workType": "manual-setup",
+      "task": "Turn on the cookie banner",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Privacy & Cookies and click Add to Site next to the cookie consent banner."
+          },
+          {
+            "actor": "merchant",
+            "text": "Set the banner text and languages to match the old one."
+          }
+        ]
+      },
+      "doneWhen": "The live Wix site shows the cookie banner on first visit.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "sogo-accessibility",
+      "displayName": "SOGO Accessibility",
+      "does": "Adds an accessibility toolbar for visitors.",
+      "workType": "manual-setup",
+      "task": "Set up accessibility on Wix",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, run the Accessibility Wizard and fix what it finds."
+          },
+          {
+            "actor": "merchant",
+            "text": "If the owner wants a visitor toolbar like the old one, add an accessibility app from the Wix App Market."
+          }
+        ]
+      },
+      "doneWhen": "The Accessibility Wizard shows no open issues, and the toolbar is live if the owner chose one.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "popup-maker",
+      "displayName": "Popup Maker",
+      "does": "Shows popups (offers, newsletter sign-up).",
+      "workType": "manual-setup",
+      "task": "Recreate popups",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list each popup, its text, and when it shows."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, add a popup (lightbox) for each one still wanted, with the same trigger."
+          }
+        ]
+      },
+      "doneWhen": "Each wanted popup shows on the Wix site.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "wm-popups",
+      "displayName": "Agency popups plugin",
+      "does": "Shows popups (offers, newsletter sign-up).",
+      "workType": "manual-setup",
+      "task": "Recreate popups",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list each popup, its text, and when it shows."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, add a popup (lightbox) for each one still wanted, with the same trigger."
+          }
+        ]
+      },
+      "doneWhen": "Each wanted popup shows on the Wix site.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "wm-floating-contact",
+      "displayName": "Agency floating contact button",
+      "does": "Floating contact button (WhatsApp, phone).",
+      "workType": "manual-setup",
+      "task": "Recreate the floating contact button",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, note the button's phone or WhatsApp number."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, add a fixed contact button (or a chat/WhatsApp app) with the same number."
+          }
+        ]
+      },
+      "doneWhen": "The Wix site shows the contact button and it opens the right number.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "revslider",
+      "displayName": "Slider Revolution",
+      "does": "Image sliders on pages.",
+      "workType": "manual-setup",
+      "task": "Recreate sliders",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list the pages that show a slider and save its images and text."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, add a slideshow or gallery on the same pages with those images and text."
+          }
+        ]
+      },
+      "doneWhen": "Each slider page on Wix shows its slideshow.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "LayerSlider",
+      "displayName": "LayerSlider",
+      "does": "Image sliders on pages.",
+      "workType": "manual-setup",
+      "task": "Recreate sliders",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, list the pages that show a slider and save its images and text."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, add a slideshow or gallery on the same pages with those images and text."
+          }
+        ]
+      },
+      "doneWhen": "Each slider page on Wix shows its slideshow.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "wpcf7-redirect",
+      "displayName": "Redirection for Contact Form 7",
+      "does": "Sends visitors to a thank-you page after a form is sent.",
+      "workType": "manual-setup",
+      "task": "Set form thank-you redirects",
+      "manualSteps": {
+        "prerequisite": null,
+        "steps": [
+          {
+            "actor": "external",
+            "text": "On the source site, note each form's redirect URL."
+          },
+          {
+            "actor": "merchant",
+            "text": "In the Wix editor, open each imported form > Edit Form > Settings, and under When a form is submitted choose Redirect to a URL with the matching page."
+          }
+        ]
+      },
+      "doneWhen": "Sending each form on Wix lands on its thank-you page.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    },
+    {
+      "slug": "payplus-payment-gateway",
+      "displayName": "PayPlus Payment Gateway",
+      "does": "Takes card payments at checkout.",
+      "workType": "manual-setup",
+      "task": "Connect a payment provider",
+      "manualSteps": {
+        "prerequisite": "The owner's chosen payment provider account.",
+        "steps": [
+          {
+            "actor": "merchant",
+            "text": "In the Wix dashboard, open Settings > Accept Payments and connect the payment provider the owner chooses."
+          },
+          {
+            "actor": "merchant",
+            "text": "Make a test purchase and refund it."
+          }
+        ]
+      },
+      "doneWhen": "A test order on Wix is paid and refunded.",
+      "note": "Past payments come across with the orders. Gateway settings and keys are never read.",
+      "decidedBy": "Product Owner",
+      "decidedOn": "2026-10-31",
+      "provenance": "observed"
+    }
+  ]
+}

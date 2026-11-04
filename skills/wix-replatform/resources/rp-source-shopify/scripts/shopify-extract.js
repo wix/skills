@@ -188,6 +188,8 @@ async function runExtract({
   const project = protectedOptions.project;
   // Texts are only used for a new manifest; a resumed one keeps what each query was last sent.
   const queries = existing ? null : bulk.QUERY_NAMES.map((name) => ({ name, entity: bulk.entityOf(name), text: bulk.generateQueryText(name, { snapshotTime, project }) }));
+  // A resumed manifest may predate a catalog query: those are added as pending datasets.
+  const addQueries = existing ? bulk.QUERY_NAMES.filter((name) => !(existing.queries && existing.queries[name])).map((name) => ({ name, entity: bulk.entityOf(name), text: bulk.generateQueryText(name, { snapshotTime, project }) })) : null;
   const suppliedHandlers = runnerOptions.handlers || {};
   const handlers = {
     ...protectedOptions.handlers,
@@ -204,6 +206,8 @@ async function runExtract({
     stagingDir,
     outputDir,
     queries,
+    addQueries,
+    currentText: existing ? (name) => (bulk.QUERY_NAMES.includes(name) ? bulk.generateQueryText(name, { snapshotTime, project }) : null) : null,
     snapshotTime,
     execute,
     retryFailed,

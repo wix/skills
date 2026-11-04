@@ -9,5 +9,8 @@
     "variants": { "evidenceFields": ["variations"], "label": "Product variants" },
     "inventory": { "evidenceFields": ["stock_status", "stock_quantity"], "label": "Inventory" },
     "seo": { "evidenceFields": ["yoast_head_json"], "label": "SEO metadata" }
+  },
+  "plugin.forminator.entry": {
+    "spam": { "evidenceFields": ["is_spam"], "label": "Entries the source flagged as spam" }
   }
 }

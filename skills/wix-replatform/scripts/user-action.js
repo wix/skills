@@ -8,6 +8,7 @@ const {
   listUserActions,
   readUserAction,
   answerUserAction,
+  supersedeStaleUserAction,
 } = require('../lib/user-actions.js');
 const { applyUserActionEffect } = require('../lib/user-action-effects.js');
 
@@ -31,7 +32,7 @@ function applyEffect(projectDir, request, answer) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const command = args._[0];
-  if (!command || !args.project) throw new Error('Usage: user-action.js create|list|show|answer --project <path> ...');
+  if (!command || !args.project) throw new Error('Usage: user-action.js create|list|show|answer|supersede|recover-omission-ack --project <path> ...');
   const projectDir = path.resolve(args.project);
   let result;
   if (command === 'create') {
@@ -42,6 +43,12 @@ async function main() {
   } else if (command === 'show') {
     if (!args.request) throw new Error('show requires --request <id>');
     result = await readUserAction(projectDir, args.request);
+  } else if (command === 'recover-omission-ack') {
+    if (!args.request) throw new Error('recover-omission-ack requires --request <stale-id>');
+    result = await require('../lib/read-back-approval.js').recoverStaleAcknowledgement(projectDir, args.request);
+  } else if (command === 'supersede') {
+    if (!args.request || !args.replacement) throw new Error('supersede requires --request <stale-id> --replacement <fresh-id>');
+    result = await supersedeStaleUserAction(projectDir, args.request, args.replacement);
   } else if (command === 'answer') {
     if (!args.request) throw new Error('answer requires --request <id>');
     const answer = args.acknowledge ? { acknowledged: true, ...(args.note ? { note: args.note } : {}) } : args.choice !== undefined ? { choice: args.choice, ...(args.note ? { note: args.note } : {}) } : { text: args.text };

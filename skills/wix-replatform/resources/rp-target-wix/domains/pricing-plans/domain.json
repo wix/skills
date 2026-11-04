@@ -27,8 +27,8 @@
     },
     {
       "code": "offline-order-lifecycle-calls-fire-events",
-      "severity": "warning",
-      "summary": "Order lifecycle calls emit domain events (Order Purchased/Started/Paused/Marked As Paid webhooks), and Mark As Paid explicitly documents that offline payments 'trigger events and emails'. Treat every post-create lifecycle call during import as a potential member-facing notification until verified live."
+      "severity": "info",
+      "summary": "Order lifecycle calls emit domain events (Order Purchased/Started/Paused/Marked As Paid webhooks), and Mark As Paid explicitly documents that offline payments 'trigger events and emails'. Treat every post-create lifecycle call during import as a potential member-facing notification until verified live. Covered by site mute: when getSiteMuteState reads muted:true, this is not a reason to block, skip, delay or warn about the entity."
     }
   ],
   "evidence": [

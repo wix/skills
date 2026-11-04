@@ -1,5 +1,16 @@
 'use strict';
 
+// Stores V3 reads a variant choice back as optionChoiceIds even when it was written by
+// optionChoiceNames; the product's own option/choice dictionary turns the ids back into names.
+function choiceNames(choice, target) {
+  if (choice.optionChoiceNames) return choice.optionChoiceNames;
+  const options = (target.options || []).filter(o => o.id === choice.optionChoiceIds?.optionId);
+  if (options.length !== 1) throw new Error('Target option identity is missing or ambiguous');
+  const values = (options[0].choicesSettings?.choices || []).filter(v => v.choiceId === choice.optionChoiceIds.choiceId);
+  if (values.length !== 1) throw new Error('Target choice identity is missing or ambiguous');
+  return { optionName: options[0].name, choiceName: values[0].name, renderType: options[0].optionRenderType };
+}
+
 // Shared deterministic one-to-one comparison; response order is never an identity.
 function resolveInventoryRows(canonical, target) {
   if (!target || !target.id || !Array.isArray(target.variantsInfo?.variants)) throw new Error('Target product omitted variant identities');
@@ -10,15 +21,7 @@ function resolveInventoryRows(canonical, target) {
   const targetByChoices = new Map();
   for (const variant of target.variantsInfo.variants) {
     if (!variant.id) throw new Error('Target variant omitted identity');
-    const choices = (variant.choices || []).map(c => {
-      if (c.optionChoiceNames) return c.optionChoiceNames;
-      const options = (target.options || []).filter(o => o.id === c.optionChoiceIds?.optionId);
-      if (options.length !== 1) throw new Error('Target option identity is missing or ambiguous');
-      const values = (options[0].choicesSettings?.choices || []).filter(v => v.choiceId === c.optionChoiceIds.choiceId);
-      if (values.length !== 1) throw new Error('Target choice identity is missing or ambiguous');
-      return { optionName: options[0].name, choiceName: values[0].name };
-    });
-    const identity = key(choices);
+    const identity = key((variant.choices || []).map(c => choiceNames(c, target)));
     if (targetByChoices.has(identity)) throw new Error('Ambiguous target variant choices');
     targetByChoices.set(identity, variant.id);
   }
@@ -31,4 +34,4 @@ function resolveInventoryRows(canonical, target) {
   });
 }
 
-module.exports = { resolveInventoryRows };
+module.exports = { choiceNames, resolveInventoryRows };

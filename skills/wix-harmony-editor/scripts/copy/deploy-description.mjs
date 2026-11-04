@@ -22,7 +22,7 @@
 // Mobile-only Hide and the mobile background-image opacity have no API: run mobile-stage.mjs after.
 import { chromium } from 'playwright';
 import { hideScrollbars } from './hide-scrollbars.mjs';
-import fs from 'fs';
+import fs from 'node:fs';
 import { descHash, openItems, pendingItems } from './desc-hash.mjs';
 
 const args = process.argv.slice(2);

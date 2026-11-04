@@ -410,9 +410,43 @@ function aggregateOutcome(dependentOutcomes = []) {
   }, null);
 }
 
+// A dependent field's outcome from write accounting: the latest attempt row per source record of
+// that target entity. Written records used the data only when the request is fulfilled; otherwise
+// they carry the degraded default (`warning`). Nothing written yet is `deferred`.
+function dependentOutcomeFromJournal(request, targetEntity, latestRows) {
+  const rows = latestRows.filter((row) => row.targetEntityType === targetEntity);
+  if (rows.some((row) => row.status === 'imported' || row.status === 'skipped_already_imported')) return request.status === 'fulfilled' ? 'fulfilled' : 'warning';
+  if (rows.some((row) => row.status === 'failed_retryable' || row.status === 'failed_terminal')) return 'failed';
+  return 'deferred';
+}
+
+// The persisted requests as completion-report input. `writeCompletionReport` joins
+// these itself, so an importer that never passes `blockedDataRequests` still reports a declined
+// or missing request. Rows already filled keep their outcome.
+async function completionReportInput(projectDir, journalRows = []) {
+  let names = [];
+  try { names = await fsp.readdir(requestDirectory(projectDir)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const latest = new Map();
+  for (const row of journalRows) if (row && row.sourceStableKey) latest.set(`${row.targetEntityType}\0${row.sourceStableKey}`, row);
+  const latestRows = [...latest.values()];
+  const requests = [];
+  for (const name of names.filter((file) => file.endsWith('.json') && !/\.extraction\.v\d+\.json$/.test(file)).sort()) {
+    const request = JSON.parse(await fsp.readFile(path.join(requestDirectory(projectDir), name), 'utf8'));
+    if (!request || typeof request.sourceEntityRef !== 'string') continue;
+    requests.push({
+      ...request,
+      dependentOutcomes: (request.dependentOutcomes || []).map((row) => (row.recordOutcome === null || row.recordOutcome === undefined
+        ? { ...row, recordOutcome: dependentOutcomeFromJournal(request, row.targetEntity, latestRows) }
+        : row)),
+    });
+  }
+  return requests;
+}
+
 module.exports = {
   OUTCOME_RANK,
   aggregateOutcome,
+  completionReportInput,
   buildBlockedDataRequests,
   checksum,
   readCurrentSnapshot,

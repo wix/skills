@@ -6,6 +6,12 @@ const duplicates = require('./blog-post-build-duplicates');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const NOT_FOUND_CODE = 'NOT_FOUND';
+// LIVE-VERIFIED (2026-10-31): Get Draft Post and Update Draft Post can return slug: null while the
+// draft's slug is in seoSlug (with slugs[] beside it), so either field names the draft's slug.
+// slug wins when both are set.
+function draftSlug(draft) {
+  return draft?.slug || draft?.seoSlug || null;
+}
 function isNotFound(error) {
   if (error?.status !== 404) return false;
   const code = error.code || error.applicationErrorCode || error.details?.code ||
@@ -251,9 +257,9 @@ async function updateWithIntent(projectDir, post, client, draftId, desiredPost, 
   const response = await client.updateDraft(draftId, projection);
   const partial = response?.draftPost || response || {};
   const committed = { ...desiredPost };
-  if (Object.hasOwn(partial, 'slug') && partial.slug) committed.seoSlug = partial.slug;
+  if (draftSlug(partial)) committed.seoSlug = draftSlug(partial);
   commitGeneration(projectDir, post, draftId, committed, origin, 'update-applied', Object.keys(projection),
-    { ownerState, finalSlug: partial.slug || null });
+    { ownerState, finalSlug: draftSlug(partial) });
   return { response: partial, desiredPost: committed };
 }
 async function finalizePost(projectDir, post, client, transforms = {}, options = {}) {
@@ -288,8 +294,8 @@ async function finalizePost(projectDir, post, client, transforms = {}, options =
     if (typeof transforms.captureOwnerState === 'function')
       ownerState = await transforms.captureOwnerState(desired, post, ownerState);
     commitGeneration(projectDir, post, draftId, desired, origin, 'captured', undefined,
-      { ownerState, finalSlug: (liveDraft.draftPost || liveDraft).slug || null });
-    const readSlug = (liveDraft.draftPost || liveDraft).slug || null;
+      { ownerState, finalSlug: draftSlug(liveDraft.draftPost || liveDraft) });
+    const readSlug = draftSlug(liveDraft.draftPost || liveDraft);
     if (!readSlug) { if (state.phase.reason !== 'slug-missing-in-response') phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
     if (slug && readSlug !== slug) { if (state.phase.reason !== 'slug-changed-while-held') phase(projectDir, post, 'held', { draftId, reason: 'slug-changed-while-held', slug }); return; }
     slug = readSlug;
@@ -302,7 +308,7 @@ async function finalizePost(projectDir, post, client, transforms = {}, options =
       const update = await updateWithIntent(projectDir, post, client, draftId, desired,
         { seoSlug: sourceSlug, media: desired.media }, origin, ownerState);
       desired = update.desiredPost;
-      slug = update.response.slug || null;
+      slug = draftSlug(update.response);
       if (!slug) { phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
       phase(projectDir, post, 'slug-set', { draftId, slug, expectedPath: expectedPath(slug, post) });
     }
@@ -320,12 +326,12 @@ async function finalizePost(projectDir, post, client, transforms = {}, options =
     const update = await updateWithIntent(projectDir, post, client, draftId, desired,
       { richContent: desired.richContent, media: desired.media }, origin, ownerState);
     desired = update.desiredPost;
-    if (!update.response.slug) { phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
-    if (update.response.slug !== slug) {
+    const updatedSlug = draftSlug(update.response);
+    if (!updatedSlug) { phase(projectDir, post, 'held', { draftId, reason: 'slug-missing-in-response' }); return; }
+    if (updatedSlug !== slug) {
       phase(projectDir, post, 'held', { draftId, slug, reason: 'slug-changed-while-held' });
       return;
     }
-    slug = update.response.slug;
   }
   const leftovers = transforms.detectLeftovers ? await transforms.detectLeftovers(desired, post, index) : [];
   ledger.appendRow(projectDir, { kind: 'leftover-set', sourceStableKey: key, findings: leftovers });

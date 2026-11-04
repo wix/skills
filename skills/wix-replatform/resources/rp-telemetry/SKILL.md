@@ -38,6 +38,19 @@ Three discipline rules apply to every free-text field (`what_happened`, `expecte
 
 ## The recorder
 
+For investigated mapping coverage, use `lib/knowledge-observation.js` `event(...)` and the
+normal recorder. It requires `findingClass` (missing-knowledge, missing-writer,
+target-limitation, source-ambiguity or conflicting-knowledge), public `targetRef`/`operation`,
+`toolkitVersion`, `outcome` (resolved-mapping, deferred-field, deferred-record or verified-repair),
+`verificationLevel` and `affectedCount` (measured integer or null). Record successful novel
+mappings as well as unresolved work. Only verified read-back supports verified-repair.
+The validator admits registered public identifiers; unknown operations use `unregistered`.
+It rejects arbitrary extra keys. Never pass a raw custom key, source value or customer ID.
+The recorder owns JSON in `actual`/BI `actualSkill`; do not combine this payload with an
+independent `actual`. Occurrences, affected observations and distinct runs are different counts;
+overlapping decisions do not establish a distinct-record total. Existing offline/disabled BI
+delivery and replay apply; local persistence is not a claim of warehouse ingestion.
+
 All telemetry is persisted through the bundled recorder — **never hand-write or edit
 `run-telemetry.json` or `telemetry/` files.** Run it from this resource directory
 (see `CONVENTIONS.md`), pointing at the active migration project:
@@ -56,7 +69,7 @@ what to fix.
 |---|---|
 | `start '<dims-json>'` | At run begin — before any other pipeline step. Resumes an unfinalized run automatically. |
 | `dims '<dims-json>'` | Whenever a dimension becomes known mid-run (platform version and extensions after discovery, `site_id` after provisioning). |
-| `stage start <stage>` / `stage end <stage> --outcome <outcome>` | At every stage boundary. Outcomes: `passed`, `halted`, `failed`, `skipped`. |
+| `stage start <stage>` / `stage end <stage> --outcome <outcome>` | At every stage boundary. Outcomes: `passed`, `halted`, `failed`, `skipped`. `passed` is refused for `codegen` and `setup_discovery` while that stage's `llm-handoff.json` has `needsLlm: true` or open `blockers`/`unresolved`/`openItems`; record `halted` instead. Never pre-fill the outcome in a subagent brief. |
 | `meter [--api-ms N --model-ms N --script-ms N --input-tokens N …]` | Measured latency/token counts for a stage. Call it whenever you have real numbers; see "Metering" below. |
 | `wait start [--halt <subtype> --skill <s> [--what '<text>']]` / `wait end` | The moment the run halts for the user, and the moment it resumes. This is how user latency stays out of `active_ms` — never estimate elapsed time yourself. Pass `--halt` for a needs-user halt and the recorder emits the paired `halt_needs_user` event for you. |
 | `record '<event-json>'` | The moment something observable happens (taxonomy below). |
@@ -241,6 +254,15 @@ running the migration, and never blocks the run.
      being closed out in a stalled state. A user who declines the plan is
      `abandoned_by_user` (plus a `user_decision` event with `subtype: declined`), never
      `halted_needs_user` or `failed`.
+   - There is no `blocked` terminal state; `terminal_state` is a registered BI enum. A run
+     stopped on a blocker (run.json `status: blocked`) records the stop as a
+     `halt_needs_user` event — `wait start --halt <subtype>` — not as a `user_decision`.
+     It stays unfinalized while a resume is expected. If it is closed out on the blocker,
+     finalize `halted_needs_user` with `stopped_at_stage` set. Use `abandoned_by_user` only
+     when the user declines to continue.
+     Route checks, refused `run` calls and `answer --continue` keep an explicit hold's
+     wait open. They do not count as execution sessions. After `replatform resume` or a
+     transition with `--status running`, the next execution entry resumes telemetry normally.
    - **Check the returned `bi_push`.** If it reports `failed > 0` or `skipped > 0`, the
      run (or part of it) did not reach the central BI record: retry once with
      `rebuild --push`, and if it still fails, tell the operator in the completion report

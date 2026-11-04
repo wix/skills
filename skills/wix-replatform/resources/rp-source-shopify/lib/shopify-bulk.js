@@ -29,6 +29,7 @@ const { finished } = require('node:stream/promises');
 const { buildShopifyCoverageRows, upsertAdapterCoverageRows, writeJsonAtomic } = require('../../../lib/source-coverage.js');
 const { createUserAction, readUserAction } = require('../../../lib/user-actions.js');
 const { ShopifyCliError } = require('./shopify-cli.js');
+const { nestedReadHook } = require('./shopify-nested-reads.js');
 const { ShopifyExtractStop } = require('./import-findings.js');
 const session = require('./shopify-session.js');
 
@@ -49,7 +50,7 @@ const SQLITE_WORKER = path.join(__dirname, 'shopify-bulk-sqlite-worker.js');
 const STATUS_QUERY = 'query RpBulkStatus($id: ID!) { node(id: $id) { ... on BulkOperation { id status errorCode createdAt completedAt objectCount rootObjectCount fileSize url partialDataUrl } } }';
 
 // ---------------------------------------------------------------------------------------------
-// The query catalog: eighteen queries, in this order, and how each one's child rows fold
+// The query catalog: the queries, in this order, and how each one's child rows fold
 // ---------------------------------------------------------------------------------------------
 
 const MEDIA_TYPES = ['MediaImage', 'Video', 'ExternalVideo', 'Model3d', 'GenericFile'];
@@ -61,19 +62,44 @@ function typesTo(types, field, extra = {}) {
 
 // `children` maps a child row's `__typename` to the field it folds into on its parent (`into` names
 // an inline object of the parent that holds the field). `rootFields` and `childFields` are the
-// fields initialised to [] so an empty connection reads as empty, not absent. `inline` lists
-// non-connection list fields on a root row whose elements carry nested connections: such a
-// child's `__parentId` may name the inline element, so its objects are indexed by `id`.
+// fields initialised to [] so an empty connection reads as empty, not absent. A bulk query cannot
+// hold a connection inside a list field, so no catalog entry has such a child: those connections
+// are read by lib/shopify-nested-reads.js before the dataset is done.
+// Item scopes of a discount (the products, variants and collections a customerGets or customerBuys
+// scope names) are connections under every discount type, and one bulk query allows five
+// connections. Each `discounts-gets-*` / `discounts-buys-*` query therefore reads one role and one
+// kind of item, and `joinDiscountFiles` folds its arrays into the discount row at `parent`.
+const DISCOUNT_ITEM_CHILDREN = Object.freeze({
+  products: { type: 'Product', owner: 'DiscountProducts' },
+  productVariants: { type: 'ProductVariant', owner: 'DiscountProducts' },
+  collections: { type: 'Collection', owner: 'DiscountCollections' },
+});
+
+function discountItemQuery(name, side, fields) {
+  return {
+    name,
+    entity: 'discounts',
+    rootFields: fields,
+    children: Object.fromEntries(fields.map((field) => [DISCOUNT_ITEM_CHILDREN[field].type, { field }])),
+    supplement: { parent: ['discount', side, 'items'], fields },
+  };
+}
+
 const QUERY_CATALOG = Object.freeze([
   { name: 'products', entity: 'products', rootFields: ['variants', 'media', 'metafields'], children: { ProductVariant: { field: 'variants' }, ...typesTo(MEDIA_TYPES, 'media'), Metafield: { field: 'metafields' } } },
   { name: 'collections', entity: 'collections', rootFields: ['products', 'metafields'], children: { Product: { field: 'products' }, Metafield: { field: 'metafields' } } },
   { name: 'customers', entity: 'customers', rootFields: ['metafields'], children: { Metafield: { field: 'metafields' } } },
   { name: 'orders-core', entity: 'orders', rootFields: ['lineItems', 'shippingLines', 'discountApplications', 'metafields'], children: { LineItem: { field: 'lineItems' }, ShippingLine: { field: 'shippingLines' }, ...typesTo(DISCOUNT_APPLICATION_TYPES, 'discountApplications'), Metafield: { field: 'metafields' } } },
-  { name: 'orders-refunds', entity: 'orders', inline: { refunds: ['refundLineItems', 'transactions'] }, children: { RefundLineItem: { field: 'refundLineItems' }, OrderTransaction: { field: 'transactions' } } },
-  { name: 'orders-fulfillments', entity: 'orders', inline: { fulfillments: ['fulfillmentLineItems'] }, children: { FulfillmentLineItem: { field: 'fulfillmentLineItems' } } },
+  { name: 'orders-refunds', entity: 'orders', children: {} },
+  { name: 'orders-fulfillments', entity: 'orders', children: {} },
   { name: 'gift-cards', entity: 'gift-cards', children: {} },
   { name: 'discounts', entity: 'discounts', children: { DiscountRedeemCode: { field: 'codes', into: 'discount' } } },
-  { name: 'delivery-profiles', entity: 'delivery-profiles', rootFields: ['locationGroupZones'], childFields: { DeliveryLocationGroupZone: ['methodDefinitions'] }, children: { DeliveryLocationGroupZone: { field: 'locationGroupZones' }, DeliveryMethodDefinition: { field: 'methodDefinitions' } } },
+  discountItemQuery('discounts-gets-products', 'customerGets', ['products']),
+  discountItemQuery('discounts-gets-variants', 'customerGets', ['productVariants']),
+  discountItemQuery('discounts-gets-collections', 'customerGets', ['collections']),
+  discountItemQuery('discounts-buys-items', 'customerBuys', ['products', 'collections']),
+  discountItemQuery('discounts-buys-variants', 'customerBuys', ['productVariants']),
+  { name: 'delivery-profiles', entity: 'delivery-profiles', children: {} },
   { name: 'inventory', entity: 'inventory-items', rootFields: ['inventoryLevels'], children: { InventoryLevel: { field: 'inventoryLevels' } } },
   { name: 'pages', entity: 'pages', children: {} },
   { name: 'blogs', entity: 'blogs', children: {} },
@@ -413,11 +439,6 @@ async function foldBulkJsonl(file, shape, { outputFile } = {}) {
       const root = JSON.parse(stored.json);
       const seen = new Set();
       for (const field of shape.rootFields || []) if (!Array.isArray(root[field])) root[field] = [];
-      for (const [field, nested] of Object.entries(shape.inline || {})) {
-        for (const element of Array.isArray(root[field]) ? root[field] : []) {
-          if (element && typeof element === 'object') for (const nestedField of nested) if (!Array.isArray(element[nestedField])) element[nestedField] = [];
-        }
-      }
 
       const attachChildren = (value, mayHaveChildren) => {
         if (!value || typeof value !== 'object') return;
@@ -438,9 +459,6 @@ async function foldBulkJsonl(file, shape, { outputFile } = {}) {
         }
       };
       attachChildren(root, true);
-      for (const field of Object.keys(shape.inline || {})) {
-        for (const element of Array.isArray(root[field]) ? root[field] : []) attachChildren(element, true);
-      }
 
       const initialiseTree = (value) => {
         if (Array.isArray(value)) { for (const item of value) initialiseTree(item); return; }
@@ -544,6 +562,62 @@ async function joinOrderFiles({ coreFile, refundsFile, fulfillmentsFile, outputF
   }
 }
 
+// Fold the discount item-scope datasets into the discount rows. A discount's rows are few, so the
+// supplements are read into memory as ids only; the core rows stream through in their original
+// order. A field is set only when the core row's own scope kind owns it (products and variants
+// under DiscountProducts, collections under DiscountCollections), and only when the supplement
+// listed that discount at all: a discount the supplement never saw keeps the field absent, which
+// reads as "not read", never as an empty scope.
+async function joinDiscountFiles({ coreFile, supplements, outputFile, workDir = path.dirname(outputFile) }) {
+  const outputTemp = path.join(workDir, `${path.basename(outputFile)}.${process.pid}.${Date.now()}.tmp`);
+  const loaded = [];
+  for (const supplement of supplements) {
+    try {
+      await fsp.access(supplement.file);
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new Error(`the staged ${supplement.query} file is missing: ${path.basename(supplement.file)}`);
+      throw error;
+    }
+    const listed = new Map();
+    for await (const row of iterateNdjson(supplement.file)) {
+      const values = {};
+      for (const field of supplement.fields) if (Array.isArray(row[field]) && row[field].length) values[field] = row[field];
+      listed.set(String(row.id), values);
+    }
+    loaded.push({ ...supplement, listed });
+  }
+  const coreIds = new Set();
+  let output = null;
+  try {
+    output = fs.createWriteStream(outputTemp, { encoding: 'utf8' });
+    for await (const row of iterateNdjson(coreFile)) {
+      const id = String(row.id);
+      coreIds.add(id);
+      for (const supplement of loaded) {
+        if (!supplement.listed.has(id)) continue;
+        const values = supplement.listed.get(id);
+        let parent = row;
+        for (const part of supplement.parent) parent = parent && typeof parent === 'object' ? parent[part] : null;
+        if (!parent || typeof parent !== 'object') continue;
+        for (const field of supplement.fields) {
+          if (parent.__typename === DISCOUNT_ITEM_CHILDREN[field].owner) parent[field] = values[field] || [];
+        }
+      }
+      if (!output.write(`${JSON.stringify(row)}\n`)) await new Promise((resolve) => output.once('drain', resolve));
+    }
+    output.end();
+    await finished(output);
+    output = null;
+    await fsp.rename(outputTemp, outputFile);
+    const droppedByQuery = {};
+    for (const supplement of loaded) droppedByQuery[supplement.query] = [...supplement.listed.keys()].filter((id) => !coreIds.has(id)).length;
+    return { droppedOrphans: Object.values(droppedByQuery).reduce((sum, count) => sum + count, 0), droppedByQuery };
+  } finally {
+    if (output) output.destroy();
+    await removeFile(outputTemp);
+  }
+}
+
 // The default file host download: plain http(s), no content decoding (identity only), bytes
 // counted as they arrive. It reports what happened; the gate decides what it means.
 function defaultDownload(url, destination) {
@@ -579,6 +653,18 @@ function defaultDownload(url, destination) {
 // The runner
 // ---------------------------------------------------------------------------------------------
 
+function pendingEntry(query) {
+  return {
+    state: 'pending',
+    entity: query.entity || entityOf(query.name),
+    text: query.text,
+    attempts: 0,
+    reapproved: false,
+    downloadTries: 0,
+    linkReruns: 0,
+  };
+}
+
 function newManifest({ caller, store, snapshotTime, queries, previousSidecars, now }) {
   const manifest = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
@@ -588,15 +674,7 @@ function newManifest({ caller, store, snapshotTime, queries, previousSidecars, n
     startedAt: iso(now()),
     status: 'running',
     order: queries.map((query) => query.name),
-    queries: Object.fromEntries(queries.map((query) => [query.name, {
-      state: 'pending',
-      entity: query.entity || entityOf(query.name),
-      text: query.text,
-      attempts: 0,
-      reapproved: false,
-      downloadTries: 0,
-      linkReruns: 0,
-    }])),
+    queries: Object.fromEntries(queries.map((query) => [query.name, pendingEntry(query)])),
   };
   if (previousSidecars.length) manifest.previousSidecars = [...new Set(previousSidecars)].sort();
   return manifest;
@@ -642,6 +720,8 @@ function createBulkRunner(options = {}) {
     manifestPath,
     stagingDir,
     queries = null,
+    addQueries = null,
+    currentText = null,
     snapshotTime = null,
     execute,
     handlers: handlerOptions = {},
@@ -1065,7 +1145,9 @@ function createBulkRunner(options = {}) {
       await settle(name, 'failed', { errorCode: 'shopify_bulk_orphan_child', error: { message: `${folded.orphanCount} child row(s) of ${name} match no parent row`, orphans: folded.orphans } });
       return;
     }
-    const hook = handlers.reassemble && handlers.reassemble[name];
+    // A registered hook wins; otherwise the three datasets whose connections sit under a list field
+    // (a bulk query cannot hold those) get their nested ordinary reads.
+    const hook = (handlers.reassemble && handlers.reassemble[name]) || (extract ? nestedReadHook(name) : null);
     let records = null;
     let recordsFile = null;
     let recordCount = folded.recordCount;
@@ -1216,6 +1298,30 @@ function createBulkRunner(options = {}) {
         changed = true;
       }
     }
+    // A manifest written before a catalog query existed lists neither it nor its rows. Finalizing it
+    // as is would report a complete extract with that dataset's data (a discount's product, variant and
+    // collection restrictions) absent, so each catalog query the manifest lacks is added as a pending
+    // dataset and joined at the end like any other. A finished (`complete`) manifest never reaches
+    // here: it needs an explicit catch-up.
+    if (Array.isArray(addQueries)) {
+      for (const query of addQueries) {
+        if (manifest.queries[query.name]) continue;
+        manifest.order.push(query.name);
+        manifest.queries[query.name] = pendingEntry(query);
+        changed = true;
+      }
+    }
+    // A dataset not yet started is sent the catalog's current text, so a fixed query reaches a resumed
+    // manifest. Started and finished datasets keep the text they were sent (the snapshot time is the
+    // manifest's, so the filter is unchanged).
+    if (typeof currentText === 'function') {
+      for (const name of manifest.order) {
+        const target = entry(name);
+        if (target.state !== 'pending' || target.operationId) continue;
+        const text = currentText(name);
+        if (typeof text === 'string' && text !== target.text) { target.text = text; changed = true; }
+      }
+    }
     // A `done` extract entry promises its staged output, and a resume never reads a
     // finished query again. When that output is gone before the final join, read the query again
     // without spending an attempt instead of joining the hole as an empty dataset.
@@ -1254,6 +1360,17 @@ function createBulkRunner(options = {}) {
     const droppedByQuery = {};
     for (const entity of [...new Set(manifest.order.map(entityOf))]) {
       const members = manifest.order.filter((name) => entityOf(name) === entity);
+      if (entity === 'discounts' && members.length > 1) {
+        const joined = await joinDiscountFiles({
+          coreFile: staged('discounts'),
+          supplements: members.filter((name) => catalogEntry(name).supplement).map((name) => ({ query: name, file: staged(name), ...catalogEntry(name).supplement })),
+          outputFile: path.join(outputDir, 'discounts.ndjson'),
+          workDir: stagingDir,
+        });
+        droppedOrphans += joined.droppedOrphans;
+        Object.assign(droppedByQuery, joined.droppedByQuery);
+        continue;
+      }
       if (entity !== 'orders') {
         const outputFile = entry(members[0]).outputFile || `${entity}.ndjson`;
         const stagedFile = entry(members[0]).outputFile || `${members[0]}.ndjson`;
@@ -1459,6 +1576,7 @@ module.exports = {
   readQueryFile,
   generateQueryText,
   connectionShape,
+  joinDiscountFiles,
   validateJsonlFile,
   foldBulkJsonl,
   joinOrderFiles,

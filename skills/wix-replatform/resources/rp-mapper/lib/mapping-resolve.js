@@ -22,8 +22,8 @@
 // row read at discovery time. An overlay can only claim columns that actually exist, and a column
 // the overlay does not know is surfaced, never dropped.
 
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const { CANONICAL_FIELDS, TARGETS, validateCanonicalPath } = require('../../rp-target-wix/lib/wix-target-spec.js');
 
 const VENDORS_DIR = path.join(__dirname, '..', '..', 'rp-source-csv', 'vendors');

@@ -10,11 +10,16 @@
 // stamps `sourceCoverageContract: 1` on the project-root `source-schema.json` -- the only place any
 // consumer reads that stamp from. Quick modes write their own coverage at `plan`.
 //
+// It also promotes the adapter's `source-locale.json` to `discovery/source-locale.json`
+// (currency, time zone, language, country -- unknown values are explicit). A missing or invalid
+// regional file refuses promotion exactly like a missing coverage file: there is no unstamped path.
+//
 // Exit codes: 0 promoted; 2 refused (unknown adapter, adapter file missing or malformed, or no
 // source-schema.json yet); 1 usage error.
 
 const path = require('node:path');
 const { promoteSourceCoverage, SourceCoverageError } = require('../../../lib/source-coverage.js');
+const { promoteSourceRegional, SourceRegionalError } = require('../../../lib/source-regional.js');
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -29,11 +34,13 @@ async function main() {
     return 1;
   }
   try {
-    const result = await promoteSourceCoverage(path.resolve(projectDirArg), { adapter });
-    process.stdout.write(`${JSON.stringify({ ok: true, adapter, rows: result.rows, artifact: 'discovery/source-coverage.json' })}\n`);
+    const projectDir = path.resolve(projectDirArg);
+    const result = await promoteSourceCoverage(projectDir, { adapter });
+    await promoteSourceRegional(projectDir, { adapter });
+    process.stdout.write(`${JSON.stringify({ ok: true, adapter, rows: result.rows, artifact: 'discovery/source-coverage.json', locale: 'discovery/source-locale.json' })}\n`);
     return 0;
   } catch (error) {
-    if (error instanceof SourceCoverageError) {
+    if (error instanceof SourceCoverageError || error instanceof SourceRegionalError) {
       process.stderr.write(`refused: ${error.message}\n`);
       return 2;
     }

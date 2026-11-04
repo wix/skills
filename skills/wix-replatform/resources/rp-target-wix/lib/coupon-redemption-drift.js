@@ -72,6 +72,8 @@ const TAGS = Object.freeze({
   ALREADY_USED: 'Already_Used',
   PARTIALLY_USED: 'Partially_Used',
   DISABLED_AT_SOURCE: 'Disabled_At_Source',
+  // A coupon plugin's rule Wix cannot hold: written switched off for the operator.
+  RULE_NOT_CARRIED: 'Rule_Not_Carried',
 });
 const KNOWN_TAGS = Object.freeze(Object.values(TAGS));
 
@@ -203,7 +205,20 @@ function classifySnapshot({ capturedAt, now, maxAgeMs } = {}) {
 // plan was built from; `freshCoupon` is the row just re-read from the source, or null when the
 // re-read failed. A failed re-read is UNDECIDABLE and writes nothing -- an undecidable money
 // instrument written active is a giveaway.
-function classifyPreWriteDrift({ snapshotCoupon, freshCoupon } = {}) {
+// `hold` is the mapper's own decision to keep the coupon switched off (mapCouponToWix's
+// `result.hold`, e.g. a plugin rule Wix cannot hold). The fresh read decides usage; it never turns
+// a held coupon back on, and the hold's tag survives the verdict's tag replacement.
+function classifyPreWriteDrift({ snapshotCoupon, freshCoupon, hold = null } = {}) {
+  const verdict = classifyPreWriteDriftCore({ snapshotCoupon, freshCoupon });
+  if (!hold || !verdict.write) return verdict;
+  const tag = hold.tag || TAGS.RULE_NOT_CARRIED;
+  if (!KNOWN_TAGS.includes(tag)) throw new Error(`hold tag ${tag} is not in the coupon tag vocabulary (${KNOWN_TAGS.join(', ')})`);
+  const setTags = [...(verdict.setTags || [TAGS.IMPORTED])];
+  if (!setTags.includes(tag)) setTags.push(tag);
+  return { ...verdict, writeActive: false, setTags, hold: { reason: hold.reason || null, tag } };
+}
+
+function classifyPreWriteDriftCore({ snapshotCoupon, freshCoupon } = {}) {
   if (!snapshotCoupon || !snapshotCoupon.code) throw new Error('classifyPreWriteDrift needs the snapshot coupon row (with a code)');
   const code = String(snapshotCoupon.code);
   const parsed = exactAmount(snapshotCoupon.amount);
@@ -319,7 +334,10 @@ function classifyPostImportDrift({ receipt, freshCoupon, targetCoupon } = {}) {
   if (spentAtSource && targetActive === false) {
     return { ...base, outcome: OUTCOMES.RECONCILED_MATCH, remedy: REMEDY.NONE, targetActive: false, usageCount: count, usageLimit: limit, reason: 'used up at source and already switched off on the target' };
   }
-  return { ...base, outcome: OUTCOMES.RECONCILED_MATCH, remedy: REMEDY.NONE, targetActive, usageCount: count, usageLimit: limit, usageUnlimited: limit === null, reason: limit === null ? 'unlimited at source and still redeemable on the target' : 'still redeemable at source and still redeemable on the target' };
+  // Redeemable at source but switched off on the target is a deliberate hold (an exhausted snapshot,
+  // or a plugin rule the target cannot carry), not drift: no remedy here, and the reason says so.
+  const targetState = targetActive ? 'still redeemable on the target' : 'switched off on the target (held for the operator)';
+  return { ...base, outcome: OUTCOMES.RECONCILED_MATCH, remedy: REMEDY.NONE, targetActive, usageCount: count, usageLimit: limit, usageUnlimited: limit === null, reason: limit === null ? `unlimited at source and ${targetState}` : `still redeemable at source and ${targetState}` };
 }
 
 // Turns the per-voucher verdicts into the remedy plan a human approves: counts,

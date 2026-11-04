@@ -11,6 +11,12 @@ async function applyUserActionEffect(projectDir, request, answer) {
   if (!request.effect) return;
   if (request.effect.kind === 'read-back-omission-ack') return require('./read-back-approval.js').acknowledge(projectDir, request, answer);
   if (request.effect.kind === 'approval') return require('./read-back-approval.js').applyApproval(projectDir, request, answer);
+  if (request.effect.kind === 'decision' && request.effect.key === 'notificationMute') {
+    const value = request.effect.choices?.[answer.choice];
+    if (!value) throw new Error('notification mute answer requires a declared choice');
+    return require('./notification-mute.js').recordNotificationMute(projectDir, value, { rationale: request.title });
+  }
+  if (request.effect.kind === 'site-locale-answer') return require('./site-regional.js').recordSiteRegionalApproval(projectDir, request, answer);
   const artifacts = await loadArtifacts(projectDir);
   const decisionsPath = path.join(projectDir, 'orchestration', 'decisions.json');
   const effect = request.effect;

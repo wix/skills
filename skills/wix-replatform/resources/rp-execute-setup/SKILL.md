@@ -91,6 +91,11 @@ do not write it from scratch. The script reads `WIX_SITE_ID` from `config/wix.en
 `WIX_AUTH_TOKEN`, and prints only a char-count confirmation. Do NOT run the token command
 raw in a Bash tool call — it prints the credential to transcript.
 
+Setup and import clients renew the token through this script while they run, for the same
+`WIX_SITE_ID` only, so one mint before a long run is enough. When renewal fails, setup records
+the blocker `wix_auth_expired` and exits 75 with the same Import Operator action as the import
+(see `rp-execute-import`).
+
 If `WIX_SITE_ID` is missing for a RePlatform `new site` + `headless` flow, the recovery
 path is `resources/rp-destination/`, which scaffolds via
 `npm create @wix/new@latest headless`. The account-level Projects API is
@@ -172,6 +177,19 @@ and the source keys/paths. Guessed IDs, copied source IDs, raw/unrelated reads a
 responses are not verified bindings. Imports resolve these values through the gate only
 after every bound setup step passes; successful partial setup never unlocks a dependent.
 
+Every passed requirement in the receipt carries `verification: { method, checkedAt, observed }`
+for the check `execute-setup.js` actually ran — for example `status-read` (mute state read
+back), `installed-apps-read` or `install-response` (an install with no read-back),
+`collection-read`, `catalog-version-read`. The shared validator rejects a passed row without
+a known method, a valid timestamp and an observed-state object. A receipt written before
+these fields existed is invalid: re-run setup; never add the fields by hand.
+
+Each live attempt records the receipt it replaces as `replaces: { sha256, generatedAt }`
+(or `null`) in the new receipt, and carries it through failed attempts in
+`setup/setup-blockers.json`. Import-plan freshness uses it: re-running setup after the
+approved setup already produced a receipt makes the approved plan stale, so present the
+regenerated plan or delta before importing.
+
 Dry-run setup uses the same setup plan and setup executor as live setup. When `DRY_RUN`
 is enabled by config or `--dry-run`, every setup step must first be reduced to a
 structured intent describing the REST request, SDK operation, MCP tool call, or CLI
@@ -218,8 +236,9 @@ the step can still produce useful non-destructive output.
 Concrete mechanisms:
 
 - **Mute site notifications FIRST.** When the setup artifacts carry the
-  `mute-site-notifications` requirement (always for `WIX_SITE_STRATEGY=new`; opt-in for
-  existing sites), execute it **before every other setup write** — immediately after the
+  `mute-site-notifications` requirement (always for `WIX_SITE_STRATEGY=new`; for existing
+  sites only when the operator answered mute at intake), execute it **before every other setup write**. Then run `import-site-locale` (which writes site properties
+  only and sends nothing) — immediately after the
   target site is available and `WIX_AUTH_TOKEN` is minted, and before app installs,
   collection creation, or any other provisioning — so setup writes themselves cannot
   fire notifications. Use the `muteSiteNotifications` primitive from
@@ -237,7 +256,7 @@ Concrete mechanisms:
   skill — unmute is an explicit owner request handled at the orchestrator level.
   Record the provision outcome through the standard `rp-telemetry` recorder like any
   other notable boundary (an `error` event with `error_code` on failure; the
-  existing-site opt-in surfaces via the approval gate's `user_decision` event) — no new
+  existing-site answer is the `notificationMute` decision recorded at intake) — no new
   telemetry surface.
 - **Installing / enabling Wix apps (Blog, Members, etc.) IS automatable.** Use the
   App Installation API:
@@ -250,6 +269,36 @@ Concrete mechanisms:
      pre-check uses a *different*, oneof-based body and is informational only — if its
      validation fights you, skip it and rely on `/install`.)
   3. List current state with `GET /apps-installer-service/v1/app-instances`.
+     **An install call that returns 200 is not a pass.** The executor records an app step as
+     passed only when this list, read back after the install, names the `appDefId` and it is
+     enabled (`APP_INSTALL_NOT_VERIFIED` otherwise). Wix Stores is `215238eb-…`; the quick-mode
+     `wix-stores` step and the standard `install-wix-stores` step install the same app. Wix
+     eCommerce (`1380b703-…`) is only Stores' dependency and does not make Stores installed.
+  4. **Installing Wix Stores adds sample products and categories** (12 products on the Tuti
+     runs; no Wix marker identifies them). The Stores step (`install-wix-stores` or
+     `wix-stores`) handles them itself (owner decision 2026-10-26):
+     - It reads products and categories (each on its own) just before the install, then
+       after it until two reads agree. Ids that appear in between are `install_seeded`. If a
+       pre-install read fails on a site this run did not create, nothing in that collection is
+       treated as seeded. If the catalog is still changing after every read, or new items
+       appear while it deletes, the step is blocked with `CATALOG_NOT_SETTLED` before (or
+       instead of further) deletes; re-run setup to finish.
+     - The record is written before any delete call, so a crash or failed check keeps it.
+     - On a site this run created (destination receipt `verified`, `strategy: new`), it
+       deletes exactly the `install_seeded` items, keeping the built-in `All Products`
+       category, then reads the catalog again and records each id as `deleted` or
+       `delete_failed`. It asks nothing. On any other site it deletes nothing: a reinstall
+       there may bring back the owner's earlier catalog, which looks like samples. Those
+       items stay protected and become the same cutover item. A failed delete does not fail setup; it becomes the
+       cutover item `STORES_INSTALL_SEEDED_NOT_DELETED`, and a re-run of setup tries again.
+     - If Stores was already installed, it deletes nothing and records every item as
+       `pre_existing`. A re-run keeps the baseline the first run recorded.
+     - It writes `setup/destination-catalog-baseline.json` (ids, slugs, kind, status; no
+       prices or customer data). The step's `installed-apps-read` check carries
+       `observed.catalogBaseline` with the file's digest and counts. If a catalog read fails
+       the step is blocked with `CATALOG_BASELINE_UNREADABLE`.
+     - Never delete products or categories by hand or with a project-local script. A dry run
+       makes no delete call.
   - **Ground `appDefId` from the official "Apps Created by Wix" table**
     (`/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix`),
     NOT from a docs *example* — e.g. the install-app example uses
@@ -424,6 +473,34 @@ setup artifacts, not from improvised per-run logic in this skill.
 - Do not start import execution from this skill.
 - Do not reinterpret setup requirements from markdown when machine artifacts exist.
 
+## Wix site locale: `import-site-locale`
+
+The first imported entity after notification safety, for any source. It reads the site's settings, compares currency, time zone, language
+and locale with `discovery/source-locale.json` (each source adapter maps its own settings into that file),
+writes only what differs, and reads every value back. The Wix call stores whatever it is sent (a
+made-up currency and time zone were both stored with a 200), so values are validated before sending and a 200
+is never evidence; a repeated write bumps the site version, so a matching site gets zero write calls.
+
+- **A site this run created** (destination receipt `verified`, `strategy: new`, same site id) is set directly.
+- **An existing site** is probed for orders and products only. No orders and no products means set directly.
+  Any order, any product, an unreadable installed-apps result, or a failed probe raises **one** durable question
+  for all differences; never answer it for the owner, one-click included. No sample-product heuristic ships.
+  `change` applies every difference. `keep` is a passed receipt: neutral entities continue, while money-bearing
+  tasks and wall-clock tasks whose relevant setting differs are held under `SITE_LOCALE_KEPT`. Unclassified refs
+  fail closed. The answer survives partial apply for the immutable rows originally shown and is replaceable.
+- The pre-change values are kept in `setup/site-locale-before.json` so a re-run after a crash still reports the
+  true before and after.
+- `SOURCE_LOCALE_REQUIRED` means one or more source values are still `unknown`. Full adapters update
+  their adapter discovery file and promote it. Quick adapters and SFCC have no promote step: ask the
+  merchant, record each missing canonical field in `discovery/source-locale.json` as `state: supplied`
+  with a validated `value`, `evidence`, and `suppliedBy`, re-run the quick plan when applicable, then
+  rerun setup. Public re-capture preserves a valid supplied value while that field remains unknown.
+- Any rejected write or read-back mismatch is a blocker. When payment currency changes, create one durable
+  payment-method confirmation action and preserve it across matching reruns until acknowledged.
+- The receipt is the `regional` object on the step's row in `setup/setup-verification.json`; import tasks
+  read it (files only) to decide whether they may start. Dry run reduces the step to an ordered intent and
+  calls nothing.
+
 ## Provisioning user-defined extended fields (Data Extension Schema)
 
 Never build a Data Extension Schema update by hand. Use
@@ -480,3 +557,26 @@ Contacts V4 receipts record each `displayName`, the returned `key` and the write
 Live proof for products and both contact paths is still pending on a disposable site.
 
 The inventory verification token also needs Catalog read access to hidden products and variants. The canary must verify default-location availability in both Inventory and Catalog before the inventory path is marked verified.
+
+## CMS collection compatibility
+
+The existing create-cms-collections executor reads every planned collection definition after creation/reuse (including a concurrent-create 409). Its REST collection fields, reference metadata, required/writable flags and all access roles must match the planned write; extra required business fields need explicit mappings. Missing or incompatible definitions remain CMS_COLLECTION_INCOMPATIBLE setup blockers. Never delete/recreate a collection to obtain a compatible definition.
+
+CMS definition read-back uses documented `GET /wix-data/v2/collections/<id>?consistentRead=true`
+to avoid immediately reading a stale replica after create. Compatibility enforces planned
+metadata keys, types, required fields and permissions; unplanned server defaults are not a
+conflict. This comparison has local/schema evidence; it is not a live verification claim.
+
+## Public multilingual setup
+
+Run `scripts/multilingual-setup.js` after the verified `site/locale` step and before translation
+inventory or writes. It snapshots every locale visibility choice. A destination proven to have
+been created by this migration may install Multilingual, enable multilingual mode, and add missing
+additional locales hidden. Every other destination first emits an exact setup proposal and makes
+zero setup requests until a current `confirm-setup` decision exists; `decline-setup` leaves the
+sidecar blocked while default import continues. The script never changes an existing locale's
+visibility or the default locale, and every mutation is refused until its versioned disposable-site
+contract evidence exists. Site origin is recomputed from the verified
+`orchestration/destination.json` receipt and its exact `WIX_SITE_ID` binding; callers cannot assert
+`created` through a flag. Setup gate/read-back failures are written to `setup.json` for completion
+report projection before the script exits nonzero.

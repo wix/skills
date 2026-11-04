@@ -46,7 +46,7 @@ const ENTITY_READS = Object.freeze([
     count: 'query RpShopifyDiscoveryOrdersCount { ordersCount(limit: null) { count precision } }',
     countPath: ['ordersCount'],
     sample: `query RpShopifyDiscoveryOrders($first: Int!) { orders(first: $first) { nodes {
-      id name createdAt processedAt cancelledAt currencyCode displayFinancialStatus displayFulfillmentStatus
+      id name createdAt processedAt cancelledAt currencyCode presentmentCurrencyCode displayFinancialStatus displayFulfillmentStatus
       totalPriceSet { shopMoney { amount currencyCode } }
       refunds { id createdAt }
       fulfillments { id status createdAt }
@@ -180,6 +180,24 @@ const ORDER_WINDOW_READS = Object.freeze([
   },
 ]);
 
+// The regional step: the shop's languages and country. Not entity captures: they never become
+// capture rows. The currency and time zone come from the `shop` singleton above, not a second read.
+// `shopLocales` needs the locales read scope, which discovery does not require: a denied read is an
+// explicit unknown in the regional file, never a failed discovery -- so its `scopes` stay empty and
+// it is a separate query from the country, which needs no scope.
+const REGIONAL_READS = Object.freeze([
+  {
+    entity: 'shop-locales',
+    scopes: [],
+    query: 'query RpShopifyDiscoveryShopLocales { shopLocales { locale primary published } }',
+  },
+  {
+    entity: 'shop-country',
+    scopes: [],
+    query: 'query RpShopifyDiscoveryShopCountry { shop { billingAddress { countryCodeV2 } } }',
+  },
+]);
+
 function operationName(query) {
   const match = /\bquery\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(String(query || ''));
   return match ? match[1] : null;
@@ -195,6 +213,7 @@ module.exports = {
   SINGLETON_READS,
   ALL_READS,
   ORDER_WINDOW_READS,
+  REGIONAL_READS,
   operationName,
   at,
 };

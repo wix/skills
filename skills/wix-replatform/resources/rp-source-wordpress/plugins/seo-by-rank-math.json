@@ -6,7 +6,8 @@
   "sourceOfTruth": "https://wordpress.org/plugins/seo-by-rank-math/",
   "distribution": "wordpress-org",
   "capabilities": [
-    "content.seo-meta"
+    "content.seo-meta",
+    "content.url-redirects"
   ],
   "detect": {
     "pluginFileIds": [
@@ -30,6 +31,7 @@
   "entities": [
     {
       "entity": "post-seo-meta",
+      "capability": "content.seo-meta",
       "channel": "export-file",
       "candidateTargetRefs": [
         "seo/item-seo-tags",
@@ -66,6 +68,41 @@
           "code": "no-import-without-a-user-supplied-file",
           "severity": "warning",
           "summary": "channel export-file means this entity is Blocked - recoverable (kind: user-file) until the user supplies a WXR export, and never a limitation of Wix: seo/item-seo-tags is a verified write surface waiting for the data. Application Passwords authenticate REST and XML-RPC only, never wp-admin, so the WXR is something the user PRODUCES and supplies - we cannot fetch it. Rank Math's own Status & Tools > Import & Export exports plugin SETTINGS, not per-post meta, so it is not an alternative."
+        }
+      ]
+    },
+    {
+      "entity": "redirect-rule",
+      "capability": "content.url-redirects",
+      "channel": "db-only",
+      "candidateTargetRefs": [],
+      "redirectSource": {
+        "provider": "rank-math",
+        "format": "rank-math",
+        "tables": {
+          "rules": "rank_math_redirections"
+        },
+        "pluginSlugs": [
+          "seo-by-rank-math-pro"
+        ]
+      },
+      "blocked": [
+        {
+          "kind": "structure-bridge-plugin",
+          "resolution": "Discovery reads this plugin's redirect tables through the wix-wp-plugin-v2 bridge automatically. If the bridge is missing or the read fails, Requires Import Operator: re-run discovery with wix-wp-plugin-v2 connected, or export the plugin's redirects as CSV and pass them to url-redirects.js sources --input.",
+          "declined": false
+        }
+      ],
+      "pitfalls": [
+        {
+          "code": "applied-at-cutover-not-import",
+          "severity": "info",
+          "summary": "Redirect rules are captured at discovery into state/url-preservation/source-redirects.ndjson with per-provider coverage in source-redirect-coverage.json. Backend import never writes them to Wix: the redirect helpers (url-redirects.js plan/apply/verify) install and check them after the website exists, timed by cutover. The capability stays pending until that path is live-verified."
+        },
+        {
+          "code": "serialized-sources",
+          "severity": "warning",
+          "summary": "Each rank_math_redirections row holds a PHP-serialized list of source patterns (exact/start/end/contains/regex); one row becomes one rule per pattern. A row whose sources cannot be parsed makes the capture unreadable, never empty."
         }
       ]
     }

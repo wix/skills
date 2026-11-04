@@ -3,6 +3,7 @@ const { isDeepStrictEqual } = require('node:util');
 const crypto = require('node:crypto');
 const { contactId, opaqueId } = require('./entity-verification');
 const { normalizedDescriptionText } = require('../resources/rp-target-wix/lib/wix-build.js');
+const { choiceNames } = require('../resources/rp-target-wix/lib/variant-correlation.js');
 const email = value => typeof value === 'string' ? value.trim().toLowerCase() : value;
 // Mirrors the same named+numeric HTML-entity decode every source adapter already needs for its
 // own "plain text fields are HTML-entity-encoded but never DOM-parsed" trap (e.g.
@@ -86,7 +87,12 @@ function decodeHtmlEntities(value) {
 // displays "BrandAcme", and Stores V3 reads it back that way, LIVE-VERIFIED 2026-10-15), so they
 // are removed without a space; every other tag still separates words.
 const INLINE_TAG = /<\/?(?:a|abbr|b|bdi|bdo|cite|code|data|dfn|em|font|i|kbd|mark|q|s|samp|small|span|strong|sub|sup|time|u|var)\b[^>]*>/gi;
-const visibleDescriptionText = html => normalizedDescriptionText(decodeHtmlEntities(String(html == null ? '' : html).replace(INLINE_TAG, '')));
+// Tags (and comments) are removed BEFORE entities are decoded: an attribute value may carry encoded
+// markup (LIVE-OBSERVED 2026-10-22: class="[&amp;:has(...)&gt;*]:..." in descriptions pasted from a
+// chat UI), and decoding first turns its &gt; into a '>' that ends the tag early and leaks attribute
+// text into the "visible" text. Wix renders only the element text, so a read-back never matched.
+const stripMarkup = html => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]*>/g, ' ');
+const visibleDescriptionText = html => normalizedDescriptionText(decodeHtmlEntities(stripMarkup(String(html == null ? '' : html).replace(INLINE_TAG, ''))));
 // LIVE-VERIFIED (2026-10-15): the stored Ricos description keeps every <br> as
 // a "\n" text node, but the plainDescription read-back serializes a <br> run either as one
 // space ("here<br />and" -> "here and", 2026-09-27) or as nothing, trimming the whitespace beside
@@ -116,9 +122,133 @@ function assertProjection(value, path = 'expected') {
     else for (const [key, child] of Object.entries(value)) assertProjection(child, `${path}.${key}`);
   }
 }
-function compareProjection(expected, actual, { kind = '', path = '' } = {}) {
+// LIVE-VERIFIED (2026-10-20, live product canary): Stores V3 accepts `displayName` on a
+// url-set media item but never returns it on read -- neither on the item nor under item.image.
+// The ingested file keeps a name in `image.filename` (extension included), so that is the
+// per-item name that survives the rehost. A sent displayName is matched by, in order:
+// an echoed displayName (exact), else the filename whose stem (or whole name) equals the
+// displayName as the writer sends it (trimmed, at most 80 characters), or the filename equal to
+// the sent url's own decoded file name. Anything else -- no filename, a different file, a swapped
+// slot -- does not match. Counting items never stands in for this check.
+const MEDIA_DISPLAY_NAME_SENT_MAX = 80;
+function sentUrlFileName(url) {
+  if (typeof url !== 'string') return undefined;
+  try {
+    const name = new URL(url).pathname.split('/').pop();
+    return name ? decodeURIComponent(name) : undefined;
+  } catch { return undefined; }
+}
+function mediaItemNameMatches(item, child) {
+  const sent = item.displayName.trim().slice(0, MEDIA_DISPLAY_NAME_SENT_MAX);
+  const echoed = child?.displayName || child?.image?.displayName || child?.video?.displayName;
+  if (typeof echoed === 'string' && echoed !== '') return echoed === item.displayName || echoed === sent;
+  const filename = child?.image?.filename || child?.video?.filename;
+  if (typeof filename !== 'string' || filename === '') return false;
+  const stem = filename.replace(/\.[^./]+$/, '');
+  // LIVE-VERIFIED (2026-10-22): the stored file name replaces each '"' of the sent title with '_'.
+  const stored = sent.replace(/"/g, '_');
+  return filename === sent || stem === sent || stem === stored || filename === stored || filename === sentUrlFileName(item.url);
+}
+// LIVE-VERIFIED (2026-10-21): a PHYSICAL product is created with the required empty
+// product-level physicalProperties, and Stores V3 reads it back with a shippingWeightRange it
+// derives from the variant weights. Only that server-derived key is tolerated beside an empty
+// expected object; variant weights are still compared where they were sent.
+const SERVER_DERIVED_PHYSICAL_KEYS = new Set(['shippingWeightRange']);
+const onlyServerPhysical = a => a !== null && typeof a === 'object' && !Array.isArray(a) && Object.keys(a).every(k => SERVER_DERIVED_PHYSICAL_KEYS.has(k));
+// LIVE-VERIFIED (2026-10-21): variant choices sent as optionChoiceNames read back as
+// optionChoiceIds. The comparison view resolves them through the product's option/choice
+// dictionary; an id that does not resolve to exactly one option and choice stays as returned, so
+// it cannot match a sent name.
+// LIVE-VERIFIED (2026-10-31): Stores V3 reads a variant's stock flag back as
+// inventoryStatus.inStock, not under the inventoryItem the writer sent it in; the view places the
+// read flag where it was sent. A read that does carry inventoryItem.inStock is left as returned.
+function variantInventoryView(variant) {
+  const inStock = variant?.inventoryStatus?.inStock;
+  if (typeof inStock !== 'boolean' || variant.inventoryItem?.inStock !== undefined) return variant;
+  return { ...variant, inventoryItem: { ...(variant.inventoryItem || {}), inStock } };
+}
+function variantComparisonView(variant, product) {
+  const view = variantInventoryView(variant);
+  if (!Array.isArray(view?.choices)) return view;
+  try {
+    return { ...view, choices: view.choices.map(c => c?.optionChoiceNames ? c : { optionChoiceNames: choiceNames(c, product) }) };
+  } catch { return view; }
+}
+// LIVE-VERIFIED (2026-10-21, Tuti first-batch probe): the Media Manager file created from a
+// url-set product media item keeps the sent displayName with the ORIGINAL file's extension
+// appended ("ceramic-mug" -> "ceramic-mug.jpg" for source file ceramic-mug-1.jpg). A title landed
+// when the stored name equals it exactly, or equals it plus that file's own extension. The
+// original file name, another extension or a case-changed title does not count.
+function mediaTitleLanded(landedName, sentItem) {
+  if (typeof landedName !== 'string' || !sentItem || typeof sentItem.displayName !== 'string' || sentItem.displayName === '') return false;
+  if (landedName === sentItem.displayName) return true;
+  const ext = (sentUrlFileName(sentItem.url) || '').match(/\.[A-Za-z0-9]{1,5}$/);
+  return Boolean(ext) && landedName === `${sentItem.displayName}${ext[0]}`;
+}
+// A within-write media dependency is verified per intended item, never by counting: every sent
+// item must have landed as its own type in its slot, and the same comparator product read-back
+// uses must match its altText/displayName evidence. Two slots holding one media ID are a
+// substitution unless both slots were sent the same source URL (a repeated source image). An item
+// sent with neither altText nor displayName has no surviving identity, so it cannot be verified.
+function correlateProductMedia(expectedItems, actualItems) {
+  if (!Array.isArray(expectedItems) || !expectedItems.length) throw new Error('correlateProductMedia: expectedItems must be a non-empty array');
+  const blank = value => typeof value !== 'string' || value.trim() === '';
+  if (expectedItems.some(item => !item || blank(item.altText) && blank(item.displayName))) return { verified: false, correlatable: false, reasons: ['media-identity-uncorrelatable'], mediaIds: [] };
+  const items = Array.isArray(actualItems) ? actualItems : [];
+  const mediaIds = items.map(item => item?.mediaType === 'VIDEO' ? item.video?.id : (item?.mediaType === undefined || item?.mediaType === 'IMAGE') ? item.image?.id : undefined);
+  const reasons = [];
+  if (items.length !== expectedItems.length) reasons.push('media-count-mismatch');
+  expectedItems.forEach((item, i) => { if (!mediaIds[i]) reasons.push(`media-not-landed:${i}`); });
+  const comparison = compareProjection({ media: { itemsInfo: { items: expectedItems } } }, { media: { itemsInfo: { items } } });
+  for (const check of comparison.checks) if (!check.matches) reasons.push(`media-mismatch:${check.path}`);
+  for (let i = 0; i < mediaIds.length; i++) for (let j = i + 1; j < mediaIds.length; j++) {
+    if (mediaIds[i] && mediaIds[i] === mediaIds[j] && expectedItems[i]?.url !== expectedItems[j]?.url) reasons.push(`media-duplicate-substitution:${i}:${j}`);
+  }
+  return { verified: reasons.length === 0, correlatable: true, reasons: [...new Set(reasons)], mediaIds };
+}
+function leafScore(wanted, actual) {
+  if (wanted && typeof wanted === 'object') return Object.entries(wanted).reduce((n, [k, v]) => n + leafScore(v, actual?.[k]), 0);
+  return isDeepStrictEqual(wanted, actual) ? 1 : 0;
+}
+// Pairs an unordered list one to one (Contacts V5 address items). `matches` must be
+// the caller's own final comparison of one item, so pairing can never disagree with it. Full matches come
+// from a maximum bipartite matching, so a less specific item never takes the only actual item a
+// more specific one can match. A wanted item left without a full match is paired with its most
+// similar leftover actual item, so a changed field reports as changed, not dropped; with none
+// left it pairs with undefined. Returns [wanted, actual | undefined] in wanted order.
+function pairUnordered(wanted, actual, matches) {
+  if (typeof matches !== 'function') throw new Error('pairUnordered requires the caller\'s item comparison');
+  const pool = Array.isArray(actual) ? actual : [];
+  const owner = new Array(pool.length).fill(-1);
+  const assign = (i, seen) => {
+    for (let j = 0; j < pool.length; j++) {
+      if (seen[j] || !matches(wanted[i], pool[j])) continue;
+      seen[j] = true;
+      if (owner[j] < 0 || assign(owner[j], seen)) { owner[j] = i; return true; }
+    }
+    return false;
+  };
+  for (let i = 0; i < wanted.length; i++) assign(i, new Array(pool.length).fill(false));
+  const pairedTo = new Array(wanted.length).fill(-1);
+  owner.forEach((i, j) => { if (i >= 0) pairedTo[i] = j; });
+  const free = new Set(pool.map((_, j) => j).filter(j => owner[j] < 0));
+  for (let i = 0; i < wanted.length; i++) {
+    if (pairedTo[i] >= 0 || !free.size) continue;
+    let best = -1, bestScore = -1;
+    for (const j of free) { const score = leafScore(wanted[i], pool[j]); if (score > bestScore) { best = j; bestScore = score; } }
+    pairedTo[i] = best; free.delete(best);
+  }
+  return wanted.map((item, i) => [item, pairedTo[i] >= 0 ? pool[pairedTo[i]] : undefined]);
+}
+function compareProjection(expected, actual, options = {}) {
   assertProjection(expected);
+  const checks = projectionChecks(expected, actual, options);
+  return { verified: checks.length > 0 && checks.every(c => c.matches), checks };
+}
+// The comparison itself, also used to pair one unordered item with its own rules.
+function projectionChecks(expected, actual, { kind = '', path = '' } = {}) {
   const checks = [];
+  const itemVerifies = (e, a, p) => { const sub = projectionChecks(e, a, { kind, path: p }); return sub.length > 0 && sub.every(c => c.matches); };
   function compare(e, a, p, present) {
     if (kind === 'contact' && p === 'email.email') {
       checks.push({ path: p, matches: present && email(e) === email(a) });
@@ -176,23 +306,28 @@ function compareProjection(expected, actual, { kind = '', path = '' } = {}) {
         // the source record has one (domains/stores/entities/product.json: displayName "must not
         // be flattened away"). Only check it when the writer's own record shows we asked to carry
         // it -- the same "only check what we actually asked for" pattern altText uses above -- so
-        // a product with no displayName at all is never penalized for it being absent.
+        // a product with no displayName at all is never penalized for it being absent. Wix does
+        // not echo displayName; see mediaItemNameMatches for what stands in for it on read.
         const displayName = item && typeof item === 'object' ? item.displayName : undefined;
         if (typeof displayName === 'string' && displayName.trim() !== '') {
-          const actualDisplayName = child?.displayName || child?.image?.displayName;
-          checks.push({ path: `${p}[${i}].displayName`, matches: Boolean(child) && actualDisplayName === displayName });
+          checks.push({ path: `${p}[${i}].displayName`, matches: Boolean(child) && mediaItemNameMatches(item, child) });
         }
       });
+    } else if (Array.isArray(e) && kind === 'contact' && p === 'addresses') {
+      // Contact addresses are an unordered set; the read-back comparison pairs them the same way.
+      checks.push({ path: p, matches: Array.isArray(a) && e.length === a.length });
+      pairUnordered(e, a, (v, candidate) => itemVerifies(v, candidate, `${p}[]`)).forEach(([v, match], i) => compare(v, match, `${p}[${i}]`, match !== undefined));
     } else if (Array.isArray(e)) {
       checks.push({ path: p, matches: Array.isArray(a) && e.length === a.length });
       e.forEach((v, i) => compare(v, a?.[i], `${p}[${i}]`, Array.isArray(a) && i < a.length));
     } else if (e && typeof e === 'object') {
-      if (!Object.keys(e).length) checks.push({ path: p, matches: present && isDeepStrictEqual(e, a) });
+      if (!Object.keys(e).length && p === 'physicalProperties') checks.push({ path: p, matches: present && onlyServerPhysical(a) });
+      else if (!Object.keys(e).length) checks.push({ path: p, matches: present && isDeepStrictEqual(e, a) });
       else for (const [k, v] of Object.entries(e)) compare(v, a?.[k], p ? `${p}.${k}` : k, own(a, k));
     } else checks.push({ path: p, matches: present && isDeepStrictEqual(e, a) });
   }
   compare(expected, actual, path, actual !== undefined);
-  return { verified: checks.length > 0 && checks.every(c => c.matches), checks };
+  return checks;
 }
 function contactIdentity(expected, actual, id) {
   const checks = [{ path: 'id', matches: contactId(id) && actual?.id === id && !actual?._dryRunPlaceholder }];
@@ -253,7 +388,7 @@ function verifyProduct(expected, actual, id, { marker, variants = [] } = {}) {
     const matches = (targetVariants || []).filter(t => t?.id === v.variantId);
     checks.push({ path: `variant:${v.variantId}`, matches: opaqueId(v.variantId) && !seen.has(v.variantId) && matches.length === 1 });
     seen.add(v.variantId);
-    checks.push(...compareProjection(v.expected, matches[0]).checks);
+    checks.push(...compareProjection(v.expected, variantComparisonView(matches[0], actual)).checks);
   }
   return { verified: checks.every(c => c.matches), checks };
 }
@@ -270,5 +405,5 @@ function validReceipt(r, context = {}) {
   for (const key of ['siteId', 'sourceKey', 'targetId', 'payloadDigest', 'kind']) if (context[key] !== undefined && r[key] !== context[key]) return false;
   try { return receipt(r).verified; } catch { return false; }
 }
-module.exports = { assertProjection, email, digest, compareProjection, contactIdentity, verifyContact, subscriptionExpected,
+module.exports = { assertProjection, email, digest, compareProjection, pairUnordered, correlateProductMedia, variantComparisonView, onlyServerPhysical, mediaTitleLanded, contactIdentity, verifyContact, subscriptionExpected,
   verifySubscriptionEvidence, verifyProduct, receipt, validReceipt, CONTRACT_DIGEST };

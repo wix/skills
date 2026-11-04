@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "plugin": "wm-cart-upsell",
+  "displayName": "WM Cart Benefits",
+  "profileVersion": "2026-10",
+  "sourceOfTruth": "private WeManage plugin; no public documentation or source (evidence: a real store's wc/v3/orders line-item meta, 2026-10-28)",
+  "distribution": "premium-or-unlisted",
+  "capabilities": [
+    "commerce.applied-discounts",
+    "commerce.discount-rules"
+  ],
+  "detect": {
+    "pluginFileIds": [
+      "wm-cart-upsell/wm-cart-upsell.php"
+    ],
+    "recordProperties": [
+      "_wm_cu_offer",
+      "_wm_cu_shipping_offer"
+    ],
+    "assetPathSlugs": [
+      "wm-cart-upsell"
+    ]
+  },
+  "appliedOffers": {
+    "lineMetaKey": "_wm_cu_offer",
+    "orderFreeShippingMetaKey": "_wm_cu_shipping_offer"
+  },
+  "entities": [
+    {
+      "entity": "applied-offer",
+      "capability": "commerce.applied-discounts",
+      "channel": "core-embedded",
+      "embeddedIn": [
+        "/wc/v3/orders"
+      ],
+      "propertyPath": "_wm_cu_offer",
+      "candidateTargetRefs": [
+        "ecom/order-line-item"
+      ],
+      "pitfalls": [
+        {
+          "code": "offer-id-on-order-line",
+          "severity": "info",
+          "summary": "An order line added by a cart offer carries _wm_cu_offer = the offer id (ben_<timestamp>_<n>), and its real charged price; an offer that also grants free shipping adds _wm_cu_shipping_offer on the order. The line imports with its price like any other line; nothing extra is written."
+        }
+      ]
+    },
+    {
+      "entity": "offer-definition",
+      "capability": "commerce.discount-rules",
+      "channel": "admin-page-only",
+      "candidateTargetRefs": [
+        "ecom/discount-rule"
+      ],
+      "pitfalls": [
+        {
+          "code": "offers-recreate-in-wix",
+          "severity": "blocker",
+          "summary": "Your cart offers (for example 'add this product for a lower price') do not move automatically. Re-create each one in Wix Automatic Discounts; Wix applies the price at checkout but does not show the offer inside the cart. The migration lists each offer seen in your recent orders (products, price, how often used) to make this quick."
+        }
+      ],
+      "blocked": [
+        {
+          "kind": "user-file",
+          "resolution": "Private WeManage plugin with no public docs or source. Offer definitions are in no REST payload (a real store's wc/v3 sweep, 2026-10-28); storage is unknown and likely wp_options, which wix-wp-plugin-v2 cannot read. The run lists the offers seen in orders (appliedOfferOperatorActions); the merchant confirms or corrects them from the plugin's admin page.",
+          "declined": false
+        }
+      ]
+    }
+  ],
+  "quirks": [
+    "Seen on a real store (2026-10-28): 2 distinct offer ids on 59 orders between 2026-09-01 and 2026-10-27 — one adds a product for 20.00, one adds a product for 0.00 together with free shipping."
+  ]
+}

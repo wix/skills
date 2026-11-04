@@ -18,8 +18,8 @@
 // server. Third-party iframes saved as snapshots (index.embeds) are replaced by an <img> of the
 // same size and style, marked data-embed-src (snapshots are the iframe's content box; iframes sit
 // on the baseline, where themes often set img { vertical-align: bottom }). Requests the mirror does not hold get a 404 and are logged to <outDir>/misses.log.
-import http from 'http';
-import fs from 'fs';
+import http from 'node:http';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
