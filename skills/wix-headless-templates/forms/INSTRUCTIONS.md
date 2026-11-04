@@ -29,9 +29,9 @@ read first. Files you edit: `SiteLayout.astro` and `styles/global.css`. Files yo
 | `rest/forms.ts` · `rest/submissions.ts` (skill-side) | the REST twin of the two data files: same exports, same DTOs, over `fetch` with the visitor token — what `--stack static` deploys, and the spec a port reads |
 | `styles/global.css` | the design system: Tailwind v4 + the `@theme` token block (shared across verticals) |
 
-There are **no shipped components and no shipped pages** on Astro and React — every control is
-yours. On `static`, `rest/form-renderer.ts` ships the whole form as a plain-DOM renderer over the
-store (see the static wiring); there you write the page around it.
+There are **no shipped components and no shipped pages** on any stack — every control is
+yours. On `static`, read `static.md` in this folder: it shows how to drive the store and render
+the fields by kind.
 
 ## What you build — the design job
 
@@ -286,8 +286,8 @@ build is hosted by you.
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The page
-imports the modules from the site's `js/wix/` folder and renders the shipped form renderer as it
-is; `static.md` gives the page around it as code, with the routes, the rules and the seed.
+imports the layer from the site's `js/wix/` folder and renders the form's fields by kind on the
+store; `static.md` shows the calls and the fields, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
