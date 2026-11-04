@@ -179,7 +179,7 @@ Updates an existing contact's email, phone, name, or address with the Contacts A
 ## Domains
 
 ### [Analyse Domain](references/domains/analyse-domain.md)
-Report on the domains in the user's own Wix account — what kind a domain is, which site it is on, when it expires and whether it renews, its add-ons, DNS propagation and SSL state — for one domain, or by listing and filtering the account's domains.
+Report on the domains in the user's own Wix account — what kind a domain is, which site it is on, when it expires and whether it renews — for one domain, or by listing and filtering the account's domains.
 
 ### [Assign Domain](references/domains/assign-domain.md)
 Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
