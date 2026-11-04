@@ -81,8 +81,10 @@ file. Then make the same calls that the file makes.
 
 ### How to read a reference file
 
-Read one file per call. Read the file in full. If a file arrives cut short, or with a gap, read it
-again in parts until you have every line. An `ExecuteWixAPI` script can `fetch()` any
+One file per script. A script that calls the docs tool calls it once and returns its `text`,
+nothing else: a script that returns several files returns more than one result carries, and a
+file loses lines. Every reference file fits in one result on its own. If a file arrives cut short,
+or with a gap, read it again in parts until you have every line. An `ExecuteWixAPI` script can `fetch()` any
 `https://www.wix.com/skills/...` URL and return the lines you name, for example
 `text.split("\n").slice(100, 220)`. Each part is one call of the size you choose. Return one file
 per result.
@@ -105,7 +107,7 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 - Find the business in the brief. Choose the solutions it needs. `{solution}` is the template
   folder, for example `storefront`, `bookings`, `blog`.
 - If the brief needs no solution (a landing page, a game), do steps 2, 5 and 6 only.
-- Reference: `{SKILL_ROOT}/SKILL.md`, section "Verticals"; `{TEMPLATES}/{solution}/INSTRUCTIONS.md`.
+- Reference: `{SKILL_ROOT}/SKILL.md`, section "Verticals"; `{TEMPLATES}/{solution}/static.md`.
 
 **Step 2: create the site.**
 - Create the site, with its solutions installed.

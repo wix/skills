@@ -340,7 +340,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    seed succeeded** (`.seed-exit` contains `0`; `seed-result.json` has the created counts for
    your summary — if non-zero, read `seed.log` and re-run the seed module manually). Those two
    seed files exist **only when setup started the seed** (attach runs none: only the install
-   marker is waited on). When you ran `seed-store.mjs`
+   marker is waited on). When you ran `seed-storefront.mjs`
    yourself (adopt, iterate and published-static runs, reference mode), there is no marker to wait for: the process's
    exit code is the result and its stdout is the JSON — wait on the process (a foreground run,
    or `wait` on its pid), not on a file. Then

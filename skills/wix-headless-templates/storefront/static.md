@@ -332,7 +332,7 @@ accept online payments yet. Give both links in the close.
 
 ## Seeding
 
-Per `seed/SEED.md` and `seed/seed-store.mjs`: a plain-data plan, run in the script's order with
+Per `seed/SEED.md` and `seed/seed-storefront.mjs`: a plain-data plan, run in the script's order with
 its waits. Seed a catalog that exercises the storefront (a product with a colour option, one on
 sale, an image per product) unless the brief says otherwise. A fresh Stores install may carry
 Wix's sample catalog; never delete it or anything else on the site, and name it in the close with

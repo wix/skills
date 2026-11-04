@@ -1,7 +1,7 @@
 // Storefront seed — a BUILD-TIME script, never shipped in the app. Run it from the project
 // root (where wix.config.json lives) with a plan file:
 //
-//   node <SKILL_ROOT>/templates/storefront/seed/seed-store.mjs plan.json
+//   node <SKILL_ROOT>/templates/storefront/seed/seed-storefront.mjs plan.json
 //
 // It mints its own site token via the Wix CLI (the token never leaves this process), installs
 // the Wix Stores app if needed, waits for the V3 catalog, bulk-creates products (variants
@@ -33,7 +33,7 @@ import { resolveItemImages, resolveItemImagesDetailed } from "../../shared/seed/
 import { seedSiteId } from "../../shared/seed/site-context.mjs";
 import { wixToken } from "../../shared/seed/wix-cli.mjs";
 import { isMain } from "../../shared/seed/main.mjs";
-import { buildInfoSections, buildModifiers, buildOptions, expandVariants, mkDesc, preorderInfo, validateProducts } from "./seed-store-plan.mjs";
+import { buildInfoSections, buildModifiers, buildOptions, expandVariants, mkDesc, preorderInfo, validateProducts } from "./seed-storefront-plan.mjs";
 // Importers of this module keep the plan validation where it was.
 export { validateProducts };
 
@@ -665,7 +665,7 @@ const invokedDirectly = isMain(import.meta.url);
 if (invokedDirectly) {
   const planPath = process.argv[2];
   if (!planPath) {
-    console.error("usage: node seed-store.mjs <plan.json>   (run from the project root)");
+    console.error("usage: node seed-storefront.mjs <plan.json>   (run from the project root)");
     process.exit(1);
   }
   const plan = JSON.parse(readFileSync(planPath, "utf8"));
