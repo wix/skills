@@ -202,9 +202,8 @@ is your copy — campaigns carry no `seoData`.
 ### Wiring — static site (`--stack static`, no bundler)
 
 Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
-import the modules from the site's `js/wix/` folder, render the shipped donate form and goal block
-as they are, and write the rest on the stores; `static.md` gives the campaign pages as code, with
-the routes, the rules and the seed.
+import the layer from the site's `js/wix/` folder and write every control on the stores;
+`static.md` shows how to drive each store, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
@@ -259,7 +258,7 @@ Wix as a return target must be one the host serves (SKILL.md step 1) — pass it
   the only computed money is the fee preview — Wix's fixed 2.9% — and the button total. Wix prices
   the line, tax and schedule at the hosted checkout.
 - **No invented goal numbers.** Progress renders only from `goal`; a campaign without one has none.
-- **The form is the shipped `DonateForm`** (on `static`, `renderDonateForm`) — it alone decides which
+- **The form is the shipped `DonateForm`** (on `static`, the page's own markup on the donation store) — it alone decides which
   controls appear (frequencies, presets, custom amount, fee, note) and when a campaign is closed; a
   page never rebuilds that.
 - **The story copy is yours, the campaign data isn't.** The API has no description: write the cause's

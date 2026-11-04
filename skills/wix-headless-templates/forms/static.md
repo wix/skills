@@ -1,138 +1,184 @@
 # Forms on a static site
 
-The pages are HTML files at the root of the site. They import the forms modules from `/js/wix/`
-and render what the modules return. This file is the whole playbook for that path: the modules,
-the shipped form renderer, the page around it, the rules and the seed.
+The pages are HTML files at the root of the site. They import the forms layer from `/js/wix/`:
+the schema read, the submission calls, and one store that holds a form's state and rules. Nothing
+on the screen ships; every control is yours, in the design of the site. This file shows how to
+drive the layer. The skeletons show the calls and the fields and leave the markup to you.
 
 A form is schema-driven: the owner picks the fields in the dashboard, so every form has a
-different field set. The page renders the fields the schema has, and never writes the reading,
-the validation or the submit.
+different field set. The page renders the fields the schema has, by kind, and never writes the
+reading, the validation or the submit.
 
-## The modules
+## The layer
 
 `/js/wix/forms.js`: `getForm(formId)` (the schema, flattened into render-ready fields, with the
 owner's steps, rules and submit settings) and `listForms()`. `/js/wix/submissions.js` holds the
-upload and the submit; the pages reach it through the store, never directly. The store,
-`createFormStore({ formId })` in `/js/wix/form-store.js`, holds the form's state: `form` (null
-while loading), `values`, `errors`, `loading`, `step`, `closed`, `outcome`; its actions are
-`start()`, `stop()`, `setValue(target, value)`, `setValues`, `validate(target?)`, `next()`,
-`previous()`, `goToStep(index)`, `setCaptchaToken(token)`, `reset()`, `submit()`. `FORM_ERROR`
-beside it is the key of the form-level error in `errors`. Each `.js` opens with its declarations.
-A store calls a listener on every change and not when it subscribes. The visitor token persists
-in `localStorage` on its own, and it is enough: the schema read and the submission both answer an
-anonymous visitor.
+upload and the submit; the page reaches them through the store. The store, `createFormStore({
+formId })` in `/js/wix/form-store.js`, owns the rules: the values, the owner's rules applied to
+them (a field a rule hides leaves `form.fields`, its choices narrow, its required flag follows),
+validation in Wix's wording, the steps, the closed state, the uploads and the submit. `FORM_ERROR`
+beside it is the key of the form-level error in `errors`; `otherText(field, value)` and
+`otherValue(field, text)` beside it handle a choice field's free-text "Other" entry. Each `.js`
+opens with its declarations; read the store's before you write the page. The visitor token
+persists in `localStorage` on its own, and it is enough: the schema read and the submission both
+answer an anonymous visitor.
 
-## The shipped renderer
+## The pattern
 
-`renderForm(root, { formId, onOutcome })` from `/js/wix/form-renderer.js` renders the whole form
-into `root`, driven by the store, and returns `{ store, destroy }`. The page renders it as it is.
-It builds one control per field in `form.fields`, applies the owner's required indicator, shows
-help text and errors under each control only after a blur or a submit, renders one step at a time
-with the owner's back, next and submit wording, follows the owner's rules (a field a rule hides
-leaves the page; the address parts follow the chosen country), handles the "Other" choice, keeps
-`File` objects for the store to upload, shows the owner's closed message, and after a successful
-submit replaces the form with the thank-you text or navigates the document to the checkout or
-the redirect URL. `onOutcome(outcome)` runs once after that, for a page that wants to scroll or do
-more. `initialForm` in place of `formId` takes a schema already fetched.
-
-The renderer sets no styles. Its classes use the prefix `form`: `form`, `form-loading`,
-`form-closed`, `form-step`, `form-step-title`, `form-step-count`, `form-fields`, `form-field`,
-`form-field--<control>`, `form-label`, `form-required`, `form-control`, `form-choices`,
-`form-choice`, `form-choice--selected`, `form-choice-label`, `form-choice-image`,
-`form-other-input`, `form-address`, `form-address-part`, `form-help`, `form-error`,
-`form-file-note`, `form-unsupported`, `form-actions`, `form-back`, `form-next`, `form-submit`,
-`form-form-error`, `form-success`, `form-success-text`. The `<form>` carries `data-state`
-("loading", "open", "submitting", "closed", "done").
-
-To style, in the page's stylesheet on the same tokens as the rest of the page:
-`form-field--<control>` names the kind of field (text, textarea, number, rating, email, phone,
-url, date, time, select, radio, checkbox, checkboxGroup, tags, address, file, signature), so one
-rule reaches a kind. The step's progression button, `form-next` or `form-submit`, is the primary
-button, and only one of them shows per step; `form-back` is secondary. `form-choice--selected` is
-a chosen radio or checkbox choice; `form-choice-image` has no size. A control with an error has
-`aria-invalid="true"` with the text in `form-error` under it, both hidden until they apply.
-`form-required` is the required mark. `form-submit[disabled]` with `aria-busy="true"` is the
-button while submitting. `form-success` replaces the fields after a submit. Scope the rules to
-these classes.
-
-## The form page
-
-`contact.html` (or the page the brief names) holds the heading, the intro and the form. The form
-id comes from the seed result. The page's title and meta description are the page's own: a form
-is not an entity and has no `seoData`.
-
-```html
-<section class="enquiry">
-  <h1>Get in touch</h1>
-  <p class="enquiry-intro">Tell us about your project and we reply within two working days.</p>
-  <div id="contact"></div>
-</section>
-```
+Create the store, subscribe a render function, render once, start. A store calls the listener on
+every change and not on subscribe, so the first render is yours.
 
 ```js
-import { renderForm } from "/js/wix/form-renderer.js";
+import { createFormStore } from "/js/wix/form-store.js";
 
-const FORM_ID = "the id the seed returned";
-const section = document.querySelector(".enquiry");
-renderForm(document.querySelector("#contact"), {
-  formId: FORM_ID,
-  onOutcome: () => section.scrollIntoView({ block: "start" }),
+var store = createFormStore({ formId: "the id the seed returned" });
+function render(s) {
+  // read s, write your markup into the page
+}
+store.subscribe(render);
+render(store.getState());
+store.start();
+```
+
+Controls call the store's actions. Delegate from the form element and read the field from the
+control's `name`, so a re-render keeps the listeners:
+
+```js
+formEl.addEventListener("input", function (e) { store.setValue(e.target.name, e.target.value); });
+formEl.addEventListener("focusout", function (e) { if (e.target.name) store.validate(e.target.name); });
+formEl.addEventListener("submit", function (e) {
+  var s = store.getState();
+  if (s.form && s.step < s.form.steps.length - 1) store.next(e); else store.submit(e);
 });
 ```
 
-A page that shows more of the state reads the renderer's `store`: `form.name` for a heading when
-the brief wants the owner's name, `form.steps.length` for a progress cue of its own, `outcome` to
-show something beside the thank-you.
+`next(e)` and `submit(e)` prevent the default themselves; both validate first and move focus to
+the first invalid control. `submit()` resolves the outcome when the submission was created and
+`false` when it did not send.
+
+## The form page
+
+`contact.html`, or the page the brief names, holds the heading, the intro and the form. The form
+id comes from the seed result. The page's title and meta description are the page's own: a form
+is not an entity. From the state:
+
+- `form` is null while loading: render a loading line, and `errors[FORM_ERROR]` when the load
+  failed. `closed` true means the form is not taking submissions (switched off, or past its
+  deadline): show `form.disabledMessage`, or your own line when it is empty, and nothing else.
+- `form.fields` are the fields to render right now, in the owner's order, with the rules already
+  applied: hidden ones are gone, each has its effective `required` and `choices`. Render by
+  mapping them; a field is never named in code.
+- `form.steps` has one entry for a plain form. `step` is the index of the page being shown;
+  render the fields whose `stepId` matches `form.steps[step].id`, a progress cue when there is
+  more than one step, and the actions: `previous()` on every step but the first with
+  `form.previousText`, `next(e)` with `form.nextText` on every step but the last, `submit(e)`
+  with `form.submitText` on the last. Empty wording means the owner left the default; write
+  yours. One progression button per step is the primary action; back is secondary.
+- `values[field.target]` is the control's value: a string, a number, a boolean for a consent
+  checkbox, an array for a multi-choice or a file field, an object for an address.
+- `errors[field.target]` is the message under the control, present only after a blur or a
+  submit; set `aria-invalid` on the control while it is there. `errors[target + "/" + sub]` is an
+  address part's. `errors[FORM_ERROR]` is form-level: show it above the actions.
+- `loading` is true while the schema loads and while submitting: disable the progression button
+  and mark it busy.
+- `outcome` is set after a successful submit. With `outcome.url` (a checkout or the owner's
+  redirect) navigate the document there, in a new tab when `outcome.newTab`; else replace the
+  form with `outcome.message` split on newlines, or your own thank-you when it is empty.
+  `outcome.durationSeconds` asks for the message to hide after that long: call `reset()` then.
+
+Each field carries `target`, `label`, `showLabel` (false: keep the label for assistive tech
+only), `control`, `required`, `readOnly` (render disabled, it submits its prefill), `placeholder`,
+`description` (help text under the control), `defaultValue`, `choices`, `otherOption`,
+`addressParts`, `validation`, `identifier`. The required mark follows `form.requiredIndicator`
+("ASTERISK", "TEXT" for the word, "NONE") and `form.requiredIndicatorBefore`.
+
+The kinds in `control`, and the control each takes:
+
+- `text`, `email`, `phone`, `url`, `password`: an input of that type. `number`: a number input
+  with `validation.minimum`, `maximum`, `multipleOf` as its step. `date`, `time`, `datetime`: the
+  matching input type, bounds from `validation.minDate` and `maxDate`. `textarea`: a textarea
+  with `validation.maxLength`. `rating`: a row of values from `minimum` to `maximum`.
+- `select`: a select over `choices` (`value`, `label`); `radio`: one radio per choice;
+  `checkboxGroup` and `tags`: one checkbox per choice, the value an array of the checked values;
+  a choice with `imageUrl` renders its picture. `checkbox`: one consent checkbox, the value a
+  boolean, its label the field's.
+- A choice field with `otherOption` gets one more choice with `otherOption.label` and a text
+  input shown while it is chosen. Its value goes through `otherValue(field, text)` and comes back
+  through `otherText(field, value)`, null when a listed choice is chosen.
+- `address`: one control per entry of `field.addressParts`, named `target/sub`, `country` first
+  as a select over its `choices`, a part with `choices` (a subdivision) as a select, the rest as
+  text inputs. The store recomputes `addressParts` for the chosen country, so read them from the
+  state on every render. The value is an object keyed by `sub`: set it whole with
+  `setValue(target, Object.assign({}, values[target], { city: text }))`.
+- `file`, `signature`: a file input with `validation.accept`, `multiple` when `fileLimit` is
+  above one; `setValue(target, Array.from(input.files))`. The store uploads the files on submit.
+  `buttonText` and `explanationText` are the owner's words for it.
+- `payment`, `appointment`, `unknown`: not fillable on a static page; render the label and a line
+  saying so.
+
+A sketch of one field, kinds in, markup yours:
 
 ```js
-import { renderForm } from "/js/wix/form-renderer.js";
-
-const { store } = renderForm(document.querySelector("#contact"), { formId: "the id the seed returned" });
-const count = document.querySelector("#step-count");
-function renderMeta(s) {
-  if (!s.form) return;
-  count.textContent = s.form.steps.length > 1 ? `Step ${s.step + 1} of ${s.form.steps.length}` : "";
+function field(f, s) {
+  var v = s.values[f.target], err = s.errors[f.target], html = "";
+  html += "<label for=\"" + f.target + "\">" + esc(f.label) + (f.required ? " *" : "") + "</label>";
+  switch (f.control) {
+    case "textarea":
+      html += "<textarea id=\"" + f.target + "\" name=\"" + f.target + "\"" + (f.readOnly ? " disabled" : "") + ">" + esc(v || "") + "</textarea>";
+      break;
+    case "select":
+      html += "<select id=\"" + f.target + "\" name=\"" + f.target + "\">";
+      f.choices.forEach(function (c) { html += "<option value=\"" + esc(c.value) + "\"" + (v === c.value ? " selected" : "") + ">" + esc(c.label) + "</option>"; });
+      html += "</select>";
+      break;
+    case "checkbox":
+      html += "<input id=\"" + f.target + "\" name=\"" + f.target + "\" type=\"checkbox\"" + (v === true ? " checked" : "") + ">";
+      break;
+    default:
+      html += "<input id=\"" + f.target + "\" name=\"" + f.target + "\" type=\"" + inputType(f.control) + "\" value=\"" + esc(v || "") + "\"" + (f.readOnly ? " disabled" : "") + (err ? " aria-invalid=\"true\"" : "") + ">";
+  }
+  if (f.description) html += "<p>" + esc(f.description) + "</p>";
+  if (err) html += "<p role=\"alert\">" + esc(err) + "</p>";
+  return html;
 }
-store.subscribe(renderMeta);
-renderMeta(store.getState());
 ```
 
-## What the schema carries
-
-`form.fields` are in the owner's layout order; each has `target`, `label`, `showLabel`,
-`control`, `required`, `readOnly`, `hidden`, `stepId`, `placeholder`, `description`,
-`defaultValue`, `choices`, `otherOption`, `addressParts`, `validation`. The form has `steps` (one
-for a plain form), `rules`, `submitText`, `nextText`, `previousText`, `enabled`,
-`disabledMessage`, `limits`, `requiredIndicator` ("ASTERISK", "TEXT", "NONE") with
-`requiredIndicatorBefore`, and `success` (the owner's thank-you message, redirect or nothing).
-The renderer reads all of it; the list is here so the page knows what the owner controls from the
-dashboard and leaves to them: labels, choices, the thank-you, the closing date.
+`inputType` maps `email`, `url`, `phone` (to `tel`), `password`, `number`, `date`, `time`,
+`datetime` (to `datetime-local`) and anything else to `text`. `esc` escapes `&`, `<`, `>` and
+`"` in anything that came from the schema. A checkbox group's `input` handler builds the array
+from the checked boxes before `setValue`; a file input's `change` handler passes the files.
+Re-rendering a text control on every keystroke loses the caret: update only the parts of the
+markup that changed, or restore focus and selection after the render.
 
 ## Pages and routes
 
 Wix static hosting serves files. Make every page a file in the root and link to the file:
 `/contact.html`. A link to a folder gives the visitor a 404 page. When the submit leads to a
-checkout, the renderer navigates the whole document there and the visitor comes back to `/`.
+checkout, the page navigates the whole document there and the visitor comes back to `/`. Write
+the page's script as a file of its own and keep it small; a page's code travels as text in the
+upload call.
 
 ## Rules
 
 - Map `form.fields`; a field is never named in code. The owner renames and removes fields
   without a code change, and that is the point of this solution.
-- Every form on the site comes from its schema through the renderer. A hand-built form posting
+- Every form on the site comes from its schema through the store. A hand-built form posting
   elsewhere loses the dashboard builder, the spam protection, the notifications and the contact
   mapping.
 - Values, rules, validation, uploads and the submit go through the store. Extend by adding a
-  function beside the modules for what they do not cover.
+  function beside the layer for what it does not cover.
 - The visitor token is enough for the read and the submit. Submissions are write-only from a
   visitor; a site that must list them is the cms solution's job.
-- A submission with status CONFIRMED, PENDING or PAYMENT_WAITING exists; the renderer treats all
-  three as success and follows the owner's submit settings: their message, their redirect, or the
-  checkout for a paid form.
+- A submission with status CONFIRMED, PENDING or PAYMENT_WAITING exists; the store treats all
+  three as success and resolves the owner's submit settings into `outcome`: their message, their
+  redirect, or the checkout for a paid form.
 - Spam protection is a dashboard setting. When the server asks for a captcha, the store shows it
-  as a form-level error; a site that needs one mounts a captcha widget and passes its token
+  as the form-level error; a site that needs one mounts a captcha widget and passes its token
   through `setCaptchaToken`.
 - A form that cannot load is a setup problem to surface, never a reason for a hand-built form. A
   closed form shows the owner's message.
+- Every control on the page has a rule in the stylesheet; one primary action per step, the rest
+  compact or text actions.
 
 ## The owner's links
 

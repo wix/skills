@@ -286,8 +286,8 @@ async function run() {
   });
 }
 // { entrypoints: ['/js/wix/client.js', '/js/wix/posts.js', …], files: { added, replaced, unchanged }, … }
-// Donations and forms ship their controls (/js/wix/donate-form.js, /js/wix/form-renderer.js). Render those as
-// they are. The storefront's controls are yours to write on its stores; its static.md gives each one as code.
+// The modules carry data and state and render nothing. Every control on a page is yours to write on the
+// stores; static.md of the solution shows how to drive them.
 ```
 
 The call keeps the pages. It returns the entry points and the file counts. The modules do not pass
