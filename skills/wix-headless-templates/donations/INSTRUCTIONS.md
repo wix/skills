@@ -148,8 +148,8 @@ export default function CampaignsGrid(props: { initialCampaigns?: CampaignSummar
 
 ### The reference files for stacks where the components don't deploy
 
-On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives (on `static`, the
-donate form and the goal block arrive as plain-DOM twins — see the static wiring below). The state machines
+On `lib`, `static`, and a port, nothing under `components/` or `hooks/` arrives (on `static`, read
+`static.md` in this folder). The state machines
 behind the hooks do arrive — `wix/donations/donation-store.ts`, `campaigns-store.ts`,
 `receipt-store.ts` — so you never rewrite them: create a store per surface, `subscribe`, render from
 `getState()`, call its actions. Their `*State` interfaces are the render contract; read those. What
@@ -201,36 +201,10 @@ is your copy — campaigns carry no `seoData`.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above, so
-the contracts on this page hold unchanged: `fetchCampaigns`, `fetchCampaign` from
-`./js/wix/campaigns.js`; `donationCheckoutUrl`, `fetchDonationReceipt` from `./js/wix/donate.js`. The
-state machines ship too: `createCampaignsStore` from `./js/wix/campaigns-store.js`,
-`createDonationStore` from `./js/wix/donation-store.js`, `createReceiptStore` from
-`./js/wix/receipt-store.js`. The donate form and the goal block ship as plain-DOM twins of the
-React components — **wire them as-is**: `renderDonateForm(root, campaign, { paths })` (or
-`mountDonateForm(root, campaignId?, { paths })`, which fetches the campaign first) from
-`./js/wix/donate-form.js`, and `renderGoalProgress(root, campaign.goal, { compact? })` from
-`./js/wix/goal-progress.js`. They decide which controls appear from the campaign's options at load
-time (the frequency picker, the presets, "Other amount", the fee, the note, the closed state), so a
-dashboard edit reaches the page on the next load; a page never rebuilds the form. They set no
-styles: every element has a class under one prefix (`donate-form`, `donate-choice`,
-`donate-choice--selected`, `donate-submit`, `goal-bar`, …). Each file's header lists the classes
-and ends with a "To style" note: the state selectors (selected, `aria-invalid`, `aria-busy`,
-`data-state`) and the elements that need a size (the goal bar and its fill). Style them in the
-page's stylesheet on the same tokens as the rest of the page; the form has one primary button and
-the presets are chips, as the file's note says. What you write in plain JS is the rest: the card
-and the index on `createCampaignsStore` (one render function that reads
-`getState()`, called from `subscribe`), the campaign page around the two shipped blocks, and the
-thank-you page on `createReceiptStore`.
-Pages are `donate.html`, `campaign.html?id=…` and `thank-you.html` (Wix static hosting serves
-files, not directories — name the file and link to it); pass
-`{ paths: { thankYou: "/thank-you.html", campaign: "/campaign.html?id=" + id } }` to the form so
-the hosted checkout returns to your files; the campaign page reads the id, `fetchCampaign`, renders
-its not-found state on null, and sets `document.title` from the DTO's `name`. The visitor token
-persists in `localStorage` on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder, render the shipped donate form and goal block
+as they are, and write the rest on the stores; `static.md` gives the campaign pages as code, with
+the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

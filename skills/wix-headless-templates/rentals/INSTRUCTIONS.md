@@ -190,22 +190,10 @@ the build folder, an SSR build is hosted by you. Rental-page tags from the `Rent
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above,
-so the contracts on this page hold unchanged: `fetchRentals`, `fetchRentalBySlug`, `fetchStarts`,
-`fetchEndOptions`, `fetchQuote`, `fetchRentalForm`, `rentResource` from `./js/wix/rentals.js`. The
-state machines ship too: `createRentalsStore` from `./js/wix/rentals-store.js` and
-`createRentalFlowStore(rental)` from `./js/wix/rental-flow-store.js` (`fetchRentalBySlug(slug)`
-first, then the store). No components ship — you write the rendering in plain JS: one render
-function per surface that reads `getState()`, called from `subscribe`, with the surface's controls
-calling the store's actions. `rent()` navigates the full document to the hosted checkout for a paid
-rental on its own (`window.location.origin` must be on the OAuth app's allowed domains so checkout
-can return); for a free or pay-in-person rental it sets `confirmed`. Pages are `rentals.html` and
-`rental.html?slug=…` (Wix static hosting serves files, not directories). Set `document.title` and the
-meta description from the `RentalDetail` once it loads. The visitor token persists in `localStorage`
-on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the rental surface on the stores;
+`static.md` gives the flow as code, with the listing, the rental page, the routes, the rules and
+the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

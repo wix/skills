@@ -223,24 +223,9 @@ SSR build is hosted by you. Page titles and descriptions from the DTO (Portfolio
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above,
-so the contracts on this page hold unchanged: `fetchCollections`, `fetchCollectionBySlug`,
-`fetchProjects`, `fetchProjectBySlug`, `fetchProjectGallery` from `./js/wix/portfolio.js`. The
-state machines ship too: `createCollectionsStore` from `./js/wix/collections-store.js`,
-`createCollectionProjectsStore` from `./js/wix/collection-projects-store.js`,
-`createProjectDetailStore` from `./js/wix/project-detail-store.js` (`start()` once the page is up;
-`notFound` is the 404 signal), `mediaElement` from `./js/wix/portfolio-core.js` (the gallery item
-→ element rule), and `imgAttrs` from `./js/wix/media.js` (attribute names as HTML spells them —
-`setAttribute` per entry). No components ship — you write the rendering in plain JS: one render
-function per surface that reads `getState()`, called from `subscribe`. Wix static hosting serves
-files, not directories: pages are `portfolio.html`, `collection.html?slug=…`,
-`project.html?slug=…`; name the file and link to it. Set `document.title` and the meta description
-from the DTO (`collection.title`/`description`, `project.title`/`description`) once the store
-populates — Portfolio has no `seoData`. The visitor token persists in `localStorage` on its own;
-never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the rendering on the stores;
+`static.md` gives the gallery, the collection page, the project page as code, with the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

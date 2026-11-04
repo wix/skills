@@ -326,30 +326,10 @@ build is hosted by you.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchMenus`, `fetchSiteMoney` from
-`./js/wix/menu.js`; `resolveOrdering`, `resolveOperationId`, `fetchMenuOrdering`,
-`fetchFulfillmentMethods`, `fetchOrderCart`, `addToOrder(item, { menuId, sectionId }, quantity?,
-selection?)`, `updateOrderQuantity`, `removeOrderLine`, `fetchFulfillmentTimes`, `setOrderFulfillment`, `orderCheckoutUrl` from
-`./js/wix/ordering.js`; `fetchReservationLocations`, `fetchReservationSlots`, `holdReservation`,
-`completeReservation`, `requestReservation` from `./js/wix/reservations.js`; the selection helpers
-from `./js/wix/menu-core.js`. The state machines ship too: `createMenuStore` from
-`./js/wix/menu-store.js` (`start()` once the page is up; `initialMenus` when you already have
-them), `./js/wix/order-store.js` (the cart — `subscribeOrderCart`/`getOrderCartState`,
-`isMenuOrderable`, `addOrderLine`, `updateOrderLineQuantity`, `removeLineFromOrder`,
-`chooseFulfillment`, `loadFulfillmentTimes`, `goToOrderCheckout`, `setOrderCartOpen`), and `createReservationStore` from
-`./js/wix/reservation-store.js` (the whole reservation flow). No components ship — you write the
-rendering in plain JS: one render function per surface that reads `getState()`, called from
-`subscribe`, with the surface's controls calling the store's actions. The drawer opens after every
-add on its own; overlays follow the OrderCartDrawer contract (root-level, scroll lock, Escape,
-focus back). Pages are `menu.html` and `reservations.html` (a menu switch is local state, or
-`menu.html?menu=<slug>` read from the query string). Wix static hosting serves files, not
-directories — name the file and link to it. There are no item pages here: set `document.title`
-and the meta description per page yourself, from the menu's `name` once it loads. The visitor
-token persists in `localStorage` on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the menu, the dish sheet, the order
+drawer and the reservation flow on the stores; `static.md` gives each one as code, with the
+routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

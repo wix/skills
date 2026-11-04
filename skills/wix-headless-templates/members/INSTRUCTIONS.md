@@ -238,31 +238,9 @@ state); dev server on 4321; a static build goes through `npx @wix/cli@latest rel
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above, so the
-contracts on this page hold unchanged: `loginMember`, `registerMember`, `verifyMemberEmail`,
-`logoutMember`, `loggedInHint` from `./js/wix/auth.js`; `fetchCurrentMember` from
-`./js/wix/members.js`. The state machine ships too: `./js/wix/member-store.js`
-(`subscribeMember` — the first subscriber triggers the session read — `getMemberState`, `login`,
-`register`, `verifyEmail`, `logout`, `refreshMember`). No components ship — you write the rendering
-in plain JS: one render function per surface that reads `getMemberState()`, called from
-`subscribeMember`, with the form's submit calling the store's actions and rendering the
-`LoginResult` state it resolves to. Pages are `login.html` (`?returnTo=` a same-site path) and
-`account.html`, gated in the page: `loading` → a skeleton, anonymous → a link to
-`login.html?returnTo=account.html`, a member → the profile. The header control is the same store
-on every page.
-
-How the session works here: the login runs over the IAM authentication API with the visitor token
-and exchanges the result into member tokens, which replace the visitor token in `localStorage`
-(`role: "member"`) — every later call runs as the member and the refresh keeps the member; never
-mint per page. The exchange completes in a hidden iframe on the page's own origin, so **the page's
-origin must be one of the OAuth app's allowed domains** (`localhost:4321` and the Wix-hosted origin
-already are; a custom domain is added in the dashboard's Headless Settings) — otherwise the login
-resolves nothing and times out with "Login timed out". Logout navigates to Wix and returns to the
-URL you pass (`logout("account.html")` resolves against the page). Gated pages carry no SEO — there
-is nothing to index.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write every surface on the stores;
+`static.md` gives each surface as code, with the pages, the routes, the rules and the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

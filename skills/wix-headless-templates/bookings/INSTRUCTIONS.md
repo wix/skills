@@ -225,27 +225,10 @@ pointing at the build folder, an SSR build is hosted by you. Service-page tags f
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table
-above, so the contracts on this page hold unchanged: `fetchServices`, `fetchServiceBySlug`,
-`fetchBookingCategories`, `fetchLocations` from `./js/wix/services.js`; `fetchSlots`,
-`fetchNextAvailableSlots`, `fetchBookingsSettings`, `fetchSessions`, `fetchOfferedDays`,
-`fetchCourseAvailability`, `fetchAddOnGroups`, `fetchBookingForm`, `bookService` from
-`./js/wix/booking.js`. The state machines ship too: `createServicesStore` from
-`./js/wix/services-store.js` (the listing — `start()` once the page is up, `setActiveCategoryId`,
-`setActiveLocationId`, `loadMore`) and `createBookingFlowStore(service)` from
-`./js/wix/booking-flow-store.js` (the booking surface — `fetchServiceBySlug(slug)` first, then the
-store: days, week paging, `nextAvailable`, staff filter, course seats, sessions, participants,
-deposit, add-ons, `formFields`, `setValue`, `ctaState`, `canBook`, `book()`). No components ship — you write the rendering in plain JS: one
-render function per surface that reads `getState()`, called from `subscribe`, with the surface's
-controls calling the store's actions. `book()` navigates the full document to the hosted checkout
-for a paid service on its own (`window.location.origin` must be on the OAuth app's allowed domains
-so checkout can return); for a free or pay-in-person service it sets `confirmed`. Pages are
-`services.html` and `service.html?slug=…` (Wix static hosting serves files, not directories — name
-the file and link to it). Set `document.title` and the meta description from the `ServiceDetail`
-once it loads. The visitor token persists in `localStorage` on its own; never mint per page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The pages
+import the modules from the site's `js/wix/` folder and write the booking surface on the stores;
+`static.md` gives the flow as code, with the listing, the service page, the routes, the rules and
+the seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 

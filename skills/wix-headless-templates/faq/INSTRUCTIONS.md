@@ -190,22 +190,10 @@ build folder, an SSR build is hosted by you. Page tags from the first questions.
 
 ### Wiring — static site (`--stack static`, no bundler)
 
-Read the reference files listed above before writing any surface.
-
-When the site's `js/wix/` holds the REST layer (browser ESM, each `.js` opening
-with its declarations), the pages import it from there. Same function names and DTOs as the table above,
-so the contracts on this page hold unchanged: `fetchFaq`, `fetchQuestions`, `fetchCategories`,
-`fetchQuestionById` from `./js/wix/faq.js`; `anchorId`, `faqDeepLink`, `groupByCategory` from
-`./js/wix/faq-core.js`. The state machine ships too: `seedFaq`, `subscribeFaq`, `getFaqState` and
-the actions from `./js/wix/faq-store.js` (the first `subscribeFaq` in a browser fetches when nothing
-was seeded). No components ship — you write the rendering in plain JS: one render function per
-surface that reads `getFaqState()`, called from `subscribeFaq`, with the controls calling the store's
-actions; the answer goes in through `innerHTML` (it is the core's sanitized HTML). The page is
-`faq.html` (Wix static hosting serves files, not directories — name the file and link to it).
-Structured data built in the browser is not read by search engines — an FAQ that needs the FAQPage
-markup indexed stays on Astro; say so in the closing message. Set `document.title` from the first
-questions once they load. The visitor token persists in `localStorage` on its own; never mint per
-page.
+Read `static.md` in this folder: it is the whole playbook for this stack, in one file. The page
+imports the modules from the site's `js/wix/` folder and writes the accordion, the category nav
+and the search on the store; `static.md` gives them as code, with the routes, the rules and the
+seed.
 
 ### Wiring — server-rendered, another language (Flask, Laravel, Rails, …)
 
