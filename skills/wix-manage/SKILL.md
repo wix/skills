@@ -507,6 +507,9 @@ Find, search, query, and list products from a Wix Store using Catalog V3 Search 
 ### [Query Products (Catalog V1)](references/stores/query-products-catalog-v1.md)
 Query and list products from a Wix Store using the Catalog V1 Query Products endpoint. Use this recipe when the site's catalog version is CATALOG_V1. Covers basic queries, filtering, sorting, and paging.
 
+### [Manage Store Categories (Catalog V3)](references/stores/manage-store-categories-catalog-v3.md)
+Organizes a Wix Store's products into categories with the Catalog V3 Categories API. Covers listing the category tree and finding a category by name; creating categories and subcategories; renaming a category or changing its description or URL slug; hiding or showing it; reordering it or moving it under another parent; deleting it; and adding products to a category, removing them, listing what a category holds, or moving all of a category's products to another category. Use when the user wants to see, set up, reorganize or clean up their store categories, or asks which products are in a category.
+
 ### [Update Product Stock and Pre-Order (Catalog V3)](references/stores/update-product-stock-and-pre-order.md)
 Changes the stock and pre-order settings of existing Catalog V3 product variants through their inventory items. Covers finding a variant's inventory item by product name or SKU, setting a quantity, adding or removing units, marking a variant in or out of stock, starting or stopping quantity tracking, and enabling or disabling pre-orders with a message and a limit.
 
