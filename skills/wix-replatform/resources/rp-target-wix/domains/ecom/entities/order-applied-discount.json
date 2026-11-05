@@ -14,6 +14,9 @@
   "dependsOn": [
     "stores/coupon"
   ],
+  "dependencyFailureActions": {
+    "stores/coupon": "offer-omit"
+  },
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

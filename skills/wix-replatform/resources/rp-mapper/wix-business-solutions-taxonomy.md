@@ -365,7 +365,7 @@ Use these heuristics before inventing custom targets:
 2. If it represents a purchasable service with providers, schedules, or availability, start in `bookings`.
 3. If it represents a live/virtual gathering with attendees, tickets, or RSVPs, start in `events`.
 4. If it represents menu/catalog content for a food business or restaurant reservations, start in `restaurants`.
-5. If it represents subscriptions, memberships, bundles, or entitlements, start in `pricing-plans`.
+5. If it represents subscriptions, memberships, plan bundles, or entitlements, start in `pricing-plans`. A product bundle (one sellable product made of other products) is not a plan: it starts in `stores` (`stores/product` plus the manual `stores/product-bundle`).
 6. If it represents carts, checkouts, or orders across verticals, start in `ecommerce`.
 7. If it represents customer identity or segmentation, start in `crm` and `members`.
 8. If it represents editorial publishing, start in `blog`.

@@ -74,7 +74,7 @@ always use `task-complete`; use `per-record` only where target knowledge explici
 it for an import or excluded import dependency.
 
 **Dependencies with no separate producer.** Copy `lib/dependency-proofs.js` with
-the readiness library. Also vendor `lib/target-import-support.js`, `lib/config-env.js`, `lib/wix-auth.js`, `lib/import-interruption.js` and
+the readiness library. Also vendor `lib/target-import-support.js`, `lib/config-env.js`, `lib/wix-auth.js`, `lib/import-interruption.js`, `lib/egress-proxy.js` and
 the selected target knowledge with their relative module layout: reconciliation and the
 shared Wix client read them.
 Declare `writeOperations: { "<entityRef>": "<operation>" }` on every
@@ -216,7 +216,7 @@ Import the gate's `startImportRun`, `bindTask`, `evaluateTask`, `gateBatch` and
 `finishTaskPass`. For EAV extracts, source bindings additionally name the existing project-relative `readPlanPath`; the gate reuses the shipped EAV completeness and file-digest validator rather than treating a missing snapshot total as empty. Create one import run, bind each task, and create its Wix client from the
 returned capability. Immediately before every batch, including each selective/resume
 path, evaluate the task and pass the source-keyed records through `gateBatch`.
-Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges only after a complete current producer pass (empty producers cannot resolve a key). This separate resolver preserves whole-task blocking on any partial producer; a producer whose only missing keys are approved builder holds is `complete-with-holds`, and a reference to a held key defers that one record with `dependency-held`. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes, and `resolveSameTaskReference(ref, sourceStableKey, path)` for a parent the same task writes (see "Same-entity hierarchies"). They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
+Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges once the producer's current full pass has finished (empty producers cannot resolve a key). A finished producer releases its dependents even when some of its keys did not land (`finished-partial`; approved builder holds alone give `complete-with-holds`): call `resolveTaskReference` for every key the record uses, so the gate checks each one. A key that may still land in this run defers that record (`dependency-not-ready`); a key that cannot (failed, unverified, not attempted, absent or owner-held) stops it for the run as `dependency-parent-final`. That record is not dropped: it stays in recovery, the next `--deferred-only` pass imports it with its link once the parent lands, and its cutover task offers "fix and re-run" (plus an explicit opt-in to import without the link where target knowledge declares `dependencyFailureActions[ref]: 'offer-omit'`; the operator records it with `scripts/link-waiver.js`). Never write the record without the link yourself, and never read a crosswalk to fill a task-complete reference. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes, and `resolveSameTaskReference(ref, sourceStableKey, path)` for a parent the same task writes (see "Same-entity hierarchies"). They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
 the returned `send` payloads, with each request's `sourceStableKey` and that batch's
 `readinessGrant`. Use `writers.bindRecordClient(taskClient, { readinessGrant: grant, sourceStableKey })` for existing writer composites, or `writers.withReadinessGrant(request, { readinessGrant: grant, sourceStableKey })` for individual builders. These retain trusted read/auxiliary marks. A valid grant never authorizes a raw or altered writer request; object-spreading a marked request loses its authority. Principal payloads still match every resolved reference. Closed product patch builders bind the current record’s product and compare references under each changed top-level field; omitted fields retain the existing product state. Only the closed media/payment/extended-field auxiliary builders omit those principal paths. For standard product stock, get the current product through the bound record client, call `registerImportInventoryScope(recordClient, canonicalProduct, targetProduct)`, and pass that record client to `storesInventory.reconcileInventory`. The same-record principal write or current site-bound crosswalk establishes product ownership; exact variant-choice matches, requested stock and actual location/item reads bound the composite. This preserves standard quantity/location mappings without expanding quick Shopify’s separate exception. Persist/report the returned deferrals without substituting empty IDs.
 The gate appends its own deferred attempt rows; do not append a duplicate deferred outcome. The runner appends started and terminal rows for attempted sends and persists confirmed crosswalks through the shared writers. Call `finishTaskPass` with the actual selection mode only after the pass finishes. Selective
@@ -3031,8 +3031,9 @@ codegen supplies reads and facts.
    coupon's `gateBatch` transform with `resolveProduct: id => resolveReference('stores/product',
    productKey(id), 'scope.group.entityId')` and the `stores/category` equivalent, never a
    crosswalk lookup, and write only the batch's `send` payloads. A coupon scoped to a product the
-   owner held, or one not imported yet, is deferred by the gate (`dependency-held` /
-   `dependency-not-ready`) and reaches cutover with that cause; it is not a
+   owner held, or one that did not land, is deferred by the gate (`dependency-parent-final` once
+   that product can no longer land in this run, `dependency-not-ready` while it still may) and
+   reaches cutover with that cause; a coupon scope is never dropped to import it. It is not a
    `coupon-scope-unmappable` refusal. Discount-rule product scopes
    (`discounts.values[].specificItemsInfo.scopes[].catalogItemFilter.catalogItemIds[]`, the
    buy-X-get-Y and trigger scopes) resolve the same way through `resolveReference('stores/product', ...)`.
@@ -3767,10 +3768,11 @@ never write your own quota codes, hold file or probe.
   (`archiveOnly` for entities with no Wix home, e.g. abandoned carts), then `buildArchiveRecord(record,
   plan, { sourceKey, wixId, name })` with the crosswalk Wix id and a display name (order number,
   product name, email), then `packArchiveRecords(records, { sourceEntity, perRecord: archiveOnly })`.
-  A record too big for one item comes back as `<entity>:<sourceKey>#part-<n>` items under the same
+  A record too big for one item comes back as `<sourceKey>#part-<n>` items under the same
   source key; write every item it returns.
   Write `aboutItem()`, one `entityInfoItem(plan)` per entity and the packed items as
-  `archiveDataItem(item)` (stable `_id`). On a re-run use `itemWriteAction(item, journaledDigest)`:
+  `archiveDataItem(item)` (stable `_id`), sent in `archiveWriteBatches([about, ...info, ...items], { batchSize })`
+  order so the CMS view lists them as given (parts 1, 2, 3). On a re-run use `itemWriteAction(item, journaledDigest)`:
   `skip`, `replace` (bulk save by id, full replace) or `insert`. Count with
   `expectedSourceArchiveItems` for the quota plan line. Pass `keptForReferenceSummary(...)`'s
   `keptForReference` and `droppedFields` to the completion report.

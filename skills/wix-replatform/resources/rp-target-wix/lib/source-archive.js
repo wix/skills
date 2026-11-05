@@ -325,9 +325,14 @@ function splitRecordFields(rec, budget) {
   push();
   return parts;
 }
+// The item name for one record's own item(s): the source key, prefixed with the entity only
+// when the key does not already start with it (so `order:big`, not `order:order:big`).
+function recordItemKey(sourceEntity, sourceKey) {
+  return String(sourceKey).startsWith(`${sourceEntity}:`) ? String(sourceKey) : `${sourceEntity}:${sourceKey}`;
+}
 // Many records per item, in source-key order, up to the size limit. `perRecord` (archive-only
 // entities a merchant browses as rows) keeps one record per item. A record that alone exceeds the
-// limit becomes several part items (`<entity>:<sourceKey>#part-<n>`).
+// limit becomes several part items (`<sourceKey>#part-<n>`; see recordItemKey).
 function packArchiveRecords(records, { sourceEntity, itemBytesLimit = ITEM_BYTES_LIMIT, perRecord = false } = {}) {
   if (typeof sourceEntity !== 'string' || !sourceEntity) throw Object.assign(new Error('packArchiveRecords needs sourceEntity'), { code: 'source_archive_pack_invalid' });
   const sorted = records.filter(Boolean).slice().sort((a, b) => (a.sourceKey < b.sourceKey ? -1 : a.sourceKey > b.sourceKey ? 1 : 0));
@@ -349,7 +354,8 @@ function packArchiveRecords(records, { sourceEntity, itemBytesLimit = ITEM_BYTES
       const parts = splitRecordFields(rec, budget);
       parts.forEach((fieldsPart, i) => {
         open(false);
-        current.itemKey = `${sourceEntity}:${rec.sourceKey}#part-${i + 1}`;
+        current.itemKey = `${recordItemKey(sourceEntity, rec.sourceKey)}#part-${i + 1}`;
+        current.idKey = `${sourceEntity}:${rec.sourceKey}#part-${i + 1}`;
         current.records[rec.sourceKey] = { ...entry, fields: fieldsPart, part: { index: i + 1, of: parts.length } };
         current.sourceKeys.push(rec.sourceKey);
         if (rec.wixId) current.wixIds.push(String(rec.wixId));
@@ -358,7 +364,7 @@ function packArchiveRecords(records, { sourceEntity, itemBytesLimit = ITEM_BYTES
       });
       continue;
     }
-    if (perRecord) { open(); current.itemKey = `${sourceEntity}:${rec.sourceKey}`; }
+    if (perRecord) { open(); current.itemKey = recordItemKey(sourceEntity, rec.sourceKey); current.idKey = `${sourceEntity}:${rec.sourceKey}`; }
     else if (!current || (current.sourceKeys.length && size + cost > itemBytesLimit)) { close(); open(); }
     size += cost;
     current.records[rec.sourceKey] = entry;
@@ -387,14 +393,27 @@ function aboutItem({ sourcePlatform = null } = {}) {
   return finishItem({ itemKey: '_about', kind: 'about', sourceEntity: '', names: ['About this collection'], sourceKeys: [], wixIds: [],
     info: { text: ABOUT_TEXT, sourcePlatform, policy: POLICY_REF } });
 }
+// Write order so the CMS view (newest first) shows items in the order given (about row, info
+// rows, then parts 1, 2, 3). Verified live: a bulk insert dates its first item newest, and a
+// later call is newer than an earlier one. So: split the display order into batches, send the
+// last batch first, each batch in display order. `batchSize: 1` is the order for single inserts.
+function archiveWriteBatches(items, { batchSize = 50 } = {}) {
+  if (!Number.isInteger(batchSize) || batchSize < 1) throw Object.assign(new Error('archiveWriteBatches needs a positive batchSize'), { code: 'source_archive_pack_invalid' });
+  const batches = [];
+  for (let i = 0; i < items.length; i += batchSize) batches.push(items.slice(i, i + batchSize));
+  return batches.reverse();
+}
 // Stable CMS item id from the item key, so a re-run finds (and replaces only on a digest change)
 // the same item instead of inserting a duplicate.
 function itemId(itemKey) {
   const h = crypto.createHash('sha256').update(`source-archive:${itemKey}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
+// The `_id` comes from `idKey` when an item has one: the key before item names stopped repeating
+// the type (`order:order:big`). A re-run on a site archived with that key then replaces or skips
+// the same item instead of inserting a second one under the cleaner name.
 function archiveDataItem(item) {
-  return { _id: itemId(item.itemKey), itemKey: item.itemKey, kind: item.kind, sourceEntity: item.sourceEntity,
+  return { _id: itemId(item.idKey || item.itemKey), itemKey: item.itemKey, kind: item.kind, sourceEntity: item.sourceEntity,
     names: item.names || [], sourceKeys: item.sourceKeys || [], wixIds: item.wixIds || [],
     records: item.records || null, info: item.info || null, digest: item.digest };
 }
@@ -526,5 +545,5 @@ module.exports = {
   loadArchiveKnowledge, pathNames, classifyArchivePath, retentionExclusion, retentionExclusions, retentionExcludedLocations,
   planEntityArchive, buildArchiveRecord, packArchiveRecords, entityInfoItem, aboutItem, itemId,
   archiveDataItem, itemWriteAction, expectedSourceArchiveItems, extendedFieldCandidates,
-  keptForReferenceSummary, labelFor, personalDataNotKeptTask, PERSONAL_DATA_TASK_CODE,
+  keptForReferenceSummary, labelFor, recordItemKey, archiveWriteBatches, personalDataNotKeptTask, PERSONAL_DATA_TASK_CODE,
 };

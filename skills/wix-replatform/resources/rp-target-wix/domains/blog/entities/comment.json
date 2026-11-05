@@ -14,6 +14,12 @@
   "dependsOn": [
     "blog/post"
   ],
+  "dependencyFailureActions": {
+    "blog/post": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "blog/post"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

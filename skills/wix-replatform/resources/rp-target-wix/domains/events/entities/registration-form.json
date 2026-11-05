@@ -13,6 +13,12 @@
   },
   "sourceAliases": [],
   "dependsOn": ["events/event"],
+  "dependencyFailureActions": {
+    "events/event": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "events/event"
+  ],
   "preferredWrite": {
     "surface": "Events Form (V1 form control API on a V3 event)",
     "endpoint": "POST /events/v1/events/{eventId}/form/control",

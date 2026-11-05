@@ -13,6 +13,7 @@ const { promisify } = require('node:util');
 
 const { ensureDestination } = require('../lib/destination.js');
 const { realClock } = require('../lib/destination-http.js');
+const { egressFetch } = require('../lib/egress-proxy.js');
 const { buildWixDashboardUrl } = require('../lib/wix-dashboard-url.js');
 
 const execFileAsync = promisify(execFile);
@@ -79,7 +80,7 @@ function defaultHeadless({ projectDir, businessName }) {
 
 function defaultDeps() {
   return {
-    fetch: globalThis.fetch,
+    fetch: egressFetch,
     clock: realClock(),
     credentials: defaultCredentials(),
     headless: defaultHeadless,

@@ -75,7 +75,8 @@ function isGlobalUnicastAddress(value) {
 // Lexical check on a URL hostname: an IP literal must be global unicast; a name is refused only
 // when it is local by definition, and is otherwise judged later by the addresses it resolves to.
 function isPrivateHostname(hostname) {
-  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  // A trailing dot is the same name (`localhost.` resolves like `localhost`) and WHATWG URL keeps it on a name host.
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (!host) return true;
   if (net.isIP(host)) return !isGlobalUnicastAddress(host);
   return host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local');

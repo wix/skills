@@ -15,6 +15,12 @@
   "dependsOn": [
     "events/event"
   ],
+  "dependencyFailureActions": {
+    "events/event": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "events/event"
+  ],
   "preferredWrite": {
     "surface": "Events Ticket Definitions V3",
     "endpoint": "POST /events/v3/ticket-definitions",

@@ -15,6 +15,14 @@
     "tax/tax-group",
     "tax/tax-region"
   ],
+  "dependencyFailureActions": {
+    "tax/tax-group": "fix-only",
+    "tax/tax-region": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "tax/tax-group",
+    "tax/tax-region"
+  ],
   "sourceAliases": [
     {
       "sourceSystem": "woocommerce",

@@ -306,9 +306,16 @@ function validateDependsOn(domainsDir, errors) {
       }
       // `omit` writes the record without a reference whose own dependency record failed for good
       // (a product image); it needs a per-record edge, which names the reference paths.
+      // When a record's own parent record never lands: `omit` (automatic, per-record edges only),
+      // `offer-omit` (the record stops and its cutover task offers importing it without the link) or
+      // `fix-only` (only fix and re-run is offered). Every dependency declares one, so a new edge
+      // cannot silently pick a default. `dependencyLinkRequired` names fix-only links the target
+      // cannot do without (a refund without its order): an explicit request is refused for those.
       for (const [ref, action] of Object.entries(entity.dependencyFailureActions || {})) {
-        if (action !== 'omit' || entity.dependencyModes?.[ref] !== 'per-record') errors.push(`dependency_failure_action_invalid:${domain}/${entityId}:${ref}`);
+        if (!entity.dependsOn.includes(ref) || !['omit', 'offer-omit', 'fix-only'].includes(action) || action === 'omit' && entity.dependencyModes?.[ref] !== 'per-record') errors.push(`dependency_failure_action_invalid:${domain}/${entityId}:${ref}`);
       }
+      for (const ref of entity.dependsOn) if (!entity.dependencyFailureActions?.[ref]) errors.push(`dependency_failure_action_missing:${domain}/${entityId}:${ref}`);
+      if (entity.dependencyLinkRequired !== undefined && (!Array.isArray(entity.dependencyLinkRequired) || entity.dependencyLinkRequired.some(ref => entity.dependencyFailureActions?.[ref] !== 'fix-only'))) errors.push(`dependency_link_required_invalid:${domain}/${entityId}`);
       // The record's own writer reports an omitted reference as this cutover item (a site share
       // image); the generic Import Operator blocker is then not raised for it.
       for (const [ref, code] of Object.entries(entity.dependencyFailureCutoverItems || {})) {

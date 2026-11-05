@@ -13,6 +13,7 @@ const { validatePlanShape, validateSetupVerification } = require('../../../lib/s
 const siteRegional = require('../../../lib/site-regional.js');
 const catalogBaseline = require('../../../lib/catalog-baseline.js');
 const wixAuth = require('../../../lib/wix-auth.js');
+const { HARMONY_EDITOR_TYPE } = require('../../../lib/editor-type.js');
 
 // 'wix-stores' is the quick-mode step id; it is Wix Stores (215238eb-...), the same app as
 // `install-wix-stores` below. 1380b703-... is Wix eCommerce, which Stores installs as its own
@@ -35,6 +36,15 @@ const INSTALL_STEPS = {
   'install-wix-reviews': 'a95a5fce-e370-4402-9ce4-96956acc747d',
   'install-wix-back-in-stock': '16be6c71-d061-4f56-8cda-c6aa911d1832',
 };
+
+// Any other app needs no line here: a step that carries its own app id installs it,
+// `{ "id": "<any unique id>", "kind": "installApp", "appDefId": "<app id>" }`. The lines above stay as
+// names the planner and the dependency gate already use.
+const APP_DEF_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function appIdForStep(step) {
+  if (step.kind === 'installApp') return APP_DEF_ID.test(step.appDefId) ? step.appDefId.toLowerCase() : null;
+  return APPS[step.id] || INSTALL_STEPS[step.id] || null;
+}
 
 async function readJson(file) {
   return JSON.parse(await fs.readFile(file, 'utf8'));
@@ -214,6 +224,179 @@ async function isRegionalStep(step, dir) {
   return siteRegional.stepConfiguresSiteRegional(step, list);
 }
 
+// --- Harmony: any app through the editor's installation service ------------------------------
+// The generic app installer leaves a Harmony site without the pages an app adds. On a Harmony site
+// setup installs every app (and the companion apps its widgets need) through the editor's own
+// installation service. See EDITOR_INSTALL_COMPANIONS in wix-writers.js for the companion table.
+const EDITOR_INSTALL_RETRY_STATUS = new Set([409, 428, 503]);
+const EDITOR_INSTALL_BUSY = /progress|busy|outdated|not ready/i;
+const EDITOR_INSTALL_RETRIES = 3;
+const EDITOR_INSTALL_DEADLINE_MS = 200_000; // the service's own time budget is 180 s
+const EDITOR_READ_ATTEMPTS = 3;
+const READBACK_POLLS = 8;
+const READBACK_WAIT_MS = 10_000;
+const realSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function blockerError(blockerCode, message, recommendedAction) {
+  return Object.assign(new Error(message), { blockerCode, recommendedAction });
+}
+
+// The wix client has no deadline for writes; a call the service never answers must end the step
+// with an uncertain outcome, not hang setup. The listing is read first on a re-run.
+function withDeadline(promise, ms, onExpire) {
+  let timer;
+  const expiry = new Promise((_, reject) => { timer = setTimeout(() => reject(onExpire()), ms); });
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
+// The editor the destination step recorded for this project's site, or null. A record that names
+// another site than the one being set up is a leftover and is not trusted.
+async function recordedEditorType(dir, siteId) {
+  const record = await readJsonIfExists(path.join(dir, 'orchestration', 'destination.json')).catch(() => null);
+  if (!record || typeof record.observedEditorType !== 'string' || !record.observedEditorType) return null;
+  if (record.metaSiteId && siteId && record.metaSiteId !== siteId) return null;
+  return record.observedEditorType;
+}
+
+// Which editor the destination opens in: the site itself (a few reads, with short waits between
+// them), then the destination step's record. Unknown from both blocks: guessing "not Harmony" would
+// install the app the way that leaves a Harmony site without pages.
+async function resolveEditorType(dir, wix, writers, stepId, sleep, siteId) {
+  if (typeof writers.getEditorType !== 'function') throw new Error(`${stepId}: the writer set has no getEditorType; the step cannot choose its install route`);
+  let cause = 'the answer named no editor';
+  for (let attempt = 1; attempt <= EDITOR_READ_ATTEMPTS; attempt += 1) {
+    try {
+      const editorType = await writers.getEditorType(wix);
+      if (editorType) return editorType;
+    } catch (error) {
+      if (error.blockerCode || wixAuth.isRunInterruption(error)) throw error;
+      cause = error.status ? `HTTP ${error.status}` : String(error.message || error).slice(0, 120);
+      // A refused or missing answer does not change on a second try.
+      if ([401, 403, 404].includes(error.status)) break;
+    }
+    if (attempt < EDITOR_READ_ATTEMPTS) await sleep(2000 * attempt);
+  }
+  const recorded = await recordedEditorType(dir, siteId);
+  if (recorded) return recorded;
+  throw blockerError('EDITOR_TYPE_UNKNOWN', `${stepId}: the site's editor type could not be read (${cause}) and the destination step recorded none`,
+    'Re-run setup. Apps are installed differently on a Harmony site, so setup does not guess the editor. If the read keeps failing, run the destination step so the site\'s editor is recorded, or check that the Wix CLI login can read the site.');
+}
+
+// One read of the installed-apps list (the client paces every read), tested locally.
+async function listedApps(wix, writers, ids) {
+  const apps = await writers.getInstalledWixApps(wix);
+  const listed = new Set((apps || []).filter((app) => app && app.enabled !== false).map((app) => app.appDefId));
+  return new Set(ids.filter((id) => listed.has(id)));
+}
+
+// Setup cannot read a Harmony site's pages. This durable record (setup/harmony-app-pages.json) names
+// the apps installed on the Harmony route whose pages were not read (`apps`), the apps the service said
+// have no editor part (`noEditorPart`, so a re-run does not turn them into pages to confirm), and the
+// apps it refused because another app already owns their page paths (`deferred`, left uninstalled for
+// the owner to add later). It survives the per-run rewrite of the setup receipt, so the owner's items
+// cannot vanish because a later setup run blocked. Nothing in the pipeline removes it.
+const APP_PAGES_RECORD = path.join('setup', 'harmony-app-pages.json');
+async function readAppPages(dir, siteId) {
+  // Only a missing file means "no record"; an unreadable one fails loudly instead of being rewritten.
+  const prior = await readJsonIfExists(path.join(dir, APP_PAGES_RECORD));
+  const same = Boolean(prior) && prior.siteId === siteId;
+  const list = (key) => (same && Array.isArray(prior[key]) ? prior[key] : []);
+  return { apps: list('apps'), noEditorPart: list('noEditorPart'), deferred: list('deferred') };
+}
+// `outcome` is where the app belongs: 'apps', 'noEditorPart' or 'deferred'. An app lives in one list only.
+async function recordAppPages(dir, siteId, prior, { appDefId, stepId, outcome }) {
+  const has = (list) => list.some((row) => (row.appDefId || row) === appDefId);
+  const next = {
+    apps: prior.apps.filter((row) => row.appDefId !== appDefId),
+    noEditorPart: prior.noEditorPart.filter((id) => id !== appDefId),
+    deferred: prior.deferred.filter((row) => row.appDefId !== appDefId),
+  };
+  if (outcome === 'noEditorPart') next.noEditorPart.push(appDefId); else next[outcome].push({ appDefId, stepId });
+  if (has(prior[outcome]) && JSON.stringify(next) === JSON.stringify({ apps: prior.apps, noEditorPart: prior.noEditorPart, deferred: prior.deferred })) return;
+  await publishAtomically(path.join(dir, APP_PAGES_RECORD), `${JSON.stringify({ schemaVersion: 1, siteId, appPages: 'not-read', ...next }, null, 2)}\n`);
+}
+
+// Installs every missing app of `wanted` in one batch, then reads the listing back until all of
+// `wanted` are listed and enabled. The listing lags the install, so an app the service already
+// reported as installed is never sent again, whatever the listing says. Returns `sent` (the apps this
+// run sent through the editor route and the service reported as installed), `noEditorPart` (apps
+// the service says have no editor part; the caller installs those the ordinary way) and `deferred` (apps
+// it refused because their page paths are taken by another app; they are left uninstalled).
+async function installOnHarmony({ stepId, wanted, siteId, wix, writers, timing }) {
+  const sleep = timing.sleep || realSleep;
+  const deadlineMs = timing.installDeadlineMs ?? EDITOR_INSTALL_DEADLINE_MS;
+  const sent = new Set();
+  const noEditorPart = new Set();
+  const deferred = new Set();
+  const refuse = (detail) => blockerError('APP_INSTALL_NOT_VERIFIED', `${stepId}: the editor installation service did not install ${detail}`,
+    "Re-run setup, or add the app from the Harmony editor's app panel by hand and re-run setup.");
+  const uncertain = (why) => blockerError('APP_INSTALL_OUTCOME_UNCERTAIN', `${stepId}: ${why}, so the outcome is unknown`,
+    'Wait a minute, then re-run setup: it reads the installed-apps list first and sends only what is missing.');
+  for (let attempt = 0; ; attempt += 1) {
+    const listed = await listedApps(wix, writers, wanted);
+    const missing = wanted.filter((id) => !listed.has(id) && !sent.has(id) && !noEditorPart.has(id) && !deferred.has(id));
+    if (!missing.length) break;
+    // true = wait and go round again; false = out of retries.
+    const again = async () => {
+      if (attempt >= EDITOR_INSTALL_RETRIES) return false;
+      await sleep(5000 * (attempt + 1));
+      return true;
+    };
+    let reply;
+    try {
+      reply = await withDeadline(writers.installEditorApps(wix, { appDefIds: missing, siteId }), deadlineMs,
+        () => uncertain(`the editor installation service did not answer within ${Math.round(deadlineMs / 1000)} s`));
+    } catch (error) {
+      if (error.blockerCode || wixAuth.isRunInterruption(error)) throw error;
+      if (EDITOR_INSTALL_RETRY_STATUS.has(error.status) && await again()) continue;
+      // A gateway timeout, any other 5xx, or a reply nobody can classify may still have installed.
+      if (error.outcomeKnown === false || error.status >= 500) throw uncertain(`the install call failed with ${error.status || 'a transport error'}`);
+      throw refuse(`${missing.join(', ')}: ${String(error.message || error).slice(0, 300)}`);
+    }
+    if (!reply || !Array.isArray(reply.results)) throw refuse(`${missing.join(', ')}: the reply had no results list`);
+    const allFailures = reply.results.filter((row) => !row || row.success !== true)
+      .map((row) => ({ appDefId: row?.appDefId ?? null, error: String(row?.error ?? 'install reported no success') }));
+    // An app the service says has no editor part is not a failure: it adds no pages, and the caller
+    // installs it with the generic installer.
+    // An app the service refuses because another app owns its page paths is not a failure either: it is
+    // left uninstalled and reported, so setup goes on with the apps that did install.
+    const isNoEditorPart = (row) => Boolean(row.appDefId) && REAL_WRITERS.NO_EDITOR_PART_ERROR.test(row.error);
+    const isPathConflict = (row) => Boolean(row.appDefId) && REAL_WRITERS.PAGE_PATH_CONFLICT_ERROR.test(row.error);
+    for (const row of allFailures) {
+      if (isNoEditorPart(row)) noEditorPart.add(row.appDefId);
+      else if (isPathConflict(row)) deferred.add(row.appDefId);
+    }
+    const failures = allFailures.filter((row) => !isNoEditorPart(row) && !isPathConflict(row));
+    // An app counts as sent only when the reply has a success row naming it; a row without an app id,
+    // or an app with no row at all, is never read as success.
+    const okIds = new Set(reply.results.filter((row) => row && row.success === true && row.appDefId).map((row) => row.appDefId));
+    const failedIds = new Set(allFailures.map((row) => row.appDefId).filter(Boolean));
+    for (const id of missing) if (okIds.has(id)) sent.add(id);
+    // A failure row that names no app speaks for every app that has no row of its own.
+    const unaccounted = failures.some((row) => !row.appDefId) ? [] : missing.filter((id) => !okIds.has(id) && !failedIds.has(id));
+    if (failures.length || unaccounted.length) {
+      const busyOnly = failures.every((row) => EDITOR_INSTALL_BUSY.test(row.error)) && !unaccounted.length;
+      if (busyOnly && await again()) continue;
+      throw refuse([...failures.map((row) => `${row.appDefId || 'unnamed'}: ${row.error.slice(0, 200)}`), ...unaccounted.map((id) => `${id}: the reply had no row for it`)].join('; '));
+    }
+    break;
+  }
+  // The listing lags the install: poll before calling an app missing.
+  const toVerify = wanted.filter((id) => !noEditorPart.has(id) && !deferred.has(id));
+  let absent = toVerify;
+  for (let poll = 1; poll <= READBACK_POLLS; poll += 1) {
+    const listed = await listedApps(wix, writers, toVerify);
+    absent = toVerify.filter((id) => !listed.has(id));
+    if (!absent.length) break;
+    if (poll < READBACK_POLLS) await sleep(timing.readbackWaitMs ?? READBACK_WAIT_MS);
+  }
+  if (absent.length) {
+    throw blockerError('APP_INSTALL_NOT_VERIFIED', `${stepId}: the install call returned but ${absent.join(', ')} is not listed as installed and enabled on the site`,
+      "Re-run setup; if the apps are still missing from GET /apps-installer-service/v1/app-instances, add them from the Harmony editor's app panel and re-run setup.");
+  }
+  return { sent: [...sent], noEditorPart: [...noEditorPart], deferred: [...deferred] };
+}
+
 // Returns the check that actually ran: `{ method, observed }` (see SETUP_CHECK_METHODS in
 // lib/setup-verification.js). The caller stamps `checkedAt` once it returns. An install with no
 // read-back records `install-response` -- what was observed, never a claimed read.
@@ -221,19 +404,48 @@ async function isRegionalStep(step, dir) {
 // installed-apps list read back afterwards names the app and it is enabled. An app that is
 // already listed is a pass without a second install call.
 async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, catalogSettle = {} }) {
-  const listed = async () => (writers.isWixAppInstalled ? writers.isWixAppInstalled(wix, appDefId) : false);
-  const install = async () => {
-    await writers.installWixApp(wix, { appDefId, siteId: env.WIX_SITE_ID });
-    if (!(await listed())) {
-      throw Object.assign(new Error(`${stepId}: install call returned but app ${appDefId} is not listed as installed and enabled on the site`), {
-        blockerCode: 'APP_INSTALL_NOT_VERIFIED',
-        recommendedAction: 'Re-run setup; if the app is still missing from GET /apps-installer-service/v1/app-instances, install it from the Wix dashboard (Add Apps) and re-run setup.',
-      });
+  const listed = async (id = appDefId) => (writers.isWixAppInstalled ? writers.isWixAppInstalled(wix, id) : false);
+  // Any app takes the editor route; `companions` are the extra apps a particular app's widgets need.
+  const companions = REAL_WRITERS.editorInstallCompanions(appDefId);
+  const installed = await listed();
+  let editorType;
+  try {
+    editorType = await resolveEditorType(dir, wix, writers, stepId, catalogSettle.sleep || realSleep, env.WIX_SITE_ID);
+  } catch (error) {
+    // An app that is already listed needs no install, so an unreadable editor does not block it; only
+    // the Harmony companion repair is skipped, and the record says the route was not determined.
+    if (error.blockerCode !== 'EDITOR_TYPE_UNKNOWN' || !installed) throw error;
+    editorType = null;
+  }
+  const harmony = editorType === HARMONY_EDITOR_TYPE;
+  // The ordinary install: one call, then the listing must name the app.
+  const genericInstall = async (id) => {
+    await writers.installWixApp(wix, { appDefId: id, siteId: env.WIX_SITE_ID });
+    if (!(await listed(id))) {
+      throw blockerError('APP_INSTALL_NOT_VERIFIED', `${stepId}: install call returned but app ${id} is not listed as installed and enabled on the site`,
+        'Re-run setup; if the app is still missing from GET /apps-installer-service/v1/app-instances, install it from the Wix dashboard (Add Apps) and re-run setup.');
     }
   };
-  const installed = await listed();
+  // Harmony: the app and its companions in one batch (the service installs the app's own dependencies).
+  // An app the service says has no editor part is installed the ordinary way.
+  let sentViaEditor = [];
+  let noEditorPart = [];
+  let deferred = [];
+  const harmonyInstall = async () => {
+    const wanted = [...companions, appDefId];
+    const result = await installOnHarmony({ stepId, wanted, siteId: env.WIX_SITE_ID, wix, writers, timing: catalogSettle });
+    sentViaEditor = result.sent;
+    noEditorPart = result.noEditorPart;
+    deferred = result.deferred;
+    for (const id of noEditorPart) await genericInstall(id);
+  };
+  const install = harmony ? harmonyInstall : () => genericInstall(appDefId);
+  // On a Harmony site that already lists the app, only the missing companions are installed, and
+  // before the catalog baseline is read so the baseline sees the final catalog.
+  if (harmony && installed && companions.length) await harmonyInstall();
   // Wix Stores adds sample products when it installs. The catalog is read around the install, the
   // items it added are deleted, and the rest is recorded so no importer takes them over.
+  let catalog = {};
   if (appDefId === catalogBaseline.STORES_APP_DEF_ID) {
     let baseline, unchanged;
     try {
@@ -245,12 +457,25 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
         recommendedAction: 'Re-run setup. Import cannot start until setup has recorded which products were on the store before it.',
       });
     }
-    const catalog = { artifact: catalogBaseline.BASELINE_PATH, sha256: catalogBaseline.digest(dir), unchanged, ...catalogBaseline.summarize(baseline) };
-    return { method: 'installed-apps-read', observed: { appDefId, installed: true, ...(installed ? {} : { installCall: 'succeeded' }), catalogBaseline: catalog } };
+    catalog = { catalogBaseline: { artifact: catalogBaseline.BASELINE_PATH, sha256: catalogBaseline.digest(dir), unchanged, ...catalogBaseline.summarize(baseline) } };
+  } else if (!installed) await install();
+  // An app the service says has no editor part (this run, or an earlier one on record) adds no pages,
+  // so none are unconfirmed. An app it refused over a page-path conflict is not installed: the step ends
+  // with `installed: false` (no gate reads that as an installed app) and the owner gets an item.
+  let viaEditor = false;
+  if (harmony) {
+    const prior = await readAppPages(dir, env.WIX_SITE_ID);
+    const isDeferred = deferred.includes(appDefId);
+    viaEditor = !isDeferred && !noEditorPart.includes(appDefId) && !prior.noEditorPart.includes(appDefId);
+    await recordAppPages(dir, env.WIX_SITE_ID, prior, { appDefId, stepId, outcome: isDeferred ? 'deferred' : viaEditor ? 'apps' : 'noEditorPart' });
+    if (isDeferred) return { method: 'installed-apps-read', observed: { appDefId, installed: false, route: 'editor-installation', deferred: 'page_path_conflict' } };
   }
-  if (installed) return { method: 'installed-apps-read', observed: { appDefId, installed: true } };
-  await install();
-  return { method: 'installed-apps-read', observed: { appDefId, installed: true, installCall: 'succeeded' } };
+  // `installCall` only when this run installed the app itself.
+  const ranInstall = harmony ? [...sentViaEditor, ...noEditorPart].includes(appDefId) : !installed;
+  const route = viaEditor ? { route: 'editor-installation', appPages: 'not-read' }
+    : harmony ? { route: 'app-installer', reason: 'no_editor_part' }
+      : editorType ? { route: 'app-installer', reason: `editor_${editorType}` } : { route: 'not-determined' };
+  return { method: 'installed-apps-read', observed: { appDefId, installed: true, ...(ranInstall ? { installCall: 'succeeded' } : {}), ...catalog, ...route } };
 }
 
 async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification = null, catalogSettle }) {
@@ -276,7 +501,11 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
     if (stores?.collectingRequests !== true) throw new Error('back-in-stock collection verification failed: settings read does not show collecting for Wix Stores');
     return { method: 'settings-read', observed: { collectingRequests: true } };
   }
-  if (APPS[step.id] || INSTALL_STEPS[step.id]) return installAndVerifyApp(step.id, APPS[step.id] || INSTALL_STEPS[step.id], { dir, env, wix, writers, catalogSettle });
+  if (step.kind === 'installApp' && !appIdForStep(step)) {
+    throw blockerError('INSTALL_APP_ID_INVALID', `${step.id}: an installApp step needs "appDefId" set to the app's id (a GUID)`, 'Fix the step in the setup plan and re-run setup.');
+  }
+  const appDefId = appIdForStep(step);
+  if (appDefId) return installAndVerifyApp(step.id, appDefId, { dir, env, wix, writers, catalogSettle });
   if (await isExtendedFieldStep(step, dir)) {
     const verifications = await provisionExtendedFieldsStep({ dir, wix, writers, dryRun: false, priorVerification: priorExtendedFieldVerification });
     return { method: 'extended-field-verification', observed: { verifications: verifications.length } };
@@ -320,13 +549,19 @@ async function regionalDryRunIntent(dir) {
   return source ? siteRegional.regionalDryRunIntent(source) : [];
 }
 
-// A dry run cannot install, so it cannot know which samples the install would add; it states the
-// rule it would apply and makes no delete call.
-function storesDryRunIntent(dir) {
+// A dry run cannot install. The route it expects comes from the destination step's record, never from a
+// call to the editor: the live run reads the site again, so the intent says what its basis is. For
+// Stores it also states the sample-product rule it would apply (and makes no delete call).
+async function appDryRunIntent(dir, siteId, appDefId) {
+  const recorded = await recordedEditorType(dir, siteId);
+  const route = !recorded ? { route: 'decided-at-run-time', routeBasis: 'no destination record' }
+    : recorded === HARMONY_EDITOR_TYPE ? { route: 'editor-installation', routeBasis: 'destination record; the live run reads the site again' }
+      : { route: 'app-installer', routeBasis: 'destination record; the live run reads the site again' };
+  if (appDefId !== catalogBaseline.STORES_APP_DEF_ID) return route;
   const prior = catalogBaseline.loadBaseline(dir);
   return prior
-    ? { catalogBaseline: 'recorded', wouldDelete: prior.products.concat(prior.categories).filter((row) => row.kind === 'install_seeded' && row.status !== 'deleted').map((row) => row.id) }
-    : { catalogBaseline: 'read before and after the install; delete only items the install adds', wouldDelete: 'unknown until install' };
+    ? { catalogBaseline: 'recorded', wouldDelete: prior.products.concat(prior.categories).filter((row) => row.kind === 'install_seeded' && row.status !== 'deleted').map((row) => row.id), ...route }
+    : { catalogBaseline: 'read before and after the install; delete only items the install adds', wouldDelete: 'unknown until install', ...route };
 }
 
 async function writeBlockers(setupDir, generatedAt, blockers, replaces = null) {
@@ -485,7 +720,7 @@ async function executeSetup({ dir, dryRun = false, writers = REAL_WRITERS, catal
   for (const step of plan.steps) {
     if (dryRun) {
       const intent = siteRegional.stepConfiguresSiteRegional(step, declaredList) ? await regionalDryRunIntent(dir)
-        : (APPS[step.id] || INSTALL_STEPS[step.id]) === catalogBaseline.STORES_APP_DEF_ID ? storesDryRunIntent(dir) : null;
+        : appIdForStep(step) ? await appDryRunIntent(dir, env.WIX_SITE_ID, appIdForStep(step)) : null;
       requirements.push({ id: step.id, status: 'planned_dry_run', ...(intent ? { intent } : {}) });
       continue;
     }

@@ -180,10 +180,15 @@ class ReadBackGate {
     const unprepared = others.filter(([, run]) => !preparedEntry(run.entities[this.entity])).map(([id]) => id);
     const own = await this.item();
     const existing = own?.schedule ? own : previousRun?.[1].entities[this.entity];
+    // A skip belongs to the run that made it: a parent may have landed since, so a later run offers
+    // the record again (and skips it again if its parent is still final). This run's own skips hold.
+    const priorSkips = existing?.skippedCanaries || [], keptSkips = priorSkips.filter(r => r.runId === this.runId);
     const schedule = C.cover(inv, {
       ceiling: chosen?.value || 10,
-      existing: (existing?.canaries || []).map(r => r.sourceId)
+      existing: (existing?.canaries || []).map(r => r.sourceId),
+      exclude: keptSkips.map(r => r.sourceId)
     });
+    this.inventory = inv;
     this.repairContractDigest = C.digest({
       bindings: this.validated.bindingDigests,
       code: hashArtifact(this.projectDir, 'src/import'),
@@ -205,7 +210,10 @@ class ReadBackGate {
       item.paths ||= {};
       item.paths.notExercised = this.validated.contract.intendedFields.filter(f => !(this.validated.decision.fieldDispositions || []).some(d => ['notMigrated','deferred'].includes(d.status) && (d.path || d.targetPath) === f.targetPath)).filter(f => !Object.keys(inv.writePaths).some(p => p === f.targetPath || p.startsWith(f.targetPath + '.') || p.startsWith(f.targetPath + '[]'))).map(f => f.targetPath);
       item.pendingFields = (this.validated.decision.fieldDispositions || []).filter(d=>d.status==='deferred');
-      item.schedule = existing?.schedule?.universeDigest === schedule.universeDigest ? existing.schedule : schedule;
+      // The schedule is the fresh one, not a persisted one that excluded a record skipped by an earlier run.
+      const retriedSkips = priorSkips.length > keptSkips.length;
+      if (keptSkips.length) item.skippedCanaries = structuredClone(keptSkips); else delete item.skippedCanaries;
+      item.schedule = existing?.schedule?.universeDigest === schedule.universeDigest && !retriedSkips ? existing.schedule : schedule;
       item.status = 'stopped';
       item.stopReason = schedule.status === 'covered' ? 'canaries-pending' : schedule.status;
       item.retryStats = this.reads.stats;
@@ -543,6 +551,20 @@ class ReadBackGate {
               outcome: 'not-sent',
               notSentReason: typeof written.reason === 'string' && written.reason ? written.reason : 'write-deferred'
             });
+            // Its own parent record is final for this run (dependency-parent-final): this record
+            // cannot be a canary now. Another record covers its paths; it imports later with the
+            // rest of the entity once its parent lands. Only a never-written canary is replaced.
+            if (written.reason === 'dependency-parent-final' && !prior?.targetId && this.inventory) {
+              let next;
+              await this.mutate((g, e) => {
+                e.skippedCanaries = [...(e.skippedCanaries || []).filter(row => row.sourceId !== sourceId), { sourceId, reason: written.reason, runId: this.runId }];
+                e.canaries = e.canaries.filter(row => row.sourceId !== sourceId);
+                next = C.cover(this.inventory, { ceiling: e.schedule.ceiling, existing: e.canaries.map(row => row.sourceId), exclude: e.skippedCanaries.map(row => row.sourceId) });
+                e.schedule = next;
+              });
+              if (next.status !== 'covered') { await this.stop(next.status); return false; }
+              return this.executeCanaries(getRecord);
+            }
             await this.stop('canary-write-deferred');
             return false;
           }

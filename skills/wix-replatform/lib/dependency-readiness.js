@@ -20,6 +20,23 @@ const indexes = new Map();
 const subscriptions = new Map();
 const PASS_FILE = 'state/readiness/task-passes.ndjson';
 const SELECTIVE = new Set(['full', 'entity', 'source-type', 'missing-only', 'failed-only', 'deferred-only', 'unresolved-only']);
+// Producer states that satisfy any edge. `finished-partial` is a current full pass that left keys
+// unlanded: the producer is finished, so its dependents run and wait only for the keys they name.
+const SETTLED = new Set(['complete', 'complete-with-holds', 'finished-partial', 'empty', 'setup-passed', 'excluded-approved', 'proven', 'inherited']);
+// A parent key with one of these latest statuses may still land in this run (a retry, or its own
+// prerequisite landing); any other status after the producer's finished pass is final.
+const PARENT_NOT_FINAL = new Set(['failed_retryable', 'started', 'deferred']);
+// What the cutover task may offer when a record's own parent is final: `offer-omit` offers the
+// opt-in to import without the link; anything else (`fix-only`, or no declaration) offers only fix
+// and re-run. Every entity of the task must agree, as for `omit`.
+function linkChoice(entityRefs, ref) {
+  return entityRefs.every(entityRef => domain(entityRef).dependencyFailureActions?.[ref] === 'offer-omit') ? 'offer-omit' : 'fix-only';
+}
+// The target cannot hold the record without this reference (a refund without its order): an
+// explicit request to import without it is refused, never honored.
+function linkRequired(entityRefs, ref) {
+  return entityRefs.some(entityRef => (domain(entityRef).dependencyLinkRequired || []).includes(ref));
+}
 const refPattern = /^[a-z0-9-]+\/[a-z0-9-]+$/;
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -504,7 +521,9 @@ async function evaluateDependency({ ctx, ref, producer, mode, index, disposition
     const held = await heldKeys(ctx, task, snapshot), summary = readinessSummary(ctx, index, task, snapshot, held);
     if (summary.foreign) return unknown('site_evidence_unbound_or_foreign', `reconcile-site:${task.id}`);
     // Every key not imported is an approved hold: settled, so task-complete dependents may run.
-    const state = !passed ? 'in-progress' : snapshot.rowsWritten === 0 && snapshot.snapshotTotal === 0 ? 'empty' : summary.ready === snapshot.keys.size ? 'complete' : summary.held && summary.ready + summary.held === snapshot.keys.size ? 'complete-with-holds' : 'partial';
+    // A current full pass that left other keys unlanded is `finished-partial`: also settled. Its
+    // dependents proceed, and only a record naming one of those keys stops (dependency-parent-final).
+    const state = !passed ? 'in-progress' : snapshot.rowsWritten === 0 && snapshot.snapshotTotal === 0 ? 'empty' : summary.ready === snapshot.keys.size ? 'complete' : summary.held && summary.ready + summary.held === snapshot.keys.size ? 'complete-with-holds' : 'finished-partial';
     return { ref, producer, state, reasons: held.errors, recovery: `run-import:${task.id} --failed-only`, snapshot, ...(summary.held ? { heldCount: summary.held, held: held.keys } : {}) };
   } catch (error) { return unknown(evidenceReason(error), producer.kind === 'setup-step' ? `run-setup:${producer.stepIds[0]}` : `run-import:${producer.taskId || ''}`); }
 }
@@ -541,6 +560,13 @@ function heldDependencies(waiting) {
     group.waitingCount++; groups.set(ref, group);
   }
   return [...groups.values()].sort((a, b) => a.ref.localeCompare(b.ref)).map(group => ({ ...group, heldSourceKeys: [...group.heldSourceKeys].sort(), holdReasons: [...group.holdReasons].sort() }));
+}
+// One row per (dependent record, ref, parent key) whose parent is final: the cutover cause. Built
+// from the recovery projection, so a record that later lands drops out by itself.
+function finalDeferrals(waiting) {
+  const rows = [];
+  for (const row of waiting || []) if (row.deferral?.final === true) for (const cause of row.deferral.finalCauses || []) rows.push({ sourceStableKey: row.sourceStableKey, ref: cause.ref, dependencySourceKey: cause.sourceStableKey, parentStatus: cause.parentStatus, linkChoice: cause.linkChoice, ...(cause.linkRequired ? { linkRequired: true } : {}), ...(cause.parentSourceKey ? { parentSourceKey: cause.parentSourceKey } : {}), ...(cause.holdReasons ? { holdReasons: cause.holdReasons } : {}), producerTaskId: cause.producerTaskId ?? null });
+  return rows.sort((a, b) => (a.sourceStableKey + a.ref + a.dependencySourceKey).localeCompare(b.sourceStableKey + b.ref + b.dependencySourceKey));
 }
 function projectWaiting(ctx, index) {
   if (!index) return read(ctx.projectDir, 'execution/dependency-readiness.json', { tasks: {} }).tasks?.[ctx.taskId]?.waiting || [];
@@ -582,7 +608,7 @@ async function evaluateTask({ taskBinding }) {
     dependencies.push(dep);
   }
   if (inputError && !dependencies.length) throw inputError;
-  const blocked = dependencies.filter(dep => !['complete', 'complete-with-holds', 'empty', 'setup-passed', 'excluded-approved', 'proven', 'inherited'].includes(dep.state) && !(['partial', 'in-progress', 'proof-contradicted'].includes(dep.state) && dep.mode === 'per-record'));
+  const blocked = dependencies.filter(dep => !SETTLED.has(dep.state) && !(['in-progress', 'proof-contradicted'].includes(dep.state) && dep.mode === 'per-record'));
   // Every other entity builds on the regional setup step (files only; the step already read the site).
   const regional = require('./site-regional').regionalDependency({ projectDir: ctx.projectDir, siteId: ctx.siteId, entityRefs: ctx.task.entityRefs || [] });
   if (regional.gated && !regional.ok) blocked.push({ ref: 'site/locale', state: 'locale-refused', reasons: [regional.code], recovery: 'site-locale-gate' });
@@ -591,7 +617,8 @@ async function evaluateTask({ taskBinding }) {
   const evaluation = Object.freeze({ taskId: ctx.taskId, blocked: blocked.map(({ receipt, snapshot, held, ...row }) => row), ok: blocked.length === 0, work: Object.freeze({ ...index?.work }) });
   const generation = (evaluationGenerations.get(taskBinding) || 0) + 1; evaluationGenerations.set(taskBinding, generation);
   evaluations.set(evaluation, { ctx, dependencies, index, adapter, stamp: fingerprint(ctx), taskBinding, generation });
-  const diagnostic = { waiting, heldDependencies: heldDependencies(waiting), schemaVersion: 1, siteId: ctx.siteId, taskId: ctx.taskId, blocked: evaluation.blocked,
+  const finalRows = finalDeferrals(waiting);
+  const diagnostic = { waiting, heldDependencies: heldDependencies(waiting), ...(finalRows.length ? { finalDeferrals: finalRows } : {}), schemaVersion: 1, siteId: ctx.siteId, taskId: ctx.taskId, blocked: evaluation.blocked,
     affectedCount: ctx.task.population ?? null, operatorRole: 'Requires Import Operator',
     action: `Inspect execution/dependency-readiness.json for task ${ctx.taskId}; resolve its prerequisite and resume only eligible deferred records. Do not resend existing orders.` };
   // Within-write gaps, reference gaps and omitted references are carried over from the current
@@ -702,7 +729,7 @@ function childIdentity(ctx, index, children, producer, key, dep = {}) {
   if (new Set(matches.map(row => row.parentKey)).size > 1 || matches.length > 1) return { state: 'child-identity-ambiguous' };
   if (!matches.length) return { state: 'child-identity-missing' };
   const [match] = matches, parent = keyReady(ctx, index, match.parentKey, { task: children.parentTask, snapshot: children.snapshot, ref: producer.parentRef });
-  if (!parent.ready || !producedThisRun(ctx, index, match.parentKey, dep)) return { state: 'parent-not-ready' };
+  if (!parent.ready || !producedThisRun(ctx, index, match.parentKey, dep)) return { state: 'parent-not-ready', parentKey: match.parentKey };
   if (!require('./write-verification').validReceipt(match.receipt, { siteId: ctx.siteId, sourceKey: match.parentKey, targetId: parent.row.targetId })) return { state: 'imported-unverified' };
   if (typeof match.targetId !== 'string' || !match.targetId) return { state: 'child-identity-ambiguous' };
   return { targetId: match.targetId, parentKey: match.parentKey, parentTargetId: parent.row.targetId };
@@ -729,6 +756,7 @@ async function gateBatch({ evaluation, records }) {
   // have just written it.
   const ownFields = sameTaskFields(ctx.task.entityRefs);
   const ownIndex = ownFields.length ? await evidenceIndex(ctx) : null, checked = checkedRefs(ctx.task);
+  const waivers = require('./link-waivers').loadLinkWaivers(ctx.projectDir, ctx.siteId);
   // An id the payload carries without the gate (read from a crosswalk) that is exactly one ready
   // producer record's target counts as that record; it gets the same per-key checks as resolveReference.
   const byTarget = new Map();
@@ -744,7 +772,26 @@ async function gateBatch({ evaluation, records }) {
   };
   for (const record of records) {
     if (!record.sourceStableKey) throw new Error('DEPENDENCY_SOURCE_KEY_REQUIRED');
-    const references = [], omissions = [], holds = []; let blocker;
+    const references = [], omissions = [], holds = [], finals = [], orphans = []; let blocker;
+    // A parent key that can no longer land in this run (the producer's pass finished, the key is
+    // failed, unverified, not attempted, absent or owner-held) is a final cause, not a wait. A
+    // recorded operator waiver for exactly this record, ref, parent and status writes the record
+    // without the link (the omit path); otherwise the record ends dependency-parent-final.
+    const finalOrWaived = (ref, key, concrete, dep, parentStatus, extra = {}) => {
+      const waiver = waivers.match({ taskId: ctx.taskId, sourceStableKey: record.sourceStableKey, ref, dependencySourceKey: key, parentStatus });
+      if (waiver && !linkRequired(ctx.task.entityRefs, ref) && (waiver.explicitRequest === true || linkChoice(ctx.task.entityRefs, ref) === 'offer-omit')) {
+        references.push({ ref, sourceStableKey: key, path: concrete, action: 'omit-failed', dependencyStatus: 'waived', parentStatus, waiverId: waiver.id }); return true;
+      }
+      finals.push({ ref, sourceStableKey: key, dependencyState: dep.state, parentStatus, linkChoice: linkChoice(ctx.task.entityRefs, ref), ...(linkRequired(ctx.task.entityRefs, ref) ? { linkRequired: true } : {}), producerTaskId: dep.producer.taskId || null, ...extra });
+      return false;
+    };
+    const parentFinal = (key, dep, inSource) => {
+      if (!['import-task', 'child-output', 'secondary-output'].includes(dep.producer.kind) || !['finished-partial', 'complete', 'complete-with-holds'].includes(dep.state)) return null;
+      const status = failedForGood(ctx, index, key, dep, inSource);
+      // A parent that itself stopped on a final parent is final too: a chain never waits forever.
+      if (status === 'deferred' && index.attempts.get(key)?.deferral?.final === true) return 'parent-final';
+      return status && !PARENT_NOT_FINAL.has(status) ? status : null;
+    };
     const resolve = (ref, key, concrete, mode) => {
       if (mode === 'same-task') {
         if (!ownFields.some(field => field.ref === ref && pathMatches(field.template, concrete))) throw new Error('REFERENCE_UNDECLARED');
@@ -762,7 +809,7 @@ async function gateBatch({ evaluation, records }) {
       // Code written for a task-complete edge may still call resolveTaskReference after the edge
       // became per-record: the key is then checked on its own, which is never weaker.
       const taskOnRecord = mode === 'task' && dep?.mode === 'per-record' && dep.producer.kind === 'import-task';
-      if (!dep || (fromSetup ? dep.mode !== 'task-complete' || dep.producer.kind !== 'setup-step' : mode === 'task' && !taskOnRecord ? dep.mode !== 'task-complete' || dep.producer.kind !== 'import-task' || !['complete', 'complete-with-holds', 'empty'].includes(dep.state) : dep.mode !== 'per-record' || dep.producer.kind === 'setup-step')) throw new Error('REFERENCE_UNDECLARED');
+      if (!dep || (fromSetup ? dep.mode !== 'task-complete' || dep.producer.kind !== 'setup-step' : mode === 'task' && !taskOnRecord ? dep.mode !== 'task-complete' || dep.producer.kind !== 'import-task' || !['complete', 'complete-with-holds', 'finished-partial', 'empty'].includes(dep.state) : dep.mode !== 'per-record' || dep.producer.kind === 'setup-step')) throw new Error('REFERENCE_UNDECLARED');
       if (!fromSetup && mode !== 'task' && !ctx.task.entityRefs.some(entityRef => (domain(entityRef).dependencyReferenceFields?.[ref] || []).some(template => pathMatches(template, concrete)))) throw new Error('REFERENCE_UNDECLARED');
       if (fromSetup) {
         const entries = dep.receipt.requirements.filter(req => dep.producer.stepIds.includes(req.id)).flatMap(req => req.referenceBindings || []);
@@ -781,18 +828,31 @@ async function gateBatch({ evaluation, records }) {
         // The verification kind is whatever the parent's reviewed operation contract declares.
         const verification = proofs.operationContract(dep.producer.parentRef, parentTask?.writeOperations?.[dep.producer.parentRef])?.contract.secondaryOutputs?.[ref]?.verification;
         const identity = parent.ready ? local.verifiedSecondaryIdentity(parent.row, ref, ctx.siteId, verification) : null;
+        // A parent (member) row that can no longer land in this run is a final cause, like any
+        // other producer's: an owner hold, or failed / not attempted / absent after a finished pass.
+        // A landed parent whose identity is unverified is not final; it waits for its read-back.
+        if (!identity && !parent.ready) {
+          const inSource = parentSource?.ref === dep.producer.parentRef, held = inSource && dep.held?.has(key);
+          const status = held ? 'held' : parentFinal(key, dep, inSource);
+          if (status) {
+            if (finalOrWaived(ref, key, concrete, dep, status, { ...(held ? { holdReasons: dep.held.get(key) } : {}), path: concrete })) return undefined;
+            // An owner hold is also a hold cause, as for any other producer: the hold decision is surfaced.
+            if (held) holds.push({ ref, sourceStableKey: key, dependencyState: dep.state, holdReasons: dep.held.get(key) });
+            return undefined;
+          }
+        }
         if (!identity) { blocker = { ref, sourceStableKey: key, dependencyState: parent.ready ? 'secondary-identity-unverified' : dep.state }; return undefined; }
         // Keep the owning parent: a payload that also references the parent ref must name this one.
         references.push({ ref, sourceStableKey: key, path: concrete, targetId: identity.targetId, producerKind: 'secondary-output', parentRef: dep.producer.parentRef, parentTargetId: parent.row.targetId }); return identity.targetId;
       }
       const producerTask = ctx.manifest.tasks.find(task => task.id === dep.producer.taskId);
       const snapshot = producerTask && snapshots(ctx, producerTask);
-      let source, childState;
+      let source, childState, childParent;
       if (dep.producer.kind === 'child-output') {
         // A variant: the one ready parent row whose verified receipt names this source key.
         const child = childIdentity(ctx, index, receipts.children.get(ref), dep.producer, key, dep);
         if (child.targetId) { references.push({ ref, sourceStableKey: key, path: concrete, targetId: child.targetId, producerKind: 'child-output', parentRef: dep.producer.parentRef, parentSourceKey: child.parentKey, parentTargetId: child.parentTargetId }); return child.targetId; }
-        childState = child.state;
+        childState = child.state; childParent = child;
       } else {
         source = snapshot?.sourceByKey.get(key);
         const target = source?.ref === ref && producedThisRun(ctx, index, key, dep) ? keyReady(ctx, index, key, { task: producerTask, snapshot, ref }) : { ready: false };
@@ -813,7 +873,10 @@ async function gateBatch({ evaluation, records }) {
         }
         // The record names a record the owner held: it waits, with that hold as its cause.
         // Kept apart from `blocker` so a later unresolved reference never erases the hold cause.
-        if (source?.ref === ref && dep.held?.has(key)) { holds.push({ ref, sourceStableKey: key, dependencyState: dep.state, holdReasons: dep.held.get(key) }); return undefined; }
+        if (source?.ref === ref && dep.held?.has(key)) {
+          if (finalOrWaived(ref, key, concrete, dep, 'held', { holdReasons: dep.held.get(key), path: concrete })) return undefined;
+          holds.push({ ref, sourceStableKey: key, dependencyState: dep.state, holdReasons: dep.held.get(key) }); return undefined;
+        }
       }
       const sourceTask = ctx.manifest.tasks.find(task => task.id === dep.producer.taskId);
       const sourceLinks = [...(sourceTask?.sourceBindings || []), ...(ctx.task.dependencySourceBindings || [])];
@@ -821,11 +884,39 @@ async function gateBatch({ evaluation, records }) {
       const censusId = (source?.ref === ref && snapshot.censusByKey.get(key)) || (matches.length === 1 ? matches[0].censusId || `entity:${matches[0].sourceEntity}` : null);
       const rule = adapter.rules.find(rule => rule.dependencyRef === ref && ctx.task.entityRefs.includes(rule.dependentRef) && rule.censusId === censusId && adapter.rows.get(censusId)?.state === 'excluded' && adapter.approved.has(censusId) && pathMatches(rule.path, concrete));
       if (rule?.action === 'omit') { omissions.push(concrete); references.push({ ref, sourceStableKey: key, path: concrete, action: 'omit' }); return undefined; }
+      if (!rule && !dep.state.startsWith('excluded') && adapter.rows.get(censusId)?.state !== 'excluded') {
+        // A variant resolves from its parent's receipt: after a finished pass, no landed parent
+        // naming it is final. A record's own parent key is judged by failedForGood.
+        if (dep.producer.kind === 'child-output') {
+          // A variant's parent is its product. A receipt that names this variant gives that parent
+          // key: the variant is final exactly when that product is (held, or failed for good). With
+          // no receipt naming it, the product it belongs to is the one this order line names
+          // (paired after the transform); until then it is `child-identity-missing`.
+          const settled = ['finished-partial', 'complete', 'complete-with-holds'].includes(dep.state);
+          const parentKey = childParent?.parentKey, parentHeld = parentKey && dep.held?.has(parentKey);
+          if (settled && !parentKey && childState === 'child-identity-missing') { orphans.push({ ref, key, concrete, dep }); return undefined; }
+          const status = !settled || !parentKey ? null : parentHeld ? 'held' : parentFinal(parentKey, dep, true);
+          if (status) { finalOrWaived(ref, key, concrete, dep, status, { ...(parentKey ? { parentSourceKey: parentKey } : {}), ...(parentHeld ? { holdReasons: dep.held.get(parentKey) } : {}), path: concrete }); return undefined; }
+        } else {
+          const status = parentFinal(key, dep, source?.ref === ref);
+          if (status) { finalOrWaived(ref, key, concrete, dep, status, { path: concrete }); return undefined; }
+        }
+      }
       blocker = { reason: rule?.action === 'defer' ? 'dependency-not-ready' : (dep.state.startsWith('excluded') || adapter.rows.get(censusId)?.state === 'excluded') ? 'dependency-disposition-rule-missing' : 'dependency-not-ready', ref, sourceStableKey: key, dependencyState: childState || dep.state };
       return undefined;
     };
     try {
       const payload = record.transform ? await record.transform({ resolveReference: (ref, key, concrete) => resolve(ref, key, concrete, 'record'), resolveTaskReference: (ref, key, concrete) => resolve(ref, key, concrete, 'task'), resolveSetupReference: (ref, key, concrete) => resolve(ref, key, concrete, 'setup'), resolveSameTaskReference: (ref, key, concrete) => resolve(ref, key, concrete, 'same-task') }) : record.payload;
+      // A variant no receipt names belongs to the product its own order line names: it takes that
+      // product's final status and key (an owner-held product gives `held`, so its cutover task is
+      // the hold decision, not a re-import). A line whose product landed still lacks the variant:
+      // `child-identity-missing`. A product that may still land keeps the line waiting.
+      for (const orphan of orphans) {
+        const entry = orphan.concrete.slice(0, orphan.concrete.indexOf(']') + 1), parentRef = orphan.dep.producer.parentRef;
+        const parent = entry && finals.find(row => row.ref === parentRef && row.path?.startsWith(entry))
+          || entry && references.find(row => row.ref === parentRef && row.action === 'omit-failed' && row.path?.startsWith(entry));
+        finalOrWaived(orphan.ref, orphan.key, orphan.concrete, orphan.dep, parent?.parentStatus || 'child-identity-missing', { ...(parent ? { parentSourceKey: parent.sourceStableKey } : {}), ...(parent?.holdReasons ? { holdReasons: parent.holdReasons } : {}), path: orphan.concrete });
+      }
       // A decided builder hold is never sent and is not a reference gap: it is already reviewed in
       // the read-back inventory. It defers here with its reasons, like any other deferral.
       const held = require('./read-back-contract').builderHold(payload);
@@ -850,7 +941,12 @@ async function gateBatch({ evaluation, records }) {
       const used = references.filter(reference => reference.action || valueAt(payload, reference.path) !== undefined);
       for (const ref of used.filter(ref => !ref.action)) if (valueAt(payload, ref.path) !== ref.targetId) throw new Error('dependency-reference-payload-mismatch');
       if (identityPairMismatch(payload, used, ctx.task.entityRefs)) throw new Error('dependency-identity-pair-mismatch');
-      if (blocker || holds.length) defer.push({ ...record, deferral: { reason: blocker ? 'dependency-not-ready' : 'dependency-held', ...(blocker || holds[0]), ...(holds.length ? { holdCauses: holds } : {}) } });
+      // A reference that may still land keeps the record waiting; only when every unresolved
+      // reference is final does the record end dependency-parent-final (it stays in the import:
+      // once a parent lands, or a waiver is recorded, the next pass imports it).
+      const heldFinal = holds.filter(hold => !finals.some(row => row.ref === hold.ref && row.sourceStableKey === hold.sourceStableKey));
+      if (blocker || heldFinal.length) defer.push({ ...record, deferral: { reason: blocker ? 'dependency-not-ready' : 'dependency-held', ...(blocker || heldFinal[0]), ...(holds.length ? { holdCauses: holds } : {}) } });
+      else if (finals.length) defer.push({ ...record, deferral: { reason: 'dependency-parent-final', final: true, ...finals[0], finalCauses: finals, ...(holds.length ? { holdCauses: holds } : {}) } });
       else { allowed.add(record.sourceStableKey); send.push({ ...record, payload, references: used }); }
     } catch (error) { defer.push({ ...record, deferral: { ...(holds.length ? { holdCauses: holds } : {}), reason: ['REFERENCE_UNDECLARED', 'dependency-excluded-reference-present', 'dependency-reference-payload-mismatch', 'dependency-reference-unresolved', 'dependency-proof-contradicted', 'dependency-identity-pair-mismatch'].includes(error.message) ? error.message : 'dependency-transform-failed' } }); }
   }
@@ -860,6 +956,8 @@ async function gateBatch({ evaluation, records }) {
     if (!projection.tasks[ctx.taskId]) return false;
     projection.tasks[ctx.taskId].waiting = projectWaiting(ctx, await evidenceIndex(ctx));
     projection.tasks[ctx.taskId].heldDependencies = heldDependencies(projection.tasks[ctx.taskId].waiting);
+    const finalRows = finalDeferrals(projection.tasks[ctx.taskId].waiting);
+    if (finalRows.length) projection.tasks[ctx.taskId].finalDeferrals = finalRows; else delete projection.tasks[ctx.taskId].finalDeferrals;
     // The record's own landed state, not a dependency key check (kept out of the scan counters).
     const current = await evidenceIndex(ctx), landed = key => { const attempt = current.attempts.get(key), row = current.crosswalk.get(key); return attempt?.siteId === ctx.siteId && row?.siteId === ctx.siteId && row.status === 'imported' && ['imported', 'skipped_already_imported'].includes(attempt.status); };
     const rows = mergeOmitted(projection.tasks[ctx.taskId].omittedReferences, send.map(record => record.sourceStableKey).filter(key => !landed(key)), omitted, ctx);
@@ -881,7 +979,9 @@ function mergeOmitted(existing, admittedKeys, rows, ctx) {
   // A writer that reports this omission as its own cutover item (every entity of the task declares it).
   const ownItem = ref => { const codes = ctx.task.entityRefs.map(entityRef => domain(entityRef).dependencyFailureCutoverItems?.[ref]); return codes.every(code => code && code === codes[0]) ? codes[0] : null; };
   for (const row of rows) byPair.set(row.sourceStableKey + '\n' + row.dependencySourceKey, { ...row, ...(ownItem(row.ref) ? { cutoverItem: ownItem(row.ref) } : {}), siteId: ctx.siteId, runId: ctx.runId, recordedAt: new Date().toISOString(),
-    operatorRole: 'Requires Import Operator', action: row.dependencyStatus === 'unchecked-reference'
+    operatorRole: 'Requires Import Operator', action: row.dependencyStatus === 'waived'
+      ? `${row.sourceStableKey} was imported without its ${row.ref} link (${row.dependencySourceKey}) by an operator waiver, because that record did not land. If the ${row.ref} record is fixed later, add the link to ${row.sourceStableKey} with a reviewed update; otherwise this loss is accepted. Do not recreate the record.`
+      : row.dependencyStatus === 'unchecked-reference'
       ? `The importer built ${row.sourceStableKey} with a ${row.ref} id the dependency gate never resolved (${row.dependencySourceKey.slice('unchecked:'.length)}), so it was left out. Find the source ${row.ref} record that id was meant to name, import it through its task if it is missing, then add it to ${row.sourceStableKey} with a reviewed update. Do not recreate the record.`
       : `Re-import ${row.ref} ${row.dependencySourceKey} (run-import:${ctx.task.dependencyEdges.find(edge => edge.ref === row.ref)?.producer.taskId || row.ref} --failed-only) if it has not landed, then run the media patch pass, which adds it to ${row.sourceStableKey} through a verified update and clears this row. Do not recreate the record.` });
   return [...byPair.values()].sort((a, b) => (a.sourceStableKey + a.dependencySourceKey).localeCompare(b.sourceStableKey + b.dependencySourceKey));
@@ -1050,7 +1150,8 @@ async function omittedReady({ taskBinding }) {
   const landed = key => { const attempt = index.attempts.get(key), row = index.crosswalk.get(key); return attempt?.siteId === ctx.siteId && row?.siteId === ctx.siteId && row.status === 'imported' && ['imported', 'skipped_already_imported'].includes(attempt.status); };
   const result = new Map();
   for (const row of rows) {
-    if (row.siteId !== ctx.siteId || !landed(row.sourceStableKey) || row.dependencySourceKey.startsWith('unchecked:')) continue;
+    // A waived link was left out by an operator choice, not by an `omit` edge: no patch pass adds it.
+    if (row.siteId !== ctx.siteId || !landed(row.sourceStableKey) || row.dependencySourceKey.startsWith('unchecked:') || row.dependencyStatus === 'waived') continue;
     const edge = ctx.task.dependencyEdges.find(edge => edge.ref === row.ref), producer = edge?.producer.kind === 'import-task' && ctx.manifest.tasks.find(task => task.id === edge.producer.taskId);
     if (!producer || index.attempts.get(row.dependencySourceKey)?.runId !== ctx.runId || !keyReady(ctx, index, row.dependencySourceKey, { task: producer, snapshot: snapshots(ctx, producer), ref: row.ref }).ready) continue;
     result.set(row.sourceStableKey, [...(result.get(row.sourceStableKey) || []), row.dependencySourceKey]);
@@ -1102,7 +1203,7 @@ async function reconcileSiteEvidence({ taskBinding, readBack }) {
 }
 module.exports = { startImportRun: capability.startImportRun, bindTask: capability.bindTask, bindDependencyProducers, resolveManifestGraph, dependencyModeErrors,
   validateImportInputs, validateAssociations, loadDependencyDispositions, preflightMappingDependencies, pluginInventoryErrors, deriveDependencyEdges, evaluateTask, gateBatch,
-  verifyGrant, verifyBulkGrant, sameTaskReferenceFields: sameTaskFields, recordTaskGap, recordClientTaskGap, verifyReferenceTargets, verifyReferenceMember, holdCausesOf, currentRecordTargetId, recordWithinWriteGap, omittedReady, recordOmissionsResolved, finishTaskPass, reconcileSiteEvidence, validatePass, PASS_FILE, pathMatches, valueAt, expandPaths };
+  verifyGrant, verifyBulkGrant, sameTaskReferenceFields: sameTaskFields, recordTaskGap, recordClientTaskGap, verifyReferenceTargets, verifyReferenceMember, holdCausesOf, finalDeferrals, linkChoice, linkRequired, currentRecordTargetId, recordWithinWriteGap, omittedReady, recordOmissionsResolved, finishTaskPass, reconcileSiteEvidence, validatePass, PASS_FILE, pathMatches, valueAt, expandPaths };
 for (const name of ['deriveDependencyEdges', 'dependencyModeErrors', 'loadDependencyDispositions', 'preflightMappingDependencies', 'validateImportInputs']) {
   const run = module.exports[name];
   module.exports[name] = (projectDir, ...args) => assessments.withProject(projectDir, () => run(projectDir, ...args));
