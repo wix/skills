@@ -7,7 +7,7 @@ description: Import local site code into a Wix Studio Two site with the Wix CLI,
 
 ## How to reply
 
-- Keep each message to 1–3 short lines, plus a short list when naming pages. Report results, not commands or setup steps.
+- Keep each message to 1–3 short lines. Report results, not commands or setup steps.
 - When the user must act, end the message with one bold line starting with 👉, and nothing after it.
 
 ## 1. Find the site folder
@@ -52,12 +52,10 @@ When `<site>/node_modules` is missing, check `.nvmrc` as in step 4, then run `co
 
 ## 6. Confirm and import
 
-Run `wix origami pages --site <msid>` and compare it with the folders in `<site>/packages/site-app/src/pages/`. Unless the destination was created in this request, confirm and wait:
+The import replaces the whole site: its home page becomes the folder's, and every other page on the site is deleted and replaced by the folder's pages. The CLI only exports and imports whole sites, so don't look up the site's current pages. Unless the destination was created in this request, name the pages in `<site>/packages/site-app/src/pages/`, confirm and wait:
 
 ```
-Importing into "Bloom Florist" replaces its theme, header, footer, menus and Home, and deletes:
-- About
-- Blog
+Importing into "Bloom Florist" replaces its theme, header, footer, menus and all its pages with this folder's: Home, Menu, Contact. Any other page on the site is deleted.
 **👉 Reply yes to import into "Bloom Florist", or new to import into a new site.**
 ```
 
@@ -67,6 +65,8 @@ Then:
 2. Run `wix origami import-site --site <msid> -d '<site>'`. If it says code import is not enabled for this site, tell the user and stop.
 
 ## 7. Report
+
+Name the deleted pages from the `Delete …` lines `import-site` printed, leaving out the ones the folder added back.
 
 ```
 Imported into "Bloom Florist": Home, Menu, Contact. Deleted: About, Blog. Saved, not published.
