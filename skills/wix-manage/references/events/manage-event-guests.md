@@ -1,6 +1,6 @@
 ---
 name: "Manage Event Guests"
-description: "Manages the people registered for a Wix event — RSVPs on RSVP events, and orders, tickets and ticket holders on ticketed events: listing and counting guests, adding or removing a guest, changing an RSVP, checking guests in, and marking orders paid. Use when the user asks who is coming or how many registered, or wants to add, remove or check in a guest. Notes what the API can't do, such as refunds and resending emails."
+description: "Manages the people registered for a Wix event — RSVPs on RSVP events, and orders, tickets and ticket holders on ticketed events: listing and counting guests for one event or across all events, new registrations since a date, attendee lists to export, adding or removing a guest, changing an RSVP, checking guests in, and marking orders paid. Use when the user asks who is coming or how many registered, or wants to add, remove or check in a guest. Notes what the API can't do, such as refunds and resending emails."
 ---
 
 # Manage Event Guests
@@ -31,8 +31,9 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/query' \
 ```
 
 - `paging` is a sibling of `filter` inside `query`; nested inside `filter` it fails `400`.
-- Send it as is: no extra filter fields and no `sort` — a nested `registration` filter or a `sort`
-  inside `filter` fails `400`. Read the type and dates from the result instead.
+- `filter`, `paging` and `sort` are siblings under `query`; a `sort` inside `filter`, a nested
+  `registration` object or a `registration.status` filter fails `400`; read
+  `registration.initialType` from the result instead.
 - Don't send `includeDrafts` — `true` needs a draft-events permission and fails `403`.
 - The id is `events[].id`, the type `events[].registration.initialType`. If several events match,
   pick by date or ask ([Manage Wix Events](https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-events#find-an-event)).
@@ -93,6 +94,73 @@ Each of `guests[]` has `guestType` (`RSVP`, `BUYER` or `TICKET_HOLDER`), `attend
 ticket as `TICKET_HOLDER`, so one order of 2 tickets is 3 guest records. To count attendees, filter
 `"guestType": "TICKET_HOLDER"` (ticketed) or sum `totalGuests` over `RSVP` guests with
 `ATTENDING` (RSVP), and say which you counted.
+
+**How many registered, for one event or many — in one call.** Add `"fields": ["DASHBOARD"]` to the
+Query Events call above (drop the `title` filter for every event, or use `"id": { "$in": [...] }`).
+Each event then carries `summaries.rsvps` (`totalCount`, `yesCount`, `noCount`, `waitlistCount`)
+and `summaries.tickets` (`ticketsSold`, `totalOrders`). Use `yesCount` (RSVP) or `ticketsSold`
+(ticketed) for guests who are coming; use `totalCount` for everyone who responded, including "no"
+and waitlisted. The reference defines the RSVP counts as
+numbers of RSVPs, so an RSVP that brings additional guests counts once; for people, sum the guest
+query's `totalGuests`. Use this rather than a guest query per event when the user asks how many
+registered for each event, or which events have guests.
+
+**Several events, or all of them** — for an attendee list per event, or a spreadsheet of every
+event's guests. Use the same call with `"eventId": { "$in": ["<EVENT_ID>", "<EVENT_ID>"] }`, or
+leave `eventId` out to get the guests of every event. Filter `guestType` to people, so each
+attendee appears once, and `attendanceStatus` to those coming. The two calls below, their page
+sizes and the response paths named here are complete and were run as written on a live site:
+send them as shown, in one code run, without a docs search or a schema lookup for Query Event
+Guests or Query Events first.
+
+`POST https://www.wixapis.com/events/v2/guests/query`:
+
+```json
+{
+  "query": {
+    "filter": {
+      "guestType": { "$in": ["RSVP", "TICKET_HOLDER"] },
+      "attendanceStatus": "ATTENDING"
+    },
+    "cursorPaging": { "limit": 1000 }
+  },
+  "fields": ["GUEST_DETAILS", "GUEST_TOTAL"]
+}
+```
+
+For everyone who responded, drop `attendanceStatus` and show it as a column. Each guest carries
+`eventId`: group by it, and take the titles from
+`POST https://www.wixapis.com/events/v3/events/query` with the distinct eventIds:
+
+```json
+{
+  "query": {
+    "filter": { "id": { "$in": ["<EVENT_ID>", "<EVENT_ID>"] } },
+    "paging": { "limit": 100 }
+  }
+}
+```
+
+The guest query returns `guests[]` (fields as listed above) and
+`pagingMetadata.cursors.next`; Query Events returns `events[]` with `id` and `title`. Query Events
+returns at most 100 events per call, so with more than 100 distinct eventIds send them in `$in`
+batches of 100, in the same code run. The guest query accepts `cursorPaging.limit` `1000`
+(checked live). For its next page send only `{ "query": { "cursorPaging": { "limit": 1000, "cursor": "<pagingMetadata.cursors.next>" } }, "fields": [...] }`;
+the cursor keeps the first request's filter. There is no next page when `cursors.next` is missing.
+Unless the event collects one form per ticket, every `TICKET_HOLDER` of an order carries the
+buyer's name and email; say so in the list.
+
+**New registrations since a time** ("how many RSVPs today", "who signed up this week"). Both
+calls filter on `createdDate`, an ISO time in UTC. For "today", start at midnight in the event's
+`dateAndTimeSettings.timeZoneId` and convert it to UTC: midnight on 2 November 2026 in
+`America/New_York` (UTC−5) is `2026-11-02T05:00:00Z`.
+- RSVP event: `POST https://www.wixapis.com/events/v2/rsvps/search` with
+  `{ "search": { "filter": { "eventId": "<EVENT_ID>", "status": "YES", "createdDate": { "$gte": "2026-11-02T05:00:00Z" } }, "cursorPaging": { "limit": 100 } }, "fields": ["DETAILS"] }`.
+  The count is the number of `rsvps[]` across pages (the response has no total); the number of
+  people is the sum of their `totalGuests`.
+- Ticketed event: the guest query with
+  `{ "eventId": "<EVENT_ID>", "guestType": "TICKET_HOLDER", "attendanceStatus": "ATTENDING", "createdDate": { "$gte": "..." } }`
+  counts tickets sold since then.
 
 Attendance mapping: an RSVP `YES` is `ATTENDING`, `WAITLIST` is `IN_WAITLIST`, `NO` is
 `NOT_ATTENDING`; an order that is `PAID`, `FREE` or `OFFLINE_PENDING` is `ATTENDING`, and `PENDING`
