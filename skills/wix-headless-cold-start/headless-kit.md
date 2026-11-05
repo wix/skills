@@ -17,7 +17,8 @@ the skills that this page names. You do not install anything.
    and the documentation search tools, you have the plugin. These tools are signed in as the user.
 2. **If you have the plugin, use it.** Its tools are your way to Wix. Read its skills from the
    place where your client serves them: its skill tool, its skills list, or the plugin folder on
-   the disk. List the skills. Do not trust a catalog shown at the start; it can leave skills out.
+   the disk. List the skills, and read one skill per call. Do not trust a catalog shown at the
+   start; it can leave skills out.
    Do not install anything. Do not sign in again.
 3. **If you do not have the plugin, find it.** Search the plugin directory of your client for the
    Wix plugin. Use the plugin commands or tools of your client, if it has them. Tell the user the
@@ -341,7 +342,8 @@ A response has a size limit. Send pages as text one or two files per call. Add a
 ## The Astro build
 
 Use this route when the build check and the upload check pass. Steps 1 to 4 are the same calls.
-Step 5 is different: you do not write the pages by hand. The Astro project of `wix-headless-kit` is
+Step 5 is different: you do not write the pages by hand, and its references, `static.md` and the
+module install, belong to the hand-written route. The Astro project of `wix-headless-kit` is
 composed from the shipped, verified templates, built, and released through
 `UploadHeadlessWebsiteFiles` as a server-rendered site. Its source is stored in the Code Store
 repository of the site. The shipped code is copied into the project, not written again from a
@@ -352,7 +354,8 @@ Do these steps:
 1. `wix-headless-kit` is on the disk from the build check (`{SKILL_ROOT}`; "Where the skills are").
 2. In an empty folder, run
    `node {SKILL_ROOT}/install/setup.mjs --vertical {solution} --business-name … --site {metaSiteId} --app {appId}`.
-   It copies the solution's project, writes the env file from the two ids and installs the
+   It places the project in the folder it runs in and names that folder in its last event. It
+   copies the solution's project, writes the env file from the two ids and installs the
    dependencies in the foreground; `npm-install.log` in the project holds the install's output and
    `.install-exit` its exit code. The install is done once: do not run `npm ci` or `npm install`
    after setup. When `.install-exit` is not `0`, read the log and run
