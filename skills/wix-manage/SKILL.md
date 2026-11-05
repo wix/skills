@@ -492,9 +492,6 @@ Publish HTML, CSS, JavaScript or a static build as a Wix Headless website; inspe
 ### [Change Store Currency](references/stores/change-store-currency.md)
 Changes the store's payment currency through Site Properties and explains delayed currency updates in catalog responses.
 
-### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
-Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
-
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
 
