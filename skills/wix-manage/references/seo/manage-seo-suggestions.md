@@ -1,6 +1,6 @@
 ---
 name: "Generate AI SEO Suggestions for a Wix Site"
-description: "Generate AI-written SEO text for a Wix site through the public Tag Suggestions and Page Optimization APIs: title tag and meta description options for a page, alt text for the images of a page, store product, or blog post (one image or up to 20 per call), corrected heading levels for a page's headings, and a whole-page rewrite of title, description, headings, and body text aimed at the page's focus keyword, returned as before/after pairs. Use it when the user wants to improve, optimize, audit, or write the SEO text of a page or the homepage. Suggestions are returned for review; applying one is a separate SEO tags write."
+description: "Generate AI-written SEO text for a Wix site through the public Tag Suggestions and Page Optimization APIs: title tag and meta description options for a page, alt text for the images of a page, store product, or blog post (one image or up to 20 per call), corrected heading levels for a page's headings, and a whole-page rewrite of title, description, headings, and body text aimed at the page's focus keyword, returned as before/after pairs. Use it when the user asks for SEO title or meta description options or ideas, or wants to improve, optimize, audit, or write the SEO text of a page or the homepage: Wix's AI writes the texts. Suggestions are returned for review; applying one is a separate SEO tags write."
 ---
 
 # Generate AI SEO Suggestions for a Wix Site
@@ -20,12 +20,15 @@ the site's pages and writes of its tags use the SEO Tags API under
 `https://www.wixapis.com/promote/seo/v1`. Every request and response shape a
 flow needs is in this recipe, verified against the live API: build the calls
 from here, including the two SEO Tags calls (List Item SEO Tags, and the
-focus-keyword write). Do not open the linked reference articles or search API
-schemas before calling; the links are for cases this recipe does not cover.
+focus-keyword write). Use these shapes without a schema lookup. To find the
+homepage, complete and inspect the STATIC_PAGE List before any site-URL context
+request, then follow the homepage rule under the List response below. Do not
+replace it with a shortest-path, first-entry, or title-only guess. Other
+reference links cover deeper API cases.
 
 | User asks for | Call |
 |---|---|
-| A better SEO title or meta description for a page | Generate Title Suggestions, Generate Description Suggestions |
+| SEO title or meta description options, ideas, or a better one for a page | Generate Title Suggestions, Generate Description Suggestions |
 | Alt text for images of a page, product, or post | Generate Alt Text Suggestions (one) or Bulk Generate Alt Text Suggestions (up to 20) |
 | Check or fix a page's heading hierarchy | Generate Heading Structure Suggestions |
 | Optimize or rewrite a page for a keyword, "improve this page's SEO" | Trigger Page Optimization, or Trigger Home Page Optimization for the homepage, then poll Get Page Optimization Results |
@@ -36,6 +39,12 @@ description, headings, and body together. The title and description generators
 are not a substitute for it; they know nothing about the page's content and
 cover two tags only. Use them when the user asks for title or description
 options, not when they ask to optimize a page.
+
+When the user asks for SEO title or meta description options, the options are
+the texts these generators return. Call them even when the request reads like
+a writing task ("give me a few titles", "just show me options"): do not write
+titles or descriptions yourself, and do not offer the page's current tags as
+options.
 
 Each call spends AI generation and returns fresh text; nothing is stored except
 page optimization results. Suggestions come back in the site's language, and
@@ -63,13 +72,25 @@ Relevant response fields (other tags omitted; IDs are illustrative):
   "pagingMetadata": { "hasNext": false, "cursors": {} } }
 ```
 
-- `itemId` is the page ID (`pageId` in every call below). Identify the page by
-  its resolved `title` tag; if that is ambiguous, ask the user which page.
+- `itemId` is the page ID (`pageId` in every call below). For a named non-home
+  page, match its resolved title or canonical URL; if ambiguous, ask which page.
 - The page path is the path of the canonical `link` `href`: `/cart-page` for
   `https://www.example.com/cart-page`.
-- The homepage is the entry whose canonical `link` `href` equals the site URL,
-  ignoring a trailing slash; on a free site that URL includes a path. Compare
-  only canonicals with `source` `TAG_SOURCE_DEFAULT_PATTERN`. Its path is `/`.
+- For the homepage, never use a title, custom canonical, or List position. In
+  one function, in this order:
+  1. Run the List and wait for it. Do not read the site URL in parallel with it.
+  2. If exactly one default-pattern canonical is a classic Editor free-site
+     root (HTTPS, a hostname ending in `.wixsite.com`, exactly one nonempty path
+     segment, no port, credentials, query, or fragment), that item is the
+     homepage: make no other read. This is the only rule that works on a
+     never-published site, whose context read and Query Sites return no URL.
+  3. Otherwise get the site URL from the first applicable row of the
+     [Missing site URL](manage-seo-tags.md#missing-site-url) table in Manage SEO
+     Tags, and use the one item whose default-pattern canonical matches it
+     (ignoring one trailing slash). If no URL comes back, or none or several
+     items match, ask the user.
+  Homepage optimization always uses `pagePath: "/"`, including free-site URLs
+  with a site-address path.
 - `focusKeywords` with `isMain: true` is the focus keyword page optimization uses.
 - The current title and description are the `title` tag and the `meta` tag named
   `description` in `resolvedTags`; pass them as context, never present them as
@@ -85,8 +106,14 @@ same page `STATIC_PAGE_V2`. Other item types are spelled the same in both:
 ## Title and description suggestions
 
 Both take the content in the request, so they work for any page, including one
-the site does not have yet. Default `pageType` is `WEBSITE_PAGE`; use `HOMEPAGE`
-for the homepage, `PRODUCT_PAGE`, `PRODUCT_CATEGORY_PAGE`, `BLOG_POST`,
+the site does not have yet, and neither needs the page's ID: for the homepage,
+call them directly without listing pages first when the user named a keyword.
+With no keyword, one List Item SEO Tags read gets the page's `isMain` focus
+keyword. Always send `pageType`. When
+the user means the homepage ("homepage", "home page", "main page", the page at
+`/`), send `HOMEPAGE`; `WEBSITE_PAGE` or an omitted `pageType` is wrong for it.
+`WEBSITE_PAGE` (the default) is for any other site page; use `PRODUCT_PAGE`,
+`PRODUCT_CATEGORY_PAGE`, `BLOG_POST`,
 `BLOG_CATEGORY_PAGE`, `SERVICE_BOOKING_PAGE`, `EVENT_PAGE`,
 `RESTAURANT_MENU_PAGE`, `PORTFOLIO_PROJECT_PAGE`, or `OTHER_APP_PAGE` as fits.
 `primaryKeyword` is the keyword the user wants the page to rank for; when the
@@ -126,6 +153,14 @@ match first, up to 10, often fewer: texts outside the target length or missing
 the keyword are filtered out. Titles aim for 45 to 65 characters, descriptions
 for 130 to 165. Send page content only in the free-text fields, never personal
 data: they are sent to the AI model and written to service logs.
+
+Call each generator once per request and present every returned text verbatim,
+in the order returned, as the options to choose from. The only repeat calls are
+the one retry that [Limits and errors](#limits-and-errors) allows after rate
+limiting or `GENERATION_FAILED`. If fewer came back than the user wanted, even
+none, say how many came back; do not call again with changed input, never add
+texts of your own to make up the number, and never edit a returned text, not
+even its punctuation, before showing it.
 
 Applying a text is a separate write that needs the user's approval. Read the
 page's current tags with

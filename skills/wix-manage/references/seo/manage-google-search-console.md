@@ -54,6 +54,11 @@ error. Treat an unrecognized reason as "not ready, no known next action".
 `READY` covers connection and verification only. Whether the property was added,
 the sitemap submitted, or indexing requested comes from **List Events**.
 
+For a status question ("is it connected", "is it set up"), call Get Connection
+and Get Site Readiness once each, plus List Events once when the question asks
+whether setup is complete, then answer. Do not call List Sitemaps or any other
+Google-facing read for it, and do not repeat a read.
+
 ## `VALID` can be stale, and `MISSING_TOKEN` means reconnect
 
 `INVALID` is only written when a real call to Google is rejected, so a site nobody
