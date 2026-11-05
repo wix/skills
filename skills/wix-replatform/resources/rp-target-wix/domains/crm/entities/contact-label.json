@@ -34,6 +34,14 @@
     "crm/contact",
     "crm/label"
   ],
+  "dependencyFailureActions": {
+    "crm/contact": "fix-only",
+    "crm/label": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "crm/contact",
+    "crm/label"
+  ],
   "dependencyModes": {
     "crm/contact": "per-record",
     "crm/label": "per-record"

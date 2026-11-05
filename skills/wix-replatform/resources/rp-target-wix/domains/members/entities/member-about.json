@@ -15,6 +15,12 @@
   "dependsOn": [
     "members/member"
   ],
+  "dependencyFailureActions": {
+    "members/member": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "members/member"
+  ],
   "dependencyModes": {
     "members/member": "per-record"
   },

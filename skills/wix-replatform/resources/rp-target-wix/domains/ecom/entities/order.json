@@ -23,6 +23,18 @@
     "ecom/shipping-option",
     "ecom/delivery-profile"
   ],
+  "dependencyFailureActions": {
+    "crm/contact": "offer-omit",
+    "members/member": "offer-omit",
+    "stores/product": "offer-omit",
+    "stores/product-variant": "offer-omit",
+    "gift-cards/gift-card-product": "offer-omit",
+    "stores/coupon": "offer-omit",
+    "gift-cards/gift-card": "fix-only",
+    "tax/tax-group": "fix-only",
+    "ecom/shipping-option": "offer-omit",
+    "ecom/delivery-profile": "offer-omit"
+  },
   "blockedSourceDependencies": [
     {
       "sourceEntityRef": "plugin.woo-checkout-field-editor-pro.checkout-field-definition",

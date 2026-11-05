@@ -15,6 +15,10 @@
     "stores/product",
     "stores/category"
   ],
+  "dependencyFailureActions": {
+    "stores/product": "fix-only",
+    "stores/category": "fix-only"
+  },
   "dependencyModes": {
     "stores/product": "per-record"
   },

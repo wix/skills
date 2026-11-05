@@ -274,6 +274,13 @@ running the migration, and never blocks the run.
      receipt; only a Trino read-back proves arrival, and no such read-back is available
      from inside a run. Report `bi_push` success as "handed off," never as "confirmed in
      BI."
+   - **Reading a push failure.** A failed push's detail names its cause: `network_error:<CODE>`
+     (for example `ENOTFOUND`: the machine cannot resolve the host and probably needs a proxy;
+     `ECONNREFUSED`: nothing is listening at the proxy address) or `proxy_connect_<status>` (the
+     proxy refused the tunnel, for example `407` for missing credentials). The push follows
+     `HTTPS_PROXY` / `NO_PROXY` from the environment by itself, on every supported Node, so the
+     operator sets nothing at launch. The proxy must be an `http://` or `https://` proxy; a `socks`
+     proxy is not supported and the push then goes direct. The detail never contains the proxy address.
 
 ### Metering — splitting `active_ms` into where the time actually went
 

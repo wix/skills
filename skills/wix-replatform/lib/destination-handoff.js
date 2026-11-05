@@ -7,6 +7,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { readReceipt } = require('./destination.js');
+const { readEnvFile } = require('./config-env.js');
 
 const EDITOR_LABEL = { studio: 'Wix Studio', harmony: 'Wix Harmony' };
 
@@ -90,11 +91,73 @@ function destinationOperatorActions(receipt, { frontendCompletion = null } = {})
   ];
 }
 
-async function projectDestinationOperatorActions(projectDir) {
-  const receipt = await readReceipt(projectDir);
-  if (!receipt || receipt.invalid) return [];
-  const frontendCompletion = await readJsonIfExists(path.join(projectDir, 'website', 'completion.json'));
-  return destinationOperatorActions(receipt, { frontendCompletion });
+// Setup installs apps on a Harmony site and cannot read the site's pages, so it records
+// setup/harmony-app-pages.json (`appPages: "not-read"`, the apps and their step ids) instead of claiming
+// the pages exist. That is an item for the site owner whether setup created the site or the operator
+// supplied it, so it does not depend on the destination receipt. The record is its own file because the
+// setup receipt is rewritten on every setup run. Nothing here proves the pages exist, and a released
+// website does not either, so only the site owner's confirmation can close it.
+function appPagesOperatorActions(record, receipt, currentSiteId = null) {
+  if (!record || record.appPages !== 'not-read') return [];
+  const apps = Array.isArray(record.apps) ? record.apps : [];
+  const deferred = Array.isArray(record.deferred) ? record.deferred : [];
+  if (!apps.length && !deferred.length) return [];
+  // A record that names another site than the project's current one (the destination receipt's, else
+  // the project's WIX_SITE_ID) is a leftover, not this site's.
+  const current = (receipt && receipt.metaSiteId) || currentSiteId;
+  if (current && record.siteId && record.siteId !== current) return [];
+  const site = receipt && receipt.metaSiteId ? ` ${receipt.metaSiteId}` : record.siteId ? ` ${record.siteId}` : '';
+  const editorLink = receipt && receipt.editorUrl ? ` Editor: ${receipt.editorUrl}.` : '';
+  const names = (rows) => rows.map((app) => app.stepId || app.appDefId).join(', ');
+  const actions = [];
+  if (apps.length) actions.push({
+    code: 'harmony_app_pages_unconfirmed',
+    severity: 'high',
+    action: `Site owner/designer: setup installed these apps on the Wix Harmony site${site}: ${names(apps)}. It cannot read the site's pages, so the pages each app adds are unconfirmed — visitors may find them missing (a site whose app was installed another way, or before this run, may lack them).${editorLink} Open the editor and confirm each app's pages exist, and before any publication open them in the preview. Nothing in the pipeline clears this item: record the confirmation in the cutover checklist.`,
+    deadlineReason: 'before switching traffic',
+    entity: 'website',
+    affectedCount: apps.length,
+    actionId: 'harmony-app-pages:unconfirmed',
+    role: 'site-owner',
+    prerequisites: ['Setup passed for the listed install steps.'],
+    affectedIds: receipt && receipt.metaSiteId ? [receipt.metaSiteId] : [],
+    artifactRefs: ['setup/harmony-app-pages.json'],
+    resolutionEvidence: "The site owner's confirmation that each app's pages exist, recorded in the cutover checklist. A released website does not prove it, and nothing in the pipeline clears this item.",
+  });
+  // An app the installer refused because another app already owns its page paths is not on the site at all.
+  if (deferred.length) {
+    actions.push({
+      code: 'harmony_app_install_deferred',
+      severity: 'high',
+      action: `Site owner/designer: setup could not install these apps on the Wix Harmony site${site}: ${names(deferred)}. Wix's editor installer refuses an app whose page paths another installed app already uses, so the app is missing and so are its pages and features.${editorLink} Add each app from the editor's app panel once Wix fixes the conflict, or decide to go without it, and record the decision in the cutover checklist. Nothing in the pipeline clears this item.`,
+      deadlineReason: 'before switching traffic',
+      entity: 'website',
+      affectedCount: deferred.length,
+      actionId: 'harmony-app-install:deferred',
+      role: 'site-owner',
+      prerequisites: ['Setup finished with the listed install steps deferred.'],
+      affectedIds: receipt && receipt.metaSiteId ? [receipt.metaSiteId] : [],
+      artifactRefs: ['setup/harmony-app-pages.json'],
+      resolutionEvidence: "The site owner's record that each listed app was added, or consciously left out, in the cutover checklist. A released website does not prove it, and nothing in the pipeline clears this item.",
+    });
+  }
+  return actions;
 }
 
-module.exports = { destinationOperatorActions, projectDestinationOperatorActions, websiteReleased };
+// The site the project is set up against, from config/wix.env.
+async function projectSiteId(projectDir) {
+  try { return (await readEnvFile(path.join(projectDir, 'config', 'wix.env'))).WIX_SITE_ID || null; } catch { return null; }
+}
+
+async function projectDestinationOperatorActions(projectDir) {
+  const receipt = await readReceipt(projectDir);
+  const usable = receipt && !receipt.invalid ? receipt : null;
+  const frontendCompletion = await readJsonIfExists(path.join(projectDir, 'website', 'completion.json'));
+  const appPagesRecord = await readJsonIfExists(path.join(projectDir, 'setup', 'harmony-app-pages.json'));
+  return [
+    ...(usable ? destinationOperatorActions(usable, { frontendCompletion }) : []),
+    ...appPagesOperatorActions(appPagesRecord, usable, await projectSiteId(projectDir)),
+  ];
+}
+
+module.exports = { destinationOperatorActions, projectDestinationOperatorActions, appPagesOperatorActions, websiteReleased };

@@ -1801,8 +1801,19 @@ async function dependencyOperatorActions(projectDir) {
     const groups = new Map();
     for (const block of task.blocked || []) { if (block.ref === 'site/locale') continue; groups.set(`${block.ref}:${block.recovery}`, { ref: block.ref, recovery: block.recovery, count: task.affectedCount ?? null }); }
     // A record waiting on an owner-held record is its own item, with the hold as cause.
-    const held = new Map();
+    const held = new Map(), finals = new Map();
     for (const row of waiting) {
+      // A record whose own parent is final (the producer finished without it): one cutover task per
+      // ref and parent status. It lists only records still not imported, so a re-run that imports
+      // them closes it by itself (the recovery index drops a record once it lands on this site).
+      if (row.deferral?.final === true) {
+        for (const cause of row.deferral.finalCauses || []) {
+          const key = `${cause.ref}\n${cause.parentStatus}`, group = finals.get(key) || { ref: cause.ref, parentStatus: cause.parentStatus, linkChoice: cause.linkChoice, linkRequired: Boolean(cause.linkRequired), producerTaskId: cause.producerTaskId ?? null, keys: new Set(), parents: new Set(), dependencyKeys: new Set(), holdReasons: new Set() };
+          // A variant names its product as the parent to fix (or the product's owner hold).
+          group.keys.add(row.sourceStableKey); group.parents.add(cause.parentSourceKey || cause.sourceStableKey); group.dependencyKeys.add(cause.sourceStableKey); for (const reason of cause.holdReasons || []) group.holdReasons.add(reason); finals.set(key, group);
+        }
+        continue;
+      }
       const causes = require('./dependency-readiness').holdCausesOf(row.deferral);
       for (const ref of new Set(causes.map(cause => cause.ref))) {
         const group = held.get(ref) || { ref, keys: new Set(), reasons: new Set(), count: 0 };
@@ -1812,6 +1823,22 @@ async function dependencyOperatorActions(projectDir) {
       // A record that also waits on something other than a hold keeps that recovery item too.
       if (row.deferral.reason === 'dependency-held') continue;
       const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0 }); groups.get(key).count++;
+    }
+    for (const group of finals.values()) {
+      const parents = [...group.parents].sort(), dependencyKeys = [...group.dependencyKeys].sort(), keys = [...group.keys].sort(), held = group.parentStatus === 'held';
+      const fix = held
+        ? `the owner hold on ${parents.join(', ')} (execution/read-back-inventory records[].held${group.holdReasons.size ? `; holds: ${[...group.holdReasons].sort().join(', ')}` : ''}): change the hold decision so that record imports`
+        : `${parents.join(', ')} (status ${group.parentStatus}) through its task (run-import:${group.producerTaskId || group.ref} --failed-only)`;
+      const waiverCommand = `node skills/wix-replatform/scripts/link-waiver.js record --project-dir <project> --task ${task.taskId} --ref ${group.ref} --record <dependent source key> --parent <dependency source key: the linked record's own key, a variant's key rather than its product's> --decided-by <who> --reason <why>`;
+      result.push({ code: 'dependency-parent-final', severity: 'blocker', entity: task.taskId, affectedCount: keys.length, affectedSourceKeys: keys,
+        cause: { ref: group.ref, parentStatus: group.parentStatus, parentSourceKeys: parents, ...(dependencyKeys.join() !== parents.join() ? { dependencySourceKeys: dependencyKeys } : {}), producerTaskId: group.producerTaskId, ...(group.holdReasons.size ? { holdReasons: [...group.holdReasons].sort() } : {}) }, linkChoice: group.linkChoice, ...(group.linkRequired ? { linkRequired: true } : {}),
+        deadlineReason: `Resolve before launch; these records are not on the new site yet because the ${group.ref} record they link to did not land. They are not dropped: once it lands, the next run imports them with their link.`,
+        action: `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Fix and re-run: fix ${fix}, then resume task ${task.taskId} with --deferred-only; ${keys.length} record(s) import with their ${group.ref} link and this task closes. Do not resend existing orders.`,
+        ...(group.linkChoice === 'offer-omit' && !group.linkRequired ? { optInAction: `Or import now without the link (explicit opt-in; the records stay on the new site without their ${group.ref} link, e.g. a blog post without its original author or an order line without its product link). Requires Import Operator: record the choice per record with ${waiverCommand}, then resume task ${task.taskId} with --deferred-only.` } : {}),
+        // Not offered: leaving this link out changes money or meaning. On an explicit request the
+        // operator is warned and it is done (--explicit-request --warning), unless the target cannot
+        // hold the record without it (linkRequired), which is refused.
+        withoutLinkOnRequest: group.linkRequired ? 'impossible' : group.linkChoice === 'offer-omit' ? 'offered' : 'warn-then-import' });
     }
     for (const group of held.values()) result.push({ code: 'dependency-held-record', severity: 'blocker', entity: task.taskId, affectedCount: group.count, cause: { ref: group.ref, heldSourceKeys: [...group.keys].sort(), holdReasons: [...group.reasons].sort() },
       deadlineReason: 'Resolve before DNS change or launch; these records wait on records the owner held and are not on the new site.',

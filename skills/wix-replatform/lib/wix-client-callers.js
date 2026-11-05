@@ -51,12 +51,16 @@ const CALLERS = Object.freeze([
   'tests/orchestration/saved-product-target-adoption-test.js',
   'tests/orchestration/product-media-per-record-test.js',
   'tests/orchestration/order-whole-task-waits-test.js',
+  'tests/orchestration/finished-dependency-release-test.js',
+  'tests/orchestration/finished-dependency-cross-gate-test.js',
   'tests/orchestration/gift-card-writers-cross-gate-test.js',
   'tests/orchestration/forms-import-client-test.js',
   'tests/orchestration/forms-cross-gate-test.js',
   'tests/orchestration/pre-send-refusal-journal-test.js',
   'tests/orchestration/plan-order-import-test.js',
   'tests/orchestration/raw-request-import-test.js',
+  'tests/orchestration/harmony-app-install-test.js',
+  'tests/orchestration/harmony-app-gate-test.js',
   'tests/orchestration/bookings-writers-import-test.js',
   'tests/orchestration/crm-label-member-about-import-test.js',
   'tests/orchestration/import-task-blog-member-marks-test.js',
@@ -87,6 +91,7 @@ const CALLERS = Object.freeze([
   'tests/orchestration/same-task-parent-gate-test.js',
   'tests/orchestration/import-task-runner-test.js',
   'tests/orchestration/dependency-setup-producer-agreement-test.js',
+  'tests/tooling/egress-fetch-test.js',
 ]);
 const PROBES = new Set(CALLERS.filter(file => /(?:verify-stores|item-seo-tags-verify|live-sentinel|probe-plain-description-media|contract-test|execution-capability-test|dependency-readiness-matrix-test|write-outcome-classification-test|order-history-composite-test|read-back-transport-test|read-back-gate-test|write-recovery-test|wix-token-refresh-test)/.test(file)));
 function scanWixClientCallers(root) {

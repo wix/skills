@@ -41,6 +41,7 @@ const dataExtensionSchema = require('./data-extension-schema.js');
 const contactExtendedFields = require('./contact-extended-fields.js');
 const invoiceContract = require('./order-invoice-contract.js');
 const documentUrlGuard = require('../../../lib/document-url-guard.js');
+const { editorTypeFromUrls } = require('../../../lib/editor-type.js');
 const approvalStamp = require('../../../lib/preservation-approval-stamp.js');
 const pricingPlanDefinition = require('./pricing-plan-definition.js');
 const productSeo = require('./product-seo.js');
@@ -52,6 +53,7 @@ const storesInventory = require('./stores-inventory.js');
 const confirmedPictures = require('../../../lib/confirmed-pictures.js');
 
 const executionCapability = require('../../../lib/execution-capability');
+const { egressFetch } = require('../../../lib/egress-proxy.js');
 const cmsItemQuota = require('./cms-item-quota.js');
 const requestMarks = new WeakMap();
 const responseEvidence = new WeakMap();
@@ -189,6 +191,7 @@ function responseShapeFromRequest(request) {
   if (url.includes('/members/v1/members')) return { type: 'object', field: 'member' };
   if (url.includes('/apps-installer-service/v1/app-instances')) return { type: 'array', field: 'appInstances' };
   if (url.includes('/apps-installer-service/v1/app-instance/install')) return { type: 'object', field: 'appInstance' };
+  if (url.includes('/editor-platform-installation/v1/install')) return { type: 'array', field: 'results' };
   if (url.includes('/bookings/v2/resources/query')) return { type: 'array', field: 'resources' };
   if (url.includes('/bookings/v2/services/query')) return { type: 'array', field: 'services' };
   if (url.includes('/bookings/v2/services')) return { type: 'object', field: 'service', idFields: ['id'] };
@@ -576,7 +579,7 @@ function createWixClient(config) {
     ...(config.authToken && !tokenSource ? { Authorization: authHeaderValue(config.authToken) } : {}),
     ...(config.siteId ? { 'wix-site-id': config.siteId } : {}),
   };
-  const fetchImpl = config.fetch || fetch;
+  const fetchImpl = config.fetch || egressFetch;
   const throttle = createRateLimitThrottle({ ...(config.now ? { now: config.now } : {}), ...(config.rateLimit || {}) });
   const client = {
     dryRun,
@@ -1468,7 +1471,7 @@ function _buildGenerateUploadUrlRequest({ mimeType, fileName, sizeInBytes }) {
 async function defaultPutUpload(uploadUrl, bytes, { mimeType, fileName }) {
   const target = new URL(uploadUrl);
   target.searchParams.set('filename', fileName);
-  const response = await fetch(target, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
+  const response = await egressFetch(target, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
   if (!response.ok) throw new Error(`document upload failed with HTTP ${response.status}`);
   return response.json();
 }
@@ -6770,6 +6773,71 @@ async function isWixAppInstalled(wix, appDefId) {
   return apps.some((a) => a && a.appDefId === appDefId && a.enabled !== false);
 }
 
+// --- Install through the editor's own installation service (Harmony sites) -------------------
+// The generic app installer lists an app on a Harmony site, but the editor then lacks the pages
+// the app adds. The editor-platform installation service adds them as part of the install.
+// LIVE-VERIFIED on throwaway Harmony sites: it accepts the Wix CLI site token through the
+// dashboard proxy (same kind of host as the pickup-locations route below), needs no editor session,
+// and returns `{ results: [{ appDefId, success, error }] }`. It takes any app id; an app with no
+// editor part is answered with NO_EDITOR_PART_ERROR, and the caller then uses the generic installer.
+const EDITOR_INSTALL_URL = 'https://manage.wix.com/_api/editor-platform-installation/v1/install';
+const { STORES_APP_DEF_ID } = require('../../../lib/catalog-baseline.js');
+const RICH_TEXT_VIEWER_APP_DEF_ID = '61270055-5726-4cb1-9a7a-467bbbaf465f';
+const NO_EDITOR_PART_ERROR = /no EDITOR_INSTALLATION component found|No actions were added to the transaction/i;
+// The installer refuses an app whose page path another app already took (Wix bug: it fails where the
+// legacy installer renamed the page). The failed app is rolled back.
+const PAGE_PATH_CONFLICT_ERROR = /pageUriSEO is invalid: not unique across site/i;
+// TEMPORARY. `EDITOR_INSTALL_EXPERIMENTS` are Conductor overrides that a server-to-server call
+// leaves off, sent with every editor install: the eCommerce feature that adds the side-cart
+// lightbox is closed for Harmony, and any app that pulls in eCommerce fails with "component not found"
+// without it. Each must be "B" ("true" is silently ignored). Re-test,
+// and empty this list, once that feature is open for Harmony again.
+const EDITOR_INSTALL_EXPERIMENTS = Object.freeze(['ecomSideCartAndSuccessPopupLightboxExtensions']);
+// Optional per-app data. The service installs an app's own dependencies, so nothing here names
+// them, but not the apps its editor widgets need. `companions` are
+// those apps, sent first in the same call; an app with no entry installs alone.
+// LIVE-TESTED: Stores installed without the rich-text viewer app leaves the editor reporting
+// `Component "ricosEditorElements.Viewer" is not found in ClientSpecMap` for its description widgets.
+const EDITOR_INSTALL_COMPANIONS = Object.freeze({
+  [STORES_APP_DEF_ID]: Object.freeze([RICH_TEXT_VIEWER_APP_DEF_ID]),
+});
+function editorInstallCompanions(appDefId) {
+  return EDITOR_INSTALL_COMPANIONS[appDefId] || [];
+}
+function editorInstallCookie() {
+  const specs = EDITOR_INSTALL_EXPERIMENTS;
+  return ['XSRF-TOKEN=nocheck', ...(specs.length ? [`petri_ovr=${specs.map((spec) => `${spec}#B`).join('|')}`] : [])].join('; ');
+}
+function _buildInstallEditorAppsRequest({ appDefIds, siteId }) {
+  if (!Array.isArray(appDefIds) || !appDefIds.length) throw new Error('buildInstallEditorAppsRequest: appDefIds is required');
+  if (!siteId) throw new Error('buildInstallEditorAppsRequest: siteId is required');
+  return {
+    method: 'POST',
+    url: EDITOR_INSTALL_URL,
+    headers: {
+      accept: 'application/json',
+      'wix-site-id': siteId,
+      'x-wix-meta-site-id': siteId,
+      'x-xsrf-token': 'nocheck',
+      'x-time-budget': '180000',
+      cookie: editorInstallCookie(),
+    },
+    body: { apps: appDefIds.map((appDefId) => ({ appDefId })) },
+  };
+}
+// Returns the reply: `{ results: [{ appDefId, success, error }] }`. A 200 with `success: false` for
+// an app is that app's failure.
+async function installEditorApps(wix, { appDefIds, siteId }) {
+  return wix.send(buildInstallEditorAppsRequest({ appDefIds, siteId }));
+}
+// Bounded (10 s) read of which editor the site opens in; null when the answer is malformed.
+function _buildGetEditorUrlsRequest() {
+  return { method: 'GET', url: `${WIXAPIS}/editor-urls`, readOnly: true, readTimeoutMs: 10000 };
+}
+async function getEditorType(wix) {
+  return editorTypeFromUrls(await wix.send(buildGetEditorUrlsRequest()));
+}
+
 // VERIFIED (2026-08-12): POST /form-schema-service/v4/forms/{formId}/clone with an EMPTY body
 // clones the named form and inherits its namespace. Creating a form directly in the
 // `wix.bookings.v2.bookings` namespace via the generic Create Form call 400s
@@ -8324,6 +8392,8 @@ const buildMuteSiteNotificationsRequest = (...args) => markRequest(_buildMuteSit
 const buildUnmuteSiteNotificationsRequest = (...args) => markRequest(_buildUnmuteSiteNotificationsRequest(...args), {"entity": "internal/buildUnmuteSiteNotificationsRequest"});
 const buildGetSiteMuteStateRequest = (...args) => markRequest(_buildGetSiteMuteStateRequest(...args), {"read": true});
 const buildInstallWixAppRequest = (...args) => markRequest(_buildInstallWixAppRequest(...args), {"entity": "internal/buildInstallWixAppRequest", "setupOperation": "install-app"});
+const buildInstallEditorAppsRequest = (...args) => markRequest(_buildInstallEditorAppsRequest(...args), {"entity": "internal/buildInstallEditorAppsRequest", "setupOperation": "install-app"});
+const buildGetEditorUrlsRequest = (...args) => markRequest(_buildGetEditorUrlsRequest(...args), {"read": true});
 const buildGetInstalledWixAppsRequest = (...args) => markRequest(_buildGetInstalledWixAppsRequest(...args), {"read": true});
 const buildCloneBookingFormRequest = (...args) => markRequest(_buildCloneBookingFormRequest(...args), {"entity": "bookings/booking-form"});
 const buildQueryBookingsResourcesRequest = (...args) => markRequest(_buildQueryBookingsResourcesRequest(...args), {"read": true});
@@ -9369,6 +9439,16 @@ module.exports = {
   DEFAULT_BOOKING_FORM_ID,
   buildInstallWixAppRequest,
   installWixApp,
+  buildInstallEditorAppsRequest,
+  installEditorApps,
+  buildGetEditorUrlsRequest,
+  getEditorType,
+  EDITOR_INSTALL_EXPERIMENTS,
+  NO_EDITOR_PART_ERROR,
+  PAGE_PATH_CONFLICT_ERROR,
+  editorInstallCompanions,
+  EDITOR_INSTALL_URL,
+  RICH_TEXT_VIEWER_APP_DEF_ID,
   buildGetInstalledWixAppsRequest,
   getInstalledWixApps,
   isWixAppInstalled,

@@ -11,6 +11,7 @@ const path = require('node:path');
 
 const { readEnvFile, upsertEnvFile } = require('./config-env.js');
 const { CallTimeoutError, boundedRequest, isTransientStatus, retryAfterMs } = require('./destination-http.js');
+const { editorTypeFromUrls, HARMONY_EDITOR_TYPE } = require('./editor-type.js');
 
 const {
   getDecisionValue,
@@ -29,7 +30,7 @@ const BLANK_TEMPLATES = Object.freeze({
   studio: 'fe86a14e-ef67-49b4-a409-d086f3abaa1a',
   harmony: '91532250-8835-46ac-9666-e4db8770b275',
 });
-const EXPECTED_EDITOR = Object.freeze({ studio: 'WIX_STUDIO', harmony: 'ODEDITOR', headless: 'EDITORLESS' });
+const EXPECTED_EDITOR = Object.freeze({ studio: 'WIX_STUDIO', harmony: HARMONY_EDITOR_TYPE, headless: 'EDITORLESS' });
 
 const URLS = Object.freeze({
   createFromTemplate: 'https://www.wixapis.com/msm/v1/meta-site/create-from-template',
@@ -325,10 +326,11 @@ async function readEditor(deps, { siteToken, metaSiteId }) {
   try {
     const res = await boundedRequest(deps, URLS.editorUrls, { method: 'GET', headers: siteHeaders(siteToken, metaSiteId) }, LIMITS.editorTimeoutMs);
     const urls = res.json && res.json.urls;
-    if (res.status !== 200 || !urls || typeof urls.editorType !== 'string') {
+    const editorType = editorTypeFromUrls(res.json);
+    if (res.status !== 200 || editorType === null) {
       return { ok: false, httpStatus: res.status, reason: res.status === 200 ? 'malformed_editor_readback' : `editor_readback_http_${res.status}` };
     }
-    return { ok: true, httpStatus: 200, editorType: urls.editorType, editorUrl: typeof urls.editorUrl === 'string' ? urls.editorUrl : null };
+    return { ok: true, httpStatus: 200, editorType, editorUrl: typeof urls.editorUrl === 'string' ? urls.editorUrl : null };
   } catch (error) {
     return { ok: false, httpStatus: null, reason: error instanceof CallTimeoutError ? 'editor_readback_timeout' : 'editor_readback_transport' };
   }

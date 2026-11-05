@@ -17,6 +17,14 @@
     "forms/form",
     "media/media-file"
   ],
+  "dependencyFailureActions": {
+    "crm/contact": "offer-omit",
+    "forms/form": "fix-only",
+    "media/media-file": "offer-omit"
+  },
+  "dependencyLinkRequired": [
+    "forms/form"
+  ],
   "dependencyModes": {
     "forms/form": "per-record"
   },

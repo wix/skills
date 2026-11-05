@@ -16,6 +16,15 @@
     "crm/contact",
     "bookings/service-add-on"
   ],
+  "dependencyFailureActions": {
+    "bookings/service": "fix-only",
+    "crm/contact": "fix-only",
+    "bookings/service-add-on": "fix-only"
+  },
+  "dependencyLinkRequired": [
+    "bookings/service",
+    "crm/contact"
+  ],
   "dependencyModes": {
     "bookings/service": "per-record",
     "crm/contact": "per-record",

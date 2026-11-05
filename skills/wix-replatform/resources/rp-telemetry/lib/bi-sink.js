@@ -27,6 +27,14 @@
 // Env switches (tests / offline dev only — production runs always emit):
 //   RP_TELEMETRY_BI_ENDPOINT   override the frog endpoint (contract-test mock)
 //   RP_TELEMETRY_BI_DISABLED=1 skip all pushes entirely
+//
+// Egress proxy: when HTTPS_PROXY (or HTTP_PROXY for an http endpoint) is set, the push goes
+// through the proxy with an HTTP CONNECT tunnel (egressFetch in lib/egress-proxy.js) because Node's `fetch`
+// ignores those variables on most supported Node versions. A failed push carries an error
+// code (`network_error:ENOTFOUND`, `proxy_connect_407`), never an error message, so a proxy
+// address with a password cannot reach the journal.
+
+const { egressFetch } = require('../../../lib/egress-proxy.js');
 
 const SRC = 10;
 const EVID_RUN = 5012; // replatform_run — run-grain lifecycle, phase started|finalized
@@ -205,6 +213,12 @@ function shedOversize(event) {
   return shed ? { ...event, f } : null;
 }
 
+// A short error code (ENOTFOUND, ECONNREFUSED, ...) or null. Never the message.
+function errorCode(error) {
+  const code = (error && error.cause && error.cause.code) || (error && error.code);
+  return typeof code === 'string' && /^[A-Z0-9_]{2,64}$/.test(code) ? code : null;
+}
+
 // `signal` (optional) is the caller's cancellation. The request is aborted when either the
 // per-request PUSH_TIMEOUT_MS expires or the caller aborts; the combined signal is built with a
 // local controller (listener + cleared timer) so nothing outlives the call and no Node API newer
@@ -219,7 +233,8 @@ async function sendBatch(evid, events, signal) {
   const onAbort = () => controller.abort();
   if (signal) signal.addEventListener('abort', onAbort, { once: true });
   try {
-    const res = await fetch(endpoint(), {
+    // egressFetch is `fetch` when no proxy applies, and a CONNECT tunnel when one does.
+    const res = await egressFetch(endpoint(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body,
@@ -227,9 +242,12 @@ async function sendBatch(evid, events, signal) {
     });
     if (!res.ok) return `http_${res.status}`;
     return null;
-  } catch {
+  } catch (error) {
     if (signal && signal.aborted) return 'aborted';
-    return timedOut ? 'timeout' : 'network_error';
+    if (timedOut) return 'timeout';
+    if (error && error.cause && error.cause.proxyStatus) return `proxy_connect_${error.cause.proxyStatus}`;
+    const code = errorCode(error);
+    return code ? `network_error:${code}` : 'network_error';
   } finally {
     clearTimeout(timer);
     if (signal) signal.removeEventListener('abort', onAbort);

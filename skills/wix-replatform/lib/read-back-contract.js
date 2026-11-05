@@ -334,9 +334,12 @@ async function inventory(projectDir, entity, records, {
   });
   return result;
 }
+// `exclude`: records that cannot be canaries now (their own parent record is final for this run,
+// so the gate would only defer them); they are never selected and are dropped from `existing`.
 function cover(inv, {
   ceiling = 10,
-  existing = []
+  existing = [],
+  exclude = []
 } = {}) {
   if (!Number.isInteger(ceiling) || ceiling < 10 || ceiling > 30) throw new Error('Canary ceiling must be a recorded user integer from 10 to 30');
   const records = [...inv.records].sort((a, b) => compareKeys(a.sourceId, b.sourceId));
@@ -348,13 +351,13 @@ function cover(inv, {
     selected.push(r.sourceId);
     for (const p of r.writePaths) if (left.delete(p)) coveredBy[p] = r.sourceId;
   };
-  for (const id of existing) {
+  for (const id of existing.filter(id => !exclude.includes(id))) {
     const row = records.find(r => r.sourceId === id);
     if (!row) throw new Error('A previously written canary is missing from the inventory');
     add(row);
   }
   while (left.size) {
-    const candidates = records.filter(r => !selected.includes(r.sourceId)).map(r => ({
+    const candidates = records.filter(r => !selected.includes(r.sourceId) && !exclude.includes(r.sourceId)).map(r => ({
       row: r,
       gain: r.writePaths.filter(p => left.has(p)).length
     })).sort((a, b) => b.gain - a.gain || compareKeys(a.row.sourceId, b.row.sourceId));

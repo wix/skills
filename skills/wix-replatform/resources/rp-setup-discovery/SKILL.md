@@ -254,6 +254,10 @@ Do not assert "manual" / "cannot self-provision" by assumption — check the API
   **`start-back-in-stock-collection`** (turns on "Notify When Available"; emit it only when
   the source has requests). `lib/app-requirements.js` lists both apps; the collection step is
   read back from the Back in Stock settings. Both are automatable.
+- Any other Wix app the source needs is a step `{ "id": "<unique id>", "kind": "installApp", "appDefId": "<app id>" }`;
+  no executor change is needed. On a Harmony site two apps that add the same pages (Stores and
+  Bookings) cannot both install: the earlier step wins and the later one is deferred (see
+  rp-execute-setup), so list the more important app first.
 - Enabling a Wix app (Blog, Members, etc.) **is** automatable via the App Installation
   API; classify it automatable and cite the method. (Common trap: do not mark Blog or
   Members "cannot self-provision" — both are installable via the API.)

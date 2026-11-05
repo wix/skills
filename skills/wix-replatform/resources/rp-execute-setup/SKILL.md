@@ -49,6 +49,24 @@ every required app — never infer installed apps, Catalog version or backend re
 editor type or template. Never publish the Editor site; its website and publication remain
 operator handoff items.
 
+**Any Wix app can be installed by a setup step that carries its app id** — `{ "id": "<unique id>", "kind": "installApp", "appDefId": "<app id>" }` — with no code change; the named
+`install-wix-*` steps are the same call under a name the planner already uses.
+
+**On a Harmony site every app is installed through the editor's installation service**, not the
+generic app installer: that installer lists an app but leaves the Harmony editor without the pages the
+app adds. Each install step reads the site's editor type (then the destination record) and, on Harmony,
+sends the app's id to the service with the editor switch it needs, then reads the installed-apps list
+back. An app the service says has no editor part is installed
+with the generic installer instead. The service installs an app's own dependencies. A small
+companions table in the writers lists apps an app's widgets need that it does not add (Wix Stores: the
+rich-text viewer app, installed first). Every other editor keeps the generic install. If the installer refuses an app because another app already owns its page paths (Wix installs two
+apps that add the same eCommerce pages, such as Stores and Bookings, only one at a time), the earlier
+step wins: the later app is left uninstalled, its step ends with `installed: false` and `deferred`, setup
+goes on, and the destination hand-off asks the site owner to add it once Wix fixes the conflict. Order
+the install steps by importance (Stores before Bookings). Setup cannot read a Harmony page list, so it records `appPages: "not-read"` and the
+destination hand-off asks the site owner to confirm each app's pages. The route and the switch are a
+temporary workaround for an eCommerce feature closed on Harmony: re-check both once it reopens.
+
 **When `WIX_SITE_ID` names a site this run did not create, setup changes posture: verify
 and fill gaps, never provision from scratch.** The site is already in use, so treat
 everything in it as pre-existing state to work around rather than a blank slate:

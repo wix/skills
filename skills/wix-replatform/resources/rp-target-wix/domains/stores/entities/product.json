@@ -34,6 +34,10 @@
     "variation-any-attribute-unresolved": "Route the product's selection attributes with wooSelectionAttributes (rp-source-wordpress/lib/woo-selection-attributes.js) and routeSelections (rp-target-wix/lib/selection-route.js), as rp-import-codegen/SKILL.md describes: shared (\"Any\") attributes become mandatory modifiers and the product is written. Only a product the route refuses (SELECTION_ROUTE_CONTRADICTION) is held, with code selection-route-contradiction and a mapping-gaps.json entry."
   },
   "dependencyFailureActions": {
+    "stores/category": "offer-omit",
+    "stores/brand": "offer-omit",
+    "stores/product-tag": "offer-omit",
+    "stores/product-customization": "offer-omit",
     "media/media-file": "omit"
   },
   "legacyTaskCompleteEdges": [

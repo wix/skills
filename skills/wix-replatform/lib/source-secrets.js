@@ -9,6 +9,7 @@ const {
   upsertEnvFile,
 } = require('./config-env.js');
 const { buildWixDashboardUrl } = require('./wix-dashboard-url.js');
+const { egressFetch } = require('./egress-proxy.js');
 
 const SECRET_NAME_RE = /^[A-Za-z0-9_+=@#$-]+$/;
 const DEFAULT_BASE_URL = 'https://www.wixapis.com';
@@ -60,8 +61,8 @@ function safeJsonError(error) {
 }
 
 function createWixSecretsClient(options = {}) {
-  const fetchImpl = options.fetchImpl || globalThis.fetch;
-  if (typeof fetchImpl !== 'function') {
+  const fetchImpl = options.fetchImpl || egressFetch;
+  if (!options.fetchImpl && typeof fetch !== 'function') {
     throw new Error('fetch is unavailable; run on Node 18+ or provide fetchImpl');
   }
   const baseUrl = (options.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
