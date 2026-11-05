@@ -31,33 +31,39 @@ the skills that this page names. You do not install anything.
 
 ## 2. Choose how to make the pages
 
-Steps 1 to 4 of the build are the same for every route. Step 5, the pages, has two routes. Decide
-the route now, before you install anything. Make two checks: the build check and the upload check.
+Steps 1 to 4 of the build are the same for every route. Step 5, the pages, has two routes: the
+Astro build of `wix-headless-kit`, server-rendered pages from the shipped templates, and pages
+written by hand on the modules. Decide the route now, before anything else, with two checks. The
+checks are commands; their output decides, not what the environment says about its network.
 
-**The build check: `wix-headless-kit` runs on this machine.** All of these must be true:
+**The build check: `wix-headless-kit` runs on this machine.** Run these in one shell call:
 
-- The `wix-headless-kit` folder is on this disk, from the plugin or installed ("Where the skills are").
-- `node -v` prints 22.12 or higher. This is the requirement of Astro and of the hosting adapter.
-  This route does not run the Wix CLI.
-- `npm ping` succeeds. The templates must download, and the project must build.
+```bash
+node -v
+timeout 25 npm ping
+ls {SKILL_ROOT}/install/setup.mjs 2>/dev/null || git clone --depth 1 https://github.com/wix/skills wix-skills
+```
 
-The build check fails if the machine has Node but no route to npm. It also fails if your client
-serves the skills as text, with no folder.
+The check passes when `node -v` prints 22.12 or higher (the requirement of Astro and of the hosting
+adapter; this route does not run the Wix CLI), `npm ping` prints `PONG`, and `setup.mjs` is on the
+disk, found in the plugin folder or cloned. `timeout` is a Linux command; elsewhere run `npm ping`
+and give it 25 seconds. The clone brings the kit and the templates together; `{SKILL_ROOT}` is then
+`wix-skills/skills/wix-headless-kit`. Without `git`, install the kit as "Where the skills are" says.
 
 **The upload check: a build can reach the upload tool.** One of these must be true:
 
 - Your client passes `attachments` as files. A client that shows `attachments` as a local path
   replaces it with a download URL when the call is made. The description of `attachments` in the
   upload tool names the clients that do this.
-- Your shell reaches Amazon S3. The presigned upload URLs of the upload tool are on S3. Run
-  `curl -sI -m 25 https://s3.amazonaws.com`. S3 answers with its
-  own headers: `x-amz-request-id`, and `Server: AmazonS3` unless a proxy changed it. A sandbox that
-  allows only some hosts gets a refusal from the proxy, with neither header. A sandbox proxy can
-  take ten seconds to answer. Use a timeout of 25 seconds or more. With a short timeout, an open
-  sandbox looks closed.
+- Your shell reaches Amazon S3, where the presigned upload URLs of the upload tool are. Run
+  `curl -sI -m 25 https://s3.amazonaws.com`. S3 answers with a status line and the header
+  `x-amz-request-id`. Use a timeout of 25 seconds or more. A proxy can rewrite the status and
+  drop the headers; when a status line
+  comes back without `x-amz-request-id`, the first upload call settles it: `{ siteId, prepare: true, size }`
+  returns a URL, and `curl -sI` of that URL answers with `x-amz-request-id`.
 
-If the build check and the upload check both pass, make the pages with the Astro build of `wix-headless-kit` ("The Astro build"
-below). If one check fails, write the pages by hand on the modules (step 5 below).
+If both checks pass, make the pages with the Astro build of `wix-headless-kit` ("The Astro build"
+below). If one fails, write the pages by hand on the modules (step 5 below).
 
 ## 3. The build, through the Wix tools
 
@@ -212,8 +218,8 @@ Set the region settings first:
 A new site starts with default settings. These are not the settings of the business. If you change
 a setting after you create the content, the change takes minutes to reach the content.
 
-A new install finishes its provisioning in the background. This takes a few seconds. Each seed
-script waits for what its app needs. Run its calls in its order, with its waits.
+A new install finishes its provisioning in the background. Each seed script waits for what its
+app needs. Run its calls in its order, with its waits.
 
 `wix.request` returns `{ status, data }`. The response body is `data`. A write that succeeds does
 not tell you the shape of a visitor's read. A create body and a query response are different
@@ -322,8 +328,8 @@ upload is not enough. Write one `ExecuteWixAPI` script that reads as a visitor:
 it. A check through `wix.request` reads what the owner sees, not what a visitor sees.
 
 The check passes when the read returns the content that step 4 created, by name. An empty 200
-response right after the seed can come from the new-install window, or from the query. Read again
-after a few seconds. Then compare your query with the file of `wix-headless-kit`. Read the site files back with
+response right after the seed can come from the new-install window, or from the query. Read again.
+Then compare your query with the file of `wix-headless-kit`. Read the site files back with
 `wix.headless.files.list`. The modules must be next to the pages.
 
 ### Step 5: the upload
@@ -334,26 +340,32 @@ A response has a size limit. Send pages as text one or two files per call. Add a
 
 ## The Astro build
 
-Use this route if the build check and the upload check pass. Steps 1 to 4 are the same calls. Step 5 is different:
-you do not write the pages by hand. The Astro project of `wix-headless-kit` is composed from the shipped,
-verified templates, built, and released through `UploadHeadlessWebsiteFiles` as a server-rendered site. Its
-source is stored in the Code Store repository of the site. The shipped code is copied into the
-project, not written again from a reference. For this, `wix-headless-kit` and the templates must be on the
-disk where you build the project.
+Use this route when the build check and the upload check pass. Steps 1 to 4 are the same calls.
+Step 5 is different: you do not write the pages by hand. The Astro project of `wix-headless-kit` is
+composed from the shipped, verified templates, built, and released through
+`UploadHeadlessWebsiteFiles` as a server-rendered site. Its source is stored in the Code Store
+repository of the site. The shipped code is copied into the project, not written again from a
+reference.
 
 Do these steps:
 
-1. Get `wix-headless-kit` on the disk (`{SKILL_ROOT}`; see "Where the skills are").
+1. `wix-headless-kit` is on the disk from the build check (`{SKILL_ROOT}`; "Where the skills are").
 2. In an empty folder, run
    `node {SKILL_ROOT}/install/setup.mjs --vertical {solution} --business-name … --site {metaSiteId} --app {appId}`.
+   It copies the solution's project, writes the env file from the two ids and installs the
+   dependencies in the foreground; `npm-install.log` in the project holds the install's output and
+   `.install-exit` its exit code. The install is done once: do not run `npm ci` or `npm install`
+   after setup. When `.install-exit` is not `0`, read the log and run
+   `node {SKILL_ROOT}/install/install.mjs` in the project.
 3. Seed the site as in step 4.
 4. Add the brand layer on the shipped hooks. Follow `INSTRUCTIONS.md` of the solution, `DESIGN.md`
    and `CONTENT.md`.
 5. Run `npx astro build`.
-6. Make a zip of `.wix/` and `dist/` (`zip -r`, or `zipfile` in Python).
-7. Upload the zip with `UploadHeadlessWebsiteFiles`. If you upload through S3, the release is two
-   calls: `{ siteId, prepare: true, size }`, then the `curl` commands it returns, then the second
-   call it names.
+6. Make a zip of `.wix/` and `dist/` from the project root (`zip -r`, or `zipfile` in Python).
+7. Upload the zip with `UploadHeadlessWebsiteFiles`: one call with the zip as an attachment where
+   the client passes attachments; through S3, the release is two calls:
+   `{ siteId, prepare: true, size }`, then the `curl` commands it returns, then the second call it
+   names.
 
 `{SKILL_ROOT}/SKILL.md` owns this run (`publisher: plugin`). `install/context.mjs` prints
 `publisher`, `npm` and `carrier.s3`.
@@ -371,13 +383,21 @@ There are three ways to get them:
    `{SKILL_ROOT}` is its `wix-headless-kit` folder. There is nothing to install. A chat client that
    shows the skill text without a folder can read the skills, but cannot run them.
 2. **Installed on the disk.** Use this on a machine with no plugin folder where `wix-headless-kit` must run
-   (the Astro build, the CLI route). Repeat `--skill` for each skill. `CI=1` keeps the output plain:
+   (the Astro build, the CLI route). A shallow clone of the repository brings every skill and the
+   templates:
+
+   ```bash
+   git clone --depth 1 https://github.com/wix/skills wix-skills
+   ```
+
+   `{SKILL_ROOT}` is then `wix-skills/skills/wix-headless-kit`. Without `git`, the skills installer
+   does it; repeat `--skill` for each skill, and `CI=1` keeps the output plain:
 
    ```bash
    CI=1 npx skills@latest add wix/skills --skill wix-headless-kit --skill wix-docs --skill wix-manage --yes
    ```
 
-   The skills go under `.agents/skills/`. `{SKILL_ROOT}` is `.agents/skills/wix-headless-kit`.
+   The skills then go under `.agents/skills/`, and `{SKILL_ROOT}` is `.agents/skills/wix-headless-kit`.
 3. **Read online.** Use `https://www.wix.com/skills/<skill>/<path>` (`headless-templates` for
    `wix-headless-templates`), through `ReadFullDocsArticle` of the Wix MCP, or the fetch tool of
    your client. A folder URL lists its files. Read the listing, then the files by the names it
@@ -386,9 +406,9 @@ There are three ways to get them:
    under `skills/<skill>/`. This is the current release. `node {SKILL_ROOT}/install/check.mjs` tells
    you if a disk copy is behind it.
 
-The templates (12 MB) are not in the plugin folder. Each `wix-headless-kit` script downloads them on first use, as
-a sparse clone of their folder. This takes a few seconds. `node {SKILL_ROOT}/install/templates.mjs`
-downloads them alone.
+The templates are not in the plugin folder. A clone of the repository has them beside the kit, and
+the scripts use that copy. Otherwise each `wix-headless-kit` script downloads them on first use, as
+a sparse clone of their folder. `node {SKILL_ROOT}/install/templates.mjs` downloads them alone.
 
 ## The Wix CLI route
 
@@ -413,7 +433,7 @@ version, install or upgrade Node first. Do not work around it. macOS: `brew inst
 plugin folder.
 
 **The login.** Run the bootstrap script of the skill. It is a normal foreground command. It exits on
-its own within seconds. It checks the Wix CLI and runs `wix login` (a device-code flow). It prints
+its own. It checks the Wix CLI and runs `wix login` (a device-code flow). It prints
 one JSON event per line. Run it, and pass its events on to the user:
 
 ```bash

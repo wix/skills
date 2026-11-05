@@ -298,7 +298,7 @@ only after an explicit yes, never automatically. Step 5 ends with the same self-
    It emits one JSON event per line and returns in **~35s**: **scaffolds** the project from the
    vertical's composed template (`wix create` copies it: the code and its lockfile arrive with
    the scaffold), **deploys** whatever the folder still lacks (patching `package.json` with every
-   dependency the code imports), then **starts two detached background jobs** — the dependency install (`install/install.mjs`: nothing when `node_modules` already satisfies the lock, `npm install --ignore-scripts` over a tree that is there, else `npm ci --ignore-scripts || npm install --ignore-scripts`)
+   dependency the code imports), then **starts two detached background jobs** — the dependency install (`install/install.mjs`: nothing when `node_modules` already satisfies the lock, `npm install` over a tree that is there, else `npm ci || npm install`, each with `--ignore-scripts --no-audit --no-fund`)
    and the **seed** — whose logs and completion markers are in the events. The final
    `ready_for_brand_layer` event carries the project dir, siteId, ready-made dashboard links,
    and both markers. Relay notable events. On an `error` event, recover just that step via the
