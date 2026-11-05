@@ -68,7 +68,7 @@ export function installDecision(projectDir = process.cwd()) {
 /** Runs the decided install; stdio defaults to inherited. Returns {decision, lock, status}. */
 export function runInstall(projectDir = process.cwd(), { stdio = "inherit" } = {}) {
   const { decision, lock } = installDecision(projectDir);
-  const flags = ["--ignore-scripts"];
+  const flags = ["--ignore-scripts", "--no-audit", "--no-fund"];
   let status = 0;
   if (decision === "ci") {
     let r = npmSync("npm", ["ci", ...flags], { cwd: projectDir, stdio });
