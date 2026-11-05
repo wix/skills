@@ -79,6 +79,9 @@ Retrieve a Wix site's analytics through the Semantic Model API. Covers listing s
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
 Creates and publishes blog posts using Blog Posts API. Covers resolving the required author memberId (including creating an author member when the site has none), Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
+### [Find and Update Blog Posts](references/blog/find-and-update-blog-posts.md)
+"Finds a site's live blog posts and changes existing posts and drafts through the Wix Blog REST APIs. Covers looking up published posts by title, publish date, category or tag (including the newest and the first post ever), editing an existing post (adding or changing a sentence, paragraph or link in its text, its cover image, excerpt, categories and tags), publishing a draft, moving a live post back to drafts, and deleting or restoring posts. Use whenever the user names a post that already exists on the blog: to find it, change its content, publish, unpublish or delete it; writing a new post is How to Create Blog Posts."
+
 ### [Blog Dashboard Navigation](references/blog/blog-dashboard-navigation.md)
 "Builds direct links to Wix Blog dashboard pages on manage.wix.com — posts list (published and draft tabs), categories, tags, writers, comment moderation, blog analytics, monetization, and settings. Pairs each main Blog entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 
