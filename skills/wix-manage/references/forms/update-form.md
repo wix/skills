@@ -1,6 +1,6 @@
 ---
 name: "Update Form"
-description: "Changes a Wix form that already exists, with Form Schemas v4 `PATCH` — add a field to my form, add a dropdown, make a field required or optional, rename a label, reorder or retire a question. Covers reading the form back for its `revision` (and the required `namespace` query parameter), the whole-form body that a `PATCH` needs, the wholesale `formFields` replace that silently soft-deletes anything you omit, changing a field's component type in place, retiring a field that already has submissions, and the read-back that proves what was stored. Use whenever the form exists and the request changes what it collects; use Create Form when there is no form yet."
+description: "Changes a Wix form that already exists, with Form Schemas v4 `PATCH` — add a field to my form, add a dropdown or a consent checkbox, make a field required or optional, rename a label, reorder, remove or retire a question. Covers reading the form back for its `revision` (and the required `namespace` query parameter), the whole-form body that a `PATCH` needs, the wholesale `formFields` replace that silently soft-deletes anything you omit, changing a field's component type in place, removing a field or hiding one from visitors, and the read-back that proves what was stored. Use whenever the form exists and the request changes what it collects; use Create Form when there is no form yet."
 ---
 # RECIPE: Update a Wix Form
 
@@ -9,13 +9,24 @@ description: "Changes a Wix form that already exists, with Form Schemas v4 `PATC
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
 
-Change what a form collects — **add a field, relabel one, tighten a rule, reorder, retire one** — on a form that already exists. **Composing the field itself is not here**: [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) owns the `identifier` / `inputType` / `componentType` table and the options/enum shapes, and [Create Form](./create-form.md) § Silent breakers apply to an added field exactly as to a created one.
+Change what a form collects — **add a field, relabel one, tighten a rule, reorder, retire one** — on a form that already exists. **Composing the field itself is in [Create Form](./create-form.md) STEP 1**: § Field types gives the common kinds' `identifier` / `inputType` / `componentType` and blocks, with copyable choice and checkbox fields, and § Silent breakers apply to an added field exactly as to a created one.
 
 **A `PATCH`, never a delete-and-recreate.** An update keeps the `formId` everything downstream already holds — a frontend binding, an automation, a saved dashboard view — and spends no slot against the site's form cap.
 
 ---
 
 ## The call
+
+The calls in this recipe are complete as written: send them as they are, with no docs or schema lookup. Read the form, send the `PATCH`, and run the two read-backs in § Verify, in that order.
+
+Each call's method page and the response fields the next step reads are below. Cite these pages as the calls' docs sources; none needs a search. A new field's shape is in [Create Form](./create-form.md) STEP 1.
+
+| Call | Method page | Read from the response |
+|---|---|---|
+| `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA` (find it by name) | [List Forms](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms) | `forms[].id`, `forms[].name` |
+| `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds={formId}` (read, and read-back 1) | [List Forms](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/list-forms) | `forms[0]`: the whole form, with `revision`, `formFields`, `steps`, `deletedFormFields` |
+| `PATCH https://www.wixapis.com/form-schema-service/v4/forms/{formId}` | [Update Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form) | `form`, with the new `revision` |
+| `GET https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary` (read-back 2) | [Get Form Summary](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary) | `formSummary.fields` |
 
 **No `formId` yet** ("my contact form")? List the forms and pick it by `name`: `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&fieldsets=METADATA` returns only names and IDs. That call skips disabled forms; if the form isn't there, call again with `&enabled=false`.
 
@@ -52,7 +63,20 @@ curl -X PATCH \
 
 ## Adding a field
 
-**Start by reading [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) § Field types and § Choice fields** for the field kind you're adding: it gives the `identifier` / `inputType` / `componentType` triple — take all three from one row, and note that a dropdown or radio is `inputType: "STRING"` — plus the options/enum shape and the GUID every option needs. [Create Form](./create-form.md) § Choice fields carries a complete dropdown body to copy. Composing a field from memory is what turns one `PATCH` into eight.
+**Build the new field from [Create Form](./create-form.md) STEP 1**: § Field types gives the `identifier` / `inputType` / `componentType` triple and the two block names — take all three from one row, and note that a dropdown or radio is `inputType: "STRING"`. § Choice fields has a complete dropdown and multi choice to copy, and § Checkboxes has the agreement and email-subscription checkboxes. Composing a field from memory is what turns one `PATCH` into eight.
+
+The field added most often is a newsletter or marketing-consent checkbox. It is a `CONTACTS_SUBSCRIBE` field, kept optional; a ticked box subscribes the submitter's email. For a box the visitor must tick to agree to terms, use `"identifier": "CHECKBOX"` with `"required": true` and no `pii` or `contactMapping`. The field below is complete; you do not need another page for it. The label is rich content, and `validation` sits in `booleanOptions`. For "at the end", give its layout item the `row` of `SUBMIT_BUTTON` and move the button one row down — never below the button:
+
+```json
+{ "id": "<fresh lowercase GUID>", "identifier": "CONTACTS_SUBSCRIBE", "fieldType": "INPUT",
+  "inputOptions": { "target": "newsletter_<suffix>", "pii": true,
+    "contactMapping": { "contactField": "SUBSCRIPTION", "subscriptionInfo": { "subscriptionChannels": ["EMAIL"] } },
+    "inputType": "BOOLEAN",
+    "booleanOptions": { "validation": {}, "componentType": "CHECKBOX",
+      "checkboxOptions": { "label": { "nodes": [ { "type": "PARAGRAPH", "id": "p1a0003",
+        "nodes": [ { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Yes, send me your newsletter by email.", "decorations": [] } } ],
+        "paragraphData": { "textStyle": { "textAlignment": "AUTO" } } } ] } } } } }
+```
 
 Then four things are yours to generate:
 
@@ -60,10 +84,10 @@ Then four things are yours to generate:
 - **`target`** — the immutable submission key, unique across the form: snake_case plus a short random suffix (`job_industry_7f2b`). **A duplicate `target` is accepted and silently stores nothing** for every field but one.
 - **one GUID per choice option** — `options[]` each need their own, exactly like the field's; a readable slug is rejected ([Create Form](./create-form.md) § Choice fields). Generate them with `uuidgen`, never by hand.
 - **the choices, declared twice** — every option needs `id` + `value` + `label`, and `validation.enum` must list every one of those `value`s. **An empty `validation` is a free-text field, not a dropdown**; the general "always include `validation`, even as `{}`" rule does not apply here, and getting it wrong is accepted with a `200`.
-- **the layout item** — append to `steps[<n>].layout.large.items`, mirroring into `medium` / `small` if the form has them:
+- **the layout item** — add it to `steps[<n>].layout.large.items`, mirroring into `medium` / `small` if the form has them. For "at the end", give it the `row` of `SUBMIT_BUTTON` and move the button one row down, so the field is not placed below the button:
 
 ```json
-{ "fieldId": "<the new field's id>", "row": <next row>, "column": 0, "width": 12, "height": 1 }
+{ "fieldId": "<the new field's id>", "row": <SUBMIT_BUTTON's row>, "column": 0, "width": 12, "height": 1 }
 ```
 
 A field missing from the layout isn't dropped, but it sorts last and has no defined position in the owner's builder. To place it mid-form, insert at that `row` and bump every item at or after it — `row` restarts at 0 in each step.
@@ -78,26 +102,29 @@ A field missing from the layout isn't dropped, but it sorts last and has no defi
 |---|---|
 | Label, placeholder, options, validation, order | Patch them and stop — nothing downstream needs updating |
 | A field's component type, in place | Send that field with the **choice `identifier`** and only the new options block; leaving `textInputOptions` beside `dropdownOptions` reads back as the text-input fallback |
-| Retire a field the form has submissions for | Set `hidden: true` — "hidden from submitters": the field stops rendering, and the submissions already collected under it keep their meaning. Dropping it from the array soft-deletes it instead |
-| Remove a field added by mistake this run | Drop it from `formFields`; it lands on `deletedFormFields` |
+| Remove a field ("remove the phone field", "delete that question") | Drop it from `formFields` and drop its item from `steps[].layout`. It moves to `deletedFormFields` and can be restored from there; submissions already collected keep their value for it. Verified live on 2026-11-04: after the drop, a submission sent before it still returned the field's value, and `/summary` listed the field with `deleted: true`. So a form with submissions needs no `hidden: true` for a removal. The user's "remove" is the confirmation; do not ask again |
+| Hide or retire a field ("stop asking", "hide that question") | Set `hidden: true` on the field and keep it in `formFields` and the layout: it stops rendering for visitors |
 | Rename a `target` | **Never.** It is the storage key, so a rename orphans every submission already collected under the old one. Change the *label* instead |
 
 ---
 
 ## Verify — an update regresses a form exactly as a create can
 
-**A `200` on the `PATCH` proves the body parsed, nothing about what was stored.** Read the form back, every time:
+**A `200` on the `PATCH` proves the body parsed, nothing about what was stored.** Right after the `PATCH`, in the same run, send both of these reads. They are complete as written and need no lookup. Neither one alone is enough: the first shows the stored fields, `deletedFormFields` and layout; the second shows what the owner's dashboard renders.
 
-```
-GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds={formId}
-GET https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary
+```bash
+curl -X GET 'https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form&formIds={formId}' -H 'Authorization: <AUTH>'
+curl -X GET 'https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary' -H 'Authorization: <AUTH>'
 ```
 
-Assert on that read-back, not on the `PATCH` response:
+Assert on these two read-backs, not on the `PATCH` response:
 
 - the changed field is there, carrying the `identifier` and `componentType` you sent — **a choice field with a non-empty `options[]`**, which is where a dropdown that degraded to a text input shows up;
 - every field you meant to keep is still present, and every `inputOptions.required` still reads back as sent;
-- `formSummary.fields` still holds one entry per input field — that is what the owner's dashboard renders.
+- a removed field is in `deletedFormFields` and has no layout item, and an added one has a layout item in the place you meant;
+- the summary's `formSummary.fields` holds one entry with `deleted: false` per input field. A removed field stays there with `deleted: true`, so do not count it.
+
+These two reads are the whole verification; do not add more.
 
 Then hand back the dashboard links ([Forms Dashboard Navigation](./forms-dashboard-navigation.md)): the form builder at `wix-forms/form/{formId}`, and that form's submissions at `wix-forms/form/{formId}/submissions`. New submissions carry the new field; past ones don't.
 
@@ -127,4 +154,4 @@ Then hand back the dashboard links ([Forms Dashboard Navigation](./forms-dashboa
 - [Forms Dashboard Navigation](./forms-dashboard-navigation.md) — the builder and submissions links to hand back
 - [Update Form](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/update-form) — the `PATCH` contract and its replace semantics
 - [Form object](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/form-object) — `revision`, `hidden`, `deletedFormFields`, `steps[].layout`
-- [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) — every field-level rule
+- [About Form Fields](https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/about-form-fields) — the premium and app fields' extra blocks, and every field-level rule

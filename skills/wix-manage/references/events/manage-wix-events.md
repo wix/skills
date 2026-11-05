@@ -1,6 +1,6 @@
 ---
 name: "Manage Wix Events — Publishing, Cancelling, Cloning and Counting"
-description: "Operates on Wix events that already exist with the Wix Events V3 API — finding, updating (date, venue, details, page settings), controlling registration (close, reopen, registration-free, external, members-only, limits), switching between RSVP and ticketed (a new event — ask before creating it), publishing, cancelling, deleting, cloning and counting, including single occurrences of a recurring event. Use to close registration, move or cancel an event, or change how guests register."
+description: "Operates on Wix events that already exist with the Wix Events V3 API — finding (by name or date), updating (date, venue, main image, description, page settings), controlling registration (close, reopen, registration-free, external, members-only, limits), switching between RSVP and ticketed (a new event — ask before creating it), publishing, cancelling, deleting, cloning and counting, including single occurrences of a recurring event. Use to close registration, move or cancel an event, or change how guests register."
 ---
 
 # Manage Wix Events — Publishing, Cancelling, Cloning and Counting
@@ -39,8 +39,10 @@ curl -X POST 'https://www.wixapis.com/apps-installer-service/v1/app-instance/ins
 
 Every action below takes an `eventId` ([Query Events](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events)
 is the reference for this call). When the user names the event instead, look it up with
-`POST https://www.wixapis.com/events/v3/events/query` — `title` supports `$eq` and, for several names at once, `$in`; there is
-no contains match:
+`POST https://www.wixapis.com/events/v3/events/query`. `title` matching ignores case, for `$eq`,
+`$in` (several names at once), `$startsWith` and `$contains`: `"pool splash"` with `$contains`
+finds "Summer Pool Splash". Start with `$eq` on the name as the user wrote it; when that finds
+nothing, retry once with `$contains` on its most distinctive word:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/events/v3/events/query' \
@@ -55,15 +57,48 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/query' \
   }'
 ```
 
-- **Send this body as it is** — no extra filter fields and no `sort`; a nested `registration`
-  filter or a `sort` inside `filter` fails `400`. `filter` and `paging` are siblings under `query`; `paging` nested
-  inside `filter` fails `400`.
+- **Send this body as it is**, adding only the filters and `sort` shown in this section. `filter`,
+  `paging` and `sort` are siblings under `query`; `paging` or `sort` nested inside `filter`, and a
+  nested `registration` object in the filter, fail `400`.
 - **Don't add `includeDrafts`.** `true` needs the draft-events permission and fails `403`; the
   default already returns every published event.
 **Always send `paging.limit`** — its default is `0`, which returns no events. Matches come back in
 `events[]` with the id at `events[].id`, and `pagingMetadata.total` is the count. Other filterable
 fields: `status` (`UPCOMING`, `STARTED`, `ENDED`, `CANCELED`, `DRAFT`), `registration.initialType`,
 `dateAndTimeSettings.startDate`, `slug`, `id`.
+
+**Events in a date range, soonest first:** put each bound in its own condition under `$and`. One
+object with both `$gte` and `$lt` fails `400 ... is invalid for field start of type DateTime`.
+Write the bounds in UTC from midnight in the time zone the user named, or else the site's
+(`properties.timeZone` from `GET https://www.wixapis.com/site-properties/v4/properties`): "December"
+in `America/New_York` starts at `2026-12-01T05:00:00Z`. Don't rely on the default order; send `sort`:
+
+```json
+{
+  "query": {
+    "filter": {
+      "status": { "$in": ["UPCOMING", "STARTED"] },
+      "$and": [
+        { "dateAndTimeSettings.startDate": { "$gte": "2026-12-01T05:00:00Z" } },
+        { "dateAndTimeSettings.startDate": { "$lt": "2027-01-01T05:00:00Z" } }
+      ]
+    },
+    "sort": [{ "fieldName": "dateAndTimeSettings.startDate", "order": "ASC" }],
+    "paging": { "limit": 100 }
+  },
+  "fields": ["DETAILS"]
+}
+```
+
+**Some fields come back only when `fields` asks for them** — send every value the next step reads:
+
+| Value | Adds | Use it for |
+| --- | --- | --- |
+| `DETAILS` | `shortDescription`, `mainImage` | The event's image and one-line summary |
+| `TEXTS` | `description` (rich content) | The text on the event page, before changing it |
+| `REGISTRATION` | `registration` | The event's type and registration state |
+| `DASHBOARD` | `summaries` | How many registered, for every event in the result ([Manage Event Guests](https://dev.wix.com/docs/api-reference/business-solutions/events/skills/manage-event-guests#list-an-events-guests)) |
+| `URLS` | `eventPageUrl` | A link to the event page |
 
 **One title can match several events** — every occurrence of a recurring event shares the title,
 and duplicated events keep it too. When more than one comes back, pick by
@@ -227,6 +262,18 @@ events with many guests or orders can take ten seconds or more. **Query the same
 couple of seconds for up to about twenty, then report what is actually gone or cancelled; if any
 remain, delete or cancel those one by one.
 
+**Which of the events have guests:** resolve the ids with the query in
+[Find an event](#find-an-event) and add `"fields": ["DASHBOARD"]`. One call returns, for every
+event, `summaries.rsvps.totalCount` (every RSVP, "no" and waitlist included) and
+`summaries.tickets.ticketsSold`; an event has guests when either is above `0`. The counts include
+an RSVP made a second earlier. Then:
+- The request names the events and a rule ("delete the ones nobody signed up for"): that is the
+  confirmation. Delete the events the rule selects without asking again, and say which you kept
+  and why.
+- The request names the events and says to delete them with their guests ("delete them all,
+  registrations too"): that is the confirmation.
+- Otherwise, name the events that have guests and how many, and ask before deleting those.
+
 > **Draft events need the `WIX_EVENTS.READ_DRAFT_EVENTS` permission.** Without it, publishing a
 > draft fails `403` — as does querying it, fetching it by slug, or adding ticket definitions to
 > it. If you hit that `403`, the event was still created; the way forward is to create events
@@ -348,6 +395,68 @@ Read `location` back: `locationTbd` must be `false` and `address.formattedAddres
 address is geocoded, so `formattedAddress` can differ from what the user typed (a nearby building
 or the street's local-language name) — confirm the city matches, and if it is a different place,
 say so and resend a fuller address (street number, postal code, `subdivision`).
+
+**Changing the main image.** `mainImage` takes an image that is already in the site's Media
+Manager, by its media `id` with `width` and `height`:
+
+```bash
+curl -X PATCH 'https://www.wixapis.com/events/v3/events/<EVENT_ID>' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  --data-binary '{
+    "event": {
+      "mainImage": { "id": "<MEDIA_FILE_ID>", "width": 1200, "height": 800, "altText": "Event flyer" }
+    },
+    "fields": ["DETAILS"]
+  }'
+```
+
+- An image the user sent or linked is not in the Media Manager yet. Import it first, in this order.
+  The three calls, their bodies and response paths are complete and were run as written: send
+  them in one code run (poll inside it), without a schema lookup for Import File, Get File or
+  Update Event. Open [Upload Media to Wix](https://dev.wix.com/docs/api-reference/assets/media/skills/upload-media-to-wix)
+  only if the import fails or the file never becomes `READY`.
+  1. `POST https://www.wixapis.com/site-media/v1/files/import` with
+     `{ "url": "<IMAGE_URL>", "mediaType": "IMAGE", "displayName": "Event flyer" }`. Leave out
+     `mimeType`: Wix detects it from the file.
+     The response's `file.id` (such as `49d11f_3daf...~mv2.jpg`) is the media `id`. The file is
+     still `PENDING` and has no size yet.
+  2. `GET https://www.wixapis.com/site-media/v1/files/<FILE_ID>` every second or two until
+     `file.operationStatus` is `READY`; then `width` and `height` are in
+     `file.media.image.image`.
+  3. The `PATCH` above. `mainImage` needs the media `id`; the `wixstatic` URL alone is not enough.
+- A `url` without an `id`, even a `static.wixstatic.com` one, fails `400` (`mainImage is invalid: id has size 0`).
+- **An `id` without `width` and `height` returns `200` and saves nothing.** Read `mainImage` in the
+  response (it comes back only with `"fields": ["DETAILS"]`); if it is missing, the image was not
+  set.
+
+**Changing the description.** `shortDescription` is a plain string (up to 500 characters).
+`description` is rich content, and an update **replaces it whole**: the nodes you send become the
+whole text. To add to the text, read it first with
+`GET https://www.wixapis.com/events/v3/events/<EVENT_ID>?fields=TEXTS`, then send its
+`description.nodes` as they came back, with the new nodes after them. Below, the first node is
+copied from the read and the second is the new paragraph, which needs only `type`, `nodes` and
+`textData`:
+
+```json
+{
+  "event": {
+    "description": {
+      "nodes": [
+        { "type": "PARAGRAPH", "id": "mrc2ax4v", "nodes": [ { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Join us by the pool.", "decorations": [] } } ], "paragraphData": {} },
+        { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "General admission: $105" } } ] }
+      ]
+    }
+  },
+  "fields": ["TEXTS"]
+}
+```
+
+For headings, lists and links, build the nodes as in
+[Rich Content](https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content).
+A string sent as `description` fails `400 Expected an object`.
+
+To change several events, send one `PATCH` per event; there is no bulk update.
 
 **Event page settings** go through the same `PATCH`, under `event`:
 
