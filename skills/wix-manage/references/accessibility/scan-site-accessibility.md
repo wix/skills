@@ -40,16 +40,26 @@ request to scan, check, or audit is already confirmation to create the scan job.
 1. Generate one UUID for this intended scan.
 2. Call **Run Accessibility Scan** once and keep the returned scan ID. Reuse the
    UUID only when retrying this exact request; use a new UUID for a new scan.
-3. Poll **Get Accessibility Scan** with that scan ID. Respect each response's
-   suggested polling interval until the status is terminal.
-4. On `COMPLETED` or `PARTIALLY_COMPLETED`, read:
+3. Poll **Get Accessibility Scan** with that scan ID. Wait the response's
+   `suggestedPollIntervalSeconds` between reads. Polling ends when the status
+   is terminal: `ACCESSIBILITY_SCAN_STATUS_COMPLETED`,
+   `ACCESSIBILITY_SCAN_STATUS_PARTIALLY_COMPLETED`, or
+   `ACCESSIBILITY_SCAN_STATUS_FAILED` (equivalently,
+   `suggestedPollIntervalSeconds` is `0`).
+   - Within one tool call, poll for at most about 60 seconds. If the scan is
+     still not terminal, return its current progress and poll again in a later
+     call.
+   - Never start a second poll loop for a scan while one may still be running,
+     and never start a new scan to retry a slow one.
+4. On `ACCESSIBILITY_SCAN_STATUS_COMPLETED` or
+   `ACCESSIBILITY_SCAN_STATUS_PARTIALLY_COMPLETED`, read:
    - the scan summary for totals and executed-rule coverage;
    - **List Accessibility Scan Page Summaries** for every discovered page,
      including clear pages and pages that failed to scan;
    - **List Accessibility Scan Findings** for actionable issues. Follow cursor
      paging for the result set the user requested.
-5. On `FAILED`, report the public failure guidance. Do not request findings or
-   present the scan as clean.
+5. On `ACCESSIBILITY_SCAN_STATUS_FAILED`, report the public failure guidance.
+   Do not request findings or present the scan as clean.
 
 Use a findings filter when the user asks about one page, rule, severity, or
 accessibility category. Do not issue a separate findings request for every page.
@@ -89,8 +99,9 @@ same target again with a **new** idempotency key and compare the results.
 - **Target unavailable:** ask for a valid page or refresh the collection list.
 - **Scan size limit exceeded:** never imply the site was fully scanned. Narrow
   the target, preferably into supported page collections, and report the limit.
-- **Partially completed:** return the usable findings and clearly list every
-  failed page and its failure guidance.
+- **Partially completed (`ACCESSIBILITY_SCAN_STATUS_PARTIALLY_COMPLETED`):**
+  return the usable findings and clearly list every failed page and its failure
+  guidance.
 - **Results expired:** start a new scan only when the user still wants fresh
   results.
 
