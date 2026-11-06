@@ -173,11 +173,16 @@ Do the six steps in this order. For each step: what you do, the call, and the re
 
 ### Step 2: the provision call
 
-Send this body. Change only the name and the solutions.
+Send this body. Change only the name, the solutions and `agent`.
 
 `seedOptions` is a list inside `newMetasite`. It has one entry per solution. Set `businessSolution`
 to one of `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. If the site needs
 none of these, leave `seedOptions` out.
+
+`agent` names what is building the site, three parts joined by `/`: the client product as its vendor
+writes it, lowercase; the surface, one of `chat`, `work`, `web`, `cli`, `desktop`, `ide`, `app`; the
+model as the client's selector shows it. `chatgpt/work/gpt-6.1`, `claude-code/cli/opus-5.5`. A part
+you cannot tell is `unknown`.
 
 **Caution:** the call accepts any other shape, installs nothing, and gives no error.
 
@@ -187,6 +192,7 @@ async function run() {
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
     body: {
       origin: 'agent',
+      agent: 'chatgpt/work/gpt-6.1',
       newMetasite: {
         namingStrategy: { metaSiteName: 'The Light Journal' },
         seedOptions: [{ businessSolution: 'BLOG', clearTemplateContent: true, seedDemoContent: false }]
