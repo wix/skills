@@ -47,7 +47,7 @@ function deriveFromAudit(records) {
   return { api_ms: Math.round(apiMs), api_calls: calls.size, api_retries: retries };
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const auditFile = args.auditFile || path.join(args.project, 'logs', 'import-audit.ndjson');
   if (!fs.existsSync(auditFile)) {
@@ -66,18 +66,17 @@ function main() {
     process.stdout.write(`${JSON.stringify({ ok: true, dryRun: true, auditRecords: records.length, ...derived })}\n`);
     return;
   }
+  await recorder.adoptIdentity(args.project);
   const result = recorder.meter(args.project, { ...derived, stage: args.stage });
   process.stdout.write(`${JSON.stringify({ ok: true, auditRecords: records.length, ...derived, ...result })}\n`);
 }
 
 if (require.main === module) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     const errors = error instanceof recorder.ValidationError ? error.errors : [error.message || String(error)];
     process.stdout.write(`${JSON.stringify({ ok: false, errors })}\n`);
     process.exit(1);
-  }
+  });
 }
 
 module.exports = { deriveFromAudit };

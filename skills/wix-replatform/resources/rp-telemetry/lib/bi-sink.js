@@ -14,11 +14,11 @@
 //      Standard identity fields stay snake_case (`logged_user_id`).
 //   2. Every GUID-typed field must be a real GUID; a non-hex value fails
 //      validation before routing and drops the whole event.
-//   3. Every row carries `logged_user_id` = the operator's wix_user_id (GUID).
-//      A run with no identity is NOT pushed: BI discards rows whose subject is not
-//      a real user, so a fabricated one (verified 2026-09-02 with the nil UUID)
-//      returns 2xx and ingests nothing. Better to journal the loss than to fake a
-//      success.
+//   3. Every row carries `logged_user_id`, a GUID. BI checks that it is present and
+//      well-formed, not that it belongs to a Wix account: a random GUID that no account
+//      owns is ingested (measured live). The all-zeros GUID was not ingested when tried and
+//      is never used. The recorder sends a run under the operator's id once known and under
+//      a random per-run placeholder before that.
 //
 // frog's HTTP status is not an ingestion receipt — only a Trino read-back proves
 // arrival. The recorder treats any non-2xx or network error as a push failure
@@ -77,7 +77,9 @@ function startedRunRow(runStart, wixUserId) {
   const dims = runStart.dims || {};
   const f = { phase: 'started' };
   put(f, 'runId', runStart.run_id, { guid: true });
-  put(f, 'projectId', runStart.project_id);
+  // Withheld while no operator id is known (see `sourceSiteUrl` below): the project name often
+  // names the customer.
+  if (isGuid(wixUserId)) put(f, 'projectId', runStart.project_id);
   put(f, 'attempt', runStart.attempt);
   put(f, 'sessionCount', 1);
   put(f, 'schemaVersions', runStart.schema_version);
@@ -87,7 +89,10 @@ function startedRunRow(runStart, wixUserId) {
   put(f, 'sourcePlatform', dims.source_platform);
   put(f, 'sourcePlatformVersion', dims.source_platform_version);
   put(f, 'sourceExtensions', dims.source_extensions, { json: true });
-  put(f, 'sourceSiteUrl', dims.source_site_url);
+  // Withheld while no operator id is known: a row sent under a run's placeholder says as little
+  // as it can (no project name, site address or destination site id); they return with the
+  // operator's id.
+  if (isGuid(wixUserId)) put(f, 'sourceSiteUrl', dims.source_site_url);
   put(f, 'sourceAcquisition', dims.source_acquisition);
   put(f, 'deliveryMode', dims.delivery_mode);
   put(f, 'destinationStrategy', dims.destination_strategy);
@@ -105,18 +110,18 @@ function startedRunRow(runStart, wixUserId) {
 function finalizedRunRow(rollup) {
   const f = { phase: 'finalized' };
   put(f, 'runId', rollup.run_id, { guid: true });
-  put(f, 'projectId', rollup.project_id);
+  if (isGuid(rollup.wix_user_id)) put(f, 'projectId', rollup.project_id);
   put(f, 'attempt', rollup.attempt);
   put(f, 'sessionCount', rollup.session_count);
   put(f, 'schemaVersions', rollup.schema_version);
   put(f, 'skillsVersion', rollup.skills_version);
   put(f, 'runtimeEnv', rollup.runtime_env, { json: true });
   put(f, 'wixUserId', rollup.wix_user_id, { guid: true });
-  put(f, 'siteId', rollup.site_id, { guid: true });
+  if (isGuid(rollup.wix_user_id)) put(f, 'siteId', rollup.site_id, { guid: true });
   put(f, 'sourcePlatform', rollup.source_platform);
   put(f, 'sourcePlatformVersion', rollup.source_platform_version);
   put(f, 'sourceExtensions', rollup.source_extensions, { json: true });
-  put(f, 'sourceSiteUrl', rollup.source_site_url);
+  if (isGuid(rollup.wix_user_id)) put(f, 'sourceSiteUrl', rollup.source_site_url);
   put(f, 'sourceAcquisition', rollup.source_acquisition);
   put(f, 'deliveryMode', rollup.delivery_mode);
   put(f, 'destinationStrategy', rollup.destination_strategy);

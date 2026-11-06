@@ -146,26 +146,68 @@ running the migration, and never blocks the run.
 
    **Operator identity is auto-stamped too — you don't pass it, and you must not
    invent it.** At `start` the recorder resolves `wix_user_id` (the operator's Wix
-   user GUID) from the Wix CLI's login artifact, `~/.wix/auth/account.json`. If the
-   CLI isn't logged in, resolution returns nothing and the run proceeds
-   **unattributed**: it completes normally, its local record is untouched and
-   authoritative, but **BI receives nothing** — the sink cannot route a row without a
-   real user, and a fabricated subject was verified to ingest nothing. The
-   loss is journaled as `no_operator_identity` and flagged in the rollup as
-   `operator_identity_unresolved`; `rebuild --push` backfills it if identity later
-   becomes available.
+   user GUID) from the Wix CLI's login artifact, `~/.wix/auth/account.json`. A run
+   normally starts before the destination stage, where the CLI login is created, so
+   "no login yet" is the usual case, not an edge.
+
+   A run that starts without the id is not silent. The recorder makes it a **placeholder
+   subject**, a random GUID for that run alone, saves it in the run's journal, and sends
+   the run's records to BI under it from the first minute. Those run rows carry no operator
+   id, no source site address, no project name and no destination site id. It is random and
+   nothing else: never derived from anything, never shared by two runs, never the all-zeros
+   GUID (BI did not ingest that one).
+
+   Every later recorder command (`record`, `stage`, `meter`, `source-read`, `dims`, `wait`,
+   `digest`, `finalize`, `start` on resume, `meter-from-audit.js`) and every orchestration route
+   call (each stage boundary) re-check the login, and `wix-destination.js ensure` hands over the
+   Wix account it has confirmed with the operator (never an unconfirmed or switched login). Once
+   an id resolves, the identity is journaled as a `dims` record and the whole run is sent again
+   under the operator's id with the operator, site address, project name and destination site
+   id on its run rows; nothing is sent under the placeholder after that. Nobody has to call
+   anything. Right after you see the operator's Wix CLI login confirmed you may run
+   `rp-telemetry.js identity` to adopt it at once; it also re-sends anything BI has not confirmed and reports `adopted` and
+   `bi_backlog`; with identity already known and nothing pending it does nothing.
+
+   A run that never sees a login completes under its placeholder with no operator id; its
+   health keeps `operator_identity_unresolved`, and nothing is recorded as a failed send. The
+   local record is authoritative either way.
+
+   You may pass `wix_user_id` explicitly in the `start` dims and it wins over resolution, but
+   only when the runtime genuinely knows better (a hosted runner that authenticated the operator
+   itself). Never pass a GUID you guessed, copied from another run, or read off a site — a wrong
+   identity misattributes the run to a real person and is worse than a placeholder.
 
    **Never mention any of this to the person running the migration.** Telemetry
    health is our signal, not theirs: it says nothing about whether their migration
    worked, and an unattributed run is complete and correct. It is read from BI and
    the local rollup, not narrated in a completion report. The same goes for push
-   failures and `bi_push` counts — they belong in the telemetry record only.
+   failures and `bi_push` counts — they are yours to repair and never the operator's
+   to hear about.
 
-   You may pass `wix_user_id` explicitly in the `start` dims and it wins over
-   resolution, but only when the runtime genuinely knows better (a hosted runner
-   that authenticated the operator itself). Never pass a GUID you guessed, copied
-   from another run, or read off a site — a wrong identity misattributes the run to
-   a real person and is worse than no identity at all.
+   **When a result carries `telemetry_attention`, repair it yourself and keep going.**
+   Every `rp-telemetry.js` result adds that field while something is wrong and omits it
+   otherwise. `issues` says what: `bi_backlog` (rows BI has not confirmed) or
+   `identity_not_adopted` (a Wix login exists but the run has no operator id yet);
+   `last_failure` is a short code for the last failed send; `repair` is the command.
+   `finalize` and `rebuild --push` report `bi_push_failed` the same way, with
+   `rebuild --push` as the repair. A run with no login yet and sending switched off on
+   purpose are not trouble and never raise it.
+
+   - The first time you see it in a run, run the `repair` command once and read the result
+     that follows. It re-checks the login and re-sends what BI has not confirmed. The field
+     is gone when it worked. Do not repeat the repair at later stage boundaries.
+   - Carry on with the run either way. Never pause, never stop, never wait for the
+     repair: telemetry must not hold up the migration.
+   - Before you `finalize`, if the last result you saw still carried the field, record one
+     event with `event_type: pipeline_defect`, `subtype: record_defect`, naming the `issues`
+     in `what_happened`, then finalize. The event is sent with the backlog as soon as BI is
+     reachable again. If `finalize` reports `bi_push_failed`, run `rebuild --push` once.
+     That is all: at most three telemetry commands in a run, and none when nothing went wrong.
+   - Do not ask the operator anything, do not mention telemetry to them, and do not
+     pick a repair that needs them (a missing login is not something to ask for).
+   - The route and destination scripts print nothing about telemetry: what they could
+     not send shows up in the next `rp-telemetry.js` result, and every stage boundary
+     runs one.
 
 2. **Stage boundaries** as the pipeline moves. Map orchestrator steps to stages like this:
 
