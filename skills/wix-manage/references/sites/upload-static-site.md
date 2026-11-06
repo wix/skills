@@ -44,7 +44,7 @@ Quick reference: [upload through MCP](#drop-through-the-wix-mcp) ·
 [upload with curl](#drop-with-curl) ·
 [release an Astro build](#release-a-wix-astro-build) · [list/read](#list-and-read) ·
 [patch](#patch-files) · [ZIP fallback](#download-edit-drop-fallback) ·
-[images](#images) · [limits/errors](#limits-and-failures).
+[media](#images-video-audio-and-documents) · [limits/errors](#limits-and-failures).
 
 ## Before the calls
 
@@ -95,7 +95,7 @@ An attachment carries only its file name, not the folder it came from: a file
 attached on its own lands at the top of the site, so attach a site with folders
 as one ZIP.
 If an attachment arrives unresolved as a local path, retrying that path cannot
-work; use supported text input or [another image route](#images).
+work; use supported text input or [another media route](#images-video-audio-and-documents).
 `files` text input uses this unescaped format:
 
 ```text
@@ -166,7 +166,8 @@ the changed files later, each one complete. It creates no site. On a site that
 already has files it writes the files sent and keeps the rest; `deletePaths`
 removes files, and `replaceAll: true` keeps only the files sent. It adds
 attribution, and returns the live URL, the dashboard and the site's files.
-Prefer a ZIP attachment containing the whole site, including images: it keeps
+Prefer a ZIP attachment containing the whole site (media goes in
+[Wix Media](#images-video-audio-and-documents)): it keeps
 the site's folders, and a single wrapping folder is stripped. Its limit is
 10 MB per call. Otherwise use the `files` text format above.
 
@@ -284,7 +285,8 @@ Unclaimed anonymous sites instead use their saved ID and
 
 ## Change it later
 
-Use the same site ID and URL. The file helpers and the ZIP fallback below edit
+Use the same site ID and URL. Do not keep backups, old copies of pages, `.map`
+files, or binaries split into text parts in the site. The file helpers and the ZIP fallback below edit
 static pages: they read the site's last drop and drop the result. A site whose
 live release is a Wix Astro build is changed in its project instead; a drop
 there replaces the build with static files. The file helpers' `patch` and an
@@ -566,24 +568,27 @@ rewritten to read it and uploaded here again. A request for a working shop or
 real bookings already supplies the consent; do not stop at a static mock. An
 anonymous site is [claimed](#claim-it-into-the-users-account) first.
 
-## Images
+## Images, video, audio and documents
 
-SVG is text; other images are bytes. Prefer, in order:
+Upload photos, video, audio and documents (PDFs) to the site's Wix Media with
+`UploadImageToWixSite` and link the returned URLs. Keep only small assets in the
+site files: SVG, icons, the logo, the favicon, fonts.
 
-1. Local originals included in the curl drop.
-2. Resolved file/ZIP attachments.
-3. An image imported into the site's Wix Media through `UploadImageToWixSite`
-   using `imageUrls`, from a source the user supplied or whose license allows it;
-   use its returned `static.wixstatic.com` URL. A sharing page is not a direct
-   file URL.
-4. Tool-encoded `imageBase64` with `mimeType`, one image per call, if the
-   tool exposes those fields. Never synthesize base64 in
-   model output: it causes decoding errors or corrupt images.
-5. If bytes cannot be sent, publish the pages and name the missing images.
-   Ask the user to upload them at
-   `https://manage.wix.com/dashboard/{metaSiteId}/media-manager`.
-   Then [list media](../media/upload-media-to-wix.md), match `displayName`,
-   update references to returned public URLs and republish.
+- One call for all files: `imageUrls` for direct file URLs, resolved
+  attachments in `image`, or `imageBase64` with `mimeType` for one local file.
+  Never synthesize base64 in model output. A sharing page is not a direct file
+  URL.
+- From a shell, upload a large local file (a video) through
+  [Wix Media's upload URL](../media/upload-media-to-wix.md).
+- Video: link `https://video.wixstatic.com/video/<id>/file`; it plays before
+  processing finishes.
+- Image at a set size: `<url>/v1/fill/w_800,h_450,al_c,q_80,enc_auto/<name>.jpg`.
+
+If the bytes cannot be sent, publish the pages and name the missing files.
+Ask the user to upload them at
+`https://manage.wix.com/dashboard/{metaSiteId}/media-manager`.
+Then [list media](../media/upload-media-to-wix.md), match `displayName`,
+update references to returned public URLs and republish.
 
 Never substitute drawings/placeholders for supplied images, shrink/re-encode
 them, or decode unchanged binary files as text during edits. Never link a
@@ -647,14 +652,16 @@ Wix MCP.
 - Raw drop: a lone top-level HTML file of any name becomes the homepage; with
   multiple HTML files, include `index.html`. The patch helper requires a root
   `index.html` or `index.htm`.
-- 20 MB per file and site; `UploadHeadlessWebsiteFiles` limits each call
-  to 10 MB. Patch also limits the final snapshot to 2,000 files.
+- 20 MiB for all of a site's files together; `UploadHeadlessWebsiteFiles`
+  limits each call to 10 MB. Patch also limits the final snapshot to 2,000
+  files.
 - Drop serves static files, not unbuilt project source. A Wix Astro build is
   [released](#release-a-wix-astro-build), not dropped.
 
 | Failure | Action |
 | --- | --- |
 | `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
+| The drop answers an HTML `400 Bad Request` page | The site is over 20 MiB. Do not retry. Move its largest media to [Wix Media](#images-video-audio-and-documents), relink it, remove those files with `deletePaths`, upload again. |
 | Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
 | A patch or an upload stops: "is live as something other than its last static upload" | Wix reports another release and the live home page is not the drop's, so a drop would put old files back over what is live. Do not drop. Ask the user how the site was made; for a Wix Astro build, [change the project](#a-site-released-as-a-wix-astro-build). To replace what is live with static pages on purpose, upload the whole site with `replaceAll: true`. Do not tell the user it is an Astro build unless you know it is. |
 | A helper's "has no static files on Wix hosting" (`404 SITE_CODE_NOT_FOUND`) | Nothing was ever dropped. A new site gets its first full upload; a site released as a Wix Astro build is changed in its project. |

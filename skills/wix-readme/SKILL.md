@@ -82,8 +82,8 @@ Media and feedback:
 
 | Tool | What it does |
 |---|---|
-| `UploadImageToWixSite` | Uploads images to a site's Media Manager and returns their URLs and media ids. |
-| `PickImagesForWixMedia` | Shows the user a file picker to upload images from their device to the Media Manager. |
+| `UploadImageToWixSite` | Uploads images, video, audio and documents to a site's Media Manager and returns their URLs and media ids. |
+| `PickImagesForWixMedia` | Shows the user a file picker to upload images, video, audio and documents from their device to the Media Manager. |
 | `ReportIssueToWix` | Reports one problem with Wix's tools, APIs or docs to the Wix team, when the user asks for it. |
 
 ### The Wix CLI
