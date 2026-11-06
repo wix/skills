@@ -125,13 +125,16 @@ Create only for a new site. Use the page title, at most 40 characters. Keep
 `origin: 'agent'` and both synchronous steps. A site that carries a Wix business solution
 names it in `seedOptions`, one entry per solution from `STORES`, `BLOG`, `BOOKINGS`,
 `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`: the provision installs that app on the site, with
-no demo content. A static site sends no `seedOptions`.
+no demo content. A static site sends no `seedOptions`. `agent` names what is building the site,
+three parts joined by `/`: the client product as its vendor writes it, lowercase; the surface, one of
+`chat`, `work`, `web`, `cli`, `desktop`, `ide`, `app`; the model as the client's selector shows it.
+`chatgpt/work/gpt-6.1`, `claude-code/cli/opus-5.5`. A part you cannot tell is `unknown`.
 
 ```javascript
 async function run() {
   return wix.request({ scope: 'account', method: 'POST',
     url: 'https://www.wixapis.com/headless-business-setup/v1/headless-business/provision',
-    body: { origin: 'agent',
+    body: { origin: 'agent', agent: 'chatgpt/work/gpt-6.1',
       newMetasite: {
         namingStrategy: { metaSiteName: 'Northwind Studio' },
         // a blog site; leave seedOptions out for static pages
@@ -152,7 +155,7 @@ The shell equivalent:
 ```bash
 curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-business/provision" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"origin":"agent","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[{"businessSolution":"BLOG","clearTemplateContent":true,"seedDemoContent":false}]},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
+  -d '{"origin":"agent","agent":"chatgpt/work/gpt-6.1","newMetasite":{"namingStrategy":{"metaSiteName":"Northwind Studio"},"seedOptions":[{"businessSolution":"BLOG","clearTemplateContent":true,"seedDemoContent":false}]},"synchronousSteps":["SET_METASITE_NAME","CONFIGURE_HEADLESS_APP"]}'
 ```
 
 ## Drop through the Wix MCP
