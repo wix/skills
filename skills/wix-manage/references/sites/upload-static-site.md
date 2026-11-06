@@ -52,8 +52,8 @@ Choose an already-authenticated route that can access the files, not by the
 client's name. Check the available tools before choosing:
 
 - **Wix MCP connected:** use `UploadHeadlessWebsiteFiles` to upload files (the
-  whole site the first time, the changed files later) and `ExecuteWixAPI` for API
-  scripts and list/read/patch helpers.
+  whole site the first time, the changed files later, each one complete) and
+  `ExecuteWixAPI` for API scripts and list/read/patch helpers.
   `ExecuteWixAPI` supplies authenticated `wix.request({ scope: 'account', ... })`,
   returning `{ status, data }`; no token or extra CLI login is needed.
 - **Shell reaches Wix:** check `curl -sI https://www.wixapis.com` for an HTTP
@@ -162,10 +162,10 @@ curl -sS -X POST "https://www.wixapis.com/headless-business-setup/v1/headless-bu
 
 If `UploadHeadlessWebsiteFiles` is available, pass the existing
 `metaSiteId` as `siteId` and the files: the whole site on a first upload, only
-the changed files later. It creates no site. On a site that already has files it
-writes the files sent and keeps the rest; `deletePaths` removes files, and
-`replaceAll: true` keeps only the files sent. It adds attribution, and returns
-the live URL, the dashboard and the site's files.
+the changed files later, each one complete. It creates no site. On a site that
+already has files it writes the files sent and keeps the rest; `deletePaths`
+removes files, and `replaceAll: true` keeps only the files sent. It adds
+attribution, and returns the live URL, the dashboard and the site's files.
 Prefer a ZIP attachment containing the whole site, including images: it keeps
 the site's folders, and a single wrapping folder is stripped. Its limit is
 10 MB per call. Otherwise use the `files` text format above.
@@ -345,6 +345,11 @@ async function run() {
 
 ### A site of static pages
 
+A file sent replaces that file whole. Read the current file first
+(`wix.headless.files.read`, or the copy uploaded in this conversation), make the
+change in it, and send the whole result. A stylesheet sent with only the new
+rules leaves every page unstyled.
+
 Both MCP routes keep the files an edit does not send: `UploadHeadlessWebsiteFiles`
 with the changed files, or `ExecuteWixAPI`'s file helpers below, which also edit
 a page in place without sending it back through you. Without MCP, go directly
@@ -429,8 +434,8 @@ async function run() {
 }
 ```
 
-For authored additions/replacements, pass only changed files through supported
-external file inputs, then:
+For authored additions/replacements, pass only the changed files, each one
+complete, through supported external file inputs, then:
 
 ```javascript
 async function run() {
