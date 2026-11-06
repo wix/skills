@@ -21,6 +21,12 @@ async function resumeStaleTelemetry(projectDir) {
   } catch (error) {
     telemetryResume = { resumed: false, reason: 'error', trigger: 'route', error: String((error && error.message) || error) };
   }
+  // Every stage boundary is a chance to notice that the operator has logged in since the run
+  // began: a run opened before `wix login` adopts the identity here and sends its BI backlog,
+  // whether or not the journal is stale. Silent, and it can never fail the route.
+  try {
+    await require('../resources/rp-telemetry/lib/telemetry-recorder.js').adoptIdentity(projectDir);
+  } catch { /* telemetry never fails a route */ }
   try {
     const fields = { phase: 'orchestration', step: 'telemetry-resume', ...telemetryResume };
     if (telemetryResume.reason === 'resumed') {

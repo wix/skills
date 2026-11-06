@@ -41,6 +41,10 @@ It prints a JSON outcome and never prints credentials:
   for the operator. `confirm_account` binds that account; `switched_account` shows the
   account again after a login change. A login that differs from the confirmed account is
   never used for a create.
+- After the coordinator runs, the run's telemetry picks up the confirmed Wix CLI login
+  automatically (the coordinator does it). If you confirm the login by other means first, run
+  `node resources/rp-telemetry/scripts/rp-telemetry.js identity` in the project; it is silent
+  and harmless when there is nothing to adopt.
 - `verified` / `created` / `existing_destination` — report the dashboard URL (and, for an
   Editor site, the verified editor URL) and return to the router.
 - `failed_before_create`, `ambiguous`, `awaiting_recovery`, `blocked` — a durable recovery

@@ -129,7 +129,19 @@ async function main(argv = process.argv.slice(2), deps = defaultDeps()) {
     console.error(usage());
     return 1;
   }
-  const result = await ensureDestination(path.resolve(argv[index + 1]), deps);
+  const projectDir = path.resolve(argv[index + 1]);
+  const result = await ensureDestination(projectDir, deps);
+  // The destination step is where the operator's account is first confirmed, and the run's
+  // telemetry began before it. Hand over the account it has confirmed (never an unconfirmed or
+  // switched login) so BI sends under the operator's id without anyone doing anything.
+  // Best-effort: never affects the outcome.
+  try {
+    const confirmed = result.receipt && result.receipt.intendedAccount && result.receipt.intendedAccount.userId;
+    if (confirmed) {
+      await require('../resources/rp-telemetry/lib/telemetry-recorder.js')
+        .adoptIdentity(projectDir, { resolveIdentity: () => confirmed });
+    }
+  } catch { /* telemetry is never allowed to fail the destination step */ }
   process.stdout.write(`${JSON.stringify(summarize(result), null, 2)}\n`);
   return exitCodeFor(result.outcome);
 }

@@ -7,6 +7,7 @@
 // Usage (run against the active migration project via --project or cwd):
 //   node scripts/rp-telemetry.js start '<dims-json>' [--project <dir>]
 //   node scripts/rp-telemetry.js dims '<dims-json>'
+//   node scripts/rp-telemetry.js identity      (adopt the login and re-send any unconfirmed rows)
 //   node scripts/rp-telemetry.js record '<event-json>'
 //   node scripts/rp-telemetry.js stage start <stage>
 //   node scripts/rp-telemetry.js stage end <stage> [--outcome <outcome>]
@@ -170,6 +171,10 @@ async function main() {
     fail([`project directory not found: ${projectDir}`], 'pass --project <migration project dir>');
   }
 
+  // A run that began before `wix login` has no operator identity yet; adopt it the first time
+  // any later command sees the login record (the library's async commands do this too).
+  if (['stage', 'meter', 'source-read', 'digest'].includes(command)) await recorder.adoptIdentity(projectDir);
+
   let result;
   switch (command) {
     case 'start':
@@ -178,6 +183,15 @@ async function main() {
     case 'dims':
       result = await recorder.dims(projectDir, parseJsonArg(rest[0], 'dims'));
       break;
+    case 'identity': {
+      // Explicit adoption, for the moment right after the operator's Wix CLI login is
+      // confirmed; every other command does the same check on its own.
+      const adopted = await recorder.adoptIdentity(projectDir);
+      // Also the repair for a send backlog: re-send what BI has not confirmed, then report.
+      await recorder.flush(projectDir);
+      result = { ...adopted, bi_backlog: recorder.status(projectDir).bi_backlog };
+      break;
+    }
     case 'record':
       result = await recorder.record(projectDir, parseJsonArg(rest[0], 'event'));
       break;
@@ -228,11 +242,16 @@ async function main() {
     default:
       fail(
         [`unknown command: ${command || '(none)'}`],
-        'commands: start, dims, record, stage start|end, meter, wait start|end, digest, finalize, rebuild, status',
+        'commands: start, dims, identity, record, stage start|end, meter, wait start|end, digest, finalize, rebuild, status',
       );
       return;
   }
-  process.stdout.write(`${JSON.stringify({ ok: true, ...result })}\n`);
+  // Telemetry trouble is for the agent, not the operator: the field exists only while something
+  // is wrong, and never changes the exit code or any other field.
+  const notice = command === 'finalize' || command === 'rebuild'
+    ? recorder.closingAttention(result.bi_push)
+    : recorder.attention(projectDir);
+  process.stdout.write(`${JSON.stringify({ ok: true, ...result, ...(notice ? { telemetry_attention: notice } : {}) })}\n`);
 }
 
 main().catch((error) => {

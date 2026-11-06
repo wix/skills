@@ -59,10 +59,39 @@ function headlessOperatorActions(receipt, { frontendCompletion }) {
   }];
 }
 
+// The destination step installs the Developer Tools app (Secrets Manager) once when it verifies a new
+// Harmony or Studio site. A failed install does not fail the destination, so it is reported here. It is
+// independent of the website release: the owner needs the app whenever a stored secret is entered.
+function developerToolsOperatorActions(receipt) {
+  const record = receipt.developerTools;
+  if (record == null) return [];
+  const wellFormed = typeof record === 'object' && !Array.isArray(record) && ['installed', 'failed'].includes(record.status);
+  if (wellFormed && record.status === 'installed') return [];
+  // A malformed record is reported like a failed install; it never stops the destination step or the run.
+  const reason = wellFormed ? (record.reason || 'install failed') : 'the install record in the receipt is unreadable';
+  const checked = wellFormed && record.checkedAt ? `, checked ${record.checkedAt}` : '';
+  const site = receipt.metaSiteId;
+  const editor = EDITOR_LABEL[receipt.requestedSiteType];
+  return [{
+    code: 'developer_tools_not_installed',
+    severity: 'medium',
+    action: `Site owner: the Developer Tools app is not confirmed installed on the ${editor} site ${site} (${reason}${checked}), so the dashboard may have no Secrets Manager and site code may have no \`secrets\` object. Add "Developer Tools" from the dashboard's app list, then open the Secrets Manager page to confirm. This does not stop the migration, and the destination step does not retry it.`,
+    deadlineReason: 'before a credential must be stored on the site',
+    entity: 'website',
+    affectedCount: 1,
+    actionId: `developer_tools_not_installed:${site}`,
+    role: 'site-owner',
+    affectedIds: [site],
+    artifactRefs: ['orchestration/destination.json'],
+    resolutionEvidence: 'The Secrets Manager page opens on the site. Nothing in the pipeline clears this item.',
+  }];
+}
+
 function destinationOperatorActions(receipt, { frontendCompletion = null } = {}) {
   if (receipt && receipt.requestedSiteType === 'headless') return headlessOperatorActions(receipt, { frontendCompletion });
   if (!receipt || !EDITOR_LABEL[receipt.requestedSiteType] || !receipt.metaSiteId || receipt.status !== 'verified') return [];
-  if (websiteReleased(frontendCompletion)) return [];
+  const developerTools = developerToolsOperatorActions(receipt);
+  if (websiteReleased(frontendCompletion)) return developerTools;
   const editor = EDITOR_LABEL[receipt.requestedSiteType];
   const editorLink = receipt.editorUrl ? ` Editor: ${receipt.editorUrl}.` : '';
   const generated = receipt.creationMethod === 'harmony_generation'
@@ -72,6 +101,7 @@ function destinationOperatorActions(receipt, { frontendCompletion = null } = {})
     ? `verified unpublished at ${receipt.publication.checkedAt}`
     : 'publication state not verified as unpublished — an unresolved check, not "unpublished"';
   return [
+    ...developerTools,
     {
       code: 'editor_website_unfinished',
       severity: 'high',

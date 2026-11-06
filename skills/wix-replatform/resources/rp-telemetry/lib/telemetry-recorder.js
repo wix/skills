@@ -56,7 +56,11 @@ const biSink = require('./bi-sink.js');
 //         names). Additive; readers per the external reader contract skip
 //         unknown record types.
 // 1.6.0 — bounded knowledge observations; existing actualSkill BI column, no raw custom keys.
-const TELEMETRY_SCHEMA_VERSION = '1.6.0';
+// 1.7.0 — a run with no operator id sends under a per-run placeholder subject: the optional
+//         `run_start.provisional_subject` field, the `provisional_subject` journal record type
+//         (for journals that predate it) and `subject` on `bi_push_ok` markers. Additive;
+//         readers per the external reader contract skip unknown record types and fields.
+const TELEMETRY_SCHEMA_VERSION = '1.7.0';
 const FREE_TEXT_MAX = 400;
 const SHAPES_KEPT_PER_CLASS = 3;
 const SHAPES_MAX_PER_CALL = 10;
@@ -79,11 +83,21 @@ const ROUTE_RESUME_MIN_GAP_MS = 15 * 60 * 1000;
 const SESSION_ADOPT_WINDOW_MS = 60 * 1000;
 // Transport cap on the automatic heal; at the cap the request is cancelled, not abandoned.
 const HEAL_DEADLINE_MS = 3000;
+// The closing push is a single send of the whole run and nothing heals it afterwards (the journal is
+// archived), so a placeholder-subject finalize gets a longer cap than the per-event sends.
+const FINALIZE_DEADLINE_MS = 20000;
+// After a send ends in a timeout or an abort (a BI that hangs rather than refuses), further
+// ordinary sends, under the placeholder or the operator's id, are skipped for this long on the run's
+// own clock, so a blocked network costs a run one deadline per minute and not one per command.
+// Never applies to `finalize` or the `identity` repair.
+const SEND_PAUSE_MS = 60 * 1000;
 // Journal-lock waits: automatic resume gives up (busy no-op), marker appends are skipped
 // (backlog stays for the next heal), explicit commands throw (non-gating in the CLI).
 const LOCK_WAIT_MS = 2000;
 const MARKER_LOCK_WAIT_MS = 1000;
 const COMMAND_LOCK_WAIT_MS = 5000;
+const PLACEHOLDER_MARKER_LOCK_WAIT_MS = 500;
+const LEGACY_SUBJECT = '__legacy__';
 // A wait at least this long with no halt_needs_user event in its stage means the
 // capture lost *why* the run stalled — flagged at finalize, never silent.
 const WAIT_WITHOUT_HALT_FLAG_MS = 5 * 60 * 1000;
@@ -1176,6 +1190,11 @@ function replay(records) {
     biPushTruncated: 0,
     biPushSkipped: 0,
     lastBiPushOkSeq: 0,
+    // Highest confirmed `through_seq` per subject the rows were sent under; a marker written
+    // before subjects were recorded is under LEGACY_SUBJECT (it was always the operator's id).
+    biOkBySubject: {},
+    // The run's placeholder subject (random GUID) while the operator's id is unknown.
+    provisionalSubject: null,
     lastEventSeq: 0,
     finalize: null,
     lastTs: null,
@@ -1203,6 +1222,7 @@ function replay(records) {
         state.runStart = record;
         state.lastOpener = record;
         Object.assign(state.dims, record.dims || {});
+        if (biSink.isGuid(record.provisional_subject)) state.provisionalSubject = record.provisional_subject;
         break;
       case 'session_start':
         state.sessionCount = record.session;
@@ -1259,8 +1279,15 @@ function replay(records) {
       case 'bi_push_skipped':
         state.biPushSkipped += record.rows || 1;
         break;
-      case 'bi_push_ok':
-        state.lastBiPushOkSeq = Math.max(state.lastBiPushOkSeq, record.through_seq || 0);
+      case 'bi_push_ok': {
+        const through = record.through_seq || 0;
+        state.lastBiPushOkSeq = Math.max(state.lastBiPushOkSeq, through);
+        const key = typeof record.subject === 'string' ? record.subject : LEGACY_SUBJECT;
+        state.biOkBySubject[key] = Math.max(state.biOkBySubject[key] || 0, through);
+        break;
+      }
+      case 'provisional_subject':
+        if (!state.provisionalSubject && biSink.isGuid(record.subject)) state.provisionalSubject = record.subject;
         break;
       case 'finalize':
         state.finalize = record;
@@ -1604,11 +1631,10 @@ function assembleDocument(projectDir, records, malformedLines = 0) {
   if (state.biPushSkipped > 0) {
     flags.push('bi_sink_disabled_during_run');
   }
-  // No operator identity ever resolved, so this run pushed NOTHING to BI and is
-  // invisible to cross-run review — the run is complete and correct on disk, and
-  // that is exactly why this needs saying out loud. Before this flag existed the
-  // only trace was `sent: 0` inside the finalize payload, which is how four of
-  // six local projects went missing unnoticed.
+  // No operator identity ever resolved: the run was sent to BI under its placeholder
+  // subject, with no operator on it. It is complete and correct on disk and counted in BI
+  // as unattributed; this flag is how a reader tells "never identified" from "identified,
+  // copy not yet delivered".
   if (!biSink.isGuid(dims.wix_user_id)) {
     flags.push('operator_identity_unresolved');
   }
@@ -1860,13 +1886,10 @@ function resolveSkillsCommit() {
 // the run proceeds unattributed but never blocked. Telemetry must never fail a
 // migration.
 //
-// An unattributed run still reaches BI as nothing at all, and that is on
-// purpose: routing such runs under a fabricated subject was implemented and
-// tested against live BI on 2026-09-02 — frog answered 2xx and ingested zero
-// rows, so it reported success while losing the data. Journaling the loss
-// (`no_operator_identity` + the `operator_identity_unresolved` flag) beats
-// faking a subject. Making unattributed runs countable needs a BI-side
-// anonymous event.
+// A run with no operator identity is not silent: it sends under a per-run placeholder
+// subject (a random GUID; BI ingests a GUID no account owns, but did not ingest the
+// all-zeros GUID, which must never be used) and carries the `operator_identity_unresolved`
+// health flag until the operator's id is known.
 function resolveOperatorIdentity() {
   return require('../../../lib/operator-identity').resolveOperatorIdentity();
 }
@@ -1907,7 +1930,7 @@ async function pushToBi(projectDir, ts, seq, rows, loggedUserId, target, {
     markers.push({ type: 'bi_push_failed', ts, target, rows: failure.rows, detail: failure.detail });
   }
   if (throughSeq !== undefined && result.sent > 0 && result.failures.length === 0 && result.skipped === 0) {
-    markers.push({ type: 'bi_push_ok', ts, target, through_seq: throughSeq });
+    markers.push({ type: 'bi_push_ok', ts, target, through_seq: throughSeq, subject: loggedUserId });
   }
   let markersSkipped = false;
   if (markers.length > 0) {
@@ -1940,16 +1963,132 @@ async function pushToBi(projectDir, ts, seq, rows, loggedUserId, target, {
   };
 }
 
-// True when journal content that belongs in BI has no confirming watermark:
-// a prior push failed or was skipped, or the journal predates schema 1.4.0.
+// A send under the run's placeholder (no operator id yet) is bounded by the heal deadline. Before the
+// Wix login exists the machine's egress is the likeliest to be blocked, and an unbounded send per
+// recorded event would slow the run on every call; a bounded one just leaves the run in backlog,
+// which the next send retries. Sends under the operator's id keep their existing behaviour.
+// True when the newest send outcome in the journal is a hang (timeout or abort) less than
+// SEND_PAUSE_MS before `ts`. A later confirmed send clears it. Reads the journal's own
+// markers; no extra state.
+function sendPauseActive(projectDir, ts) {
+  try {
+    const journal = readJournal(projectDir);
+    if (!journal) return false;
+    const now = tsMs(ts);
+    for (let i = journal.records.length - 1; i >= 0; i -= 1) {
+      const r = journal.records[i];
+      if (r.type === 'bi_push_ok') return false;
+      if (r.type === 'bi_push_failed') {
+        if (r.detail !== 'timeout' && r.detail !== 'aborted') return false;
+        const at = tsMs(r.ts);
+        return Number.isFinite(at) && Number.isFinite(now) && now >= at && now - at < SEND_PAUSE_MS;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function pushToBiForSubject(operatorId, projectDir, ts, seq, rows, subject, target, options = {}) {
+  // A hung BI pauses ordinary sends for a minute under either subject: the operator's id gives no
+  // reason to wait 8 s per batch on every `record`. `force` (finalize, the repair) always sends.
+  if (!options.force && sendPauseActive(projectDir, ts)) {
+    return { seq, sent: 0, failed: 0, skipped: 0, aborted: false, markersSkipped: false, deferred: true };
+  }
+  if (options.signal) return pushToBi(projectDir, ts, seq, rows, subject, target, options);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.deadlineMs || HEAL_DEADLINE_MS);
+  try {
+    // A busy marker lock is waited on briefly before the operator's id is known, as before.
+    return await pushToBi(projectDir, ts, seq, rows, subject, target, {
+      ...(operatorId ? {} : { markerLockWaitMs: PLACEHOLDER_MARKER_LOCK_WAIT_MS }), ...options, signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// The subject a run's rows are sent under: the operator's Wix user id once it is known, else the
+// run's placeholder (a random GUID made for this run alone). This is the only place a subject is
+// chosen, so once the operator's id is known nothing can be sent under the placeholder again.
+function operatorIdOf(state) {
+  return biSink.isGuid(state.dims.wix_user_id) ? state.dims.wix_user_id : null;
+}
+
+function subjectOf(state) {
+  return operatorIdOf(state) || state.provisionalSubject || null;
+}
+
+// Same as `subjectOf`, but a run that has neither (a journal written before placeholders
+// existed) gets its placeholder written now. Call inside the journal lock.
+function ensureSubjectLocked(projectDir, state, ts) {
+  const existing = subjectOf(state);
+  if (existing) return existing;
+  const subject = crypto.randomUUID();
+  appendJournal(projectDir, { type: 'provisional_subject', ts, seq: state.seq + 1, subject });
+  state.provisionalSubject = subject;
+  state.seq += 1;
+  return subject;
+}
+
+// {subject, operatorId, view} for a send made after the journal lock was released. The caller's
+// `state` is a snapshot from before it released the lock, and another process may have bound
+// the operator's id since, so the subject (and the send markers behind the backlog decision) are
+// taken from a fresh read of the journal; a legacy journal gets its placeholder here, once. `view`
+// is the caller's snapshot with the fresh subject facts, for `biBacklog` and `healRows`.
+function resolveSendSubject(projectDir, state, ts) {
+  const journal = readJournal(projectDir);
+  const fresh = journal ? replay(journal.records) : null;
+  const base = fresh && fresh.runStart && state.runStart && fresh.runStart.run_id === state.runStart.run_id ? fresh : state;
+  const view = {
+    ...state, dims: base.dims, provisionalSubject: base.provisionalSubject, biOkBySubject: base.biOkBySubject,
+  };
+  let subject = subjectOf(view);
+  if (!subject) {
+    // The event (or other journal content) is already on disk by now, so a busy lock must not turn
+    // into a failed command: with no subject the caller skips the send and the run stays in backlog.
+    try {
+      subject = withJournalLock(projectDir, () => {
+        const current = readJournal(projectDir);
+        if (!current) return null;
+        return ensureSubjectLocked(projectDir, replay(current.records), ts);
+      });
+    } catch {
+      subject = null;
+    }
+    view.provisionalSubject = subject;
+  }
+  return { subject, operatorId: operatorIdOf(view), view };
+}
+
+// True when journal content that belongs in BI has no confirming watermark FOR THE CURRENT
+// SUBJECT: a prior send failed or was skipped, the journal predates the watermark, or the
+// operator's id arrived after rows went out under the placeholder (so nothing is confirmed under
+// the operator's id yet). A marker written before subjects were recorded counts for the
+// operator's id and for nothing else.
+function currentSubjectOkSeq(state) {
+  const subject = subjectOf(state);
+  if (!subject) return 0;
+  return operatorIdOf(state)
+    ? Math.max(state.biOkBySubject[subject] || 0, state.biOkBySubject[LEGACY_SUBJECT] || 0)
+    : (state.biOkBySubject[subject] || 0);
+}
+
 function biBacklog(state) {
-  return state.lastBiPushOkSeq === 0 || state.lastBiPushOkSeq < state.lastEventSeq;
+  const subject = subjectOf(state);
+  if (!subject) return true;
+  const confirmed = operatorIdOf(state)
+    ? Math.max(state.biOkBySubject[subject] || 0, state.biOkBySubject[LEGACY_SUBJECT] || 0)
+    : (state.biOkBySubject[subject] || 0);
+  return confirmed === 0 || confirmed < state.lastEventSeq;
 }
 
 // The full idempotent re-push set: the started row plus every folded event
 // class (the finalized rollup only exists at finalize, which builds its own).
 function healRows(state, wixUserId, extraEventRecords = []) {
   const folded = foldEvents([...state.events, ...extraEventRecords], state.runStart.run_id);
+  // `wixUserId` is the operator's id or null; the placeholder is never written as the operator.
   return [biSink.startedRunRow(state.runStart, wixUserId), ...folded.map(biSink.eventRow)];
 }
 
@@ -1965,6 +2104,192 @@ function foldedRowForClass(state, eventRecord) {
 }
 
 // --- public command API ---------------------------------------------------------
+
+// Late identity adoption. A run normally starts before the operator's Wix CLI login exists
+// (the login happens in the destination stage), so `start` opens it without a wix_user_id and
+// every row goes out under the run's placeholder. Any later command calls this first: when the
+// active run still has no GUID identity and the CLI login record now resolves one, journal it
+// as a dims record and re-send the whole run under the operator's id -- no operator action, no
+// explicit `start` resume. Best-effort by design: it never throws, never blocks the command
+// that called it (the push is bounded by HEAL_DEADLINE_MS), and a still-unresolved identity is
+// a silent no-op (the run keeps sending under its placeholder).
+const ADOPT_LOCK_WAIT_MS = 1500;
+const ADOPT_MARKER_LOCK_WAIT_MS = 500;
+const IDENTITY_SETTLED_FILE = '.identity-bound';
+
+// The run id and whether the journal already holds the operator's GUID, from journal TEXT the
+// caller already read (so the answer and the run id come from the same bytes). Only lines that
+// mention `wix_user_id` are parsed, so a long journal costs a substring scan, not a replay.
+function journalIdentityFacts(text) {
+  const newline = text.indexOf('\n');
+  let runId = null;
+  try { runId = JSON.parse(newline === -1 ? text : text.slice(0, newline)).run_id || null; } catch { /* unreadable first line */ }
+  let hasId = false;
+  for (const line of text.split('\n')) {
+    if (!line.includes('"wix_user_id"')) continue;
+    try {
+      const record = JSON.parse(line);
+      if ((record.type === 'run_start' || record.type === 'dims') && biSink.isGuid(record.dims && record.dims.wix_user_id)) {
+        hasId = true;
+        break;
+      }
+    } catch { /* a torn or malformed line is not an answer */ }
+  }
+  return { runId, hasId };
+}
+
+// The run id on the journal's first line without reading the rest: reads in chunks up to the
+// first newline, however long that line is (a run_start can carry large dimensions).
+function firstRunId(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const chunk = Buffer.alloc(65536);
+    let text = '';
+    for (let position = 0; position < 16 * 1024 * 1024;) {
+      const read = fs.readSync(fd, chunk, 0, chunk.length, position);
+      if (read === 0) break;
+      text += chunk.toString('utf8', 0, read);
+      position += read;
+      if (text.includes('\n')) break;
+    }
+    return JSON.parse(text.split('\n')[0]).run_id || null;
+  } catch {
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// Once a run has its operator id it never loses it, so the answer is remembered next to the
+// journal, keyed by run id (a later run in the same project has a different run id). A settled
+// run then costs one small file read and one first-line read per command.
+function identitySettled(projectDir, file) {
+  try {
+    const settled = JSON.parse(fs.readFileSync(path.join(telemetryDir(projectDir), IDENTITY_SETTLED_FILE), 'utf8'));
+    return Boolean(settled.run_id) && settled.run_id === firstRunId(file);
+  } catch {
+    return false;
+  }
+}
+
+function markIdentitySettled(projectDir, runId) {
+  try {
+    if (runId) fs.writeFileSync(path.join(telemetryDir(projectDir), IDENTITY_SETTLED_FILE), JSON.stringify({ run_id: runId }));
+  } catch { /* a missing marker only costs a re-check */ }
+}
+
+async function adoptIdentity(projectDir, { now, resolveIdentity = resolveOperatorIdentity } = {}) {
+  try {
+    // Cheapest checks first, because this runs on every command: no login yet (one small file
+    // read) means nothing to do; a run already known to have its id is settled by the marker;
+    // otherwise a text match over the journal settles "id already there" without a replay.
+    const userId = resolveIdentity();
+    if (!biSink.isGuid(userId)) return { adopted: false };
+    const file = journalPath(projectDir);
+    if (!fs.existsSync(file)) return { adopted: false };
+    if (identitySettled(projectDir, file)) return { adopted: false };
+    const facts = journalIdentityFacts(fs.readFileSync(file, 'utf8'));
+    if (facts.hasId) {
+      markIdentitySettled(projectDir, facts.runId);
+      return { adopted: false };
+    }
+    const ts = nowIso(now);
+    const plan = withJournalLock(projectDir, () => {
+      const journal = readJournal(projectDir);
+      if (!journal) return null;
+      const state = replay(journal.records);
+      if (!state.runStart || state.finalize) return null;
+      if (biSink.isGuid(state.dims.wix_user_id)) {
+        markIdentitySettled(projectDir, state.runStart.run_id);
+        return null;
+      }
+      const seq = state.seq + 1;
+      appendJournal(projectDir, { type: 'dims', ts, seq, dims: { wix_user_id: userId } });
+      markIdentitySettled(projectDir, state.runStart.run_id);
+      return { state, seq, userId };
+    }, { waitMs: ADOPT_LOCK_WAIT_MS });
+    if (!plan) return { adopted: false };
+    // Bounded like every hook-driven send: an unreachable BI never holds a command up for long,
+    // neither in the transport nor in writing the markers afterwards.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HEAL_DEADLINE_MS);
+    try {
+      await pushToBi(projectDir, ts, plan.seq, healRows(plan.state, plan.userId), plan.userId,
+        'identity_heal', { throughSeq: plan.seq, signal: controller.signal, markerLockWaitMs: ADOPT_MARKER_LOCK_WAIT_MS });
+    } finally {
+      clearTimeout(timer);
+    }
+    return { adopted: true };
+  } catch {
+    return { adopted: false };
+  }
+}
+
+// Re-send whatever BI has not confirmed for the run, under its current subject. This is the
+// repair the agent is told to run when `attention` reports a backlog: unlike `record`, which only
+// heals as a side effect of the next event, it sends now. Best effort and bounded like every
+// other send; a run with nothing pending, no active run, or sending switched off does nothing.
+async function flush(projectDir, { now } = {}) {
+  try {
+    if (biSink.disabled()) return { flushed: false };
+    const ts = nowIso(now);
+    const journal = readJournal(projectDir);
+    if (!journal) return { flushed: false };
+    const state = replay(journal.records);
+    if (!state.runStart || state.finalize) return { flushed: false };
+    const { subject, operatorId, view } = resolveSendSubject(projectDir, state, ts);
+    if (!subject || !biBacklog(view)) return { flushed: false };
+    await pushToBiForSubject(operatorId, projectDir, ts, state.seq, healRows(state, operatorId), subject, 'flush',
+      { throughSeq: state.seq, force: true });
+    return { flushed: true };
+  } catch {
+    return { flushed: false };
+  }
+}
+
+// What the agent must be told about the run's telemetry, or null when nothing is wrong. Worked
+// out from the journal on every call, with no stored state. Trouble is: (a) a send backlog under
+// the run's current subject while sending is switched on, or (b) a Wix login that exists while the
+// run still has no operator id. A run with no login yet is not in trouble: it sends under its
+// placeholder. The result is for the agent only; it never carries a URL, a response body or an id.
+// `last_failure` is the short code of the newest failed send. Never throws.
+function attention(projectDir, { resolveIdentity = resolveOperatorIdentity } = {}) {
+  try {
+    const journal = readJournal(projectDir);
+    if (!journal) return null;
+    const state = replay(journal.records);
+    if (!state.runStart || state.finalize) return null;
+    const issues = [];
+    if (!biSink.disabled() && biBacklog(state)) issues.push('bi_backlog');
+    let userId = null;
+    try { userId = resolveIdentity(); } catch { userId = null; }
+    if (biSink.isGuid(userId) && !operatorIdOf(state)) issues.push('identity_not_adopted');
+    if (issues.length === 0) return null;
+    let lastFailure = null;
+    for (let i = journal.records.length - 1; i >= 0; i -= 1) {
+      if (journal.records[i].type === 'bi_push_failed') {
+        lastFailure = typeof journal.records[i].detail === 'string' ? journal.records[i].detail.slice(0, 40) : null;
+        break;
+      }
+    }
+    return { issues, last_failure: lastFailure, repair: 'rp-telemetry.js identity' };
+  } catch {
+    return null;
+  }
+}
+
+// The same notice for a closing push (`finalize`, `rebuild --push`) that left rows unsent. The
+// run is archived by then, so the repair is the explicit re-send. Sending switched off is not trouble.
+function closingAttention(biPush) {
+  if (!biPush || biSink.disabled()) return null;
+  if (!(biPush.failed > 0) && !(biPush.skipped > 0)) return null;
+  // A journal with no subject to send under cannot be re-sent by any command: say nothing rather
+  // than name a repair that can never work.
+  if (Array.isArray(biPush.failure_details) && biPush.failure_details.includes('no_operator_identity')) return null;
+  const detail = Array.isArray(biPush.failure_details) && typeof biPush.failure_details[0] === 'string'
+    ? biPush.failure_details[0].slice(0, 40) : null;
+  return { issues: ['bi_push_failed'], last_failure: detail, repair: 'rp-telemetry.js rebuild --push' };
+}
 
 // --- supervisor liveness -------------------------------------------------------
 
@@ -2113,22 +2438,31 @@ async function start(projectDir, dimsInput, {
         // Join the session automatic recovery (or this supervisor run) already opened: no
         // second session_start, no imputed wait. The caller's dims (and resolved identity)
         // still land; the heal runs only when there is backlog.
-        const userId = resolveMissingIdentity(state, dims, resolveIdentity);
+        resolveMissingIdentity(state, dims, resolveIdentity);
         let seq = state.seq;
         if (Object.keys(dims).length > 0) {
           seq += 1;
           appendJournal(projectDir, { type: 'dims', ts, seq, dims });
         }
+        // The run as it stands after this call's dims: the subject it sends under, and whether
+        // the operator's id has just arrived (rows already sent under the placeholder do not
+        // count as sent under the operator's id).
+        const next = { ...state, dims: { ...state.dims, ...dims }, seq };
+        const bound = Boolean(operatorIdOf(next)) && !operatorIdOf(state);
+        const subject = ensureSubjectLocked(projectDir, next, ts);
         return {
-          kind: 'adopted', state, seq, userId, heal: Boolean(userId) && biBacklog(state),
+          kind: 'adopted', state, seq: next.seq, subject, operatorId: operatorIdOf(next),
+          heal: bound || biBacklog(next),
         };
       } else {
         // Resume: same run_id, same attempt, one more session. Cross-session user
         // latency lands in waiting_ms, never in a phantom second run.
         const built = buildResumeRecords(state, ts, dims, { resolveIdentity });
         appendJournalRecords(projectDir, built.records);
+        const next = { ...state, dims: { ...state.dims, ...dims }, seq: built.seq };
+        const subject = ensureSubjectLocked(projectDir, next, ts);
         return {
-          kind: 'resumed', state, seq: built.seq, userId: built.userId, heal: Boolean(built.userId),
+          kind: 'resumed', state, seq: next.seq, subject, operatorId: operatorIdOf(next), heal: true,
         };
       }
     }
@@ -2155,6 +2489,10 @@ async function start(projectDir, dimsInput, {
       if (resolvedUserId) dims.wix_user_id = resolvedUserId;
     }
 
+    // No operator id yet: the run sends under a random placeholder made for it alone, until the
+    // operator's id is known (never the all-zeros GUID, never derived from anything).
+    const provisionalSubject = biSink.isGuid(dims.wix_user_id) ? null : crypto.randomUUID();
+
     const record = {
       type: 'run_start',
       ts,
@@ -2168,6 +2506,7 @@ async function start(projectDir, dimsInput, {
       skills_commit: skillsCommit,
       runtime_env: runtimeEnv,
       dims,
+      ...(provisionalSubject ? { provisional_subject: provisionalSubject } : {}),
     };
     appendJournal(projectDir, record);
     return { kind: 'new', record, attempt, skillsVersion, skillsCommit };
@@ -2181,8 +2520,8 @@ async function start(projectDir, dimsInput, {
     // the resume is the one reliable moment to recover rows the previous
     // session's transport lost (re-sends are harmless: reviewer-side dedup).
     if (plan.heal) {
-      await pushToBi(projectDir, ts, plan.seq, healRows(state, plan.userId),
-        plan.userId, 'resume_heal', { throughSeq: plan.seq });
+      await pushToBiForSubject(plan.operatorId, projectDir, ts, plan.seq, healRows(state, plan.operatorId),
+        plan.subject, 'resume_heal', { throughSeq: plan.seq });
     }
     return {
       resumed: true,
@@ -2195,14 +2534,14 @@ async function start(projectDir, dimsInput, {
   }
 
   const { record, attempt, skillsVersion, skillsCommit } = plan;
-  // Emit `replatform_run` phase:started. Without a GUID operator identity there is
-  // no BI route yet — a later dims call carrying wix_user_id (or the finalize
-  // re-push) sends it then. Routing an unattributed run under a fabricated subject
-  // was tried and verified not to work: BI returns 2xx and ingests
-  // nothing, which is a silent loss dressed as a success.
-  if (biSink.isGuid(record.dims.wix_user_id)) {
-    await pushToBi(projectDir, ts, record.seq,
-      [biSink.startedRunRow(record, record.dims.wix_user_id)], record.dims.wix_user_id, 'run_started',
+  // Emit `replatform_run` phase:started. Without a GUID operator identity it goes out under
+  // the run's placeholder subject (never the all-zeros GUID: BI did not ingest it); the
+  // operator's copy follows when the id is known.
+  {
+    const operatorId = biSink.isGuid(record.dims.wix_user_id) ? record.dims.wix_user_id : null;
+    const subject = operatorId || record.provisional_subject;
+    await pushToBiForSubject(operatorId, projectDir, ts, record.seq,
+      [biSink.startedRunRow(record, operatorId)], subject, 'run_started',
       { throughSeq: record.seq });
   }
   return {
@@ -2307,7 +2646,12 @@ async function resumeIfStale(projectDir, options = {}) {
       if (fresh.reason) return { reason: fresh.reason };
       const built = buildResumeRecords(fresh.state, ts, {}, { trigger, resolveIdentity });
       appendJournalRecords(projectDir, built.records);
-      return { reason: null, state: fresh.state, built };
+      const next = { ...fresh.state, seq: built.seq };
+      if (biSink.isGuid(built.userId)) next.dims = { ...fresh.state.dims, wix_user_id: built.userId };
+      const subject = ensureSubjectLocked(projectDir, next, ts);
+      return {
+        reason: null, state: fresh.state, built, subject, operatorId: operatorIdOf(next), seq: next.seq,
+      };
     }, { waitMs: lockWaitMs });
   } catch (error) {
     if (error && error.code === 'ELOCKBUSY') return noop('busy');
@@ -2316,13 +2660,13 @@ async function resumeIfStale(projectDir, options = {}) {
   if (tx.reason) return noop(tx.reason);
 
   const { state, built } = tx;
-  let heal = 'no_identity';
-  if (built.userId) {
+  let heal = 'failed';
+  {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), healDeadlineMs);
     try {
-      const pushed = await pushToBi(projectDir, ts, built.seq, healRows(state, built.userId),
-        built.userId, 'resume_heal', { throughSeq: built.seq, signal: controller.signal, markerLockWaitMs });
+      const pushed = await pushToBi(projectDir, ts, tx.seq, healRows(state, tx.operatorId),
+        tx.subject, 'resume_heal', { throughSeq: tx.seq, signal: controller.signal, markerLockWaitMs });
       if (pushed.aborted) heal = 'deadline';
       else if (pushed.skipped > 0) heal = 'disabled';
       else if (pushed.failed === 0) heal = 'ok';
@@ -2347,7 +2691,8 @@ async function resumeIfStale(projectDir, options = {}) {
   };
 }
 
-async function dims(projectDir, dimsInput, { now } = {}) {
+async function dims(projectDir, dimsInput, { now, resolveIdentity } = {}) {
+  await adoptIdentity(projectDir, { now, resolveIdentity });
   const ts = nowIso(now);
   const { state, validated } = withJournalLock(projectDir, () => {
     const { state: fresh } = requireActiveRun(projectDir);
@@ -2369,7 +2714,8 @@ async function dims(projectDir, dimsInput, { now } = {}) {
   return { recorded: Object.keys(validated) };
 }
 
-async function record(projectDir, eventInput, { now } = {}) {
+async function record(projectDir, eventInput, { now, resolveIdentity } = {}) {
+  await adoptIdentity(projectDir, { now, resolveIdentity });
   const ts = nowIso(now);
   const { state, validated, eventRecord } = withJournalLock(projectDir, () => {
     const { state: fresh } = requireActiveRun(projectDir);
@@ -2402,17 +2748,19 @@ async function record(projectDir, eventInput, { now } = {}) {
     appendJournal(projectDir, built);
     return { state: fresh, validated: checked, eventRecord: built };
   });
-  // Emit the folded `replatform_run_event` row. No identity yet →
-  // hold back; the next heal point (resume, identity dims, finalize) sends
-  // every folded class. With backlog behind the watermark, this push carries
+  // Emit the folded `replatform_run_event` row, under the run's subject (the operator's id
+  // once known, else its placeholder). With backlog behind the watermark, this push carries
   // the full heal set instead of just the new class — an event push is often
   // the first working transport after a failure.
-  if (biSink.isGuid(state.dims.wix_user_id)) {
-    const rows = biBacklog(state)
-      ? healRows(state, state.dims.wix_user_id, [eventRecord])
-      : [foldedRowForClass(state, eventRecord)];
-    await pushToBi(projectDir, ts, eventRecord.seq, rows, state.dims.wix_user_id, 'run_event',
-      { throughSeq: eventRecord.seq });
+  {
+    const { subject, operatorId, view } = resolveSendSubject(projectDir, state, ts);
+    if (subject) {
+      const rows = biBacklog(view)
+        ? healRows(state, operatorId, [eventRecord])
+        : [foldedRowForClass(state, eventRecord)];
+      await pushToBiForSubject(operatorId, projectDir, ts, eventRecord.seq, rows, subject, 'run_event',
+        { throughSeq: eventRecord.seq });
+    }
   }
   const priorInClass = state.events.filter((r) => r.class_key === validated.classKey).length;
   return {
@@ -2557,7 +2905,8 @@ async function transcriptDigest(projectDir, payload, { now } = {}) {
   return { recorded: true, seq };
 }
 
-async function wait(projectDir, action, { now, haltSubtype, skill, what } = {}) {
+async function wait(projectDir, action, { now, haltSubtype, skill, what, resolveIdentity } = {}) {
+  await adoptIdentity(projectDir, { now, resolveIdentity });
   const ts = nowIso(now);
   const first = withJournalLock(projectDir, () => {
     const { state } = requireActiveRun(projectDir);
@@ -2602,12 +2951,15 @@ async function wait(projectDir, action, { now, haltSubtype, skill, what } = {}) 
   if (first.kind === 'started') return { waiting: true, stage: first.attributedStage, halt_recorded: false };
 
   const { state, attributedStage, eventRecord } = first;
-  if (biSink.isGuid(state.dims.wix_user_id)) {
-    const rows = biBacklog(state)
-      ? healRows(state, state.dims.wix_user_id, [eventRecord])
-      : [foldedRowForClass(state, eventRecord)];
-    await pushToBi(projectDir, ts, eventRecord.seq, rows, state.dims.wix_user_id, 'run_event',
-      { throughSeq: eventRecord.seq });
+  {
+    const { subject, operatorId, view } = resolveSendSubject(projectDir, state, ts);
+    if (subject) {
+      const rows = biBacklog(view)
+        ? healRows(state, operatorId, [eventRecord])
+        : [foldedRowForClass(state, eventRecord)];
+      await pushToBiForSubject(operatorId, projectDir, ts, eventRecord.seq, rows, subject, 'run_event',
+        { throughSeq: eventRecord.seq });
+    }
   }
   // The wait opens after the push's markers, with a seq from a fresh read.
   withJournalLock(projectDir, () => {
@@ -2617,11 +2969,15 @@ async function wait(projectDir, action, { now, haltSubtype, skill, what } = {}) 
   return { waiting: true, stage: attributedStage, halt_recorded: true };
 }
 
-async function finalize(projectDir, rollupInput, { now } = {}) {
+async function finalize(projectDir, rollupInput, { now, resolveIdentity } = {}) {
+  // Last chance to find the operator's id before the run closes under its placeholder.
+  await adoptIdentity(projectDir, { now, resolveIdentity });
   const ts = nowIso(now);
-  const { state, payload, provisionalJournal, noIdentityRows } = withJournalLock(projectDir, () => {
+  const { state, payload, provisionalJournal } = withJournalLock(projectDir, () => {
     const { state: fresh } = requireActiveRun(projectDir);
     const checked = validateFinalizeInput(rollupInput, fresh);
+    // A journal that predates placeholders gets one before the closing record is written.
+    ensureSubjectLocked(projectDir, fresh, ts);
     const records = [];
     let seq = fresh.seq;
     if (fresh.openWait) {
@@ -2641,24 +2997,8 @@ async function finalize(projectDir, rollupInput, { now } = {}) {
     seq += 1;
     records.push({ type: 'finalize', ts, seq, payload: checked });
     appendJournalRecords(projectDir, records);
-    let provisionalJournal = readJournal(projectDir);
-    // A no-identity outcome has no transport call to await, so persist its
-    // failure marker in this same transaction as finalize.  Otherwise another
-    // process can archive the finalized journal before the later archival
-    // transaction gets a chance to record the loss.
-    let noIdentityRows = 0;
-    if (!biSink.disabled()) {
-      const provisional = assembleDocument(projectDir, provisionalJournal.records, provisionalJournal.malformed);
-      if (!biSink.isGuid(provisional.document.rollup.wix_user_id)) {
-        noIdentityRows = provisional.document.events.length + 2;
-        appendJournal(projectDir, {
-          type: 'bi_push_failed', ts, seq: replay(provisionalJournal.records).seq + 1,
-          target: 'finalize', rows: noIdentityRows, detail: 'no_operator_identity',
-        });
-        provisionalJournal = readJournal(projectDir);
-      }
-    }
-    return { state: fresh, payload: checked, provisionalJournal, noIdentityRows };
+    const provisionalJournal = readJournal(projectDir);
+    return { state: fresh, payload: checked, provisionalJournal };
   });
   const finalizeSeq = replay(provisionalJournal.records).seq;
 
@@ -2674,23 +3014,22 @@ async function finalize(projectDir, rollupInput, { now } = {}) {
   {
     const provisional = assembleDocument(projectDir, provisionalJournal.records, provisionalJournal.malformed);
     const rollup = provisional.document.rollup;
-    if (biSink.isGuid(rollup.wix_user_id)) {
+    const provisionalState = replay(provisionalJournal.records);
+    const operatorId = biSink.isGuid(rollup.wix_user_id) ? rollup.wix_user_id : null;
+    // Without the operator's id the closing record goes under the run's placeholder, with no
+    // operator on it: the run is counted as unattributed, not lost.
+    const subject = operatorId || provisionalState.provisionalSubject;
+    if (subject) {
       const rows = [
-        biSink.startedRunRow(replay(provisionalJournal.records).runStart, rollup.wix_user_id),
+        biSink.startedRunRow(provisionalState.runStart, operatorId),
         ...provisional.document.events.map(biSink.eventRow),
         biSink.finalizedRunRow(rollup),
       ];
       // A disabled sink lands here too: pushRows reports the rows as skipped
       // and pushToBi journals them, so the kill-switch is never silent.
-      const pushed = await pushToBi(projectDir, ts, finalizeSeq, rows, rollup.wix_user_id, 'finalize',
-        { throughSeq: finalizeSeq });
+      const pushed = await pushToBiForSubject(operatorId, projectDir, ts, finalizeSeq, rows, subject, 'finalize',
+        { throughSeq: finalizeSeq, deadlineMs: FINALIZE_DEADLINE_MS, force: true });
       biPush = { sent: pushed.sent, failed: pushed.failed, skipped: pushed.skipped };
-    } else if (!biSink.disabled()) {
-      // No operator identity by run end: the run is unroutable in BI. Journal
-      // it as a push failure — this is real telemetry loss, not a hold-back,
-      // and recording it is strictly better than faking a routable subject
-      // (verified 2026-09-02: fabricated subjects ingest nothing).
-      biPush = { sent: 0, failed: noIdentityRows, skipped: 0 };
     }
   }
 
@@ -2782,7 +3121,8 @@ async function rebuild(projectDir, { attempt, push } = {}) {
       ...assembled.document.events.map(biSink.eventRow),
       biSink.finalizedRunRow(rollup),
     ];
-    const result = await biSink.pushRows(rows, rollup.wix_user_id);
+    const rebuildSubject = biSink.isGuid(rollup.wix_user_id) ? rollup.wix_user_id : state.provisionalSubject;
+    const result = await biSink.pushRows(rows, rebuildSubject);
     biPush = {
       sent: result.sent,
       failed: result.failures.reduce((sum, f) => sum + f.rows, 0),
@@ -2818,7 +3158,10 @@ function status(projectDir) {
     distinct_classes: new Set(state.events.map((r) => r.class_key)).size,
     rejected_calls: state.rejected.length,
     last_seq: state.seq,
-    bi_push_ok_seq: state.lastBiPushOkSeq,
+    // The confirmed watermark for the run's current subject (the operator's id once known, else its
+    // placeholder), matching `bi_backlog`; a mark written before subjects were recorded counts for the
+    // operator's id only.
+    bi_push_ok_seq: currentSubjectOkSeq(state),
     bi_backlog: state.runStart ? biBacklog(state) : true,
   };
 }
@@ -2854,6 +3197,10 @@ module.exports = {
   MARKER_LOCK_WAIT_MS,
   IMPLICIT_WAIT_MIN_MS,
   biBacklog,
+  adoptIdentity,
+  flush,
+  attention,
+  closingAttention,
   dims,
   record,
   stage,

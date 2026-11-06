@@ -30,11 +30,16 @@ const BLANK_TEMPLATES = Object.freeze({
   studio: 'fe86a14e-ef67-49b4-a409-d086f3abaa1a',
   harmony: '91532250-8835-46ac-9666-e4db8770b275',
 });
+// "Developer Tools" gives a site its Secrets Manager and the `secrets` object. Headless sites
+// come with it; Harmony and Studio sites do not.
+const DEVELOPER_TOOLS_APP_DEF_ID = '4b10fcce-732d-4be3-9d46-801d271acda9';
 const EXPECTED_EDITOR = Object.freeze({ studio: 'WIX_STUDIO', harmony: HARMONY_EDITOR_TYPE, headless: 'EDITORLESS' });
 
 const URLS = Object.freeze({
   createFromTemplate: 'https://www.wixapis.com/msm/v1/meta-site/create-from-template',
   editorUrls: 'https://www.wixapis.com/editor-urls',
+  installApp: 'https://www.wixapis.com/apps-installer-service/v1/app-instance/install',
+  installedApps: 'https://www.wixapis.com/apps-installer-service/v1/app-instances',
   publishedSiteUrls: 'https://www.wixapis.com/urls-server/v2/published-site-urls',
 });
 
@@ -42,6 +47,7 @@ const URLS = Object.freeze({
 const LIMITS = Object.freeze({
   createTimeoutMs: 60_000,
   editorTimeoutMs: 20_000,
+  installTimeoutMs: 30_000,
   publicationTimeoutMs: 15_000,
   publicationAttempts: 3,
   publicationWaitsMs: [2_000, 8_000],
@@ -411,6 +417,9 @@ function newReceipt({ projectId, siteType, pair, clock, randomUUID }) {
     businessType: pair.businessType || null,
     businessTypeSource: pair.businessTypeSource || null,
     status: 'in_progress',
+    // Only a receipt made by this version installs Developer Tools when it verifies: a receipt written
+    // earlier belongs to a site that may already be in use, and is left alone.
+    ...(siteType === 'headless' ? {} : { developerToolsOnVerify: true }),
     creationMethod: null,
     templateId: null,
     siteName: null,
@@ -489,6 +498,8 @@ async function checkPublication(deps, projectDir, receipt, siteToken, { recheckR
   const observation = await readPublication(deps, { siteToken, metaSiteId: receipt.metaSiteId });
   receipt.publication = { ...observation, ...(recheckRequestId ? { recheckRequestId } : {}) };
   if (observation.state === 'unpublished') {
+    // First time this editor site verifies: install the app once, then save `verified` with the outcome.
+    if (receipt.developerToolsOnVerify === true && !receipt.developerTools) await installDeveloperTools(deps, receipt, siteToken);
     receipt.status = 'verified';
     receipt.error = null;
     receipt.recovery = null;
@@ -670,6 +681,48 @@ async function createEditorSite(deps, projectDir, receipt, decisions) {
   }
   await saveReceipt(projectDir, receipt, clock);
   return verifyCreatedSite(deps, projectDir, receipt);
+}
+
+// Installs the Developer Tools app the first time an editor site's receipt becomes `verified`: one
+// attempt with the credential the verification just used, bounded by the client timeout, never
+// retried. The result is written to `receipt.developerTools` (the caller saves the receipt). A
+// failure never changes the destination status: the site is kept and the owner adds the app from the
+// dashboard. The app has no editor part, so the editor installer does not apply. A 200 answer proves
+// nothing about the site (setup's install step treats it the same way), so success is the installed-apps
+// list read back afterwards naming this app as enabled.
+async function installDeveloperTools(deps, receipt, siteToken) {
+  const record = { appDefId: DEVELOPER_TOOLS_APP_DEF_ID, status: 'failed', checkedAt: isoAt(deps.clock) };
+  try {
+    const res = await boundedRequest(deps, URLS.installApp, {
+      method: 'POST',
+      headers: { ...siteHeaders(siteToken, receipt.metaSiteId), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appInstance: { appDefId: DEVELOPER_TOOLS_APP_DEF_ID, enabled: true },
+        tenant: { tenantType: 'SITE', id: receipt.metaSiteId },
+        installType: 'INSTALL_TYPE_SITE',
+        appsInstallOptions: {},
+      }),
+    }, LIMITS.installTimeoutMs);
+    const answered = res.json && res.json.appInstance && res.json.appInstance.appDefId;
+    if (res.status !== 200) record.reason = `install_http_${res.status}`;
+    else if (answered !== DEVELOPER_TOOLS_APP_DEF_ID) record.reason = 'install_response_without_app';
+    else {
+      const listed = await boundedRequest(deps, URLS.installedApps, { method: 'GET', headers: siteHeaders(siteToken, receipt.metaSiteId) }, LIMITS.installTimeoutMs)
+        .catch((error) => ({ error }));
+      if (listed.error) record.reason = listed.error instanceof CallTimeoutError ? 'install_readback_timeout' : 'install_readback_transport';
+      else if (listed.status !== 200) record.reason = `install_readback_http_${listed.status}`;
+      else {
+        const apps = listed.json && Array.isArray(listed.json.appInstances) ? listed.json.appInstances : [];
+        // Same rule as setup's isWixAppInstalled: listed, and not disabled.
+        if (apps.some((app) => app && app.appDefId === DEVELOPER_TOOLS_APP_DEF_ID && app.enabled !== false)) record.status = 'installed';
+        else record.reason = 'install_not_listed';
+      }
+    }
+  } catch (error) {
+    record.reason = error instanceof CallTimeoutError ? 'install_timeout' : 'install_transport';
+  }
+  record.checkedAt = isoAt(deps.clock);
+  receipt.developerTools = record;
 }
 
 // Acts on an answered recovery request. Each answer triggers exactly one bounded step.
