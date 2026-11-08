@@ -11,7 +11,7 @@ primary domain). A domain is on one site at a time, or on none.
 
 | Does | Does not |
 |---|---|
-| Connect (assign) a domain to a site, as primary or as a redirect. A domain that isn't in the account yet is handed back (gate 1) | Buy a domain, or bring in a domain registered elsewhere that isn't in the account yet: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) |
+| Connect (assign) a domain to a site, as primary or as a redirect. A domain that isn't in the account yet is handed back (gate 1) | Buy a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md). Bring in a domain registered elsewhere, or a subdomain, that isn't in the account yet: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) |
 | Make a redirect the site's primary domain, or swap the primary for another of the site's domains | Report a domain's expiry or renewal: [Analyse Domain](analyse-domain.md) |
 | Move a domain from one site to another | Change DNS records, or explain DNS, nameservers or propagation |
 | Take a domain off its site | Check whether a name can be registered: [Check Domain Availability](check-domain-availability.md) |
@@ -215,7 +215,7 @@ All four must hold before any write. Check them in this order:
 
 | # | Condition | When it fails, answer with |
 |---|---|---|
-| 1 | The user is signed in, and the domain is in the account: `owned` is `true` for **this exact domain**, or the calling skill passed ownership **confirmed** for it (that counts even when this read does not show it). A root domain in the account does not confirm its subdomain, and the user saying it is theirs confirms nothing | **Taking a domain off its site:** "{domain} isn't in your Wix account, so there's nothing to take off." Stop. **Putting a domain on a site:** hand back, saying nothing first. A subdomain (`shop.example.com`) goes to [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) §A3.1, with no availability check. Any other domain: **read [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) and [Check Domain Availability](check-domain-availability.md), run the availability check once, as that skill describes (never call availability any other way), and follow Domain Search, Purchase and Connect §A4 for the result**, with intent *CONNECT → a site*, the domain, the target site if known, and "not in the account", or ownership **unknown** when the user is signed out or the read failed twice (its §A4b then skips its own lookup). §A4 then answers with the connect link or the offer to buy. Never say who owns a domain. |
+| 1 | The user is signed in, and the domain is in the account: `owned` is `true` for **this exact domain**, or the calling skill passed ownership **confirmed** for it (that counts even when this read does not show it). A root domain in the account does not confirm its subdomain, and the user saying it is theirs confirms nothing | **Taking a domain off its site:** "{domain} isn't in your Wix account, so there's nothing to take off." Stop. **Putting a domain on a site:** hand back, saying nothing first. A subdomain (`shop.example.com`) goes to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) §2, with no availability check. Any other domain: **read [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md) and [Check Domain Availability](check-domain-availability.md), run the availability check once, as that skill describes (never call availability any other way), and follow Domain Search, Purchase and Connect §A4 for the result**, with intent *CONNECT → a site*, the domain, the target site if known, and "not in the account", or ownership **unknown** when the user is signed out or the read failed twice (its §A4b then skips its own lookup). §A4 then answers: a taken domain goes on to [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) for the connect link, an available one gets the offer to buy. Never say who owns a domain. |
 | 2 | The target site is known (not needed to take a domain off its site) | Ask which site, listing the account's sites by name. |
 | 3 | Only when the writes assign a domain to `T`: `T` has `premium: true`. When the calling skill already checked the plan, take its answer. Taking a domain off a site, or promoting one already on it, needs no plan check | The Free-site answer below. No offer, no question about roles. |
 | 4 | The user said yes to an offer that named every live change: the primary domain it replaces, the site a domain leaves, the redirect promoted in its place, the role it takes on the target | Send the offer from the decision table and end your turn. |
@@ -231,7 +231,7 @@ All four must hold before any write. Check them in this order:
 `{upgrade URL}` is `https://manage.wix.com/premium-pricing/studio/select-plan?siteGuid={siteId}` when
 the site's `editorType` is `STUDIO`, otherwise
 `https://manage.wix.com/premium-pricing/sunrise/select-plan?siteGuid={siteId}`. The block is the same
-fixed copy Domain Search, Purchase and Connect uses: do not reword it, and never promise to put the
+fixed copy [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md) §6 uses: do not reword it, and never promise to put the
 domain on the site once they upgrade.
 
 ## Decision table
@@ -448,7 +448,8 @@ user asks.
 
 ## Next steps
 
-- Buying a domain, or bringing one in from another registrar: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Buying a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Bringing in a domain registered with another provider, or a subdomain: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md).
 - Expiry or renewal of a domain: [Analyse Domain](analyse-domain.md).
 - Official reference: [Domain Assignments](https://dev.wix.com/docs/api-reference/account-level/domains/domain-assignments),
   and its [sample flows](https://dev.wix.com/docs/api-reference/account-level/domains/domain-assignments/sample-flows).

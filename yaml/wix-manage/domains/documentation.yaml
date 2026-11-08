@@ -14,6 +14,10 @@ apiDoc:
       title: Check Domain Availability
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/connect-external-domain-or-sub-domain.md
+      title: Connect External Domain or Sub Domain
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]
     - file: ../../../skills/wix-manage/references/domains/domain-search-purchase-and-connect.md
       title: Domain Search, Purchase and Connect a domain
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains

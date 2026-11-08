@@ -1,17 +1,22 @@
 ---
 name: "Check Domain Availability"
-description: Answer whether a domain name, or several at once, is available to register through Wix — a stand-alone "is example.com available?" question with no request to buy or connect.
+description: Check whether a domain name, or several at once, can be registered through Wix, and answer it — with a domain-availability tool when one is there, otherwise the availability endpoints. The availability check every domain flow uses, and the answer to a stand-alone "is example.com available?" question with no request to buy or connect.
 ---
 
 # Check Domain Availability
 
 Answers one question: **can this domain be registered?** and ends with an offer for the next step. It
 never buys, connects, searches for alternatives or prices a domain itself: the offer is only a question.
-Every availability lookup goes through this skill, including the one inside
-[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md): that recipe calls the
-endpoints and reads the results as written here, and adds its own next steps and wording.
+Every availability lookup goes through this skill, including the ones inside
+[Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md),
+[Assign Domain](assign-domain.md) and
+[Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md): those skills run the
+check and read the results as written here, and add their own next steps and wording.
 
-Both endpoints are public: send the request without auth headers or tokens.
+**Which check to run:** when you have a domain-availability tool — one that takes a list of domain
+names and returns a status for each — use it (§With an availability tool). Use the endpoints
+(§Single check, §Bulk check) only when there is no such tool, and for the one follow-up that section
+names. Both endpoints are public: send the request without auth headers or tokens.
 
 ## Flow
 
@@ -22,13 +27,43 @@ Both endpoints are public: send the request without auth headers or tokens.
      Do not guess one. Inside a list, keep it in the bulk call: the item comes back as `INVALID_DOMAIN`.
    - **Subdomain** (`shop.example.com`): do not check it — a subdomain is not registered separately.
      Check the root domain (`example.com`) only if the user asks about that.
-2. **One domain** → single check. **Two or more** → one bulk check, never one single check per domain.
+2. **One call for every name**: one availability-tool call with all of them. Without such a tool: one
+   domain → single check; two or more → one bulk check, never one single check per domain.
 3. Read the result per domain, answer in plain language and end with the offer (table below).
 4. Run the check silently — no "let me check". Retry any failed call once, silently. If it fails again:
    a `400` means the input is bad (see the table below and the 60-domain limit); anything else, say
    "Something went wrong on our end. Please try again in a moment."
 
 Never name an endpoint, a field or an error code to the user.
+
+## With an availability tool
+
+One call, every name in the list, in the order the user gave them. The shape seen today:
+
+```json
+{ "domains": ["example.com", "4321.online", "-bad-.com"] }
+```
+
+```json
+{ "results": [ { "domain": "example.com", "status": "AVAILABLE" },
+               { "domain": "4321.online", "status": "PREMIUM" },
+               { "domain": "-bad-.com",   "status": "UNABLE_TO_CHECK" } ] }
+```
+
+Read `status` for **every** result:
+
+| `status` | Read it as |
+|----------|------------|
+| `AVAILABLE` | the `available: true` row below |
+| `PREMIUM` | the `premium: true` row below |
+| `UNABLE_TO_CHECK`, or any other status | The status does not say why (a malformed name such as `-bad-.com` gets `UNABLE_TO_CHECK`). Run the single check below once for that name and read its result in the table. If that call fails too, say "I couldn't check {domain} right now." |
+
+One follow-up single check per name the tool could not read. Answer every name in one reply, in the
+order the user gave them.
+
+Either path ends in the endpoint fields: `AVAILABLE` is `available: true`, `PREMIUM` is `premium: true`,
+and any other status takes the single check's own result. A skill that reads `available` and `premium`
+reads them the same way, whichever check ran.
 
 ## Single check
 
