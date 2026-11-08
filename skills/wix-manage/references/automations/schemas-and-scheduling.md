@@ -3,9 +3,12 @@ name: "Automations Schemas and Scheduling"
 description: "Configure dynamic schemas and scheduled automation triggers with correct timezone and calendar behavior."
 ---
 
-> **Stage scope:** this stage covers only what [Build and Manage Wix Automations](https://dev.wix.com/docs/api-reference/business-management/automations/skills/build-and-manage-wix-automations) lists; follow the instruction attached to each guide marked "not yet published". "Stage" and "not yet published" describe how this skill is being rolled out; never mention them to the user. Explain a limit in product terms: what can't be done through the API here and where the user can do it instead (for example, in the automations builder).
-
 # Schemas & Scheduling — Aggregated Schema, Override Schemas, Scheduled and Future-Date Triggers
+
+> **Save restrictions:** Before a create, update or activation, follow the complete [Automations Validation and Persistence](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-validation-and-persistence).
+> - Apply its §1, §3–§4 and **Update restrictions**. The email-specific sections still use the older stage framework; their exclusions remain authoritative here.
+> - Never perform an operation explicitly excluded by that procedure, including email marked "Later stages only".
+> - "Stage" denotes a publication grouping; "Later stages only" excludes that operation here; "not yet published" marks an unavailable guide. These are internal rollout markers: never quote or expose them to the user. Explain restrictions in product terms.
 
 **TL;DR**
 
@@ -48,7 +51,55 @@ Schema requirements (both kinds):
 
 - JSON Schema draft-07: `"$schema": "http://json-schema.org/draft-07/schema"`, root `"type": "object"`, `properties`, `required`; standard types only; give each property a `title`.
 - Trigger overrides: one realistic `examples` entry per property.
-- A trigger `overrideSchema` **replaces** the payload schema. An action `overrideOutputSchema` is **merged** over the catalog output schema (its `properties` win on a clash) — catalog output fields stay addressable. Get Automation returns overrides only with `fields: ["OVERRIDE_SCHEMA"]` — use it on read-back, or the override looks lost. For the webhook trigger keep the `webhookId` property in the override if the validator reports it missing. Webhook wiring (id, filter, config mapping) and the custom trigger's `hookId`: [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6.
+- A trigger `overrideSchema` **replaces** the payload schema. An action `overrideOutputSchema` is **merged** over the catalog output schema (its `properties` win on a clash) — catalog output fields stay addressable. Get Automation returns overrides only with `fields: ["OVERRIDE_SCHEMA"]` — use it on read-back, or the override looks lost.
+- For the webhook trigger, read Get Trigger By App Id And Key and copy its `payloadDataSchema.properties.webhookId` into the initial override alongside the user’s payload fields, before the first validation.
+- Preserve its constraints and whether `payloadDataSchema.required` contains `webhookId`.
+- Add a missing `title` as `Webhook ID` and a missing `examples` entry using the same webhook UUID from the trigger configuration; do not replace existing ones.
+- Webhook wiring (id, filter, config mapping) and the custom trigger's `hookId`: [Automations Trigger Configuration](https://dev.wix.com/docs/api-reference/business-management/automations/skills/automations-trigger-configuration) §6.
+
+**Webhook override example.** `trigger` is the `trigger` object returned by Get Trigger By App Id And Key
+(`response.trigger`), and
+`webhookId` is the same fresh UUID used in the trigger configuration. Build the override
+from its live schema by passing both values to `buildWebhookOverride(trigger, webhookId)`;
+do not substitute the generic example below for this webhook case.
+
+```js
+function buildWebhookOverride(trigger, webhookId) {
+  const payloadSchema =
+    typeof trigger.payloadDataSchema === 'string'
+      ? JSON.parse(trigger.payloadDataSchema)
+      : trigger.payloadDataSchema;
+  const webhookProperty = payloadSchema.properties?.webhookId;
+  if (!webhookProperty)
+    throw new Error('The trigger schema must expose webhookId');
+  return {
+    $schema: 'http://json-schema.org/draft-07/schema',
+    type: 'object',
+    properties: {
+      webhookId: {
+        ...webhookProperty,
+        title: webhookProperty.title || 'Webhook ID',
+        examples: webhookProperty.examples?.length
+          ? webhookProperty.examples
+          : [webhookId],
+      },
+      leadName: { type: 'string', title: 'Lead name', examples: ['Alex'] },
+      score: { type: 'number', title: 'Score', examples: [0.8] },
+    },
+    required: [
+      ...(payloadSchema.required?.includes('webhookId') ? ['webhookId'] : []),
+      'leadName',
+      'score',
+    ],
+  };
+}
+```
+
+This example makes the two supplied payload fields required. Keep `webhookId`'s original
+required membership and constraints. Use the resulting schema as the webhook trigger's
+`overrideSchema` before the first Validate; read it back with `OVERRIDE_SCHEMA` after saving.
+
+Generic action-output or non-webhook payload schema:
 
 ```json
 {
@@ -188,4 +239,4 @@ For triggers whose payload has a date-time field with `futureDate: true` (e.g. s
 
 ## 6. Custom API ("site") actions
 
-Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — a limitation (§1 of Automations Feasibility and Planning (topic guide not yet published; consult the [Automations API reference](https://dev.wix.com/docs/api-reference/business-management/automations))). Leave an existing one's `inputMapping` untouched.
+Site actions (`wix_automations-wix_api_integration`) are generated through non-public services and can't be created from public APIs — offer an installed app-defined action, a supported webhook action, or an LLM text action where those meet the requested outcome. Leave an existing one's `inputMapping` untouched.
