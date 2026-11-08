@@ -6,7 +6,11 @@ description: "Reads a site's Wix forms and the submissions visitors sent to them
 
 > **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. Send `wix-site-id: <SITE_ID>` when the token is account-scoped.
 
-> These calls need the Wix Forms app on the site (`appDefId` `225dd912-7dea-4738-8688-4b8c6955ffc2`); a `428`, a `400` naming the app, or an empty result on a site that should have content means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+> These calls need the **new** Wix Forms app on the site (`appDefId` `225dd912-7dea-4738-8688-4b8c6955ffc2`); a `428` or a `400` naming the app means it is not there. [List Installed Apps](../app-installation/list-installed-apps.md) shows what the site has; [Install Wix Apps](../app-installation/install-wix-apps.md) adds it by that id.
+>
+> **An empty result does not mean the app is missing.** A site can have the **older** Wix Forms app (`appDefId` `14ce1214-b278-a7e4-1373-00cebd1bef7c`) instead: it counts as "Wix Forms is installed" to the owner, but its forms do not appear under `wix.form_app.form`. The app check needs a **site-scoped** token ([List Installed Apps](../app-installation/list-installed-apps.md)); an account-scoped call does not return the site's apps, so its result is not evidence an app is missing. If a site-scoped check finds only the older app, say the forms live in the older Wix Forms app and that this recipe cannot read them. Do not say Wix Forms is not installed, do not suggest installing it or a third-party form app, and do not install anything without being asked. If the owner says Wix Forms is installed, believe them and re-check the app ids.
+>
+> **This also applies when the count is non-zero but lower than the owner reports.** If they say they have more forms than `wix.form_app.form` returns (for example "I'm at 4/4" while this recipe finds 1), do **not** tell them their count is fine or that they have free slots: a site-scoped [List Installed Apps](../app-installation/list-installed-apps.md) check that finds the older app (`14ce1214-…`) means the extra forms live there, invisible to this API, and this recipe cannot read or manage them — point them to the Forms dashboard or Wix support (forms left on a deleted page are the common case). **A `Forms/*` CMS collection is a form's submission store, not the form.** Deleting it erases the collected submissions and does not remove the form or free a form slot, so it is never a fix for a form-count limit; delete it only if the user wants those submissions gone and after spelling out the data loss.
 
 List a site's forms, find one, and read the submissions sent to it. The usual order is **find the form first, then query its submissions by `formId`**. Every call here is a read — nothing on the site changes, so no confirmation is needed.
 
@@ -263,7 +267,8 @@ To give the user a link to a form's submissions table, see [Forms Dashboard Navi
 | `Filter contains unsupported operator` on Query Forms | Two operators in one field object | One condition per operator under `$and` |
 | `Field 'createdDate' is using non allowed operator '$ge'` | `$ge` / `$le` | Use `$gte` / `$lte` |
 | The user says a form is missing from the list | List Forms defaults to `enabled=true` | Call again with `enabled=false` |
-| `"forms": []` | Wrong namespace, no forms there, or (on List Forms) every form is disabled | Check the namespace (STEP 1) and call again with `enabled=false` before reporting "no forms" |
+| `"forms": []` | Wrong namespace, no forms there, every form disabled (List Forms), or the site only has the older Wix Forms app | Check the namespace (STEP 1), call again with `enabled=false`, and if still empty check which Forms app is installed (top of this recipe) before reporting "no forms" |
+| The owner reports more forms than the list shows (e.g. "4/4" but you see fewer) | The extra forms are in the older Wix Forms app (`14ce1214-…`), invisible to `wix.form_app.form` | Site-scoped [List Installed Apps](../app-installation/list-installed-apps.md); if the old app is present, say those forms live there and can't be managed here (dashboard/support). A `Forms/*` CMS collection is the form's submission store, not the form — deleting it erases submissions and does not free a slot |
 
 ---
 
