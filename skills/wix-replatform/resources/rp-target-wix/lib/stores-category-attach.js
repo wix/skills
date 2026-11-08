@@ -22,6 +22,7 @@
 // equality; never do a set-equality check here.
 
 const w = require('./wix-writers.js');
+const wixAuth = require('../../../lib/wix-auth.js');
 
 const OUTCOMES = ['category-attach-written', 'category-attach-reconciled-existing', 'category-attach-unverified', 'category-attach-failed'];
 
@@ -75,7 +76,7 @@ async function preCheckExisting(wix, rows) {
       try {
         const actual = await queryOneProductCategories(wix, row.productId);
         if (hasAllCategories(actual, row.categoryIds)) row.alreadySatisfied = true;
-      } catch { /* unknown -- fall through to the write path */ }
+      } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; /* unknown -- fall through to the write path */ }
     }
   }
   await Promise.all(Array.from({ length: Math.min(4, pending.length) }, () => worker()));
@@ -100,6 +101,7 @@ async function verifyCategoryAttachment(wix, rows, { verifyAttempts = 3, sleep =
           row.outcome = 'category-attach-unverified';
           row.error = actual ? 'Category read-back is missing one or more expected categoryIds' : 'Product missing from category read-back';
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           row.outcome = 'category-attach-unverified';
           row.error = error.message;
         }
@@ -146,6 +148,7 @@ async function reconcileCategoryAttachment(wix, rows, { verifyAttempts = 3, slee
       await w.bulkAddItemToCategories(wix, { productId: row.productId, categoryIds: row.categoryIds });
       written.push(row);
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       row.outcome = 'category-attach-failed';
       row.error = error.message;
     }

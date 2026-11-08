@@ -70,7 +70,13 @@ project file; `show` remains available for the complete durable request or artif
 Foreground runs emit a truthful liveness heartbeat every `60s` when no newer observable
 progress exists. Detached runs default to no heartbeat. Set `--status-interval off` to disable
 foreground heartbeats, or choose a value from `10s` to `5m`. `--events-file <path>` mirrors
-normalized JSONL events to a file.
+normalized JSONL events to a file. Raw adapter JSONL is retained at
+`state/runner/vendor-events.ndjson` by default; `--vendor-events <path>` overrides that
+diagnostic path. Codex collaboration events are decoded into the durable worker topology. A
+reported `pending_init` state is reconciled against the child's own Codex session output and
+terminal event, plus a newly written `state/handoffs/*.json` file. The runner emits
+`worker_start_timeout` and retries only when the child has produced none of those signals for
+the configured bound; tune the bound with `--worker-startup-timeout <duration>`.
 
 ## Human checkpoints
 
@@ -148,6 +154,11 @@ checks leave telemetry waits open and do not create execution sessions.
 Run `replatform doctor` to check available adapters and local prerequisites without printing
 credentials.
 
+With `--agent auto`, the runner follows the invoking Codex or Claude Code session when that
+environment is detectable. Otherwise it selects an installed and authenticated adapter and
+records the selected adapter and reason in the runner events and receipt. An explicit
+`--agent codex` or `--agent claude` always wins.
+
 `replatform account` reports the identity returned by the local `wix whoami` command. It is a
 live check, not a migration artifact: confirm that identity is authorized before acknowledging a
 destination-creation action.
@@ -168,8 +179,9 @@ chooses a port; the server refuses any non-loopback host.
 
 The Work panel reads `state/runner/task-state.json` through `replatform tasks`, so it survives
 console reloads and restarts. It records router work and direct agent processes; extra workers
-appear only when an adapter reports their structured topology. The observed activity feed remains
-diagnostic evidence and never marks work complete by itself.
+appear only when an adapter reports their structured topology, including a visible `Starting`
+state while a vendor sub-worker is initializing. The observed activity feed remains diagnostic
+evidence and never marks work complete by itself.
 
 For destination-creation acknowledgements, the console also displays the identity reported by
 the local Wix CLI and requires that check to succeed before it enables acknowledgement. The

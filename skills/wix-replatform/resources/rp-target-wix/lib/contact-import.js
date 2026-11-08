@@ -71,7 +71,7 @@ async function importContacts(wix, { projectDir, siteId, rows, evaluation, verif
         } else if (candidates.length) { r.targetId = candidates[0].id; r.actual = await w.getContact(wix, r.targetId); }
         else if (state.rows[r.sourceKey]?.uncertain) throw new Error('Previous write outcome is uncertain; reconcile before retry');
         if (r.actual && !v.verifyContact(r.expected, r.actual, r.targetId).verified) throw new Error('Existing contact values differ; use the revision-protected update and conflict-review flow');
-        if (r.targetId && crosswalk.rows.some(c => c.sourceStableKey !== r.sourceKey && c.targetSystem === 'wix' && c.targetId === r.targetId)) throw Object.assign(new Error('Target contact belongs to another source key'), { identityConflict: true });
+        if (r.targetId && crosswalk.rows.some(c => c.sourceStableKey !== r.sourceKey && c.targetSystem === 'wix' && c.targetId === r.targetId && c.targetEntityType !== 'member')) throw Object.assign(new Error('Target contact belongs to another source key'), { identityConflict: true });
       } catch (e) { if (e && e.interruption === true) throw e; r.error = e.message; r.identityConflict = Boolean(e.identityConflict); }
     }
     for (const r of work) if (r.targetId && work.some(other => other !== r && other.targetId === r.targetId)) { r.error = 'Distinct source keys share a target contact'; r.identityConflict = true; }

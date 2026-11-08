@@ -18,6 +18,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const conflicts = require('../../../lib/rerun-conflicts');
+const wixAuth = require('../../../lib/wix-auth.js');
 const { SEO_OUTCOMES, SEO_ACCEPTED_OUTCOMES } = require('../../../lib/seo-outcome-registry');
 
 const TAG_FIELDS = Object.freeze(['title', 'description']);
@@ -370,7 +371,7 @@ function finishResolution(run) {
   }
   return { verified: residuals.length === 0, residuals, attempts: run.attempts, productRevision: run.productRevision, ...(run.lastError ? { error: run.lastError } : {}) };
 }
-const asRead = async (fn) => { try { return { ok: true, value: await fn() }; } catch (error) { return { ok: false, error }; } };
+const asRead = async (fn) => { try { return { ok: true, value: await fn() }; } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; return { ok: false, error }; } };
 
 // Serial single-product form of the same rule (used by callers outside the batched stage).
 async function verifyProductSeo({ plan, readProduct, readItemSeoTags, product = null, sleep = pause, delaysMs = RESOLUTION_DELAYS_MS } = {}) {
@@ -379,6 +380,7 @@ async function verifyProductSeo({ plan, readProduct, readItemSeoTags, product = 
   let current = product;
   if (!current) {
     try { current = await readProduct(); } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       return { verified: false, residuals: fields.map((field) => ({ outcome: 'seo_resolution_unverified', field })), attempts: 0, error: error.message, productRevision: null };
     }
   }
@@ -554,6 +556,7 @@ async function reconcileProductSeo({ projectDir, siteId, rows, readProduct, patc
         productForVerify = null;
         if (patched && patched.revision != null) state.rows[sourceKey].journal = { ...journal, writtenRevision: patched.revision };
       } catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         const kind = conflicts.classifyUpdateError(error, { sentRevision: true }).kind;
         if (kind === 'revision_conflict' || kind === 'possible_revision_conflict') {
           // Rejected on revision: nothing landed, so the journal is cleared and the owner decides.

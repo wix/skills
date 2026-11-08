@@ -23,6 +23,17 @@ function canonical(value) {
 function digest(value) { return crypto.createHash('sha256').update(canonical(value)).digest('hex'); }
 function fail(message) { throw Object.assign(new Error(message), { code: 'mapping_field_contract' }); }
 function entityRef(row) { return row?.sourceEntityRef || row?.sourceEntity || row?.entityName || row?.entity || row?.entityKey; }
+// An entity decision file is named from the target-domain entity in some legacy
+// plans and from the source identity in exact plans.  Gates must use the same
+// identity set when joining a plan row to a decision file.
+function entityKeyMatches(row, key) {
+  if (!row || typeof key !== 'string' || !key) return false;
+  const targetEntity = typeof row.targetRef === 'string' ? row.targetRef.split('/').at(-1) : null;
+  let sourceFileKey = null;
+  try { sourceFileKey = entityFileName(row).replace(/\.json$/, ''); } catch { /* malformed rows fail through their own validation */ }
+  return [row.entity, row.sourceEntity, row.sourceEntityRef, row.name, row.target?.entity, targetEntity, sourceFileKey]
+    .filter(value => typeof value === 'string' && value).includes(key);
+}
 function entityFileName(row) {
   const identity=row.sourceEntity || row.entityKey || entityRef(row);
   if (typeof identity!=='string' || !identity) fail('entity filename identity missing');
@@ -37,6 +48,14 @@ function entityRows(plan) {
     }
   }
   return [];
+}
+// Resolve a gated target entity (for example `contact`) to the decision projection
+// written for its exact-plan source identity (for example `wc-v3-customers.json`).
+// Legacy plans have no matching source row and retain their target-named filename.
+function entityDecisionFileName(plan, key) {
+  const matches = entityRows(plan).filter(row => entityKeyMatches(row, key));
+  if (matches.length > 1) fail(`entity decision identity is ambiguous: ${key}`);
+  return matches.length ? entityFileName(matches[0]) : `${key}.json`;
 }
 // Exact locations use the shared lossless grammar (lib/source-location.js). Legacy dotted
 // paths of the former identifier-only grammar are already canonical and keep their meaning.
@@ -159,15 +178,9 @@ function carriedToCutoverErrors(row, decision) {
   if (!target || !(carrier.dependsOn || []).includes(target)) errors.push(`carriedBy does not carry fields of ${target || 'an entity without a target'}`);
   return errors;
 }
-// Source-archive retention policy (a product decision, see source-archive.js). An excluded
-// decision citing it is settled only when every path is plumbing or not-retained personal data
-// by the shipped source-archive rules; a business field under that reference stays pending.
-function archiveRetentionExclusion(row, decision) {
-  return require('../resources/rp-target-wix/lib/source-archive').retentionExclusion(row, decision);
-}
 function pendingDecision(row,d) {
   return d.disposition==='unresolved' || (d.disposition==='excluded' && !mandatoryExclusion(row,d) &&
-    !archiveRetentionExclusion(row,d) && !measuredZeroExclusion(row,d) && !carriedToCutoverExclusion(row,d));
+    !measuredZeroExclusion(row,d) && !carriedToCutoverExclusion(row,d));
 }
 function mappingRunMode(projectDir) {
   return require('./orchestration-decisions.js').isExplicitUserOneClick(readOptional(path.join(projectDir,'orchestration/decisions.json'),{})) ? 'one_click':'interactive';
@@ -348,7 +361,7 @@ function deriveExecutionScope(plan, { mode = 'interactive', provisionalEntityRef
     for (const ref of selectedEntityRefs) {
       if (deferred.has(ref)) continue;
       const deps = byRef.get(ref).requiredSourceEntityRefs || [];
-      const blockedByEntityRefs = deps.filter(d => !selectedEntityRefs.includes(d) || deferred.has(d));
+      const blockedByEntityRefs = deps.filter(d => !selectedEntityRefs.includes(d) || deferred.has(d) && !dependencyIsPerRecord(byRef.get(ref), d, byRef));
       const absent = blockedByEntityRefs.filter(d => !selectedEntityRefs.includes(d));
       // Fail closed, but name a likely stale mapper-authored prerequisite before codegen/canary.
       const reason = absent.length ? `Required source prerequisite ${absent.join(', ')} is absent from the mapped scope. requiredSourceEntityRefs lists retained-write prerequisites only; if every use is an omission in this review, it is stale: remove it and re-run contract. Otherwise map it.` : `Required source prerequisite ${blockedByEntityRefs.join(', ')} is deferred.`;
@@ -369,12 +382,34 @@ function assertExecutionScope(plan, ref, expectedDigest, projectDir=null) {
   if (plan.fieldContractVersion !== 1) fail('revised mapping must be explicitly reconciled by mapper');
   if (!expectedDigest || digest(plan) !== expectedDigest) fail('mapping scope binding missing or stale');
   const scope = plan.executionScope;
+  let scopeConflict = null;
   if (scope) {
-    const calculated=deriveExecutionScope(plan,{mode:'one_click',provisionalEntityRefs:scope.resolvedEntityRefs,omissionReview:true});
-    if (canonical(calculated.resolvedEntityRefs)!==canonical(scope.resolvedEntityRefs) ||
-        new Set(scope.resolvedEntityRefs).size!==scope.resolvedEntityRefs.length) fail('resolved scope conflicts with decision/dependency closure');
+    // Validate an explicitly provisional subset as authored. For ordinary exact
+    // plans, retain that same closed-scope check so forged resolved rows still
+    // reach the unauthorized-decision guard below. A mixed plan with a deferred
+    // per-record prerequisite is the one exception: the resolved subset is not a
+    // valid provisional input because it removes the prerequisite from the graph.
+    let calculated;
+    try {
+      calculated=deriveExecutionScope(plan,{mode:'one_click',
+        provisionalEntityRefs:scope.provisionalEntityRefs ?? scope.resolvedEntityRefs,
+        omissionReview:true});
+    } catch (error) {
+      const byRef=new Map(entityRows(plan).map(row=>[entityRef(row),row]));
+      const deferredRefs=new Set((scope.deferredEntities || []).map(row=>row.entityRef));
+      const perRecordDependent=scope.provisionalEntityRefs === undefined && entityRows(plan).some(row =>
+        scope.resolvedEntityRefs?.includes(entityRef(row)) && (row.requiredSourceEntityRefs || []).some(dep =>
+          deferredRefs.has(dep) && dependencyIsPerRecord(row,dep,byRef)));
+      if (perRecordDependent && /human provisional subset contains/.test(error.message)) {
+        calculated=deriveExecutionScope(plan,{mode:'one_click',omissionReview:true});
+      } else if (scope.provisionalEntityRefs !== undefined) throw error;
+      else scopeConflict=error;
+    }
+    if (calculated && (canonical(calculated.resolvedEntityRefs)!==canonical(scope.resolvedEntityRefs) ||
+        new Set(scope.resolvedEntityRefs).size!==scope.resolvedEntityRefs.length)) scopeConflict=new Error('resolved scope conflicts with decision/dependency closure');
   }
-  if (!scope || !scope.selectedEntityRefs?.includes(ref) || !scope.resolvedEntityRefs?.includes(ref) || scope.deferredEntities?.some(d=>d.entityRef===ref)) fail(`${ref}: outside resolved execution scope`);
+  if (!scope || !scope.selectedEntityRefs?.includes(ref) || !scope.resolvedEntityRefs?.includes(ref) ||
+      (!scopeConflict && scope.deferredEntities?.some(d=>d.entityRef===ref))) fail(`${ref}: outside resolved execution scope`);
   const row = entityRows(plan).find(r => entityRef(r) === ref);
   const errors = row ? validateEntity(row) : ['entity absent'];
   if (errors.length) fail(errors.join('; '));
@@ -382,13 +417,43 @@ function assertExecutionScope(plan, ref, expectedDigest, projectDir=null) {
   if (row.fieldMappingStatus==='pending') fail('field inventory is pending mapping');
   if (row.targetClassification==='manual-mapping') fail('manual mapping has no import writer');
   if (row.fieldMappings.some(d=>pendingDecision(row,d) && !(plan.recoveryPolicyVersion===1 && scopedRecordHold(row,d)) && !(row.omissionReviewRequested === true && d.disposition === 'excluded'))) fail('unresolved decisions/unauthorized omissions cannot write');
+  if (scopeConflict) fail('resolved scope conflicts with decision/dependency closure');
   const conditional=entityRows(plan).filter(r=>scope.resolvedEntityRefs.includes(entityRef(r)) && r.omissionReviewRequested && r.fieldMappings?.some(d=>pendingDecision(r,d)));
   if (conditional.length) require('./mapping-omission-approval').assertAuthorized(projectDir,plan,conditional);
 }
+function dependencyIsPerRecord(row, dependencyRef, byRef) {
+  const dependency = byRef.get(dependencyRef);
+  if (!dependency?.targetRef || !row?.targetRef) return false;
+  try {
+    const knowledge = require('./dependency-proofs').domain(row.targetRef);
+    return knowledge.dependencyModes?.[dependency.targetRef] === 'per-record';
+  } catch {
+    return false;
+  }
+}
 function deferredRunResult(plan) {
   if (!plan.executionScope?.deferredEntities?.length) return null;
+  // A deferred scope is a cutover gap, not a run-wide stop, when another executable
+  // entity remains. The generated importer registers only resolved entities; its
+  // dependency-readiness gate then applies per-record edges to dependents. Keep the
+  // typed blocked result for an all-deferred plan, where no importer can start.
+  const runnable = (plan.executionScope.resolvedEntityRefs || []).filter(ref => {
+    const row = entityRows(plan).find(candidate => entityRef(candidate) === ref);
+    return row && row.targetClassification !== 'manual-mapping';
+  });
+  if (runnable.length) return null;
   return { outcome: 'blocked', blocker: { type: 'mapping_scope_deferred', artifact: 'mapping/mapping-plan.json',
     deferredEntities: plan.executionScope.deferredEntities, requiredInput: 'Resolve these field decisions in the next mapping session.' } };
+}
+function deferredMappingActions(plan) {
+  return (plan?.executionScope?.deferredEntities || []).map(deferred => ({
+    code: 'mapping-scope-deferred',
+    severity: 'high',
+    entity: deferred.entityRef,
+    affectedCount: null,
+    deadlineReason: 'Resolve before launch; this mapped entity remains outside the executable import scope.',
+    action: `Requires Import Operator. Resolve the deferred mapping for ${deferred.entityRef} in the original migration project, regenerate and re-approve the exact mapping, then resume only that entity. Independent entities continue importing; do not invent source data or resend landed records.`,
+  }));
 }
 // A row's scope is the measured membership of that exact location: a contributor's
 // per-location affectedScopes entry, else its decision scope. Known measurements must agree;
@@ -450,7 +515,7 @@ function gapRows(row) {
     if (d.lossy) kinds.push('lossy'); if (d.setupBlocked) kinds.push('setup-blocked');
     for (const kind of kinds) gaps.push({ id: `field-gap:${digest([ref, d.id, kind])}`, gapKind: kind, code: `FIELD_MAPPING_${kind.toUpperCase().replace(/-/g,'_')}`,
       entityName: ref, gapType: 'field-mapping', description: d.reason, recommendedHandling: d.nextAction?.cta || d.reason,
-      severity: ['unresolved', 'setup-blocked'].includes(kind) || pendingDecision(row,d) ? 'blocker' : d.disposition==='excluded' && (mandatoryExclusion(row,d) || carriedToCutoverExclusion(row,d) || archiveRetentionExclusion(row,d)) ? 'info' : 'warning',
+      severity: ['unresolved', 'setup-blocked'].includes(kind) || pendingDecision(row,d) ? 'blocker' : d.disposition==='excluded' && (mandatoryExclusion(row,d) || carriedToCutoverExclusion(row,d)) ? 'info' : 'warning',
       sourceEntity: ref, decisionId: d.id, sourcePaths: d.sourcePaths, targetRef: d.outputs?.[0]?.targetRef || d.recovery?.createWithoutField?.targetRef || (d.recovery ? row.targetRef : null) || null, writeOperation: d.outputs?.[0]?.writeOperation || d.recovery?.createWithoutField?.operation || null,
       disposition: d.disposition, storage: (d.outputs || []).map(o=>({ outputId: o.id, targetRef:o.targetRef, writeOperation:o.writeOperation, writeInput:o.writeInput, targetPath:o.targetPath, ...(o.storage ? { definition:o.storage } : {}) })),
       limitation: d.limitation || { status: 'unknown' }, searchEvidence: d.searchEvidence || [], knowledgeEvidence: d.evidence,
@@ -647,6 +712,6 @@ async function writeMappingAuthority(projectDir, next, { provisionalEntityRefs=n
   }
   return { plan,gaps,telemetryFailures,blockedResult:mode==='one_click'?deferredRunResult(plan):null };
 }
-module.exports={measuredZeroExclusion,mandatoryExclusion,carriedToCutoverExclusion,CARRIED_POLICY,archiveRetentionExclusion,pendingDecision,mappingRunMode,GAP_KEYS,canonical,digest,entityRef,entityFileName,entityRows,validateEntity,affectedScope,assertRemapIdentity,
-  deriveExecutionScope,assertExecutionScope,deferredRunResult,mappingReviewFallback,persistMappingReviewFallback,projectEntity,gapRows,telemetryForGap,compareMappingProjections,writeMappingAuthority,
+module.exports={measuredZeroExclusion,mandatoryExclusion,carriedToCutoverExclusion,CARRIED_POLICY,pendingDecision,mappingRunMode,GAP_KEYS,canonical,digest,entityRef,entityKeyMatches,entityFileName,entityRows,entityDecisionFileName,validateEntity,affectedScope,assertRemapIdentity,
+  deriveExecutionScope,assertExecutionScope,deferredRunResult,deferredMappingActions,mappingReviewFallback,persistMappingReviewFallback,projectEntity,gapRows,telemetryForGap,compareMappingProjections,writeMappingAuthority,
   exactPath,decisionLocations,outputLocations,coverageLocations};

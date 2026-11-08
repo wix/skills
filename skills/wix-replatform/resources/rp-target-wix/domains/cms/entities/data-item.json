@@ -14,12 +14,6 @@
   "dependsOn": [
     "cms/collection"
   ],
-  "dependencyFailureActions": {
-    "cms/collection": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "cms/collection"
-  ],
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

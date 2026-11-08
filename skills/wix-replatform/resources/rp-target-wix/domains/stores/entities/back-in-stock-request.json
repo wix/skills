@@ -14,12 +14,6 @@
   "dependsOn": [
     "stores/product"
   ],
-  "dependencyFailureActions": {
-    "stores/product": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "stores/product"
-  ],
   "dependencyModes": {
     "stores/product": "per-record"
   },

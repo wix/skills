@@ -17,7 +17,9 @@ const { egressFetch } = require('../lib/egress-proxy.js');
 const { buildWixDashboardUrl } = require('../lib/wix-dashboard-url.js');
 
 const execFileAsync = promisify(execFile);
-const CLI = ['@wix/cli@latest'];
+// Use the operator's installed, logged-in CLI. Resolving @wix/cli@latest on every call can
+// select a newer Node-incompatible package and hide a valid local login behind a mint failure.
+const CLI = ['--no-install', 'wix'];
 
 function usage() {
   return [

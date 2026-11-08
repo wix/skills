@@ -5,8 +5,9 @@
 // adapters write it directly to `discovery/source-locale.json`, where setup, the import gate and the
 // completion report read it.
 //
-// A value the source does not expose is an explicit `unknown` with a reason -- never a guess and
-// never a default. A value that fails validation is `unknown` / `unreadable`, never coerced: the
+// A value the source does not expose is an explicit `unknown` with a reason -- never a silent guess
+// and never a default. The one exception is an adapter's recorded inference (`supplied` by
+// `discovery-inference`, with an `inference` basis), which setup confirms through a cutover task. A value that fails validation is `unknown` / `unreadable`, never coerced: the
 // Wix settings call stores whatever it is sent (a made-up currency, a made-up time zone, a
 // three-letter language), so the only protection is refusing to send one.
 //
@@ -105,16 +106,27 @@ function validValue(field, value) {
   }
 }
 
+const validInference = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value) && typeof value.basis === 'string');
+// An unknown time zone the adapter already recorded as "keep the site's zone, confirm at cutover"
+// (no named zone at the source and none inferable). Setup does not ask for it.
+const keepsSiteTimeZone = (file) => Boolean(file && file.timeZone && file.timeZone.state === 'unknown'
+  && validInference(file.timeZone.inference) && file.timeZone.inference.basis === 'unresolved');
+
 // An adapter hands over `{ value, evidence }` (or `{ reason }` / nothing); this decides what is
 // written. Invalid values are `unknown` / `unreadable`, absent ones `unknown` / `not-exposed`.
 function normalizeField(field, input) {
   if (input === undefined || input === null) return unknownField('not-exposed');
   if (input.state === 'unknown' || (input.value === undefined && input.reason)) {
-    return unknownField(UNKNOWN_REASONS.includes(input.reason) ? input.reason : 'not-exposed', input.evidence);
+    const row = unknownField(UNKNOWN_REASONS.includes(input.reason) ? input.reason : 'not-exposed', input.evidence);
+    return validInference(input.inference) ? { ...row, inference: input.inference } : row;
   }
   if (input.value === undefined || input.value === null || input.value === '') return unknownField('not-exposed', input.evidence);
   if (!validValue(field, input.value)) return unknownField('unreadable', input.evidence);
+  // A value discovery inferred (e.g. a named zone for a fixed offset) says so: `suppliedBy` names
+  // the inference and `inference` carries its basis, which setup turns into a cutover task.
   const extra = {};
+  if (input.state === 'supplied' && typeof input.suppliedBy === 'string' && input.suppliedBy) extra.suppliedBy = input.suppliedBy;
+  if (validInference(input.inference)) extra.inference = input.inference;
   const evidence = typeof input.evidence === 'string' && input.evidence ? input.evidence : 'adapter';
   return input.state === 'supplied'
     ? suppliedField(input.value, evidence, extra)
@@ -321,6 +333,7 @@ module.exports = {
   settingValue,
   unknownReason,
   isSet,
+  keepsSiteTimeZone,
   writeAdapterSourceRegional,
   writeSourceRegional,
   promoteSourceRegional,

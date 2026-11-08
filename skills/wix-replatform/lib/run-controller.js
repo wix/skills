@@ -12,8 +12,8 @@ const { pendingUserActionGate } = require('./user-actions.js');
 const { applySiteTypePair, resolveSiteTypePair } = require('./destination-choice.js');
 const { normalizeTargetSiteStrategy } = require('./orchestration-decisions.js');
 const { readEnvFile, upsertEnvFile } = require('./config-env.js');
-const { chooseAdapter, launch, requestCancel } = require('./agent-adapters/index.js');
-const { readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, recordWorker, finishCurrent, reconcileTaskState } = require('./task-state.js');
+const { chooseAdapter, launch, reconcileWorkers, requestCancel } = require('./agent-adapters/index.js');
+const { readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, finishWorkers, recordWorker, finishCurrent, reconcileTaskState } = require('./task-state.js');
 
 const SCHEMA_VERSION = 1;
 const RUNNER_DIR = ['state', 'runner'];
@@ -24,6 +24,7 @@ const runnerDir = (projectDir) => path.join(projectDir, ...RUNNER_DIR);
 const activePath = (projectDir) => path.join(runnerDir(projectDir), 'active.json');
 const historyPath = (projectDir, id) => path.join(runnerDir(projectDir), 'runs', `${id}.json`);
 const defaultEventsPath = (projectDir) => path.join(runnerDir(projectDir), 'events.ndjson');
+const defaultVendorEventsPath = (projectDir) => path.join(runnerDir(projectDir), 'vendor-events.ndjson');
 const cancelPath = (projectDir) => path.join(runnerDir(projectDir), 'cancel-request.json');
 
 async function readJson(filePath) {
@@ -159,7 +160,7 @@ function makeResult({ id, projectDir, outcome, adapter = null, route = null, com
     runId: id,
     project: path.basename(projectDir),
     outcome,
-    agent: adapter ? { id: adapter.id, version: adapter.version || null, sessionId: null } : null,
+    agent: adapter ? { id: adapter.id, version: adapter.version || null, sessionId: null, selection: adapter.selection || null } : null,
     router: route ? { state: route.nextState, reason: route.reason, nextResource: route.nextResource || null,
       ...(route.reason === 'run_blocked' ? { resumeFrom: route.resumeFrom, resumeWith: route.resumeWith } : {}),
     } : null,
@@ -183,10 +184,10 @@ function exitCode(result) {
 class RunController {
   constructor(projectDir, options = {}) {
     this.projectDir = path.resolve(projectDir);
-    this.options = { agent: 'auto', maxAgentTurns: 12, maxNoProgressContinuations: 1, gracePeriodMs: 60000, ...options };
+    this.options = { agent: 'auto', maxAgentTurns: 12, maxNoProgressContinuations: 1, gracePeriodMs: 60000, workerStartupTimeoutMs: 120000, ...options };
     this.id = options.runId || runId();
     this.eventFiles = new Set([options.eventsFile || defaultEventsPath(this.projectDir)]);
-    this.vendorEventsPath = options.vendorEvents || null;
+    this.vendorEventsPath = options.vendorEvents || defaultVendorEventsPath(this.projectDir);
     this.lastObservationAt = Date.now();
     this.child = null;
     this.adapter = null;
@@ -206,7 +207,7 @@ class RunController {
     // write, because the record is rebuilt from scratch each time. `startedAt` in active.json is
     // what an explicit telemetry `start` inside this run reads to join the session this run
     // opened (one supervisor process is one telemetry session).
-    const record = { schemaVersion: SCHEMA_VERSION, runId: this.id, projectDir: this.projectDir, pid: process.pid, childPid: this.child?.pid || null, adapter: this.adapter ? { id: this.adapter.id, version: this.adapter.version || null } : null, eventPath: [...this.eventFiles][0], status: 'running', updatedAt: iso(), ...(this.startedAt ? { startedAt: this.startedAt } : {}), ...(this.telemetryResume ? { telemetryResume: this.telemetryResume } : {}), ...patch };
+    const record = { schemaVersion: SCHEMA_VERSION, runId: this.id, projectDir: this.projectDir, pid: process.pid, childPid: this.child?.pid || null, adapter: this.adapter ? { id: this.adapter.id, version: this.adapter.version || null, selection: this.adapter.selection || null } : null, eventPath: [...this.eventFiles][0], status: 'running', updatedAt: iso(), ...(this.startedAt ? { startedAt: this.startedAt } : {}), ...(this.telemetryResume ? { telemetryResume: this.telemetryResume } : {}), ...patch };
     await fs.mkdir(path.dirname(historyPath(this.projectDir, this.id)), { recursive: true });
     await writeJsonAtomic(historyPath(this.projectDir, this.id), record);
     if (!this.closed) await writeJsonAtomic(activePath(this.projectDir), record);
@@ -240,6 +241,9 @@ class RunController {
   async finish(result) {
     if (this.closed) return result;
     this.closed = true;
+    if (!result.agent && this.adapter) {
+      result = { ...result, agent: { id: this.adapter.id || null, version: this.adapter.version || null, sessionId: null, selection: this.adapter.selection || null } };
+    }
     await this.updateTasks((state) => finishCurrent(state, result.outcome === 'waiting_for_user' ? 'waiting_for_input' : result.outcome === 'timed_out' ? 'interrupted' : result.outcome));
     await this.emit('result', result.outcome, 'Run result.', { result });
     await this.writeRecord({ status: result.outcome, result, endedAt: iso() });
@@ -284,6 +288,7 @@ class RunController {
     let turns = 0;
     let sameRoute = 0;
     let priorRoute = null;
+    const workerStartupRetries = new Map();
     while (turns <= this.options.maxAgentTurns) {
       const cancellation = await this.cancellationRequested();
       if (cancellation) return this.cancel(cancellation);
@@ -341,10 +346,33 @@ class RunController {
       }
       turns += 1;
       let directAgentId = null;
-      this.child = launch(this.adapter.id, { cwd: this.projectDir, executablePath: this.options.agentPath, prompt: bootstrap(this.projectDir), onWorker: async (worker) => {
-        let accepted = false;
-        await this.updateTasks((state) => { const task = state.tasks.find((item) => item.state === 'running'); accepted = Boolean(task) && recordWorker(state, task.taskId, this.adapter.id, worker); });
-        if (!accepted) await this.emit('protocol_error', 'running', 'Ignored malformed agent worker report.', { evidence: { kind: 'adapter_protocol', ref: this.adapter.id } });
+      const pendingWorkers = new Map();
+      const activeWorkers = new Map();
+      let workerReports = Promise.resolve();
+      const queueWorkerReport = (report) => {
+        workerReports = workerReports.then(async () => {
+          let accepted = false;
+          await this.updateTasks((state) => { const task = state.tasks.find((item) => item.state === 'running'); accepted = Boolean(task) && recordWorker(state, task.taskId, this.adapter.id, report); });
+          if (!accepted) await this.emit('protocol_error', 'running', 'Ignored malformed agent worker report.', { evidence: { kind: 'adapter_protocol', ref: this.adapter.id } });
+        });
+      };
+      // Mark the route running before launch: a fast adapter can report a child during
+      // launch itself, and that report must not race the durable task creation below.
+      await this.updateTasks((state) => startRoute(state, route));
+      this.child = launch(this.adapter.id, { cwd: this.projectDir, executablePath: this.options.agentPath, prompt: bootstrap(this.projectDir), onWorker: (worker) => {
+        const reports = Array.isArray(worker) ? worker : [worker];
+        for (const report of reports) {
+          if (report.state === 'starting') pendingWorkers.set(report.workerId, { ...report, firstSeenAt: pendingWorkers.get(report.workerId)?.firstSeenAt || Date.now() });
+          else {
+            const firstSeenAt = pendingWorkers.get(report.workerId)?.firstSeenAt || activeWorkers.get(report.workerId)?.firstSeenAt || Date.now();
+            pendingWorkers.delete(report.workerId);
+            // A worker the stream reports as running (even as its first report) is polled for activity until it
+            // ends, so its output keeps counting toward the idle timeout. `firstSeenAt` bounds the handoff search.
+            if (report.state === 'running') activeWorkers.set(report.workerId, { ...report, firstSeenAt });
+            else activeWorkers.delete(report.workerId);
+          }
+          queueWorkerReport(report);
+        }
       }, onEvent: async (event) => {
         this.lastObservationAt = Date.now();
         if (this.vendorEventsPath && event.type === 'vendor_event') await appendLine(this.vendorEventsPath, event.raw);
@@ -355,20 +383,21 @@ class RunController {
         directAgentId = startDirectAgent(state, task, this.adapter.id, this.child.pid).agentId;
       });
       await this.writeRecord({ childPid: this.child.pid, childProcessGroup: this.child.pid });
-      await this.emit('agent_started', 'running', `Started ${this.adapter.id} agent turn.`, { evidence: { kind: 'process', ref: String(this.child.pid) } });
+      await this.emit('agent_started', 'running', `Started ${this.adapter.id} agent turn (${this.adapter.selection?.reason || 'selection reason unavailable'}).`, { agent: { id: this.adapter.id, selection: this.adapter.selection || null }, evidence: { kind: 'process', ref: String(this.child.pid) } });
       const childDone = this.waitForChild();
       const heartbeat = this.options.statusIntervalMs ? setInterval(async () => {
         const elapsed = Date.now() - this.lastObservationAt;
         if (elapsed >= this.options.statusIntervalMs) await this.emit('heartbeat', 'running', 'Agent process is alive; no newer progress was observed.', { lastObservedAt: new Date(this.lastObservationAt).toISOString(), elapsedSinceObservationMs: elapsed, evidence: { kind: 'process', ref: String(this.child?.pid) } });
       }, Math.max(1000, this.options.statusIntervalMs)) : null;
       let finished = null;
+      let workerStartupTimeout = null;
       // A second terminal communicates through the durable request file. Polling that
       // file is intentionally mundane: it works for foreground and detached ownership
       // without introducing a daemon socket or an interactive stdin channel.
       while (!finished) {
         finished = await Promise.race([
           childDone,
-          new Promise((resolve) => setTimeout(() => resolve(null), 500)),
+          new Promise((resolve) => setTimeout(() => resolve(null), 100)),
         ]);
         if (!finished && await this.cancellationRequested()) {
           if (heartbeat) clearInterval(heartbeat);
@@ -376,6 +405,40 @@ class RunController {
         }
         const wallExpired = this.options.wallTimeoutMs && Date.now() - this.startedAtMs > this.options.wallTimeoutMs;
         const idleExpired = this.options.idleTimeoutMs && Date.now() - this.lastObservationAt > this.options.idleTimeoutMs;
+        if (!finished && (pendingWorkers.size > 0 || activeWorkers.size > 0)) {
+          const reconciled = await reconcileWorkers(this.adapter.id, [...pendingWorkers.values(), ...activeWorkers.values()], { cwd: this.projectDir, env: this.options.env || process.env });
+          for (const report of reconciled) {
+            // A worker that is writing session output or a handoff is observable progress. A running worker
+            // keeps being polled until it ends: without this a parent waiting on a long worker is cancelled
+            // at the idle timeout while the worker is busy.
+            if (Number.isFinite(report.lastActivityAt)) this.lastObservationAt = Math.max(this.lastObservationAt, report.lastActivityAt);
+            if (report.state === 'starting') continue;
+            const wasActive = activeWorkers.has(report.workerId);
+            pendingWorkers.delete(report.workerId);
+            if (report.state === 'running') {
+              activeWorkers.set(report.workerId, report);
+              if (wasActive) continue; // already recorded as running; only its activity time mattered
+            } else {
+              activeWorkers.delete(report.workerId);
+            }
+            queueWorkerReport(report);
+          }
+        }
+        const stalledWorker = [...pendingWorkers.values()].find((worker) => Date.now() - worker.firstSeenAt >= this.options.workerStartupTimeoutMs);
+        if (!finished && stalledWorker) {
+          workerStartupTimeout = stalledWorker;
+          await this.emit('worker_start_timeout', 'running', `Codex worker ${stalledWorker.workerId} did not leave startup state within ${this.options.workerStartupTimeoutMs}ms.`, {
+            workerId: stalledWorker.workerId,
+            workerState: stalledWorker.state,
+            evidence: { kind: 'vendor_event', ref: this.adapter.id },
+          });
+          requestCancel(this.child);
+          const stopped = await Promise.race([childDone, new Promise((resolve) => setTimeout(() => resolve(null), this.options.gracePeriodMs))]);
+          if (!stopped) {
+            try { process.kill(-this.child.pid, 'SIGKILL'); } catch { this.child.kill('SIGKILL'); }
+          }
+          break;
+        }
         if (!finished && (wallExpired || idleExpired)) {
           if (heartbeat) clearInterval(heartbeat);
           requestCancel(this.child);
@@ -388,7 +451,24 @@ class RunController {
       }
       if (heartbeat) clearInterval(heartbeat);
       this.child = null;
-      await this.updateTasks((state) => finishDirectAgent(state, directAgentId, finished.code === 0 ? 'completed' : 'failed'));
+      await workerReports;
+      const childOutcome = workerStartupTimeout ? 'failed' : finished.code === 0 ? 'completed' : 'failed';
+      await this.updateTasks((state) => {
+        finishDirectAgent(state, directAgentId, childOutcome);
+        if (childOutcome !== 'completed') finishWorkers(state, state.tasks.find((item) => item.state === 'running')?.taskId, 'failed');
+      });
+      if (workerStartupTimeout) {
+        const retries = workerStartupRetries.get(routeKey) || 0;
+        if (retries < 1) {
+          workerStartupRetries.set(routeKey, retries + 1);
+          // The retry is a bounded recovery path even when the caller disabled ordinary
+          // same-route continuations. The next pass must reach launch once.
+          sameRoute = -1;
+          await this.emit('agent_retrying', 'running', 'Retrying the route once after a sub-worker failed to start.', { workerId: workerStartupTimeout.workerId, retry: retries + 1, evidence: { kind: 'adapter_protocol', ref: this.adapter.id } });
+          continue;
+        }
+        return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: `A sub-worker remained in startup state after one retry (${workerStartupTimeout.workerId}); inspect vendor diagnostics and relaunch the run.` }));
+      }
       if (finished.code !== 0) return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'failed', route, nextAction: `Agent exited with ${finished.code ?? finished.signal}; inspect vendor diagnostics and resume.` }));
     }
     return this.finish(makeResult({ id: this.id, projectDir: this.projectDir, outcome: 'timed_out' }));
@@ -425,4 +505,4 @@ async function requestCancellation(projectDir, { reason = 'canceled by operator'
   return { active, request };
 }
 
-module.exports = { SCHEMA_VERSION, RunController, runnerDir, activePath, historyPath, defaultEventsPath, readActive, findRun, requestCancellation, applyInvocationInputs, makeResult, exitCode, safeRelative, readJson, userActionSummary };
+module.exports = { SCHEMA_VERSION, RunController, runnerDir, activePath, historyPath, defaultEventsPath, defaultVendorEventsPath, readActive, findRun, requestCancellation, applyInvocationInputs, makeResult, exitCode, safeRelative, readJson, userActionSummary };

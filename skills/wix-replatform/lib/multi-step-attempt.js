@@ -20,6 +20,7 @@
 // Pure: it decides the row's status, targetId, findings and failure; the caller journals them.
 
 const RETRYABLE_4XX = new Set([408, 429]);
+const AUTH_EXPIRED_REASON = 'auth_expired';
 
 function requireString(value, label) {
   if (typeof value !== 'string' || value === '') throw new Error(`${label} must be a nonempty string`);
@@ -29,6 +30,7 @@ function requireString(value, label) {
 function baseFailureOutcome(error, { writeAttempted = true } = {}) {
   if (!writeAttempted) return 'failed_retryable';
   if (error && error.requestSent === false) return 'failed_retryable';
+  if (error && (error.authExpired === true || error.reason === AUTH_EXPIRED_REASON || error.code === AUTH_EXPIRED_REASON)) return 'failed_retryable';
   if (error && error.outcomeKnown === false) return 'unresolved';
   const status = error && Number.isInteger(error.status) ? error.status : null;
   if (status !== null && status >= 400 && status < 500 && !RETRYABLE_4XX.has(status)) return 'failed_terminal';
@@ -68,6 +70,7 @@ function classifyMultiStepAttempt({ sourceStableKey, operation, base, subSteps =
   const error = base.error || null;
   const outcome = baseFailureOutcome(error, { writeAttempted: base.writeAttempted !== false });
   const status = Number.isInteger(error && error.status) ? error.status : null;
+  const authExpired = Boolean(error && (error.authExpired === true || error.reason === AUTH_EXPIRED_REASON || error.code === AUTH_EXPIRED_REASON));
   return {
     status: STATUS_FOR_OUTCOME[outcome],
     targetId: undefined,
@@ -78,10 +81,11 @@ function classifyMultiStepAttempt({ sourceStableKey, operation, base, subSteps =
       ...(base.intendedTargetId ? { intendedTargetId: String(base.intendedTargetId) } : {}),
       operation,
       httpStatus: status,
-      errorCode: (error && (error.applicationErrorCode || error.code)) || base.outcome,
+      errorCode: authExpired ? AUTH_EXPIRED_REASON : (error && (error.applicationErrorCode || error.code)) || base.outcome,
       scopeGroupName: null,
       outcome,
       message: String((error && error.message) || base.outcome).slice(0, 300),
+      ...(authExpired ? { reason: AUTH_EXPIRED_REASON } : {}),
       ...(error && error.requestSent === false ? { requestSent: false } : {}),
     },
   };

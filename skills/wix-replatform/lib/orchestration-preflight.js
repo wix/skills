@@ -9,6 +9,7 @@ const { SESSION_RECEIPT_FILE } = require('./source-access.js');
 const {
   SOURCE_MODE_DECISION_KEYS,
   getDecisionValue,
+  getEffectiveDeliveryMode,
   invalidSourceModeMessage,
   isKnownSourceMode,
   normalizeSourceMode,
@@ -261,7 +262,7 @@ async function recoverTelemetryJournal(projectDir, check, dims = {}, { now } = {
 
 async function defaultProbeWixCli({ execFile = execFileAsync } = {}) {
   try {
-    const { stdout } = await execFile('npx', ['@wix/cli@latest', 'whoami'], {
+    const { stdout } = await execFile('npx', ['--no-install', 'wix', 'whoami'], {
       timeout: 30000,
       maxBuffer: 1024 * 1024,
     });
@@ -340,7 +341,7 @@ async function localPreflightChecks(projectDir, artifacts, options = {}) {
   const decisions = artifacts.decisions || {};
   const sourceMode = getDecisionValue(decisions, 'sourceMode');
   const sourcePlatform = getDecisionValue(decisions, 'sourcePlatform');
-  const deliveryMode = getDecisionValue(decisions, 'deliveryMode');
+  const deliveryMode = getEffectiveDeliveryMode(decisions);
   const targetSiteStrategy = getDecisionValue(decisions, 'targetSiteStrategy');
   const fileInputPaths = getDecisionValue(decisions, 'fileInputPaths');
   const credentialRef = getDecisionValue(decisions, 'sourceCredentialRef');

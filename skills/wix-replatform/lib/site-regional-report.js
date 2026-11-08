@@ -35,6 +35,10 @@ function promptPayment({ project, run, siteId, requestId, currency }) {
   return `Requires Import Operator. Resume migration ${project}/${run} for destination ${siteId}. The Cutover Operator confirmed in Business Manager that connected payment methods accept ${currency}. Acknowledge user action ${requestId}, regenerate the completion report, and verify site-locale-payment-methods-unconfirmed is absent. If confirmation is missing, record nothing and leave the action open.`;
 }
 
+function promptTimeZone({ project, run, siteId, requestId, value }) {
+  return `Requires Import Operator. Resume migration ${project}/${run} for destination ${siteId}. The Cutover Operator confirmed the site time zone (${value}, or the zone they set instead). Acknowledge user action ${requestId}, regenerate the completion report, and verify site-locale-time-zone-unconfirmed is absent. If confirmation is missing, record nothing and leave the action open.`;
+}
+
 function userActionFiles(projectDir) {
   const dir = path.join(projectDir, 'orchestration', 'user-actions');
   if (!fs.existsSync(dir)) return [];
@@ -93,6 +97,7 @@ function regionalReportRows(projectDir) {
   if (source) {
     for (const field of core.SETTINGS) {
       if (sr.settingValue(source, field) !== null) continue;
+      if (field === 'timeZone' && sr.keepsSiteTimeZone(source)) continue; // site zone kept; the confirm task below covers it
       operatorActions.push({
         code: 'site-locale-not-ready', severity: 'high', entity: `site/locale:${field}`, affectedCount: tasks.length || null,
         deadlineReason: 'before any entity import',
@@ -162,7 +167,16 @@ function regionalReportRows(projectDir) {
     });
   }
 
+  for (const request of actions) {
+    if (request.status !== 'pending' || request.subject?.type !== core.TIME_ZONE_CONFIRMATION) continue;
+    operatorActions.push({
+      code: 'site-locale-time-zone-unconfirmed', severity: 'medium', entity: 'site/locale:timeZone', affectedCount: null,
+      deadlineReason: 'before launch',
+      action: `Cutover Operator: confirm the site time zone ${request.subject.value} in Business Manager > Settings > Language & region (the source store had no named zone; ${request.subject.basis === 'single-zone-country' ? 'picked from the store country' : request.subject.basis === 'unresolved' ? 'none could be picked, so the site kept its own zone' : 'picked from the store country and its fixed offset'}). Change it there if it is wrong. ${promptTimeZone({ project, run, siteId, requestId: request.requestId, value: request.subject.value })}`,
+    });
+  }
+
   return { operatorActions, headline };
 }
 
-module.exports = { regionalReportRows, promptAnswer, promptCatchUp, promptSupply, promptPayment };
+module.exports = { regionalReportRows, promptAnswer, promptCatchUp, promptSupply, promptPayment, promptTimeZone };

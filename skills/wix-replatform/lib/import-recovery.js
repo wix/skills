@@ -127,6 +127,26 @@ function normalizeSelectionFilters(input = {}) {
   return filters;
 }
 
+// A dependency can be final without having a failed attempt. Recovery must select the
+// producer record according to the final status, or the dependent can remain permanently
+// blocked after the operator follows the cutover action.
+function dependencyParentRecovery(parentStatus) {
+  const status = String(parentStatus || '');
+  if (status === 'held') return { mode: 'held', flag: null, prerequisite: 'resolve the owner hold' };
+  if (status === 'deferred' || status === 'needs_verification') return { mode: 'deferred-only', flag: '--deferred-only', prerequisite: 'resolve the recorded deferral' };
+  if (status.startsWith('failed')) return { mode: 'failed-only', flag: '--failed-only', prerequisite: 'repair the failed producer record' };
+  if (status === 'not-in-source') return { mode: 'missing-only', flag: '--missing-only', prerequisite: 'restore the parent in the producer extract' };
+  if (status === 'not-attempted') return { mode: 'missing-only', flag: '--missing-only', prerequisite: 'ensure the parent is present in the producer extract' };
+  // Child-output statuses do not identify a parent source key. A child key is not a safe
+  // substitute: selecting it as a parent can skip the real parent through the crosswalk.
+  if (status === 'child-identity-missing' || status === 'child-contract-missing' || status === 'child-identity-ambiguous') {
+    return { mode: 'manual', flag: null, prerequisite: 'repair and verify the child-to-parent identity mapping; no automatic producer selector is safe' };
+  }
+  // Unknown final statuses fail closed. A guessed selector can silently select nothing or the
+  // wrong already-crosswalked record, leaving the dependent blocked while reporting recovery.
+  return { mode: 'manual', flag: null, prerequisite: `inspect the final dependency status (${status || 'unknown'}); no automatic producer selector is safe` };
+}
+
 // A rerun buckets the refreshed scope into create / update / unchanged
 // / unknown against the crosswalk baseline. It is deliberately NOT expressible as the existing
 // filters: `missingOnly` excludes every crosswalk hit (so no changed record is ever seen) and
@@ -1154,6 +1174,7 @@ module.exports = {
   normalizeSelectionFilters,
   foldAttemptsBySource,
   sourceStableKey,
+  dependencyParentRecovery,
   selectImportRecords,
   selectImportRecordsFromState,
   selectRerunRecords,

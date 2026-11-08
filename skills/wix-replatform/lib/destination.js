@@ -15,6 +15,7 @@ const { editorTypeFromUrls, HARMONY_EDITOR_TYPE } = require('./editor-type.js');
 
 const {
   getDecisionValue,
+  getEffectiveDeliveryMode,
   isEditorSiteType,
   isNewSiteStrategy,
   readSiteTypeDecision,
@@ -22,6 +23,7 @@ const {
 const { loadArtifacts, writeJsonAtomic } = require('./orchestration-state.js');
 const { createUserAction, readUserAction, listUserActions } = require('./user-actions.js');
 const { editorWebsiteRequestInput, siteTypeRequestInput, KNOWN_BUSINESS_TYPES } = require('./destination-choice.js');
+const { tokenExpiresAt } = require('./wix-auth.js');
 
 const RECEIPT_SCHEMA_VERSION = 1;
 const RECEIPT_STATUSES = Object.freeze(['in_progress', 'created', 'verified', 'failed_before_create', 'ambiguous', 'blocked']);
@@ -110,6 +112,88 @@ function identityRef(identity) {
 }
 
 function isoAt(clock) { return new Date(clock.now()).toISOString(); }
+
+const CREDENTIAL_ERROR_MAX = 1000;
+
+function credentialError(error) {
+  const rawMessage = error && error.message ? error.message : String(error || 'site credential mint returned no token');
+  const rawStderr = error && error.stderr ? String(error.stderr) : '';
+  // A CLI failure may include a token in a command's diagnostic output. Keep the cause useful
+  // without allowing a credential to enter the durable receipt.
+  const redact = (value) => clip(value, CREDENTIAL_ERROR_MAX).replace(/(?:OauthNG\.)?JWS\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+){2}/g, '[credential redacted]');
+  return {
+    ...(error && error.name ? { name: clip(error.name, 120) } : {}),
+    ...(error && error.code ? { code: clip(error.code, 120) } : {}),
+    message: redact(rawMessage),
+    ...(rawStderr && redact(rawStderr) !== redact(rawMessage) ? { stderr: redact(rawStderr) } : {}),
+  };
+}
+
+function isTransientCredentialExpiry(error) {
+  const detail = credentialError(error);
+  const text = `${detail.code || ''} ${detail.message} ${detail.stderr || ''}`;
+  return /(?:expired|expiration|token\s+(?:refresh|renew)|(?:refresh|renew)\s+token|status\s*[:=]?\s*401|unauthori[sz]ed)/i.test(text);
+}
+
+// Each CLI invocation asks the installed Wix CLI for its current token; the CLI refreshes its
+// login session when needed. A second invocation is therefore the one bounded refresh/retry for
+// an expiry race. All failures are returned for the receipt instead of being swallowed.
+async function mintSiteToken(deps, metaSiteId) {
+  const failures = [];
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const token = await deps.credentials.siteToken(metaSiteId);
+      if (token) {
+        const expiresAt = tokenExpiresAt(token);
+        if (expiresAt === null || expiresAt > deps.clock.now()) return { token, failures };
+        const error = new Error('the Wix CLI returned an expired site credential');
+        error.code = 'TOKEN_EXPIRED';
+        failures.push(credentialError(error));
+        if (attempt === 0) continue;
+        break;
+      }
+      failures.push(credentialError(null));
+    } catch (error) {
+      failures.push(credentialError(error));
+      if (attempt === 0 && isTransientCredentialExpiry(error)) continue;
+    }
+    break;
+  }
+  return { token: null, failures, error: failures.at(-1) || credentialError(null) };
+}
+
+// A site read can refuse a token after it was minted (for example, when the four-hour
+// credential expired between the CLI call and the HTTP request). Ask the installed CLI for a
+// replacement once, then repeat only that read. The caller persists the mint failure if the
+// replacement cannot be obtained.
+async function readWithCredentialRetry(deps, metaSiteId, siteToken, read) {
+  const first = await read(siteToken);
+  if (first.httpStatus !== 401) return { observation: first, siteToken, refresh: null };
+  const refresh = await mintSiteToken(deps, metaSiteId);
+  if (!refresh.token) {
+    return {
+      observation: {
+        ...first,
+        reason: 'site_credential_unavailable',
+        credentialError: refresh.error,
+        credentialAttempts: refresh.failures,
+      },
+      siteToken,
+      refresh,
+    };
+  }
+  return { observation: await read(refresh.token), siteToken: refresh.token, refresh };
+}
+
+function siteCredentialUnavailable(message, mint, nextAction) {
+  return {
+    code: 'site_credential_unavailable',
+    message: `${message} Cause: ${mint.error.message}`,
+    nextAction,
+    credentialError: mint.error,
+    credentialAttempts: mint.failures,
+  };
+}
 
 // --- lock -------------------------------------------------------------------------------
 
@@ -463,27 +547,32 @@ async function verifyCreatedSite(deps, projectDir, receipt) {
     return result('blocked', receipt);
   }
   receipt.envPersisted = true;
-  let siteToken;
-  try {
-    siteToken = await deps.credentials.siteToken(receipt.metaSiteId);
-  } catch (error) {
-    siteToken = null;
-  }
-  if (!siteToken) {
+  const mint = await mintSiteToken(deps, receipt.metaSiteId);
+  if (!mint.token) {
     receipt.status = 'blocked';
-    receipt.error = { code: 'site_credential_unavailable', message: 'A site-scoped credential could not be minted for the new site through the Wix CLI login.', nextAction: 'Confirm the Wix CLI is logged into the account that owns the site (access recovery), then recheck.' };
+    receipt.error = siteCredentialUnavailable('A site-scoped credential could not be minted for the new site through the Wix CLI login.', mint, 'Confirm the Wix CLI is logged into the account that owns the site (access recovery), then recheck.');
     await raiseRecovery(projectDir, receipt, 'editor_unverified', clock);
     await saveReceipt(projectDir, receipt, clock);
     return result('blocked', receipt);
   }
-  const editor = await readEditor(deps, { siteToken, metaSiteId: receipt.metaSiteId });
-  receipt.editorReadback = { checkedAt: isoAt(clock), httpStatus: editor.httpStatus, ...(editor.ok ? {} : { reason: editor.reason }) };
+  const editorRead = await readWithCredentialRetry(deps, receipt.metaSiteId, mint.token,
+    (siteToken) => readEditor(deps, { siteToken, metaSiteId: receipt.metaSiteId }));
+  const siteToken = editorRead.siteToken;
+  const editor = editorRead.observation;
+  receipt.editorReadback = {
+    checkedAt: isoAt(clock), httpStatus: editor.httpStatus, ...(editor.ok ? {} : { reason: editor.reason }),
+    ...(editor.credentialError ? { credentialError: editor.credentialError, credentialAttempts: editor.credentialAttempts } : {}),
+  };
   receipt.observedEditorType = editor.ok ? editor.editorType : null;
   if (editor.ok && editor.editorUrl) receipt.editorUrl = editor.editorUrl;
   const expected = EXPECTED_EDITOR[receipt.requestedSiteType];
   if (!editor.ok || editor.editorType !== expected) {
     receipt.status = 'blocked';
-    receipt.error = editor.ok
+    receipt.error = editor.credentialError
+      ? siteCredentialUnavailable('A site-scoped credential was refused during the new-site editor readback.', {
+        error: editor.credentialError, failures: editor.credentialAttempts || [],
+      }, 'Restore access, then recheck.')
+      : editor.ok
       ? { code: 'editor_mismatch', message: `The site's editor is ${editor.editorType}, not the requested ${expected}.`, nextAction: 'Keep the site; reconcile the choice with the Import Operator. Never create another site to fix this.' }
       : { code: 'editor_unverified', message: `Editor readback failed (${editor.reason}).`, nextAction: 'Fix the stated cause, then recheck.' };
     await raiseRecovery(projectDir, receipt, 'editor_unverified', clock);
@@ -495,11 +584,15 @@ async function verifyCreatedSite(deps, projectDir, receipt) {
 
 async function checkPublication(deps, projectDir, receipt, siteToken, { recheckRequestId = null } = {}) {
   const { clock } = deps;
-  const observation = await readPublication(deps, { siteToken, metaSiteId: receipt.metaSiteId });
+  const publicationRead = await readWithCredentialRetry(deps, receipt.metaSiteId, siteToken,
+    (readToken) => readPublication(deps, { siteToken: readToken, metaSiteId: receipt.metaSiteId }));
+  const observation = publicationRead.observation;
   receipt.publication = { ...observation, ...(recheckRequestId ? { recheckRequestId } : {}) };
   if (observation.state === 'unpublished') {
     // First time this editor site verifies: install the app once, then save `verified` with the outcome.
-    if (receipt.developerToolsOnVerify === true && !receipt.developerTools) await installDeveloperTools(deps, receipt, siteToken);
+    // `publicationRead.siteToken` is the credential the read succeeded with: after a 401 refresh it is the
+    // replacement, and the expired `siteToken` would fail the install and the read-back for the same reason.
+    if (receipt.developerToolsOnVerify === true && !receipt.developerTools) await installDeveloperTools(deps, receipt, publicationRead.siteToken);
     receipt.status = 'verified';
     receipt.error = null;
     receipt.recovery = null;
@@ -507,7 +600,11 @@ async function checkPublication(deps, projectDir, receipt, siteToken, { recheckR
     return result('verified', receipt);
   }
   receipt.status = 'blocked';
-  receipt.error = observation.state === 'published'
+  receipt.error = observation.reason === 'site_credential_unavailable'
+    ? siteCredentialUnavailable('A site-scoped credential could not be refreshed after the publication readback refused it.', {
+      error: observation.credentialError, failures: observation.credentialAttempts || [],
+    }, 'Restore access, then recheck.')
+    : observation.state === 'published'
     ? { code: 'publication_published', message: `The published-URLs readback returned ${observation.urlCount} URL(s).`, nextAction: 'A person may unpublish the site in Wix; then recheck. RePlatform never unpublishes it.' }
     : { code: 'publication_unknown', message: `The published-URLs readback was not conclusive (${observation.reason}).${observation.accessNote ? ` ${observation.accessNote}` : ''}`, nextAction: 'Fix the stated cause, then recheck.' };
   await raiseRecovery(projectDir, receipt, observation.state === 'published' ? 'publication_published' : 'publication_unknown', clock, {
@@ -522,24 +619,24 @@ async function checkPublication(deps, projectDir, receipt, siteToken, { recheckR
 // reused as proof before setup/import. Anything but a new `unpublished` blocks (fail-closed).
 async function freshPublicationReadback(deps, projectDir, receipt, { recheckRequestId = null } = {}) {
   const { clock } = deps;
-  let siteToken = null;
-  try { siteToken = await deps.credentials.siteToken(receipt.metaSiteId); } catch { siteToken = null; }
-  if (!siteToken) {
+  const mint = await mintSiteToken(deps, receipt.metaSiteId);
+  if (!mint.token) {
     // Being unable to obtain the readback is itself an `unknown` observation. Record it so
     // the receipt never keeps an earlier `unpublished` beside a publication_unknown block.
     receipt.status = 'blocked';
     receipt.publication = {
       state: 'unknown', checkedAt: isoAt(clock), httpStatus: null, urlCount: null, attempts: 0, reason: 'site_credential_unavailable',
+      credentialError: mint.error, credentialAttempts: mint.failures,
       ...(recheckRequestId ? { recheckRequestId } : {}),
     };
-    receipt.error = { code: 'site_credential_unavailable', message: 'A site-scoped credential could not be minted for the readback.', nextAction: 'Restore access, then recheck.' };
+    receipt.error = siteCredentialUnavailable('A site-scoped credential could not be minted for the readback.', mint, 'Restore access, then recheck.');
     await raiseRecovery(projectDir, receipt, 'publication_unknown', clock, {
       state: 'unknown', checkedAt: receipt.publication.checkedAt, httpStatus: null, urlCount: null,
     });
     await saveReceipt(projectDir, receipt, clock);
     return result('blocked', receipt);
   }
-  return checkPublication(deps, projectDir, receipt, siteToken, { recheckRequestId });
+  return checkPublication(deps, projectDir, receipt, mint.token, { recheckRequestId });
 }
 
 // --- intended account (confirm the intended account before mutation) ----------------
@@ -802,20 +899,28 @@ async function resumeFromRecovery(deps, projectDir, receipt, request, decisions)
 // destination-handoff.js.
 async function readBackHeadlessSite(deps, receipt) {
   const { clock } = deps;
-  let siteToken = null;
-  try { siteToken = await deps.credentials.siteToken(receipt.metaSiteId); } catch { siteToken = null; }
-  if (!siteToken) {
+  const mint = await mintSiteToken(deps, receipt.metaSiteId);
+  if (!mint.token) {
     const checkedAt = isoAt(clock);
-    receipt.editorReadback = { checkedAt, httpStatus: null, reason: 'site_credential_unavailable' };
+    receipt.editorReadback = { checkedAt, httpStatus: null, reason: 'site_credential_unavailable', credentialError: mint.error, credentialAttempts: mint.failures };
     receipt.observedEditorType = null;
-    receipt.publication = { state: 'unknown', checkedAt, httpStatus: null, urlCount: null, attempts: 0, reason: 'site_credential_unavailable' };
+    receipt.publication = { state: 'unknown', checkedAt, httpStatus: null, urlCount: null, attempts: 0, reason: 'site_credential_unavailable', credentialError: mint.error, credentialAttempts: mint.failures };
     return;
   }
-  const editor = await readEditor(deps, { siteToken, metaSiteId: receipt.metaSiteId });
-  receipt.editorReadback = { checkedAt: isoAt(clock), httpStatus: editor.httpStatus, ...(editor.ok ? {} : { reason: editor.reason }) };
+  const siteToken = mint.token;
+  const editorRead = await readWithCredentialRetry(deps, receipt.metaSiteId, siteToken,
+    (readToken) => readEditor(deps, { siteToken: readToken, metaSiteId: receipt.metaSiteId }));
+  const currentToken = editorRead.siteToken;
+  const editor = editorRead.observation;
+  receipt.editorReadback = {
+    checkedAt: isoAt(clock), httpStatus: editor.httpStatus, ...(editor.ok ? {} : { reason: editor.reason }),
+    ...(editor.credentialError ? { credentialError: editor.credentialError, credentialAttempts: editor.credentialAttempts } : {}),
+  };
   receipt.observedEditorType = editor.ok ? editor.editorType : null;
   if (editor.ok && editor.editorUrl) receipt.editorUrl = editor.editorUrl;
-  receipt.publication = await readHeadlessPublication(deps, { siteToken, metaSiteId: receipt.metaSiteId });
+  const publicationRead = await readWithCredentialRetry(deps, receipt.metaSiteId, currentToken,
+    (readToken) => readHeadlessPublication(deps, { siteToken: readToken, metaSiteId: receipt.metaSiteId }));
+  receipt.publication = publicationRead.observation;
 }
 
 // For a Headless site the published-URLs readback lists the free URL whether or not the site
@@ -978,7 +1083,7 @@ async function ensureDestinationLocked(projectDir, deps) {
   }
 
   // Editor branch. Scope guard first, before any site exists.
-  if (!receipt && getDecisionValue(decisions, 'deliveryMode') === 'management_and_website' && !getDecisionValue(decisions, 'editorWebsiteDecision')) {
+  if (!receipt && getEffectiveDeliveryMode(decisions) === 'management_and_website' && !getDecisionValue(decisions, 'editorWebsiteDecision')) {
     const pending = await pendingRequestFor(projectDir, (request) => request.effect && request.effect.key === 'editorWebsiteDecision');
     if (pending) return { outcome: 'awaiting_editor_website_decision', requestId: pending.requestId };
     const request = await createUserAction(projectDir, editorWebsiteRequestInput({ siteType }));

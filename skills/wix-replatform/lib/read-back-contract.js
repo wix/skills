@@ -39,12 +39,30 @@ function domainContract(entity) {
     domainDigest: hashArtifact(path.dirname(file), path.basename(file))
   };
 }
-function bindingPaths(entity) {
+function decisionFileName(projectDir, entity) {
+  let plan = null;
+  try { plan = JSON.parse(fs.readFileSync(path.join(projectDir, 'mapping/mapping-plan.json'), 'utf8')); } catch { /* legacy fallback */ }
+  const preferred = plan?.fieldContractVersion === 1
+    ? require('./mapping-field-contract').entityDecisionFileName(plan, entity)
+    : `${entity}.json`;
+  // Exact plans are source-named. Keep reading an existing target-named projection
+  // from older exact fixtures/runs until the mapper rewrites it.
+  const legacy = `${entity}.json`;
+  return fs.existsSync(path.join(projectDir, 'mapping/entity-decisions', preferred)) || !fs.existsSync(path.join(projectDir, 'mapping/entity-decisions', legacy))
+    ? preferred
+    : legacy;
+}
+function bindingPaths(entity, plan, projectDir = null) {
   entityKey(entity);
-  return ['mapping/mapping-plan.json', `mapping/entity-decisions/${entity}.json`, 'mapping/mapping-resolution.json', `execution/read-back-inventory/${entity}.json`];
+  const decision = plan?.fieldContractVersion === 1
+    ? projectDir ? decisionFileName(projectDir, entity) : require('./mapping-field-contract').entityDecisionFileName(plan, entity)
+    : `${entity}.json`;
+  return ['mapping/mapping-plan.json', `mapping/entity-decisions/${decision}`, 'mapping/mapping-resolution.json', `execution/read-back-inventory/${entity}.json`];
 }
 function bindings(projectDir, entity) {
-  return Object.fromEntries(bindingPaths(entity).map(p => {
+  let plan = null;
+  try { plan = JSON.parse(fs.readFileSync(path.join(projectDir, 'mapping/mapping-plan.json'), 'utf8')); } catch { /* the missing plan is reported by its own binding */ }
+  return Object.fromEntries(bindingPaths(entity, plan, projectDir).map(p => {
     const hash = hashArtifact(projectDir, p);
     if (!hash) throw new Error(`read-back binding missing: ${p}`);
     return [p, hash];
@@ -55,7 +73,8 @@ function leafPaths(value, { templates = [] } = {}) {
 }
 const valuesAt = (value, location) => L.valuesAt(value, location);
 function planEntity(plan, entity) {
-  return require('./mapping-field-contract').entityRows(plan || {}).find(e => [e.entity, e.sourceEntity, e.name, e.target?.entity].includes(entity)) || null;
+  const fields = require('./mapping-field-contract');
+  return fields.entityRows(plan || {}).find(row => fields.entityKeyMatches(row, entity)) || null;
 }
 // Selector templates come only from the reviewed coverage's dynamic entries. Two different
 // templates for one array are ambiguous and fail closed.
@@ -383,7 +402,8 @@ function mappingRows(plan, entity) {
     sourceEntity: key,
     ...v
   }));
-  const entry = entities.find(e => [e.entity, e.sourceEntity, e.name, e.target?.entity].includes(entity));
+  const fields = require('./mapping-field-contract');
+  const entry = entities.find(e => fields.entityKeyMatches(e, entity));
   const rows = entry?.fieldMappings || entry?.fields || entry?.mappingRows || [];
   if (plan.fieldContractVersion !== 1) return rows;
   // Derive the approved verification projection from canonical outputs. Never
@@ -401,8 +421,9 @@ async function validate(projectDir, entity, {
   request
 } = {}) {
   entityKey(entity);
-  decision ||= await state.readJson(projectDir, `mapping/entity-decisions/${entity}.json`);
   plan ||= await state.readJson(projectDir, 'mapping/mapping-plan.json');
+  const decisionFile = decisionFileName(projectDir, entity);
+  decision ||= await state.readJson(projectDir, `mapping/entity-decisions/${decisionFile}`);
   inv ||= await state.readJson(projectDir, `execution/read-back-inventory/${entity}.json`);
   approval ||= (await state.readJson(projectDir, 'orchestration/approvals.json', {})).mapping;
   if (!request && approval?.requestId) {
@@ -592,6 +613,7 @@ module.exports = {
   domainPath,
   domainContract,
   bindingPaths,
+  decisionFileName,
   bindings,
   leafPaths,
   valuesAt,

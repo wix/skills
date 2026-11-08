@@ -114,10 +114,13 @@ If this skill encounters conflicting Wix guidance about how to create a `new sit
 5. Run the adapter's capture step to produce a raw, machine-captured dump under
    `<migrations-root>/<project>/data/<source>-discovery/`. For WordPress, the capture
    script lives in `rp-source-wordpress/scripts/` — run it from that skill directory
-   (see `rp-source-wordpress` Capture section and `CONVENTIONS.md`). When using
-   project-local secret-bearing config, prefer the script's deterministic `--env-file`
-   path over shell sourcing. The adapter owns the capture mechanics, auth model, and
-   platform quirks; this skill consumes its output.
+   (see `rp-source-wordpress` Capture section and `CONVENTIONS.md`). Load project-local
+   `.env` files with the toolkit parser (`lib/config-env.js`'s `readEnvFile`, or a
+   script's `--env-file` option); never bash-`source` a secret-bearing env file. If a
+   request returns 401, re-check the selected file with that parser before raising or
+   refreshing a credentials request, and request only when the parser-loaded credentials
+   are missing/blank or still fail authentication. The adapter owns the capture mechanics,
+   auth model, and platform quirks; this skill consumes its output.
    For long runs, pass `--progress-log <path>` and poll it per
    `CONVENTIONS.md#progress-log-polling`.
    - Distinguish **supported** entities (advertised by the source) from **used** entities

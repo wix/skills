@@ -7,7 +7,8 @@ const coverage = require('./source-coverage.js');
 const support = require('./target-import-support.js');
 const {
   getDecisionValue,
-  isExplicitUserOneClick
+  isExplicitUserOneClick,
+  oneClickRunStart
 } = require('./orchestration-decisions.js');
 const FILE = 'mapping/review/census-reconciliation.json';
 const ASSIGNMENTS = 'mapping/review/finalized-census-assignments.json';
@@ -408,7 +409,10 @@ async function bindCensusReconciliation(projectDir, {
   if (!gate.ok) return fail('source_coverage_unreconciled', {
     failures: gate.failures
   });
-  if (status === 'approved' && decidedBy === 'user' && reconciliation.pendingCount > 0) return fail('approval_pending_rows');
+  // Interactive runs ask every pending question first. A one-click run never asks mid-run
+  // (also after an owner joins to approve): pending rows stay unimported and not approved,
+  // and the discovered-set status lists each as a not-decided cutover task.
+  if (status === 'approved' && decidedBy === 'user' && reconciliation.pendingCount > 0 && !oneClickRunStart(decisions)) return fail('approval_pending_rows');
   // Unsupported dependencies surface before approval, not at codegen. Read only: the approval
   // re-checks its pinned artifacts after this, and the preflight review file is one of them.
   if (status === 'approved' && (await census.readJson(projectDir, 'mapping/mapping-plan.json'))?.dependencyBindings) {

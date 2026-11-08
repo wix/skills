@@ -1,6 +1,7 @@
 'use strict';
 
 const { isBlank } = require('./value-utils.js');
+const wixAuth = require('../../../lib/wix-auth.js');
 
 // rp-target-wix — the DETERMINISTIC WooCommerce shipping-zone -> Wix Delivery Profile payload
 // builder. Companion to tax-build.js/discount-rule-build.js; implements domains/ecom/entities/
@@ -1118,6 +1119,7 @@ async function readShippingOption(wix, id) {
     }
     return { ok: true, option };
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     return { ok: false, notFound: isNotFound(error), error };
   }
 }

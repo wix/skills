@@ -141,6 +141,8 @@ function entries(projectDir, extractPath) {
 }
 const head = projectDir => readLedger(projectDir).rows.at(-1)?.rowHash || null;
 
+const shapeSnapshotName = (entity, extractPath, keyField, digest) =>
+  `${sha(canonical({ entity, extractPath, keyField }))}-${digest}.json`;
 const mirrorShapes = row => `${MIRROR_SHAPES_DIR}/${path.basename(row.shapesPath)}`;
 function readShapes(projectDir, row) {
   let changed = false;
@@ -181,8 +183,9 @@ async function recordExtract(projectDir, { entity, extractPath, keyField = 'id',
   // A re-read from the source is always its own row, even when it matches: it settles the loss check.
   if (latest?.sha256 === measured.sha256 && !replacesHead && (recordedBy !== 're-extract' || latest.recordedBy === 're-extract')) return latest;
   const shapes = { sha256: measured.sha256, keyField, shapes: measured.shapes, records: measured.records }, shapesText = canonical(shapes);
-  const shapesPath = `${SHAPES_DIR}/${measured.sha256}.json`;
-  for (const rel of [shapesPath, `${MIRROR_SHAPES_DIR}/${measured.sha256}.json`]) {
+  const snapshotName = shapeSnapshotName(entity, extract, keyField, measured.sha256);
+  const shapesPath = `${SHAPES_DIR}/${snapshotName}`;
+  for (const rel of [shapesPath, `${MIRROR_SHAPES_DIR}/${snapshotName}`]) {
     fs.mkdirSync(path.dirname(path.join(projectDir, rel)), { recursive: true });
     fs.writeFileSync(path.join(projectDir, rel), shapesText);
   }

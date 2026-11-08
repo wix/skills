@@ -857,52 +857,6 @@ function normalizeDroppedField(row, index) {
   };
 }
 
-// What the source archive kept for reference, per entity. Informational: it never
-// changes the run status. Built by rp-target-wix/lib/source-archive.js keptForReferenceSummary.
-function normalizeKeptForReference(value) {
-  if (value === undefined || value === null) return null;
-  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('keptForReference must be an object');
-  const entities = asArray(value.entities, 'keptForReference.entities').map((row, index) => {
-    const label = `keptForReference.entities[${index}]`;
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
-    return {
-      sourceEntity: requireString(row.sourceEntity, `${label}.sourceEntity`),
-      recordsArchived: count(row.recordsArchived, `${label}.recordsArchived`),
-      items: count(row.items, `${label}.items`),
-      groups: Array.isArray(row.groups) ? row.groups.map(String) : [],
-      sameInEveryRecord: count(row.sameInEveryRecord || 0, `${label}.sameInEveryRecord`),
-      notKept: count(row.notKept || 0, `${label}.notKept`),
-      archiveOnly: row.archiveOnly === true,
-    };
-  });
-  return {
-    collectionId: requireString(value.collectionId, 'keptForReference.collectionId'),
-    collectionName: requireString(value.collectionName, 'keptForReference.collectionName'),
-    policyRef: value.policyRef ? String(value.policyRef) : null,
-    totalItems: count(value.totalItems, 'keptForReference.totalItems'),
-    heldItems: count(value.heldItems || 0, 'keptForReference.heldItems'),
-    howToFind: requireString(value.howToFind, 'keptForReference.howToFind'),
-    entities,
-    optionalTasks: asArray(value.optionalTasks || [], 'keptForReference.optionalTasks').map((row, index) => {
-      const label = `keptForReference.optionalTasks[${index}]`;
-      if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${label} must be an object`);
-      if (row.optional !== true) throw new Error(`${label}.optional must be true`);
-      return {
-        code: requireString(row.code, `${label}.code`), optional: true,
-        goLiveImpact: requireString(row.goLiveImpact, `${label}.goLiveImpact`),
-        role: requireString(row.role, `${label}.role`),
-        title: requireString(row.title, `${label}.title`),
-        action: requireString(row.action, `${label}.action`),
-        affected: asArray(row.affected || [], `${label}.affected`).map((a, i) => ({
-          entity: requireString(a.entity, `${label}.affected[${i}].entity`), field: requireString(a.field, `${label}.affected[${i}].field`),
-          recordCount: count(a.recordCount, `${label}.affected[${i}].recordCount`) })),
-        importOperatorPrompt: requireString(row.importOperatorPrompt, `${label}.importOperatorPrompt`),
-        resolutionEvidence: requireString(row.resolutionEvidence, `${label}.resolutionEvidence`),
-      };
-    }),
-  };
-}
-
 // The member pass's per-reason breakdown. Every registry code carries a line,
 // zeros included: an absent line is indistinguishable from a code nobody counted.
 function normalizeMemberOutcomes(value) {
@@ -1320,7 +1274,6 @@ function createCompletionReport(input = {}) {
   const callerUnresolved = asArray(input.unresolved, 'unresolved');
   const unresolved = [...callerUnresolved, ...journalUnresolvedRows(entityCompleteness, callerUnresolved)].map(normalizeUnresolved);
   const droppedFields = asArray(input.droppedFields, 'droppedFields').map(normalizeDroppedField);
-  const keptForReference = normalizeKeptForReference(input.keptForReference);
 
   // Where the durable rows are absent for an entity that reports a shortfall, the
   // section says the shortfall is unexplained and the final status carries the mismatch. An
@@ -1448,7 +1401,6 @@ function createCompletionReport(input = {}) {
     exclusions,
     unresolved,
     droppedFields,
-    keptForReference,
     unexplainedShortfalls,
     memberOutcomes,
     // The handoff proves it postdates the import by comparing its own
@@ -1579,13 +1531,6 @@ function renderCompletionSummary(report) {
   lines.push('', '## Fields Dropped For The Destination', '');
   if (!report.droppedFields.length) lines.push('- None.');
   else for (const row of report.droppedFields) lines.push(`- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
-
-  if (report.keptForReference) {
-    const k = report.keptForReference;
-    lines.push('', '## Kept For Reference', '', `- ${k.collectionName} (CMS collection \`${k.collectionId}\`): ${k.totalItems} items${k.heldItems ? `, ${k.heldItems} waiting for CMS item room` : ''}. Not used by the live site.`, `- How to find a record: ${k.howToFind}`);
-    for (const row of k.entities) lines.push(`- ${row.sourceEntity}: ${row.recordsArchived} records in ${row.items} items${row.archiveOnly ? ' (no Wix home; one row each)' : ''}${row.groups.length ? `; ${row.groups.join(', ')}` : ''}${row.notKept ? `; ${row.notKept} source fields not kept (listed above)` : ''}`);
-    for (const task of k.optionalTasks || []) lines.push(`- ${task.title}. ${task.action}`, `  - To re-import (${task.role} asks): ${task.importOperatorPrompt}`);
-  }
 
   if ((report.acceptedStageOutcomes || []).length) {
     lines.push('', '## Accepted And Materialized Gaps', '');
@@ -1792,7 +1737,7 @@ async function dependencyOperatorActions(projectDir) {
   let diagnostic;
   try { diagnostic = JSON.parse(await fs.readFile(path.join(projectDir, 'execution/dependency-readiness.json'), 'utf8')); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
   const { rows } = await require('./local-state').loadAttemptJournal(projectDir).catch(error => { if (error.code === 'ENOENT') return { rows: [] }; throw error; });
-  const recovery = require('./dependency-recovery'), indexes = new Map(), result = [];
+  const recovery = require('./dependency-recovery'), importRecovery = require('./import-recovery'), indexes = new Map(), result = [];
   let latestByKey;
   const latestAttempt = () => latestByKey ||= new Map(rows.map(row => [`${row.writeSpecId}\n${row.sourceStableKey}`, row]));
   for (const task of Object.values(diagnostic.tasks || {})) if (!indexes.has(task.siteId)) indexes.set(task.siteId, recovery.foldRecoveryAttempts(rows, task.siteId));
@@ -1803,14 +1748,16 @@ async function dependencyOperatorActions(projectDir) {
     // A record waiting on an owner-held record is its own item, with the hold as cause.
     const held = new Map(), finals = new Map();
     for (const row of waiting) {
-      // A record whose own parent is final (the producer finished without it): one cutover task per
-      // ref and parent status. It lists only records still not imported, so a re-run that imports
-      // them closes it by itself (the recovery index drops a record once it lands on this site).
       if (row.deferral?.final === true) {
         for (const cause of row.deferral.finalCauses || []) {
-          const key = `${cause.ref}\n${cause.parentStatus}`, group = finals.get(key) || { ref: cause.ref, parentStatus: cause.parentStatus, linkChoice: cause.linkChoice, linkRequired: Boolean(cause.linkRequired), producerTaskId: cause.producerTaskId ?? null, keys: new Set(), parents: new Set(), dependencyKeys: new Set(), holdReasons: new Set() };
-          // A variant names its product as the parent to fix (or the product's owner hold).
-          group.keys.add(row.sourceStableKey); group.parents.add(cause.parentSourceKey || cause.sourceStableKey); group.dependencyKeys.add(cause.sourceStableKey); for (const reason of cause.holdReasons || []) group.holdReasons.add(reason); finals.set(key, group);
+          const childStatus = String(cause.parentStatus || '').startsWith('child-');
+          const key = `${cause.ref}\n${cause.parentStatus}`, group = finals.get(key) || { ref: cause.ref, parentStatus: cause.parentStatus, linkChoice: cause.linkChoice, linkRequired: Boolean(cause.linkRequired), producerTaskId: cause.producerTaskId ?? null, keys: new Set(), parents: new Set(), childDependencies: new Set(), dependencyKeys: new Set(), holdReasons: new Set() };
+          group.keys.add(row.sourceStableKey);
+          if (cause.parentSourceKey) group.parents.add(cause.parentSourceKey);
+          else if (childStatus) group.childDependencies.add(cause.sourceStableKey);
+          else group.parents.add(cause.sourceStableKey);
+          group.dependencyKeys.add(cause.sourceStableKey);
+          for (const reason of cause.holdReasons || []) group.holdReasons.add(reason); finals.set(key, group);
         }
         continue;
       }
@@ -1825,19 +1772,22 @@ async function dependencyOperatorActions(projectDir) {
       const ref = row.deferral.ref || row.deferral.reason, key = `${ref}:resume-deferred`; if (!groups.has(key)) groups.set(key, { ref, recovery: 'resume-deferred', count: 0 }); groups.get(key).count++;
     }
     for (const group of finals.values()) {
-      const parents = [...group.parents].sort(), dependencyKeys = [...group.dependencyKeys].sort(), keys = [...group.keys].sort(), held = group.parentStatus === 'held';
-      const fix = held
-        ? `the owner hold on ${parents.join(', ')} (execution/read-back-inventory records[].held${group.holdReasons.size ? `; holds: ${[...group.holdReasons].sort().join(', ')}` : ''}): change the hold decision so that record imports`
-        : `${parents.join(', ')} (status ${group.parentStatus}) through its task (run-import:${group.producerTaskId || group.ref} --failed-only)`;
-      const waiverCommand = `node skills/wix-replatform/scripts/link-waiver.js record --project-dir <project> --task ${task.taskId} --ref ${group.ref} --record <dependent source key> --parent <dependency source key: the linked record's own key, a variant's key rather than its product's> --decided-by <who> --reason <why>`;
+      const parents = [...group.parents].sort(), dependencyKeys = [...group.dependencyKeys].sort(), keys = [...group.keys].sort(), heldParent = group.parentStatus === 'held';
+      const parentRecovery = importRecovery.dependencyParentRecovery(group.parentStatus);
+      const producerTask = group.producerTaskId || group.ref;
+      const producerCommand = parentRecovery.flag ? `run-import:${producerTask} ${parentRecovery.flag}` : null;
+      const sourceScope = parents.length
+        ? `parent source key(s) ${parents.join(', ')}`
+        : `child dependency source key(s) ${[...group.childDependencies].sort().join(', ')}; no verified parent source key is available`;
+      const fix = heldParent
+        ? `the owner hold on ${parents.join(', ')} (execution/read-back-inventory records[].held${group.holdReasons.size ? `; holds: ${[...group.holdReasons].sort().join(', ')}` : ''})`
+        : `${sourceScope} (status ${group.parentStatus}); ${parentRecovery.prerequisite}${producerCommand ? `, then run its task with ${producerCommand}` : ''}`;
+      const waiverCommand = `node skills/wix-replatform/scripts/link-waiver.js record --project-dir <project> --task ${task.taskId} --ref ${group.ref} --record <dependent source key> --parent <parent source key> --decided-by <who> --reason <why>`;
       result.push({ code: 'dependency-parent-final', severity: 'blocker', entity: task.taskId, affectedCount: keys.length, affectedSourceKeys: keys,
-        cause: { ref: group.ref, parentStatus: group.parentStatus, parentSourceKeys: parents, ...(dependencyKeys.join() !== parents.join() ? { dependencySourceKeys: dependencyKeys } : {}), producerTaskId: group.producerTaskId, ...(group.holdReasons.size ? { holdReasons: [...group.holdReasons].sort() } : {}) }, linkChoice: group.linkChoice, ...(group.linkRequired ? { linkRequired: true } : {}),
-        deadlineReason: `Resolve before launch; these records are not on the new site yet because the ${group.ref} record they link to did not land. They are not dropped: once it lands, the next run imports them with their link.`,
-        action: `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access; retain existing owner approvals. Fix and re-run: fix ${fix}, then resume task ${task.taskId} with --deferred-only; ${keys.length} record(s) import with their ${group.ref} link and this task closes. Do not resend existing orders.`,
-        ...(group.linkChoice === 'offer-omit' && !group.linkRequired ? { optInAction: `Or import now without the link (explicit opt-in; the records stay on the new site without their ${group.ref} link, e.g. a blog post without its original author or an order line without its product link). Requires Import Operator: record the choice per record with ${waiverCommand}, then resume task ${task.taskId} with --deferred-only.` } : {}),
-        // Not offered: leaving this link out changes money or meaning. On an explicit request the
-        // operator is warned and it is done (--explicit-request --warning), unless the target cannot
-        // hold the record without it (linkRequired), which is refused.
+        cause: { ref: group.ref, parentStatus: group.parentStatus, parentSourceKeys: parents, ...(group.childDependencies.size || dependencyKeys.join() !== parents.join() ? { dependencySourceKeys: dependencyKeys } : {}), producerTaskId: group.producerTaskId, ...(group.holdReasons.size ? { holdReasons: [...group.holdReasons].sort() } : {}) }, linkChoice: group.linkChoice, ...(group.linkRequired ? { linkRequired: true } : {}),
+        deadlineReason: 'Resolve before launch; these records are not on the new site because the parent record they link to did not land.',
+        action: `Requires Import Operator. Prerequisites: original migration project, source snapshot and current-site access. Fix and re-run: fix ${fix}, then resume task ${task.taskId} with --deferred-only; the records import with their ${group.ref} link. Do not resend existing orders.`,
+        ...(group.linkChoice === 'offer-omit' && !group.linkRequired ? { optInAction: `Import now without the ${group.ref === 'stores/product' ? 'product' : group.ref} link (explicit opt-in; the records stay on the new site without that link). Requires Import Operator: record the choice per record with ${waiverCommand}, then resume task ${task.taskId} with --deferred-only.` } : {}),
         withoutLinkOnRequest: group.linkRequired ? 'impossible' : group.linkChoice === 'offer-omit' ? 'offered' : 'warn-then-import' });
     }
     for (const group of held.values()) result.push({ code: 'dependency-held-record', severity: 'blocker', entity: task.taskId, affectedCount: group.count, cause: { ref: group.ref, heldSourceKeys: [...group.keys].sort(), holdReasons: [...group.reasons].sort() },
@@ -1975,15 +1925,20 @@ async function writeCompletionReport(projectDir, unjoinedReport, { runId = null,
   const planFile=path.join(projectDir,'mapping/mapping-plan.json');
   let plan=null;try {plan=JSON.parse(await fs.readFile(planFile,'utf8'));} catch(e) {if(e.code!=='ENOENT') throw e;}
   if (plan?.fieldContractVersion===1) {
-    const {digest,deferredRunResult}=require('./mapping-field-contract.js');
+    const {digest,deferredRunResult,deferredMappingActions}=require('./mapping-field-contract.js');
     const pin=mappingPlanDigest || report.mappingPlanDigest;
     const retainedHeadlines=(Array.isArray(report.headline)?report.headline:[]).filter(row=>!['MAPPING_REPORT_BINDING_REQUIRED','MAPPING_SCOPE_DEFERRED'].includes(row?.code));
     if (!pin || pin!==digest(plan) || !plan.executionScope) {
       report={...report,status:'blocked',headline:[{code:'MAPPING_REPORT_BINDING_REQUIRED',message:'Migration is blocked by missing or stale mapping/report binding; independent import counters are retained.'},...retainedHeadlines],blocker:{type:'mapping_report_binding_required',artifact:'mapping/mapping-plan.json',requiredInput:'Regenerate importer/report against its pinned canonical mapping before resuming.'}};
       delete report.mappingPlanDigest; delete report.executionScope;
     } else {
-      report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope)};
-      const deferred=deferredRunResult(plan);if(deferred) report={...report,status:'blocked',headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Migration remains blocked by deferred mapping scope; independent import outcomes are retained.'},...retainedHeadlines],blocker:deferred.blocker};
+      const mappingActions = deferredMappingActions(plan);
+      const actions = [...(report.operatorActions || [])];
+      for (const action of mappingActions) if (!actions.some(existing => existing.code === action.code && existing.entity === action.entity)) actions.push(normalizeOperatorAction(action, actions.length));
+      report={...report,mappingPlanDigest:pin,executionScope:structuredClone(plan.executionScope),operatorActions:actions};
+      const deferred=deferredRunResult(plan);
+      if (deferred) report={...report,status:'blocked',headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Migration remains blocked because every executable entity is deferred; the retained mapping gaps remain visible for recovery.'},...retainedHeadlines],blocker:deferred.blocker};
+      else if (mappingActions.length) report={...report,status:worseStatus(report.status,'complete_with_deferred_records'),headline:[{code:'MAPPING_SCOPE_DEFERRED',message:'Some mapped entities remain deferred as cutover gaps; independent import outcomes are retained.'},...retainedHeadlines]};
     }
   }
   let redirectReport = null;

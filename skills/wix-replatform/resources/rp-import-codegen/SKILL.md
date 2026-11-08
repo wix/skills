@@ -216,7 +216,7 @@ Import the gate's `startImportRun`, `bindTask`, `evaluateTask`, `gateBatch` and
 `finishTaskPass`. For EAV extracts, source bindings additionally name the existing project-relative `readPlanPath`; the gate reuses the shipped EAV completeness and file-digest validator rather than treating a missing snapshot total as empty. Create one import run, bind each task, and create its Wix client from the
 returned capability. Immediately before every batch, including each selective/resume
 path, evaluate the task and pass the source-keyed records through `gateBatch`.
-Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges once the producer's current full pass has finished (empty producers cannot resolve a key). A finished producer releases its dependents even when some of its keys did not land (`finished-partial`; approved builder holds alone give `complete-with-holds`): call `resolveTaskReference` for every key the record uses, so the gate checks each one. A key that may still land in this run defers that record (`dependency-not-ready`); a key that cannot (failed, unverified, not attempted, absent or owner-held) stops it for the run as `dependency-parent-final`. That record is not dropped: it stays in recovery, the next `--deferred-only` pass imports it with its link once the parent lands, and its cutover task offers "fix and re-run" (plus an explicit opt-in to import without the link where target knowledge declares `dependencyFailureActions[ref]: 'offer-omit'`; the operator records it with `scripts/link-waiver.js`). Never write the record without the link yourself, and never read a crosswalk to fill a task-complete reference. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes, and `resolveSameTaskReference(ref, sourceStableKey, path)` for a parent the same task writes (see "Same-entity hierarchies"). They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
+Each `gateBatch` input is `{ sourceStableKey, transform: async ({ resolveReference, resolveTaskReference, resolveSetupReference }) => payload }` (or `{ sourceStableKey, payload }` when it needs no target references). Transforms receive `resolveReference(ref, sourceStableKey, path)` for per-record edges and `resolveTaskReference(ref, sourceStableKey, path)` for task-complete import edges after a complete or finished-partial current producer pass (empty producers cannot resolve a key). A finished partial producer releases unrelated records; only a record naming a parent that cannot land ends `dependency-parent-final` without a write and becomes a cutover task. A producer whose only missing keys are approved builder holds is `complete-with-holds`, and a reference to a held key follows the same per-record final/hold handling. They also receive `resolveSetupReference(ref, sourceStableKey, path)` after setup passes, and `resolveSameTaskReference(ref, sourceStableKey, path)` for a parent the same task writes (see "Same-entity hierarchies"). They do not read a crosswalk or choose target IDs themselves. Use concrete indexed paths for repeated order fields. Send only
 the returned `send` payloads, with each request's `sourceStableKey` and that batch's
 `readinessGrant`. Use `writers.bindRecordClient(taskClient, { readinessGrant: grant, sourceStableKey })` for existing writer composites, or `writers.withReadinessGrant(request, { readinessGrant: grant, sourceStableKey })` for individual builders. These retain trusted read/auxiliary marks. A valid grant never authorizes a raw or altered writer request; object-spreading a marked request loses its authority. Principal payloads still match every resolved reference. Closed product patch builders bind the current record’s product and compare references under each changed top-level field; omitted fields retain the existing product state. Only the closed media/payment/extended-field auxiliary builders omit those principal paths. For standard product stock, get the current product through the bound record client, call `registerImportInventoryScope(recordClient, canonicalProduct, targetProduct)`, and pass that record client to `storesInventory.reconcileInventory`. The same-record principal write or current site-bound crosswalk establishes product ownership; exact variant-choice matches, requested stock and actual location/item reads bound the composite. This preserves standard quantity/location mappings without expanding quick Shopify’s separate exception. Persist/report the returned deferrals without substituting empty IDs.
 The gate appends its own deferred attempt rows; do not append a duplicate deferred outcome. The runner appends started and terminal rows for attempted sends and persists confirmed crosswalks through the shared writers. Call `finishTaskPass` with the actual selection mode only after the pass finishes. Selective
@@ -334,6 +334,13 @@ const gate = await runGatedEntity({
 });
 // gate.status: 'passed', or the gate's stop status; gate.written: the writeBatch/write outcomes.
 ```
+
+`runGatedEntity` is the shared write wrapper: while it invokes `write` or `writeBatch`, it
+tracks non-read calls through the supplied `wix.send`. If a generated writer throws before any
+mutating request is sent, the wrapper annotates an otherwise-unclassified error with
+`requestSent: false` before the gate handles it. Throw the original coded error (for example
+`REFERENCE_UNDECLARED`) and do not guess or overwrite `requestSent`; an exception after a
+mutating send remains uncertain and must retain the gate's read-back protection.
 
 It loads `execution/read-back-inventory/<entity>.json`, prepares the gate, reconciles a suspect
 interval carried from an earlier run, and settles a canary an earlier run sent that the target
@@ -2425,9 +2432,12 @@ load these files before reading config:
 
 Codegen rules:
 
-- Read these files with vendored `config-env.js`'s `readEnvFile` (no new dependency). Values the
-  toolkit writes that contain spaces or shell characters are single-quoted; a hand-rolled
-  `KEY=value` splitter would keep the quotes.
+- Read these files with vendored `config-env.js`'s `readEnvFile` (no new dependency); never
+  bash-`source` them. Values the toolkit writes that contain spaces or shell characters are
+  single-quoted; a hand-rolled `KEY=value` splitter would keep the quotes. After a source
+  request returns HTTP 401, re-check the env file with `readEnvFile` before requesting or
+  refreshing credentials, and only escalate when parser-loaded credentials are absent or
+  still rejected.
 - Load `config/wix.env` and the selected source config before constructing source/Wix
   clients.
 - Default `DRY_RUN` to disabled. Treat `true`, `1`, `yes`, and `on` as enabled and
@@ -2534,7 +2544,7 @@ deferred subscription is a counted import outcome, not a silent skip.
 
 **Token minting — always route through `scripts/mint-token.sh`.** Every migration project
 must include `scripts/mint-token.sh`. The script reads `WIX_SITE_ID` from `config/wix.env`,
-runs `npx @wix/cli@latest token --site "$WIX_SITE_ID"`, captures the token (shape:
+runs `npx --no-install wix token --site "$WIX_SITE_ID"`, captures the token (shape:
 `OauthNG.JWS.<base64>.<base64>.<sig>` — single line, no JSON wrapper), and writes it
 directly to `config/wix.env` as `WIX_AUTH_TOKEN` without printing the value. Run via Bash:
 
@@ -2542,7 +2552,7 @@ directly to `config/wix.env` as `WIX_AUTH_TOKEN` without printing the value. Run
 bash migrations/<project>/scripts/mint-token.sh
 ```
 
-**Do NOT** run `npx @wix/cli@latest token` raw in a Bash tool call — it prints the
+**Do NOT** run `npx --no-install wix token` raw in a Bash tool call — it prints the
 credential to stdout which lands in the transcript. Always use `mint-token.sh`.
 
 **During scaffolding, copy `scripts/mint-token.sh` from the canonical skills location** —
@@ -2561,7 +2571,7 @@ pre-import flow is:
 3. run the import — the generated client reads `WIX_AUTH_TOKEN` and sends it as
    `Authorization: Bearer <token>` with `wix-site-id`.
 
-**Token renewal and the `wix_auth_expired` stop — emit these, do not hand-roll them.** Vendor
+**Token renewal and the `wix_auth_expired` stop — emit this, do not hand-roll it.** Vendor
 `lib/wix-auth.js` beside `lib/config-env.js` and `lib/local-state.js` (same relative layout).
 A full import runs for hours; the token does not.
 
@@ -2572,12 +2582,16 @@ const tokenSource = wixAuth.createWixTokenSource({ projectDir, siteId: env.WIX_S
 const wix = writers.createWixClient({ capability: taskBinding, tokenSource }); // live runs
 ```
 
-- The source renews through `scripts/mint-token.sh` for the same site only, from the token's
-  `exp` and once on a refusal; the client resends the refused request once. No generated retry,
-  re-mint loop, token-age check or per-request env read.
-- In every per-record `catch`, rethrow first: `if (wixAuth.isRunInterruption(error)) throw error;`.
-  An interruption is never a record outcome; the shared attempt journal also refuses a
-  failed/unresolved row while the project is interrupted, so a loop that forgets still stops.
+- The source renews through `scripts/mint-token.sh` for the same site only, before a request
+  when the token is under 30 minutes from `exp` or about 3.5 hours old, and once on a refusal;
+  the client resends the refused request once. If the renewed token is refused again, the client
+  throws the shared `wix_auth_expired` interruption; it is not a record outcome and must not be
+  normalized as `failed_retryable` or `failed_terminal`.
+  No generated retry, re-mint loop or per-request env read.
+- In every per-record `catch`, and before any duplicate or fallback classification, rethrow first
+  for a true mint interruption: `if (wixAuth.isRunInterruption(error)) throw error;`. The shared
+  attempt journal refuses failed or unresolved rows while the project is interrupted, so the
+  in-flight row remains `started` for read-back on resume.
 - The entrypoint's top-level catch sets the exit code from
   `await wixAuth.stopExitCode(error, projectDir)`: an interruption records the
   pending `manual_action` and exits 75 (`wixAuth.WIX_AUTH_EXIT_CODE`); anything else exits 1.
@@ -2887,11 +2901,7 @@ What is still the caller's, because it is source knowledge:
 Vendoring mirrors the skill's layout: the shared modules require each other across resources
 (`../../../lib/…`), so `src/` reproduces `lib/` + `resources/<resource>/lib/` — `order-history.js`
 lives at `src/resources/rp-target-wix/lib/` and reaches `src/lib/local-state.js`. A flat copy loads
-nothing. **After vendoring, run `node <skill>/scripts/vendor-closure.js <projectDir>`**: it copies
-every toolkit file a vendored file requires (or reads via `path.join(__dirname, '<file>')`) but the
-project lacks, to a fixed point. Never hand-pick the closure: a new shared lib is otherwise missed
-and the import stops with `MODULE_NOT_FOUND` hours in. `import-contract-verify` refuses a project
-that still has a gap (`vendored_require_missing:<path>:<requirer>`).
+nothing.
 
 **Two dependency shapes `require()` alone will not surface, both hit live 2026-09-06 running a
 generated-style project end to end:** a lib can read a **domain entity JSON file directly**
@@ -3031,9 +3041,8 @@ codegen supplies reads and facts.
    coupon's `gateBatch` transform with `resolveProduct: id => resolveReference('stores/product',
    productKey(id), 'scope.group.entityId')` and the `stores/category` equivalent, never a
    crosswalk lookup, and write only the batch's `send` payloads. A coupon scoped to a product the
-   owner held, or one that did not land, is deferred by the gate (`dependency-parent-final` once
-   that product can no longer land in this run, `dependency-not-ready` while it still may) and
-   reaches cutover with that cause; a coupon scope is never dropped to import it. It is not a
+   owner held, or one not imported yet, is deferred by the gate (`dependency-held` /
+   `dependency-not-ready`) and reaches cutover with that cause; it is not a
    `coupon-scope-unmappable` refusal. Discount-rule product scopes
    (`discounts.values[].specificItemsInfo.scopes[].catalogItemFilter.catalogItemIds[]`, the
    buy-X-get-Y and trigger scopes) resolve the same way through `resolveReference('stores/product', ...)`.
@@ -3760,34 +3769,14 @@ never write your own quota codes, hold file or probe.
   unreferenced library media and excluded rows are never archived. Archive only `cms`-disposition
   locations (`archivedLocations(row)`): a field with a native or extended-field home is not
   archived again. Prefer the mapper's extended-field disposition for short scalars.
-- **Lean, packed, findable archive.** Use `resources/rp-target-wix/lib/source-archive.js`;
-  never hand-roll archive payloads. Create the collection from `ARCHIVE_COLLECTION` (setup's
-  `create-cms-collections` requirement). Per entity: `planEntityArchive({ sourceEntity, locations:
-  archivedLocations(row), excludedLocations: retentionExcludedLocations(row), records, knowledge:
-  loadArchiveKnowledge({ sourcePlatform }), archiveOnly })`
-  (`archiveOnly` for entities with no Wix home, e.g. abandoned carts), then `buildArchiveRecord(record,
-  plan, { sourceKey, wixId, name })` with the crosswalk Wix id and a display name (order number,
-  product name, email), then `packArchiveRecords(records, { sourceEntity, perRecord: archiveOnly })`.
-  A record too big for one item comes back as `<sourceKey>#part-<n>` items under the same
-  source key; write every item it returns.
-  Write `aboutItem()`, one `entityInfoItem(plan)` per entity and the packed items as
-  `archiveDataItem(item)` (stable `_id`), sent in `archiveWriteBatches([about, ...info, ...items], { batchSize })`
-  order so the CMS view lists them as given (parts 1, 2, 3). On a re-run use `itemWriteAction(item, journaledDigest)`:
-  `skip`, `replace` (bulk save by id, full replace) or `insert`. Count with
-  `expectedSourceArchiveItems` for the quota plan line. Pass `keptForReferenceSummary(...)`'s
-  `keptForReference` and `droppedFields` to the completion report.
-  `keptForReference.optionalTasks` carries an optional owner task when customer IP addresses or
-  browser user-agent strings were not kept: show it as optional (nothing needed to go live), never
-  as an urgent action. If the owner asks to keep them, follow its `importOperatorPrompt`
-  (`loadArchiveKnowledge({ sourcePlatform, ownerKeeps })` and rerun only the archive step).
-- **One item per parent (older projects).** Build archive entries `{ parentKey, childKey?, sourceEntity, payload }`
+- **One item per parent.** Build archive entries `{ parentKey, childKey?, sourceEntity, payload }`
   and write `packArchiveItems(entries)`: a parent and its same-parent sub-records (an order and its
   notes) share one item, with `childKeys` (an array field) so a child is still found by its own key.
   Items over ~400 KB split into `<parentKey>#2`… with the same `parentKey`. Two source entities
   for the same thing (a WordPress user and the WooCommerce customer with that id) use one
   `parentKey` and each its own `sourceKey`: the item stores the second as an alias with only its
   differing fields.
-- **Before consent.** Compute the rows with `expectedSourceArchiveItems(entityItems)` (or `expectedArchiveRows(entries, { otherRows })` for older projects) plus the other
+- **Before consent.** Compute the rows with `expectedArchiveRows(entries, { otherRows })` (other
   custom-collection rows such as source pages), then run
   `node skills/wix-replatform/scripts/cms-item-quota.js plan --project-dir <dir> --expected-rows <n>`.
   Show its `summary` in the import plan. It never blocks consent; `exceeds` means the last rows

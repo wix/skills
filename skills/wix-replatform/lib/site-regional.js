@@ -21,6 +21,7 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 
 const sr = require('./source-regional.js');
+const wixAuth = require('./wix-auth.js');
 
 const SETTINGS = Object.freeze(['currency', 'timeZone', 'language', 'locale']);
 const STEP_ID = 'import-site-locale';
@@ -310,7 +311,7 @@ const SITE_USE_FAMILIES = Object.freeze([
 async function probeSiteUse({ wix, writers, ignoreProductIds = new Set() }) {
   const families = [];
   let installed;
-  try { installed = await writers.getInstalledWixApps(wix); } catch { return { state: 'existing-unknown', families: [{ id: 'apps', status: 'unreadable' }] }; }
+  try { installed = await writers.getInstalledWixApps(wix); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; return { state: 'existing-unknown', families: [{ id: 'apps', status: 'unreadable' }] }; }
   const installedIds = new Set((installed || []).map((app) => app && app.appDefId));
   for (const family of SITE_USE_FAMILIES) {
     if (!installedIds.has(family.appDefId)) { families.push({ id: family.id, status: 'not-installed' }); continue; }
@@ -321,7 +322,7 @@ async function probeSiteUse({ wix, writers, ignoreProductIds = new Set() }) {
       } else {
         families.push({ id: family.id, status: await probeCatalog({ wix, writers, ignoreProductIds }) });
       }
-    } catch { families.push({ id: family.id, status: 'unreadable' }); }
+    } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; families.push({ id: family.id, status: 'unreadable' }); }
   }
   const statuses = families.map((family) => family.status);
   const state = statuses.includes('in-use') ? 'existing-in-use'
@@ -535,6 +536,30 @@ async function ensurePaymentMethodsAction(projectDir, { siteId, before, after })
   });
 }
 
+// A time zone discovery inferred (no named zone at the source) is applied without asking and
+// confirmed at cutover: one durable task per site + value. Never asked mid-run.
+const TIME_ZONE_CONFIRMATION = 'site-locale-time-zone-confirmation';
+async function ensureTimeZoneAction(projectDir, { siteId, row, siteValue }) {
+  const ua = require('./user-actions.js');
+  const inference = row.inference || {};
+  const value = row.state === 'unknown' ? (siteValue || 'the site default') : row.value;
+  const subject = { type: TIME_ZONE_CONFIRMATION, siteId, value, basis: inference.basis || null, gmtOffset: inference.gmtOffset ?? null };
+  for (const listed of await ua.listUserActions(projectDir)) {
+    const request = await ua.readUserAction(projectDir, listed.requestId);
+    if (request.subject && canonical(request.subject) === canonical(subject)) return request;
+  }
+  return ua.createUserAction(projectDir, {
+    kind: 'manual_action',
+    stage: 'cutover',
+    title: `Confirm the site time zone (${value})`,
+    prompt: row.state === 'unknown'
+      ? `The source store had no named time zone and none could be picked (${row.evidence}). The site kept its own zone, ${value}. Confirm it in Business Manager > Settings > Language & region, or change it there.`
+      : `The source store had no named time zone (${row.evidence}). The migration set the site to ${value}. Confirm it in Business Manager > Settings > Language & region, or change it there.`,
+    response: { mode: 'none', required: true },
+    subject,
+  });
+}
+
 // The setup step. `wix` is the capability-bound setup client; `writers` is the shared writers module
 // (injected so a test never touches Wix). Returns the `regional` receipt object, or throws an error carrying
 // `blockerCode` / `recommendedAction` for execute-setup to record.
@@ -543,11 +568,12 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
   let source;
   try { source = await sr.readSourceRegional(projectDir); } catch (error) { throw regionalBlocker('INVALID_SOURCE_REGIONAL', error.message); }
   if (!source) throw regionalBlocker('INVALID_SOURCE_REGIONAL', 'discovery/source-locale.json is missing');
-  const missing = SETTINGS.filter((field) => sr.settingValue(source, field) === null);
+  // An unresolved fixed-offset time zone keeps the site's zone and is confirmed at cutover; never asked.
+  const missing = SETTINGS.filter((field) => sr.settingValue(source, field) === null && !(field === 'timeZone' && sr.keepsSiteTimeZone(source)));
   if (missing.length) throw regionalBlocker('SOURCE_LOCALE_REQUIRED', `source locale requires supplied values for: ${missing.join(', ')}`);
 
   let properties;
-  try { properties = await writers.getSiteProperties(wix); } catch (error) { throw regionalBlocker('SITE_PROPERTIES_UNREADABLE', `site properties could not be read: ${error.message}`); }
+  try { properties = await writers.getSiteProperties(wix); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; throw regionalBlocker('SITE_PROPERTIES_UNREADABLE', `site properties could not be read: ${error.message}`); }
   if (!properties) throw regionalBlocker('SITE_PROPERTIES_UNREADABLE', 'site properties read returned nothing');
 
   const siteOrigin = siteOriginFor(projectDir, siteId);
@@ -591,13 +617,14 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
       else if (write.kind === 'language') await writers.updateSiteLanguage(wix, write.payload);
       else await writers.updateSiteLocale(wix, write.payload);
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       throw regionalBlocker('SITE_REGIONAL_WRITE_REJECTED', `${write.kind} update failed: ${error.message}`);
     }
   }
 
   let after = properties;
   if (writes.length) {
-    try { after = await writers.getSiteProperties(wix); } catch (error) { throw regionalBlocker('SITE_REGIONAL_READBACK_MISMATCH', `read-back failed: ${error.message}`); }
+    try { after = await writers.getSiteProperties(wix); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; throw regionalBlocker('SITE_REGIONAL_READBACK_MISMATCH', `read-back failed: ${error.message}`); }
     if (!after) throw regionalBlocker('SITE_REGIONAL_READBACK_MISMATCH', 'read-back returned nothing');
   }
   const before = (await readBefore(projectDir, siteId)) || { values: Object.fromEntries(SETTINGS.map((field) => [field, currentValueOf(properties, field)])) };
@@ -613,7 +640,10 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
       if (stored) { entry.action = 'applied'; entry.verified = true; }
       else throw regionalBlocker('SITE_REGIONAL_READBACK_MISMATCH', `${field}: sent ${row.source}, read back ${entry.after}`);
     } else if (row.action === 'match') { entry.action = 'match'; entry.verified = true; }
-    else if (row.action === 'skip-unknown') { entry.action = 'skipped-unknown'; entry.reason = row.reason; }
+    else if (row.action === 'skip-unknown' && field === 'timeZone' && sr.keepsSiteTimeZone(source)) {
+      // Nothing was sent; the site keeps its own zone, read back unchanged. Confirmed at cutover.
+      entry.action = 'kept-site-default'; entry.reason = row.reason; entry.verified = sr.sameValue(field, row.current, entry.after);
+    } else if (row.action === 'skip-unknown') { entry.action = 'skipped-unknown'; entry.reason = row.reason; }
     else if (row.action === 'kept') { entry.action = 'kept'; entry.verified = sr.sameValue(field, row.current, entry.after); }
     fields[field] = entry;
   }
@@ -627,6 +657,11 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
       after: currentValueOf(after, 'currency'),
     });
     paymentMethodsConfirmationRequestId = request && request.requestId;
+  }
+  let timeZoneConfirmationRequestId = null;
+  if (source.timeZone?.inference && fields.timeZone?.verified && ['applied', 'match', 'kept-site-default'].includes(fields.timeZone.action)) {
+    const request = await ensureTimeZoneAction(projectDir, { siteId, row: source.timeZone, siteValue: fields.timeZone.after });
+    timeZoneConfirmationRequestId = request && request.requestId;
   }
   const keptFields = ['currency', 'timeZone'].filter((field) => fields[field]?.action === 'kept');
   let heldCatchUp = priorRegional?.heldCatchUp || null;
@@ -644,6 +679,7 @@ async function executeRegionalStep({ projectDir, wix, writers, siteId, requireme
     fields,
     ...(heldCatchUp?.refs?.length ? { heldCatchUp } : {}),
     ...(paymentMethodsConfirmationRequestId ? { paymentMethodsConfirmationRequestId } : {}),
+    ...(timeZoneConfirmationRequestId ? { timeZoneConfirmationRequestId } : {}),
   };
   return receipt;
 }
@@ -656,6 +692,7 @@ module.exports = {
   DECISION_KEY,
   ANSWER_EFFECT,
   ANSWER_CHOICES,
+  TIME_ZONE_CONFIRMATION,
   MONEY_BEARING_REFS,
   WALL_CLOCK_REFS,
   REGIONAL_NEUTRAL_FAMILIES,

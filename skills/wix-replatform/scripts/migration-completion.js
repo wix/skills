@@ -11,14 +11,14 @@ const {
 } = require('../lib/migration-completion.js');
 const { validateEntityQaAttestation } = require('../lib/entity-qa-attestation.js');
 const { loadArtifacts, writeJsonAtomic } = require('../lib/orchestration-state.js');
-const { getDecisionValue } = require('../lib/orchestration-decisions.js');
+const { getEffectiveDeliveryMode } = require('../lib/orchestration-decisions.js');
 
 async function main() {
   const projectDirArg = process.argv[2];
   if (!projectDirArg) throw new Error('Usage: node scripts/migration-completion.js <projectDir>');
   const projectDir = path.resolve(projectDirArg);
   const artifacts = await loadArtifacts(projectDir);
-  const deliveryMode = getDecisionValue(artifacts.decisions || {}, 'deliveryMode');
+  const deliveryMode = getEffectiveDeliveryMode(artifacts.decisions || {});
   const inputs = await loadMigrationCompletionInputs(projectDir);
   // Surface the completion-artifact refusals as typed reasons the caller can route on, rather than as a
   // bare stack trace. The run is not finished until all four artifacts exist; saying which one

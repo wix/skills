@@ -17,12 +17,6 @@
     "media/media-file",
     "crm/contact"
   ],
-  "dependencyFailureActions": {
-    "blog/category": "offer-omit",
-    "blog/tag": "offer-omit",
-    "media/media-file": "offer-omit",
-    "crm/contact": "offer-omit"
-  },
   "sourceAliases": [
     {
       "sourceSystem": "wordpress",

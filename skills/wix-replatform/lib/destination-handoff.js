@@ -8,6 +8,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { readReceipt } = require('./destination.js');
 const { readEnvFile } = require('./config-env.js');
+const { getEffectiveDeliveryMode, isWebsiteDeliveryMode } = require('./orchestration-decisions.js');
 
 const EDITOR_LABEL = { studio: 'Wix Studio', harmony: 'Wix Harmony' };
 
@@ -87,10 +88,14 @@ function developerToolsOperatorActions(receipt) {
   }];
 }
 
-function destinationOperatorActions(receipt, { frontendCompletion = null } = {}) {
-  if (receipt && receipt.requestedSiteType === 'headless') return headlessOperatorActions(receipt, { frontendCompletion });
+function destinationOperatorActions(receipt, { frontendCompletion = null, deliveryMode = 'management_and_website' } = {}) {
+  const websiteDelivery = isWebsiteDeliveryMode(deliveryMode);
+  if (receipt && receipt.requestedSiteType === 'headless') return websiteDelivery ? headlessOperatorActions(receipt, { frontendCompletion }) : [];
   if (!receipt || !EDITOR_LABEL[receipt.requestedSiteType] || !receipt.metaSiteId || receipt.status !== 'verified') return [];
   const developerTools = developerToolsOperatorActions(receipt);
+  // Developer Tools supports backend credentials and remains actionable for management-only
+  // runs; only the editor website build/publication actions are website-scoped.
+  if (!websiteDelivery) return developerTools;
   if (websiteReleased(frontendCompletion)) return developerTools;
   const editor = EDITOR_LABEL[receipt.requestedSiteType];
   const editorLink = receipt.editorUrl ? ` Editor: ${receipt.editorUrl}.` : '';
@@ -182,11 +187,16 @@ async function projectSiteId(projectDir) {
 async function projectDestinationOperatorActions(projectDir) {
   const receipt = await readReceipt(projectDir);
   const usable = receipt && !receipt.invalid ? receipt : null;
+  const decisions = await readJsonIfExists(path.join(projectDir, 'orchestration', 'decisions.json'));
+  // Historical destination receipts predate the durable delivery decision. Preserve their
+  // existing website cutover actions; an explicit management/management_only decision is
+  // what suppresses website work.
+  const deliveryMode = getEffectiveDeliveryMode(decisions || {}) || 'management_and_website';
   const frontendCompletion = await readJsonIfExists(path.join(projectDir, 'website', 'completion.json'));
   const appPagesRecord = await readJsonIfExists(path.join(projectDir, 'setup', 'harmony-app-pages.json'));
   return [
-    ...(usable ? destinationOperatorActions(usable, { frontendCompletion }) : []),
-    ...appPagesOperatorActions(appPagesRecord, usable, await projectSiteId(projectDir)),
+    ...(usable ? destinationOperatorActions(usable, { frontendCompletion, deliveryMode }) : []),
+    ...(isWebsiteDeliveryMode(deliveryMode) ? appPagesOperatorActions(appPagesRecord, usable, await projectSiteId(projectDir)) : []),
   ];
 }
 

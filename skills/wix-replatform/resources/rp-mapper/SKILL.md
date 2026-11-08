@@ -126,9 +126,12 @@ preparation; it never inherits proposal markers. The per-entity `contract` CLI c
 selection from the current authority, preserving proposals on other entities. Its review form
 adds or retains only the selected entity. To withdraw that entity after rejection, run the
 plain `contract --entity <entity>` form. Only its proposal is removed; its excluded fields
-and dependent entities return to deferred scope. Review the revised mapping again.
+remain visible as mapping gaps. A dependent with a retained whole-task prerequisite may also
+remain deferred, while a declared per-record reference stays executable and defers only records
+that name the unavailable parent. Review the revised mapping again.
 One-click mode cannot prepare or authorize these omissions, regardless of recorded provenance. Ordinary unresolved choices and
-their dependent entities remain deferred. No proposal authorizes a particular customer's loss.
+the affected entity remains deferred; per-record dependents continue through their record-level
+readiness gate. No proposal authorizes a particular customer's loss.
 
 Order, before the named mapping approval: (1) draft decisions; (2) `contract`, which writes
 the authority, its projections and `mapping/mapping-resolution.json`; (3) a pure
@@ -345,23 +348,8 @@ item. Every archive item counts against the site's plan-wide CMS item quota, so:
 - give two source entities for the same thing one identity (a WordPress user and the WooCommerce
   customer with the same id share `parentKey` `person:<id>`), so it is archived once;
 - put same-parent sub-records (order notes, refunds) under their parent's `parentKey`.
-Report the expected archive item count (`expectedSourceArchiveItems` in
-`resources/rp-target-wix/lib/source-archive.js`) in the mapping review next to the quota.
-
-**Keep only useful archive data.** Before choosing `cms` for a leaf, run the shipped
-classifier (`source-archive.js`, any source; rules in `rp-target-wix/domains/cms/source-archive-fields.v1.json`
-plus `rp-source-<platform>/archive-fields.v1.json`):
-- `retentionExclusions(locations, loadArchiveKnowledge({ sourcePlatform }))` returns the `excluded`
-  decisions (policyRef `source-archive-retention-v1`) for plumbing (API links, meta ids/keys, timezone
-  copies, modified dates, hashes, SEO plugin output, page-builder/theme data, tracking flags, media
-  technical data) and for customer IP addresses and browser user agents, which are not retained
-  (product policy). They are settled by policy: no omission approval, info gaps, and they
-  appear in the completion report's dropped fields. Never put a business field under this policy:
-  the mapping contract keeps any path the classifier keeps as a pending omission. Unknown fields are kept.
-- For orders, products and contacts, `extendedFieldCandidates({ targetRef, plan, records, knowledge })`
-  proposes short merchant values (original dates, payment reference, marketing channel, username)
-  and the `sourceArchiveKey` back link as extended fields. Offer them to `choosePreservation` as
-  `extended` candidates before CMS; where the extended-field setup path is not available they stay in the archive.
+Report the expected archive item count (`expectedArchiveRows` in
+`resources/rp-target-wix/lib/cms-item-quota.js`) in the mapping review next to the quota.
 
 Existing mapper QA compares inventory coverage, individual output bindings against schema,
 precedence/absence/reference semantics, canonical/projection equality, stable IDs, all gaps
@@ -381,12 +369,14 @@ policy or a general instruction to continue is not consent to new loss. Keep the
 approval permits importing supported data, not claiming missing behavior was migrated.
 The authority writer derives unattended mode from the existing recorded user-authored
 one-click decision; a caller's mode string cannot authorize it. For those tests, retain
-selected scope, defer undecided entities and their required dependency closure, and approve
-only the resolved scope. Record assumptions. Finish independent work without questions;
-never repeatedly redispatch an unchanged choice. Return codegen semantic defects here for
-one bounded evidence/rule resolution attempt; still-undecided work stays deferred. Do not
-turn deferral into an exclusion or a passed import. Persist the typed deferred result through
-the existing execution/run artifacts after independent work and evidence retention finish.
+selected scope, defer undecided entities, and defer dependents only when their retained writes
+need a whole-task prerequisite. Declared per-record references are left executable and their
+record-level holds remain visible in the dependency ledger. Record assumptions. Finish
+independent work without questions; never repeatedly redispatch an unchanged choice. Return
+codegen semantic defects here for one bounded evidence/rule resolution attempt; still-undecided
+work stays deferred. Do not turn deferral into an exclusion or a passed import. Persist the
+deferred entity as a Cutover gap after independent work and evidence retention finish; only an
+all-deferred plan remains blocked because no importer can start.
 
 ## Workflow
 
@@ -1286,7 +1276,7 @@ Existing mapper QA calls `compareMappingProjections(projectDir, plan)` from the 
 
 Before presenting a standard-mode mapping review, run `node scripts/discovered-census.js build <projectDir>` and `node scripts/census-reconciliation.js build <projectDir>`. Fix structural errors only for the named census IDs. Each discovered entity, registered sub-part, capability and unlinked plugin needs exactly one assignment: plan `censusIds[]` or a gap `censusId` plus `disposition`. A parent entity never silently covers its sub-parts. An excluded gap's `count` must equal the census's measured `recordCount` (`excluded_count_mismatch`), or be `null`; where the census has no measurement, a stated count is shown as unmeasured. Show the generated **Discovered set** section, including its unknown counts, exclusions and pending questions. Ask the owner each pending question; record answers as closed states, rebuild, and present that rebuilt review. Approving this review approves the listed exclusions; provisional and explicit 1-click agent approvals do not establish owner approval of exclusions.
 
-The mapping approval user action must reference `{ "kind": "census-reconciliation", "path": "mapping/review/census-reconciliation.json", "sha256": "<current file SHA-256>" }` along with the summary. Let the approval scripts bind and persist the reference; never write a digest or approval directly. A stale answer must produce a fresh request. In explicit 1-click mode use `auto-approve`, leave cannot-tell rows pending, and report them as not decided after import.
+The mapping approval user action must reference `{ "kind": "census-reconciliation", "path": "mapping/review/census-reconciliation.json", "sha256": "<current file SHA-256>" }` along with the summary. Let the approval scripts bind and persist the reference; never write a digest or approval directly. A stale answer must produce a fresh request. In explicit 1-click mode use `auto-approve`, leave cannot-tell rows pending, and report them as not decided after import. A run that started in user-chosen 1-click never asks pending questions mid-run, even after the mode changes or an owner joins to approve: record the approval with those rows still pending (the binder allows it), and the discovered-set status lists each as a not-decided cutover task.
 
 For `mapping_approval_missing_census` or `mapping_approval_stale_census`, reset with `node scripts/orchestration-state.js approve --project-dir <projectDir> --type mapping --status pending`, rebuild from the existing discovery files, and present again. Explain once that this fresh review accounts for the complete discovered set; do not rerun discovery or imported records.
 

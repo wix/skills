@@ -1,6 +1,7 @@
 'use strict';
 
 const BASE = 'https://www.wixapis.com/stores/v3';
+const wixAuth = require('../../../lib/wix-auth.js');
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const BATCH_LIMIT = 1000;
 const OUTCOMES = ['reconciled', 'created', 'updated', 'failed', 'unverified'];
@@ -132,6 +133,7 @@ async function verifyCatalogInventory(wix, rows, { verifyAttempts = 3, sleep = (
           }
           if (entries.every(({ row }) => row.catalogVerification.status === 'verified')) break;
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           for (const { row } of entries) Object.assign(row, { outcome: 'unverified', error: error.message, catalogVerification: { status: 'unverified' } });
         }
         if (attempt + 1 < verifyAttempts) await sleep(500 * (attempt + 1));
@@ -194,12 +196,12 @@ async function reconcileInventory(wix, input, { locationId, gaps = [], expectedC
   if (!rows.length) return buildInventoryReport(rows, gaps);
   let resolved, isDefault;
   try { const location = await resolveInventoryLocationDetails(wix, locationId); resolved = location.id; isDefault = location.defaultLocation; }
-  catch (error) { return buildInventoryReport(rows.map((r) => ({ ...r, outcome: 'failed', error: error.message })), gaps); }
+  catch (error) { if (wixAuth.isRunInterruption(error)) throw error; return buildInventoryReport(rows.map((r) => ({ ...r, outcome: 'failed', error: error.message })), gaps); }
   for (let start = 0; start < rows.length; start += BATCH_LIMIT) {
     const batch = rows.slice(start, start + BATCH_LIMIT);
     let existing;
     try { existing = await readInventory(wix, batch, resolved); }
-    catch (error) { for (const row of batch) Object.assign(row, { outcome: 'failed', error: error.message }); continue; }
+    catch (error) { if (wixAuth.isRunInterruption(error)) throw error; for (const row of batch) Object.assign(row, { outcome: 'failed', error: error.message }); continue; }
     const create = [], update = [];
     for (const row of batch) {
       row.locationId = resolved;
@@ -223,7 +225,7 @@ async function reconcileInventory(wix, input, { locationId, gaps = [], expectedC
           if (result.success) result.row.writeOutcome = operation === 'create' ? 'created' : 'updated';
           else Object.assign(result.row, { outcome: 'failed', error: result.error || 'Inventory item write failed' });
         }
-      } catch (error) { for (const row of pending) Object.assign(row, { outcome: 'failed', error: error.message }); }
+      } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; for (const row of pending) Object.assign(row, { outcome: 'failed', error: error.message }); }
     }
     const written = batch.filter((r) => r.writeOutcome && r.outcome !== 'failed');
     if (!written.length) continue;
@@ -236,7 +238,7 @@ async function reconcileInventory(wix, input, { locationId, gaps = [], expectedC
           else Object.assign(row, { outcome: 'unverified', error: item ? 'Inventory read-back differs from intended tracking, stock or availability' : 'Inventory item missing from read-back', inventoryVerification: { expected: row.inventory, actual: item ? { trackQuantity: item.trackQuantity, inStock: item.inStock, quantity: item.quantity, availabilityStatus: item.availabilityStatus } : null } });
         }
         if (written.every((r) => r.outcome !== 'unverified')) break;
-      } catch (error) { for (const row of written) Object.assign(row, { outcome: 'unverified', error: error.message }); }
+      } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; for (const row of written) Object.assign(row, { outcome: 'unverified', error: error.message }); }
       if (attempt + 1 < verifyAttempts) await sleep(250 * (attempt + 1));
     }
   }

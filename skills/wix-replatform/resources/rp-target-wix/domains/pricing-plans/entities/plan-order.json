@@ -15,14 +15,6 @@
     "pricing-plans/plan",
     "members/member"
   ],
-  "dependencyFailureActions": {
-    "pricing-plans/plan": "fix-only",
-    "members/member": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "pricing-plans/plan",
-    "members/member"
-  ],
   "dependencyModes": {
     "pricing-plans/plan": "per-record",
     "members/member": "per-record"

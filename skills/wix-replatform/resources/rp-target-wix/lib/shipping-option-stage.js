@@ -21,6 +21,7 @@ const s = require('./shipping-build.js');
 const w = require('./wix-writers.js');
 const local = require('../../../lib/local-state.js');
 const recovery = require('../../../lib/import-recovery.js');
+const wixAuth = require('../../../lib/wix-auth.js');
 const { getDecisionValue, isNewSiteStrategy } = require('../../../lib/orchestration-decisions.js');
 
 const EXTRACT_FILE = 'data/source-extract/shipping-zone.ndjson';
@@ -82,7 +83,8 @@ async function readDecisions(projectDir) {
 async function readSiteLanguage(wix) {
   try {
     return s.siteLanguageFromProperties(await w.getSiteProperties(wix));
-  } catch {
+  } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     return null; // a failed read is treated as an unsupported language: no invented text
   }
 }
@@ -145,7 +147,8 @@ async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {
   let regions = null;
   try {
     regions = (await w.queryDeliveryProfiles(wix)).flatMap((profile) => profile.deliveryRegions || profile.regions || []);
-  } catch {
+  } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     regions = null; // coverage is then not reported this run; nothing is guessed
   }
   const coverage = regions ? s.regionCoverage({ zonePlans, regionIdByZone: byZone, regions }) : [];
@@ -180,6 +183,7 @@ async function regionState(wix, { projectDir, zonePlans = [], regionIdByZone = {
           const result = await w.deleteShippingOption(wix, option.id);
           Object.assign(entry, { status: result.deleted ? 'deleted' : 'already-gone', at: new Date().toISOString() });
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           Object.assign(entry, { status: 'failed', error: String((error && error.message) || error).slice(0, 300), at: new Date().toISOString() });
         }
         await saveLedger();

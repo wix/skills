@@ -2,6 +2,7 @@
 
 const ledger = require('./blog-post-build-ledger');
 const reports = require('./blog-post-build-report');
+const wixAuth = require('../../../lib/wix-auth.js');
 
 function pairKey(key, extraId) { return `${key}\u0000${extraId}`; }
 function currentPair(projectDir, key, extraId) {
@@ -81,7 +82,7 @@ async function recordProvenance(projectDir, key, extraId, client, crosswalk, alr
   let readError;
   if (!draft) {
     try { draft = await client.getDraft(extraId); }
-    catch (error) { readError = error.message; }
+    catch (error) { if (wixAuth.isRunInterruption(error)) throw error; readError = error.message; }
   }
   const state = ledger.fold(ledger.readRows(projectDir));
   const evidence = draft ? assessProvenance(state, key, extraId, draft, crosswalk)
@@ -117,6 +118,7 @@ async function detectExtraDrafts(projectDir, client, crosswalk, onlyKey) {
       let full;
       try { full = await client.getDraft(draft.id); }
       catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         append(projectDir, key, create.draftId, draft.id, 'detected');
         append(projectDir, key, create.draftId, draft.id, 'provenance',
           { evidence: { status: 'inconsistent', tests: {}, readError: error.message } });

@@ -138,9 +138,6 @@ function verifyRuntimeUse(projectDir) {
     for (const [pattern, code] of RUNTIME_BYPASSES) if (pattern.test(text)) errors.push(`${code}:${path.relative(projectDir, file)}`);
     for (const code of retiredHoldUses(text)) errors.push(`retired_hold_code:${code}:${path.relative(projectDir, file)}`);
   }
-  // A vendored toolkit file whose own require target was not copied (MODULE_NOT_FOUND mid-import).
-  // Fix: node <skill>/scripts/vendor-closure.js <projectDir>.
-  for (const gap of require('../lib/vendor-closure.js').vendorGaps(projectDir)) errors.push(`vendored_require_missing:${gap.target}:src/${gap.file}`);
   return errors;
 }
 // Values a toolkit function refuses at runtime, checked in the generated code at
@@ -175,9 +172,14 @@ function verifyStaticContract(projectDir) {
 // hand-wired ReadBackGate that works is not blocked. Names the decision file and, when the code
 // wires the gate by hand, the first file and line that constructs it.
 function verifyGateWiring(projectDir) {
-  const { DOMAINS } = require('../lib/read-back-contract.js');
+  const { DOMAINS, decisionFileName } = require('../lib/read-back-contract.js');
+  let plan = null;
+  try { plan = JSON.parse(fsSync.readFileSync(path.join(projectDir, 'mapping/mapping-plan.json'), 'utf8')); } catch { /* generated-contract checks report missing plans */ }
   const gated = Object.keys(DOMAINS).filter((entity) => {
-    try { return Boolean(JSON.parse(fsSync.readFileSync(path.join(projectDir, `mapping/entity-decisions/${entity}.json`), 'utf8')).readBackContract); } catch { return false; }
+    try {
+      const file = decisionFileName(projectDir, entity);
+      return Boolean(JSON.parse(fsSync.readFileSync(path.join(projectDir, `mapping/entity-decisions/${file}`), 'utf8')).readBackContract);
+    } catch { return false; }
   });
   if (!gated.length) return [];
   const sources = [...files(path.join(projectDir, 'src')), ...files(path.join(projectDir, 'scripts'))]
@@ -190,7 +192,7 @@ function verifyGateWiring(projectDir) {
   return gated.map((entity) => ({
     code: 'read_back_gate_not_toolkit_owned',
     entity,
-    decision: `mapping/entity-decisions/${entity}.json`,
+    decision: `mapping/entity-decisions/${decisionFileName(projectDir, entity)}`,
     location: handWired,
     message: handWired
       ? `${entity}: the read-back gate is wired by hand (${handWired}); call runGatedEntity from lib/read-back-gate.js instead.`

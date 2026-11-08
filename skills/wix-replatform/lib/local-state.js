@@ -68,6 +68,7 @@ const PRODUCT_MEDIA_FAILURE_REASONS = new Set([
   'no-source-id',
   'no-source-record',
   'source-unreadable',
+  'auth_expired',
 ]);
 
 // The outcome a given status must declare, so a row cannot say `failed_terminal` in one field
@@ -1080,8 +1081,9 @@ async function readAttemptJournalSince(projectDir, offset = 0) {
 // permitted: a journal is never rewritten, folded in place, or trimmed.
 //
 // While this project's Wix token is interrupted (`wix_auth_expired`), a failed or
-// unresolved row is refused and the interruption is thrown instead. An expired token is never a
-// record outcome, and the throw stops the loop that would otherwise record the next one too.
+// unresolved row is refused and the interruption is thrown instead. A token that was refreshed
+// but still got a 401 is different: the shared writer marks that request `auth_expired`, and it
+// is a retryable record outcome rather than a terminal data rejection.
 const INTERRUPTION_REFUSED_STATUSES = new Set(['failed_retryable', 'failed_terminal', 'succeeded_unverified']);
 function wixAuthInterruption(projectDir) {
   try {
@@ -1112,8 +1114,21 @@ function settleNotSentAttempt(row) {
   };
 }
 
+function settleAuthExpiredAttempt(row) {
+  if (!row || typeof row !== 'object' || !['failed_terminal', 'failed_retryable'].includes(row.status)) return row;
+  const failure = row.failure;
+  if (!failure || typeof failure !== 'object') return row;
+  const authExpired = failure.reason === 'auth_expired' || failure.errorCode === 'auth_expired';
+  if (!authExpired) return row;
+  return {
+    ...row,
+    status: 'failed_retryable',
+    failure: { ...failure, errorCode: 'auth_expired', reason: 'auth_expired', outcome: 'failed_retryable' },
+  };
+}
+
 async function appendAttempt(projectDir, row, options = {}) {
-  row = settleNotSentAttempt(row);
+  row = settleAuthExpiredAttempt(settleNotSentAttempt(row));
   if (row && (INTERRUPTION_REFUSED_STATUSES.has(row.status) || row.status === 'started')) {
     const interrupted = wixAuthInterruption(projectDir);
     // A stopping run starts no new write, but a write already sent still records its outcome
@@ -1253,7 +1268,7 @@ async function markAttempt(projectDir, attemptId, patch, options = {}) {
       delete merged.failure.requestSent;
     }
   }
-  const row = settleNotSentAttempt(merged);
+  const row = settleAuthExpiredAttempt(settleNotSentAttempt(merged));
   const toWrite = withIdentifierRedactionRetry(row);
   await appendNdjson(attemptJournalPathFor(projectDir, options), toWrite);
   return toWrite;
@@ -1445,6 +1460,7 @@ module.exports = {
   readAttemptJournalSince,
   appendAttempt,
   settleNotSentAttempt,
+  settleAuthExpiredAttempt,
   validateCrosswalkRow,
   verifiedSecondaryIdentity,
   validateAttemptRow,

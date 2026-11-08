@@ -104,6 +104,7 @@ function runtimeOptions(args) {
     oneClick: args.oneClick, dryRun: args.dryRun, eventsFile: args.eventsFile ? path.resolve(args.eventsFile) : null, vendorEvents: args.vendorEvents ? path.resolve(args.vendorEvents) : null,
     statusIntervalMs, wallTimeoutMs: duration(args.wallTimeout || 'off', { allowOff: true, min: 60000, max: 7 * 86400000 }),
     idleTimeoutMs: duration(args.idleTimeout || '15m', { min: 60000, max: 2 * 3600000 }),
+    workerStartupTimeoutMs: duration(args.workerStartupTimeout || '120s', { min: 1000, max: 3600000 }),
     maxAgentTurns: positive(args.maxAgentTurns, 'max-agent-turns', 12),
     maxNoProgressContinuations: positive(args.maxNoProgressContinuations, 'max-no-progress-continuations', 1),
     format,
@@ -275,7 +276,7 @@ async function answerCommand(args) {
 async function doctorCommand(args) {
   const value = projectArg(args); const target = value ? await resolveProject(value) : null;
   const ids = args.agent && args.agent !== 'auto' ? [args.agent] : ['codex', 'claude'];
-  const adapters = ids.map((id) => chooseAdapter(id, { agentPath: args.agentPath }));
+  const adapters = ids.map((id) => chooseAdapter(id, { agentPath: args.agentPath, checkAuth: true }));
   const active = target ? await readActive(target.projectDir) : null;
   const result = { schemaVersion: 1, node: process.version, project: target?.projectDir || null, writable: target ? await fs.access(target.projectDir, fssync.constants.W_OK).then(() => true).catch(() => false) : null, adapters, activeRun: active };
   output(result, args.format || 'text', adapters.map((a) => `${a.id || args.agent}: ${a.ok ? 'available' : a.reason}`).join('\n'));
@@ -326,7 +327,7 @@ function commandArgs(command, positional, options) {
 function addRuntimeOptions(command, { intake = false } = {}) {
   command
     .addHelpText('after', '\nThis command is non-interactive: it never prompts, opens a pager/editor/browser/login, or waits for stdin.\n')
-    .addOption(new Option('--agent <id>', 'auto selects a compatible adapter (Codex first); codex and claude require that exact adapter.').choices(['auto', 'codex', 'claude']).default('auto'))
+    .addOption(new Option('--agent <id>', 'auto follows the invoking agent; otherwise selects an installed, authenticated adapter. codex and claude require that exact adapter.').choices(['auto', 'codex', 'claude']).default('auto'))
     .option('--agent-path <path>', 'adapter executable override (testing/development)')
     .addOption(new Option('--format <format>', 'jsonl streams lifecycle events (default); json emits one final result; text is human-readable; event-stream aliases jsonl.').choices(['text', 'json', 'jsonl', 'event-stream']).default('jsonl'))
     .option('--status-interval <duration>', 'liveness heartbeat interval: 60s foreground by default, off detached; use off to disable')
@@ -334,6 +335,7 @@ function addRuntimeOptions(command, { intake = false } = {}) {
     .option('--vendor-events <path>', 'write raw vendor events to this diagnostic file')
     .option('--wall-timeout <duration>', 'whole-run deadline; use off to disable')
     .option('--idle-timeout <duration>', 'maximum time without observed progress')
+    .option('--worker-startup-timeout <duration>', 'maximum time a vendor sub-worker may show no activity before one retry')
     .option('--max-agent-turns <count>', 'maximum agent turns in this supervisor run')
     .option('--max-no-progress-continuations <count>', 'maximum same-route retries')
     .option('--detach', 'start the supervisor in the background')

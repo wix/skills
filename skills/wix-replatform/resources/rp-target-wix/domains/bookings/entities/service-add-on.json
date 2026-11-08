@@ -27,13 +27,6 @@
     "bookings/service",
     "tax/tax-group"
   ],
-  "dependencyFailureActions": {
-    "bookings/service": "fix-only",
-    "tax/tax-group": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "bookings/service"
-  ],
   "dependencyModes": {
     "bookings/service": "per-record"
   },

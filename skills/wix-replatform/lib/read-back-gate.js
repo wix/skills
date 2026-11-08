@@ -1,5 +1,8 @@
 'use strict';
 
+const {
+  AsyncLocalStorage
+} = require('node:async_hooks');
 const path = require('node:path');
 const state = require('./read-back-state');
 const C = require('./read-back-contract');
@@ -16,6 +19,7 @@ const {
   hashArtifact
 } = require('./artifact-freshness');
 const writers = require('../resources/rp-target-wix/lib/wix-writers');
+const wixAuth = require('./wix-auth.js');
 const {
   deriveImportedOrderId
 } = require('../resources/rp-target-wix/lib/order-history');
@@ -25,6 +29,58 @@ const {
 const approval = require('./read-back-approval');
 const API = 'https://www.wixapis.com';
 const readSessions = new Map();
+const writeContexts = new AsyncLocalStorage();
+const writeTrackers = new WeakMap();
+
+// The generated wrapper can do reads before it attempts its mutating request. Track only
+// non-read sends so a writer exception is classified as not-sent only when this invocation
+// provably made no mutating request. AsyncLocalStorage keeps concurrent batch writers separate.
+function installWriteTracker(wix) {
+  if (!wix || !['object', 'function'].includes(typeof wix) || typeof wix.send !== 'function') return null;
+  const active = writeTrackers.get(wix);
+  if (active) {
+    active.references++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      active.references--;
+      if (!active.references) {
+        writeTrackers.delete(wix);
+        if (wix.send === active.trackedSend) wix.send = active.original;
+      }
+    };
+  }
+  const original = wix.send;
+  const tracker = {
+    original,
+    references: 1,
+    trackedSend: null
+  };
+  tracker.trackedSend = function trackedSend(request, ...args) {
+    const context = writeContexts.getStore();
+    // The generated writers keep their `{ read: true }` mark in a private WeakMap (`requestMark`), not on
+    // the request, so ask the writers; `request.read` still counts for hand-built requests.
+    if (context && !(request?.read || writers.requestMark?.(request)?.read)) context.requestSent = true;
+    return original.call(this, request, ...args);
+  };
+  try {
+    wix.send = tracker.trackedSend;
+  } catch {
+    return null;
+  }
+  writeTrackers.set(wix, tracker);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    tracker.references--;
+    if (!tracker.references) {
+      writeTrackers.delete(wix);
+      if (wix.send === tracker.trackedSend) wix.send = original;
+    }
+  };
+}
 function sharedReads(projectDir, runId, wix) {
   const key = `${path.resolve(projectDir)}\0${runId}`;
   if (!readSessions.has(key)) readSessions.set(key, new ReadBackReads(wix));
@@ -104,6 +160,7 @@ class ReadBackGate {
       runId,
       entity,
       siteId,
+      wix,
       buildWrite,
       write,
       repair,
@@ -367,6 +424,7 @@ class ReadBackGate {
         result = compareEntity(this.entity, expected, actual);
         settled = !result.checks.some(c => !c.matches && c.writePath.startsWith('product.media.'));
       } catch (e) {
+        if (wixAuth.isRunInterruption(e)) throw e;
         reason = e.code || 'media-settlement-exhausted';
       }
       await this.mutate((g, item) => {
@@ -454,10 +512,31 @@ class ReadBackGate {
   }
   async timeWrite(write) {
     const started = this.reads.now();
+    const context = {
+      requestSent: false
+    };
     try {
-      return await write();
+      const run = this.writeTracking ? writeContexts.run(context, write) : write();
+      return await run;
+    } catch (error) {
+      // A generated writer may fail during readiness/reference validation before it reaches
+      // Wix. The gate can safely settle that refusal only when its send tracker saw no
+      // mutating request; preserve an explicit writer classification when one exists.
+      if (this.writeTracking && !context.requestSent && error && typeof error === 'object' && error.requestSent === undefined) error.requestSent = false;
+      throw error;
     } finally {
       this.writeMs += Math.max(0, this.reads.now() - started);
+    }
+  }
+  async withWriteTracking(run) {
+    const restore = installWriteTracker(this.wix);
+    if (!restore) return run();
+    this.writeTracking = true;
+    try {
+      return await run();
+    } finally {
+      this.writeTracking = false;
+      restore();
     }
   }
   async executeCanaries(getRecord) {
@@ -494,6 +573,7 @@ class ReadBackGate {
         try {
           found = await this.lookup(record, expected, this.reads.wix);
         } catch (e) {
+          if (wixAuth.isRunInterruption(e)) throw e;
           await this.stop(e.code || 'unknown-write-lookup-failed');
           return false;
         }
@@ -578,6 +658,7 @@ class ReadBackGate {
           });
           newWrite = true;
         } catch (e) {
+          if (wixAuth.isRunInterruption(e)) throw e;
           // Refused before sending (a capability or readiness refusal): the outcome is known, so
           // the record must not stay protected as possibly written.
           if (e?.requestSent === false && !targetId) await this.protect(sourceId, {
@@ -594,6 +675,7 @@ class ReadBackGate {
       try {
         result = await this.observe(record, sourceId, targetId, expected);
       } catch (e) {
+        if (wixAuth.isRunInterruption(e)) throw e;
         await this.stop(e.code || 'unknown-read');
         return false;
       }
@@ -624,6 +706,7 @@ class ReadBackGate {
             result = await this.observe(record, sourceId, targetId, expected);
             newWrite = true;
           } catch (e) {
+            if (wixAuth.isRunInterruption(e)) throw e;
             await this.stop(e.code || 'unknown-repair-outcome');
             return false;
           }
@@ -725,6 +808,7 @@ class ReadBackGate {
     try {
       result = await this.observe(record, String(sourceId), targetId, expected);
     } catch (e) {
+      if (wixAuth.isRunInterruption(e)) throw e;
       result = {
         verified: false,
         unknown: true,
@@ -772,6 +856,7 @@ class ReadBackGate {
         const result = await this.observe(record, id, targetId, await this.expectedFor(record, id));
         if (!result.verified) return false;
       } catch (e) {
+        if (wixAuth.isRunInterruption(e)) throw e;
         await this.stop(e.code || 'unknown-reconciliation');
         return false;
       }
@@ -874,6 +959,7 @@ async function runGatedEntity({
     return record;
   };
   const result = (status, extra = {}) => ({ entity, status, ...extra });
+  return gate.withWriteTracking(async () => {
   const inv = await state.readJson(options.projectDir, `execution/read-back-inventory/${entity}.json`, null);
   if (!inv) {
     await gate.stop('read-back-inventory-missing');
@@ -954,6 +1040,7 @@ async function runGatedEntity({
   }
   item = await gate.item();
   return result(item.status, { stopReason: item.stopReason || null, endOfRunVerified: item.endOfRunVerified === true, written });
+  });
 }
 module.exports = {
   ReadBackGate,

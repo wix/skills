@@ -14,12 +14,6 @@
   "dependsOn": [
     "blog/post"
   ],
-  "dependencyFailureActions": {
-    "blog/post": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "blog/post"
-  ],
   "dependencyModes": {
     "blog/post": "per-record"
   },

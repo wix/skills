@@ -6,10 +6,12 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {assertCollectionCompatibility}=require('../../../lib/cms-collection-compatibility.js');
+const { normalizeCmsCollectionDefinition } = require('../../../lib/cms-collection-request.js');
 const REAL_WRITERS = require('../../rp-target-wix/lib/wix-writers.js');
 const { SCHEMA_KIND: CONTACT_V4_SCHEMA_KIND } = require('../../rp-target-wix/lib/contact-extended-fields.js');
 const { hashArtifact } = require('../../../lib/artifact-freshness.js');
 const { validatePlanShape, validateSetupVerification } = require('../../../lib/setup-verification.js');
+const { SETUP_CHECK_METHODS } = require('../../../lib/setup-check-methods.js');
 const siteRegional = require('../../../lib/site-regional.js');
 const catalogBaseline = require('../../../lib/catalog-baseline.js');
 const wixAuth = require('../../../lib/wix-auth.js');
@@ -84,7 +86,7 @@ async function fallbackAuthor(dir, wix, writers) {
     file,
     `${raw.replace(/\n?WIX_BLOG_FALLBACK_MEMBER_ID=.*(?:\n|$)/g, '\n').replace(/\s*$/, '\n')}WIX_BLOG_FALLBACK_MEMBER_ID=${member.id}\n`,
   );
-  return { method: created ? 'member-create-response' : 'member-read', observed: { memberId: member.id } };
+  return { method: created ? SETUP_CHECK_METHODS.MEMBER_CREATE_RESPONSE : SETUP_CHECK_METHODS.MEMBER_READ, observed: { memberId: member.id } };
 }
 
 // Creates one Wix Data collection via the real, verified request shape (top-level key is
@@ -99,32 +101,45 @@ async function createCmsCollectionsStep({ dir, wix, writers }) {
   const requirement = (list || []).find((item) => item && item.id === 'create-cms-collections');
   if (!requirement) throw new Error('setup-requirements.json has no create-cms-collections requirement');
 
+  const fieldSchema = requirement.fieldSchemaPerCollection;
+  const fields = Array.isArray(fieldSchema) ? fieldSchema.map((f) => ({
+    key: f?.key,
+    type: f?.type,
+    displayName: f?.displayName,
+    ...(f?.required ? { required: true } : {}),
+    ...(f?.typeMetadata ? {typeMetadata:f.typeMetadata} : {}),
+  })) : fieldSchema;
+
+  if (!Array.isArray(requirement.collections)) {
+    throw new Error('create-cms-collections requirement has no collections array');
+  }
+  // Normalize and validate every definition before the first create request. In
+  // particular, mapping permission presets are expanded to the object required by
+  // Wix Data, while malformed field/permission values fail with their exact path.
+  const expectedCollections = requirement.collections.map((collection, index) => normalizeCmsCollectionDefinition({
+    id: collection?.id,
+    displayName: collection?.displayName,
+    fields: collection?.fields || fields,
+    permissions: collection?.permissions || requirement.permissions,
+  }, { path: `collections[${index}]` }));
+
   const existing = await wix.send(writers.buildListCmsCollectionsRequest());
   const existingIds = new Set((existing.collections || []).map((c) => c.id));
 
-  const fields = (requirement.fieldSchemaPerCollection || []).map((f) => ({
-    key: f.key,
-    type: f.type,
-    displayName: f.displayName,
-    ...(f.required ? { required: true } : {}),
-    ...(f.typeMetadata ? {typeMetadata:f.typeMetadata} : {}),
-  }));
-
-  for (const collection of requirement.collections || []) {
-    const expected={id:collection.id,displayName:collection.displayName,fields:collection.fields || fields,
-      permissions:collection.permissions || requirement.permissions};
-    if (!existingIds.has(collection.id)) {
+  for (const expected of expectedCollections) {
+    if (!existingIds.has(expected.id)) {
       try {
         await writers.ensureCmsCollection(wix, expected);
       } catch(error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         if (error.status!==409 && error.statusCode!==409) throw error;
         // A concurrent create is not evidence of compatible fields or permissions.
       }
     }
-    const current=await wix.send(writers.buildGetCmsCollectionRequest(collection.id));
+    const current=await wix.send(writers.buildGetCmsCollectionRequest(expected.id));
     assertCollectionCompatibility(current.collection,expected);
   }
-  return { method: 'collection-read', observed: { collections: (requirement.collections || []).map(c => c.id) } };
+  return { method: SETUP_CHECK_METHODS.COLLECTION_READ, observed: { collections: expectedCollections.map(c => c.id) } };
 }
 
 // Runs one setup-plan step. Throws (with `blockerCode`/`recommendedAction` attached where
@@ -398,7 +413,7 @@ async function installOnHarmony({ stepId, wanted, siteId, wix, writers, timing }
 }
 
 // Returns the check that actually ran: `{ method, observed }` (see SETUP_CHECK_METHODS in
-// lib/setup-verification.js). The caller stamps `checkedAt` once it returns. An install with no
+// lib/setup-check-methods.js). The caller stamps `checkedAt` once it returns. An install with no
 // read-back records `install-response` -- what was observed, never a claimed read.
 // An install call that returns 200 proves nothing about the site: the step passes only when the
 // installed-apps list read back afterwards names the app and it is enabled. An app that is
@@ -468,14 +483,14 @@ async function installAndVerifyApp(stepId, appDefId, { dir, env, wix, writers, c
     const isDeferred = deferred.includes(appDefId);
     viaEditor = !isDeferred && !noEditorPart.includes(appDefId) && !prior.noEditorPart.includes(appDefId);
     await recordAppPages(dir, env.WIX_SITE_ID, prior, { appDefId, stepId, outcome: isDeferred ? 'deferred' : viaEditor ? 'apps' : 'noEditorPart' });
-    if (isDeferred) return { method: 'installed-apps-read', observed: { appDefId, installed: false, route: 'editor-installation', deferred: 'page_path_conflict' } };
+    if (isDeferred) return { method: SETUP_CHECK_METHODS.INSTALLED_APPS_READ, observed: { appDefId, installed: false, route: 'editor-installation', deferred: 'page_path_conflict' } };
   }
   // `installCall` only when this run installed the app itself.
   const ranInstall = harmony ? [...sentViaEditor, ...noEditorPart].includes(appDefId) : !installed;
   const route = viaEditor ? { route: 'editor-installation', appPages: 'not-read' }
     : harmony ? { route: 'app-installer', reason: 'no_editor_part' }
       : editorType ? { route: 'app-installer', reason: `editor_${editorType}` } : { route: 'not-determined' };
-  return { method: 'installed-apps-read', observed: { appDefId, installed: true, ...(ranInstall ? { installCall: 'succeeded' } : {}), ...catalog, ...route } };
+  return { method: SETUP_CHECK_METHODS.INSTALLED_APPS_READ, observed: { appDefId, installed: true, ...(ranInstall ? { installCall: 'succeeded' } : {}), ...catalog, ...route } };
 }
 
 async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerification = null, catalogSettle }) {
@@ -485,21 +500,21 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
     const requirement = (list || []).find((item) => item && item.kind === 'siteLocale') || {};
     const regional = await siteRegional.executeRegionalStep({ projectDir: dir, wix, writers, siteId: env.WIX_SITE_ID, requirement });
     // The receipt's fields are the read-back this step performed; the check records what was observed.
-    return { method: 'site-properties-read', observed: { fields: Object.fromEntries(Object.entries(regional.fields || {}).map(([field, row]) => [field, row.action])) }, regional };
+    return { method: SETUP_CHECK_METHODS.SITE_PROPERTIES_READ, observed: { fields: Object.fromEntries(Object.entries(regional.fields || {}).map(([field, row]) => [field, row.action])) }, regional };
   }
   if (step.id === 'mute-site-notifications') {
     const state = await writers.muteSiteNotifications(wix, { reason: `RePlatform migration — ${path.basename(dir)}` });
     if (!state?.muted) throw new Error('notification mute verification failed');
     const read = await writers.getSiteMuteState(wix);
     if (read?.muted !== true) throw new Error('notification mute verification failed: status read is not muted');
-    return { method: 'status-read', observed: { muted: true } };
+    return { method: SETUP_CHECK_METHODS.STATUS_READ, observed: { muted: true } };
   }
   if (step.id === 'start-back-in-stock-collection') {
     await wix.send(writers.buildStartBackInStockCollectionRequest());
     const read = await wix.send(writers.buildGetBackInStockSettingsRequest());
     const stores = (read?.settings?.collectionStates || []).find((row) => row.appId === catalogBaseline.STORES_APP_DEF_ID);
     if (stores?.collectingRequests !== true) throw new Error('back-in-stock collection verification failed: settings read does not show collecting for Wix Stores');
-    return { method: 'settings-read', observed: { collectingRequests: true } };
+    return { method: SETUP_CHECK_METHODS.SETTINGS_READ, observed: { collectingRequests: true } };
   }
   if (step.kind === 'installApp' && !appIdForStep(step)) {
     throw blockerError('INSTALL_APP_ID_INVALID', `${step.id}: an installApp step needs "appDefId" set to the app's id (a GUID)`, 'Fix the step in the setup plan and re-run setup.');
@@ -508,7 +523,7 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
   if (appDefId) return installAndVerifyApp(step.id, appDefId, { dir, env, wix, writers, catalogSettle });
   if (await isExtendedFieldStep(step, dir)) {
     const verifications = await provisionExtendedFieldsStep({ dir, wix, writers, dryRun: false, priorVerification: priorExtendedFieldVerification });
-    return { method: 'extended-field-verification', observed: { verifications: verifications.length } };
+    return { method: SETUP_CHECK_METHODS.EXTENDED_FIELD_VERIFICATION, observed: { verifications: verifications.length } };
   }
   if (step.id === 'create-cms-collections') {
     return createCmsCollectionsStep({ dir, wix, writers });
@@ -521,7 +536,7 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
         recommendedAction: 'Use a destination site provisioned with Catalog V3, or omit Stores from this migration.',
       });
     }
-    return { method: 'catalog-version-read', observed: { catalogVersion: result.catalogVersion } };
+    return { method: SETUP_CHECK_METHODS.CATALOG_VERSION_READ, observed: { catalogVersion: result.catalogVersion } };
   }
   if (step.id === 'blog-fallback-author') {
     return fallbackAuthor(dir, wix, writers);
@@ -534,9 +549,9 @@ async function runStep(step, { dir, env, wix, writers, priorExtendedFieldVerific
       const read = writers[step.intent.readWriterId];
       if (typeof read !== 'function' || !/^build(Get|Query)/.test(step.intent.readWriterId || '')) throw new Error('setup_reference_readback_missing');
       await wix.send(read(...(step.intent.readArgs || [])));
-      return { method: 'reference-read-back', observed: { writerId: step.intent.writerId, readWriterId: step.intent.readWriterId } };
+      return { method: SETUP_CHECK_METHODS.REFERENCE_READ_BACK, observed: { writerId: step.intent.writerId, readWriterId: step.intent.readWriterId } };
     }
-    return { method: 'writer-response', observed: { writerId: step.intent.writerId } };
+    return { method: SETUP_CHECK_METHODS.WRITER_RESPONSE, observed: { writerId: step.intent.writerId } };
   }
   throw Object.assign(new Error(`No executor implements setup step "${step.id}"`), {
     blockerCode: 'NO_EXECUTOR_FOR_REQUIREMENT',

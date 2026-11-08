@@ -2328,7 +2328,7 @@ async function writeOutputs(outDir, context, progress) {
 // and a denied or failed read is an explicit unknown in the file, never a discovery failure.
 // Only the standard `<project>/data/wp-discovery` layout can be promoted, so any other --out-dir
 // is skipped with a note.
-async function captureSourceRegional({ outDir, baseUrl, headers, timeoutMs, entities, generatedAt, progress: log = null, fetch = fetchJson }) {
+async function captureSourceRegional({ outDir, baseUrl, headers, timeoutMs, entities, generatedAt, index = null, progress: log = null, fetch = fetchJson }) {
   const resolved = path.resolve(outDir);
   const projectDir = path.resolve(resolved, '..', '..');
   if (resolved !== path.join(projectDir, ADAPTER_RAW_DIRS.wordpress)) {
@@ -2342,6 +2342,8 @@ async function captureSourceRegional({ outDir, baseUrl, headers, timeoutMs, enti
   const settings = await regionalCapture.readRegionalSettings({ baseUrl, headers, fetchJson: fetch, timeoutMs, progress: log, capturedGeneral });
   const file = regionalCapture.buildWordPressRegional({
     ...settings,
+    // The REST index already read: its `timezone_string` / `gmt_offset` decide a fixed-offset zone.
+    index: index && typeof index === 'object' ? { timezone_string: index.timezone_string, gmt_offset: index.gmt_offset } : null,
     ordersEntity: entities.find((entity) => entity.routePath === regionalCapture.ORDERS_ROUTE) || null,
     generatedAt,
   });
@@ -2636,6 +2638,7 @@ async function main() {
     timeoutMs: args.timeoutMs,
     entities,
     generatedAt: context.generatedAt,
+    index: indexJson,
     progress,
   });
 

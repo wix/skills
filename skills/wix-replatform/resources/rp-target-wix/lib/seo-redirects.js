@@ -1,5 +1,7 @@
 'use strict';
 
+const wixAuth = require('../../../lib/wix-auth.js');
+
 // Wix SEO Redirects (seo-redirects-service/v1, Developer Preview): request builders and the
 // safe, resumable apply loop for exact same-site 301 rules.
 //
@@ -99,6 +101,7 @@ async function listWithBackoff(client, { retries = 3, sleep, baseDelayMs = 500 }
       }
       return response.redirects;
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       const kind = classifyHttpError(error);
       if (kind !== 'transient' || attempt >= retries) throw Object.assign(error, { failureKind: kind });
       attempt += 1;
@@ -201,6 +204,7 @@ async function applyRedirectPlan(options) {
     if (initialInventoryError) throw initialInventoryError;
     inventory = initialInventory || await listWithBackoff(readClient, { sleep });
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     summary.stopped = `inventory_${error.failureKind || 'failed'}`;
     actions.push(action('redirect_inventory_unreadable', 'high', 'Existing redirects on the destination site could not be listed; nothing was written. Check the read credential and retry apply.', 'writing without an inventory could replace or delete existing rules', 1));
     return report();
@@ -267,6 +271,7 @@ async function applyRedirectPlan(options) {
       try {
         inventory = await listWithBackoff(readClient, { sleep });
       } catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         summary.stopped = `inventory_${error.failureKind || 'failed'}`;
         break;
       }
@@ -284,6 +289,7 @@ async function applyRedirectPlan(options) {
     try {
       response = await writeClient.send(buildBulkCreateRedirectsRequest(batch.map((rule) => ({ from: rule.from, to: rule.to }))));
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       sendError = error;
     }
     if (sendError && classifyHttpError(sendError) !== 'transient') {
@@ -302,7 +308,8 @@ async function applyRedirectPlan(options) {
     let after;
     try {
       after = await listWithBackoff(readClient, { sleep });
-    } catch {
+    } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       for (const rule of batch) await append(rule, 'outcome_unknown', { reasonCodes: ['reconciliation_list_failed'] });
       summary.outcomeUnknown += batch.length;
       summary.stopped = 'reconciliation_unavailable';

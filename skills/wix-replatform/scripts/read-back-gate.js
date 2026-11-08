@@ -57,6 +57,12 @@ function sourceKey(dotted = 'id') {
     return value;
   };
 }
+function deferredMapping(plan, entity) {
+  if (plan?.fieldContractVersion !== 1) return null;
+  const exact = require('../lib/mapping-field-contract');
+  const row = exact.entityRows(plan).find(candidate => exact.entityKeyMatches(candidate, entity));
+  return row && plan.executionScope?.deferredEntities?.find(item => item.entityRef === exact.entityRef(row)) || null;
+}
 function inventorySummary(entity, inv) {
   return {
     entity,
@@ -75,13 +81,13 @@ async function run(args) {
     options
   } = parse(args);
   if (command === 'contract') {
-    const file = `mapping/entity-decisions/${entity}.json`;
+    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
+    const file = `mapping/entity-decisions/${C.decisionFileName(projectDir, entity)}`;
     const decision = await state.readJson(projectDir, file, {});
     if (!decision || typeof decision !== 'object' || Array.isArray(decision)) throw problem('entity_decision_invalid');
-    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
     if (plan.fieldContractVersion === 1) {
       const exact = require('../lib/mapping-field-contract');
-      const entries = exact.entityRows(plan).filter(row => [row.entity, row.sourceEntity, row.name, row.target?.entity].includes(entity));
+      const entries = exact.entityRows(plan).filter(row => exact.entityKeyMatches(row, entity));
       if (entries.length !== 1) throw problem('entity_decision_invalid');
       entries[0].readBackContract = C.domainContract(entity);
       if (plan.entities && !Array.isArray(plan.entities)) {
@@ -108,6 +114,12 @@ async function run(args) {
     };
   }
   if (command === 'inventory') {
+    // A deferred entity is a durable mapping/cutover gap, not an inventory failure.
+    // Check the exact mapping before requiring an extract or builder: its source data
+    // may be precisely what the mapper could not read.
+    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
+    const deferred = deferredMapping(plan, entity);
+    if (deferred) return { entity, status: 'deferred', code: 'mapping_scope_deferred', deferred, exitCode: 0 };
     if (!options['--extract']) return {
       entity,
       status: 'not-run',
@@ -133,7 +145,6 @@ async function run(args) {
     const builderModule = await import(pathToFileURL(builderPath).href);
     const buildWrite = builderModule.buildWrite || builderModule.default?.buildWrite;
     if (typeof buildWrite !== 'function') throw problem('builder_export_missing');
-    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json');
     const rows = C.mappingRows(plan, entity);
     // The builder is pinned: a later change to it makes this inventory stale.
     const realProject = await fs.realpath(projectDir);
@@ -165,6 +176,9 @@ async function run(args) {
     };
   }
   if (command === 'validate') {
+    const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json');
+    const deferred = deferredMapping(plan, entity);
+    if (deferred) return { entity, status: 'deferred', code: 'mapping_scope_deferred', deferred, exitCode: 0 };
     let result;
     try {
       result = await C.validate(projectDir, entity);

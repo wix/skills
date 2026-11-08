@@ -1,6 +1,6 @@
 'use strict';
 
-// The CLI site token (`npx @wix/cli@latest token --site`, written by scripts/mint-token.sh) is
+// The CLI site token (`npx --no-install wix token --site`, written by scripts/mint-token.sh) is
 // short-lived, and `wix token` may hand back a cached token with only part of its life left. A
 // token source renews it from the token's own `exp` and on a refusal, for the SAME site only.
 // When renewal cannot help, the run is INTERRUPTED (`wix_auth_expired`): never a record outcome.
@@ -13,7 +13,11 @@ const { readEnvFile } = require('./config-env.js');
 
 const WIX_AUTH_EXPIRED = 'wix_auth_expired';
 const WIX_AUTH_EXIT_CODE = 75;
-const RENEW_WITHIN_MS = 10 * 60 * 1000;
+// Site tokens live for about four hours. Renew with roughly thirty minutes left, or once the
+// token has been held for about three and a half hours, so a long batch does not start with a
+// credential that is likely to expire before its records finish.
+const RENEW_WITHIN_MS = 30 * 60 * 1000;
+const MAX_TOKEN_AGE_MS = 3.5 * 60 * 60 * 1000;
 const RENEWAL_WINDOW_MS = 30 * 60 * 1000;
 const MAX_RENEWALS_PER_WINDOW = 5;
 const MINT_TIMEOUT_MS = 120 * 1000;
@@ -26,8 +30,9 @@ const REASONS = Object.freeze({
   still_rejected: 'Wix refused the request again after the token was renewed',
   renewal_limit: 'the token was renewed too often in a short time',
 });
+const AUTH_EXPIRED_REASON = 'auth_expired';
 
-const OPERATOR_ACTION = 'run `npx @wix/cli@latest whoami` (log in if asked), then `bash scripts/mint-token.sh` in the migration project, answer the wix_auth_expired action, and resume the import; do not re-run from scratch';
+const OPERATOR_ACTION = 'run `npx --no-install wix whoami` (log in if asked), then `bash scripts/mint-token.sh` in the migration project, answer the wix_auth_expired action, and resume the import; do not re-run from scratch';
 
 class WixAuthInterruption extends Error {
   constructor(reason, { httpStatus } = {}) {
@@ -105,6 +110,35 @@ function tokenExpiresAt(token) {
   return null;
 }
 
+function tokenIssuedAt(token) {
+  for (const segment of bareToken(token).split('.')) {
+    if (segment.length < 8) continue;
+    try {
+      const claims = JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+      if (claims && typeof claims === 'object' && Number.isFinite(claims.iat)) return claims.iat * 1000;
+    } catch {
+      // not a JSON segment
+    }
+  }
+  return null;
+}
+
+function isAuthExpired(error) {
+  return Boolean(error && (error.authExpired === true || error.reason === AUTH_EXPIRED_REASON || error.code === AUTH_EXPIRED_REASON));
+}
+
+function authExpiredError({ httpStatus = 401 } = {}) {
+  const error = new Error(`${AUTH_EXPIRED_REASON}: the Wix site token was refused after one refresh; retry this record after the token is renewed`);
+  error.name = 'WixAuthExpiredError';
+  error.code = AUTH_EXPIRED_REASON;
+  error.reason = AUTH_EXPIRED_REASON;
+  error.authExpired = true;
+  error.outcomeKnown = true;
+  error.requestApplied = false;
+  if (Number.isInteger(httpStatus)) error.status = httpStatus;
+  return error;
+}
+
 function runMintScript(projectDir) {
   return new Promise((resolve, reject) => {
     // stdout and stderr are discarded: the script writes the token to config/wix.env only.
@@ -117,12 +151,13 @@ function runMintScript(projectDir) {
 
 // `mint(projectDir)` and `now()` are injectable for tests; the default runs the project's own
 // scripts/mint-token.sh, which mints for config/wix.env's WIX_SITE_ID.
-function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = Date.now, renewWithinMs = RENEW_WITHIN_MS } = {}) {
+function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = Date.now, renewWithinMs = RENEW_WITHIN_MS, maxTokenAgeMs = renewWithinMs === RENEW_WITHIN_MS ? MAX_TOKEN_AGE_MS : Infinity } = {}) {
   if (!projectDir || !siteId) throw new Error('createWixTokenSource: projectDir and siteId are required');
   const root = path.resolve(projectDir);
   const envPath = path.join(root, 'config', 'wix.env');
   let token = null;
   let expiresAt = null;
+  let issuedAt = null;
   let inFlight = null;
   // `wix token` may hand back the same cached token. Once a renewal returned a token that is
   // still inside the renewal window, that token is used until it is refused, not renewed again
@@ -152,6 +187,7 @@ function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = 
     if (!value) throw fail('token_missing');
     token = value;
     expiresAt = isApiKey(value) ? null : tokenExpiresAt(value);
+    issuedAt = isApiKey(value) ? null : tokenIssuedAt(value);
     return token;
   }
 
@@ -172,7 +208,10 @@ function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = 
         throw fail('mint_failed');
       }
       const renewed = await load();
-      keptAfterRenewal = expiresAt !== null && expiresAt - now() < renewWithinMs ? renewed : null;
+      // The mint script may return the CLI's cached token. It is still the result of this
+      // bounded refresh attempt, so do not invoke the mint again on every following request;
+      // the request-refusal path will make one later retry if the CLI cache was stale.
+      keptAfterRenewal = renewed;
       return renewed;
     })();
     try {
@@ -193,7 +232,10 @@ function createWixTokenSource({ projectDir, siteId, mint = runMintScript, now = 
       if (interrupted) throw interrupted;
       if (inFlight) return inFlight;
       if (token === null) await load();
-      if (expiresAt !== null && expiresAt - now() < renewWithinMs && token !== keptAfterRenewal) return renew();
+      const age = issuedAt === null ? null : now() - issuedAt;
+      const shouldRenew = (expiresAt !== null && expiresAt - now() < renewWithinMs)
+        || (age !== null && age >= maxTokenAgeMs);
+      if (shouldRenew && token !== keptAfterRenewal) return renew();
       return token;
     },
     // True when `sent` is no longer the token in use: another request already renewed it, so a
@@ -274,6 +316,10 @@ module.exports = {
   interruptionFor,
   clearInterruption,
   tokenExpiresAt,
+  tokenIssuedAt,
+  AUTH_EXPIRED_REASON,
+  isAuthExpired,
+  authExpiredError,
   createWixTokenSource,
   recordWixAuthExpired,
   stopExitCode,

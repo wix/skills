@@ -104,7 +104,7 @@ The canonical copy lives at
 `skills/wix-replatform/resources/rp-execute-setup/scripts/mint-token.sh`.
 `rp-import-codegen` copies it into `migrations/<project>/scripts/` at scaffolding time —
 do not write it from scratch. The script reads `WIX_SITE_ID` from `config/wix.env`, calls
-`npx @wix/cli@latest token --site "$WIX_SITE_ID"`, captures stdout (token shape:
+`npx --no-install wix token --site "$WIX_SITE_ID"`, captures stdout (token shape:
 `OauthNG.JWS.<base64>.<base64>.<sig>`), writes it directly into `config/wix.env` as
 `WIX_AUTH_TOKEN`, and prints only a char-count confirmation. Do NOT run the token command
 raw in a Bash tool call — it prints the credential to transcript.

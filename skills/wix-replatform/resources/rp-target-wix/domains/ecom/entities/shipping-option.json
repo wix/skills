@@ -14,12 +14,6 @@
   "dependsOn": [
     "ecom/delivery-profile"
   ],
-  "dependencyFailureActions": {
-    "ecom/delivery-profile": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "ecom/delivery-profile"
-  ],
   "setupProducible": true,
   "sourceAliases": [
     {

@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { validateArtifacts, explicitRunBlocker } = require('./orchestration-state.js');
-const { getDecisionValue, isEditorSiteType, isExplicitUserOneClick, isKnownSourceMode } = require('./orchestration-decisions.js');
+const { getDecisionValue, getEffectiveDeliveryMode, isEditorSiteType, isExplicitUserOneClick, isKnownSourceMode, requiresWebsiteContinuation } = require('./orchestration-decisions.js');
 const { destinationGate, publicationRecheckGate } = require('./destination-route.js');
 const { validateWebsiteHandoff } = require('./website-handoff.js');
 const { statEnvKeys, readEnvFile } = require('./config-env.js');
@@ -158,7 +158,9 @@ async function isSetupVerified(projectDir, readArtifact) {
   if (!validateSetupVerification({ verification, plan, planDigest, projectDir }).ok) return false;
   // The regional row is bound to the source file, the answers and the approved regional plan it
   // was produced under; a changed one makes the receipt stale, so setup re-reads the site.
-  if (siteRegional.planHasRegionalStep(projectDir)) {
+  let hasRegionalStep = false;
+  try { hasRegionalStep = siteRegional.planHasRegionalStep(projectDir); } catch { hasRegionalStep = false; }
+  if (hasRegionalStep) {
     const siteId = siteRegional.destinationSiteId(projectDir);
     const row = (verification.requirements || []).find((item) => item && item.id === siteRegional.STEP_ID);
     if (!siteRegional.receiptIsCurrent(projectDir, siteId, verification, row)) return false;
@@ -169,7 +171,11 @@ async function isSetupVerified(projectDir, readArtifact) {
 // The regional settings route, evaluated before the execution-approval gate. While the owner's one question
 // about an existing site's settings is open, nothing else proceeds -- in every mode, one-click included.
 async function regionalRoute(projectDir) {
-  if (!siteRegional.planHasRegionalStep(projectDir)) return null;
+  // Once backend accounting exists, malformed historical setup output is handled by the
+  // completion artifacts; do not let the regional side-check re-read it and crash routing.
+  let hasRegionalStep = false;
+  try { hasRegionalStep = siteRegional.planHasRegionalStep(projectDir); } catch { return null; }
+  if (!hasRegionalStep) return null;
   const open = await siteRegional.listRegionalRequests(projectDir).catch(() => []);
   if (!open.length) return null;
   return { ok: true, nextState: 'blocked', nextResource: 'resources/rp-execute-setup/', reason: 'site_regional_approval_pending', blocking: true, requestIds: open.map((request) => request.requestId) };
@@ -261,7 +267,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   const sourceMode = getDecisionValue(decisions, 'sourceMode');
   const fileInputPaths = getDecisionValue(decisions, 'fileInputPaths');
   const hasFileInputs = Array.isArray(fileInputPaths) && fileInputPaths.length > 0;
-  const deliveryMode = getDecisionValue(decisions, 'deliveryMode');
+  const deliveryMode = getEffectiveDeliveryMode(decisions);
   const isOneClick = isExplicitUserOneClick(decisions);
   const websiteScope = getDecisionValue(decisions, 'websiteScope');
   const targetSiteStrategy = getDecisionValue(decisions, 'targetSiteStrategy');
@@ -428,7 +434,7 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   }
 
   // Scope boundary: phase-output validation runs only before backend accounting.
-  const completionReportPresent = await exists(path.join(projectDir, 'execution', 'completion-report.json'));
+  const completionReportPresent = await liveCompletionReportPresent(projectDir);
   // A recorded rejection is never an approval, in any mode (one-click included).
   const executionRejected = Boolean(approvals.execution && approvals.execution.status === 'rejected');
   const executionRejectedRoute = { ok: true, nextState: 'blocked', nextResource: 'resources/rp-execution-policy/', reason: 'execution_approval_rejected', blocking: true };
@@ -630,37 +636,39 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
   }
   if (setupRequirements.errors) return invalidOutputRoute('setup_requirements_invalid', 'resources/rp-setup-discovery/', setupRequirements.errors);
 
-  if (deliveryMode === 'management_and_website' && !websiteScope && !isOneClick) {
+  if (requiresWebsiteContinuation(decisions) && deliveryMode === 'management_and_website' && !websiteScope && !isOneClick) {
     return { ok: true, nextState: 'awaiting_website_scope', nextResource: 'resources/rp-project-intake/', reason: 'missing_website_scope' };
   }
 
-  const handoffStatus = await validateWebsiteHandoff(projectDir);
-  if (!handoffStatus.present) {
-    return {
-      ok: true,
-      nextState: 'website_handoff_running',
-      nextResource: 'resources/rp-website-continuation/',
-      reason: 'missing_website_handoff',
-    };
-  }
-  if (handoffStatus.stale) {
-    return {
-      ok: true,
-      nextState: 'website_handoff_running',
-      nextResource: 'resources/rp-website-continuation/',
-      reason: 'stale_website_handoff',
-      changes: handoffStatus.changes,
-    };
-  }
+  if (requiresWebsiteContinuation(decisions)) {
+    const handoffStatus = await validateWebsiteHandoff(projectDir);
+    if (!handoffStatus.present) {
+      return {
+        ok: true,
+        nextState: 'website_handoff_running',
+        nextResource: 'resources/rp-website-continuation/',
+        reason: 'missing_website_handoff',
+      };
+    }
+    if (handoffStatus.stale) {
+      return {
+        ok: true,
+        nextState: 'website_handoff_running',
+        nextResource: 'resources/rp-website-continuation/',
+        reason: 'stale_website_handoff',
+        changes: handoffStatus.changes,
+      };
+    }
 
-  if (!handoffStatus.ok) {
-    return {
-      ok: true,
-      nextState: 'mapping_running',
-      nextResource: 'resources/rp-mapper/',
-      reason: 'invalid_website_handoff',
-      errors: handoffStatus.blockingWarnings,
-    };
+    if (!handoffStatus.ok) {
+      return {
+        ok: true,
+        nextState: 'mapping_running',
+        nextResource: 'resources/rp-mapper/',
+        reason: 'invalid_website_handoff',
+        errors: handoffStatus.blockingWarnings,
+      };
+    }
   }
 
   if (managementImportMode !== 'quick') {
@@ -749,7 +757,11 @@ async function determineNextStepUnfiltered(projectDir, artifacts, { reviewOnly =
       canonical(summary.executionScope)===canonical(mappingPlan.executionScope) &&
       completionInputs.executionLogPresent && completionInputs.postExecutionHandoff.lastWriteAt===report.lastWriteAt;
     if (!retained) return {ok:true,nextState:'blocked',nextResource:null,blocking:true,reason:'mapping_deferral_report_missing_or_stale',blocker:{type:'mapping_deferral_evidence_required',artifact:'execution/completion-report.json',requiredInput:'Regenerate the existing report/handoff through shared writers using the importer mapping pin; retained counters must not be reported as completed.'}};
-    return {ok:true,nextState:'blocked',nextResource:null,reason:'mapping_scope_deferred',blocking:true,blocker:deferredRunResult(mappingPlan).blocker};
+    // Mixed scopes have already retained their mapping evidence; resolved entities
+    // continue through the ordinary completion gate. Only an all-deferred plan has
+    // no importer to run and remains a blocked, typed mapping result.
+    const deferred=deferredRunResult(mappingPlan);
+    if (deferred) return {ok:true,nextState:'blocked',nextResource:null,reason:'mapping_scope_deferred',blocking:true,blocker:deferred.blocker};
   }
   const aggregate = validateMigrationCompletion(completionInputs.completion, {
     deliveryMode,
@@ -842,6 +854,16 @@ async function determineNextStepForMode(projectDir, artifacts, options, validati
   // A finalized review-only run must never dispatch destination work. Standard runs
   // still require master's fresh Editor publication readback before downstream work.
   return reviewOnly ? applyReviewOnlyRoute(result) : publicationRecheckGate(projectDir, result, options);
+}
+
+// A dry-run uses the normal report writer so its counters and gaps remain inspectable. That
+// report is not backend accounting, though: the matching live-import summary is the durable
+// marker that this run only prepared requests. Do not let it suppress the real import route.
+async function liveCompletionReportPresent(projectDir) {
+  const report = await readJson(path.join(projectDir, 'execution', 'completion-report.json'));
+  if (!report) return false;
+  const summary = await readJson(path.join(projectDir, 'execution', 'live-import-summary.json'));
+  return !(summary && summary.runId === report.runId && summary.dryRun === true);
 }
 
 async function determineNextStep(projectDir, artifacts, options = {}) {
