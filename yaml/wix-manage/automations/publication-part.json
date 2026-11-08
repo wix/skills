@@ -1,6 +1,6 @@
 {
-  "part": 5,
-  "name": "catalog-and-payload-schema",
+  "part": 6,
+  "name": "validation",
   "totalParts": 13,
   "baseCommit": "5cb2741e490e8982547b7106f538bdaa29f63760"
 }
