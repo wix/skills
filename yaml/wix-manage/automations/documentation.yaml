@@ -1,5 +1,5 @@
 # Wix Automations recipes.
-# Published content SHA-256: 4ed4f146f691cb1fc8a599d9c2e8798f5bfaa62b0e49ef7322374925be878d80
+# Published content SHA-256: f432a6db940f9d47496ca87cea967a6de19918f65ad59ab6f80152a7c58e1921
 apiDoc:
   title: Wix Automations Recipes
 
@@ -22,6 +22,10 @@ apiDoc:
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/actions.md
       title: "Automations Action Configuration"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
+      tags: [automations]
+    - file: ../../../skills/wix-manage/references/automations/email-actions.md
+      title: "Automations Email Actions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/automations
       tags: [automations]
     - file: ../../../skills/wix-manage/references/automations/bracket-expressions.md
