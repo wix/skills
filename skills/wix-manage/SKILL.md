@@ -540,6 +540,9 @@ Create, update, activate or deactivate Wix Automations with app actions, trigger
 - [Automations Action Configuration](references/automations/actions.md)
   Configure app-defined automation actions from their input schemas and preserve supported existing action mappings.
 
+- [Automations Email Actions](references/automations/email-actions.md)
+  Initialize new automation email actions, including additions during updates, then configure content and verify recipients while preserving existing emails.
+
 - [Automations Mapping Expressions](references/automations/bracket-expressions.md)
   Write builder-compatible automation mapping expressions, literals and data references.
 
