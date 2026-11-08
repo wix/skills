@@ -188,10 +188,13 @@ Report on the domains in the user's own Wix account — what kind a domain is, w
 Connect a domain the user already owns to one of their Wix sites, as its primary domain or as a redirect — the starting point for every "connect my domain to my site" request, whether or not a domain is named; change which of a site's domains is primary; move a domain from one site to another; or take a domain off its site.
 
 ### [Check Domain Availability](references/domains/check-domain-availability.md)
-Answer whether a domain name, or several at once, is available to register through Wix — a stand-alone "is example.com available?" question with no request to buy or connect.
+Check whether a domain name, or several at once, can be registered through Wix, and answer it — with a domain-availability tool when one is there, otherwise the availability endpoints. The availability check every domain flow uses, and the answer to a stand-alone "is example.com available?" question with no request to buy or connect.
+
+### [Connect External Domain or Sub Domain](references/domains/connect-external-domain-or-sub-domain.md)
+Connect a domain registered with another provider (not bought through Wix), or a subdomain, to a Wix site by handing over the dashboard connect link. Never buys a domain, and never assigns one the account already holds.
 
 ### [Domain Search, Purchase and Connect](references/domains/domain-search-purchase-and-connect.md)
-Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout — or bring a domain registered elsewhere into the Wix account with the dashboard connect link, once Assign Domain finds it is not there yet. A request to connect a domain the user owns to their site starts at Assign Domain. Availability checks are not done here: they all use Check Domain Availability.
+Buy a domain through Wix — intent, suggestions, site resolution, registration, privacy, cart and checkout. A request to connect a domain the user owns to their site starts at Assign Domain; connecting a domain registered with another provider, or a subdomain, is Connect External Domain or Sub Domain. Availability checks are not done here: they all use Check Domain Availability.
 
 ### [Domains Dashboard Navigation](references/domains/domains-dashboard-navigation.md)
 "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."

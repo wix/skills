@@ -134,7 +134,7 @@ including registrant details, and none of them is read or mentioned.
 | `expirationDate` | The date, written out ("1 March 2027"). |
 | `autoRenew` `true` / `false` | Auto-renew is on / off. Absent: say nothing about renewal. |
 | `managementType` `POINTING` / `DNS` | "Its settings stay at its provider" / "Wix manages its settings". Any other value or none: say nothing about the method. |
-| `where` is `null`, including when a request failed | "I can't find {domain} in your Wix account." Do not mention the failed call. A miss is not proof that the user doesn't own it: these lists see the Wix account, not the registry. Never say someone else owns it, and say nothing about who holds it. If the user then asks whether it can be registered, use [Check Domain Availability](check-domain-availability.md); to buy or connect it, [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md). |
+| `where` is `null`, including when a request failed | "I can't find {domain} in your Wix account." Do not mention the failed call. A miss is not proof that the user doesn't own it: these lists see the Wix account, not the registry. Never say someone else owns it, and say nothing about who holds it. If the user then asks whether it can be registered, use [Check Domain Availability](check-domain-availability.md); to buy it, [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md); to connect it from another provider, [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md). |
 
 This call is the last source: do not search the docs or call any other API, even when the user asked
 for an expiry, a renewal or add-ons. Add-ons, SSL, DNS propagation and the contact-verification status
@@ -239,7 +239,8 @@ in the account. Anything beyond reading a domain's state is another skill's task
 then hand over:
 
 - A domain's DNS records, or changing them: no skill covers it yet, so stop there.
-- Buying a domain, or bringing one in from another registrar: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Buying a domain: [Domain Search, Purchase and Connect](domain-search-purchase-and-connect.md).
+- Bringing in a domain registered with another provider, or a subdomain: [Connect External Domain or Sub Domain](connect-external-domain-or-sub-domain.md).
 - Putting a domain on a site, changing its role there, moving it, or taking it off: [Assign Domain](assign-domain.md).
 - Whether a name is available to register: [Check Domain Availability](check-domain-availability.md).
 - Renewing a domain: no skill covers it yet, so stop there.
