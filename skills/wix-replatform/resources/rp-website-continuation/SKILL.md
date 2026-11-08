@@ -8,7 +8,9 @@ description: >-
 # rp-website-continuation
 
 Use this resource only when the orchestration router returns
-`nextResource: resources/rp-website-continuation/`.
+`nextResource: resources/rp-website-continuation/`. The router dispatches it only for
+`deliveryMode=website` or `deliveryMode=management_and_website`; a `management` run,
+including an explicit `editorWebsiteDecision=management_only`, never enters this resource.
 
 ## Contract
 

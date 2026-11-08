@@ -28,7 +28,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const { checkpointOf, sameCheckpoint } = require('../lib/subagent-handoff.js');
-const { listUserActions } = require('../lib/user-actions.js');
+const { listPendingBlockingUserActions } = require('../lib/user-actions.js');
 const { isProcessAlive } = require('../lib/local-state.js');
 
 const HEALTH_CHECK = path.join(__dirname, 'execution-health-check.js');
@@ -83,7 +83,7 @@ function health(projectDir, script, staleAfter) {
 }
 
 async function pendingActions(projectDir) {
-  try { return (await listUserActions(projectDir, { status: 'pending' })).map((row) => row.requestId); } catch { return ['unreadable']; }
+  try { return (await listPendingBlockingUserActions(projectDir)).map((request) => request.requestId); } catch { return ['unreadable']; }
 }
 
 // Without heartbeats a long healthy loop looks `stalled`; killing it would cut it mid-write every

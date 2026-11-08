@@ -57,7 +57,7 @@ artifacts and let a later explicit `replatform resume` route recovery. Never cre
 
 ```text
 intake → destination → source inputs → preflight → (standard: discovery → mapping → codegen;
-quick: adapter preflight → quick plan) → setup discovery → website handoff
+quick: adapter preflight → quick plan) → setup discovery → [integrated website handoff]
 → safety review/approval → setup → import
 → storefront continuation (website only) → aggregate finalization → Migration review
 ```
@@ -246,5 +246,5 @@ durable blocker if the compatible-shell retry itself fails.
   `wix-headless-replatform`; its website and publication remain operator handoff items.
 - Do not implement a storefront manually when `wix-headless-replatform` is unavailable;
   persist a blocker with the exact required runtime capability.
-- In management mode, still generate `website/handoff.*` after setup discovery so a later
-  storefront can start without repeating backend discovery.
+- In management mode, skip website handoff and storefront continuation entirely. Do not
+  create a website publication action for a backend-only run.

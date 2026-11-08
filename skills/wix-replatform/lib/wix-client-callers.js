@@ -23,6 +23,7 @@ const CALLERS = Object.freeze([
   'tests/target-wix/order-history-composite-test.js',
   'tests/target-wix/read-back-transport-test.js',
   'tests/target-wix/cms-item-quota-test.js',
+  'tests/target-wix/coupon-bulk-write-test.js',
   'tests/target-wix/member-support-runtime-test.js',
   'tests/orchestration/safe-mode-removed-cross-gate-test.js',
   'tests/migration-review/write-recovery-test.js',
@@ -51,8 +52,6 @@ const CALLERS = Object.freeze([
   'tests/orchestration/saved-product-target-adoption-test.js',
   'tests/orchestration/product-media-per-record-test.js',
   'tests/orchestration/order-whole-task-waits-test.js',
-  'tests/orchestration/finished-dependency-release-test.js',
-  'tests/orchestration/finished-dependency-cross-gate-test.js',
   'tests/orchestration/gift-card-writers-cross-gate-test.js',
   'tests/orchestration/forms-import-client-test.js',
   'tests/orchestration/forms-cross-gate-test.js',
@@ -93,7 +92,7 @@ const CALLERS = Object.freeze([
   'tests/orchestration/dependency-setup-producer-agreement-test.js',
   'tests/tooling/egress-fetch-test.js',
 ]);
-const PROBES = new Set(CALLERS.filter(file => /(?:verify-stores|item-seo-tags-verify|live-sentinel|probe-plain-description-media|contract-test|execution-capability-test|dependency-readiness-matrix-test|write-outcome-classification-test|order-history-composite-test|read-back-transport-test|read-back-gate-test|write-recovery-test|wix-token-refresh-test)/.test(file)));
+const PROBES = new Set(CALLERS.filter(file => /(?:verify-stores|item-seo-tags-verify|live-sentinel|probe-plain-description-media|contract-test|execution-capability-test|dependency-readiness-matrix-test|write-outcome-classification-test|order-history-composite-test|read-back-transport-test|read-back-gate-test|write-recovery-test|wix-token-refresh-test|coupon-bulk-write-test)/.test(file)));
 function scanWixClientCallers(root) {
   const found = [], errors = [];
   function walk(dir) {

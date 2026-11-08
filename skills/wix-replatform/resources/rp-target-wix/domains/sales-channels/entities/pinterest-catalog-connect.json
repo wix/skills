@@ -20,12 +20,6 @@
     }
   ],
   "dependsOn": ["stores/product"],
-  "dependencyFailureActions": {
-    "stores/product": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "stores/product"
-  ],
   "preferredWrite": {
     "surface": "Manual -- no API; merchant verifies the site with Pinterest, then copies a feed link",
     "endpoint": null,

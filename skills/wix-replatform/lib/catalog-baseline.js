@@ -13,6 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const wixAuth = require('./wix-auth.js');
 
 const BASELINE_PATH = 'setup/destination-catalog-baseline.json';
 const COLLISIONS_PATH = 'execution/target-baseline-collisions.json';
@@ -60,7 +61,7 @@ function rows(items, kind, reason = null) {
 // Wix's own category, never a sample.
 async function markBuiltInCategory(baseline, wix, writers) {
   let allProductsId = null;
-  try { allProductsId = await writers.getAllProductsCategoryId(wix); } catch { /* fall back to the canonical slug below */ }
+  try { allProductsId = await writers.getAllProductsCategoryId(wix); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; /* fall back to the canonical slug below */ }
   for (const row of baseline.categories) {
     if (row.kind === 'install_seeded' && (row.id === allProductsId || row.slug === 'all-products')) Object.assign(row, { kind: 'pre_existing', reason: 'built_in_all_products_category' });
   }
@@ -70,7 +71,7 @@ async function clearSeeded(baseline, wix, writers) {
   for (const [collection, build] of [['products', writers.buildDeleteInstallSeededProductRequest], ['categories', writers.buildDeleteInstallSeededCategoryRequest]]) {
     for (const row of baseline[collection].filter((item) => item.kind === 'install_seeded' && item.status !== 'deleted')) {
       delete row.deleteError;
-      try { await wix.send(build(row.id)); } catch (error) { row.deleteError = String(error.message || error).slice(0, 200); }
+      try { await wix.send(build(row.id)); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; row.deleteError = String(error.message || error).slice(0, 200); }
     }
   }
   const after = await readCatalog(wix, writers);
@@ -90,7 +91,7 @@ async function clearSeeded(baseline, wix, writers) {
 async function readBefore(wix, writers) {
   const before = { products: null, categories: null };
   for (const [collection, read] of [['products', writers.queryAllStoresProducts], ['categories', writers.queryAllStoresCategories]]) {
-    try { before[collection] = (await read(wix)).filter((item) => item && item.id).map((item) => ({ id: item.id, slug: item.slug ?? null })); } catch { /* unknown */ }
+    try { before[collection] = (await read(wix)).filter((item) => item && item.id).map((item) => ({ id: item.id, slug: item.slug ?? null })); } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; /* unknown */ }
   }
   return before;
 }

@@ -14,12 +14,6 @@
   "dependsOn": [
     "ecom/order"
   ],
-  "dependencyFailureActions": {
-    "ecom/order": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "ecom/order"
-  ],
   "dependencyModes": {
     "ecom/order": "per-record"
   },

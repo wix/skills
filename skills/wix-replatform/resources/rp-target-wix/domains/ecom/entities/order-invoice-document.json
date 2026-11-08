@@ -15,12 +15,6 @@
   "dependsOn": [
     "ecom/order"
   ],
-  "dependencyFailureActions": {
-    "ecom/order": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "ecom/order"
-  ],
   "writtenInTaskOf": "ecom/order",
   "sourceAliases": [
     {

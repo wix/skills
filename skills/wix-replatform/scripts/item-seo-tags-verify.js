@@ -19,6 +19,7 @@ const { startDevProbe } = require('../lib/execution-capability');
 //     [--keep]   # skip cleanup, print the retained itemId instead (debugging only)
 
 const { readEnvFile } = require('../lib/config-env.js');
+const wixAuth = require('../lib/wix-auth.js');
 const writers = require('../resources/rp-target-wix/lib/wix-writers.js');
 const {
   createWixClient,
@@ -183,6 +184,7 @@ async function main() {
         await deleteDraftPost(wix, draftPostId, { permanent: true });
         outcome.cleanup = 'deleted';
       } catch (cleanupError) {
+        if (wixAuth.isRunInterruption(cleanupError)) throw cleanupError;
         outcome.cleanup = 'FAILED';
         outcome.retainedItemId = draftPostId;
         console.error(

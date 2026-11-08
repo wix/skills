@@ -157,6 +157,24 @@ function getDecisionValue(decisions, canonicalKey) {
   return value;
 }
 
+// `management_only` is the durable answer to the Editor scope question. It also
+// narrows a stale combined-delivery decision so every downstream reader agrees that
+// this run owes backend data only.
+function getEffectiveDeliveryMode(decisions) {
+  const deliveryMode = getDecisionValue(decisions, 'deliveryMode');
+  return getDecisionValue(decisions, 'editorWebsiteDecision') === 'management_only'
+    ? 'management'
+    : deliveryMode;
+}
+
+function isWebsiteDeliveryMode(value) {
+  return ['website', 'management_and_website'].includes(normalizeDeliveryMode(value));
+}
+
+function requiresWebsiteContinuation(decisions) {
+  return isWebsiteDeliveryMode(getEffectiveDeliveryMode(decisions));
+}
+
 // The destination site type is an explicit operator choice for a new site.
 // "editor" is deliberately not a value: it is an incomplete answer until Studio or Harmony
 // is known, and the classic Wix Editor is not a supported choice.
@@ -222,7 +240,16 @@ function isExplicitUserOneClick(decisions) {
   return Boolean(entry && entry.source === 'user' && normalizeAutomationMode(entry.value) === 'one_click');
 }
 
+// When this run first became a user-chosen one-click run, or null. Survives later mode changes.
+function oneClickRunStart(decisions) {
+  const entry = getDecisionEntry(decisions || {}, 'automationMode');
+  if (!entry) return null;
+  if (typeof entry.oneClickRunSince === 'string' && entry.oneClickRunSince) return entry.oneClickRunSince;
+  return entry.source === 'user' && normalizeAutomationMode(entry.value) === 'one_click' ? entry.decidedAt || 'unknown' : null;
+}
+
 module.exports = {
+  oneClickRunStart,
   EDITOR_SITE_TYPES,
   SITE_BUSINESS_TYPES,
   SITE_BUSINESS_TYPE_SOURCES,
@@ -238,7 +265,10 @@ module.exports = {
   isKnownSourceMode,
   getDecisionEntry,
   getDecisionValue,
+  getEffectiveDeliveryMode,
   isExplicitUserOneClick,
+  isWebsiteDeliveryMode,
+  requiresWebsiteContinuation,
   normalizeAutomationMode,
   normalizeDeliveryMode,
   normalizeManagementImportMode,

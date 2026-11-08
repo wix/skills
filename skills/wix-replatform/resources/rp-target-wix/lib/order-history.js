@@ -1,5 +1,7 @@
 'use strict';
 
+const wixAuth = require('../../../lib/wix-auth.js');
+
 // An imported order's history as ONE composite write.
 //
 // Four writes with an ordering constraint, a shared identity, two inputs that come from neither
@@ -612,6 +614,7 @@ async function importOrderHistory(wix, {
             try {
               return await w.importOrder(wix, { ...body, id: derivedId });
             } catch (error) {
+              if (wixAuth.isRunInterruption(error)) throw error;
               if (attempt >= WRITE_RETRY_ATTEMPTS || !w.isTransientWixError(error)) throw error;
               await sleepFor(WRITE_RETRY_DELAYS_MS[attempt - 1]);
             }
@@ -625,6 +628,7 @@ async function importOrderHistory(wix, {
         try {
           imported = await send(order);
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           // One retry, only when the rejection names contact fields the body
           // actually carries. The first call was refused and created nothing, so the retry under
           // the same derived id is not a duplicate. The retry body is the SOURCE-DERIVED order
@@ -667,6 +671,7 @@ async function importOrderHistory(wix, {
           });
         }
       } catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         outcomes.order = ORDER_OUTCOMES.IMPORT_FAILED;
         errors.order = describeError(error);
         failRemaining(outcomes, errors, { gate, refunds, evidence, cause: 'order-not-imported' });
@@ -689,7 +694,7 @@ async function importOrderHistory(wix, {
     try {
       await w.recordWrittenGap(wix, { code: PLACEHOLDER_GAP_CODE, action: PLACEHOLDER_GAP_ACTION, operatorRole: 'Cutover Operator', severity: 'medium',
         detail: { targetId: orderId, orderNumber: order.number === undefined ? null : String(order.number), amount: placed.placeholder.amount, currency: placed.placeholder.currency, ...(placed.placeholder.totalMissing ? { totalMissing: true } : {}) } });
-    } catch (error) { errors.cutoverItem = describeError(error); }
+    } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; errors.cutoverItem = describeError(error); }
   }
 
   // ---- 2. Payment and refunds, from ONE reconciliation read. ---------------------------------
@@ -715,6 +720,7 @@ async function importOrderHistory(wix, {
           written = await w.writeOrderPayment(wix, { orderId, payment, pacer, reconciled });
           break;
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           if (attempt >= WRITE_RETRY_ATTEMPTS || !w.isTransientWixError(error)) throw error;
           await sleepFor(WRITE_RETRY_DELAYS_MS[attempt - 1]);
           // Re-read before re-writing. Coming back RECONCILED means the failed attempt committed
@@ -733,6 +739,7 @@ async function importOrderHistory(wix, {
         errors.payment = { cause: 'add-payment-returned-no-id' };
       }
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       outcomes.payment = 'payment-failed';
       errors.payment = describeError(error);
     }
@@ -768,6 +775,7 @@ async function importOrderHistory(wix, {
           line.refundId = result.refundId || (result.refund && result.refund.id) || null;
           line.paymentId = result.paymentId || null;
         } catch (error) {
+          if (wixAuth.isRunInterruption(error)) throw error;
           line.outcome = 'refund-failed';
           line.error = describeError(error);
         }
@@ -831,6 +839,7 @@ async function importOrderHistory(wix, {
         errors.crosswalk = errors.crosswalk || describeError(error);
       }
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       outcomes.invoice = 'invoice-failed';
       errors.invoice = describeError(error);
     }

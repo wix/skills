@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const w = require('./wix-writers');
 const verification = require('./write-verification');
+const wixAuth = require('../../../lib/wix-auth.js');
 
 const DEFAULT_VERIFIED_SUBSCRIPTION_PATHS = [
   'product.subscriptionDetails',
@@ -135,6 +136,7 @@ async function verifyStoresSubscriptionCreate({ wix, siteId, artifactPath, probe
       artifact.warnings.push('Subscription readback identity or values do not match the submitted product.');
     }
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     artifact.status = 'failed';
     artifact.error = error && error.message ? error.message : String(error);
   } finally {
@@ -146,6 +148,7 @@ async function verifyStoresSubscriptionCreate({ wix, siteId, artifactPath, probe
         await wix.send(w.buildDeleteStoresProductRequest(artifact.probeRecordId));
         artifact.cleanup.status = 'deleted';
       } catch (error) {
+        if (wixAuth.isRunInterruption(error)) throw error;
         artifact.cleanup.status = 'failed';
         artifact.cleanup.error = error && error.message ? error.message : String(error);
         artifact.warnings.push(`Probe product cleanup failed for ${artifact.probeRecordId}.`);
@@ -183,6 +186,7 @@ async function verifyStoresProductCount({ wix, siteId, artifactPath, query = { p
     artifact.count = Number.isInteger(response.totalCount) ? response.totalCount : products.length;
     artifact.status = 'passed';
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     artifact.status = 'failed';
     artifact.error = error && error.message ? error.message : String(error);
   }
@@ -210,6 +214,7 @@ async function verifyStoresProductBySourceMarker({ wix, siteId, artifactPath, ma
     artifact.count = artifact.products.length;
     artifact.status = 'passed';
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     artifact.status = 'failed';
     artifact.error = error && error.message ? error.message : String(error);
   }
@@ -232,6 +237,7 @@ async function verifyStoresDeleteProbe({ wix, siteId, artifactPath, productId } 
     artifact.cleanup.status = 'deleted';
     artifact.status = 'passed';
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     artifact.cleanup.status = 'failed';
     artifact.status = 'failed';
     artifact.error = error && error.message ? error.message : String(error);
@@ -302,12 +308,12 @@ async function verifyStoresInventoryImport({ wix, siteId, artifactPath } = {}) {
     const inline = await inventory.reconcileInventory(wix, inlineRows, { locationId, expectedCount: 2 });
     check('inline stock persisted without repair', inline.complete && inline.counts.reconciled === 2, inline);
     artifact.status = 'passed';
-  } catch (error) { artifact.status = 'failed'; artifact.error = error.message; }
+  } catch (error) { if (wixAuth.isRunInterruption(error)) throw error; artifact.status = 'failed'; artifact.error = error.message; }
   finally {
     artifact.cleanup = { attempted: artifact.probeProductIds.length > 0, status: artifact.probeProductIds.length ? 'deleted' : 'not_applicable', failedProductIds: [] };
     for (const id of artifact.probeProductIds) {
       try { await w.deleteStoresProduct(wix, id); }
-      catch (_) { artifact.cleanup.failedProductIds.push(id); }
+      catch (error) { if (wixAuth.isRunInterruption(error)) throw error; artifact.cleanup.failedProductIds.push(id); }
     }
     if (artifact.cleanup.failedProductIds.length) {
       artifact.cleanup.status = 'failed'; artifact.status = 'failed';

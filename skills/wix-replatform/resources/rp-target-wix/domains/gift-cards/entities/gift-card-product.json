@@ -14,9 +14,6 @@
   "dependsOn": [
     "media/media-file"
   ],
-  "dependencyFailureActions": {
-    "media/media-file": "offer-omit"
-  },
   "sourceAliases": [],
   "preferredWrite": {
     "surface": "Gift Card Products",

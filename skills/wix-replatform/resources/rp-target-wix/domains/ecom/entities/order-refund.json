@@ -15,14 +15,6 @@
     "ecom/order",
     "ecom/order-payment"
   ],
-  "dependencyFailureActions": {
-    "ecom/order": "fix-only",
-    "ecom/order-payment": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "ecom/order",
-    "ecom/order-payment"
-  ],
   "writtenInTaskOf": "ecom/order",
   "sourceAliases": [
     {

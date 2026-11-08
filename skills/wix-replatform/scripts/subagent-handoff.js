@@ -11,7 +11,7 @@ function usage() {
   return `Usage:
   node skills/wix-replatform/scripts/subagent-handoff.js write --project <dir> --stage <stage>
       [--resource <resources/rp-...>] [--outcome done|failed|budget_exceeded|needs_decision|resume_limit|qa_findings]
-      [--reason budget_exceeded] [--findings <qa-result.json|.md>] [--changed a,b,c] [--notes <text>] [--cap-bytes <n>]
+      [--reason budget_exceeded] [--findings <qa-result.json|.md>] [--changed a,b,c] [--notes <text>] [--worker-id <id>] [--cap-bytes <n>]
 
 Writes <project>/state/handoffs/<stage>-<round>.json from durable state only (write-log summary,
 completion-report status, pending user actions, QA findings), capped at 8 KB by default.
@@ -45,6 +45,7 @@ async function main() {
     findingsFile: args.findings ? path.resolve(args.findings) : null,
     changedFiles: args.changed ? args.changed.split(',').map((s) => s.trim()).filter(Boolean) : [],
     notes: args.notes,
+    workerId: args.workerId,
     capBytes: args.capBytes,
   });
   process.stdout.write(`${JSON.stringify({

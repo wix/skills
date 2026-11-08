@@ -14,12 +14,6 @@
   "dependsOn": [
     "crm/contact"
   ],
-  "dependencyFailureActions": {
-    "crm/contact": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "crm/contact"
-  ],
   "operationContracts": {
     "createMember": {
       "endpoint": "POST /members/v1/members",

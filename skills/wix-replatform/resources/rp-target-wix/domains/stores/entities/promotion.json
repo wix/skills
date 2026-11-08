@@ -15,9 +15,6 @@
   "dependsOn": [
     "stores/category"
   ],
-  "dependencyFailureActions": {
-    "stores/category": "fix-only"
-  },
   "dependencyModes": {
     "stores/category": "per-record"
   },

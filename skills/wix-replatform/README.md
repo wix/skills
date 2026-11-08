@@ -84,7 +84,7 @@ time, based on the saved state of the project:
 
 ```text
 intake → destination → source inputs → preflight → discovery → mapping → code generation
-→ setup discovery → website handoff → review and approval → setup → import
+→ setup discovery → website handoff (continuation only for website modes) → review and approval → setup → import
 → storefront (website modes only) → completion → Migration review
 ```
 
@@ -173,8 +173,9 @@ chooses each stage and performs the work. It never prompts for input, opens an e
 starts a login flow. Anything that needs a person becomes a saved request.
 
 It needs only Node.js 22.12 or newer; its one dependency is bundled. It starts **Codex** or
-**Claude Code** (`--agent codex|claude`, default `auto`). For Cursor, use the chat prompts
-above.
+**Claude Code** (`--agent codex|claude`, default `auto`). In auto mode it follows the agent
+that invoked the runner; when that environment is unknown, it selects an installed and
+authenticated adapter. For Cursor, use the chat prompts above.
 
 ```bash
 node <skill>/scripts/replatform.js doctor                 # check agents and prerequisites
@@ -202,7 +203,10 @@ shorthand for `node <skill>/scripts/replatform.js`; there is no separate install
 Useful `run` flags: `--source-mode`, `--file <path>` (repeatable, for `files_only`),
 `--delivery-mode`, `--destination new|existing:<site-id>`, `--notification-mute on|off`,
 `--dry-run`, `--detach`, `--format text|json|jsonl`, and the limits `--wall-timeout`
-(at least 60s), `--idle-timeout` and `--max-agent-turns`. Run `replatform run --help` for the full list.
+(at least 60s), `--idle-timeout`, `--worker-startup-timeout` and `--max-agent-turns`. The
+runner records raw adapter events under `state/runner/vendor-events.ndjson` and retries once
+only when a structured sub-worker has no session output, terminal event, or newly written
+handoff. Run `replatform run --help` for the full list.
 
 When a run needs you, answer it and continue:
 

@@ -11,7 +11,10 @@ const taskStatePath = (projectDir) => path.join(projectDir, 'state', 'runner', '
 const now = () => new Date().toISOString();
 const terminal = new Set(['completed', 'blocked', 'failed', 'canceled', 'interrupted']);
 const taskStates = new Set(['planned', 'running', 'waiting_for_input', ...terminal]);
-const agentStates = new Set(['running', ...terminal]);
+// `starting` is distinct from `running`: a vendor can acknowledge a worker request
+// before the child has initialized. The supervisor uses that distinction for its bounded
+// startup watchdog, and the console renders it as an active-but-not-yet-started worker.
+const agentStates = new Set(['starting', 'running', ...terminal]);
 
 async function readTaskState(projectDir) {
   try {
@@ -39,7 +42,7 @@ function currentTask(state) { return state.tasks.find((task) => ['running', 'wai
 function finishTask(state, task, outcome, endedAt = now()) {
   if (!task || !taskStates.has(outcome) || terminal.has(task.state)) return;
   task.state = outcome; task.endedAt = endedAt;
-  for (const agent of state.agents.filter((item) => item.taskId === task.taskId && item.state === 'running')) {
+  for (const agent of state.agents.filter((item) => item.taskId === task.taskId && ['starting', 'running'].includes(item.state))) {
     agent.state = outcome === 'completed' ? 'completed' : outcome;
     agent.endedAt = endedAt;
   }
@@ -84,6 +87,15 @@ function finishDirectAgent(state, agentId, outcome) {
   if (agent && agent.state === 'running') { agent.state = outcome; agent.endedAt = now(); }
 }
 
+function finishWorkers(state, taskId, outcome = 'failed') {
+  if (!terminal.has(outcome)) return;
+  const endedAt = now();
+  for (const agent of state.agents.filter((item) => item.taskId === taskId && item.agentId.includes(':worker:') && !terminal.has(item.state))) {
+    agent.state = outcome;
+    agent.endedAt = endedAt;
+  }
+}
+
 function recordWorker(state, taskId, adapter, report) {
   if (!report || typeof report !== 'object' || !/^[A-Za-z0-9._:-]{1,160}$/.test(report.workerId || '') || !agentStates.has(report.state) || typeof report.label !== 'string' || !report.label.trim()) return false;
   const parentAgentId = report.parentWorkerId ? `agent:${adapter}:worker:${report.parentWorkerId}` : null;
@@ -91,7 +103,15 @@ function recordWorker(state, taskId, adapter, report) {
   const agentId = `agent:${adapter}:worker:${report.workerId}`;
   let agent = state.agents.find((item) => item.agentId === agentId);
   if (!agent) { agent = { agentId, taskId, parentAgentId, adapter, label: report.label.trim(), state: report.state, pid: null, startedAt: report.startedAt || now(), endedAt: terminal.has(report.state) ? (report.endedAt || now()) : null }; state.agents.push(agent); }
-  else { agent.label = report.label.trim(); agent.state = report.state; agent.endedAt = terminal.has(report.state) ? (report.endedAt || now()) : null; }
+  else {
+    // wait/close events may not carry the original prompt. Preserve the useful spawn
+    // label when the adapter has to fall back to an ID-based label later.
+    if (report.label.trim() !== `Codex worker ${report.workerId}`) agent.label = report.label.trim();
+    agent.state = report.state; agent.endedAt = terminal.has(report.state) ? (report.endedAt || now()) : null;
+  }
+  if (typeof report.activity === 'string' && report.activity.trim()) agent.activity = report.activity.trim();
+  if (typeof report.handoffPath === 'string' && report.handoffPath.trim()) agent.handoffPath = report.handoffPath.trim();
+  if (Number.isFinite(report.lastActivityAt)) agent.lastActivityAt = report.lastActivityAt;
   return true;
 }
 
@@ -107,4 +127,4 @@ async function reconcileTaskState(projectDir, state) {
   return changed ? writeTaskState(projectDir, state) : state;
 }
 
-module.exports = { SCHEMA_VERSION, taskStatePath, readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, recordWorker, finishCurrent, reconcileTaskState };
+module.exports = { SCHEMA_VERSION, taskStatePath, readTaskState, writeTaskState, createTaskState, selectRoute, startRoute, waitForInput, startDirectAgent, finishDirectAgent, finishWorkers, recordWorker, finishCurrent, reconcileTaskState };

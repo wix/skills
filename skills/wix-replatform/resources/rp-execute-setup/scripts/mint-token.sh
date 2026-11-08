@@ -6,7 +6,7 @@
 #   bash scripts/mint-token.sh
 #
 # Reads WIX_SITE_ID from config/wix.env.
-# Requires: npx @wix/cli@latest (logged in — check: npx @wix/cli@latest whoami)
+# Requires: the installed Wix CLI (logged in — check: npx --no-install wix whoami)
 #
 # This is the canonical copy. rp-import-codegen copies it into
 # migrations/<project>/scripts/mint-token.sh during project scaffolding.
@@ -32,7 +32,7 @@ fi
 echo "Minting token for site $WIX_SITE_ID ..." >&2
 
 # Capture token only on stdout; suppress CLI spinner/progress on stderr
-TOKEN=$(npx @wix/cli@latest token --site "$WIX_SITE_ID" 2>/dev/null | tr -d '[:space:]')
+TOKEN=$(npx --no-install wix token --site "$WIX_SITE_ID" 2>/dev/null | tr -d '[:space:]')
 
 if [[ -z "$TOKEN" ]]; then
   echo "Error: token command returned empty output" >&2

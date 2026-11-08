@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { getDecisionValue, isExplicitUserOneClick } = require('./orchestration-decisions.js');
+const { getDecisionValue, isExplicitUserOneClick, oneClickRunStart } = require('./orchestration-decisions.js');
 const { ensureLedger } = require('./expectations-ledger.js');
 const cmsFallback = require('./plugin-cms-fallback.js');
 
@@ -433,12 +433,16 @@ function updateDecisionObject(decisions, key, value, { source = 'user', rational
   if (!DECISION_SOURCE.has(source)) {
     throw new Error(`invalid decision source: ${source}`);
   }
+  // A user-chosen one-click run stays one-click for the no-mid-run-questions rule even when a
+  // later step switches automationMode (e.g. an owner joins to approve). Keep that fact.
+  const oneClickRunSince = ['automationMode', 'interactionMode', 'runMode'].includes(key) ? oneClickRunStart(decisions) : null;
   decisions[key] = {
     value,
     decidedAt: timestamp,
     source,
     rationale,
     ...(evidenceRef ? { evidenceRef } : {}),
+    ...(oneClickRunSince ? { oneClickRunSince } : {}),
   };
   return decisions;
 }

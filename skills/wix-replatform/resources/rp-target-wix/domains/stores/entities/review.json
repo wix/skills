@@ -15,13 +15,6 @@
     "stores/product",
     "crm/contact"
   ],
-  "dependencyFailureActions": {
-    "stores/product": "fix-only",
-    "crm/contact": "offer-omit"
-  },
-  "dependencyLinkRequired": [
-    "stores/product"
-  ],
   "dependencyModes": {
     "stores/product": "per-record",
     "crm/contact": "per-record"

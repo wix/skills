@@ -150,6 +150,7 @@ async function writeHandoff(projectDir, options = {}) {
 
   const handoff = {
     schemaVersion: SCHEMA_VERSION,
+    ...(options.workerId || process.env.CODEX_THREAD_ID ? { workerId: String(options.workerId || process.env.CODEX_THREAD_ID) } : {}),
     stage,
     resource: options.resource || null,
     round,

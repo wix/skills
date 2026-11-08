@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const capability = require('./execution-capability');
 const local = require('./local-state');
 const setup = require('./setup-verification');
+const { SETUP_CHECK_METHODS } = require('./setup-check-methods.js');
 const census = require('./census-reconciliation');
 const recovery = require('./dependency-recovery');
 const proofs = require('./dependency-proofs');
@@ -20,20 +21,12 @@ const indexes = new Map();
 const subscriptions = new Map();
 const PASS_FILE = 'state/readiness/task-passes.ndjson';
 const SELECTIVE = new Set(['full', 'entity', 'source-type', 'missing-only', 'failed-only', 'deferred-only', 'unresolved-only']);
-// Producer states that satisfy any edge. `finished-partial` is a current full pass that left keys
-// unlanded: the producer is finished, so its dependents run and wait only for the keys they name.
+// A finished producer releases its dependents; only records naming a parent that cannot land stop.
 const SETTLED = new Set(['complete', 'complete-with-holds', 'finished-partial', 'empty', 'setup-passed', 'excluded-approved', 'proven', 'inherited']);
-// A parent key with one of these latest statuses may still land in this run (a retry, or its own
-// prerequisite landing); any other status after the producer's finished pass is final.
 const PARENT_NOT_FINAL = new Set(['failed_retryable', 'started', 'deferred']);
-// What the cutover task may offer when a record's own parent is final: `offer-omit` offers the
-// opt-in to import without the link; anything else (`fix-only`, or no declaration) offers only fix
-// and re-run. Every entity of the task must agree, as for `omit`.
 function linkChoice(entityRefs, ref) {
   return entityRefs.every(entityRef => domain(entityRef).dependencyFailureActions?.[ref] === 'offer-omit') ? 'offer-omit' : 'fix-only';
 }
-// The target cannot hold the record without this reference (a refund without its order): an
-// explicit request to import without it is refused, never honored.
 function linkRequired(entityRefs, ref) {
   return entityRefs.some(entityRef => (domain(entityRef).dependencyLinkRequired || []).includes(ref));
 }
@@ -521,8 +514,8 @@ async function evaluateDependency({ ctx, ref, producer, mode, index, disposition
     const held = await heldKeys(ctx, task, snapshot), summary = readinessSummary(ctx, index, task, snapshot, held);
     if (summary.foreign) return unknown('site_evidence_unbound_or_foreign', `reconcile-site:${task.id}`);
     // Every key not imported is an approved hold: settled, so task-complete dependents may run.
-    // A current full pass that left other keys unlanded is `finished-partial`: also settled. Its
-    // dependents proceed, and only a record naming one of those keys stops (dependency-parent-final).
+    // A current full pass that left other keys unlanded is settled. Dependents proceed and
+    // records naming those keys become final instead of waiting forever.
     const state = !passed ? 'in-progress' : snapshot.rowsWritten === 0 && snapshot.snapshotTotal === 0 ? 'empty' : summary.ready === snapshot.keys.size ? 'complete' : summary.held && summary.ready + summary.held === snapshot.keys.size ? 'complete-with-holds' : 'finished-partial';
     return { ref, producer, state, reasons: held.errors, recovery: `run-import:${task.id} --failed-only`, snapshot, ...(summary.held ? { heldCount: summary.held, held: held.keys } : {}) };
   } catch (error) { return unknown(evidenceReason(error), producer.kind === 'setup-step' ? `run-setup:${producer.stepIds[0]}` : `run-import:${producer.taskId || ''}`); }
@@ -561,8 +554,6 @@ function heldDependencies(waiting) {
   }
   return [...groups.values()].sort((a, b) => a.ref.localeCompare(b.ref)).map(group => ({ ...group, heldSourceKeys: [...group.heldSourceKeys].sort(), holdReasons: [...group.holdReasons].sort() }));
 }
-// One row per (dependent record, ref, parent key) whose parent is final: the cutover cause. Built
-// from the recovery projection, so a record that later lands drops out by itself.
 function finalDeferrals(waiting) {
   const rows = [];
   for (const row of waiting || []) if (row.deferral?.final === true) for (const cause of row.deferral.finalCauses || []) rows.push({ sourceStableKey: row.sourceStableKey, ref: cause.ref, dependencySourceKey: cause.sourceStableKey, parentStatus: cause.parentStatus, linkChoice: cause.linkChoice, ...(cause.linkRequired ? { linkRequired: true } : {}), ...(cause.parentSourceKey ? { parentSourceKey: cause.parentSourceKey } : {}), ...(cause.holdReasons ? { holdReasons: cause.holdReasons } : {}), producerTaskId: cause.producerTaskId ?? null });
@@ -575,7 +566,7 @@ function projectWaiting(ctx, index) {
 }
 function installReadBack(receipt, stepId, app) {
   const check = (receipt?.requirements || []).find(row => row?.id === stepId)?.verification;
-  return check?.method === 'installed-apps-read' && check.observed?.appDefId === app.appDefId && check.observed.installed === true;
+  return check?.method === SETUP_CHECK_METHODS.INSTALLED_APPS_READ && check.observed?.appDefId === app.appDefId && check.observed.installed === true;
 }
 async function evaluateTask({ taskBinding }) {
   const ctx = capability.requireKind(taskBinding, 'import-task');
@@ -744,6 +735,12 @@ function sameTaskFields(entityRefs) {
 }
 function declaresPath(entityRefs, ref, concrete) { return entityRefs.some(entityRef => (domain(entityRef).dependencyReferenceFields?.[ref] || []).some(template => pathMatches(template, concrete))); }
 function valueAt(payload, concrete) { return concrete.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((value, key) => value?.[key], payload); }
+function isCustomOrderLine(payload, concrete) {
+  const match = /^lineItems\[(\d+)\]\.catalogReference\.catalogItemId$/.exec(concrete);
+  if (!match) return false;
+  const line = payload?.lineItems?.[Number(match[1])];
+  return Boolean(line?.itemType?.custom) && !Object.hasOwn(line, 'catalogReference');
+}
 function omitAt(payload, concrete) { const keys = concrete.replace(/\[(\d+)\]/g, '.$1').split('.'); const key = keys.pop(); const parent = keys.reduce((value, part) => value?.[part], payload); if (parent) delete parent[key]; }
 async function gateBatch({ evaluation, records }) {
   const state = evaluations.get(evaluation);
@@ -772,11 +769,7 @@ async function gateBatch({ evaluation, records }) {
   };
   for (const record of records) {
     if (!record.sourceStableKey) throw new Error('DEPENDENCY_SOURCE_KEY_REQUIRED');
-    const references = [], omissions = [], holds = [], finals = [], orphans = []; let blocker;
-    // A parent key that can no longer land in this run (the producer's pass finished, the key is
-    // failed, unverified, not attempted, absent or owner-held) is a final cause, not a wait. A
-    // recorded operator waiver for exactly this record, ref, parent and status writes the record
-    // without the link (the omit path); otherwise the record ends dependency-parent-final.
+    const references = [], omissions = [], holds = [], finals = [], orphans = [], customLineOmissions = []; let blocker;
     const finalOrWaived = (ref, key, concrete, dep, parentStatus, extra = {}) => {
       const waiver = waivers.match({ taskId: ctx.taskId, sourceStableKey: record.sourceStableKey, ref, dependencySourceKey: key, parentStatus });
       if (waiver && !linkRequired(ctx.task.entityRefs, ref) && (waiver.explicitRequest === true || linkChoice(ctx.task.entityRefs, ref) === 'offer-omit')) {
@@ -788,7 +781,6 @@ async function gateBatch({ evaluation, records }) {
     const parentFinal = (key, dep, inSource) => {
       if (!['import-task', 'child-output', 'secondary-output'].includes(dep.producer.kind) || !['finished-partial', 'complete', 'complete-with-holds'].includes(dep.state)) return null;
       const status = failedForGood(ctx, index, key, dep, inSource);
-      // A parent that itself stopped on a final parent is final too: a chain never waits forever.
       if (status === 'deferred' && index.attempts.get(key)?.deferral?.final === true) return 'parent-final';
       return status && !PARENT_NOT_FINAL.has(status) ? status : null;
     };
@@ -869,7 +861,14 @@ async function gateBatch({ evaluation, records }) {
         // and its verified media patch clears the row (recordOmissionsResolved).
         if (dep.mode === 'per-record' && dep.producer.kind === 'import-task' && failureOmits(ctx.task.entityRefs, ref, concrete)) {
           const status = source?.ref === ref && dep.held?.has(key) ? 'held' : failedForGood(ctx, index, key, dep, source?.ref === ref) || 'pending';
-          references.push({ ref, sourceStableKey: key, path: concrete, action: 'omit-failed', dependencyStatus: status }); return undefined;
+          const omission = { ref, sourceStableKey: key, path: concrete, action: 'omit-failed', dependencyStatus: status };
+          // An order's product dependency is omittable only after its builder has deliberately
+          // converted that line to a custom item. Ordinary catalog lines must keep waiting.
+          if (ref === 'stores/product' && ctx.task.entityRefs.includes('ecom/order')) {
+            customLineOmissions.push({ omission, blocker: { ref, sourceStableKey: key, dependencyState: dep.state } });
+            return undefined;
+          }
+          references.push(omission); return undefined;
         }
         // The record names a record the owner held: it waits, with that hold as its cause.
         // Kept apart from `blocker` so a later unresolved reference never erases the hold cause.
@@ -885,13 +884,7 @@ async function gateBatch({ evaluation, records }) {
       const rule = adapter.rules.find(rule => rule.dependencyRef === ref && ctx.task.entityRefs.includes(rule.dependentRef) && rule.censusId === censusId && adapter.rows.get(censusId)?.state === 'excluded' && adapter.approved.has(censusId) && pathMatches(rule.path, concrete));
       if (rule?.action === 'omit') { omissions.push(concrete); references.push({ ref, sourceStableKey: key, path: concrete, action: 'omit' }); return undefined; }
       if (!rule && !dep.state.startsWith('excluded') && adapter.rows.get(censusId)?.state !== 'excluded') {
-        // A variant resolves from its parent's receipt: after a finished pass, no landed parent
-        // naming it is final. A record's own parent key is judged by failedForGood.
         if (dep.producer.kind === 'child-output') {
-          // A variant's parent is its product. A receipt that names this variant gives that parent
-          // key: the variant is final exactly when that product is (held, or failed for good). With
-          // no receipt naming it, the product it belongs to is the one this order line names
-          // (paired after the transform); until then it is `child-identity-missing`.
           const settled = ['finished-partial', 'complete', 'complete-with-holds'].includes(dep.state);
           const parentKey = childParent?.parentKey, parentHeld = parentKey && dep.held?.has(parentKey);
           if (settled && !parentKey && childState === 'child-identity-missing') { orphans.push({ ref, key, concrete, dep }); return undefined; }
@@ -907,10 +900,10 @@ async function gateBatch({ evaluation, records }) {
     };
     try {
       const payload = record.transform ? await record.transform({ resolveReference: (ref, key, concrete) => resolve(ref, key, concrete, 'record'), resolveTaskReference: (ref, key, concrete) => resolve(ref, key, concrete, 'task'), resolveSetupReference: (ref, key, concrete) => resolve(ref, key, concrete, 'setup'), resolveSameTaskReference: (ref, key, concrete) => resolve(ref, key, concrete, 'same-task') }) : record.payload;
-      // A variant no receipt names belongs to the product its own order line names: it takes that
-      // product's final status and key (an owner-held product gives `held`, so its cutover task is
-      // the hold decision, not a re-import). A line whose product landed still lacks the variant:
-      // `child-identity-missing`. A product that may still land keeps the line waiting.
+      for (const candidate of customLineOmissions) {
+        if (isCustomOrderLine(payload, candidate.omission.path)) references.push(candidate.omission);
+        else blocker ||= candidate.blocker;
+      }
       for (const orphan of orphans) {
         const entry = orphan.concrete.slice(0, orphan.concrete.indexOf(']') + 1), parentRef = orphan.dep.producer.parentRef;
         const parent = entry && finals.find(row => row.ref === parentRef && row.path?.startsWith(entry))
@@ -941,9 +934,6 @@ async function gateBatch({ evaluation, records }) {
       const used = references.filter(reference => reference.action || valueAt(payload, reference.path) !== undefined);
       for (const ref of used.filter(ref => !ref.action)) if (valueAt(payload, ref.path) !== ref.targetId) throw new Error('dependency-reference-payload-mismatch');
       if (identityPairMismatch(payload, used, ctx.task.entityRefs)) throw new Error('dependency-identity-pair-mismatch');
-      // A reference that may still land keeps the record waiting; only when every unresolved
-      // reference is final does the record end dependency-parent-final (it stays in the import:
-      // once a parent lands, or a waiver is recorded, the next pass imports it).
       const heldFinal = holds.filter(hold => !finals.some(row => row.ref === hold.ref && row.sourceStableKey === hold.sourceStableKey));
       if (blocker || heldFinal.length) defer.push({ ...record, deferral: { reason: blocker ? 'dependency-not-ready' : 'dependency-held', ...(blocker || heldFinal[0]), ...(holds.length ? { holdCauses: holds } : {}) } });
       else if (finals.length) defer.push({ ...record, deferral: { reason: 'dependency-parent-final', final: true, ...finals[0], finalCauses: finals, ...(holds.length ? { holdCauses: holds } : {}) } });
@@ -1150,7 +1140,6 @@ async function omittedReady({ taskBinding }) {
   const landed = key => { const attempt = index.attempts.get(key), row = index.crosswalk.get(key); return attempt?.siteId === ctx.siteId && row?.siteId === ctx.siteId && row.status === 'imported' && ['imported', 'skipped_already_imported'].includes(attempt.status); };
   const result = new Map();
   for (const row of rows) {
-    // A waived link was left out by an operator choice, not by an `omit` edge: no patch pass adds it.
     if (row.siteId !== ctx.siteId || !landed(row.sourceStableKey) || row.dependencySourceKey.startsWith('unchecked:') || row.dependencyStatus === 'waived') continue;
     const edge = ctx.task.dependencyEdges.find(edge => edge.ref === row.ref), producer = edge?.producer.kind === 'import-task' && ctx.manifest.tasks.find(task => task.id === edge.producer.taskId);
     if (!producer || index.attempts.get(row.dependencySourceKey)?.runId !== ctx.runId || !keyReady(ctx, index, row.dependencySourceKey, { task: producer, snapshot: snapshots(ctx, producer), ref: row.ref }).ready) continue;

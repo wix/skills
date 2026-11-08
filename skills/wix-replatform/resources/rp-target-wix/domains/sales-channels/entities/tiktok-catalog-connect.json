@@ -20,12 +20,6 @@
     }
   ],
   "dependsOn": ["stores/product"],
-  "dependencyFailureActions": {
-    "stores/product": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "stores/product"
-  ],
   "preferredWrite": {
     "surface": "Manual -- no API; merchant copies a feed link into TikTok for Business",
     "endpoint": null,

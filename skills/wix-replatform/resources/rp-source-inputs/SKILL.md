@@ -33,7 +33,10 @@ Do ask the person for the store's currency, time zone, primary language and coun
 is recorded as unknown, never guessed, and a `currency` column in the data never replaces the answer.
 
 Treat source and Wix env files as secret-bearing once they may contain credentials. Never
-print their contents, and never shell-`source` them; read them only through toolkit scripts. Use `scripts/source-secrets.js` for present/blank/missing checks and
+print their contents, and never bash-`source` them. Load them with the toolkit parser
+(`lib/config-env.js`'s `readEnvFile`, directly or through a script's `--env-file` option),
+not with a hand-rolled dotenv reader or process-environment side effect. Use
+`scripts/source-secrets.js` for present/blank/missing checks and
 Wix Secrets Manager hydration; request only unresolved secret keys through the secure flow.
 Its result always includes `postHydrationReport` (`{ exists, keys }`, each key
 present/blank/placeholder/missing in the local env file); read that field to confirm a
@@ -43,6 +46,10 @@ hydration succeeded instead of inspecting the file. Vault outcomes stay in per-k
 the `unresolvedKeys`; while a durable request for them is pending the router returns
 `awaiting_user_action`. Once answered, run `scripts/source-secrets.js` again to hydrate.
 Blank required values are a typed needs-user blocker; optional adapter keys may remain blank.
+If a source request returns HTTP 401, run the parser-backed check again before raising or
+refreshing a credentials request. A request is justified only when the parser reports a
+key missing/blank/placeholder, or when a retry using the parser-loaded values still returns
+401; a shell-sourced value is never evidence that credentials are invalid.
 
 **Credentials already on another site.** If the user or a prior run says this source's
 credentials were already captured for another (sibling) destination site, handle it as a

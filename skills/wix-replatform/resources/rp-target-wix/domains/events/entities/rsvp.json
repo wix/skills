@@ -16,13 +16,6 @@
     "crm/contact",
     "events/event"
   ],
-  "dependencyFailureActions": {
-    "crm/contact": "offer-omit",
-    "events/event": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "events/event"
-  ],
   "preferredWrite": {
     "surface": "Events RSVP V2",
     "endpoint": "POST /events/v2/rsvps",

@@ -38,6 +38,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const paymentMapping = require('./order-payment-mapping.js');
 const dataExtensionSchema = require('./data-extension-schema.js');
+const { normalizeCmsCollectionDefinition } = require('../../../lib/cms-collection-request.js');
 const contactExtendedFields = require('./contact-extended-fields.js');
 const invoiceContract = require('./order-invoice-contract.js');
 const documentUrlGuard = require('../../../lib/document-url-guard.js');
@@ -54,10 +55,14 @@ const confirmedPictures = require('../../../lib/confirmed-pictures.js');
 
 const executionCapability = require('../../../lib/execution-capability');
 const { egressFetch } = require('../../../lib/egress-proxy.js');
+const wixAuth = require('../../../lib/wix-auth.js');
 const cmsItemQuota = require('./cms-item-quota.js');
 const requestMarks = new WeakMap();
 const responseEvidence = new WeakMap();
 const clientReadResponses = new WeakMap();
+function rethrowRunStop(error) {
+  if (wixAuth.isRunInterruption(error)) throw error;
+}
 function markRequest(request, mark) {
   requestMarks.set(request, { ...mark, digest: executionCapability.digest(JSON.stringify([request.method, request.url, request.body, request.headers])) });
   return request;
@@ -110,7 +115,7 @@ function copyRequestBody(body) {
 // media import, Contacts manage/schema, and Members manage.
 //
 // Auth scheme normalization: Wix API keys (`IST.…`) are sent RAW in the Authorization
-// header; OAuth access tokens (e.g. a Wix CLI token from `npx @wix/cli@latest token --site …`)
+// header; OAuth access tokens (e.g. a Wix CLI token from `npx --no-install wix token --site …`)
 // must be sent as `Bearer <token>`. Detect and prefix so both credential kinds work.
 function authHeaderValue(token) {
   const t = String(token).trim();
@@ -562,9 +567,15 @@ function createWixClient(config) {
   if (authority && config.siteId && config.siteId !== authority.siteId) executionCapability.fail('CAPABILITY_SITE_MISMATCH');
   if (authority?.kind === 'import-run') executionCapability.fail('DEPENDENCY_TASK_REQUIRED');
   const dryRun = authority ? authority.dryRun : normalizeDryRunValue(config.dryRun, { defaultValue: false });
-  config = { ...config, dryRun, ...(authority ? { siteId: authority.siteId, projectDir: authority.projectDir } : {}) };
-  // A `tokenSource` (lib/wix-auth.js) renews a short-lived CLI token for this same
-  // site; a plain `authToken` is sent as-is for the life of the client.
+  config = {
+    ...config,
+    dryRun,
+    ...(authority ? { siteId: authority.siteId, ...(authority.projectDir ? { projectDir: authority.projectDir } : {}) } : {}),
+  };
+  // A `tokenSource` (lib/wix-auth.js) renews a short-lived CLI token for this same site.
+  // Refresh is opt-in because an explicit `authToken` may come from process.env or a
+  // caller-provided --wix-env file rather than this project's config/wix.env. The caller that
+  // owns project-config provenance must construct and pass the token source explicitly.
   const tokenSource = config.tokenSource || null;
   if (tokenSource && config.siteId && tokenSource.siteId !== config.siteId) executionCapability.fail('CAPABILITY_SITE_MISMATCH');
   if (!dryRun && !config.authToken && !tokenSource) {
@@ -1042,6 +1053,7 @@ async function convertHtmlToRichContent(wix, html, { plugins, mediaBySourceUrl, 
         ({ document } = await wix.send(buildConvertToRicosRequest(chunk, plugins)));
         break;
       } catch (err) {
+        rethrowRunStop(err);
         if (attempt >= RICOS_RETRY_DELAYS_MS.length || !isRetryableRicosError(err)) throw err;
         await pauseFor(wix, sleep)(RICOS_RETRY_DELAYS_MS[attempt]);
       }
@@ -1171,6 +1183,7 @@ async function provisionExtendedFieldSchema(wix, { requirement, dryRun = false, 
     try {
       return await listDataExtensionSchemas(wix, { fqdn, namespace });
     } catch (error) {
+      rethrowRunStop(error);
       // Contacts V5 is fail-closed, not fallback: the supported-objects table omits contacts, so
       // a refused List is the answer to "does DES accept this FQDN here?". Never retry on V4.
       if (target && target.requiresLiveVerification) {
@@ -1325,6 +1338,7 @@ async function provisionContactExtendedFields(wix, { requirement, dryRun = false
         await wix.send(markRequest(contactExtendedFields.buildGetContactExtendedFieldRequest({ key: found.key }), { read: true })),
       );
     } catch (error) {
+      rethrowRunStop(error);
       if (!error || error.status !== 404) throw error;
     }
     if (!reread || !reread.key) {
@@ -1786,6 +1800,7 @@ async function preserveOrderInvoiceDocument(wix, {
         const settled = await waitUntilFileReady(wix, imported.fileId);
         status = settled ? settled.operationStatus : 'PENDING';
       } catch (error) {
+        rethrowRunStop(error);
         // Only a tagged failure is terminal. A transport fault means we do not know yet, and
         // calling that FAILED would discard a file that may well be fine.
         status = error && error.code === 'MEDIA_IMPORT_FAILED' ? 'FAILED' : 'UNKNOWN';
@@ -1827,6 +1842,7 @@ async function preserveOrderInvoiceDocument(wix, {
       values,
     });
   } catch (error) {
+    rethrowRunStop(error);
     return withFindings({
       outcome: 'invoice-fields-write-failed',
       fileId: null,
@@ -2004,10 +2020,12 @@ async function deleteDraftPost(wix, draftPostId, options) {
   try {
     return await wix.send(buildDeleteDraftPostRequest(draftPostId, options));
   } catch (draftError) {
+    rethrowRunStop(draftError);
     if (!(draftError && draftError.status === 404)) throw draftError;
     try {
       return await wix.send(buildDeletePostRequest(draftPostId, options));
     } catch (postError) {
+      rethrowRunStop(postError);
       if (postError && postError.status === 404) throw draftError;
       throw Object.assign(
         new Error(`deleteDraftPost: draft-posts delete 404'd and posts/{id} fallback also failed: ${postError && postError.message}`),
@@ -2906,6 +2924,7 @@ async function patchStoresProductMediaVerified(
       attempts.push({ round, landed });
       if (landed) return { productId, landed: true, rounds: round, attempts, product: after };
     } catch (error) {
+      rethrowRunStop(error);
       // Record what went wrong and go round again. The error is kept per attempt rather than
       // thrown, because the caller's decision is the same either way — this product is not
       // verified — and because the message is the only clue about WHICH failure it was.
@@ -2999,6 +3018,7 @@ async function attachStoresProductVideos(
         ? { url: video.url, fileId: ready.id, status: 'ready' }
         : { url: video.url, fileId: file?.id || null, status: 'not-ready' });
     } catch (error) {
+      rethrowRunStop(error);
       results.push({ url: video.url, fileId: null, status: 'import-failed', error: String(error?.message || error).slice(0, 300) });
     }
   }
@@ -3164,6 +3184,7 @@ async function setItemSeoTags(wix, { itemType = 'BLOG_POST', entries = [] } = {}
     let current;
     // One unreadable item (a 404 post) fails that entry only; a refused request is not a read failure.
     try { current = await getItemSeoTags(wix, itemType, entry.itemId); } catch (error) {
+      rethrowRunStop(error);
       if (error && error.requestSent === false) throw error;
       Object.assign(results[index], { outcome: 'failed', error: memberErrorFields(error) });
       continue;
@@ -3183,7 +3204,7 @@ async function setItemSeoTags(wix, { itemType = 'BLOG_POST', entries = [] } = {}
     let request = markRequest(_buildBulkSetItemSeoTagsRequest(itemType, chunk.map(p => p.entry), { preservedTags: chunk.map(p => p.preserved) }), { entity: 'seo/item-seo-tags' });
     if (sourceStableKeys !== undefined) request = withBulkReadinessGrant(request, { readinessGrant, sourceStableKeys: chunk.map(p => sourceStableKeys[p.index]) });
     let response = null, failure = null;
-    try { response = await wix.send(request); } catch (error) { failure = error; }
+    try { response = await wix.send(request); } catch (error) { rethrowRunStop(error); failure = error; }
     if (failure && failure.requestSent === false) throw failure;
     if (failure && failure.outcomeKnown !== false && ITEM_SEO_WHOLE_CALL_CODES.has(failure.applicationErrorCode)) {
       // Whole-call rejection: no per-entry results exist. Reported once for the batch.
@@ -3196,7 +3217,7 @@ async function setItemSeoTags(wix, { itemType = 'BLOG_POST', entries = [] } = {}
       if (!failure && meta && meta.success === false) { Object.assign(results[p.index], { outcome: 'failed', error: meta.error || null }); continue; }
       // Success, a missing result, or an unknown outcome: only the read-back decides.
       let readBack = null;
-      try { readBack = await getItemSeoTags(wix, itemType, p.entry.itemId); } catch (error) { Object.assign(results[p.index], { outcome: failure ? 'unknown' : 'unverified-after-success', error: memberErrorFields(error) }); continue; }
+      try { readBack = await getItemSeoTags(wix, itemType, p.entry.itemId); } catch (error) { rethrowRunStop(error); Object.assign(results[p.index], { outcome: failure ? 'unknown' : 'unverified-after-success', error: memberErrorFields(error) }); continue; }
       const failures = seoTags.checkItemReadBack(readBack, p.written, p.entry.itemSeoTags.focusKeywords);
       Object.assign(results[p.index], failures.length ? { outcome: failure ? 'not-landed' : 'unverified-after-success', failures } : { outcome: 'verified' });
       if (failure && failures.length) results[p.index].error = memberErrorFields(failure);
@@ -3239,6 +3260,7 @@ async function ensureSeoPattern(wix, { pageType, tags } = {}) {
   if (!split.tags.length) return { ...result, outcome: 'nothing-to-write' };
   let current;
   try { current = (await wix.send(buildGetSeoPatternRequest(pageType))).seoPattern || {}; } catch (error) {
+    rethrowRunStop(error);
     if (seoPatternError(error, 'PAGE_TYPE_NOT_ON_SITE')) return { ...result, outcome: 'setup-missing-app', error: memberErrorFields(error) };
     if (seoPatternError(error, 'UNSUPPORTED_PAGE_TYPE')) return { ...result, outcome: 'unsupported-page-type', error: memberErrorFields(error) };
     throw error;
@@ -3260,6 +3282,7 @@ async function ensureSeoPattern(wix, { pageType, tags } = {}) {
     try {
       await wix.send(own ? markRequest(_buildSetSeoPatternRequest(args), { entity: 'seo/seo-pattern' }) : markRequest(_buildCreateSeoPatternRequest(args), { entity: 'seo/seo-pattern' }));
     } catch (error) {
+      rethrowRunStop(error);
       // The other verb is never retried blindly: re-read, then decide again once.
       if (attempt === 0 && (seoPatternError(error, 'PATTERN_ALREADY_EXISTS') || seoPatternError(error, 'PATTERN_NOT_FOUND') || error.status === 409)) { current = (await wix.send(buildGetSeoPatternRequest(pageType))).seoPattern || {}; continue; }
       if (seoPatternError(error, 'INVALID_PATTERN')) return { ...result, outcome: 'invalid-variable', error: memberErrorFields(error) };
@@ -3315,7 +3338,7 @@ async function writeSiteShareImage(wix, { mediaId, sourceUrl }) {
   if (!mediaId) return notWritten('media-not-imported');
   let file;
   try { file = (await wix.send(buildGetSiteShareImageFileRequest(mediaId))).file; }
-  catch (error) { if (error.requestSent === false) throw error; return notWritten('media-read-failed', { error: memberErrorFields(error) }); }
+  catch (error) { rethrowRunStop(error); if (error.requestSent === false) throw error; return notWritten('media-read-failed', { error: memberErrorFields(error) }); }
   const dryRun = file?._dryRunPlaceholder === true;
   const url = dryRun ? `https://static.wixstatic.com/media/${encodeURIComponent(mediaId)}` : file?.url;
   if (!dryRun) {
@@ -3330,6 +3353,7 @@ async function writeSiteShareImage(wix, { mediaId, sourceUrl }) {
   try {
     await wix.send(markRequest(_buildSetSiteSeoTagsRequest({ tags: seoTags.mergeTags(current, [tag]), preservedTags: current }), { entity: 'seo/site-seo-tags', siteTags: true, shareImage: { mediaId, url } }));
   } catch (caught) {
+    rethrowRunStop(caught);
     if (caught.requestSent === false) throw caught;
     if (caught.outcomeKnown !== false) return notWritten('write-rejected', { url, error: memberErrorFields(caught) });
     error = memberErrorFields(caught);
@@ -3367,6 +3391,7 @@ async function setSiteSeoTags(wix, { tags = [], shareImage } = {}) {
   try {
     await wix.send(markRequest(_buildSetSiteSeoTagsRequest({ tags: merged, preservedTags: current }), { entity: 'seo/site-seo-tags', siteTags: true }));
   } catch (error) {
+    rethrowRunStop(error);
     if (error.requestSent === false || error.outcomeKnown !== false) throw error;
     tagResult.error = memberErrorFields(error);
   }
@@ -3919,6 +3944,7 @@ async function findOrCreateContactLabel(wix, { displayName } = {}) {
   try {
     found = await wix.send(buildFindOrCreateContactLabelRequest({ displayName }));
   } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'label-failed', tagId: null, labelKey: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status, outcomeKnown: error && error.outcomeKnown, ...notSentFields(error) } };
   }
   const label = found && found.label;
@@ -3926,6 +3952,7 @@ async function findOrCreateContactLabel(wix, { displayName } = {}) {
   // Read back by key: the label exists under this name, and its tag id is the one we record.
   let read;
   try { read = (await wix.send(buildGetContactLabelRequest(label.key))).label; } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'label-unverified', tagId: label.tagId, labelKey: label.key, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
   }
   if (!read || read.tagId !== label.tagId || read.displayName !== label.displayName) return { outcome: 'label-unverified', tagId: label.tagId, labelKey: label.key, error: { message: 'label read-back does not match the label written' } };
@@ -3960,10 +3987,12 @@ function _buildGetContactTagsRequest(contactId) {
 async function assignContactLabels(wix, { contactId, tagIds } = {}) {
   const request = buildUpdateContactTagsRequest({ contactId, tagIds });
   try { await wix.send(request); } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'contact-labels-failed', contactId, tagIds, error: { message: String(error && error.message).slice(0, 300), status: error && error.status, outcomeKnown: error && error.outcomeKnown, ...notSentFields(error) } };
   }
   let have;
   try { have = ((await wix.send(buildGetContactTagsRequest(contactId))).contact || {}).tags?.privateTags?.tagIds || []; } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'contact-labels-unverified', contactId, tagIds, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
   }
   const missing = tagIds.filter(tagId => !have.includes(tagId));
@@ -4147,6 +4176,7 @@ async function bulkCreateCoupons(wix, specifications, { onFallback } = {}) {
   try {
     response = await wix.send(buildBulkCreateCouponsRequest(sent));
   } catch (error) {
+    rethrowRunStop(error);
     // A transport-level failure tells us nothing about individual specifications either.
     return fallback(`batch request failed: ${String(error && error.message).slice(0, 200)}`);
   }
@@ -4199,6 +4229,14 @@ async function reconcileCouponByCode(wix, code) {
   return matches.length === 1 ? matches[0] : null;
 }
 
+function couponErrorFields(error) {
+  return {
+    message: String(error && error.message).slice(0, 300),
+    status: error && error.status,
+    ...(wixAuth.isAuthExpired(error) ? { code: 'auth_expired', reason: 'auth_expired' } : {}),
+  };
+}
+
 async function retryBatchIndividually(wix, specifications, outcomes, { onFallback, reason } = {}) {
   if (typeof onFallback === 'function') onFallback({ reason, count: specifications.length });
   for (let i = 0; i < specifications.length; i += 1) {
@@ -4216,12 +4254,13 @@ async function retryBatchIndividually(wix, specifications, outcomes, { onFallbac
         ? { outcome: 'coupon-reconciled-existing', couponId: String(reconciled.id), code, viaFallback: true }
         : { outcome: 'coupon-write-unknown', couponId: null, code, viaFallback: true, reason: 'the create returned no id and the code is not readable yet; re-read before re-writing' };
     } catch (error) {
+      rethrowRunStop(error);
       const message = String(error && error.message);
       // "already exists" means the coupon IS on the target -- from this batch's own committed
       // write, or from an earlier run. Recover its id rather than calling it a failure.
       if (/already exists|ALREADY_EXISTS|duplicate/i.test(message)) {
         let reconciled = null;
-        try { reconciled = await reconcileCouponByCode(wix, code); } catch { reconciled = null; }
+        try { reconciled = await reconcileCouponByCode(wix, code); } catch (error) { rethrowRunStop(error); reconciled = null; }
         outcomes[i] = reconciled
           ? { outcome: 'coupon-reconciled-existing', couponId: String(reconciled.id), code, viaFallback: true, matchedAfter: 'duplicate-rejection' }
           : { outcome: 'coupon-write-unknown', couponId: null, code, viaFallback: true, reason: 'the code already exists but is not readable yet, so its id is unknown; re-read rather than re-writing' };
@@ -4229,7 +4268,7 @@ async function retryBatchIndividually(wix, specifications, outcomes, { onFallbac
       }
       outcomes[i] = {
         outcome: 'coupon-failed', couponId: null, code, viaFallback: true,
-        error: { message: message.slice(0, 300), status: error && error.status },
+        error: couponErrorFields(error),
       };
     }
   }
@@ -4271,13 +4310,15 @@ async function updateCouponFields(wix, couponId, changes, { settleMs = 8000, sle
     await wix.send(buildUpdateCouponRequest(couponId, changes));
     status = 200;
   } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'coupon-update-failed', couponId, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
   }
   await wait(settleMs);
   let readBack = null;
   try {
     readBack = await getCoupon(wix, couponId);
-  } catch {
+  } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'coupon-update-unverified', couponId, status, reason: 'the read-back failed, so the change is unknown; re-read rather than re-sending' };
   }
   const spec = (readBack && (readBack.specification || readBack)) || null;
@@ -4858,6 +4899,7 @@ async function deleteShippingOption(wix, id) {
     await wix.send(buildDeleteShippingOptionRequest(id));
     return { deleted: true, alreadyGone: false };
   } catch (error) {
+    rethrowRunStop(error);
     if (error && error.status === 404) return { deleted: false, alreadyGone: true };
     throw error;
   }
@@ -4885,6 +4927,7 @@ async function queryAllShippingOptions(wix, { deliveryRegionId = null, limit = S
     try {
       reply = await wix.send(buildQueryShippingOptionsRequest({ cursorPaging: { limit, ...(cursor ? { cursor } : {}) } }));
     } catch (error) {
+      rethrowRunStop(error);
       return { complete: false, options, pages, reason: `page ${pages + 1} failed: ${error && error.message ? String(error.message).slice(0, 200) : 'unknown error'}`, error };
     }
     pages += 1;
@@ -4928,12 +4971,14 @@ async function verifyOrRepairShippingOption(wix, sent, stored, { merchantKeeps =
   try {
     await wix.send(buildUpdateShippingOptionEstimateRequest({ id, revision: stored.revision, estimatedDeliveryTime: sentEstimate }));
   } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'shipping-option-unverified', id, mismatched: ['estimatedDeliveryTime'], reason: 'estimate repair PATCH failed', stored };
   }
   let reread;
   try {
     reread = await getShippingOption(wix, id);
   } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'shipping-option-unverified', id, mismatched: [], reason: 'read-back failed after estimate repair', stored };
   }
   if (!reread) return { outcome: 'shipping-option-unverified', id, mismatched: [], reason: 'read-back failed after estimate repair', stored };
@@ -4949,6 +4994,7 @@ async function createShippingOptionVerified(wix, shippingOption) {
   try {
     created = await createShippingOption(wix, shippingOption);
   } catch (error) {
+    rethrowRunStop(error);
     // Refused before sending: known, nothing reached Wix, so never "unknown" (read back forever).
     if (error && error.requestSent === false) {
       return { outcome: 'shipping-option-failed', id: null, httpStatus: null, errorCode: error.code ? String(error.code) : null, requestSent: false };
@@ -4963,6 +5009,7 @@ async function createShippingOptionVerified(wix, shippingOption) {
   try {
     stored = await getShippingOption(wix, created.id);
   } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'shipping-option-unverified', id: created.id, mismatched: [], reason: 'read-back failed' };
   }
   if (!stored) return { outcome: 'shipping-option-unverified', id: created.id, mismatched: [], reason: 'read-back failed' };
@@ -4990,6 +5037,7 @@ async function recoverShippingOption(wix, attemptRow, expectedInput, { decisions
     try {
       stored = await getShippingOption(wix, id);
     } catch (error) {
+      rethrowRunStop(error);
       if (error && error.status === 404 && error.outcomeKnown !== false) return { outcome: 'shipping-option-not-found', id, httpStatus: 404, errorCode: 'NOT_FOUND' };
       return { outcome: 'shipping-option-recovery-incomplete', id, reason: 'read-back failed' };
     }
@@ -5169,6 +5217,7 @@ async function resolvePickupLocationsBase(wix) {
     await wix.send({ method: 'POST', url: `${PICKUP_LOCATIONS_PUBLIC_BASE}/query`, body: { query: { cursorPaging: { limit: 1 } } } });
     base = PICKUP_LOCATIONS_PUBLIC_BASE;
   } catch (error) {
+    rethrowRunStop(error);
     // An UNKNOWN outcome is not a 404. Falling back on a guess abandons a host that works, so it
     // is rethrown; only a structured 404 the target actually sent takes the fallback.
     if (error && error.outcomeKnown === false) throw error;
@@ -5525,6 +5574,7 @@ function createTargetReadPacer({ minIntervalMs = 0, maxAttempts = 3, backoffMs =
           lastCompletedAt = Math.max(lastCompletedAt ?? -Infinity, clock());
           return { ok: true, value };
         } catch (error) {
+          rethrowRunStop(error);
           stats.reads += 1;
           stats.elapsedMs += clock() - startedAt;
           lastCompletedAt = Math.max(lastCompletedAt ?? -Infinity, clock());
@@ -5572,6 +5622,7 @@ async function reconcileOrderPaymentTarget(wix, { orderId, payment = null, pacer
       try {
         return { ok: true, value: await readOnce() };
       } catch (error) {
+        rethrowRunStop(error);
         return { ok: false, error };
       }
     })();
@@ -5580,6 +5631,7 @@ async function reconcileOrderPaymentTarget(wix, { orderId, payment = null, pacer
   // is still a pre-read for THIS order and payment, and the writers refuse one without it.
   const binding = { forOrderId: String(orderId), forPaymentFingerprint: payment ? paymentMapping.paymentFingerprint(payment) : null };
   if (!result.ok) {
+    rethrowRunStop(result.error);
     return { outcome: 'payment-target-read-failed', paymentId: null, existingPayments: [], error: result.error, ...binding };
   }
 
@@ -5728,6 +5780,7 @@ async function ensureOrderPaymentAndRefund(wix, { orderId, payment = null, refun
       lastError = null;
       break;
     } catch (error) {
+      rethrowRunStop(error);
       lastError = error;
       if (!isPendingRefund(error) || attempt === 6) break;
       await pauseFor(wix)(1000 * attempt);
@@ -5835,7 +5888,7 @@ async function ensureCoupon(wix, { specification, pacer = null, scopeTarget } = 
   const mark = (result) => (unchecked ? { ...result, scopeTargetVisibility: 'coupon-scope-target-visibility-unchecked' } : result);
   const effectivePacer = pacer || sharedTargetReadPacer(wix);
   const read = await effectivePacer.read(() => queryCouponsByCode(wix, specification.code));
-  if (!read.ok) return mark({ outcome: 'coupon-target-read-failed', couponId: null, error: read.error });
+  if (!read.ok) { rethrowRunStop(read.error); return mark({ outcome: 'coupon-target-read-failed', couponId: null, error: read.error }); }
   if (read.value.length === 1) return mark({ outcome: 'coupon-reconciled-existing', couponId: read.value[0].id });
   if (read.value.length > 1) return mark({ outcome: 'coupon-reconciliation-ambiguous', couponId: null, matchCount: read.value.length });
   try {
@@ -5848,13 +5901,14 @@ async function ensureCoupon(wix, { specification, pacer = null, scopeTarget } = 
     if (!couponId) return mark({ outcome: 'coupon-failed', couponId: null, error: { message: `Create Coupon returned no id: ${String(JSON.stringify(created) ?? 'undefined').slice(0, 120)}` } });
     return mark({ outcome: 'coupon-written', couponId: String(couponId) });
   } catch (error) {
+    rethrowRunStop(error);
     // A duplicate the read missed (the write-then-read lag): adopt it rather than fail the run.
     if (/already exists|ALREADY_EXISTS|duplicate/i.test(String(error && error.message))) {
       const again = await effectivePacer.read(() => queryCouponsByCode(wix, specification.code));
       if (again.ok && again.value.length === 1) return mark({ outcome: 'coupon-reconciled-existing', couponId: again.value[0].id, matchedAfter: 'duplicate-rejection' });
     }
     // A single write lets a scope refusal propagate to here: there is no batch to protect.
-    return mark({ outcome: 'coupon-failed', couponId: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } });
+    return mark({ outcome: 'coupon-failed', couponId: null, error: couponErrorFields(error) });
   }
 }
 
@@ -5935,13 +5989,13 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
     // "reconciled" with no target call at all), archived, or the row may point at somebody else's
     // plan. Gone or foreign -> the row is stale and the name path decides; archived -> not the plan.
     const known = await effectivePacer.read(() => getPlan(wix, knownPlanId));
-    if (!known.ok && !(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: 'plan-target-read-failed', planId: null, error: known.error };
+    if (!known.ok) { rethrowRunStop(known.error); if (!(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: 'plan-target-read-failed', planId: null, error: known.error }; }
     const candidate = known.ok ? known.value : null;
     if (candidate && candidate.archived !== true && carriesVariant(candidate, ids)) return adoptPlan(candidate, 'crosswalk');
     findings.push({ code: 'plan-crosswalk-row-stale', knownPlanId: String(knownPlanId), reason: !candidate ? 'not-found' : candidate.archived === true ? 'archived' : 'not-this-offer' });
   }
   const read = await effectivePacer.read(() => queryPlansByName(wix, plan.name));
-  if (!read.ok) return { outcome: 'plan-target-read-failed', planId: null, error: read.error, findings };
+  if (!read.ok) { rethrowRunStop(read.error); return { outcome: 'plan-target-read-failed', planId: null, error: read.error, findings }; }
   // An ARCHIVED plan of that name is not the plan: adopting it would leave nothing active on the
   // target while reporting reconciled. The V3 filter table has no `archived`, so post-filter.
   // A live plan of that name that does NOT carry our variant id is somebody else's (or another
@@ -5964,11 +6018,12 @@ async function ensurePlanDefinition(wix, { plan, idempotencyKey = null, knownPla
       // the live-site hazard the report blocks on (plans-live-hazard).
       let archived = true;
       let archiveError = null;
-      try { await archivePlan(wix, created.id); } catch (error) { archived = false; archiveError = { message: String(error && error.message).slice(0, 300), status: error && error.status }; }
+      try { await archivePlan(wix, created.id); } catch (error) { rethrowRunStop(error); archived = false; archiveError = { message: String(error && error.message).slice(0, 300), status: error && error.status }; }
       return { outcome: 'plan-failed', planId: created.id, error: { cause: 'created-plan-not-inert', visibility: created.visibility, buyable: created.buyable, archived, ...(archiveError ? { archiveError } : {}) }, findings };
     }
     return { outcome: 'plan-written', planId: created.id, visibility: created.visibility, buyable: created.buyable, findings };
   } catch (error) {
+    rethrowRunStop(error);
     lastPlanWriteAt = Date.now();
     return { outcome: 'plan-failed', planId: null, error: { message: String(error && error.message).slice(0, 300), status: error && error.status }, findings };
   }
@@ -6036,7 +6091,7 @@ async function settledPlanOrder(wix, orderId, paid, { pacer, wait }) {
   for (let attempt = 0; attempt < PLAN_ORDER_PAID_SETTLE_READS; attempt += 1) {
     if (attempt) await wait(PLAN_ORDER_PAID_SETTLE_MS);
     const read = await pacer.read(() => getPlanOrder(wix, orderId));
-    if (!read.ok) return { ok: false, error: planOrderError(read.error) };
+    if (!read.ok) { rethrowRunStop(read.error); return { ok: false, error: planOrderError(read.error) }; }
     order = read.value;
     if (order && order.status !== 'DRAFT' && !(paid && order.lastPaymentStatus === 'UNPAID')) break;
   }
@@ -6088,6 +6143,7 @@ async function planOrderPass(wix, want, { knownOrderId, pacer, sleep }) {
         return { outcome: PO.PAUSE_FAILED, ...ids(order), ...extra, findings };
       }
       try { await pausePlanOrder(wix, order.id); } catch (error) {
+        rethrowRunStop(error);
         return { outcome: PO.PAUSE_FAILED, ...ids(order), ...extra, error: planOrderError(error), findings };
       }
     }
@@ -6110,22 +6166,24 @@ async function planOrderPass(wix, want, { knownOrderId, pacer, sleep }) {
   if (knownOrderId) {
     // A crosswalk row is a claim: read it back. Gone or someone else's -> stale, the list decides.
     const known = await effectivePacer.read(() => getPlanOrder(wix, knownOrderId));
-    if (!known.ok && !(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(known.error), findings };
+    if (!known.ok) { rethrowRunStop(known.error); if (!(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(known.error), findings }; }
     if (known.ok && planOrderIsFor(known.value, want) && sameInstant(known.value.startDate, want.startDate)) return adopt([known.value], 'crosswalk');
     findings.push({ code: 'plan-order-crosswalk-row-stale', knownOrderId: String(knownOrderId), reason: known.ok && known.value ? 'not-this-contract' : 'not-found' });
   }
   const before = await matches();
-  if (!before.ok) return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(before.error), findings };
+  if (!before.ok) { rethrowRunStop(before.error); return { outcome: PO.TARGET_READ_FAILED, orderId: null, error: planOrderError(before.error), findings }; }
   if (before.value.length) return adopt(before.value, 'member-plan-start');
   let created;
   try {
     try { created = await createOfflinePlanOrder(wix, want); } catch (error) {
+      rethrowRunStop(error);
       // A 429 is refused before processing: one wait and one more try is safe.
       if (!(error && Number(error.status) === 429)) throw error;
       await wait(error.retryAfterMs || PLAN_ORDER_RATE_LIMIT_WAIT_MS);
       created = await createOfflinePlanOrder(wix, want);
     }
   } catch (error) {
+    rethrowRunStop(error);
     // A readable 4xx is Wix's decision. An unreadable reply or a 5xx may have landed: look once,
     // adopt a match, otherwise stop -- a resend could duplicate. (Never a retry.)
     if (!(error && (error.outcomeKnown === false || Number(error.status) >= 500))) return { outcome: PO.FAILED, orderId: null, error: planOrderError(error), findings };
@@ -6286,6 +6344,7 @@ async function writeMemberCompanyAfterCreate(wix, { memberId, contactId, later }
     await updateMemberContact(wix, { memberId, contactId, revision: current.revision, contact: later });
     return { code: MF.COMPANY_WRITTEN_AFTER_CREATE };
   } catch (error) {
+    rethrowRunStop(error);
     if (String(error?.code || '').startsWith('target_operation_')) throw error;
     return { code: MF.COMPANY_NOT_WRITTEN, status: error && error.status !== undefined ? error.status : null, requestSent: !(error && error.requestSent === false), errorCode: (error && (error.applicationErrorCode || error.code)) || null };
   }
@@ -6319,7 +6378,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
   const effectivePacer = pacer || sharedTargetReadPacer(wix);
   if (knownMemberId) {
     const known = await effectivePacer.read(() => getMember(wix, knownMemberId));
-    if (!known.ok && !(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(known.error), wixApiSurface: 'members/v1', findings };
+    if (!known.ok) { rethrowRunStop(known.error); if (!(known.error && known.error.status === 404 && known.error.outcomeKnown !== false)) return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(known.error), wixApiSurface: 'members/v1', findings }; }
     const candidate = known.ok ? known.value : null;
     if (candidate && normalizeLoginEmailForCompare(candidate.loginEmail) === email) {
       return { outcome: MO.RECONCILED_EXISTING, memberId: String(candidate.id), contactId: candidate.contactId ? String(candidate.contactId) : null, matchedBy: 'crosswalk', findings };
@@ -6327,7 +6386,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     findings.push({ code: MF.CROSSWALK_ROW_STALE, knownMemberId: String(knownMemberId), reason: !candidate ? 'not-found' : 'not-this-email' });
   }
   const read = await effectivePacer.read(() => queryMembersByLoginEmail(wix, email));
-  if (!read.ok) return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(read.error), wixApiSurface: 'members/v1', findings };
+  if (!read.ok) { rethrowRunStop(read.error); return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(read.error), wixApiSurface: 'members/v1', findings }; }
   const matches = read.value.filter((m) => m && normalizeLoginEmailForCompare(m.loginEmail) === email);
   if (matches.length === 1) return { outcome: MO.RECONCILED_EXISTING, memberId: String(matches[0].id), contactId: matches[0].contactId ? String(matches[0].contactId) : null, matchedBy: 'loginEmail', findings };
   if (matches.length > 1) return { outcome: MO.RECONCILIATION_AMBIGUOUS, memberId: null, matchCount: matches.length, findings };
@@ -6342,7 +6401,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     let collided = false;
     for (const phone of phones) {
       const collision = await effectivePacer.read(() => queryContactsByPhone(wix, phone));
-      if (!collision.ok) return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(collision.error), wixApiSurface: 'contacts/v5', findings };
+      if (!collision.ok) { rethrowRunStop(collision.error); return { outcome: MO.TARGET_READ_FAILED, memberId: null, error: memberErrorFields(collision.error), wixApiSurface: 'contacts/v5', findings }; }
       if (collision.value.length > 0) {
         findings.push({ code: MF.PHONE_COLLISION_DROPPED, phoneDropped: true, existingContactId: String(collision.value[0].id) });
         collided = true;
@@ -6375,6 +6434,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     try {
       created = await attemptCreate();
     } catch (firstError) {
+      rethrowRunStop(firstError);
       if (String(firstError?.code || '').startsWith('target_operation_')) throw firstError;
       // Refused before sending: the same request would be refused again, and nothing landed.
       if (firstError?.requestSent === false) throw firstError;
@@ -6399,6 +6459,7 @@ async function ensureMember(wix, { loginEmail, contact = {}, knownMemberId = nul
     else if (later) findings.push({ code: MF.COMPANY_NOT_WRITTEN, status: null, requestSent: false, errorCode: 'no-contact-id' });
     return { outcome: MO.WRITTEN, memberId: String(member.id), contactId: member.contactId ? String(member.contactId) : null, findings };
   } catch (error) {
+    rethrowRunStop(error);
     // Local support refusals precede HTTP. Preserve the typed blocker for the operator;
     // retrying or recording an unknown Create Member outcome would invent a sent write.
     if (String(error?.code || '').startsWith('target_operation_')) throw error;
@@ -6472,15 +6533,17 @@ async function upsertMemberAbout(wix, { memberId, content } = {}) {
       try {
         written = (await wix.send(request)).memberAbout;
       } catch (error) {
+        rethrowRunStop(error);
         // Another write landed between the query and ours (ALREADY_EXISTS, INVALID_REVISION): query once more.
         if (attempt === 0 && error && error.status === 409 && ['ALREADY_EXISTS', 'INVALID_REVISION'].includes(error.applicationErrorCode)) continue;
         return failed(error);
       }
     }
-  } catch (error) { return failed(error); }
+  } catch (error) { rethrowRunStop(error); return failed(error); }
   if (!written || !written.id) return failed(new Error('member About write returned no id'));
   let read;
   try { read = (await wix.send(buildGetMemberAboutRequest(written.id))).memberAbout; } catch (error) {
+    rethrowRunStop(error);
     return { outcome: 'member-about-unverified', memberId, aboutId: written.id, error: { message: String(error && error.message).slice(0, 300), status: error && error.status } };
   }
   // Compared with the body actually sent.
@@ -7240,22 +7303,23 @@ async function importBookingsAddOn(wix, { addOn, serviceIds = [], groupName = BO
     // The crosswalk add-on with other values is drift (the source extra changed after import):
     // report it and write nothing, never mint a second add-on.
     try { const known = (await wix.send(buildGetBookingsAddOnRequest(knownAddOnId))).addOn; if (sameAddOn(known, wanted)) { id = known.id; matchedBy = 'crosswalk'; } else if (known?.id) return { outcome: 'target-drift', addOnId: known.id, findings }; else findings.push({ code: 'crosswalk-row-stale', knownAddOnId }); }
-    catch (error) { if (error?.status !== 404 || error.outcomeKnown === false) return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; findings.push({ code: 'crosswalk-row-stale', knownAddOnId }); }
+    catch (error) { rethrowRunStop(error); if (error?.status !== 404 || error.outcomeKnown === false) return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; findings.push({ code: 'crosswalk-row-stale', knownAddOnId }); }
   }
   const lookup = async () => ((await wix.send(buildQueryBookingsAddOnsRequest({ name: wanted.name }))).addOns || []).filter(found => sameAddOn(found, wanted));
   if (!id) {
     let matches;
-    try { matches = await lookup(); } catch (error) { return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; }
+    try { matches = await lookup(); } catch (error) { rethrowRunStop(error); return { outcome: 'target-read-failed', addOnId: null, error: bookingsWriteError(error), findings }; }
     if (matches.length > 1) return { outcome: 'reconciliation-ambiguous', addOnId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), findings };
     if (matches.length === 1) { id = matches[0].id; matchedBy = 'fields'; }
   }
   if (!id) {
     try { id = (await wix.send(buildCreateBookingsAddOnRequest(wanted))).addOn?.id || null; }
     catch (error) {
+      rethrowRunStop(error);
       if (localRefusal(error)) throw error;
       if (error?.outcomeKnown !== false) return { outcome: 'failed', addOnId: null, error: bookingsWriteError(error), findings };
       let matches = [];
-      try { matches = await lookup(); } catch { /* still unknown */ }
+      try { matches = await lookup(); } catch (error) { rethrowRunStop(error); /* still unknown */ }
       if (matches.length !== 1) return { outcome: 'unknown-outcome', addOnId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), error: bookingsWriteError(error), findings };
       id = matches[0].id; matchedBy = 'unknown-outcome-lookup';
     }
@@ -7283,7 +7347,7 @@ async function importBookingsAddOn(wix, { addOn, serviceIds = [], groupName = BO
 const addOnGroupLocks = new Map();
 function placeAddOnInServiceGroup(wix, options) {
   const previous = addOnGroupLocks.get(options.serviceId) || Promise.resolve();
-  const run = previous.catch(() => {}).then(() => placeAddOnInServiceGroupNow(wix, options));
+  const run = previous.catch((error) => { rethrowRunStop(error); }).then(() => placeAddOnInServiceGroupNow(wix, options));
   const settled = run.catch(() => {});
   addOnGroupLocks.set(options.serviceId, settled);
   settled.then(() => { if (addOnGroupLocks.get(options.serviceId) === settled) addOnGroupLocks.delete(options.serviceId); });
@@ -7380,17 +7444,18 @@ async function importBooking(wix, { booking, sourceStableKey, paymentStatus = nu
       if (matches.length > 1) return { outcome: 'reconciliation-ambiguous', bookingId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), findings };
       if (matches.length === 1) { current = matches[0]; matchedBy = 'external-key'; }
     }
-  } catch (error) { return { outcome: 'target-read-failed', bookingId: null, error: bookingsWriteError(error), findings }; }
+  } catch (error) { rethrowRunStop(error); return { outcome: 'target-read-failed', bookingId: null, error: bookingsWriteError(error), findings }; }
   if (current && !bookingMatches(current, booking)) return { outcome: 'target-drift', bookingId: current.id, matchedBy, findings };
   const payload = await withAddOnGroups(wix, booking, findings);
   if (payload.error) return { outcome: 'failed', bookingId: null, error: payload.error, findings };
   if (!current) {
     try { current = (await wix.send(buildCreateBookingRequest({ booking: payload.booking, externalKey, confirmLater: paymentStatus !== null }))).booking || null; }
     catch (error) {
+      rethrowRunStop(error);
       if (localRefusal(error)) throw error;
       if (error?.outcomeKnown !== false) return { outcome: 'failed', bookingId: null, error: bookingsWriteError(error), findings };
       let matches = [];
-      try { matches = await read({ externalUserId: externalKey }); } catch { /* still unknown */ }
+      try { matches = await read({ externalUserId: externalKey }); } catch (error) { rethrowRunStop(error); /* still unknown */ }
       if (matches.length !== 1) return { outcome: 'unknown-outcome', bookingId: null, matchCount: matches.length, candidateIds: matches.map(row => row.id), error: bookingsWriteError(error), findings };
       current = matches[0]; matchedBy = 'unknown-outcome-lookup';
     }
@@ -7411,6 +7476,7 @@ async function importBooking(wix, { booking, sourceStableKey, paymentStatus = nu
     if (!final || final.status !== expectStatus || (paymentStatus !== null && final.paymentStatus !== paymentStatus)) return { outcome: 'read-back-mismatch', bookingId: id, status: final?.status ?? null, paymentStatus: final?.paymentStatus ?? null, findings };
     return { outcome: matchedBy ? 'reconciled-existing' : 'written', bookingId: id, ...(matchedBy ? { matchedBy } : {}), status: final.status, paymentStatus: final.paymentStatus, findings };
   } catch (error) {
+    rethrowRunStop(error);
     if (localRefusal(error)) throw error;
     // The booking exists; only a later step failed. A re-run resumes from the crosswalk id.
     return { outcome: 'partially-written', bookingId: id, status: current?.status ?? null, error: bookingsWriteError(error), findings };
@@ -7424,7 +7490,7 @@ async function withAddOnGroups(wix, booking, findings) {
   if (!rows.length) return { booking };
   const serviceId = booking.bookedEntity.slot?.serviceId || booking.bookedEntity.schedule?.serviceId;
   let groups;
-  try { groups = await listBookingsAddOnGroups(wix, serviceId); } catch (error) { return { error: bookingsWriteError(error) }; }
+  try { groups = await listBookingsAddOnGroups(wix, serviceId); } catch (error) { rethrowRunStop(error); return { error: bookingsWriteError(error) }; }
   if (!groups.length) return { error: { message: `service ${serviceId} has no add-on group to attach booked add-ons to`, code: 'booked-add-on-group-missing', outcomeKnown: true } };
   const bookedAddOns = rows.map(row => {
     const holding = groups.find(group => (group.addOns || []).some(item => item.addOnId === row.id));
@@ -7471,10 +7537,6 @@ function formFieldTarget(target) {
 const formsSleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // The pause and the restore are best-effort: only a run stop (signal, token expiry) escapes them.
 // A refused or failed call is recorded, and the entries go ahead.
-function rethrowRunStop(error) {
-  if (require('../../../lib/wix-auth').isRunInterruption(error)) throw error;
-}
-
 // A GUID-shaped, lowercase id derived from a seed, so a retried create builds the same schema.
 function deterministicFieldId(seed) {
   const h = crypto.createHash('sha256').update(String(seed)).digest('hex');
@@ -8694,7 +8756,8 @@ function buildGetCmsDataItemRequest(collectionId, id) {
 }
 function buildGetStoresCatalogVersionRequest() { return markRequest({ method: 'GET', url: `${WIXAPIS}/stores/v3/provision/version` }, { read: true }); }
 async function ensureCmsCollection(wix, collection) {
-  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/collections`, body: { collection } }, { setupOperation: 'ensure-cms-collection' }));
+  const definition = normalizeCmsCollectionDefinition(collection);
+  return wix.send(markRequest({ method: 'POST', url: `${WIXAPIS}/wix-data/v2/collections`, body: { collection: definition } }, { setupOperation: 'ensure-cms-collection' }));
 }
 async function ensureBlogFallbackAuthor(wix, payload) {
   return (await wix.send(markRequest(_buildCreateMemberRequest(payload), { setupOperation: 'blog-fallback-author' }))).member;
@@ -8728,6 +8791,7 @@ async function createStoresBrand(wix, payload) {
   try {
     return { outcome: 'created', brand: (await wix.send(buildCreateStoresBrandRequest(payload))).brand };
   } catch (error) {
+    rethrowRunStop(error);
     if (!alreadyExists(error)) throw error;
     const found = ((await wix.send(buildQueryStoresBrandsRequest({ filter: { name: payload.brand.name } }))).brands || []).filter(row => row.name === payload.brand.name);
     if (found.length !== 1) throw Object.assign(new Error(`brand "${payload.brand.name}" exists but could not be resolved to one id`), { code: 'BRAND_EXISTS_UNRESOLVED', outcomeKnown: true });
@@ -8757,6 +8821,7 @@ async function createStoresCustomization(wix, payload) {
   try {
     return { outcome: 'created', customization: (await wix.send(buildCreateStoresCustomizationRequest(payload))).customization };
   } catch (error) {
+    rethrowRunStop(error);
     if (!alreadyExists(error)) throw error;
     const c = payload.customization;
     const found = ((await wix.send(buildQueryStoresCustomizationsRequest({ filter: { name: c.name } }))).customizations || [])
@@ -8837,15 +8902,16 @@ async function createStoresPromotion(wix, { promotion, imageUrl }, { mediaTries,
   }
   const file = await importMedia(wix, { sourceUrl: imageUrl, mediaType: 'IMAGE' });
   let ready = null;
-  try { ready = file?.id ? await readyMediaFile(wix, file.id, { tries: mediaTries, delayMs: mediaDelayMs }) : null; } catch (error) { if (error?.code !== 'MEDIA_IMPORT_FAILED') throw error; }
+  try { ready = file?.id ? await readyMediaFile(wix, file.id, { tries: mediaTries, delayMs: mediaDelayMs }) : null; } catch (error) { rethrowRunStop(error); if (error?.code !== 'MEDIA_IMPORT_FAILED') throw error; }
   if (!ready) return { outcome: 'image-failed', promotion: null, imageUrl, fileId: file?.id || null };
   let created;
   try {
     created = (await wix.send(buildCreateStoresPromotionRequest({ promotion: { ...promotion, media: { id: ready.id } } }))).promotion;
   } catch (error) {
+    rethrowRunStop(error);
     if (error?.outcomeKnown !== false || error?.requestSent === false) throw error;
     let found = [];
-    try { found = await findStoresPromotions(wix, promotion); } catch { /* still unknown */ }
+    try { found = await findStoresPromotions(wix, promotion); } catch (readError) { rethrowRunStop(readError); /* still unknown */ }
     if (!found.length) throw error;
     return adoptStoresPromotion(wix, found, imageUrl);
   }
@@ -8889,13 +8955,14 @@ const backInStockKey = r => [String(r?.email || '').toLowerCase(), r?.catalogRef
 async function createBackInStockRequest(wix, { notified = false, knownRequestId = null, ...payload }) {
   let request, outcome = 'created';
   if (knownRequestId) {
-    try { request = (await wix.send(buildGetBackInStockRequestRequest(knownRequestId))).request || null; } catch (error) { if (error?.status !== 404) throw error; }
+    try { request = (await wix.send(buildGetBackInStockRequestRequest(knownRequestId))).request || null; } catch (error) { rethrowRunStop(error); if (error?.status !== 404) throw error; }
     if (request && backInStockKey(request) !== backInStockKey(payload.request)) request = null;
     if (request) outcome = 'reused';
   }
   if (!request) try {
     request = (await wix.send(buildCreateBackInStockRequest(payload))).request;
   } catch (error) {
+    rethrowRunStop(error);
     if (error?.applicationErrorCode === 'REQUEST_COLLECTION_DISABLED') throw Object.assign(error, { code: 'BACK_IN_STOCK_COLLECTION_DISABLED', setupStep: 'start-back-in-stock-collection' });
     if (!alreadyExists(error)) throw error;
     const key = backInStockKey(payload.request);
@@ -8907,9 +8974,10 @@ async function createBackInStockRequest(wix, { notified = false, knownRequestId 
     try {
       request = (await wix.send(buildMarkBackInStockNotificationSentRequest(request.id))).request;
     } catch (error) {
+      rethrowRunStop(error);
       if (error?.requestSent === false || error?.outcomeKnown !== false) throw Object.assign(error, { requestId: request.id });
       let read = null;
-      try { read = (await wix.send(buildGetBackInStockRequestRequest(request.id))).request; } catch { /* still unknown */ }
+      try { read = (await wix.send(buildGetBackInStockRequestRequest(request.id))).request; } catch (readError) { rethrowRunStop(readError); /* still unknown */ }
       if (read?.status !== 'NOTIFICATION_SENT') return { outcome: 'mark-unverified', request: read || request, requestId: request.id };
       request = read;
     }
@@ -8955,6 +9023,7 @@ async function createStoresReviews(wix, { records, readinessGrant }) {
       const request = buildBulkCreateReviewsRequest(chunk.map(row => row.review));
       response = await wix.send(readinessGrant ? withBulkReadinessGrant(request, { readinessGrant, sourceStableKeys: chunk.map(row => row.sourceStableKey) }) : request);
     } catch (error) {
+      rethrowRunStop(error);
       // One chunk's failure never hides the reviews earlier chunks created; a request that left
       // may have written, so its rows are unknown rather than failed.
       const sent = error?.requestSent !== undefined || error?.status !== undefined || error?.outcomeKnown !== undefined;
@@ -8978,13 +9047,13 @@ async function createStoresReviews(wix, { records, readinessGrant }) {
 async function moderateStoresReviews(items, { tries = 5, delayMs = 2000 } = {}) {
   const results = new Map(), pending = [];
   for (const item of items) {
-    try { await item.wix.send(buildModerateReviewRequest(item)); pending.push(item); } catch (error) { results.set(item, { outcome: 'moderation-failed', reviewId: item.reviewId, status: item.status, error }); }
+    try { await item.wix.send(buildModerateReviewRequest(item)); pending.push(item); } catch (error) { rethrowRunStop(error); results.set(item, { outcome: 'moderation-failed', reviewId: item.reviewId, status: item.status, error }); }
   }
   for (let round = 0; round < tries && pending.length; round++) {
     if (round) await pauseFor(pending[0].wix)(delayMs);
     for (const item of [...pending]) {
       let review;
-      try { review = (await item.wix.send(buildGetReviewRequest(item.reviewId))).review; } catch { continue; } // stays pending, unconfirmed at the end
+      try { review = (await item.wix.send(buildGetReviewRequest(item.reviewId))).review; } catch (error) { rethrowRunStop(error); continue; } // stays pending, unconfirmed at the end
       if (review?.moderation?.moderationStatus === item.status) { results.set(item, { outcome: 'moderated', reviewId: item.reviewId, review }); pending.splice(pending.indexOf(item), 1); }
     }
   }
@@ -9025,22 +9094,23 @@ function recordOwnReview(wix, request, reviewId) {
 async function setStoresReviewReply(wix, { reviewId, message } = {}) {
   let request;
   try { request = buildSetStoresReviewReplyRequest({ reviewId, message }); }
-  catch (error) { return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: { code: error.code || 'review_reply_invalid', message: error.message } }; }
+  catch (error) { rethrowRunStop(error); return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: { code: error.code || 'review_reply_invalid', message: error.message } }; }
   const read = async () => (await wix.send(buildGetReviewRequest(reviewId))).review || null;
   let before;
-  try { before = await read(); } catch (error) { if (error.requestSent === false) throw error; if (error.status === 404 && error.outcomeKnown !== false) return { outcome: 'review-not-found', reviewId }; return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: memberErrorFields(error) }; }
+  try { before = await read(); } catch (error) { rethrowRunStop(error); if (error.requestSent === false) throw error; if (error.status === 404 && error.outcomeKnown !== false) return { outcome: 'review-not-found', reviewId }; return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: memberErrorFields(error) }; }
   if (!before) return { outcome: 'review-not-found', reviewId };
   if (before._dryRunPlaceholder) { await wix.send(request); return { outcome: 'dry-run', reviewId }; }
   if (before.reply?.message === message) return { outcome: 'already-present', reviewId, review: before };
   let error = null;
   try { await wix.send(request); }
   catch (caught) {
+    rethrowRunStop(caught);
     if (caught.requestSent === false) return { outcome: 'not-sent', reviewId, requestSent: false, outcomeKnown: true, error: { code: caught.code || null, message: String(caught.message).slice(0, 300) } };
     if (caught.outcomeKnown !== false) return { outcome: 'failed', reviewId, requestSent: true, outcomeKnown: true, error: memberErrorFields(caught) };
     error = memberErrorFields(caught);
   }
   let after = null;
-  try { after = await read(); } catch { after = null; }
+  try { after = await read(); } catch (error) { rethrowRunStop(error); after = null; }
   return after?.reply?.message === message ? { outcome: 'verified', reviewId, review: after, ...(before.reply?.message ? { replacedReply: before.reply.message } : {}) } : { outcome: 'unverified', reviewId, requestSent: true, outcomeKnown: false, ...(error ? { error } : {}) };
 }
 // After ALREADY_EXISTS: the visible review by this author on this product, if exactly one.
@@ -9050,6 +9120,7 @@ async function findStoresReview(wix, { entityId, contactId }) {
 }
 
 module.exports = {
+  requestMark,
   normalizeV5AddressItem, V5_ADDRESS_ITEM_KEYS, withReadinessGrant, withBulkReadinessGrant, bindRecordClient, admitSavedProductTarget, validReadBackEvidence, buildBoundedReadRequest, buildQueryBlogCategoriesRequest, captureSetupReferenceBindings, registerQuickInventoryScope, registerImportInventoryScope, buildQueryInventoryLocationsRequest, buildQueryInventoryItemsRequest, buildBulkInventoryItemsRequest,
   buildListStoresProductTagsRequest, buildCreateStoresProductTagRequest, buildListCmsCollectionsRequest, buildGetCmsCollectionRequest, buildGetCmsDataItemRequest, buildGetStoresCatalogVersionRequest, ensureCmsCollection, ensureBlogFallbackAuthor,
   WIXAPIS,

@@ -125,6 +125,13 @@ Do not read it with whole-file commands that print its contents into tool output
 only whether the file exists and whether each required key is present/blank/missing; when
 describing status, name keys only and never echo values.
 
+Always load this file with the toolkit parser (`lib/config-env.js`'s `readEnvFile`, directly
+or through `wp-discovery.js --env-file`). Never bash-`source` it: quoted Application
+Passwords can contain spaces and shell metacharacters, and shell loading can silently alter
+the credential. If a source request returns HTTP 401, re-run the parser-backed status check
+before asking the user to refresh or provide credentials; ask only when the parser reports a
+missing/blank/placeholder key or parser-loaded credentials still fail authentication.
+
 1. Run the deterministic capture script **from this skill's directory** (the folder
    containing this `SKILL.md`; see `CONVENTIONS.md`):
 
@@ -134,8 +141,9 @@ describing status, name keys only and never echo values.
 
    It walks the REST index, runs one `OPTIONS` + a small `GET` sample per entity, and
    writes per-entity markdown (routes, schemas, sample records, record counts,
-   relationships). `--env-file` is the preferred launch path for project-local
-   credential-bearing config because it avoids shell sourcing of secret-bearing files.
+   relationships). `--env-file` is the required launch path for project-local
+   credential-bearing config because it loads values with the toolkit parser and avoids shell
+   sourcing of secret-bearing files.
    Pass direct auth options only when there is no project-local config yet.
    For long runs, pass `--progress-log <path>` and poll it per
    `CONVENTIONS.md#progress-log-polling`.
@@ -1032,7 +1040,7 @@ the settings JSON onto `buildSourceRegional`:
 | Neutral field | WordPress / WooCommerce source | Rule |
 | --- | --- | --- |
 | `paymentCurrency` | `woocommerce_currency` from `wc/v3/settings/general` (`readStoreCurrency`; the `data/store-settings-general.json` capture is reused) | never read from an order |
-| `timeZone` | `wp/v2/settings` `timezone` (`timezone_string`) | a site on a fixed `gmt_offset` has no zone: `unknown` / `not-exposed`, never an offset |
+| `timeZone` | `wp/v2/settings` `timezone` (`timezone_string`), else the REST index `timezone_string` | a site on a fixed `gmt_offset` has no zone, and an offset is never sent: a store country with one zone gets that zone (IL → `Asia/Jerusalem`, even when the offset disagrees); a multi-zone country gets its one zone using the offset. An inferred zone is `supplied` by `discovery-inference` with its basis. When no single zone fits, the field is `unknown` (`ambiguous` / `not-exposed`) with `inference.basis: unresolved`, the offset and the reason, and setup keeps the site's own zone (`kept-site-default`). Either way setup raises a cutover task to confirm the site time zone. Never asked mid-run |
 | `language`, `locale` | `wp/v2/settings` `language` tag plus `woocommerce_default_country` | `he_IL` → language `he`, locale `he-IL`; otherwise the country part before the colon supplies the region |
 
 Per-order currency counts remain WooCommerce adapter evidence and do not enter the neutral locale record.

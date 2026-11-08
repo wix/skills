@@ -68,13 +68,8 @@ async function runFieldMappingExamples({ projectDir, plan, mappingPlanDigest, ex
         const output=decision.outputs.find(o=>o.id===expected.outputId);
         if (!output || expected.writeOperation!==output.writeOperation) throw new Error('example expectation must bind an approved output and operation');
         const boundPath=`${output.writeInput}.${output.targetPath}`;
-        // A writer that sends its input unwrapped (Import Media {url,...}; Bulk Add Item To
-        // Categories {item,categoryIds,...}) has no writeInput key in the body: targetPath is then the
-        // body path. Only when the body has the target field's own root, so a wrong wrapper still fails.
-        const rootOf=p=>String(p).split(/[.[]/)[0];
-        const pathIn=body=>body && typeof body==='object' && !Array.isArray(body) && !Object.hasOwn(body,rootOf(output.writeInput)) && Object.hasOwn(body,rootOf(output.targetPath)) ? output.targetPath : boundPath;
         const matching=captures.filter(c=>c.operation===output.writeOperation);
-        const actual=matching.flatMap(c=>readValues(c.body,pathIn(c.body)));
+        const actual=matching.flatMap(c=>readValues(c.body,boundPath));
         const expectedValues=expected.values || (Object.hasOwn(expected,'value')?[expected.value]:[]);
         const passed=!error && (expected.noWrite===true ? matching.length===0 && expected.findingCodes?.length>0 : expected.omitted===true ? matching.length>0 && actual.every(v=>v===undefined) : actual.length>0 && actual.every(v=>v!==undefined) && canonical(actual)===canonical(expectedValues)) &&
           (expected.findingCodes || []).every(code=>findings.some(f=>f.code===code));

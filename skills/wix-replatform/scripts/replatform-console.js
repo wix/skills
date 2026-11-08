@@ -75,7 +75,7 @@ function launch(project, args) {
 function runArgs(project, options, resume = false) {
   const args = [resume ? 'resume' : 'run', projectPath(project), '--format', 'jsonl'];
   if (resume) return args;
-  const pick = [['sourceUrl', '--source-url'], ['sourceMode', '--source-mode'], ['deliveryMode', '--delivery-mode'], ['destination', '--destination'], ['managementImportMode', '--management-import-mode'], ['agent', '--agent'], ['wallTimeout', '--wall-timeout'], ['idleTimeout', '--idle-timeout'], ['statusInterval', '--status-interval']];
+  const pick = [['sourceUrl', '--source-url'], ['sourceMode', '--source-mode'], ['deliveryMode', '--delivery-mode'], ['destination', '--destination'], ['managementImportMode', '--management-import-mode'], ['agent', '--agent'], ['wallTimeout', '--wall-timeout'], ['idleTimeout', '--idle-timeout'], ['workerStartupTimeout', '--worker-startup-timeout'], ['statusInterval', '--status-interval']];
   for (const [key, flag] of pick) if (options[key] !== undefined && options[key] !== '') args.push(flag, String(options[key]));
   for (const name of options.files || []) { if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/.test(name)) throw new Error('invalid uploaded file name'); args.push('--file', path.join(projectPath(project), 'intake', name)); }
   if (options.oneClick) args.push('--one-click'); if (options.dryRun) args.push('--dry-run'); return args;

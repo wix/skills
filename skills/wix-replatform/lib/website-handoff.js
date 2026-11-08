@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { readEnvFile } = require('./config-env.js');
-const { getDecisionValue, isExplicitUserOneClick } = require('./orchestration-decisions.js');
+const { getDecisionValue, getEffectiveDeliveryMode, isExplicitUserOneClick } = require('./orchestration-decisions.js');
 const { hashArtifact } = require('./artifact-freshness.js');
 const { appendExecutionLog } = require('./execution-log.js');
 const { emptyPermanentLossesLine, handoffVoucherSignal } = require('./completion-report.js');
@@ -701,7 +701,7 @@ async function generateWebsiteHandoff(projectDir) {
   const linkAudit = await readLinkAudit(projectDir);
 
   const deliveryMode = firstNonEmptyString(
-    getDecisionValue(decisions || {}, 'deliveryMode'),
+    getEffectiveDeliveryMode(decisions || {}),
     wixEnv.WIX_DELIVERY_MODE,
   );
   if (!deliveryMode) {
@@ -1102,12 +1102,6 @@ function renderPostExecutionHandoff(handoff) {
   if (acceptedRows.length) section(lines, 'Accepted Stage Outcomes', acceptedRows, residualLine);
   section(lines, 'Fields Dropped For The Destination', handoff.droppedFields, (row) =>
     `- ${row.entity}.${row.field}: ${row.recordCount} records (${row.reasonCode})`);
-  if (handoff.keptForReference) {
-    const k = handoff.keptForReference;
-    lines.push('', '## Kept For Reference', '', `- ${k.collectionName} (CMS collection \`${k.collectionId}\`): ${k.totalItems} items. Not used by the live site; informational, no action needed to go live.`, `- How to find a record: ${k.howToFind}`);
-    for (const row of k.entities || []) lines.push(`- ${row.sourceEntity}: ${row.recordsArchived} records in ${row.items} items${(row.groups || []).length ? `; ${row.groups.join(', ')}` : ''}`);
-    for (const task of k.optionalTasks || []) lines.push(`- ${task.title} (optional; the owner decides). ${task.action}`, `  - If the owner asks: ${task.importOperatorPrompt}`);
-  }
 
   if (handoff.mappingSummary) {
     lines.push('', '## Field mapping scope and gaps', '',
@@ -1214,8 +1208,6 @@ async function generatePostExecutionHandoff(projectDir, { runId = null, appendLo
     // are per-record work the Cutover owner must see; copied through, never recounted.
     stageResiduals: ensureArray(completionReport.stageResiduals),
     droppedFields: ensureArray(completionReport.droppedFields),
-    // What the source archive kept for reference; copied through, never recounted.
-    ...(completionReport.keptForReference ? { keptForReference: completionReport.keptForReference } : {}),
     unexplainedShortfalls: ensureArray(completionReport.unexplainedShortfalls),
     // Copied through from the joined report, never re-derived.
     ...(Array.isArray(completionReport.sourceCoverage)

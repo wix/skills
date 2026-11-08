@@ -32,6 +32,7 @@ const verification = require('../lib/url-verification.js');
 const reportLib = require('../lib/url-preservation-report.js');
 const importedTargets = require('../lib/imported-redirect-targets.js');
 const { readEnvFile } = require('../lib/config-env.js');
+const wixAuth = require('../lib/wix-auth.js');
 
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
@@ -77,11 +78,11 @@ function siteIdOf(inputs, env) {
   return (inputs.finalRoutes && inputs.finalRoutes.siteId) || (inputs.launchPlan && inputs.launchPlan.siteId) || (env && env.WIX_SITE_ID) || 'unbound-site';
 }
 
-function readClientFrom(env) {
+function readClientFrom(env, projectDir) {
   const { createWixClient } = require('../resources/rp-target-wix/lib/wix-writers.js');
   const token = env.WIX_API_KEY || env.WIX_AUTH_TOKEN || env.WIX_REDIRECTS_APP_TOKEN;
   if (!token || !env.WIX_SITE_ID) throw new Error('--wix-env needs WIX_SITE_ID and WIX_API_KEY or WIX_AUTH_TOKEN');
-  return createWixClient({ authToken: token, siteId: env.WIX_SITE_ID });
+  return createWixClient({ authToken: token, siteId: env.WIX_SITE_ID, ...(projectDir ? { projectDir } : {}) });
 }
 
 function writeCredentialFrom(env) {
@@ -128,7 +129,7 @@ async function main() {
     if (!args['wix-env']) throw new Error('retire-import-plan needs --wix-env for a current destination inventory');
     const env = await readEnvFile(path.resolve(args['wix-env']));
     const seo = require('../resources/rp-target-wix/lib/seo-redirects.js');
-    const targetInventory = await seo.listWithBackoff(readClientFrom(env), {
+    const targetInventory = await seo.listWithBackoff(readClientFrom(env, projectDir), {
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
     const retired = await importedTargets.retireImportedPlan({ projectDir,
@@ -171,12 +172,13 @@ async function main() {
   let inventoryError = null;
   let readClient = null;
   if (env && (args.mode === 'plan' || args.mode === 'apply')) {
-    readClient = readClientFrom(env);
+    readClient = readClientFrom(env, projectDir);
     if (env.WIX_SITE_ID !== siteId) throw new Error('WIX_SITE_ID does not match the destination site in final-routes.json/launch-plan.json');
     const seo = require('../resources/rp-target-wix/lib/seo-redirects.js');
     try {
       inventory = await seo.listWithBackoff(readClient, { sleep: (ms) => new Promise((r) => setTimeout(r, ms)) });
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       if (args.mode !== 'apply') throw error;
       inventoryError = error;
     }
@@ -202,7 +204,7 @@ async function main() {
     let writeClient = null;
     if (!seo.credentialProblem(credential, plan.siteId)) {
       const { createWixClient } = require('../resources/rp-target-wix/lib/wix-writers.js');
-      writeClient = createWixClient({ authToken: credential.token, siteId: credential.siteId });
+      writeClient = createWixClient({ authToken: credential.token, siteId: credential.siteId, projectDir });
     }
     const result = await seo.applyRedirectPlan({
       projectDir,

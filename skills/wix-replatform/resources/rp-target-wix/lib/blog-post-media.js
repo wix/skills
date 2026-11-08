@@ -1,5 +1,7 @@
 'use strict';
 
+const wixAuth = require('../../../lib/wix-auth.js');
+
 // rp-target-wix — blog post media: the cover (WordPress `featured_media`) and inline images.
 //
 // A blog importer that never resolves a WordPress image reference to a Wix file id ships posts
@@ -381,6 +383,7 @@ async function importAndConfirmPostMedia(wix, { post, richContent, state, fetchF
         wpId: item.wpMediaId != null ? item.wpMediaId : undefined,
       });
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       item.outcome = 'import-rejected';
       item.reason = errorText(error);
       await state.appendMedia(mediaRow(post, item, item.outcome, { reason: item.reason }));
@@ -407,6 +410,7 @@ async function importAndConfirmPostMedia(wix, { post, richContent, state, fetchF
         return { item, outcome: 'not-ready', reason: 'cover is READY but has no non-zero sizeInBytes' };
       return { item, outcome: 'not-ready', reason: 'still PENDING when the settle window ended' };
     } catch (error) {
+      if (wixAuth.isRunInterruption(error)) throw error;
       if (error && error.code === 'MEDIA_IMPORT_FAILED') return { item, outcome: 'failed', reason: 'Wix reported the import FAILED' };
       return { item, outcome: 'status-unknown', reason: `reading the file status failed: ${errorText(error)}` };
     }
@@ -469,7 +473,7 @@ async function importMissingLegacyInline(wix, post, item, row, state, settle) {
     // A rejected import is recorded like a new post's (import-rejected) and leaves the post pending;
     // it never escapes the media stage.
     try { file = await writers.importMedia(wix, { sourceUrl: item.sourceUrl, displayName: displayNameFor(item.sourceUrl), mediaType: 'IMAGE' }); }
-    catch (error) { await state.appendMedia(mediaRow(post, item, 'import-rejected', { reason: errorText(error) })); return row; }
+    catch (error) { if (wixAuth.isRunInterruption(error)) throw error; await state.appendMedia(mediaRow(post, item, 'import-rejected', { reason: errorText(error) })); return row; }
     if (!file || !file.id) { await state.appendMedia(mediaRow(post, item, 'import-rejected', { reason: 'import response carried no file id' })); return row; }
     fileId = String(file.id);
     await state.appendMedia(mediaRow(post, item, 'imported', { fileId }));
@@ -480,6 +484,7 @@ async function importMissingLegacyInline(wix, post, item, row, state, settle) {
     await state.appendMedia(mediaRow(post, item, outcome, { fileId, sizeInBytes: ready ? ready.sizeInBytes : null, reason: ready ? null : 'still PENDING when the settle window ended' }));
     return { outcome, fileId, sizeInBytes: ready ? ready.sizeInBytes : null };
   } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     const outcome = error && error.code === 'MEDIA_IMPORT_FAILED' ? 'failed' : 'status-unknown';
     await state.appendMedia(mediaRow(post, item, outcome, { fileId: outcome === 'failed' ? null : fileId, reason: errorText(error) }));
     return row;

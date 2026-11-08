@@ -20,10 +20,22 @@ async function gatedEntities(projectDir) {
     if (e.code === 'ENOENT') return [];
     throw e;
   }
+  const plan = await state.readJson(projectDir, 'mapping/mapping-plan.json', {});
+  const exact = plan.fieldContractVersion === 1 ? require('./mapping-field-contract') : null;
+  const rows = exact ? exact.entityRows(plan) : [];
+  const resolved = exact && new Set(plan.executionScope?.resolvedEntityRefs || []);
   const result = [];
-  for (const name of files) if (name.endsWith('.json') && Object.hasOwn(contract.DOMAINS, name.slice(0, -5))) {
+  const candidates = exact
+    ? Object.keys(contract.DOMAINS).map(entity => ({ entity, name: contract.decisionFileName(projectDir, entity) }))
+    : files.filter(name => name.endsWith('.json') && Object.hasOwn(contract.DOMAINS, name.slice(0, -5)))
+      .map(name => ({ entity: name.slice(0, -5), name }));
+  for (const { entity, name } of candidates) if (files.includes(name)) {
     const d = await state.readJson(projectDir, `mapping/entity-decisions/${name}`);
-    if (d.readBackContract) result.push(name.slice(0, -5));
+    const row = exact && rows.find(candidate => exact.entityKeyMatches(candidate, entity));
+    // A deferred or excluded exact-mapping entity is a cutover gap, not a read-back
+    // gate input. Its inventory is intentionally absent; only resolved writers need
+    // inventory validation and acknowledgement.
+    if (d.readBackContract && (!exact || row && resolved.has(exact.entityRef(row)))) result.push(entity);
   }
   return result.sort();
 }
@@ -43,16 +55,16 @@ async function applyApproval(projectDir, request, answer, {
     const exact=require('./mapping-omission-approval');
     const plan=type==='mapping' ? await state.readJson(projectDir,'mapping/mapping-plan.json',{}) : {};
     let entities = type === 'mapping' ? await gatedEntities(projectDir) : [];
-    if (plan.fieldContractVersion===1) entities=entities.filter(name=>require('./mapping-field-contract').entityRows(plan).some(row=>row.sourceEntity===name && plan.executionScope?.resolvedEntityRefs?.includes(require('./mapping-field-contract').entityRef(row))));
+    if (plan.fieldContractVersion===1) entities=entities.filter(name=>require('./mapping-field-contract').entityRows(plan).some(row=>require('./mapping-field-contract').entityKeyMatches(row,name) && plan.executionScope?.resolvedEntityRefs?.includes(require('./mapping-field-contract').entityRef(row))));
     const omissionRows=plan.fieldContractVersion===1 ? exact.candidates(plan) : [];
     let hasOmissions=omissionRows.length>0;
     if (status==='approved' && omissionRows.length && !require('./mapping-field-contract').compareMappingProjections(projectDir,plan).ok) throw new Error('omission projections must match canonical authority');
     const bindingDigests = {};
     if (status === 'approved') for (const entity of entities) {
       Object.assign(bindingDigests, contract.bindings(projectDir, entity));
-      const decision = await state.readJson(projectDir, `mapping/entity-decisions/${entity}.json`);
+      const decision = await state.readJson(projectDir, `mapping/entity-decisions/${contract.decisionFileName(projectDir, entity)}`);
       const omissions = (decision.fieldDispositions || []).filter(d => d.status === 'notMigrated');
-      const canonicalRow=plan.fieldContractVersion===1 ? require('./mapping-field-contract').entityRows(plan).find(row=>row.sourceEntity===entity) : null;
+      const canonicalRow=plan.fieldContractVersion===1 ? require('./mapping-field-contract').entityRows(plan).find(row=>require('./mapping-field-contract').entityKeyMatches(row,entity)) : null;
       hasOmissions ||= canonicalRow ? exact.omissions(canonicalRow).length>0 : omissions.length>0;
       const gate = await state.load(projectDir);
       const history = [...gate.observedLosses, ...Object.values(gate.runs).flatMap(r => Object.values(r.entities || {}).flatMap(e => [...(e.attemptedPaths || []), ...(e.settlements || []).filter(x => x.status !== 'passed')]))];

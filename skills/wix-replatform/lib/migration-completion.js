@@ -61,7 +61,7 @@ async function readMappedEntities(projectDir, managementImportMode) {
 // This compatibility receipt test deliberately uses only the original receipt fields.
 // Later finalization requirements cannot prove that a legacy run really finished.
 async function classifyFinalizedRun(projectDir, { decisions = {}, receiptFile = COMPLETION_FILE } = {}) {
-  const { getDecisionValue } = require('./orchestration-decisions.js');
+  const { getDecisionValue, getEffectiveDeliveryMode } = require('./orchestration-decisions.js');
   const receiptPath = path.join(projectDir, receiptFile);
   try { await fs.access(receiptPath); } catch (error) { if (error.code === 'ENOENT') return { kind: 'none', errors: [] }; throw error; }
   const [receipt, report] = await Promise.all([readJsonTolerant(receiptPath), readJsonTolerant(path.join(projectDir, BACKEND_COMPLETION_FILE))]);
@@ -74,7 +74,7 @@ async function classifyFinalizedRun(projectDir, { decisions = {}, receiptFile = 
   if (!object || receipt.schemaVersion !== 1) errors.push('schemaVersion');
   if (!object || !BACKEND_COMPLETE_STATUSES.has(receipt.status)) errors.push('status');
   if (typeof receipt?.finalizedAt !== 'string' || !Number.isFinite(Date.parse(receipt.finalizedAt))) errors.push('finalizedAt');
-  const mode = getDecisionValue(decisions, 'deliveryMode');
+  const mode = getEffectiveDeliveryMode(decisions);
   if (!['management','management_and_website'].includes(mode) || receipt?.deliveryMode !== mode) errors.push('deliveryMode');
   if (receipt?.backendCompletion !== BACKEND_COMPLETION_FILE) errors.push('backendCompletion');
   if (mode === 'management_and_website') {

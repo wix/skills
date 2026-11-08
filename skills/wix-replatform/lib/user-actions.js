@@ -189,17 +189,33 @@ async function listUserActions(projectDir, { status = null } = {}) {
   return status ? rows.filter((row) => row.status === status) : rows;
 }
 
+// Cutover actions remain open for the Cutover Operator, but they are not a reason to
+// interrupt import routing. Keep this predicate shared by every pending-action consumer so
+// the router, supervisor, and status surface agree while `listUserActions` still exposes them.
+function isCutoverUserAction(request) {
+  return request?.stage === 'cutover' || request?.kind === 'cutover';
+}
+
+// Read the same blocking set for every consumer that can stop import progress. The public
+// list remains unfiltered so cutover work stays visible and answerable.
+async function listPendingBlockingUserActions(projectDir) {
+  const rows = await listUserActions(projectDir, { status: 'pending' });
+  const requests = [];
+  for (const row of rows) {
+    const request = await readUserAction(projectDir, row.requestId);
+    if (!isCutoverUserAction(request)) requests.push(request);
+  }
+  return requests;
+}
+
 // Shared by interactive routing and the CLI supervisor. Do not turn an unreadable
 // request/index into permission to proceed, and never ask for an answer we will reject.
 async function pendingUserActionGate(projectDir) {
   try {
-    const rows = await listUserActions(projectDir, { status: 'pending' });
-    if (!rows.length) return null;
-    const requests = [];
+    const requests = await listPendingBlockingUserActions(projectDir);
+    if (!requests.length) return null;
     const stale = [];
-    for (const row of rows) {
-      const request = await readUserAction(projectDir, row.requestId);
-      requests.push(request);
+    for (const request of requests) {
       if (staleArtifactRefs(projectDir, request).length) stale.push(request.requestId);
     }
     if (stale.length) return { route: {
@@ -208,7 +224,7 @@ async function pendingUserActionGate(projectDir) {
     } };
     return { request: requests[0], route: {
       ok: true, nextState: 'awaiting_user_action', nextResource: null,
-      reason: 'pending_user_action', blocking: true, requestIds: rows.map((row) => row.requestId),
+      reason: 'pending_user_action', blocking: true, requestIds: requests.map((request) => request.requestId),
     } };
   } catch {
     // JSON parse errors can include artifact content. Expose a stable code, never that text.
@@ -339,10 +355,12 @@ module.exports = {
   readUserAction,
   supersedeUserAction,
   listUserActions,
+  listPendingBlockingUserActions,
   pendingUserActionGate,
   supersedeStaleUserAction,
   answerUserAction,
   rebuildIndex,
+  isCutoverUserAction,
   staleArtifactRefs,
   UserActionStaleError,
 };

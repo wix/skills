@@ -1,4 +1,6 @@
 'use strict';
+
+const wixAuth = require('../../../lib/wix-auth.js');
 const w = require('./wix-writers');
 const v = require('./write-verification');
 const stateIO = require('../../../lib/write-verification-state');
@@ -34,7 +36,7 @@ async function verifyProductCandidate(wix, { siteId, sourceKey, expected, target
       const variants = resolveVariants(variantExpectations, actual);
       receipt = v.receipt({ siteId, sourceKey, kind: 'product', expected, targetId, actual, marker, variants, operation: 'product-import', attempts: attempt });
       if (receipt.verified) return { targetId, sourceKey, receipt, outcome: 'verified', variants };
-    } catch (e) { error = e.message; }
+    } catch (e) { if (wixAuth.isRunInterruption(e)) throw e; error = e.message; }
     if (attempt < verifyAttempts) await sleep(100 * attempt);
   }
   return { sourceKey, targetId, receipt, outcome: 'needs_verification', error: error || 'Product identity or values do not agree' };
@@ -99,7 +101,7 @@ async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 
     const work = rows.map(r => ({ ...r, baseline: crosswalk.bySource[r.sourceKey] || state.rows[r.sourceKey]?.baseline || null, targetId: state.rows[r.sourceKey]?.targetId || crosswalk.bySource[r.sourceKey]?.targetId, uncertain: savedUncertain(state.rows[r.sourceKey]) }));
     let catalog;
     try { catalog = await w.queryAllStoresProducts(wix); }
-    catch (e) { for (const r of work) r.error = `Product reconciliation read failed: ${e.message}`; }
+    catch (e) { if (wixAuth.isRunInterruption(e)) throw e; for (const r of work) r.error = `Product reconciliation read failed: ${e.message}`; }
     // A product that was on the store before this import is never a match: taking it
     // over would report a sample or merchant product as this source record.
     const baselineIds = catalogBaseline.protectedIds(projectDir).products;
@@ -148,6 +150,7 @@ async function importProducts(wix, { projectDir, siteId, rows, verifyAttempts = 
         }
         for (const index of result.unresolvedIndexes) { group[index].error = 'Unresolved bulk product result'; save(group[index]); }
       } catch (e) {
+        if (wixAuth.isRunInterruption(e)) throw e;
         for (const r of group) {
           r.error = e.message;
           // Refused before sending (one bulk request): nothing was written, so nothing is uncertain.

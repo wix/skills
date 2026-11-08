@@ -6,6 +6,7 @@ const os = require('node:os');
 const { performance } = require('node:perf_hooks');
 const { readEnvFile } = require('./config-env.js');
 const { getDecisionValue } = require('./orchestration-decisions.js');
+const { isRunInterruption } = require('./wix-auth.js');
 const path = require('node:path');
 
 const CONTRACT_VERSION = 'migration-review/1';
@@ -537,9 +538,11 @@ function createWriteRecovery({ captureQueue, migrationId, executionId, scope, pr
       // Only a readable 4xx rejection (not 408) is known failed; a 5xx, timeout or transport
       // error may have written. Message text stays out.
       const e = error || {};
-      const rejected = e.outcomeKnown === true && Number.isInteger(e.status) && e.status >= 400 && e.status < 500 && e.status !== 408;
+      const interrupted = isRunInterruption(e);
+      const rejected = !interrupted && e.outcomeKnown === true && Number.isInteger(e.status) && e.status >= 400 && e.status < 500 && e.status !== 408;
       const code = typeof e.code === 'string' && e.code ? e.code : ['AbortError', 'TimeoutError'].includes(e.name) ? e.name : null;
-      await capture(meta, { status: rejected ? 'failed' : 'uncertain', reasonCode: String(e.applicationErrorCode || code || (e.status ? `http_${e.status}` : 'unknown_error')), ...(Number.isInteger(e.status) ? { httpStatus: e.status } : {}) })
+      const httpStatus = Number.isInteger(e.status) ? e.status : Number.isInteger(e.httpStatus) ? e.httpStatus : null;
+      await capture(meta, { status: rejected ? 'failed' : 'uncertain', reasonCode: String(e.applicationErrorCode || code || (httpStatus ? `http_${httpStatus}` : 'unknown_error')), ...(httpStatus !== null ? { httpStatus } : {}) })
         .catch((captureError) => { throw Object.assign(captureError, { writeError: error }); });
       throw error;
     }

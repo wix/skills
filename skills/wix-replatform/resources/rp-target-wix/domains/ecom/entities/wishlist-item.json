@@ -12,12 +12,6 @@
     "crosswalkRequired": true
   },
   "dependsOn": ["stores/product"],
-  "dependencyFailureActions": {
-    "stores/product": "fix-only"
-  },
-  "dependencyLinkRequired": [
-    "stores/product"
-  ],
   "blockedSourceDependencies": [
     {
       "sourceEntityRef": "plugin.ti-woocommerce-wishlist.wishlist-definition",

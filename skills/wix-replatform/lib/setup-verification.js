@@ -8,10 +8,10 @@
 // mistaken for a genuine success receipt.
 
 const SCHEMA_VERSION = 1;
-// The checks execute-setup.js actually performs. A passed row must name one, with when it ran
-// and what it observed; an evidence-free receipt (including one written before this field
-// existed) fails closed and setup re-runs, it is never upgraded in place.
-const SETUP_CHECK_METHODS = new Set(['status-read', 'installed-apps-read', 'install-response', 'extended-field-verification', 'collection-read', 'catalog-version-read', 'member-read', 'member-create-response', 'reference-read-back', 'writer-response', 'site-properties-read']);
+// A passed row must name one of the checks, with when it ran and what it observed; an
+// evidence-free receipt (including one written before this field existed) fails closed and
+// setup re-runs, it is never upgraded in place.
+const { SETUP_CHECK_METHODS, SETUP_CHECK_METHOD_SET } = require('./setup-check-methods.js');
 // The target entities each named setup executor in execute-setup.js writes. A step with one of
 // these ids must list them in `entityRefs`, so codegen binds the step as their producer; each is
 // `setupProducible` in rp-target-wix, so the mapping preflight expects setup to make it too.
@@ -132,7 +132,7 @@ function validateSetupVerification({ verification, plan, planDigest, siteId, pro
   }
   for (const requirement of verification.requirements) {
     const check = requirement && requirement.status === 'passed' && requirement.verification;
-    if (requirement && requirement.status === 'passed' && (!check || !SETUP_CHECK_METHODS.has(check.method) || typeof check.checkedAt !== 'string' || Number.isNaN(Date.parse(check.checkedAt)) || !check.observed || typeof check.observed !== 'object' || Array.isArray(check.observed))) reasons.push(`setup_check_evidence_missing:${requirement.id || 'unknown'}`);
+    if (requirement && requirement.status === 'passed' && (!check || !SETUP_CHECK_METHOD_SET.has(check.method) || typeof check.checkedAt !== 'string' || Number.isNaN(Date.parse(check.checkedAt)) || !check.observed || typeof check.observed !== 'object' || Array.isArray(check.observed))) reasons.push(`setup_check_evidence_missing:${requirement.id || 'unknown'}`);
   }
 
   const verifiedIds = normalizeIds(verification.requirements, {
@@ -177,4 +177,4 @@ function validateReferenceBindings(step, bindings, projectDir) {
   return errors;
 }
 
-module.exports = { validateReferenceBindings, SCHEMA_VERSION, SETUP_EXECUTOR_ENTITY_REFS, SETUP_CHECK_METHODS, validatePlanShape, validateSetupRequirementsShape, validateSetupVerification };
+module.exports = { validateReferenceBindings, SCHEMA_VERSION, SETUP_EXECUTOR_ENTITY_REFS, SETUP_CHECK_METHODS, SETUP_CHECK_METHOD_SET, validatePlanShape, validateSetupRequirementsShape, validateSetupVerification };

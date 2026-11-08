@@ -317,7 +317,7 @@ For CLI-scaffolded headless sites, acquire the site write token from the scaffol
 frontend folder with:
 
 ```bash
-npx @wix/cli@latest token --site "$WIX_SITE_ID"
+npx --no-install wix token --site "$WIX_SITE_ID"
 ```
 
 Persist the returned token as `WIX_AUTH_TOKEN` and send it as a Bearer token. The same Wix
@@ -1074,23 +1074,30 @@ the report and verify the action is gone. A later extract `readAt` or a new with
 it. The catch-up/checklist integration is not wired yet; the completion report is the
 current durable handoff.
 
-**Wix token expiry (`wix_auth_expired`).** The CLI site token is short-lived, and `wix token`
+**Wix token expiry (`wix_auth_expired`) — stop, do not retry.** The CLI site token is short-lived, and `wix token`
 can return a cached one with only part of its life left. The shared client renews it through the
-project's `scripts/mint-token.sh` for the same `WIX_SITE_ID` only: before a request when under 10
-minutes remain (from the token's own `exp`), and once on a 401 (or a 403 after `exp`), resending
-that same request once. When renewal cannot help (CLI logged out, mint failed, `config/wix.env`
-unreadable or naming another site, refused again after renewal), the run stops with `wix_auth_expired`, exit 75:
+project's `scripts/mint-token.sh` for the same `WIX_SITE_ID` only: before a request when under 30
+minutes remain or the token is about 3.5 hours old, and once on a 401 (or a 403 after `exp`),
+resending that same request once. If the renewed token is refused again, the client throws the
+shared `wix_auth_expired` interruption; it is not a record outcome and must not be normalized as
+`failed_retryable` or `failed_terminal`. When minting cannot produce a replacement (CLI logged out,
+mint failed, `config/wix.env` unreadable or naming another site), the run stops with
+`wix_auth_expired`, exit 75:
 
-- No record is marked failed. The attempt journal refuses a failed or unresolved row while the
-  project is interrupted; at most the in-flight record stays `started` and is read back on resume.
+- A request that was refused again after the bounded refresh follows the same interruption path as
+  any failed renewal: no `failed_*` row is written for it, and the in-flight record remains
+  unresolved (`started`) for read-back on resume.
+- Every writer and generated per-record catch must rethrow `wix_auth_expired` before duplicate,
+  fallback, or per-record error classification. The attempt journal refuses a failed or unresolved
+  row while the project is interrupted.
 - One `manual_action` (`stage: execution`, title "Renew the Wix site token and resume the
   import") is pending. **Requires Import Operator**, in the original migration environment: run
-  `npx @wix/cli@latest whoami` (log in if asked), then `bash migrations/<project>/scripts/mint-token.sh`,
+  `npx --no-install wix whoami` (log in if asked), then `bash migrations/<project>/scripts/mint-token.sh`,
   answer the action and resume the import (standard resume, never a fresh run). Evidence that
   resolves it: the action is answered and the resumed run's journal has no `failed_*` row with
   HTTP 401.
-- A token set as a process environment variable is used as given and never renewed; keep it in
-  `config/wix.env` for long runs.
+- Keep the site token in `config/wix.env` for long runs so the shared source can renew it. A
+  static API key or opaque process-environment credential is used as given and is not renewable.
 - The stop still writes an `aborted` completion report and handoff. The resumed run's report overwrites it.
 
 **Any stop leaves a report.** SIGTERM/SIGINT, a thrown error and `wix_auth_expired`
@@ -1497,7 +1504,7 @@ value-only differences require the existing update/review flow.
 For revised mappings, show all selected/resolved/deferred entities and the canonical field-gap ledger in the existing execution plan and completion reports. Preserve native behavior missing separately from fallback storage. Unknown affected counts stay null/unknown, not zero. The existing website handoff carries the same extended gap keys. Machine checks may establish storage only for their matching scope; manual behavior decisions stay attributed. Call shared `writeCompletionReport` with the independently pinned `mappingPlanDigest`.
 It stamps `mappingPlanDigest` and `executionScope` only against that pin, or writes a blocked
 binding failure with retained counters. Use its returned report for the existing summaries.
-The pre-write `--describe` verification rejects absent/stale scope bindings. The existing post-execution handoff preserves the same scope/digest and full gap rows; the router includes a typed blocker in the run result. A missing/stale report or handoff produces a typed evidence-repair blocker, not repeated dispatch. This can mean the import stage skipped its post-execution handoff step; regenerate that artifact through the shared producer before resuming, rather than assuming corruption. Current reports and the execution log retain the genuine scope-deferral result. After independent imports, normal QA and evidence retention, persist the typed `mapping_scope_deferred` blocker and deferred entity-completeness rows, then return the existing blocked run result for a later session. No deferred row is imported or passed. If no importer starts, preserve gaps in ledger/handoff and report current-run Migration review publication unavailable. Importer-owned review capture/publication is integrated only when its contract is available; absence remains explicit.
+The pre-write `--describe` verification rejects absent/stale scope bindings. The existing post-execution handoff preserves the same scope/digest and full gap rows; a missing/stale report or handoff produces a typed evidence-repair blocker, not repeated dispatch. This can mean the import stage skipped its post-execution handoff step; regenerate that artifact through the shared producer before resuming, rather than assuming corruption. Current reports and the execution log retain the genuine scope-deferral result. After independent imports, normal QA and evidence retention, persist the deferred entity as a Cutover gap with its completion-report action and entity-completeness row. No deferred row is imported or passed. A mixed scope continues through completion; only an all-deferred plan returns the existing blocked result because no importer can start. If no importer starts, preserve gaps in ledger/handoff and report current-run Migration review publication unavailable. Importer-owned review capture/publication is integrated only when its contract is available; absence remains explicit.
 
 
 For exact field-mapping plans, the generated importer captures registered mapping scopes

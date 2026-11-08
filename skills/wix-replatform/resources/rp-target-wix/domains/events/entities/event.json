@@ -15,10 +15,6 @@
     "events/category",
     "media/media-file"
   ],
-  "dependencyFailureActions": {
-    "events/category": "offer-omit",
-    "media/media-file": "offer-omit"
-  },
   "dependencyModes": {
     "media/media-file": "per-record"
   },

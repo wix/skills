@@ -20,6 +20,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const wixAuth = require('../../../lib/wix-auth.js');
 
 const WIXAPIS = 'https://www.wixapis.com';
 const QUOTA_ERROR_CODE = 'WDE0195';
@@ -68,7 +69,8 @@ async function readCmsItemQuota(wix, { consistentRead = false, now = Date.now } 
     // The client accepts it only as a marked read (wix-writers marks it; required lazily, it requires us).
     const quota = parseSiteDataUsage(await wix.send(require('./wix-writers').buildGetSiteDataUsageRequest({ consistentRead })));
     return quota ? { ...quota, source: 'site-data-usage', checkedAt: new Date(now()).toISOString() } : null;
-  } catch {
+  } catch (error) {
+    if (wixAuth.isRunInterruption(error)) throw error;
     return null;
   }
 }
