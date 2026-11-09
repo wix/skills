@@ -24,8 +24,8 @@ Apply only when the component genuinely needs live site context:
   canonical links, QR codes
 - **Language direction drives JavaScript** — keyboard navigation, transform or
   animation math, conditional rendering
-- **Behavior must differ inside the editor** — suppressing autoplay, network
-  calls, or timers while the site owner is designing
+- **Behavior must differ inside the editor** — suppressing autoplay or timers
+  while the site owner is designing
 
 When behavior differs only in editor rendering, keep the main component's live
 contract unchanged and add the editor-only gate to the generated
@@ -58,7 +58,7 @@ pages. Purely visual RTL needs no hook either; use logical CSS properties.
 | `useSiteUrl()` | `string` | The site's public base URL |
 | `useCurrentUrl()` | `string` | Full URL of the page being rendered |
 | `useLanguageDirection()` | `'ltr' \| 'rtl'` | The site's language direction |
-| `useIsEditMode()` | `boolean` | `true` in editor design mode |
+| `useIsEditMode()` | `boolean` | `true` in editor design mode; call only in `component.preview.tsx` |
 | `useReducedMotion()` | `boolean` | `true` when the OS requests reduced motion |
 
 All import from the same place:
