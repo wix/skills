@@ -34,16 +34,16 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campai
 - **Pause** stops delivery immediately without losing configuration. Optional body fields: `scheduledResumeDate` (ISO 8601 — the campaign **auto-resumes** at that time; pass `null` to cancel a scheduled resume), `resumeReminderDate` (dashboard reminder), `turnAutoRenewOff`. Send `{}` to pause with no auto-resume. To temporarily stop a campaign, **pause it — never delete**.
 - **Resume** accepts `{ "turnAutoRenewOn": true }` to re-enable subscription auto-renewal. Fails with `MAXIMUM_NUMBER_OF_CAMPAIGNS_REACHED` if 5 are already live.
 
-## Update (partial) & change budget
+## Update & change budget
 
-`PATCH /v1/campaigns/{id}` — send only the fields you're changing, plus the required `id` and `accountId`. Budget is in **micros** (`20000000` = $20.00/day).
+`PATCH /v1/campaigns/{id}` replaces the campaign with the entity you send: **send the entire campaign** as returned by `GET /v1/campaigns/{id}`, with only the fields you are changing different. The fields to update are inferred (`updateMask` is ignored) and omitted fields may be cleared, so a partial body can drop locations, languages, phone, assets or search themes. Budget is in **micros** (`20000000` = $20.00/day).
 
 ```bash
 curl -X PATCH 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campaignId}' -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
-  -d '{ "campaign": { "id": "...", "accountId": "...", "name": "New name", "budget": { "amountMicros": "20000000" } } }'
+  -d '{ "campaign": { …the entire object returned by GET /v1/campaigns/{campaignId}…, "name": "New name", "budget": { "amountMicros": "20000000" } } }'
 ```
 
-Changing only the daily budget = the same call with just `id`, `accountId`, and `budget.amountMicros`. Over the account max → `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` (check `GET /v1/campaign/daily-budget-boundaries`, returns min/max in micros).
+Changing only the daily budget is the same call with only `budget.amountMicros` changed. Over the account max → `CAMPAIGN_DAILY_BUDGET_TOO_HIGH` (check `GET /v1/campaign/daily-budget-boundaries`, returns min/max in micros). Full field examples, including adding assets and search themes: [Update Campaign](https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/campaign-v1/update-campaign).
 
 ## Delete & history
 
