@@ -1,6 +1,6 @@
 ---
 name: "Create and Launch a Performance Max Campaign"
-description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in PAUSED, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/_serverless/pa-google/v1."
+description: "Creates and launches a Google Ads Performance Max (PMAX) campaign for a Wix site — a goal-based campaign that runs across all Google channels (Search, Display, YouTube, Gmail, Discover, Maps) from an asset group of headlines, descriptions, images, and (for PMAX Leads) search-theme signals. Covers generating AI text and image assets, generating search themes, getting a Google budget recommendation, assembling the asset group with the required minimum assets, choosing PERFORMANCE_MAX vs PERFORMANCE_MAX_LEADS (leads: phone/form goals, negative keywords, 28-day learning) vs retail/Shopping (Merchant Center feed), creating in DRAFT, and launching. Use for 'create a Performance Max campaign', 'PMAX', 'run ads across all of Google', 'lead-gen Google campaign', or 'Google Shopping ads'. Requires an existing Google Ads account. REST base https://www.wixapis.com/_serverless/pa-google/v1."
 ---
 # RECIPE: Create and Launch a Performance Max Campaign
 
@@ -12,11 +12,11 @@ A **Performance Max (PMAX)** campaign runs across every Google channel from a si
 
 Base URL: `https://www.wixapis.com/_serverless/pa-google/v1`. `<AUTH>` is the `Authorization` header; body calls also need `Content-Type: application/json`. The bidding strategy is server-enforced to `MAXIMIZE_CONVERSIONS` — never set it yourself.
 
-> **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 5). Create in `PAUSED` first — nothing serves until Launch.
+> **Launching spends real money.** Present the assembled asset group and budget and get explicit approval before the Launch call (STEP 5). Create in `DRAFT` first — nothing serves until Launch.
 
 **Prerequisite:** a Google Ads account (`ACCOUNT_NOT_FOUND` → run [install-and-create-account](install-and-create-account.md)). You need `account.id` as `campaign.accountId`.
 
-**Flow:** STEP 1 text assets → STEP 2 image assets → STEP 3 (leads) search themes → STEP 4 budget recommendation → assemble & create PAUSED → **show & approve** → STEP 5 launch.
+**Flow:** STEP 1 text assets → STEP 2 image assets → STEP 3 (leads) search themes → STEP 4 budget recommendation → assemble & create DRAFT → **show & approve** → STEP 5 launch.
 
 ---
 
@@ -108,7 +108,7 @@ Use `recommendedBudgetAmountMicros` as `budget.amountMicros`, or present the `bu
 
 ---
 
-## Assemble & create the campaign (in PAUSED)
+## Assemble & create the campaign (in DRAFT)
 
 An **asset group** lives at `performanceMaxCampaign.assetGroups[]`. Its creative assets go under `assetGroupAssets.assets[]` — each asset sets **exactly one** payload field plus its `assetFieldType`. For a PMAX Leads asset group, keep each asset type within its count below, or the create call fails with `INVALID_ASSET_GROUP_ASSETS`:
 
@@ -126,7 +126,7 @@ Call-to-action, YouTube video, and media bundle assets are not supported — lea
 
 Image `url` must be a Wix Media Manager URL (`static.wixstatic.com`) — the STEP 2 generated images already are; for other images, upload via the Media Manager first (see [Upload Media to Wix](../media/upload-media-to-wix.md)). Search themes go under `assetGroupSignals.signals[]` (PMAX Leads).
 
-**Create a PMAX Leads campaign** (status required; create `PAUSED`):
+**Create a PMAX Leads campaign** (status required; create `DRAFT`):
 
 ```bash
 curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
@@ -135,7 +135,7 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns' \
     "campaign": {
       "accountId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "campaignType": "PERFORMANCE_MAX_LEADS",
-      "status": "PAUSED",
+      "status": "DRAFT",
       "name": "Summer Lead-Gen PMAX",
       "budget": { "amountMicros": "15000000" },
       "locations": [
@@ -182,7 +182,7 @@ curl -X POST 'https://www.wixapis.com/_serverless/pa-google/v1/campaigns/{campai
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' -d '{}'
 ```
 
-Returns the campaign with an updated `status`. Ads begin serving across Google channels; see [Query Campaign Performance Analytics](query-campaign-analytics.md) — PMAX Leads supports per-asset metrics.
+Returns the campaign with an updated `status`. Ads begin serving across Google channels; see [Query Campaign Performance Analytics](query-campaign-analytics.md) — PMAX Leads supports per-asset metrics. Advise the user to leave the campaign unchanged for at least two weeks: Google needs that time to learn, and edits during the learning phase reset it. For a PMAX Leads campaign, offer to retrieve its campaign success guide right away; it scans the landing page, the campaign configuration and the site's Google connections rather than performance data, so it does not need to wait. The Optimize a Google Ads Campaign recipe covers the guide.
 
 ---
 

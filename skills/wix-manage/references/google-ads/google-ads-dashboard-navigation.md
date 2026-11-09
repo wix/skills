@@ -18,7 +18,7 @@ Build direct links into the Google Ads page of a site's dashboard. For the gener
 
 A campaign-scoped URL requires the campaign's Wix `campaignId`. Never substitute a campaign name in the URL or omit the query parameter.
 
-1. Reuse a `campaignId` already established in the conversation or returned by the preceding campaign operation. A Campaign Success Guide flow has already resolved its campaign, so use that ID without listing campaigns again.
+1. Reuse a `campaignId` already established in the conversation or returned by the preceding campaign operation. An optimization flow ([Optimize a Google Ads Campaign](optimize-a-google-ads-campaign.md)) has already resolved its campaign, so use that ID without listing campaigns again.
 2. If only the campaign name is known, list campaigns once in the selected site's context:
 
    ```bash
