@@ -31,14 +31,19 @@ reference links cover deeper API cases.
 | SEO title or meta description options, ideas, or a better one for a page | Generate Title Suggestions, Generate Description Suggestions |
 | Alt text for images of a page, product, or post | Generate Alt Text Suggestions (one) or Bulk Generate Alt Text Suggestions (up to 20) |
 | Check or fix a page's heading hierarchy | Generate Heading Structure Suggestions |
-| Optimize or rewrite a page for a keyword, "improve this page's SEO" | Trigger Page Optimization, or Trigger Home Page Optimization for the homepage, then poll Get Page Optimization Results |
+| Optimize or rewrite a page for a keyword, "improve this page's SEO" | Trigger Page Optimization, or Trigger Home Page Optimization for the homepage, then poll Get Page Optimization Results. Site pages only: not blog posts, store products, or booking services |
 
 "Optimize", "rewrite", or "improve the SEO of" a page means the page
 optimization flow: it reads the page's real text and rewrites title,
 description, headings, and body together. The title and description generators
 are not a substitute for it; they know nothing about the page's content and
 cover two tags only. Use them when the user asks for title or description
-options, not when they ask to optimize a page.
+options, not when they ask to optimize a page. For a blog post, store product,
+or booking service, which page optimization does not support, they are the
+closest option: offer title and description suggestions and alt text for its
+images instead. Show them as options only: do not set the item's focus
+keyword, do not apply any tag, and do not edit or republish the item until the
+user picks one.
 
 When the user asks for SEO title or meta description options, the options are
 the texts these generators return. Call them even when the request reads like
@@ -269,6 +274,18 @@ fetches a page's headings.
 
 ## Page optimization: trigger, then poll
 
+Page optimization works only on site pages (`STATIC_PAGE` in List Item SEO
+Tags), including the homepage. The API returns an error for any other item,
+such as a blog post, store product, or booking service. When the user asks to
+optimize one of those, do not set its focus keyword and do not trigger a job:
+both would fail. Lead with what you can do for it: offer title and description
+suggestions (`pageType` `BLOG_POST`, `PRODUCT_PAGE`, or `SERVICE_BOOKING_PAGE`)
+and alt text for its images. These are offers: apply no tag and do not edit
+the item's own text until the user picks one. Then add one short, friendly
+line saying that the full rewrite of headings and body text is available for
+the site's pages, and offer to run it on one of them. Do not mention errors or
+item types.
+
 Page optimization reads the page from the site's latest saved revision, so
 unpublished edits count and the site need not be published. It needs two
 things, checked in this order:
@@ -276,8 +293,9 @@ things, checked in this order:
 1. **A Wix-rendered site.** Headless projects fail with `FAILED_PRECONDITION`,
    code `SITE_NOT_SUPPORTED`. Stop and tell the user: nothing else in this
    section can work on that site.
-2. **A focus keyword on the page** (`focusKeywords` entry with `isMain: true`
-   from List Item SEO Tags). Without one the trigger fails with
+2. **A focus keyword on the page**, site pages only: never set one on a blog
+   post, store product, or booking service (`focusKeywords` entry with
+   `isMain: true` from List Item SEO Tags). Without one the trigger fails with
    `FAILED_PRECONDITION`, code `FOCUS_KEYWORD_NOT_SET`. If the user named the
    keyword they want the page to rank for, set it, then trigger; if they did
    not, ask for it. The focus keyword is the input the job needs, not one of the
@@ -305,7 +323,7 @@ Then start one job. Use
 for the homepage (its text represents the whole site, so it gets its own
 guidance) and
 [Trigger Page Optimization](https://dev.wix.com/docs/api-reference/business-management/seo/page-optimization-v1/trigger-page-optimization)
-for any other page. Both need a Wix user identity, like heading structure;
+for any other site page. Both need a Wix user identity, like heading structure;
 both take the page ID and its path:
 
 ```
@@ -379,7 +397,10 @@ GET https://www.wixapis.com/seo/suggestions/v1/page-optimization/results?predict
   `CONTENT_TOO_SHORT` means the page has too little text to optimize, so the user
   must add content first; `SUGGESTIONS_ALREADY_IN_PROGRESS` means a job with a
   different focus keyword is still running, so poll that page by `pageId` and
-  trigger again when it completes. None of these succeeds on retry.
+  trigger again when it completes. `PAGE_NOT_SUPPORTED` means the ID is not a site
+  page, such as a blog post. Do not report it as an error: offer title and
+  description suggestions for that item instead, then say that the full
+  rewrite is available for the site's pages. None of these succeeds on retry.
 - `GENERATION_FAILED` (`500`): the AI pipeline failed for this call; retry once,
   then report.
 - `INVALID_ARGUMENT` (`400`): fix the field named in `fieldViolations` and send
