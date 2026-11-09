@@ -97,31 +97,52 @@ const NOT_CHECKED_BY_JSDOM = [
 const SITE_URL = 'https://example.wixsite.com/site';
 const HOME_PAGE = { id: 'home', title: 'Home', slug: 'home', path: '/', popup: false };
 
-/** Plain-object stand-ins for the site services `@wix/react-component-utils` hooks read. */
-const SERVICES = {
-  // `useIsEditMode()` returns `!previewMode`; audit live-equivalent output.
-  '@wix/site-service-editor-context': { previewMode: true },
-  '@wix/site-service-device-info': { deviceType: 'Desktop', reducedMotion: false },
-  '@wix/site-service-locale': { language: 'en', direction: 'ltr' },
-  '@wix/site-service-pages': {
-    pages: {
-      [HOME_PAGE.id]: {
-        title: HOME_PAGE.title,
-        slug: HOME_PAGE.slug,
-        path: HOME_PAGE.path,
-        popup: false,
+/** Synthetic site data, not the user's site. Create fresh state for each live/preview render. */
+function createAuditServices() {
+  const warmupData = new Map();
+  return {
+    // `useIsEditMode()` returns `!previewMode`; audit live-equivalent output.
+    '@wix/site-service-editor-context': { previewMode: true },
+    '@wix/site-service-device-info': { deviceType: 'Desktop', reducedMotion: false },
+    '@wix/site-service-locale': { language: 'en', direction: 'ltr' },
+    '@wix/site-service-pages': {
+      pages: {
+        [HOME_PAGE.id]: {
+          title: HOME_PAGE.title,
+          slug: HOME_PAGE.slug,
+          path: HOME_PAGE.path,
+          popup: false,
+        },
+      },
+      mainPage: HOME_PAGE,
+      currentPage: HOME_PAGE,
+    },
+    '@wix/site-service-url': {
+      currentUrl: SITE_URL,
+      siteUrl: SITE_URL,
+      pages: [],
+      pageIdToPrefix: {},
+    },
+    // Public contracts from the published @wix/site-service-* definitions. Actions
+    // are inert: this audit renders markup; it does not exercise navigation/popups.
+    '@wix/site-service-router': { navigateTo: async () => false },
+    '@wix/site-service-rendering-context': { SSR: true, SEO: false },
+    '@wix/site-service-warmup-data': {
+      get: async (key) => warmupData.get(key) ?? null,
+      set: (key, data) => {
+        warmupData.set(key, data);
       },
     },
-    mainPage: HOME_PAGE,
-    currentPage: HOME_PAGE,
-  },
-  '@wix/site-service-url': {
-    currentUrl: SITE_URL,
-    siteUrl: SITE_URL,
-    pages: [],
-    pageIdToPrefix: {},
-  },
-};
+    '@wix/site-service-site-info': { name: 'Audit site', revision: 1, siteId: '' },
+    '@wix/site-service-site-theme': { colors: {}, fonts: {}, colorsMap: [] },
+    '@wix/site-service-lightbox': {
+      open: async () => {},
+      close: () => {},
+      getContext: () => undefined,
+      getPayload: () => undefined,
+    },
+  };
+}
 
 const IMPACT_SEVERITY = { critical: 'high', serious: 'high', moderate: 'medium', minor: 'low' };
 
@@ -271,19 +292,24 @@ async function loadRuntime(entryFile) {
 }
 
 function createServicesProvider(React, WixContext) {
-  const manager = {
-    getService(definition) {
-      const id = String(definition);
-      if (!(id in SERVICES)) {
-        throw new Error(`Unknown site service "${id}" requested during render.`);
-      }
-      return SERVICES[id];
-    },
-    hasService(definition) {
-      return String(definition) in SERVICES;
-    },
+  return ({ children }) => {
+    const services = createAuditServices();
+    const manager = {
+      getService(definition) {
+        const id = String(definition);
+        if (!Object.hasOwn(services, id)) {
+          const error = new Error(`Unknown site service "${id}" requested during render.`);
+          error.code = 'AUDIT_UNSUPPORTED_SERVICE';
+          throw error;
+        }
+        return services[id];
+      },
+      hasService(definition) {
+        return Object.hasOwn(services, String(definition));
+      },
+    };
+    return React.createElement(WixContext.Provider, { value: manager }, children);
   };
-  return ({ children }) => React.createElement(WixContext.Provider, { value: manager }, children);
 }
 
 const interopDefault = (loaded) =>
@@ -434,7 +460,10 @@ async function audit(componentDir) {
     ssr: null,
     axe: null,
     findings: [],
-    notChecked: [...NOT_CHECKED_BY_JSDOM],
+    notChecked: [
+      ...NOT_CHECKED_BY_JSDOM,
+      'live site-service data and actions (render uses synthetic fixtures)',
+    ],
   };
 
   if (!fs.existsSync(componentDir) || !fs.statSync(componentDir).isDirectory()) {
@@ -474,6 +503,7 @@ async function audit(componentDir) {
       return report;
     }
     report.ssr = { ok: false, error: truncate(error && error.stack ? error.stack : error, 600) };
+    if (error?.code === 'AUDIT_UNSUPPORTED_SERVICE') report.reason = 'unsupported-service';
     report.findings.push({ ...classifyRenderError(error), source: 'render' });
   }
 
@@ -500,13 +530,18 @@ async function audit(componentDir) {
         return report;
       }
       report.preview = 'failed';
-      report.findings.push({
-        rule: 'preview-render-failed',
-        source: 'render',
-        severity: 'medium',
-        confidence: 'high',
-        message: `component.preview.tsx threw with defaultProps: ${truncate(error && error.message, 200)}`,
-      });
+      if (error?.code === 'AUDIT_UNSUPPORTED_SERVICE') {
+        report.reason = 'unsupported-service';
+        report.findings.push({ ...classifyRenderError(error), source: 'render' });
+      } else {
+        report.findings.push({
+          rule: 'preview-render-failed',
+          source: 'render',
+          severity: 'medium',
+          confidence: 'high',
+          message: `component.preview.tsx threw with defaultProps: ${truncate(error && error.message, 200)}`,
+        });
+      }
     }
   }
 
@@ -519,7 +554,7 @@ async function audit(componentDir) {
     report.findings.push(...result.findings);
   }
 
-  report.ok = true;
+  report.ok = report.reason !== 'unsupported-service';
   return report;
 }
 
@@ -553,6 +588,7 @@ module.exports = {
   normalizeModuleCss,
   classifyRenderError,
   checkPreviewPlaceholder,
+  createAuditServices,
 };
 
 if (require.main === module) main();

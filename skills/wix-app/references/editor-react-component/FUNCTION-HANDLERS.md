@@ -13,6 +13,10 @@ New input controls follow native TextInput and Dropdown:
   actual type. Text and single-select options emit strings, checkboxes emit
   booleans, and numeric inputs emit numbers. Emit the option's value, not its
   label, index, or option object.
+- For date inputs, use `LocalDate` from `@wix/editor-react-types` for both the
+  value prop and change-callback argument. Native date inputs already return
+  `YYYY-MM-DD`; no date conversion is needed. Check the component's generated
+  manifest: both the value and callback parameter must use `localDate`, not `text`.
 - Expose only `onValueChange` by default for an input. Do not add `onChange`,
   click, hover, focus, or blur callbacks merely because an internal control has
   those events. Additional public callbacks require a request.

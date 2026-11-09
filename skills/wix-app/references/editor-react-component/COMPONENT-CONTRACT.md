@@ -227,6 +227,8 @@ hardcodes a second one.
 Use the pool in `DEFAULT-IMAGES.md` only when the source has no image for
 a slot or its upload failed (`USER-SOURCES.md`).
 
+For `Video` defaults, use the pool in `DEFAULT-VIDEOS.md` the same way.
+
 ## Internal File Splitting
 
 Split units when it makes the main component easier to read or test. Keep internal files in the component folder using `.module.css`.

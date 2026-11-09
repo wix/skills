@@ -100,6 +100,11 @@ tracks can exceed the container even when the grid itself is correctly sized.
 - Let control rows and pagination adapt without losing buttons, focus rings,
   or usable target sizes. `min-width: 0` does not make fixed children or large
   padding fit by itself.
+- Keep transformed items inside their region. A transform never moves
+  siblings, so `scale()` above 1 or a positive `translateZ()` with
+  `perspective` paints over nearby content such as a counter or caption.
+  Leave room for the largest state, or keep the active item at its layout
+  size and shrink the others.
 
 Adapt to the component's width, including a narrow slot on a desktop viewport.
 Do not derive the layout from `window.innerWidth` or viewport breakpoints. If
