@@ -78,6 +78,10 @@ const TAILWIND_WIDTHS = { sm: 640, md: 768, lg: 1024, xl: 1280, '2xl': 1536 };
 // The main scaffold file legitimately keeps the source's handlers and effects, so only
 // a file that is mostly the source's lines counts as the copied component.
 const MAIN_COPIED_SHARE = 0.6;
+// A source's logic counts as copied when this share of its lines is in the port, and is only
+// checked from this many lines.
+const KEPT_LOGIC_SHARE = 0.5;
+const MIN_LOGIC_LINES = 25;
 // Module CSS that styles this many of the source's own global classes is the source's
 // stylesheet moved in whole, not rules on the component's parts.
 const FOREIGN_GLOBAL_CLASSES = 3;
@@ -153,7 +157,8 @@ function scaffoldFiles(name) {
   };
 }
 
-// Top-level keys of the exported `<Name>Props` object type.
+// Top-level keys of the exported `<Name>Props` object type, also when several share a line
+// (`disabled?: boolean; name?: string;`).
 function declaredProps(propsText) {
   const start = propsText.search(/export\s+(?:type|interface)\s+\w+Props\b[^{]*\{/);
   if (start < 0) return [];
@@ -164,7 +169,7 @@ function declaredProps(propsText) {
     if (char === '{') depth += 1;
     if (char === '}') depth -= 1;
     if (depth === 0) break;
-    if (char === '\n') {
+    if (char === '\n' || (char === ';' && depth === 1)) {
       // A JSDoc on the prop's own line (`/** @min 0 */ duration?: number;`) is not part of its name.
       const match =
         depth === 1 &&
@@ -221,6 +226,42 @@ const OWNER_SENTENCES = {
     'Some colors of the drawing can’t be picked from the design panel yet.',
   'no-variable-change-listener':
     'Color changes from the design panel show only after the page reloads.',
+  'play-state-beside-animation':
+    'The motion can start again in the editor after a change, though it should stay paused there.',
+  'added-background': 'The component has a background color your upload didn’t have.',
+  'object-prop': (subject) =>
+    `The “${subject}” settings start empty in the panel and have no limits yet.`,
+  'dropped-children-slot':
+    'Nothing can be placed inside the component yet, though your upload had room for content.',
+  'dropped-link-default':
+    'Some links from your upload can’t be changed in the panel, or don’t show until a link is set.',
+  'dropped-source-color': (subject) =>
+    `Some colors your upload offered (such as ${subject}) can’t be changed from the design panel yet.`,
+  'pointer-listener-on-child':
+    'The component reacts to the pointer only over part of it, not over its text and buttons.',
+  'engine-recreated':
+    'The animation can restart or disappear after pausing it or changing a setting.',
+  'font-as-text-prop':
+    'Some fonts are typed as text in the settings panel instead of picked in the design panel.',
+  'color-without-panel-default':
+    'Some colors show no value in the design panel, though the component has them.',
+  'duplicate-link-field': 'Some buttons have two link settings; only one of them is needed.',
+  'screen-reader-text-prop':
+    'Some settings hold text only screen readers hear; they don’t change anything on the page.',
+  'form-name-prop': 'The settings panel has a “Name” field the page never shows.',
+  'part-style-not-literal':
+    'Some text styles show code instead of a font or color in the design panel.',
+  'hex-parser-on-css-color':
+    'Changing some colors in the design panel doesn’t change the drawing yet.',
+  'value-in-both-panels': (subject) =>
+    `Some settings (such as ${subject}) appear in both the settings and design panels, and only one of them works.`,
+  'text-part-without-color': 'Some text shows an empty color in its text panel, though it has one.',
+  'rewritten-source-logic':
+    'Parts of your upload’s animation or drawing were rebuilt, so they may look or move differently.',
+  'dropped-source-library':
+    'Some animations or effects work differently than in your upload, because a library it used wasn’t added.',
+  'replaced-source-font': (subject) =>
+    `The component uses different fonts than your upload (it should use ${subject}).`,
 };
 
 function ownerSentence(check, subject) {
@@ -264,18 +305,22 @@ function sourceOptionProps(text) {
   return options;
 }
 
-// The body of the exported `<Name>Props` type, for checks that look at its fields.
+// The body of the exported `<Name>Props` type, one field per line, for checks that look at its
+// fields: fields written several to a line are split at their top-level `;`.
 function declaredPropsBlock(propsText) {
   const start = propsText.search(/export\s+(?:type|interface)\s+\w+Props\b[^{]*\{/);
   if (start < 0) return '';
   const open = propsText.indexOf('{', start);
   let depth = 0;
+  let block = '';
   for (let i = open; i < propsText.length; i += 1) {
-    if (propsText[i] === '{') depth += 1;
-    if (propsText[i] === '}') depth -= 1;
-    if (depth === 0) return propsText.slice(open, i + 1);
+    const char = propsText[i];
+    if (char === '{') depth += 1;
+    if (char === '}') depth -= 1;
+    block += char === ';' && depth === 1 ? ';\n' : char;
+    if (depth === 0) return block;
   }
-  return propsText.slice(open);
+  return block;
 }
 
 // Top-level fields of the exported `<Name>Props` type, with their written types.
@@ -435,6 +480,85 @@ function matchAll(text, pattern) {
   return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
+// The text from an opening `{`, `(` or `[` to its match, both included.
+function balanced(text, open) {
+  const close = { '{': '}', '(': ')', '[': ']' }[text[open]];
+  let depth = 0;
+  for (let i = open; i < text.length; i += 1) {
+    if (text[i] === text[open]) depth += 1;
+    else if (text[i] === close) depth -= 1;
+    if (depth === 0) return text.slice(open, i + 1);
+  }
+  return text.slice(open);
+}
+
+// The object literal around a position, from its unmatched `{` to its `}`.
+function enclosingObject(text, index) {
+  let depth = 0;
+  for (let i = index; i >= 0; i -= 1) {
+    if (text[i] === '}') depth += 1;
+    if (text[i] === '{') {
+      if (depth === 0) return balanced(text, i);
+      depth -= 1;
+    }
+  }
+  return '';
+}
+
+// The JSX opening tag that contains a position, e.g. the root element around its clsx call.
+function openingTag(text, index) {
+  const start = text.lastIndexOf('<', index);
+  if (start < 0) return '';
+  let depth = 0;
+  for (let i = start; i < text.length; i += 1) {
+    if (text[i] === '{') depth += 1;
+    if (text[i] === '}') depth -= 1;
+    if (text[i] === '>' && depth === 0) return text.slice(start, i + 1);
+  }
+  return text.slice(start);
+}
+
+// Fields of the source's exported `…Props` types, with their written types.
+function sourcePropFields(text, typeName) {
+  const fields = [];
+  for (const match of text.matchAll(/export\s+(?:interface|type)\s+(\w*Props)\b[^{=]*=?\s*\{/g)) {
+    if (typeName && match[1] !== typeName) continue;
+    let depth = 0;
+    for (const line of balanced(text, match.index + match[0].length - 1).split('\n')) {
+      const field =
+        depth === 1 && /^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\??\s*:\s*([^;/]+)/.exec(line);
+      if (field) fields.push({ name: field[1], type: field[2].trim() });
+      depth += (line.match(/\{/g) ?? []).length - (line.match(/\}/g) ?? []).length;
+    }
+  }
+  return fields;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The component a source file exports by default (`export default function X`,
+// `export default X`, or its only exported component), with its destructured props and
+// the props type it is annotated with.
+function mainComponent(text) {
+  const exported = matchAll(text, /export\s+(?:function|const)\s+([A-Z][\w$]*)/g);
+  const name =
+    /export\s+default\s+function\s+([A-Z][\w$]*)/.exec(text)?.[1] ??
+    /export\s+default\s+([A-Z][\w$]*)\s*;?\s*$/m.exec(text)?.[1] ??
+    (exported.length === 1 ? exported[0] : undefined);
+  if (!name) return undefined;
+  const signature = new RegExp(
+    String.raw`(?:function\s+${escapeRegExp(name)}\s*|\b${escapeRegExp(name)}\b[^=
+]*=\s*(?:React\.)?(?:\w+\()?)\(\s*(\{[^}]*\})?\s*(?::\s*([A-Za-z_$][\w$]*))?`,
+  ).exec(text);
+  return {
+    name,
+    params: signature?.[1] ?? '',
+    propsType: signature?.[2] ?? `${name}Props`,
+  };
+}
+
 function scan({ componentDir, sources }) {
   if (!fs.existsSync(componentDir) || !fs.statSync(componentDir).isDirectory()) {
     throw new Error(`Component folder not found: ${componentDir}`);
@@ -513,6 +637,60 @@ function scan({ componentDir, sources }) {
         relative(file),
         1,
         `A React file outside the scaffold. If it is the source's component or a copy of it, move its markup, props and styles into ${scaffold.main} instead.`,
+      );
+    }
+  }
+
+  // Step 1: the source's logic (an engine, models, a painter) is copied, never rewritten. Its
+  // top-level functions with no hooks or JSX should mostly reappear in the port. Lines compare
+  // without spacing, semicolons or quote style, so a reformatted copy still counts.
+  const normalize = (code) => code.replace(/[\s;]+/g, '').replace(/["`]/g, "'");
+  const flatPort = normalize(withoutComments([...texts.values()].join('\n')));
+  const inPort = (line) => flatPort.includes(line);
+  const logicOf = (code) =>
+    withoutComments(code)
+      .split(/\n(?=(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|const|let|var|class)\b)/)
+      .filter(
+        (chunk) =>
+          !REACT_MARKERS.test(chunk) &&
+          (/\bfunction\b|=>/.test(chunk) || /^(?:export\s+)?(?:default\s+)?class\b/.test(chunk)),
+      )
+      .map((chunk) => ({
+        name: /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([\w$]+)/.exec(
+          chunk,
+        )?.[1],
+        lines: chunk
+          .split('\n')
+          .map(normalize)
+          .filter((line) => line.length >= MIN_LINE_LENGTH),
+      }));
+  const flatName = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const sourcesWithLogic = sourceFiles
+    .filter((file) => CODE_EXTENSIONS.has(extOf(file)))
+    .map((file) => ({ file, text: read(file), logic: logicOf(read(file)) }))
+    .filter(({ logic }) => logic.flatMap((chunk) => chunk.lines).length >= MIN_LOGIC_LINES);
+  // The source this port came from: the one whose component has its name, else the only one.
+  const portedSource =
+    sourcesWithLogic.find(({ text }) =>
+      matchAll(text, /export\s+default\s+(?:function|class)\s+([A-Z][\w$]*)/g).some(
+        (name) => flatName(name) === flatName(componentName),
+      ),
+    ) ?? (sourcesWithLogic.length === 1 ? sourcesWithLogic[0] : undefined);
+  if (portedSource) {
+    const logicLines = portedSource.logic.flatMap((chunk) => chunk.lines);
+    const kept = logicLines.filter(inPort).length / logicLines.length;
+    if (kept < KEPT_LOGIC_SHARE) {
+      const rewritten = portedSource.logic
+        .filter(
+          ({ name, lines }) =>
+            name && lines.filter(inPort).length < lines.length * KEPT_LOGIC_SHARE,
+        )
+        .map(({ name }) => name);
+      fail(
+        'rewritten-source-logic',
+        relative(mainPath),
+        1,
+        `Only ${Math.round(kept * 100)}% of the logic in ${path.basename(portedSource.file)} (${rewritten.slice(0, 6).join(', ')}${rewritten.length > 6 ? ', …' : ''}) is in the port: it was rewritten, so what it draws and how it moves differ from the source. cp the source file to ${componentName}-engine.${/\.tsx?$/.test(portedSource.file) ? 'ts' : 'js (plus a .d.ts)'}, delete only its components, hooks and JSX, and change the rest only to read props and CSS variables (USER-SOURCES.md steps 1-2).`,
       );
     }
   }
@@ -1063,12 +1241,573 @@ function scan({ componentDir, sources }) {
     }
   }
 
+  // ANIMATED-COMPONENTS.md: React writes the `animation` shorthand again whenever its value
+  // changes (a new duration after a resize or a panel edit), which resets the play state
+  // beside it to running, so paused motion starts moving in the editor.
+  for (const [file, text] of texts) {
+    const code = withoutComments(text);
+    const mixed = [...code.matchAll(/\banimationPlayState\s*:/g)].some((match) =>
+      /(?:^|[{,\s])animation\s*:/.test(enclosingObject(code, match.index)),
+    );
+    if (mixed) {
+      fail(
+        'play-state-beside-animation',
+        relative(file),
+        5,
+        "An inline style sets both animation and animationPlayState. When the animation value changes (a new duration or name after a resize or a panel edit), React writes the shorthand again, which resets the play state to running, so paused motion moves in the editor. Put the play state inside the shorthand (`${name} ${duration}s linear infinite ${isPlaying ? 'running' : 'paused'}`), or use only the separate properties (animationName, animationDuration, animationDelay, animationPlayState).",
+      );
+    }
+  }
+
+  // Step 5: no background the source doesn't have. VISUAL-QUALITY.md gives a self-contained
+  // block a background, but a port of a transparent source stays transparent.
+  const SOURCE_BACKGROUND = /\bbg-|background|setClearColor|clearColor\s*\(|fillRect\s*\(/i;
+  const rootBackground = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, selector]) => selector.split(',').some((part) => part.trim() === `.${rootClass}`))
+    .map(([, , body]) => /(?:^|[;\s])background(?:-color)?\s*:\s*([^;]+)/.exec(body)?.[1].trim())
+    .find((value) => value && !/^(?:transparent|none|inherit|initial|unset)$/i.test(value));
+  if (sourceCode && rootBackground && !SOURCE_BACKGROUND.test(withoutComments(sourceStyleText))) {
+    fail(
+      'added-background',
+      relative(cssPath),
+      5,
+      `The .${rootClass} rule sets background: ${rootBackground}, and the source sets no background anywhere, so the component covers what the source lets show through. Remove it; the source decides how the component looks, over the VISUAL-QUALITY.md defaults.`,
+    );
+  }
+
+  // Step 3: an object prop becomes one prop per field. The panel shows its fields with no
+  // defaults or ranges, and COMPONENT-CONTRACT.md keeps group fields flat.
+  const localObjectTypes = new Set([
+    ...matchAll(propsText, /\btype\s+([A-Z][\w$]*)\s*=\s*\{/g),
+    ...matchAll(propsText, /\binterface\s+([A-Z][\w$]*)\s*\{/g),
+  ]);
+  const objectProps = declaredPropTypes(propsText)
+    .filter(({ name, type }) => {
+      if (SCAFFOLD_PROPS.has(name)) return false;
+      const bare = type.replace(/^(?:Partial|Required|Readonly)<(.+)>$/, '$1').trim();
+      return bare.startsWith('{') || (localObjectTypes.has(bare) && !bare.endsWith('Props'));
+    })
+    .map(({ name }) => name);
+  if (objectProps.length) {
+    fail(
+      'object-prop',
+      relative(propsPath),
+      3,
+      `${objectProps.join(', ')} ${objectProps.length > 1 ? 'are object props' : 'is an object prop'}, which the settings panel shows with no defaults or ranges. Make each field a top-level prop with the source's default (from its defaults object) and @min/@max where the source still works, keep the source's comment on each field as its JSDoc, and rebuild the object from them in the code.`,
+      objectProps[0],
+    );
+  }
+
+  // Step 3: content the source renders inside itself (`{children}`) stays a ReactNode slot.
+  const sourceLogicCode = withoutComments(sourceCode);
+  // Only the component the source exports by default: an exported helper's `children` isn't
+  // a slot, and the port keeps the slot as its own `children` prop.
+  const sourceComponent = mainComponent(sourceLogicCode);
+  const sourceTakesChildren =
+    sourceComponent !== undefined &&
+    (sourcePropFields(sourceLogicCode, sourceComponent.propsType).some(
+      ({ name }) => name === 'children',
+    ) ||
+      /\bchildren\b/.test(sourceComponent.params));
+  const portChildren = declaredPropTypes(propsText).find(({ name }) => name === 'children');
+  if (sourceTakesChildren && !/\bReactNode\b/.test(portChildren?.type ?? '')) {
+    fail(
+      'dropped-children-slot',
+      relative(propsPath),
+      3,
+      `The source renders children inside itself, and ${scaffold.props} has no children prop typed React.ReactNode, so nothing can be placed in the component. Keep a children?: React.ReactNode slot where the source renders children, with dir="ltr" on its wrapper (COMPONENT-CONTRACT.md, Container Components).`,
+    );
+  }
+
+  // Step 3: a link the source defaults (`href = '#'`) keeps that default; without it an element
+  // the source shows by default (a CTA rendered only when it has a link) stays hidden.
+  // A stylesheet or font link the source injects (`link.href = 'https://fonts.googleapis.com/…'`)
+  // is not a destination.
+  // Each source default needs a port default with the same URL, as a Link (`cta: { href }`) or
+  // a flat prop (`ctaHref`).
+  const sourceLinks = [
+    ...sourceLogicCode.matchAll(
+      /\b(\w*href\w*)\s*[:=]\s*\{?\s*['"`]((?:#|https?:\/\/|\/)[^'"`]*)['"`]/gi,
+    ),
+  ]
+    .map(([, name, url]) => ({ name, url }))
+    .filter(({ url }) => !/fonts\.(?:googleapis|gstatic)\.com|\.css(?:[?#]|$)/i.test(url))
+    // A named default (`ctaHref = '#'`) counts once; each JSX `href="#"` is its own link.
+    .filter(
+      (link, index, all) =>
+        /^href$/i.test(link.name) ||
+        all.findIndex(({ name, url }) => name === link.name && url === link.url) === index,
+    );
+  const portLinkUrls = matchAll(
+    withoutComments(propsText),
+    /\b\w*href\w*\s*:\s*['"`]([^'"`]*)['"`]/gi,
+  );
+  const droppedLinks = sourceLinks.filter(({ url }) => {
+    const index = portLinkUrls.indexOf(url);
+    if (index < 0) return true;
+    portLinkUrls.splice(index, 1);
+    return false;
+  });
+  if (droppedLinks.length) {
+    fail(
+      'dropped-link-default',
+      relative(propsPath),
+      3,
+      `The source gives its links a default (${droppedLinks
+        .map(({ name, url }) => `${name} "${url}"`)
+        .join(
+          ', ',
+        )}), and the defaults in ${scaffold.props} have no link with that URL, so the owner can't change it, and an element rendered only when it has a link (a button, a CTA) is hidden. Make each link a Link prop with the source's URL as its default (also "#"), never a URL written in the JSX, and keep the source's render condition.`,
+    );
+  }
+
+  // Step 2: color props the source offers become CSS variables the design panel edits.
+  const cssVariableWords = [...declaredInCss, ...registered].map((variable) =>
+    variable.slice(2).split('-'),
+  );
+  const droppedColors = sourcePropFields(sourceLogicCode)
+    .filter(
+      ({ name, type }) =>
+        // `accentColor`, `darkBackground`, `accent`; not `headlineAccent` (a text) or `accentFont`.
+        /^string\b/.test(type) &&
+        /(?:colou?r|background)$|^(?:bg|accent|tint|fill|stroke)$/i.test(name),
+    )
+    .map(({ name }) => name)
+    .filter((name) => {
+      // A port may rename the variable (`background` → `--sh-bg`): it counts when the name's
+      // words match (background as bg) or when a variable holds the source's default value.
+      const words = humanize(name)
+        .split(' ')
+        .map((word) => (word === 'background' ? 'bg' : word));
+      const named = cssVariableWords.some((variable) =>
+        words.every(
+          (word) => variable.includes(word) || (word === 'bg' && variable.includes('background')),
+        ),
+      );
+      // Source text is compared, never built into a regex.
+      const flat = (value) => value.replace(/\s+/g, '').toLowerCase();
+      const fallback = [
+        ...sourceLogicCode.matchAll(
+          /\b([\w$]+)\s*[:=]\s*['"`](#[0-9a-f]{3,8}|rgba?\([^)]{0,80}\))['"`]/gi,
+        ),
+      ].find(([, field]) => field === name)?.[2];
+      const valued =
+        fallback !== undefined &&
+        matchAll(css, /--[\w-]+\s*:\s*([^;}]*)/g).some((value) => flat(value) === flat(fallback));
+      return !named && !valued;
+    });
+  if (droppedColors.length) {
+    fail(
+      'dropped-source-color',
+      relative(cssPath),
+      2,
+      `The source takes ${droppedColors.join(', ')} as color props, and ${scaffold.css} declares no CSS variable for ${droppedColors.length > 1 ? 'them' : 'it'}, so the owner can't change ${droppedColors.length > 1 ? 'them' : 'it'} in the design panel. Declare each on the root with the source's default (--${humanize(droppedColors[0]).replace(/ /g, '-')}) and read it where the source uses the prop.`,
+      droppedColors.slice(0, 3).map(humanize).join(', '),
+    );
+  }
+
+  // Step 2: fonts are design-panel variables with a font-family anchor, not text the owner types.
+  const fontProps = declaredPropTypes(propsText)
+    .filter(
+      ({ name, type }) => type === 'string' && /font/i.test(name) && !/size|weight/i.test(name),
+    )
+    .map(({ name }) => name);
+  if (fontProps.length) {
+    fail(
+      'font-as-text-prop',
+      relative(propsPath),
+      2,
+      `${fontProps.join(', ')} ${fontProps.length > 1 ? 'are fonts' : 'is a font'} typed as a string prop, a text field in the settings panel. Make each a CSS custom property declared on the root with the source's font stack (--${humanize(fontProps[0]).replace(/ /g, '-')}) and a font-family: var(…) anchor, so the owner picks it in the design panel (CANVAS-COMPONENTS.md, Design-Panel Values).`,
+    );
+  }
+
+  // Step 2: a color the CSS reads from a variable only the code sets inline (`style={{ '--sh-bg':
+  // bg }}`) has no value in the stylesheet, so the design panel shows that property empty.
+  const COLOR_PROPERTY =
+    /(?:^|[;{\s])(background(?:-color)?|color|border(?:-[a-z]+)*|outline(?:-color)?|fill|stroke|box-shadow|text-shadow)\s*:([^;}]*)/g;
+  const inlineOnlyColors = [
+    ...new Set(
+      [...css.matchAll(COLOR_PROPERTY)].flatMap(([, , value]) =>
+        matchAll(value, /var\(\s*(--[\w-]+)/g).filter(
+          (variable) =>
+            !PLATFORM_VARIABLE.test(variable) &&
+            !declaredInCss.has(variable) &&
+            !registered.has(variable) &&
+            setByCode.has(variable),
+        ),
+      ),
+    ),
+  ];
+  if (inlineOnlyColors.length) {
+    fail(
+      'color-without-panel-default',
+      relative(cssPath),
+      2,
+      `The CSS colors parts with ${inlineOnlyColors.join(', ')}, which only the code sets in an inline style, so the design panel shows those colors with no value. Declare each on the root in ${scaffold.css} with the source's default, drop it from the inline style, and have the code read it from CSS where it needs the value (on a canvas, through the cached reader in CANVAS-COMPONENTS.md).`,
+    );
+  }
+
+  // COMPONENT-CONTRACT.md: a link lives in one place. A `Link` prop plus an `href` in the part's
+  // elementProps entry gives the owner two link fields for one button.
+  const linkProps = declaredPropTypes(propsText)
+    .filter(({ type }) => /^Link\b/.test(type))
+    .map(({ name }) => name);
+  const elementPropsBlock =
+    /elementProps\??\s*:\s*\{([\s\S]*)\}/.exec(declaredPropsBlock(propsText))?.[1] ?? '';
+  const partsWithHref = matchAll(
+    elementPropsBlock,
+    /([A-Za-z_$][\w$]*)\??\s*:\s*\{[^{}]*\bhref\??\s*:/g,
+  );
+  if (linkProps.length && partsWithHref.length) {
+    fail(
+      'duplicate-link-field',
+      relative(propsPath),
+      3,
+      `${partsWithHref.join(', ')} ${partsWithHref.length > 1 ? 'have' : 'has'} an href in elementProps, and the component also has Link props (${linkProps.join(', ')}), so the settings panel shows a second, plain URL field for the same link. Remove href from those elementProps entries and read the link only from its Link prop.`,
+    );
+  }
+
+  // Step 3: only text the owner sees on the page is a prop. Screen-reader-only text (a hidden
+  // instructions span) and a form field's `name` stay in the code.
+  const stringProps = declaredPropTypes(propsText)
+    .filter(({ name, type }) => type === 'string' && !SCAFFOLD_PROPS.has(name))
+    .map(({ name }) => name);
+  const SR_ONLY =
+    /className=\{[^}]*(?:srOnly|sr-only|visuallyHidden|visually-hidden)[^}]*\}[^>]*>\s*\{([^}]*)\}/g;
+  const hiddenReads = [...portCode.matchAll(SR_ONLY)].map(([, expression]) => expression);
+  const screenReaderProps = stringProps.filter(
+    (name) =>
+      /instructions?$|screenReader|srText|ariaDescription/i.test(name) ||
+      hiddenReads.some((expression) => new RegExp(`\\b${name}\\b`).test(expression)),
+  );
+  if (screenReaderProps.length) {
+    fail(
+      'screen-reader-text-prop',
+      relative(propsPath),
+      3,
+      `${screenReaderProps.join(', ')} ${screenReaderProps.length > 1 ? 'are' : 'is'} screen-reader-only text exposed as a setting, though nothing on the page shows it. Keep the source's text in the code as written (one constant per variant) and remove the prop.`,
+    );
+  }
+  if (stringProps.includes('name') && /<input\b[^>]*\bname=\{\s*name\s*\}/.test(portCode)) {
+    fail(
+      'form-name-prop',
+      relative(propsPath),
+      3,
+      'name is a form field name (it fills a hidden <input name>), which the settings panel shows as a "Name" text field. Keep it out of the props; drop the hidden input or give it a fixed name in the code.',
+    );
+  }
+
+  // CSS-GUIDELINES.md, Editable Values: a part's font and paint are literal. The Design panel
+  // shows `var(--sh-fg)` or a `color-mix()` of it as raw text. A variable a part rule declares
+  // itself (`--icon-color` on the button) and theme tokens (`var(wst-…)`) are fine.
+  const PAINT_PROPERTY =
+    /^(?:font(?:-family)?|color|background(?:-color)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline-color|fill|stroke|text-decoration-color)$/;
+  const ROOT_ONLY = new RegExp(`^\\.${rootClass}(?:\\[[^\\]]*\\]|:{1,2}[\\w-]+(?:\\([^)]*\\))?)*$`);
+  const cssRules = [...withoutComments(css).matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(
+    ([, selector, body]) => ({ selector: selector.trim(), body }),
+  );
+  const partVariables = new Set(
+    cssRules
+      .filter(({ selector }) => !selector.split(',').every((part) => ROOT_ONLY.test(part.trim())))
+      .flatMap(({ body }) => matchAll(body, /(--[\w-]+)\s*:/g)),
+  );
+  const notLiteral = [];
+  for (const { selector, body } of cssRules) {
+    if (selector.split(',').every((part) => ROOT_ONLY.test(part.trim()))) continue;
+    for (const [, property, value] of body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:([^;]*)/g)) {
+      if (!PAINT_PROPERTY.test(property)) continue;
+      const shared = matchAll(value, /var\(\s*(--[\w-]+)/g).filter(
+        (name) => !partVariables.has(name),
+      );
+      if (shared.length) notLiteral.push(`${selector} { ${property}: ${value.trim()} }`);
+    }
+  }
+  if (notLiteral.length) {
+    fail(
+      'part-style-not-literal',
+      relative(cssPath),
+      3,
+      `These part styles use a variable from the root, so the Design panel shows code instead of a font or color: ${notLiteral
+        .slice(0, 4)
+        .join(
+          '; ',
+        )}${notLiteral.length > 4 ? '; …' : ''}. Write the source's resolved value instead (font: 600 120px/.8 'Geist', sans-serif; color: rgb(21 21 20 / 5%)), with one literal rule per theme or mode; keep the variable only where the code reads it.`,
+    );
+  }
+
+  // CSS-GUIDELINES.md, Editable Values: a text part sets its own color. One that inherits it from
+  // the root renders right, but its text panel shows the color empty.
+  const colorBySelector = new Set(
+    cssRules
+      .filter(({ body }) => /(?:^|;)\s*color\s*:/.test(body))
+      .flatMap(({ selector }) => selector.split(',').map((part) => part.trim())),
+  );
+  const uncolored = [
+    ...new Set(
+      cssRules
+        .filter(({ selector }) => !selector.split(',').every((part) => ROOT_ONLY.test(part.trim())))
+        .filter(({ body }) => /(?:^|;)\s*font(?:-family|-size)?\s*:/.test(body))
+        .flatMap(({ selector }) => selector.split(',').map((part) => part.trim()))
+        .filter((part) => !part.includes('::') && !colorBySelector.has(part)),
+    ),
+  ];
+  if (uncolored.length) {
+    fail(
+      'text-part-without-color',
+      relative(cssPath),
+      3,
+      `${uncolored.slice(0, 6).join(', ')}${uncolored.length > 6 ? ', …' : ''} set a font but no color, so the text panel shows the color empty. Give each its own literal color (the one it shows now, e.g. color: #fff), with one rule per theme or mode (CSS-GUIDELINES.md, Editable Values).`,
+    );
+  }
+
+  // CANVAS-COMPONENTS.md: a value is a setting or a variable, never both. A number prop beside a
+  // root variable for the same value (`strength` and `--sh-strength`) leaves one field doing nothing.
+  const rootVariableWords = cssRules
+    .filter(({ selector }) => selector.split(',').every((part) => ROOT_ONLY.test(part.trim())))
+    .flatMap(({ body }) => matchAll(body, /(--[\w-]+)\s*:/g))
+    .filter((variable) => !SCAFFOLD_VARIABLES.has(variable))
+    .map((variable) => ({ variable, words: variable.slice(2).split('-') }));
+  const doubled = declaredPropTypes(propsText)
+    .filter(({ type }) => type === 'number')
+    .flatMap(({ name }) => {
+      const words = humanize(name).split(' ');
+      const last = words[words.length - 1];
+      // The variable that holds the most of the prop's words (`mobileSculptureScale` →
+      // `--sh-mobile-scale`, not `--sh-scale`), as long as their last words agree.
+      const twin = rootVariableWords
+        .filter(({ words: parts }) => last.length > 3 && parts[parts.length - 1] === last)
+        .sort(
+          (a, b) =>
+            words.filter((word) => b.words.includes(word)).length -
+            words.filter((word) => a.words.includes(word)).length,
+        )[0];
+      return twin ? [`${name} / ${twin.variable}`] : [];
+    });
+  if (doubled.length) {
+    fail(
+      'value-in-both-panels',
+      relative(propsPath),
+      3,
+      `These values are both a setting and a design-panel variable: ${doubled.join(', ')}. Keep one: how the drawing behaves or responds (strength, reach, speed) is the setting, read through the props ref; how it looks (color, font, size, opacity) is the variable, read through the cached reader. Remove the other (CANVAS-COMPONENTS.md, Design-Panel Values).`,
+      doubled[0].split(' / ')[0],
+    );
+  }
+
+  // CANVAS-COMPONENTS.md: a registered `<color>` reads back as `rgb(…)`, so a hex-only parser
+  // (`hexToRgb(style.getPropertyValue('--sh-bg'))`) returns its fallback and the drawing ignores
+  // every design-panel edit. Directly nested or through one local name.
+  const colorVariables = new Set(
+    matchAll(css, /@property\s+(--[\w-]+)\s*\{[^}]*syntax\s*:\s*['"]<color>['"]/g),
+  );
+  const READ = String.raw`getPropertyValue\(\s*['"\`](--[\w-]+)['"\`]\s*\)`;
+  const hexRead = new Set([
+    ...matchAll(portCode, new RegExp(String.raw`\bhex\w*\(\s*[\w$.?]*${READ}`, 'gi')),
+    ...[...portCode.matchAll(new RegExp(String.raw`\b([\w$]+)\s*=\s*[\w$.?]*${READ}`, 'g'))]
+      .filter(([, local]) => new RegExp(String.raw`\bhex\w*\(\s*${local}\b`, 'i').test(portCode))
+      .map(([, , variable]) => variable),
+  ]);
+  const misread = [...hexRead].filter((variable) => colorVariables.has(variable));
+  if (misread.length) {
+    fail(
+      'hex-parser-on-css-color',
+      relative(mainPath),
+      2,
+      `The code reads ${misread.join(', ')} with a hex-only parser, but a registered <color> reads back as rgb(…), so the parser returns its fallback and the drawing ignores design-panel edits. Parse rgb()/rgba() too, or pass the value as is (CANVAS-COMPONENTS.md, Use them).`,
+    );
+  }
+
+  // Step 2: the source's web fonts load from @fontsource under the same family, never a stand-in.
+  // Config JSON (a package.json dependency) and comments don't load a font.
+  const fontSourceText = withoutComments(
+    [
+      sourceCode,
+      ...sourceFiles
+        .filter(
+          (file) => !CODE_EXTENSIONS.has(extOf(file)) && !CONFIG_JSON.test(path.basename(file)),
+        )
+        .map((file) => read(file).replace(/<!--[\s\S]*?-->/g, '')),
+    ].join('\n'),
+  );
+  const sourceFamilies = new Set([
+    ...[...fontSourceText.matchAll(/fonts\.googleapis\.com\/css2?\?([^'"`)\s]+)/g)].flatMap(
+      ([, query]) =>
+        [...query.matchAll(/family=([^:&]+)/g)].map(([, family]) =>
+          decodeURIComponent(family.replace(/\+/g, ' ')).trim(),
+        ),
+    ),
+    ...matchAll(fontSourceText, /@fontsource(?:-variable)?\/([a-z0-9-]+)/g),
+  ]);
+  const fontPackage = (family) => family.toLowerCase().replace(/[\s_]+/g, '-');
+  const portFonts = new Set(
+    matchAll(`${allCode}\n${css}`, /@fontsource(?:-variable)?\/([a-z0-9-]+)/g),
+  );
+  const replacedFonts = [...sourceFamilies].filter((family) => !portFonts.has(fontPackage(family)));
+  if (replacedFonts.length) {
+    fail(
+      'replaced-source-font',
+      relative(mainPath),
+      2,
+      `The source loads ${replacedFonts.join(', ')}, and the port imports no matching font (${replacedFonts
+        .map((family) => `@fontsource/${fontPackage(family)}`)
+        .join(
+          ', ',
+        )}), so the text renders in another font. Install and import each at the weights the source uses, and keep the source's font-family stacks.`,
+      replacedFonts.join(' and '),
+    );
+  }
+
+  // Step 5: the libraries the source imports stay; without one, what it did (springs, gestures,
+  // a renderer) gets rewritten by hand and the parts built on it are dropped.
+  const packageOf = (specifier) => {
+    if (/^(?:[./~#]|@\/|[a-z]+:)/.test(specifier)) return undefined;
+    const parts = specifier.split('/');
+    return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+  };
+  const importedPackages = (code) => {
+    const packages = new Map();
+    const pattern = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\(\s*)['"]([^'"]+)['"]/g;
+    for (const specifier of matchAll(
+      withoutComments(code).replace(/\bimport\s+type\b[^;\n]*/g, ''),
+      pattern,
+    )) {
+      const name = packageOf(specifier);
+      if (name) packages.set(name, new Set([...(packages.get(name) ?? []), specifier]));
+    }
+    return packages;
+  };
+  // An npm alias (`three-128@npm:three@0.128.0`) imports the package under another name.
+  let appDir = path.resolve(componentDir);
+  while (!fs.existsSync(path.join(appDir, 'package.json')) && path.dirname(appDir) !== appDir) {
+    appDir = path.dirname(appDir);
+  }
+  const appPackage = path.join(appDir, 'package.json');
+  const aliases = new Map(
+    Object.entries(
+      fs.existsSync(appPackage) ? (JSON.parse(read(appPackage)).dependencies ?? {}) : {},
+    ).flatMap(([alias, version]) => {
+      const real = /^npm:(@?[^@]+)/.exec(String(version))?.[1];
+      return real ? [[alias, real]] : [];
+    }),
+  );
+  // `motion` is `framer-motion` renamed; either keeps the source's animations.
+  const samePackage = { 'framer-motion': 'motion' };
+  const canonical = (name) => samePackage[aliases.get(name) ?? name] ?? aliases.get(name) ?? name;
+  const portPackages = new Set([...importedPackages(allCode).keys()].map(canonical));
+  const droppedLibraries = [...importedPackages(sourceCode)].filter(
+    ([name]) =>
+      !/^(?:react|react-dom|next|clsx|classnames|tailwind-merge|class-variance-authority)$|^@(?:fontsource|types)\//.test(
+        name,
+      ) && !portPackages.has(canonical(name)),
+  );
+  if (droppedLibraries.length) {
+    fail(
+      'dropped-source-library',
+      relative(mainPath),
+      5,
+      `The source imports ${droppedLibraries
+        .map(([name, specifiers]) => `${name} (${[...specifiers].join(', ')})`)
+        .join(
+          ', ',
+        )}, and the port doesn't, so what it did (springs, gestures, a renderer) is rewritten by hand or lost, with the parts built on it. Install it at the source's version (under an npm alias if the app has another) and keep the source's imports, calls and sub-components; never rewrite what a library does.`,
+    );
+  }
+
+  // Step 3: a pointer listener the source puts on window or document follows the pointer over
+  // the whole component; one on a child (the canvas) misses everything that covers it.
+  const MOVE = String.raw`['"\`](?:pointer|mouse)move['"\`]`;
+  const globalMove = new RegExp(
+    String.raw`\b(?:window|document)\s*\.\s*addEventListener\(\s*${MOVE}`,
+  );
+  if (rootCall && globalMove.test(sourceLogicCode) && !globalMove.test(portCode)) {
+    const rootTag = openingTag(mainText, rootCall.index);
+    const rootRef = /\bref=\{\s*([\w$]+)\s*\}/.exec(rootTag)?.[1];
+    // The root also counts when its ref is passed to a helper (`mountWeave(stage, rootRef.current)`):
+    // the helper's parameter at that position is the root.
+    const passedAs = [];
+    for (const call of rootRef ? portCode.matchAll(/\b([A-Za-z_$][\w$]*)\(([^()]*)\)/g) : []) {
+      const position = call[2]
+        .split(',')
+        .findIndex((arg) => new RegExp(`^\\s*${rootRef}\\.current\\b`).test(arg));
+      if (position < 0) continue;
+      const params = new RegExp(
+        `\\bfunction\\s+${call[1]}\\s*\\(([^)]*)\\)|\\b${call[1]}\\s*=\\s*(?:async\\s*)?\\(([^)]*)\\)\\s*(?::[^=]*)?=>`,
+      ).exec(portCode);
+      const param = (params?.[1] ?? params?.[2])?.split(',')[position];
+      const name = /^\s*([A-Za-z_$][\w$]*)/.exec(param ?? '')?.[1];
+      if (name) passedAs.push(name);
+    }
+    const aliases = rootRef
+      ? [
+          `${rootRef}\\.current\\??`,
+          ...matchAll(portCode, new RegExp(`\\b([\\w$]+)\\s*=\\s*${rootRef}\\.current\\b`, 'g')),
+          ...passedAs,
+        ]
+      : [];
+    const rootListens =
+      /\bon(?:Pointer|Mouse)Move\s*=/.test(rootTag) ||
+      aliases.some((alias) =>
+        new RegExp(String.raw`\b${alias}\.addEventListener\(\s*${MOVE}`).test(portCode),
+      );
+    if (!rootListens) {
+      fail(
+        'pointer-listener-on-child',
+        relative(mainPath),
+        3,
+        "The source follows the pointer with a window or document listener, and the port follows it on a child element, so it stops reacting over the text and buttons that cover that child. Listen on the component root (onPointerMove on the root element, or addEventListener on the root's ref), and on pointerleave reset the pointer state the way the source does when the pointer leaves the page.",
+      );
+    }
+  }
+
+  // CANVAS-COMPONENTS.md: an engine with an update method is created once and updated through
+  // it. Rebuilt for playback or a setting, it restarts; and after its cleanup releases the
+  // WebGL context (`loseContext`), the next engine on the same canvas gets a dead context.
+  const UPDATE_METHOD =
+    /\b(setOptions|updateOptions|setSettings|setProps|configure)\s*\([^)]*\)\s*(?::[^{;]*)?\{/;
+  const updatable = new Map();
+  for (const match of sourceLogicCode.matchAll(/\bclass\s+([A-Z][\w$]*)[^{]*\{/g)) {
+    const method = UPDATE_METHOD.exec(
+      balanced(sourceLogicCode, match.index + match[0].length - 1),
+    )?.[1];
+    if (method) updatable.set(match[1], method);
+  }
+  const losesContext = /\bloseContext\s*\(/.test(sourceLogicCode);
+  // Dependencies the source's own effect already has (a stable `relayout` callback) are kept.
+  const sourceEngineDeps = new Set(
+    [...sourceLogicCode.matchAll(/\buse(?:Layout)?Effect\(/g)].flatMap((match) => {
+      const call = balanced(sourceLogicCode, match.index + match[0].length - 1);
+      if (![...updatable.keys()].some((name) => new RegExp(`\\bnew\\s+${name}\\s*\\(`).test(call)))
+        return [];
+      return (/,\s*\[([^\]]*)\]\s*\)$/.exec(call)?.[1] ?? '').split(',').map((dep) => dep.trim());
+    }),
+  );
+  for (const [file, text] of texts) {
+    const code = withoutComments(text);
+    for (const match of code.matchAll(/\buse(?:Layout)?Effect\(/g)) {
+      const call = balanced(code, match.index + match[0].length - 1);
+      const engine = [...updatable.keys()].find((name) =>
+        new RegExp(`\\bnew\\s+${name}\\s*\\(`).test(call),
+      );
+      const deps = /,\s*\[([^\]]*)\]\s*\)$/
+        .exec(call)?.[1]
+        .split(',')
+        .map((dep) => dep.trim())
+        .filter((dep) => dep && !dep.endsWith('Ref') && !sourceEngineDeps.has(dep));
+      if (!engine || !deps?.length) continue;
+      fail(
+        'engine-recreated',
+        relative(file),
+        3,
+        `The effect that creates ${engine} re-runs when ${deps.join(', ')} change${deps.length > 1 ? '' : 's'}, so pausing or a panel edit destroys the engine and builds a new one${losesContext ? ', and its cleanup releases the WebGL context (loseContext), so the next engine on the same <canvas> gets a dead context and shows nothing' : ''}. The source's ${engine} has ${updatable.get(engine)}(): create it once in an effect with [] dependencies, and pass playback and settings through ${updatable.get(engine)}() in a separate effect, as the source does${losesContext ? '; if it must be rebuilt, give each engine a new <canvas>' : ''}.`,
+      );
+    }
+  }
+
   if (sourceFiles.length === 0) {
     warn(
       'no-source-files',
       DEFAULT_SOURCE_DIR,
       1,
-      'No user files found, so copied code could not be compared. Pass --source <file> for pasted code you saved.',
+      'No user files found, so copied code could not be compared. Save pasted code, as pasted, in .wix/agentInput/attachments/pasted/ and rerun.',
     );
   }
 

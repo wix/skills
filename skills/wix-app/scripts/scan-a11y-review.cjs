@@ -187,7 +187,9 @@ function runRenderChild(componentDir) {
     const error = truncate(result.stderr || `exit ${result.status}`, 400);
     return { ...base, ok: false, reason: 'crash', error, findings: [] };
   }
-  if (!report.ok) {
+  // An unsupported service can affect only the preview. Preserve any completed
+  // live audit and its findings while keeping the overall review inconclusive.
+  if (!report.ok && report.reason !== 'unsupported-service') {
     return {
       ...base,
       ok: false,
@@ -198,7 +200,8 @@ function runRenderChild(componentDir) {
   }
   return {
     ...base,
-    ok: true,
+    ok: report.ok,
+    ...(report.reason ? { reason: report.reason } : {}),
     entry: report.entry,
     preview: report.preview,
     ssr: report.ssr,

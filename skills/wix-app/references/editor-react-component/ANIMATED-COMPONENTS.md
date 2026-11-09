@@ -80,7 +80,7 @@ export interface MyAnimationProps {
 export const defaultProps = {
   autoPlay: true,
   loop: true,
-  pauseButtonVisibility: 'showAlways',
+  pauseButtonVisibility: 'showOnHover',
 } as const;
 ```
 
@@ -225,7 +225,7 @@ Wire the named part completely:
 /* Narrow behavior-only exception documented in CSS-GUIDELINES.md. Keep editable
    appearance on .playButton and use this relationship only for visibility. */
 
-/* showOnHover */
+/* showOnHover (default) */
 .root[data-pause-button-visibility="showOnHover"] .playButton {
   opacity: 0;
   pointer-events: none;
@@ -237,7 +237,7 @@ Wire the named part completely:
   pointer-events: auto;
 }
 
-/* showAlways (default) — no extra CSS needed; button is visible by default */
+/* showAlways — no extra CSS needed */
 ```
 
 ## 4. Suppress Autoplay in `component.preview.tsx`
