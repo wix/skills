@@ -169,3 +169,19 @@ apiDoc:
       title: "Goal: Sell Gift Cards"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
+
+    # ============================================================
+    # Black Friday readiness — README-surfaced review recipe plus its
+    # checks file (support file, loaded BY the review, never entered
+    # directly).
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/black-friday/black-friday-readiness-review.md
+      title: "Black Friday Readiness Review"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/black-friday/black-friday-readiness-checks.md
+      title: "Black Friday Readiness Checks"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
