@@ -423,8 +423,7 @@ a sparse clone of their folder. `node {SKILL_ROOT}/install/templates.mjs` downlo
 
 Use this route on a machine with no Wix plugin or connector, where the Wix CLI runs and reaches Wix.
 The CLI carries the login. `wix create` makes the site. `wix release` publishes the Astro build of
-`wix-headless-kit`. If the machine has a Wix CLI session (`~/.wix/auth/account.json`, written by `wix login`),
-use this route, even if other tools are on the machine.
+`wix-headless-kit`.
 
 **The folder.** Work from the folder that holds the project, or that will hold it. For a new build,
 use an empty folder. If the current folder holds unrelated things, make a new folder named for the

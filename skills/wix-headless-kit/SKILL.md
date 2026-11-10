@@ -112,10 +112,11 @@ vertical needs, in the order that works.
 ## The run
 
 Needed throughout: Node ≥ 22.12 (the Astro build's line; the CLI route's Wix CLI wants ≥ 24.18), git, the two companion skills installed beside this one,
-`wix-docs` and `wix-manage`, and one of two ways to Wix. `node <SKILL_ROOT>/install/context.mjs`
-prints which one this machine has, as `publisher`:
+`wix-docs` and `wix-manage`, and one of two ways to Wix. Your tool list decides which, the plugin first.
+`node <SKILL_ROOT>/install/context.mjs` prints `publisher: cli` whenever a Wix CLI session is on
+the machine; with the tools in your list the route is still `plugin`:
 
-- **`plugin`** — no Wix CLI session on this machine; the Wix MCP's tools are in your tool list
+- **`plugin`** — the Wix MCP's tools are in your tool list
   (`ExecuteWixAPI`, `UploadHeadlessWebsiteFiles`: a Wix plugin or connector, connected); and `npm`
   reaches the registry, so the kit runs here. The MCP carries the user's login. The site is provisioned through `ExecuteWixAPI` with the recipe
   `wix-manage/references/sites/create-headless-site.md`, the vertical in `seedOptions` so its app
@@ -132,11 +133,11 @@ prints which one this machine has, as `publisher`:
   **The carrier is settled before the build**, from `context.mjs`'s `carrier.s3` and from whether
   the client hands `attachments` over as files (the tool's `attachments` description names the
   clients that do): with neither, the Astro build has no way to the site and the run is the cold
-  start's "The run, through the plugin": the site, the apps and the seed through `ExecuteWixAPI`
+  start's "The build, through the Wix tools": the site, the apps and the seed through `ExecuteWixAPI`
   and the frontend as a few small static pages dropped with the upload tool, written against the
   kit's REST twins and cores as reference (its step 5); the compose is not run, since every file
   it writes would have to be written out as text.
-- **`cli`** — where the Wix MCP is not connected, or a Wix CLI session is already on this machine:
+- **`cli`** — where the Wix MCP's tools are not in your tool list:
   a logged-in Wix CLI (`npx @wix/cli@latest whoami`; `npx @wix/cli@latest login` is a
   device-code flow: surface the URL and code to the user, never read tokens into context).
   `node <SKILL_ROOT>/install/bootstrap.mjs` checks the CLI and runs the login when there is none;
@@ -413,7 +414,7 @@ how to close such a run. A public site is still better served by managed Astro; 
 close.
 
 Where the kit does not run (no route to npm, no Node), or when the install, the CLI or the login is
-blocked where you are, the run is the cold start's "The run, through the plugin"
+blocked where you are, the run is the cold start's "The build, through the Wix tools"
 (`wix-headless-cold-start/headless-kit.md`, `https://www.wix.com/headless/skill.md`): the same run,
 step by step, as the Wix API calls the scripts make and the files beside this skill that carry the
 contracts. On the plugin route the same steps are the reference for the calls that go through

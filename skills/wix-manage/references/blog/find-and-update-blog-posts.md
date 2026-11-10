@@ -24,6 +24,14 @@ Find one post by its title. `$eq` on `title` matches the whole title and ignores
 { "query": { "filter": { "title": "Moon Photography for Beginners" } } }
 ```
 
+Several posts named by title (the user lists the posts to change, publish or delete): find them all in one query with `$in` on `title`, not one query per title.
+
+```json
+{ "query": { "filter": { "title": { "$in": ["Moon Photography for Beginners", "Night Sky Gear Guide"] } }, "paging": { "limit": 100 } } }
+```
+
+Match the returned titles to the user's list, ignoring case. For any title still missing, run the same `$in` query on [Query Draft Posts](#drafts-that-are-not-live-query-draft-posts) with the missing titles: a named post that is not live is a draft. When the user says the posts are drafts, query Query Draft Posts first. Run the word search below only for a title neither `$in` query found, and list the word-search match and ask before you act on it.
+
 If that returns nothing (the user gave part of the title, or other words), search by words, then keep only the titles that contain every word the user said:
 
 ```json
@@ -57,7 +65,7 @@ The first post ever: sort ascending and take one. Always send the sort: the defa
 
 The newest post: the same with `"order": "DESC"`. Posts in a category or with a tag: `{ "categoryIds": { "$hasSome": ["<categoryId>"] } }` or `{ "tagIds": { "$hasSome": ["<tagId>"] } }`. To get the ids, see [Categories and tags](#categories-and-tags).
 
-Read from `posts[]`: `id`, `title`, `firstPublishedDate`, `lastPublishedDate`, `excerpt`, `slug`, `categoryIds`, `tagIds`, `media` (cover), `pinned`, `featured`, `hasUnpublishedChanges` (the draft has edits that are not live yet). To get more, add top-level `"fieldsets"` next to `query`: `"CONTENT_TEXT"` (the post's plain text in `contentText`, for example for an SEO check), `"RICH_CONTENT"`, `"SEO"` (`seoData`), `"METRICS"` (views, likes, comments), `"URL"`.
+Read from `posts[]`: `id`, `title`, `memberId` (the post's owner), `firstPublishedDate`, `lastPublishedDate`, `excerpt`, `slug`, `categoryIds`, `tagIds`, `media` (cover), `pinned`, `featured`, `hasUnpublishedChanges` (the draft has edits that are not live yet). To get more, add top-level `"fieldsets"` next to `query`: `"CONTENT_TEXT"` (the post's plain text in `contentText`, for example for an SEO check), `"RICH_CONTENT"`, `"SEO"` (`seoData`), `"METRICS"` (views, likes, comments), `"URL"`.
 
 Paging: `paging.limit` is at most 100 (101 returns 400). `pagingMetadata.total` is the number of matches; for the next page, send the same filter and sort with `paging.offset` increased by the limit.
 
@@ -65,11 +73,13 @@ A post you publish appears in Query Posts after a few seconds. To check one post
 
 ### Drafts that are not live: Query Draft Posts
 
-`POST https://www.wixapis.com/blog/v3/draft-posts/query` with the same `filter` forms for `title` (`$eq` ignores case; `$startsWith` / `$contains` are word searches as above). It returns `draftPosts[]` with `id`, `title`, `status`, `editedDate`, newest edit first.
+`POST https://www.wixapis.com/blog/v3/draft-posts/query` with the same `filter` forms for `title` (`$eq` ignores case; `$startsWith` / `$contains` are word searches as above). It returns `draftPosts[]` with `id`, `title`, `memberId`, `status`, `editedDate`, newest edit first.
 
 ```json
 { "query": { "filter": { "title": "Peace Education in Schools" } } }
 ```
+
+For several drafts, send `{ "title": { "$in": [...] } }` as for live posts.
 
 It returns only drafts that are **not live**: drafts never published, and posts moved back to drafts. It does not return live posts, even with `"status": "PUBLISHED"`, which returns an empty list. To list every post and say which are live and which are drafts, run both queries: Query Posts for the live ones, Query Draft Posts for the drafts. Each post appears in only one of the two.
 
@@ -175,6 +185,22 @@ The cover is `media`. The image `id` is a Media Manager file id (for example `ab
 - Tags: `POST https://www.wixapis.com/blog/v3/tags` with `{ "label": "night sky" }` returns `tag.id`. It returns the existing tag when the label already exists, so you can use it for any tag name.
 - Then send the full lists: `"categoryIds": [<old ids>, <new id>]`, `"tagIds": [<old ids>, <new id>]` (at most 10 categories and 30 tags per post).
 
+### Change several posts
+
+To make the same kind of change to several posts, use [Bulk Update Draft Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-update-draft-posts) instead of one Update Draft Post per post: `PATCH https://www.wixapis.com/blog/v3/draft-posts/update`, at most 20 posts per call. This path has no `bulk` segment, unlike Bulk Create and Bulk Delete: send it as written. Split a longer list into calls of 20. Each element follows the rules above, and the one `action` applies to every post in the call, so send live posts and drafts that are not live in separate calls. For `UPDATE_PUBLISH`, send each post's `memberId`, taken from the query that found it (`posts[].memberId` or `draftPosts[].memberId`), not from one Get Draft Post per post. `UPDATE_REVERT_TO_DRAFT` needs no `memberId`, as with the single-post call. Unlike Bulk Create Draft Posts, each item keeps the `{ "draftPost": { ... } }` wrapper.
+
+```json
+{
+  "draftPosts": [
+    { "draftPost": { "id": "<post id 1>", "memberId": "<memberId 1>", "excerpt": "A short guide to photographing the moon." } },
+    { "draftPost": { "id": "<post id 2>", "memberId": "<memberId 2>", "excerpt": "The gear you need for night sky photos." } }
+  ],
+  "action": "UPDATE_PUBLISH"
+}
+```
+
+The response has one entry in `results[]` per post. A post can fail while the others succeed: read each `results[].itemMetadata` (`id`, `success`, and `error` when `success` is `false`), and report which posts changed and which did not. `bulkActionMetadata.totalFailures` counts the failures.
+
 ## Step 3: Publish, unpublish, delete, restore
 
 | The user wants to | Call | Result |
@@ -183,14 +209,18 @@ The cover is `media`. The image `id` is a Media Manager file id (for example `ab
 | Take a live post off the blog and keep it as a draft | `PATCH https://www.wixapis.com/blog/v3/draft-posts/{id}` with `{ "draftPost": { "id": "<id>" }, "action": "UPDATE_REVERT_TO_DRAFT" }` | `draftPost.status` is `UNPUBLISHED`; Get Post returns 404. `firstPublishedDate` is kept. |
 | Delete a draft that is not live | [Delete Draft Post](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/delete-draft-post): `DELETE https://www.wixapis.com/blog/v3/draft-posts/{id}` | `{}`. The draft goes to the trash. |
 | Delete a live post | First `UPDATE_REVERT_TO_DRAFT` (row 2), then `DELETE` (row 3) | The post leaves the blog and goes to the trash. |
+| Delete several drafts that are not live | [Bulk Delete Draft Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-delete-draft-posts): `DELETE https://www.wixapis.com/blog/v3/bulk/draft-posts`, body `{ "postIds": ["<id 1>", "<id 2>"] }`, at most 100 ids per call. Split a longer list into calls of 100. The method schema shows no request body, but this body works: send it as shown, with no schema lookup. | 200 with an empty `results` array: the call does not report per post. The drafts go to the trash: tell the user they can be restored. Check the outcome in `GET https://www.wixapis.com/blog/v3/draft-posts/trash-bin` (each deleted id is there). |
+| Delete several live posts | First [Bulk Update Draft Posts](#change-several-posts) with `{ "draftPosts": [{ "draftPost": { "id": "<id 1>" } }, { "draftPost": { "id": "<id 2>" } }], "action": "UPDATE_REVERT_TO_DRAFT" }` (at most 20 per call; this body is verified, send it as shown), then Bulk Delete Draft Posts with the ids whose revert succeeded | The posts leave the blog and go to the trash. |
 | See or restore deleted posts | `GET https://www.wixapis.com/blog/v3/draft-posts/trash-bin` returns `draftPosts[]`; [Restore From Trash Bin](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/restore-from-trash-bin): `POST https://www.wixapis.com/blog/v3/draft-posts/trash-bin/{id}/restore`, body `{}` | The post comes back as an `UNPUBLISHED` draft. Publish it again if it was live. |
 
-Do not send `DELETE` to a live post. The docs say it deletes the post, but it does not take the post off the blog: with no pending changes it returns `404 Entity not found`, and with pending changes it returns 200, but the post stays live. Always revert it to a draft first.
+To delete several posts, use the two bulk rows: one call per batch, not one `DELETE` per post.
+
+Do not send `DELETE` to a live post. The docs say it deletes the post, but it does not take the post off the blog: with no pending changes it returns `404 Entity not found`, and with pending changes it returns 200, but the post stays live. Always revert it to a draft first. The same holds for Bulk Delete Draft Posts: a live post in `postIds` stays live, and the call still returns 200 with no error.
 
 `?permanent=true` on `DELETE` skips the trash, and the post cannot be restored. Use it only when the user says to delete permanently.
 
 ## Confirm before you change
 
-- A request that names the post and the change ("publish my draft about peace education", "delete the post Basic Obedience Classes", "add this sentence to the end of my moon post") is the user's confirmation. Act when exactly one post matches, then report what changed.
-- Ask first when several posts match, when none matches, when the post has unpublished changes and your change would publish them, before changing more than one post, before replacing text the user has not seen, and before a permanent delete.
+- A request that names the post and the change ("publish my draft about peace education", "delete the post Basic Obedience Classes", "add this sentence to the end of my moon post") is the user's confirmation. Act when exactly one post matches, then report what changed. A request that names each of several posts ("delete these drafts: ...") confirms them all: act on the posts that match one title each.
+- Ask first when several posts match one title, when none matches, when the post has unpublished changes and your change would publish them, before changing several posts the user did not name one by one (all posts in a category, all drafts), before replacing text the user has not seen, and before a permanent delete.
 - After a write, check it by id, not with a new Query Posts call, which can lag a few seconds. A live post: Get Post (`GET https://www.wixapis.com/blog/v3/posts/{id}`). A draft, or a post you moved back to drafts: `GET https://www.wixapis.com/blog/v3/draft-posts/{id}` (Get Post returns 404 for these). A deleted post: it is in `GET https://www.wixapis.com/blog/v3/draft-posts/trash-bin`.
