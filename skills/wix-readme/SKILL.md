@@ -23,7 +23,7 @@ Throughout: nothing Wix-specific from memory. Every URL, id, setting location, p
 
 A new Wix site is written in code and uploaded. `StartDeployWebsite` returns the guide for a site the agent writes or files the user brought; `StartHeadlessBuild` returns the guide for a site that needs Wix business features (a store, bookings, a CMS, members, payments and the rest). Each guide creates the site, uploads it and says what comes next; call one and follow it.
 
-A Wix Studio Two site, which the user keeps designing in Wix Studio, is the exception: to create one, or to change an existing Studio Two site's pages, theme or components, follow `wix-studio-two` instead.
+A Wix Studio Two site, which the user keeps designing in Wix Studio, is the exception: to create one, to change an existing Studio Two site's pages, theme or components, or to import another site or project into one, follow `wix-studio-two` instead.
 
 What the guides stand on:
 
