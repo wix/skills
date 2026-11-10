@@ -11,12 +11,15 @@ All calls are site-scoped (the site's `siteId` on the call that runs the functio
 
 ## Probe 1 — read everything (no mutations)
 
-Run once. Each probe is independent; a failure is returned as `{ ok: false, error }` for that probe only. Replace the three placeholders from the site context.
+Run once, and send the function as it is written here. It contains no backslashes on purpose: a backslash that gets doubled on the way to the executor breaks a regular expression and the whole call. If a run still fails to parse, fix only the token the error names and send it again; do not rewrite the function or drop reads, because the pass rules below read its exact output. Each probe is independent; a failure is returned as `{ ok: false, error }` for that probe only. Replace the placeholders: the first two from the site context, the sale day and sale name from step 2 of the review. A site that is not published has no URL: set `SITE_URL` to an empty string and still send the whole function. Only `homepage` and `pages` come back empty, `stockSummary` and `testProduct` are still returned, and checks 4–8 become checklist lines to look at once the site is live.
 
 ```javascript
 async function() {
   const SITE_URL = "<site URL from the site context>";
   const SITE_CREATED = "<site created date from the site context, ISO>";
+  const SALE_DAY = "<sale day from step 2 of the review, YYYY-MM-DD, e.g. 2026-11-27>";
+  const SALE_NAME = "<sale name from step 2 of the review, e.g. Black Friday>";
+  const saleRe = new RegExp("sale|cyber|holiday|deal|gift|" + SALE_NAME.replace(/[^a-z0-9 ]/gi, ""), "i");
   const probe = async (name, opts) => {
     try { const r = await wix.request(opts); return [name, { ok: true, data: r.data }]; }
     catch (e) { return [name, { ok: false, error: String(e && e.message || e).slice(0, 300) }]; }
@@ -25,9 +28,10 @@ async function() {
   const now = new Date();
   const iso = (d) => d.toISOString();
   const d30 = new Date(now.getTime() - 30 * 864e5);
-  const lastYear = now.getUTCFullYear() - 1;
-  const bfcmStart = new Date(Date.UTC(lastYear, 10, 20));   // Nov 20 last year
-  const bfcmEnd = new Date(Date.UTC(lastYear, 11, 3));      // Dec 3 last year
+  // Same sale, one year earlier: 7 days before the sale day through 6 days after (Nov 20 – Dec 3 for Black Friday).
+  const saleLastYear = new Date(SALE_DAY + "T00:00:00Z"); saleLastYear.setUTCFullYear(saleLastYear.getUTCFullYear() - 1);
+  const bfcmStart = new Date(saleLastYear.getTime() - 7 * 864e5);
+  const bfcmEnd = new Date(saleLastYear.getTime() + 6 * 864e5);
   const storeExistedLastBfcm = new Date(SITE_CREATED) < bfcmStart;
 
   const ORDERS = "https://www.wixapis.com/ecom/v1/orders/search";
@@ -87,7 +91,7 @@ async function() {
     probe("homepage", { scope: "account", method: "GET", url: SITE_URL }),
     safe("orders30d", () => searchOrders(d30, now)),
     storeExistedLastBfcm ? safe("ordersLastBfcm", () => searchOrders(bfcmStart, bfcmEnd))
-                         : Promise.resolve(["ordersLastBfcm", { ok: true, skipped: "store created after last Black Friday", data: [] }]),
+                         : Promise.resolve(["ordersLastBfcm", { ok: true, skipped: "store created after last year's sale", data: [] }]),
   ]));
 
   // Two more public pages for the no-browser fallback: the sale category page and one discounted product page.
@@ -96,7 +100,7 @@ async function() {
   const hrefs = [...homeHtml.matchAll(/href="([^"#?]+)/g)].map(m => m[1]);
   const hrefFor = (slug) => { if (!slug) return null; const h = hrefs.find(x => x.endsWith(`/${slug}`) || x.includes(`/${slug}/`)); return h ? new URL(h, SITE_URL).href : null; };
   const pageText = async (url) => { try { const r = await wix.request({ scope: "account", method: "GET", url }); return { ok: true, url, html: String(r.data) }; } catch (e) { return { ok: false, url, error: String(e.message || e).slice(0, 200) }; } };
-  const saleCategory = results.categories.ok ? results.categories.data.categories.find(c => /sale|black friday|cyber|holiday|deal|gift/i.test(c.name)) : null;
+  const saleCategory = results.categories.ok ? results.categories.data.categories.find(c => saleRe.test(c.name)) : null;
   const discounted = results.products.ok ? results.products.data.find(p => p.compareAtPriceRange) : null;
   const saleCategoryUrl = saleCategory ? hrefFor(saleCategory.slug) : null;
   const discountedUrl = discounted ? (hrefFor(discounted.slug) || (discounted.url && discounted.url.url)) : null;
@@ -106,7 +110,16 @@ async function() {
   ]);
 
   // Compact the big ones so the result stays readable. Keep raw for the rest.
-  const strip = (html) => String(html || "").replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  // Text helpers, written without backslashes (see the note above the function).
+  const dropBlocks = (s, tag) => { const low = s.toLowerCase(); let kept = "", i = 0;
+    for (;;) { const a = low.indexOf("<" + tag, i); if (a < 0) { kept += s.slice(i); break; } kept += s.slice(i, a);
+      const b = low.indexOf("</" + tag, a); if (b < 0) break; const c = low.indexOf(">", b); if (c < 0) break; i = c + 1; }
+    return kept; };
+  const WS = new RegExp("[ " + String.fromCharCode(9, 10, 13, 160) + "]+", "g");   // space, tab, newline, return, non-breaking space
+  const strip = (html) => ["script", "style", "noscript"].reduce(dropBlocks, String(html || "")).replace(/<[^>]+>/g, "").replace(WS, " ").trim();
+  const MONTH = "(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)";
+  const dateRe = new RegExp("(^| )" + MONTH + "[.]? [0-9]{1,2}( ?[–-] ?[0-9]{1,2})?|(^| )[0-9]{1,2}( ?[–-] ?[0-9]{1,2})? " + MONTH, "gi");
+  const mentionRe = new RegExp("black friday|cyber monday|bfcm|sale|% off|deal|" + SALE_NAME.replace(/[^a-z0-9 ]/gi, ""), "gi");
   const out = {};
   if (results.products.ok) {
     out.products = results.products.data.map(p => ({
@@ -132,8 +145,8 @@ async function() {
     out.homepage = {
       clientRendered: text.length < 300,   // a JS shell with nothing readable server-side
       textStart: text.slice(0, 1500),
-      saleMentions: (text.match(/black friday|cyber monday|bfcm|sale|% off|\bdeal/gi) || []).slice(0, 20),
-      datesMentioned: (text.match(/\b(nov(ember)?|dec(ember)?)\.?\s+\d{1,2}(\s*[–-]\s*\d{1,2})?|\b\d{1,2}\s*[–-]\s*\d{1,2}\s+(nov|dec)[a-z]*/gi) || []).slice(0, 10),
+      saleMentions: (text.match(mentionRe) || []).slice(0, 20),
+      datesMentioned: (text.match(dateRe) || []).map(d => d.trim()).slice(0, 10),
       hasCountdown: /countdown|timer|ends in/i.test(html),
       linkedProducts: linked(out.products, "url").map(p => ({ id: p.id, name: p.name, availability: p.availability })),
       linkedCategorySlugs: linked(out.categories, "slug").map(c => c.slug),
@@ -143,7 +156,7 @@ async function() {
   out.pages = {
     saleCategory: saleCategory ? { name: saleCategory.name, url: extraPages[0] && extraPages[0].url, ok: !!(extraPages[0] && extraPages[0].ok), textStart: extraPages[0] && extraPages[0].ok ? strip(extraPages[0].html).slice(0, 400) : null } : null,
     discountedProduct: discounted ? { name: discounted.name, url: discountedUrl, ok: !!(extraPages[1] && extraPages[1].ok),
-      showsBothPrices: !!(extraPages[1] && extraPages[1].ok && new RegExp(String(discounted.compareAtPriceRange.minValue.amount).replace(".", "\\.")).test(strip(extraPages[1].html)) && new RegExp(String(discounted.actualPriceRange.minValue.amount).replace(".", "\\.")).test(strip(extraPages[1].html))) } : null,
+      showsBothPrices: !!(extraPages[1] && extraPages[1].ok && strip(extraPages[1].html).includes(String(discounted.compareAtPriceRange.minValue.amount)) && strip(extraPages[1].html).includes(String(discounted.actualPriceRange.minValue.amount))) } : null,
   };
   const ordersSummary = (list) => {
     const perProduct = {}; let count = 0; let revenue = 0;
@@ -165,6 +178,34 @@ async function() {
   } else out.campaigns = results.campaigns;
   out.giftCardProducts = results.giftCardProducts.ok ? (results.giftCardProducts.data.giftCardProducts || []).map(g => ({ id: g.id, name: g.name })) : results.giftCardProducts;
   for (const k of ["coupons", "discountRules", "shippingOptions", "deliveryProfiles", "checkoutSettings", "marketingTags", "cookieBanner", "siteProps", "staticPages"]) out[k] = results[k];
+  // Stock, decided here so the report never derives it from two lists. Two sources: the inventory rows and the product's own
+  // availability. A product is "out of stock" only when both agree; when they disagree it is "unclear", never "out".
+  // A tracked row is in stock when its quantity is above 0 (it has no inStock field); an untracked row carries inStock instead.
+  if (Array.isArray(out.products)) {
+    const inv = Array.isArray(out.inventory) ? out.inventory : [];
+    const itemOk = (i) => i.tracked === true ? Number(i.quantity) > 0 : (i.inStock === true || i.status === "IN_STOCK");
+    const rowNote = (i) => i.tracked === true ? "counted stock is " + Number(i.quantity || 0) : "stock is not counted, marked " + (itemOk(i) ? "in stock" : "out of stock");
+    const judge = (p) => {
+      const rows = inv.filter(i => i.productId === p.id);
+      const byRows = rows.length ? rows.some(itemOk) : null;
+      const byProduct = p.availability ? p.availability !== "OUT_OF_STOCK" : null;
+      const notes = (rows.length ? rows.slice(0, 3).map(rowNote).join("; ") : "no inventory record") + "; product marked " + (p.availability || "nothing");
+      const state = byRows === null && byProduct === null ? "unclear" : byRows === null ? (byProduct ? "buy" : "out") : byProduct === null ? (byRows ? "buy" : "out") : byRows === byProduct ? (byRows ? "buy" : "out") : "unclear";
+      return { id: p.id, name: p.name, state, notes };
+    };
+    const visible = out.products.filter(p => p.visible).map(judge);
+    out.stockSummary = { visibleProducts: visible.length, canBeBought: visible.filter(v => v.state === "buy").length,
+      outOfStock: visible.filter(v => v.state === "out").map(v => ({ name: v.name, why: v.notes })).slice(0, 30),
+      unclear: visible.filter(v => v.state === "unclear").map(v => ({ name: v.name, why: v.notes })).slice(0, 30),
+      stockCountingOff: out.products.filter(p => p.visible && inv.some(i => i.productId === p.id && i.tracked === false)).map(p => p.name).slice(0, 30),
+      inventoryRead: Array.isArray(out.inventory) };
+    // The product Probe 2 puts in its carts, picked here so the choice is never made by hand: one that can be bought,
+    // a single variant first (no variant lookup), then one already on sale (the cart shows the sale price), then the cheapest.
+    const canBuy = out.products.filter(p => p.visible && p.type === "PHYSICAL" && p.price > 0 && visible.some(v => v.id === p.id && v.state === "buy"));
+    const rank = (p) => (p.variants === 1 ? 0 : 2) + (p.compareAt > p.price ? 0 : 1);
+    canBuy.sort((a, b) => rank(a) - rank(b) || a.price - b.price);
+    out.testProduct = canBuy.length ? { id: canBuy[0].id, name: canBuy[0].name, price: canBuy[0].price, compareAt: canBuy[0].compareAt, singleVariant: canBuy[0].variants === 1 } : null;
+  }
   // Lists read in one page: flag when the page may be full so the pass rules degrade ✅ to ❔ instead of trusting partial data.
   const count = (k, f) => results[k] && results[k].ok && Array.isArray(results[k].data[f]) ? results[k].data[f].length : 0;
   out.truncated = { inventory: count("inventory", "inventoryItems") >= 1000, coupons: count("coupons", "coupons") >= 100,
@@ -178,6 +219,8 @@ async function() {
 | Probe | Endpoint | Fields used |
 |---|---|---|
 | products | `POST /stores/v3/products/query` with `fields: ["PLAIN_DESCRIPTION","URL","MERCHANT_DATA","DIRECT_CATEGORIES_INFO"]` | `id`, `name`, `slug`, `visible`, `productType`, `media.main`, `actualPriceRange.minValue.amount` (string), `compareAtPriceRange` (absent when none), `plainDescription` (HTML), `brand.name` (absent when none), `costRange.minValue.amount` (`"0"` when no cost entered), `ribbon.name`, `inventory.availabilityStatus`, `variantSummary.variantCount`, `url.url`, `directCategoriesInfo.categories[].id` (only with `DIRECT_CATEGORIES_INFO`; inventory items also carry `product.directCategoryIds`). 100 per page, `pagingMetadata.hasNext` / `cursors.next`; keep `fields` on every page. |
+| testProduct | computed in the probe | `{ id, name, price, compareAt, singleVariant }`, or `null` when nothing can be bought: the product every Probe 2 cart uses |
+| stockSummary | computed in the probe from products and inventory | `visibleProducts`, `canBeBought`, `outOfStock[]` and `unclear[]` (each `{ name, why }`), `stockCountingOff[]` (names), `inventoryRead`. A tracked row counts as in stock when `quantity > 0`; an untracked one when `inStock` is true. A product is out of stock only when its inventory rows and its own availability agree; when they disagree it is in `unclear`. |
 | inventory | `POST /stores/v3/inventory-items/query`, `limit` up to 1000 | one item per variant: `productId`, `variantId`, `trackQuantity`, `quantity` (tracked only), `inStock` (untracked only), `availabilityStatus`, `product.name`, `product.variantName`, `product.directCategoryIds`. Next page while `pagingMetadata.cursors.next` exists. |
 | categories | `POST /categories/v1/categories/query` with `treeReference.appNamespace: "@wix/stores"`, `returnNonVisibleCategories: true` | `categories[].{id, name, slug, visible, itemCounter, parentCategory.id}`. Catalog V3 only. |
 | coupons | `POST /stores/v2/coupons/query`, `query.paging.limit` 100 | `coupons[].specification.{name, code, active, startTime, expirationTime (epoch ms), usageLimit, limitPerCustomer, minimumSubtotal, scope, percentOffRate | moneyOffAmount | freeShipping | fixedPriceAmount | buyXGetY}`, `numberOfUsages`, `expired`. `totalResults` only when empty. |
@@ -199,7 +242,7 @@ async function() {
 
 ## Probe 2 — test carts (creates and deletes temporary carts)
 
-Run after Probe 1, once, with `hasMutations: true`. Pick the product: the cheapest visible, in-stock, physical product with one variant (`variants === 1`); if every product has options, use `GET /stores/v3/products/{id}` and take `variantsInfo.variants[0].id` as `catalogReference.options.variantId`. Build one scenario per delivery region (one destination country from `destinations[].countryCode`; a region with `destinations: []` is "rest of world", so pick a country **no other region covers**, e.g. `DE` when the only other region is US) × both sides of any free-shipping threshold (quantity chosen so the subtotal lands above and below it) × each active coupon code. Carts are deleted in `finally`.
+Run after Probe 1, once, with `hasMutations: true`. The product is `testProduct` from Probe 1, in every cart: do not choose another. Name it and its prices in the report ("BF20 takes Oak Candle from $24.00 to $19.20"). When `testProduct.singleVariant` is false, use `GET /stores/v3/products/{id}` and take `variantsInfo.variants[0].id` as `catalogReference.options.variantId`. When `testProduct` is null, skip Probe 2. Build one scenario per delivery region (one destination country from `destinations[].countryCode`; a region with `destinations: []` is "rest of world", so pick a country **no other region covers**, e.g. `DE` when the only other region is US) × both sides of any free-shipping threshold (quantity chosen so the subtotal lands above and below it) × each active coupon code. Every coupon scenario has a twin without the coupon (same product, quantity and region), so the automatic discount alone and the coupon on top of it can be compared (checks 17, 18). Send the function as written and change only the `scenarios` list. Carts are deleted in `finally`.
 
 ```javascript
 async function() {
@@ -249,7 +292,7 @@ Run after Probes 1 and 2 **whenever the agent has a tool that opens web pages an
 
 | # | Page | URL | Look for |
 |---|---|---|---|
-| P1 | Homepage, desktop | `SITE_URL` | 4 the announcement bar: visible above the fold, its text and dates · 5 featured products: click or hover each, note name · 7 a countdown: its end time and what it counts to · 8 the menu: a link to the sale category · 10 footer: links to returns, shipping, terms, privacy · 12 the cookie banner appears on first visit (do not click it) |
+| P1 | Homepage, desktop | `SITE_URL` | 4 the announcement bar: visible without scrolling, its text and dates · 5 featured products: click or hover each, note name · 7 a countdown: its end time and what it counts to · 8 the menu: a link to the sale category · 10 footer: links to returns, shipping, terms, privacy · 12 the cookie banner appears on first visit (do not click it) |
 | P2 | Homepage, phone width (≈ 390 px) when the tool can resize | `SITE_URL` | 4 bar still visible and readable · 8 the sale link is in the mobile menu · nothing overlaps the hero |
 | P3 | Sale category page | `pages.saleCategory.url` | 8 it exists and lists products · 6 each product card shows the crossed-out original and the sale price · 5 out-of-stock badges |
 | P4 | One discounted product page | `pages.discountedProduct.url` | 6 crossed-out original price beside the sale price · stock message · the add-to-cart button works |
@@ -262,13 +305,15 @@ Run after Probes 1 and 2 **whenever the agent has a tool that opens web pages an
 
 **Fallback when there is no browser.** Say so in the report header. Then the checklist opens with the group **On your live site**, one checkbox per visual check the agent could not see, each with the exact URL and the thing to look at, on a phone and on a computer:
 
-- [ ] Open <SITE_URL> on your phone and your computer: is the Black Friday bar visible without scrolling, does it say <dates from the sale window>? (4)
-- [ ] On the homepage, tap every featured product: does each open and show it is in stock? (5)
-- [ ] Open <pages.discountedProduct.url>: is <compare-at> crossed out next to <sale price>? (6; omit when `showsBothPrices` is true and say "the page text shows both prices; glance that the original is struck through")
-- [ ] If you have a countdown, does it end at <discount end, store tz> and show "Sale ended" at zero, not negative numbers? (7)
-- [ ] Is <sale category name> in your site menu, including the mobile menu? (8; omit when `linkedCategorySlugs` holds its slug and `visible` is true, say "it's linked; glance that it shows on mobile")
-- [ ] Add one item to the cart, go to checkout, stop before paying: do shipping options and prices appear for your main region, are returns/terms/privacy linked at the bottom, and are Apple Pay / Google Pay / PayPal / pay-later shown? (1, 3, 9, 10)
-- [ ] Open the site in a private window: does the cookie banner appear? (12; omit when the banner API said `enabled: true` and the store does not ship to the EU/UK)
+- [ ] Open <SITE_URL> on your phone. Check that the <sale name> bar shows without scrolling and says <dates from the sale window>. (4)
+- [ ] Open each featured product on your homepage. Check that you can add it to the cart. (5)
+- [ ] Open <pages.discountedProduct.url>. Check that <original price> is crossed out next to <sale price>. (6; omit when `showsBothPrices` is true and say "the page shows both prices; check that the original one is crossed out")
+- [ ] If you have a countdown, check that it ends at <discount end, store time zone> and shows "Sale ended" at zero. (7)
+- [ ] Check that <sale category name> is in your site menu, on your phone too. (8; omit when `linkedCategorySlugs` holds its slug and `visible` is true, say "it's linked; check that it shows on your phone")
+- [ ] Add one item to the cart and go to checkout, without paying. Check that shipping options and prices appear for <main region>. (1, 9)
+- [ ] On the checkout page, check that your return policy, terms and privacy policy are linked. (10)
+- [ ] On the checkout page, check that Apple Pay, Google Pay and PayPal are offered. (3)
+- [ ] Open your site in a private window. Check that the cookie banner shows. (12; omit when the banner API said `enabled: true` and the store does not ship to the EU/UK)
 
 HTML evidence from Probe 1 only trims this list (a check whose HTML signal is unambiguous gets the shorter "glance" wording); it never removes the group.
 
@@ -278,7 +323,11 @@ Thresholds are defaults; the merchant can override them in chat.
 
 Marks: ✅ passes. ⚠️ is a verified problem: it goes in **🔧 I can fix these** when the rule's *Offer* names an API change the agent can make, and in **📋 Your checklist** (✋) when only the merchant can act. A rule's ✋ line is always a checklist item. ❔ when the probe failed or the data is not exposed. ➖ not applicable. Convert every time to the store time zone (`siteProps.properties.timeZone`) before stating it; coupon times are epoch ms, rule times ISO.
 
-**The sale window** (used by 4, 7, 11, 16, 19, 21) is the union of the windows of active coupons and discount rules that overlap the Black Friday week of the current year: US Thanksgiving (the fourth Thursday of November) through the following Tuesday; Black Friday is the Friday after it. No such window → "no dated sale found yet".
+**The sale window** (used by 4, 7, 11, 16, 19, 21) is the union of the windows of active coupons and discount rules that overlap the sale week: the 7 days before the sale day through the sale day. For Black Friday (the Friday after US Thanksgiving, the fourth Thursday of November) the week extends through the following Tuesday, to cover Cyber Monday. No such window → "no dated sale found yet".
+
+**Any sale, not only Black Friday.** In every line the owner reads, `<sale name>` is the sale from step 2 of the review ("Christmas", "Mother's Day", "Black Friday"); never print "Black Friday" for another sale. "The campaign start" (checks 21, 23) is 26 days before the sale day, which is Nov 1 for Black Friday 2026. `ordersLastBfcm` holds the same sale's weeks one year earlier, whatever the sale. Anything about Cyber Monday applies to Black Friday only.
+
+**Stock facts come from `stockSummary`.** "N of M products can be bought", and which products are out of stock, are read from `stockSummary`, never worked out again from the product and inventory lists: a tracked row has a `quantity` and no `inStock` field, so a missing `inStock` does not mean out of stock. Call a product out of stock only when it is in `stockSummary.outOfStock`, and give its `why` in plain words ("counted stock is 0"). When that list is not empty, the count in the header is not enough: 🔧 has its own line under "Needs one answer from you" that names up to three of them, "2 products are out of stock: Wick Trimmer, Gift Box. Give me the quantities and I'll set them, or tell me to hide them." It starts with "Stops sales." when no product can be bought. A product in `stockSummary.unclear` is never called out of stock: it becomes a checklist line, "Check that <name> can be bought. Its stock record and its product page disagree." When `stockSummary.inventoryRead` is false, say stock could not be checked.
 
 **Truncated lists.** When `truncated.<list>` is true, every check that reads that list (inventory: 5, 13, 15; coupons: 16, 17, 19, 20, 21; discountRules: 16, 18, 19, 21; shippingOptions: 9) reports ❔ "more than N items; I checked the first N" instead of ✅, and the fix offers stand only for items actually read.
 
@@ -288,25 +337,25 @@ Marks: ✅ passes. ⚠️ is a verified problem: it goes in **🔧 I can fix the
 
 **2 Product completeness** — over `visible: true` products: ⚠️ list those with `hasImage === false`, `price <= 0` or `NaN`, or `descriptionChars < 20`. ✅ when none. Offer: write the missing descriptions (merchant approves the text) → 🔧; images and prices → ✋.
 
-**3 Payments and payment methods** — Browser: P6 shows which methods are offered at checkout; ✅ when cards plus PayPal, Apple Pay or Google Pay, and a pay-later option appear, ⚠️ → ✋ naming the missing ones. API: no public read exposes the provider's status or which methods are on, and a test cart never reaches payment. Always the first ✋ under "In your dashboard": "Confirm payments are connected and live (not test mode), and turn on Apple Pay, Google Pay, PayPal and a buy-now-pay-later option (Klarna/Afterpay) — 12% of shoppers abandon when their method is missing" → `wix-cashier/payments`. Optionally name which of those are available in the store's country from `paymentMethodTypes[].legacyId`. A store with no orders ever also gets this in the verdict: "confirm payments are connected before anything else".
+**3 Payments and payment methods** — Browser: P6 shows which methods are offered at checkout; ✅ when cards plus PayPal, Apple Pay or Google Pay, and a pay-later option appear, ⚠️ → ✋ naming the missing ones. API: no public read exposes the provider's status or which methods are on, and a test cart never reaches payment. Always the first ✋ under "In your dashboard": "Confirm payments are connected and live (not test mode), and turn on Apple Pay, Google Pay, PayPal and a pay-later option such as Klarna or Afterpay — 12% of customers abandon when their method is missing" → `wix-cashier/payments`. Optionally name which of those are available in the store's country from `paymentMethodTypes[].legacyId`. A store with no orders ever also gets this in the verdict: "confirm payments are connected before anything else".
 
 ### B. Sale merchandising (live homepage)
 
 With a browser (Probe 3), checks 4–8 are graded from what was seen on P1–P4; the HTML signals below are the fallback and the tie-breaker. Without a browser: grade from the HTML signals where they are unambiguous, and every check in this section also appears in the **On your live site** checklist group with the "glance" wording. When `homepage.ok` is false or `clientRendered` is true and there is no browser, checks 4, 5, 7 and 8 are their full checklist lines and nothing is graded ✅; check 6 still runs from the catalog.
 
-**4 Announcement bar** — Browser: ✅ when the bar is visible above the fold on desktop and phone with the sale's dates; ⚠️ → ✋ when hidden, missing, or the dates differ. HTML: ✅ only as "text present" when `saleMentions` is non-empty AND a date in `datesMentioned` falls inside the sale window, with the glance line in the checklist. ⚠️ → ✋ when the sale window exists but the page has no sale mention, or the dates differ ("your bar says Nov 25–30, your discount runs Nov 27–Dec 1"). ✋ also: "Confirm the bar is scheduled to come down on <end date> in the editor." ➖ when no dated sale.
+**4 Announcement bar** — Browser: ✅ when the bar is visible without scrolling on desktop and phone with the sale's dates; ⚠️ → ✋ when hidden, missing, or the dates differ. HTML: ✅ only as "text present" when `saleMentions` is non-empty AND a date in `datesMentioned` falls inside the sale window, with the glance line in the checklist. ⚠️ → ✋ when the sale window exists but the page has no sale mention, or the dates differ ("your bar says Nov 25–30, your discount runs Nov 27–Dec 1"). ✋ also: "Confirm the bar is scheduled to come down on <end date> in the editor." ➖ when no dated sale.
 
 **5 Hero product links in stock** — Browser: each featured product opened from P1 shows in stock. HTML: over `linkedProducts`: ⚠️ list any whose `availability` is `OUT_OF_STOCK` or whose tracked inventory sums to 0; swapping the featured product → ✋; restocking with quantities the merchant gives → 🔧. ✅ otherwise. ➖ when the page links no products.
 
 **6 Crossed-out original price** — Browser: P3 and P4 show the original struck through beside the sale price. HTML: `pages.discountedProduct.showsBothPrices` true is "both prices present" (glance line stays). Catalog: candidates: products targeted by an active discount rule, with `ribbon` matching /sale|black friday|deal|holiday/i, or with `compareAt` set. ⚠️ → 🔧 when a candidate has no `compareAt`, or `compareAt <= price`: set compare-at prices on approval. ✅ otherwise.
 
-**7 Countdown timer** — Browser: the timer on P1 counts to the discount end; ⚠️ → ✋ when it ends at another time or shows negatives. HTML: only if `hasCountdown`. ✋ "Your timer should end at <discount end, store tz>; preview it with a past date to see what shoppers see at zero." ➖ when no timer found.
+**7 Countdown timer** — Browser: the timer on P1 counts to the discount end; ⚠️ → ✋ when it ends at another time or shows negatives. HTML: only if `hasCountdown`. ✋ "Your timer should end at <discount end, store tz>; preview it with a past date to see what customers see at zero." ➖ when no timer found.
 
-**8 Sale category in the menu** — sale category = a category whose `name` matches /sale|black friday|cyber|holiday|deal|gift/i. Browser: ✅ when P1 and P2 show it in the menu (desktop and mobile) and P3 lists products. HTML: ✅ when one exists, is `visible`, has `items > 0` and its `slug` is in `linkedCategorySlugs` (glance line for mobile stays). Exists but not linked → ✋ "Add <name> to your site menu" (editor). Exists but hidden or empty → 🔧 show it / fill it from discounted products. None → 🔧 "create a Black Friday category from your discounted products" (S6), and ✋ to add it to the menu afterwards.
+**8 Sale category in the menu** — sale category = a category whose `name` matches the sale's name or /sale|cyber|holiday|deal|gift/i (`saleRe` in the probe). Browser: ✅ when P1 and P2 show it in the menu (desktop and mobile) and P3 lists products. HTML: ✅ when one exists, is `visible`, has `items > 0` and its `slug` is in `linkedCategorySlugs` (glance line for mobile stays). Exists but not linked → ✋ "Add <name> to your site menu" (editor). Exists but hidden or empty → 🔧 show it / fill it from discounted products. None → 🔧 "create a <sale name> category from your discounted products" (S6), and ✋ to add it to the menu afterwards.
 
 ### C. Shipping
 
-**9 Shipping per region** — Browser: P6 shows shipping options and prices for the default region; a checkout with no shipping option is ⚠️ regardless of what Probe 2 said. API: one Probe 2 scenario per active region; the subtotal threshold from `shippingOptions[].rates[].conditions`, one scenario each side. ✅ when every region returns a `deliveryMethod` and `delivery` flips to `0` only above the threshold. ⚠️ → 🔧 when a region has no method, a free-shipping rate applies below the threshold, or a region has no shipping option (Shipping dispatcher recipe). Separately ⚠️ → 🔧 when a shipping option has no `estimatedDeliveryTime`: "shoppers see no delivery estimate at checkout" → add it once the merchant gives transit times. Worldwide free shipping with no minimum → ✋ "confirm this is intended for your price range" → `ecom-platform/delivery-profile`.
+**9 Shipping per region** — Browser: P6 shows shipping options and prices for the default region; a checkout with no shipping option is ⚠️ regardless of what Probe 2 said. API: one Probe 2 scenario per active region; the subtotal threshold from `shippingOptions[].rates[].conditions`, one scenario each side. ✅ when every region returns a `deliveryMethod` and `delivery` flips to `0` only above the threshold. ⚠️ → 🔧 when a region has no method, a free-shipping rate applies below the threshold, or a region has no shipping option (Shipping dispatcher recipe). Separately ⚠️ → 🔧 when a shipping option has no `estimatedDeliveryTime`: "customers see no delivery estimate at checkout" → add it once the merchant gives transit times. Worldwide free shipping with no minimum → ✋ "confirm this is intended for your price range" → `ecom-platform/delivery-profile`.
 
 ### D. Policies & legal
 
@@ -314,11 +363,11 @@ With a browser (Probe 3), checks 4–8 are graded from what was seen on P1–P4;
 
 **11 Sale terms** — ✅ when `customPolicy.visible` with content mentioning the sale, or a static page / footer link titled like "sale terms" / "promotion terms". ⚠️ → 🔧 when a dated sale exists and none is found: draft the terms from the real discounts (dates, excluded scopes, whether the coupon stacks with automatic rules, final-sale items) into `customPolicy`. ➖ when no dated sale (check 16's fix drafts them together).
 
-**12 Terms, privacy, cookie banner** — Browser: the banner appearing on P1 (first visit) is the banner's evidence, and the "I agree" checkbox seen on P6 is the checkbox's. API: ✅ when `termsAndConditions.visible` and `privacyPolicy.visible` with non-empty content AND cookie banner `settings.enabled`. Missing policy text → 🔧 (Update Checkout Settings). Banner off or app missing → ✋ "install and switch on the cookie banner in your site settings"; it is a ✋ problem when the store ships to the EU/UK (a region covering an EU country or rest-of-world) or `locale.country` is in the EU, otherwise a plain ✋ confirmation. When both policies exist but `policyAgreementCheckbox.visible` is false → 🔧 "show the 'I agree to the terms' checkbox at checkout". ✋ always: "Confirm the legal wording is right for you (GDPR for EU shoppers, CCPA for US)."
+**12 Terms, privacy, cookie banner** — Browser: the banner appearing on P1 (first visit) is the banner's evidence, and the "I agree" checkbox seen on P6 is the checkbox's. API: ✅ when `termsAndConditions.visible` and `privacyPolicy.visible` with non-empty content AND cookie banner `settings.enabled`. Missing policy text → 🔧 (Update Checkout Settings). Banner off or app missing → ✋ "install and switch on the cookie banner in your site settings"; it is a ✋ problem when the store ships to the EU/UK (a region covering an EU country or rest-of-world) or `locale.country` is in the EU, otherwise a plain ✋ confirmation. When both policies exist but `policyAgreementCheckbox.visible` is false → 🔧 "show the 'I agree to the terms' checkbox at checkout". ✋ always: "Confirm the legal wording is right for you (GDPR for EU customers, CCPA for US)."
 
 ### E. Stock
 
-**13 Stock vs demand** — demand per product = max(units in `ordersLastBfcm`, 2 × units in `orders30d`). Candidates: products targeted by the sale discount, plus the top 5 by last-year units. ⚠️ → ✋ when tracked stock (sum of `quantity` over its inventory items) < demand: "<name>: N in stock, ~M expected — decide what to reorder". ✅ when none. ❔ when both order sets are empty or skipped ("no sales history yet to size demand; with N units of X in stock, decide yourself").
+**13 Stock vs demand** — demand per product = max(units in `ordersLastBfcm`, 2 × units in `orders30d`). Candidates: products targeted by the sale discount, plus the top 5 by last-year units. ⚠️ → ✋ when tracked stock (sum of `quantity` over its inventory items) < demand: "<name>: N in stock, ~M expected. Decide what to reorder". ✅ when none. ❔ when both order sets are empty or skipped ("no sales history yet to size demand; with N units of X in stock, decide yourself").
 
 **14 Low-stock alerts** — not readable by API. ✋ "Check low-stock notifications are on in your store settings" → `wix-stores/settings`.
 
@@ -328,29 +377,31 @@ With a browser (Probe 3), checks 4–8 are graded from what was seen on P1–P4;
 
 ### F. Coupons & discounts
 
-**16 Sale discount exists with right dates** — ✅ when at least one coupon or rule overlaps the Black Friday week with both start and end set. ⚠️ → 🔧 when none exists ("set up your Black Friday discount — tell me the offer and the dates", item 1); a coupon/rule has `active: false`; start is after Black Friday; no end ("runs forever"); or a coupon and a rule meant for the same sale have different windows.
+**16 Sale discount exists with right dates** — ✅ when at least one coupon or rule overlaps the sale week with both start and end set. ⚠️ → 🔧 when none exists ("Set up your <sale name> discount", the first fix under "Needs one answer from you", asking for the offer and the dates); a coupon/rule has `active: false`; start is after the sale day; no end ("runs forever"); or a coupon and a rule meant for the same sale have different windows. A rule or coupon that passes is the first line of ✅ with its dates as they are ("25% off everything runs Nov 1 to Dec 31"): never propose other dates for it, however long it runs. The review's sale-dates section applies only when creating a discount.
 
 **17 Coupons work on a cart** — one Probe 2 scenario per active coupon code. ✅ when `discounts` names the coupon and `discount` equals the expected amount (`percentOffRate` × subtotal, `moneyOffAmount`, or `delivery` `0` for `freeShipping`) and a cart below `minimumSubtotal` is rejected or undiscounted. ⚠️ → 🔧 on `couponInvalid` (not started, inactive, wrong code) or a wrong amount.
 
-**18 Discounts don't conflict** — scenario with the active automatic rule plus each coupon. ⚠️ → 🔧 when `cost > 0` and the effective unit price after both discounts < cost ("drops below your cost of X"), or when the combined discount exceeds 50% without the merchant having said so. ✅ otherwise. ➖ when no automatic rule. Cost checks only where `cost > 0`.
+**18 Coupon on top of the automatic discount** — compare each coupon scenario with its twin without the coupon. The original price is the product's `compareAt` when set, else its `price`. ⚠️ → 🔧 when `cost > 0` and the unit price after both discounts < cost ("drops below your cost of X"), or when the two together take more than 50% off the original price without the merchant having said so: "BF20 adds to your automatic 25%: Oak Candle is $34, $18.00 with the sale and $14.40 with the coupon too. I'll switch BF20 off while the sale runs, or end it before the sale starts, or turn it into part of the automatic discount. Which one?" ✅ otherwise. ➖ when no automatic rule. Cost checks only where `cost > 0`.
+
+**18 and 19 are two findings and two numbered fixes**, never one "stacking" line: 18 is the coupon adding to the rule, 19 is the sale reaching products that are already marked down. Each names its products and amounts and ends with the change the agent will make.
 
 **19 No stacking on already-discounted products** — already-discounted = products with `compareAt > price`. ⚠️ → 🔧 when an active sale rule targets the whole catalog (a scope with `catalogItemFilter` and no product ids) or a category containing them, or a sale coupon has `scope.namespace: "stores"` with no group, while already-discounted products exist: "N products already on sale (Oak Wick Trimmer $24 was $34) would get the extra X% — narrow the rule to exclude them, or set their compare-at as the sale price". ✅ when no overlap. ➖ when no sale rule or coupon.
 
 **20 Coupon usage limits** — ⚠️ → 🔧 list active coupons with `usageLimit` or `limitPerCustomer` missing: set limits on approval (merchant picks the numbers; default suggestion per customer 1, total 3 × last year's order count). ✅ when all have both.
 
-**21 Everything scheduled** — ✅ when every sale coupon and rule has both a start and an end (so nothing needs a manual switch), and at least one campaign has `distribution: "SCHEDULED"` or was `DISTRIBUTED` since Nov 1. ⚠️ → 🔧 for a sale coupon or rule with `active: false` or no start ("needs you to switch it on by hand on the day") and for no scheduled campaign ("your emails depend on you pressing send"). ✋ always when a dated sale exists: "Schedule the announcement bar and countdown in the editor to appear on <start> and disappear on <end>."
+**21 Everything scheduled** — ✅ when every sale coupon and rule has both a start and an end (so nothing needs a manual switch), and at least one campaign has `distribution: "SCHEDULED"` or was `DISTRIBUTED` since the campaign start (26 days before the sale day). ⚠️ → 🔧 for a sale coupon or rule with `active: false` or no start ("needs you to switch it on by hand on the day") and for no scheduled campaign when a draft exists to schedule ("your emails depend on you pressing send"; with no draft it is ✋, see check 23). ✋ always when a dated sale exists: "Schedule the announcement bar and countdown in the editor to appear on <start> and disappear on <end>."
 
 ### G. Emails & tracking
 
 **22 Transactional automations** — by trigger key: `domain_events_wix.ecom.v1.automation_trigger-order_confirmation_issued_to_buyer` (order confirmation), `domain_events_wix.ecom.v1.automation_trigger-shipping_confirmation_issued` (shipping confirmation), `wix_e_commerce-cart_abandonment` (abandoned cart). ✅ when each has at least one automation with `status: "ACTIVE"`. ⚠️ → 🔧 list the INACTIVE or missing ones: activate (activation-status recipe) or build (build-and-manage recipe). Send history is not public: ✋ "Place the test order and check your inbox for the confirmation."
 
-**23 At least 4 BFCM emails** — count every campaign with `distribution: "SCHEDULED"` (a scheduled send is in the future by definition) plus campaigns with `distribution` in {DISTRIBUTED, SENDING} whose `published` is on or after Nov 1 of this year; never count by `updated`, it changes on every edit. ✅ when ≥ 4. ⚠️ → 🔧 when fewer: "you have N; stores with 4 or more saw +41% vs. the year before, 0 saw −20% — I'll draft the missing ones (tease, early access, launch, reminder, Cyber Monday) for your approval; scheduling needs your confirmed subject, audience and send time" (campaigns recipe). Link `email-marketing/my-campaigns`.
+**23 At least 4 emails for the sale** — count every campaign with `distribution: "SCHEDULED"` (a scheduled send is in the future by definition) plus campaigns with `distribution` in {DISTRIBUTED, SENDING} whose `published` is on or after the campaign start (26 days before the sale day); never count by `updated`, it changes on every edit. ✅ when ≥ 4. ⚠️ when fewer: "you have N; stores with 4 or more saw +41% vs. the year before, 0 saw −20%". The agent does not create email campaigns, so the finding splits by what exists. Campaigns with `visibility: "DRAFT"` → 🔧 "I'll schedule your D drafts once you confirm each subject, audience and send time" (campaigns recipe). The emails still missing → ✋ "Write your <sale name> emails: tease, early access, launch, reminder (and Cyber Monday for Black Friday)", link `email-marketing/my-campaigns`.
 
 **24 Tracking pixels** — ✅ when `tags` has an `enabled` entry for Google Analytics (`googleAnalytics`) and for Meta (`facebookPixel`); TikTok (`tikTokPixel`) reported only if the merchant sells there. ⚠️ → 🔧 list the missing ones: connect once the merchant gives the tracking ID. ✋ "After your test order, confirm the purchase appears in GA / Meta."
 
 ### I. Google & AI search
 
-**25 Google Merchant Center connected** — no public read (Search Console and Business Profile have connection APIs; Merchant Center does not). ✋ "Confirm your store is connected to Google Merchant Center — Google Shopping, Google's AI search and Google Ads all depend on it" → `wix-stores/channel/google`.
+**25 Google Merchant Center connected** — no public read (Search Console and Business Profile have connection APIs; Merchant Center does not). ✋ "Confirm your store is connected to Google Merchant Center. Google Shopping, Google's AI search and Google Ads all depend on it" → `wix-stores/channel/google`.
 
 **26 Product data ready for Google and AI search** — over `visible: true` products: ⚠️ → 🔧 list those with `nameChars < 15` or `> 150`, `brand` null, or `descriptionChars < 50`, ranked by last-year units then price: "fix titles, brands and descriptions on approval". ✅ when none. A store with no brand anywhere gets one line, not one per product.
 
@@ -358,7 +409,7 @@ With a browser (Probe 3), checks 4–8 are graded from what was seen on P1–P4;
 
 ### H. Operations
 
-**28 Volume** — one ✋ under "In your operations": "Expect roughly <N> orders over the sale (last year's Black Friday week: N orders; last 30 days: M orders) → size packaging, labels and carrier pickups for that." When `ordersLastBfcm.skipped` is set, say "your store is newer than last Black Friday" and use the 30-day figure only. ❔ only when both order probes failed.
+**28 Volume** — one ✋ under "In your operations": "Expect roughly <N> orders over the sale (the same week last year: N orders; last 30 days: M orders) → size packaging, labels and carrier pickups for that." When `ordersLastBfcm.skipped` is set, say "your store is newer than last year's <sale name>" and use the 30-day figure only. ❔ only when both order probes failed.
 
 ### Suggestions that read data (Part 2)
 
