@@ -1,6 +1,6 @@
 ---
 name: wix-studio-two
-description: Build or edit a Wix website by chat, with no local setup - start a new site, or change an existing Wix Studio Two site's pages, sections, text, images, colors or layout, or bring another site's or project's pages into one. The site's code is exported to a remote machine, edited and previewed there, and saved to Wix when the user asks. Not for sites built in the Wix Editor or Studio 1, not for headless sites, which belong to wix-headless-kit, and not for products, bookings, blog posts or other business data, which belong to wix-manage. Never publishes.
+description: Build or edit a Wix website by chat, with no local setup - start a new site, or change an existing Wix Studio Two site's pages, sections, text, images, colors or layout, or bring another site's or project's pages into one. The site's code is exported to a remote machine, edited and previewed there, and saved to Wix when the user asks. Not for sites built in the Wix Editor or Studio 1, not for headless sites, which belong to wix-headless-kit, and not for products, bookings, blog posts or other business data, which belong to wix-manage, and not for publishing HTML files or a static build the user already has, which belongs to wix-headless-kit. Never publishes.
 compatibility: Needs to make Wix REST API calls for the user's account and their sites.
 ---
 
