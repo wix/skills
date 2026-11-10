@@ -148,7 +148,7 @@ Create and modify CMS collection structures. Covers listing collections, creatin
 - **Site members** (is someone a member, list or count members, approve a join request, block or unblock a member, change the name a member shows on the site, add a member) → use [Find and Manage Site Members](references/contacts/find-and-manage-site-members.md). A contact is not always a member: for people who are not members, use the contacts recipes below.
 
 ### [Bulk Delete Contacts](references/contacts/bulk-delete-contacts.md)
-Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
+Deletes one or more of a site's contacts: contacts the user names, or every contact that matches a name, email, location, label or other criteria. Covers confirming with the user before an irreversible delete, the bulk job's result, and contacts that cannot be deleted, such as site members.
 
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 Creates contact label definitions or adds/removes labels from matching contacts. Use Find or Create Label for label creation alone; use bulk labeling only when the user requests contact assignments.
