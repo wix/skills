@@ -18,8 +18,8 @@ read it. That build is Wix's headless guide,
 `https://www.wix.com/headless/skill.md`; this recipe is its site call and its
 drop, not the build. Pages with that content written into them are a mock of
 the site, not the site, and a request for a working one is not met by a mock.
-The build runs from here through the tools alone, as the guide's "The run, through the
-plugin": the provision below with the solution in `seedOptions`, the content
+The build runs from here through the tools alone, as the guide's "The build, through the Wix
+tools": the provision below with the solution in `seedOptions`, the content
 created through `ExecuteWixAPI`, and pages that read it dropped with the upload
 tool.
 
@@ -32,7 +32,7 @@ tool.
 | Inspect or edit a deployed site | [Find its ID](#find-an-existing-site), then [list, read or patch](#change-it-later). Do not create another site. |
 | Replace the entire deployed frontend | Confirm replacement of the serving frontend, then upload the complete intended file set on the same ID with `replaceAll: true`, or drop it raw. |
 | A blog, a store, bookings, events, a CMS, forms, members, payments, and the like: anything whose content lives in Wix | Wix's headless guide, `https://www.wix.com/headless/skill.md`, on the site this recipe creates ([Connect a backend](#connect-a-backend)). A static upload alone does not make them functional. |
-| Publish without a login | [Anonymous upload and release](#publish-anonymously), then claim or give the private save link. |
+| Publish without a login, or change or claim a site published that way | [Publish anonymously](#publish-anonymously). |
 | Migrate a live site by URL or CSV/TSV | [Site Import](site-import.md), not this recipe. |
 | Add an embed to an editor-built site / upload media assets | Use the editor / [Upload Media to Wix](../media/upload-media-to-wix.md), respectively. |
 
@@ -44,14 +44,16 @@ Quick reference: [upload through MCP](#drop-through-the-wix-mcp) ·
 [upload with curl](#drop-with-curl) ·
 [release an Astro build](#release-a-wix-astro-build) · [list/read](#list-and-read) ·
 [patch](#patch-files) · [ZIP fallback](#download-edit-drop-fallback) ·
-[media](#images-video-audio-and-documents) · [limits/errors](#limits-and-failures).
+[media](#images-video-audio-and-documents) ·
+[publish without a login](#publish-anonymously) · [limits/errors](#limits-and-failures).
 
 ## Before the calls
 
-Choose an already-authenticated route that can access the files, not by the
-client's name. Check the available tools before choosing:
+Take the first route below that holds and can access the files. Choose by what
+is available, not by the client's name:
 
-- **Wix MCP connected:** use `UploadHeadlessWebsiteFiles` to upload files (the
+- **The Wix tools are in your tool list** (`WixREADME`, `ExecuteWixAPI`,
+  `UploadHeadlessWebsiteFiles`: a Wix plugin or connector): use `UploadHeadlessWebsiteFiles` to upload files (the
   whole site the first time, the changed files later, each one complete) and
   `ExecuteWixAPI` for API scripts and list/read/patch helpers.
   `ExecuteWixAPI` supplies authenticated `wix.request({ scope: 'account', ... })`,
@@ -59,7 +61,8 @@ client's name. Check the available tools before choosing:
 - **Shell reaches Wix:** check `curl -sI https://www.wixapis.com` for an HTTP
   status. Run `npx @wix/cli@latest login` once for browser approval, then
   `npx @wix/cli@latest token`. Its token lasts 15 minutes; refresh after expiry
-  or a `403`. Use it as `$ACCESS_TOKEN`. Without login, use the anonymous route.
+  or a `403`. Use it as `$ACCESS_TOKEN`. Without login, use
+  [Publish anonymously](#publish-anonymously).
 - **Neither route works:** use [the drop page](#the-drop-page). Never claim an
   upload you could not perform.
 
@@ -280,10 +283,14 @@ Omit the `id` filter when looking up by name/URL. While `data.metadata.hasNext`,
 follow `data.metadata.cursors.next` with `{ query: { cursorPaging: { limit: 100,
 cursor } } }`. See [Query Sites](query-sites.md) for name search on large accounts.
 With a known ID, use `$in`, not a scalar ID or `$eq` (rejected).
-Unclaimed anonymous sites instead use their saved ID and
-[anonymous upload/release](#publish-anonymously).
+An unclaimed anonymous site is changed through
+[Change it while unclaimed](#change-it-while-unclaimed).
 
 ## Change it later
+
+A site published anonymously and not yet claimed is changed through
+[Change it while unclaimed](#change-it-while-unclaimed); the calls below
+answer `403` for it.
 
 Use the same site ID and URL. Do not keep backups, old copies of pages, `.map`
 files, or binaries split into text parts in the site. The file helpers and the ZIP fallback below edit
@@ -554,7 +561,8 @@ live site, `{siteUrl}`, and the site's dashboard,
 closes with both. Then what changed, what was verified, any missing assets, and
 [domain connection](../domains/domain-search-purchase-and-connect.md) options:
 a domain bought through Wix, or one the user already owns. For an unclaimed
-anonymous site, give the live URL and private save link instead, not a
+anonymous site, give the live URL and the private
+[claim link](#hand-it-to-the-user) instead, not a
 dashboard link.
 
 ## Connect a backend
@@ -562,11 +570,11 @@ dashboard link.
 A static page cannot itself provide stores, payments, bookings, a CMS, members
 or forms. A site that needs them continues in Wix's headless guide,
 `https://www.wix.com/headless/skill.md` (what `StartHeadlessBuild` returns),
-section "The run, through the plugin": the same site, `appId` and URL, the
+section "The build, through the Wix tools": the same site, `appId` and URL, the
 solution installed, its content created through `ExecuteWixAPI`, the pages
 rewritten to read it and uploaded here again. A request for a working shop or
 real bookings already supplies the consent; do not stop at a static mock. An
-anonymous site is [claimed](#claim-it-into-the-users-account) first.
+anonymous site is [claimed](#claim-it-with-the-users-login) first.
 
 ## Images, video, audio and documents
 
@@ -597,9 +605,10 @@ photos): import it as above, or leave it out.
 
 ## Publish anonymously
 
-With shell access to Wix but no login, generate one UUID as `anonymousId`
-and reuse it with the returned `metaSiteId`. The temporary site expires after
-one hour unless kept; expired calls, including claim, return `404`.
+A shell that reaches `https://www.wixapis.com` can publish with no Wix login.
+The site lasts one hour from its creation unless the user keeps it; after that
+every call on it returns `404`. Build the pages first, then generate one UUID as
+`anonymousId` and create the site once, not per edit:
 
 ```bash
 # 1. Create: returns { metaSiteId, projectId }
@@ -616,27 +625,44 @@ curl -sS -X POST \
   -H 'Content-Type: application/json' -d "{\"uploadId\":\"$UPLOAD_ID\"}"
 ```
 
-For edits, repeat upload and release with the full set. When finished, claim
-with the user's identity or give them the live URL and this save link:
+Keep `anonymousId`, `metaSiteId` and `projectId`, and put their values in every
+later URL, not placeholders. Open `siteUrl` and check the pages.
 
-```text
-https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}
-```
+### Hand it to the user
 
-The link signs them in to keep the site. **Whoever opens it while signed in
-gets the site; share it only with the user.**
+Give the live site, `{siteUrl}`, and the claim link, each on its own line:
+`https://www.wix.com/live-headless-site/{projectId}?anonymousId={anonymousId}`.
+The user opens the link in their own browser and signs in or signs up within
+the hour to keep the site, which then moves to a new address. **Whoever opens
+the link while signed in gets the site; give it only to the user.** Never create
+an account or sign in for them.
 
-### Claim it into the user's account
+### Change it while unclaimed
 
 ```bash
-curl -sS -X POST \
-  "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/claim" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
+# Status: 200 { metaSiteId, projectId, createdAt } while unclaimed
+curl -sS "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID"
+
+# The live files, when you have no copy
+curl -sS -o site.zip "https://www.wixapis.com/headless-business-setup/v1/headless-business/anonymous/$ANONYMOUS_ID/$META_SITE_ID/download.zip"
 ```
 
-Claim last: it ends the anonymous record. Later edits use authenticated drops
-or patches. **The URL changes on claim**; obtain the new `sites[0].viewUrl`
-with the [HEADLESS site query](#find-an-existing-site).
+- `200`: upload and release again with the same IDs and every file, changed and
+  unchanged; a release replaces the whole site. Leave the zip's
+  `wix.config.json` out. The address stays the same.
+- `404`: the site was kept or its hour ended. With the user's login, the
+  [HEADLESS site query](#find-an-existing-site) finds a kept site; change it
+  through [Change it later](#change-it-later). An ended site is gone: say so
+  and ask before creating another.
+
+### Claim it with the user's login
+
+With the user signed in, claim the site instead of handing over the link, after
+the last anonymous release: `POST .../anonymous/{anonymousId}/{metaSiteId}/claim`
+with their identity (`wix.request({ scope: 'account', ... })` in `ExecuteWixAPI`,
+or `Authorization: Bearer $ACCESS_TOKEN`). The address changes: read the new
+`viewUrl` with the [HEADLESS site query](#find-an-existing-site) and give it with
+the dashboard link. Later edits use [Change it later](#change-it-later).
 
 ## The drop page
 
@@ -662,12 +688,12 @@ Wix MCP.
 | --- | --- |
 | `400` with `MISSING_INDEX_HTML`, `FILE_TOO_LARGE`, `TOTAL_TOO_LARGE` | Read `details.applicationError.code` and fix the files. |
 | The drop answers an HTML `400 Bad Request` page | The site is over 20 MiB. Do not retry. Move its largest media to [Wix Media](#images-video-audio-and-documents), relink it, remove those files with `deletePaths`, upload again. |
-| Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site requires upload/release, not drop. |
+| Drop `403 PERMISSION_DENIED` | Check token freshness and access to this site. An unclaimed anonymous site is changed [anonymously](#change-it-while-unclaimed). |
 | A patch or an upload stops: "is live as something other than its last static upload" | Wix reports another release and the live home page is not the drop's, so a drop would put old files back over what is live. Do not drop. Ask the user how the site was made; for a Wix Astro build, [change the project](#a-site-released-as-a-wix-astro-build). To replace what is live with static pages on purpose, upload the whole site with `replaceAll: true`. Do not tell the user it is an Astro build unless you know it is. |
 | A helper's "has no static files on Wix hosting" (`404 SITE_CODE_NOT_FOUND`) | Nothing was ever dropped. A new site gets its first full upload; a site released as a Wix Astro build is changed in its project. |
 | Release `400 EXPECTED_HEAD_REQUIRED` / `409` | The repository holds newer work than the project started from: download it, carry the change over, release again. |
 | Drop/upload `500` | Inspect current state before retrying once; retain the request ID if it fails again and offer the drop page. Hand-built malformed multipart can also cause this: use `wix.multipart`. |
-| Anonymous `404` | The hour expired or the site was claimed; do not create a replacement without explaining. |
+| Anonymous `404` | The site was claimed or its hour ended: [Change it while unclaimed](#change-it-while-unclaimed). |
 
 Offer [feedback to Wix](send-feedback-to-wix.md) when a route fails, retries or
 workarounds are needed, images must wait for the user, or guidance is missing.

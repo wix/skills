@@ -23,6 +23,8 @@ Throughout: nothing Wix-specific from memory. Every URL, id, setting location, p
 
 A new Wix site is written in code and uploaded. `StartDeployWebsite` returns the guide for a site the agent writes or files the user brought; `StartHeadlessBuild` returns the guide for a site that needs Wix business features (a store, bookings, a CMS, members, payments and the rest). Each guide creates the site, uploads it and says what comes next; call one and follow it.
 
+A Wix Studio Two site, which the user keeps designing in Wix Studio, is the exception: to create one, or to change an existing Studio Two site's pages, theme or components, follow `wix-studio-two` instead.
+
 What the guides stand on:
 
 - **One site, created once**, by the provision call (`POST .../headless-business-setup/v1/headless-business/provision`, `origin: 'agent'`), which returns `metaSiteId`, the id every later call takes. A site made earlier is found with `ListWixSites` and uploaded to again; the URL never changes.
@@ -30,7 +32,7 @@ What the guides stand on:
 - **`UploadHeadlessWebsiteFiles`** takes `siteId` and the files, as `attachments` or the `files` text bundle, and returns the live URL and the dashboard. Without the MCP, the same drop is a `curl` multipart call, with or without a login.
 - **Business features** come from `wix-headless-kit`'s run on the same site and `appId`: apps installed and content seeded, the Astro project built from `wix-headless-templates`, the build released.
 
-To read more: the recipe, `wix-manage/references/sites/upload-static-site.md` (https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md): the calls for every route, drop and release, finding and changing a site, the anonymous route, limits and failures. The cold start (https://www.wix.com/skills/headless-cold-start/headless-kit.md): the headless build from a cold environment to the released site.
+To read more: the recipe, `wix-manage/references/sites/upload-static-site.md` (https://www.wix.com/skills/wix-manage/references/sites/upload-static-site.md): the calls for every route, drop and release, finding and changing a site, publishing with no Wix login and changing or claiming that site, limits and failures. The cold start (https://www.wix.com/skills/headless-cold-start/headless-kit.md): the headless build from a cold environment to the released site.
 
 ## Two ways to Wix
 
@@ -100,7 +102,7 @@ The other way, from a shell. `@wix/cli` is Wix's command-line tool: it signs in 
 | `release` | Releases the build to Wix; the site keeps its URL. |
 | `token`, `token --site <siteId>` | Mints an admin token, account-scoped or site-scoped, for REST calls from a shell: `Authorization: Bearer <token>` (`wix-docs/references/CALLING.md`). |
 
-`wix-headless-kit` builds a Wix Headless site through the MCP's tools or through the CLI; a CLI session already on the machine makes its run the CLI route, where `install/setup.mjs` runs `create`, and `build` then `release` put the site live.
+`wix-headless-kit` builds a Wix Headless site through the MCP's tools or through the CLI; without the MCP's tools its run is the CLI route, where `install/setup.mjs` runs `create`, and `build` then `release` put the site live.
 
 Without the MCP, each tool is a plain HTTP call to the same backend. `wix-docs` covers these, with the request bodies, as its `curl` lane:
 
@@ -153,6 +155,12 @@ The code wix-headless-kit builds from, one folder per business solution: `storef
 Online: https://www.wix.com/skills/wix-manage/SKILL.md. On disk: the plugin's `skills/wix-manage/`, or `.agents/skills/wix-manage/`.
 
 REST recipes to configure and manage a site's business solutions, one recipe per task with the exact endpoints, request bodies and order of steps. `SKILL.md` is the index of every recipe by area, each a link. The recipes are under `references/<area>/`: `app-installation`, `stores`, `ecommerce`, `bookings`, `calendar`, `donations`, `get-paid`, `pricing-plans`, `restaurants`, `events`, `blog`, `cms`, `rich-content`, `forms`, `contacts`, `automations`, `marketing`, `google-ads`, `google-business-profile`, `analytics`, `seo`, `media`, `sites`, `domains`, `site-properties`, `collaborators`, `custom-apps`, `dashboard-navigation`, `accessibility`. Each recipe is also a docs article under its API's section.
+
+### wix-studio-two
+
+Online: https://www.wix.com/skills/wix-studio-two/SKILL.md. On disk: the plugin's `skills/wix-studio-two/`, or `.agents/skills/wix-studio-two/`.
+
+Creates a Wix Studio Two site, or opens an existing one, and builds or changes it with no local files: the site is exported to a remote Dev Machine, edited and previewed there, and saved to Wix when the user asks. Studio Two sites only; never publishes.
 
 ### wix-docs
 

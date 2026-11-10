@@ -17,6 +17,7 @@
     "./skills/wix-manage",
     "./skills/wix-headless-kit",
     "./skills/wix-docs",
+    "./skills/wix-studio-two",
     "./skills/wix-readme"
   ],
   "mcpServers": "./.mcp.json"
