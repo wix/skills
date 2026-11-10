@@ -205,6 +205,7 @@ Buy a domain through Wix — intent, suggestions, site resolution, registration,
 
 **Routing — pick the right entry point:**
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance, gift cards) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, gift cards) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Readiness review before a dated sale** ("am I ready for Black Friday", "review my store before the sale", "BFCM checklist", a pasted pre-made review prompt) → use [Black Friday Readiness Review](references/ecommerce/black-friday/black-friday-readiness-review.md). It audits the store as it is and reports what works, what the agent can fix and what the owner must do; designing the sale itself stays with Recommend: eCommerce Strategy.
 - **Traffic acquisition is NOT an eCommerce-strategy request** ("grow my traffic", SEO, ads, social, content) → do NOT use Recommend: eCommerce Strategy; it only converts visitors a store already has. Route these to marketing.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
@@ -226,6 +227,9 @@ Routes discounts, coupons, sales and bundles to promotion recipes, and visual pr
 ### [Find and Report on Orders](references/ecommerce/find-and-report-on-orders.md)
 "Finds a Wix site's eCommerce orders and turns them into answers and reports: one order by its number, orders in a date range, the orders of one buyer, orders that contain a product, unpaid or unfulfilled orders, and sales totals such as units sold per product or revenue for a period. Covers which order fields can be filtered, paging through every result, and which fields a report reads. Use when the user asks about a specific order, their order history or what customers bought, or wants a sales report or an export built from their store's orders."
 
+### [Black Friday Readiness Review](references/ecommerce/black-friday/black-friday-readiness-review.md)
+"Reviews a Wix store before Black Friday, Cyber Monday or any dated sale and reports, in one checklist-style report with a weekly focus, what already works, what the agent can fix on approval, and what only the store owner can do. Covers the 28 checks of the BFCM checklist: catalog and stock, payments, test carts for shipping and coupons, discounts and their dates, checkout policies, emails and automations, tracking tags, Google readiness and expected order volume, plus a look at the live site when a browser is available. Use when a store owner asks to review, audit, check or prepare their store for Black Friday, BFCM, a holiday sale or 'the sale', or pastes a pre-made prompt saying so. Requires Wix Stores; catalog and stock checks need Catalog V3."
+
 <details>
 <summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
 
@@ -238,6 +242,9 @@ Routes discounts, coupons, sales and bundles to promotion recipes, and visual pr
 
 #### Gift-cards leaf (loaded by the strategy orchestrator when it activates the GIFT_CARDS domain)
 - [Goal: Sell Gift Cards](references/ecommerce/gift-cards/ecom-gift-cards-goal-sell-gift-cards.md) — existing-product gate (one per site), eligibility, denomination sizing from AOV / catalog prices, no-expiry-by-default policy, and the mapping onto Create Gift Card Product
+
+#### Black Friday leaf (loaded by the readiness review)
+- [Black Friday Readiness Checks](references/ecommerce/black-friday/black-friday-readiness-checks.md) — verified request shapes, the two probe functions, the browser pass and the pass rule for each of the 28 checks
 
 #### Shipping leaves (loaded by the Shipping dispatcher)
 - [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
